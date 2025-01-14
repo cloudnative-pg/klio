@@ -1,0 +1,48 @@
+name: CI
+
+on:
+  pull_request:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Cleanup Disk
+        uses: jlumbroso/free-disk-space@v1.3.1
+        with:
+          android: true
+          dotnet: true
+          haskell: true
+          tool-cache: true
+          large-packages: false
+          swap-storage: false
+      - name: Cleanup docker cache
+        run: |
+          echo "-------------Disk info before cleanup----------------"
+          df -h
+          echo "-----------------------------------------------------"
+          docker system prune -a -f
+          echo "-------------Disk info after cleanup----------------"
+          df -h
+          echo "-----------------------------------------------------"
+      - name: Checkout
+        uses: actions/checkout@v4
+        # We need the full history for the commitlint task
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.sha }}
+      - name: Install Task
+        uses: arduino/setup-task@v2
+      - name: Install Dagger
+        env:
+          # renovate: datasource=github-tags depName=dagger/dagger versioning=semver
+          DAGGER_VERSION: 0.15.1
+        run: |
+          curl -L https://dl.dagger.io/dagger/install.sh | BIN_DIR=$HOME/.local/bin sh
+      - name: Run CI task
+        run: |
+          dagger call ci --source .

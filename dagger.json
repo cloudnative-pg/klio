@@ -1,0 +1,23 @@
+{
+  "name": "klio",
+  "engineVersion": "v0.14.0",
+  "sdk": "go",
+  "dependencies": [
+    {
+      "name": "k3s",
+      "source": "github.com/marcosnils/daggerverse/k3s@k3s/v0.1.7",
+      "pin": "833ec36632b2457862f6e3bf1f7107ad65e3e515"
+    },
+    {
+      "name": "go",
+      "source": "github.com/sagikazarmark/daggerverse/go@go/v0.9.0",
+      "pin": "d9ba06776c4c1ccf6f329bd862b9b439c4582ab6"
+    },
+    {
+      "name": "golangci-lint",
+      "source": "github.com/sagikazarmark/daggerverse/golangci-lint",
+      "pin": "c1be27189ce47d28f84014b715f78e47db9fbadc"
+    }
+  ],
+  "source": ".dagger"
+}
