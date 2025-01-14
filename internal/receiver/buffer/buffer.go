@@ -38,6 +38,8 @@ func (wal *Data) ProcessWALData(data []byte, startWAL types.LSN) error {
 	// This implementation is largely based on src/bin/pg_basebackup/receivelog.c
 	// [ProcessXLogDataMsg]
 
+	// See: https://github.com/postgres/postgres/blob/00f4c2959d631c7851da21a512885d1deab28649/src/bin/pg_basebackup/receivelog.c#L1039
+
 	wal.logger.Debug("Process WAL Data", "lenData", len(data), "startWAL", startWAL)
 
 	blockpos, err := startWAL.Parse()
