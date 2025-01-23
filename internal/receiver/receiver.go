@@ -48,6 +48,10 @@ func (s *impl) String() string {
 // Serve is the implementation of the service and is called when
 // the WAL receiver is attached to the supervisor
 func (s *impl) Serve(ctx context.Context) error {
+	if !s.Tier1.IsReady() {
+		return errors.New("tier1 service is not ready")
+	}
+
 	conn, err := pgconn.Connect(ctx, s.Config.Source.DSN)
 	if err != nil {
 		return fmt.Errorf("while parsing DSN: %w", err)
@@ -143,7 +147,7 @@ func (s *impl) startReplication(
 		"startWalLSN",
 		startWalLSN,
 	)
-	buffer := buffer.New(
+	buff := buffer.New(
 		s.Logger,
 		int(timeline),
 		walSegmentSize,
@@ -153,11 +157,11 @@ func (s *impl) startReplication(
 		},
 	)
 
-	if err := s.manageWALStream(ctx, conn, clientXLogPos, buffer); err != nil {
+	if err := s.manageWALStream(ctx, conn, clientXLogPos, buff); err != nil {
 		return err
 	}
 
-	copyDoneResult, err := pglogrepl.SendStandbyCopyDone(context.Background(), conn)
+	copyDoneResult, err := pglogrepl.SendStandbyCopyDone(ctx, conn)
 	if err != nil {
 		return fmt.Errorf("failed to send CopyDone message: %w", err)
 	}
@@ -171,10 +175,12 @@ func (s *impl) startReplication(
 	return nil
 }
 
+// menageWALStream requires that a replication has been started on the passed conn
+//
 //nolint:gocognit
 func (s *impl) manageWALStream(
 	ctx context.Context,
-	conn *pgconn.PgConn,
+	replicationConn *pgconn.PgConn,
 	clientXLogPos pglogrepl.LSN,
 	buffer *buffer.Data,
 ) error {
@@ -185,7 +191,7 @@ func (s *impl) manageWALStream(
 		if time.Now().After(nextStandbyMessageDeadline) {
 			err := pglogrepl.SendStandbyStatusUpdate(
 				ctx,
-				conn,
+				replicationConn,
 				pglogrepl.StandbyStatusUpdate{
 					WALWritePosition: clientXLogPos,
 				},
@@ -195,11 +201,14 @@ func (s *impl) manageWALStream(
 			} else {
 				s.Logger.Debug("Sent Standby status message", "xlogPos", clientXLogPos)
 			}
+
+			s.Logger.Debug("refreshing nextStandbyMessageDeadline")
 			nextStandbyMessageDeadline = time.Now().Add(standbyMessageTimeout)
 		}
 
 		standbyMessageDeadlineContext, cancel := context.WithDeadline(ctx, nextStandbyMessageDeadline)
-		msg, err := conn.ReceiveMessage(standbyMessageDeadlineContext)
+		// we fetch the messages from the replication connection
+		backendMessage, err := replicationConn.ReceiveMessage(standbyMessageDeadlineContext)
 		cancel()
 
 		if err != nil {
@@ -213,9 +222,10 @@ func (s *impl) manageWALStream(
 			break
 		}
 
-		switch msg := msg.(type) {
+		switch msg := backendMessage.(type) {
 		case *pgproto3.CopyData:
-			switch msg.Data[0] {
+			payloadID := msg.Data[0]
+			switch payloadID {
 			case pglogrepl.PrimaryKeepaliveMessageByteID:
 				pkm, err := pglogrepl.ParsePrimaryKeepaliveMessage(msg.Data[1:])
 				if err != nil {
@@ -230,6 +240,7 @@ func (s *impl) manageWALStream(
 				)
 
 				if pkm.ReplyRequested {
+					// we trigger a reply to the primary at the beginning of the next loop
 					nextStandbyMessageDeadline = time.Time{}
 				}
 
@@ -252,9 +263,11 @@ func (s *impl) manageWALStream(
 
 			default:
 				s.Logger.Info("Received unexpected copydata message", "msg", msg)
+				return fmt.Errorf("received unexpected copydata message type", msg)
 			}
 		default:
 			s.Logger.Info("Received unexpected message", "msg", msg)
+			return fmt.Errorf("received unexpected message type: %v", msg)
 		}
 	}
 	return nil

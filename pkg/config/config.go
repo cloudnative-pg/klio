@@ -15,6 +15,8 @@ type Data struct {
 	// Tier1 is the configuration of the storage area we use to temporarily
 	// collect data. It will be powered by a file system
 	Tier1 LocalArea
+
+	Server Server
 }
 
 // SetDefaults sets the default values of the configuration
@@ -57,4 +59,12 @@ type LocalArea struct {
 
 // SetDefaults sets the default values of the configuration
 func (s *LocalArea) SetDefaults() {
+}
+
+// Server is the configuration of the HTTP server
+type Server struct {
+	Port                 int    `validate:"nonzero"`
+	GenerateCertificates bool   `mapstructure:"generate_certificates"`
+	TLSCertPath          string `validate:"nonzero" mapstructure:"tls_cert_path"`
+	TLSKeyPath           string `validate:"nonzero" mapstructure:"tls_key_path"`
 }
