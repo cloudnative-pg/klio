@@ -69,11 +69,6 @@ func (s *impl) Serve(ctx context.Context) error {
 		return fmt.Errorf("while creating storage interface: %w", err)
 	}
 
-	// Triggering repository initialization
-	if err := repo.Initialize(ctx, st, &repo.NewRepositoryOptions{}, s.config.Tier1.Password); err != nil {
-		return fmt.Errorf("while initializing repository: %w", err)
-	}
-
 	// Ensures the current Kopia client is connected to the repository and the configuration
 	// file is persisted
 	configFile := path.Join(s.config.Tier1.Path, "kopiacfg")
@@ -84,6 +79,9 @@ func (s *impl) Serve(ctx context.Context) error {
 	}); err != nil {
 		if errors.Is(err, repo.ErrRepositoryNotInitialized) {
 			s.logger.Info("repository is not initialized, triggering initialization")
+			if err := repo.Initialize(ctx, st, &repo.NewRepositoryOptions{}, s.config.Tier1.Password); err != nil {
+				return fmt.Errorf("while initializing repository: %w", err)
+			}
 		} else {
 			return fmt.Errorf("while connecting to repository: %w", err)
 		}
