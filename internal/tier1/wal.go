@@ -14,10 +14,26 @@ import (
 	"github.com/kopia/kopia/snapshot/snapshotfs"
 )
 
-// StoreWAL stores a WAL file inside the repository
+// WALNotFoundError is returned when the WAL file is not found.
+type WALNotFoundError struct {
+	walName string
+}
+
+func (e *WALNotFoundError) Error() string {
+	return fmt.Sprintf("WAL file not found: %s", e.walName)
+}
+
+// RepositoryNotInitializedError is returned when the repository is not initialized.
+type RepositoryNotInitializedError struct{}
+
+func (e *RepositoryNotInitializedError) Error() string {
+	return "repository not initialized"
+}
+
+// StoreWAL stores a WAL file inside the repository.
 func (s *impl) StoreWAL(ctx context.Context, name string, content []byte) error {
 	if s.repository == nil {
-		return fmt.Errorf("repository is not initialized")
+		return &RepositoryNotInitializedError{}
 	}
 
 	// This enables Kopia debugging
@@ -68,16 +84,18 @@ func (s *impl) StoreWAL(ctx context.Context, name string, content []byte) error 
 	}
 
 	s.logger.Debug("Saved WAL file to tier1 storage", "manifestID", manifestID)
+
 	return nil
 }
 
-// GetLatestWALFileName returns the latest WAL file that have been archived
+// GetLatestWALFileName returns the latest WAL file that have been archived.
 func (s *impl) GetLatestWALFileName(ctx context.Context) (string, error) {
 	if s.repository == nil {
-		return "", fmt.Errorf("repository is not initialized")
+		return "", &RepositoryNotInitializedError{}
 	}
 
-	// todo: this doesn't scale well, we need to find a better solution.
+	//nolint:godox
+	// TODO: this doesn't scale well, we need to find a better solution.
 	manifests, err := s.repository.FindManifests(ctx, s.getSnapshotRepositoryLabels())
 	if err != nil {
 		return "", fmt.Errorf("while finding manifests: %w", err)
@@ -94,7 +112,7 @@ func (s *impl) GetLatestWALFileName(ctx context.Context) (string, error) {
 
 func (s *impl) GetWAL(ctx context.Context, walName string) (*WalEntry, error) {
 	if s.repository == nil {
-		return nil, fmt.Errorf("repository is not initialized")
+		return nil, &RepositoryNotInitializedError{}
 	}
 
 	manifests, err := s.repository.FindManifests(ctx, s.getSnapshotRepositoryLabels())
@@ -109,13 +127,14 @@ func (s *impl) GetWAL(ctx context.Context, walName string) (*WalEntry, error) {
 			break
 		}
 	}
+
 	if walManifest == nil {
-		return nil, fmt.Errorf("WAL file not found: %s", walName)
+		return nil, &WALNotFoundError{walName: walName}
 	}
 
 	mf, err := snapshot.LoadSnapshot(ctx, s.repository, walManifest.ID)
 	if err != nil {
-		return nil, fmt.Errorf("while loading snapshot")
+		return nil, fmt.Errorf("while loading snapshot: %w", err)
 	}
 
 	reader, err := s.repository.OpenObject(ctx, mf.RootObjectID())

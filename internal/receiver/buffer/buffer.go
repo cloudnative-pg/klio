@@ -8,11 +8,22 @@ import (
 	"github.com/cloudnative-pg/machinery/pkg/types"
 )
 
+// UnexpectedWalDataOffsetError is the error returned when
+// the WAL data offset is not the expected one.
+type UnexpectedWalDataOffsetError struct {
+	offset   uint64
+	expected int
+}
+
+func (e *UnexpectedWalDataOffsetError) Error() string {
+	return fmt.Sprintf("Unexpected WAL data offset: %08x, expected: %08x", e.offset, e.expected)
+}
+
 // Flusher is the type of functions that are called
-// to write a WAL file
+// to write a WAL file.
 type Flusher func(walName string, data []byte) error
 
-// Data is the implementation of the WAL buffer
+// Data is the implementation of the WAL buffer.
 type Data struct {
 	buffer         bytes.Buffer
 	segmentSize    uint64
@@ -22,7 +33,7 @@ type Data struct {
 	logger         *slog.Logger
 }
 
-// New creates a new WAL buffer
+// New creates a new WAL buffer.
 func New(logger *slog.Logger, tli int, walSegmentSize uint64, flusher Flusher) *Data {
 	return &Data{
 		segmentSize: walSegmentSize,
@@ -33,12 +44,24 @@ func New(logger *slog.Logger, tli int, walSegmentSize uint64, flusher Flusher) *
 	}
 }
 
+// UnopenedFileForWALError is the error returned when a WAL
+// record is received without a WAL file open.
+type UnopenedFileForWALError struct {
+	offset uint64
+}
+
+func (e *UnopenedFileForWALError) Error() string {
+	return fmt.Sprintf("received write-ahead log record for offset %v with no file open", e.offset)
+}
+
 // ProcessWALData processes a WAL message from PG
+//
+//nolint:cyclop
 func (wal *Data) ProcessWALData(data []byte, startWAL types.LSN) error {
 	// This implementation is largely based on src/bin/pg_basebackup/receivelog.c
 	// [ProcessXLogDataMsg]
 
-	// nolint: lll
+	//nolint:lll
 	// See: https://github.com/postgres/postgres/blob/00f4c2959d631c7851da21a512885d1deab28649/src/bin/pg_basebackup/receivelog.c#L1039
 
 	wal.logger.Debug("Process WAL Data", "lenData", len(data), "startWAL", startWAL)
@@ -53,19 +76,13 @@ func (wal *Data) ProcessWALData(data []byte, startWAL types.LSN) error {
 	if !wal.hasWALFileOpened() {
 		if xlogoff != 0 {
 			// No file open yet
-			return fmt.Errorf(
-				"received write-ahead log record for offset %v with no file open",
-				xlogoff,
-			)
+			return &UnopenedFileForWALError{offset: xlogoff}
 		}
 	} else {
 		// More data in existing segment
 		//nolint:gosec
 		if uint64(wal.buffer.Len()) != xlogoff {
-			return fmt.Errorf(
-				"got WAL data offset %08x, expected %08x",
-				xlogoff, wal.buffer.Len(),
-			)
+			return &UnexpectedWalDataOffsetError{offset: xlogoff, expected: wal.buffer.Len()}
 		}
 	}
 

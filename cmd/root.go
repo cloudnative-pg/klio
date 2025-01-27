@@ -9,9 +9,12 @@ import (
 	"github.com/spf13/viper"
 )
 
+//nolint:gochecknoglobals
 var cfgFile string
 
 // rootCmd represents the base command when called without any subcommands
+//
+//nolint:gochecknoglobals
 var rootCmd = &cobra.Command{
 	Use:   "klio",
 	Short: "A brief description of your application",
@@ -35,6 +38,7 @@ func Execute() {
 	}
 }
 
+//nolint:gochecknoinits
 func init() {
 	cobra.OnInitialize(initConfig)
 

@@ -4,7 +4,7 @@ package config
 
 import "time"
 
-// Data is the configuration
+// Data is the configuration.
 type Data struct {
 	// ClusterName is the name of the cluster that will be stored
 	ClusterName string `validate:"nonzero"`
@@ -19,12 +19,12 @@ type Data struct {
 	Server Server
 }
 
-// SetDefaults sets the default values of the configuration
+// SetDefaults sets the default values of the configuration.
 func (d *Data) SetDefaults() {
 	d.Source.SetDefaults()
 }
 
-// Source is the configuration of the WAL receiver
+// Source is the configuration of the WAL receiver.
 type Source struct {
 	// DSN is the database service we should get the WALs from
 	DSN string `validate:"nonzero"`
@@ -37,18 +37,18 @@ type Source struct {
 	StandbyMessageTimeoutSeconds int `validate:"min=1"`
 }
 
-// SetDefaults sets the default values of the configuration
+// SetDefaults sets the default values of the configuration.
 func (s *Source) SetDefaults() {
 	s.StandbyMessageTimeoutSeconds = 10
 }
 
 // StandbyMessageTimeout returns the stanby message timeout in a
-// time.Duration
+// time.Duration.
 func (s *Source) StandbyMessageTimeout() time.Duration {
 	return time.Second * time.Duration(s.StandbyMessageTimeoutSeconds)
 }
 
-// LocalArea is the configuration of the spool
+// LocalArea is the configuration of the spool.
 type LocalArea struct {
 	// Path is the path where the files will be stored
 	Path string `validate:"nonzero"`
@@ -57,14 +57,14 @@ type LocalArea struct {
 	Password string `validate:"nonzero"`
 }
 
-// SetDefaults sets the default values of the configuration
+// SetDefaults sets the default values of the configuration.
 func (s *LocalArea) SetDefaults() {
 }
 
-// Server is the configuration of the HTTP server
+// Server is the configuration of the HTTP server.
 type Server struct {
 	Port                 int    `validate:"nonzero"`
 	GenerateCertificates bool   `mapstructure:"generate_certificates"`
-	TLSCertPath          string `validate:"nonzero" mapstructure:"tls_cert_path"`
-	TLSKeyPath           string `validate:"nonzero" mapstructure:"tls_key_path"`
+	TLSCertPath          string `mapstructure:"tls_cert_path"         validate:"nonzero"`
+	TLSKeyPath           string `mapstructure:"tls_key_path"          validate:"nonzero"`
 }

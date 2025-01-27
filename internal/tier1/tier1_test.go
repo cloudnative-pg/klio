@@ -27,7 +27,7 @@ var _ = Describe("Service", Ordered, func() {
 	)
 
 	BeforeEach(func() {
-		ctx, ctxCancel = context.WithCancel(context.Background())
+		ctx, ctxCancel = context.WithCancel(context.Background()) //nolint:fatcontext
 		tempDir, err := os.MkdirTemp("", "tier1")
 		Expect(err).NotTo(HaveOccurred())
 		cfg = &config.Data{
@@ -77,7 +77,9 @@ var _ = Describe("Service", Ordered, func() {
 		}()
 
 		Eventually(func(g Gomega) {
-			g.Expect(svc.(*impl).repository).ToNot(BeNil())
+			impl, ok := svc.(*impl)
+			g.Expect(ok).To(BeTrue())
+			g.Expect(impl.repository).ToNot(BeNil())
 		}).Should(Succeed())
 
 		err := svc.StoreWAL(ctx, "test-wal", []byte("test-content"))
@@ -97,6 +99,7 @@ var _ = Describe("Service", Ordered, func() {
 
 	It("closes the repository when context is done", func() {
 		go func() {
+			defer GinkgoRecover()
 			err := svc.Serve(ctx)
 			Expect(err).NotTo(HaveOccurred())
 		}()
@@ -115,6 +118,6 @@ var _ = Describe("Service", Ordered, func() {
 	It("should not panic if there is no repository initialized", func() {
 		err := svc.StoreWAL(ctx, "test-wal", []byte("test-content"))
 		Expect(err).To(HaveOccurred())
-		Expect(err.Error()).To(Equal("repository is not initialized"))
+		Expect(err.Error()).To(Equal("repository not initialized"))
 	})
 })

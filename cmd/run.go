@@ -17,6 +17,8 @@ import (
 )
 
 // runCmd represents the run command
+//
+//nolint:gochecknoglobals
 var runCmd = &cobra.Command{
 	Use:   "run",
 	Short: "A brief description of your command",
@@ -31,13 +33,13 @@ to quickly create a Cobra application.`,
 
 		var configuration config.Data
 
-		// Sets the the defaults values, to be overridden by the user configuration
+		// Sets the defaults values, to be overridden by the user configuration
 		configuration.SetDefaults()
 
 		// IMPORTANT: this requires this program to be built with "-tags viper_bind_struct"
 		// when using environment variables
 		if err := viper.Unmarshal(&configuration); err != nil {
-			return err
+			return fmt.Errorf("could not unmarshal configuration: %w", err)
 		}
 
 		logger.Info("Current Klio configuration", "configuration", configuration)
@@ -63,6 +65,7 @@ to quickly create a Cobra application.`,
 	},
 }
 
+//nolint:gochecknoinits
 func init() {
 	rootCmd.AddCommand(runCmd)
 

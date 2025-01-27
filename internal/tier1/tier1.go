@@ -16,7 +16,7 @@ import (
 	"github.com/EnterpriseDB/klio/pkg/config"
 )
 
-// Service is the tier1 specification
+// Service is the tier1 specification.
 type Service interface {
 	suture.Service
 
@@ -43,22 +43,24 @@ func (s *impl) IsReady() bool {
 	return s != nil && s.repository != nil
 }
 
-// New creates a new tier1 service
-func New(cfg *config.Data, log *slog.Logger) Service {
+// New creates a new tier1 service.
+func New(cfg *config.Data, log *slog.Logger) Service { //nolint:ireturn
 	return &impl{
 		config: cfg,
 		logger: log.With("service", "tier1"),
 	}
 }
 
-// String implements the stringer interface
+// String implements the stringer interface.
 func (*impl) String() string {
 	return "tier1"
 }
 
-// Serve implements the service interface
+// Serve implements the service interface.
+//
+//nolint:cyclop
 func (s *impl) Serve(ctx context.Context) error {
-	st, err := filesystem.New(
+	fsStorage, err := filesystem.New(
 		ctx,
 		&filesystem.Options{
 			Path: path.Join(s.config.Tier1.Path, "data"),
@@ -72,14 +74,14 @@ func (s *impl) Serve(ctx context.Context) error {
 	// Ensures the current Kopia client is connected to the repository and the configuration
 	// file is persisted
 	configFile := path.Join(s.config.Tier1.Path, "kopiacfg")
-	if err := repo.Connect(ctx, configFile, st, s.config.Tier1.Password, &repo.ConnectOptions{
+	if err := repo.Connect(ctx, configFile, fsStorage, s.config.Tier1.Password, &repo.ConnectOptions{
 		ClientOptions: repo.ClientOptions{
 			Hostname: s.config.ClusterName,
 		},
 	}); err != nil {
 		if errors.Is(err, repo.ErrRepositoryNotInitialized) {
 			s.logger.Info("repository is not initialized, triggering initialization")
-			if err := repo.Initialize(ctx, st, &repo.NewRepositoryOptions{}, s.config.Tier1.Password); err != nil {
+			if err := repo.Initialize(ctx, fsStorage, &repo.NewRepositoryOptions{}, s.config.Tier1.Password); err != nil {
 				return fmt.Errorf("while initializing repository: %w", err)
 			}
 		} else {
@@ -150,7 +152,7 @@ func (s *impl) generateServerStartCommand(ctx context.Context) (*exec.Cmd, error
 		}
 	}
 
-	cmd := exec.CommandContext(ctx, "kopia", commandContent...) // nolint: gosec
+	cmd := exec.CommandContext(ctx, "kopia", commandContent...) //nolint:gosec
 
 	// Set environment variables
 	cmd.Env = append(os.Environ(),

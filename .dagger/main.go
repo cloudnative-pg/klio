@@ -122,11 +122,13 @@ func (m *Klio) Test(
 ) *dagger.Container {
 	return dag.Go(dagger.GoOpts{Version: goVersion}).
 		WithCgoDisabled().
-		WithSource(source).Exec([]string{
-		"go",
-		"test",
-		"./...",
-	})
+		WithSource(source).
+		Exec([]string{"go", "install", "github.com/kopia/kopia@latest"}).
+		WithExec([]string{
+			"go",
+			"test",
+			"./...",
+		})
 }
 
 // CI exec the regular CI checks
