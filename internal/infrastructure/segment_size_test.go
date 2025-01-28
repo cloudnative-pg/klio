@@ -1,4 +1,4 @@
-package receiver
+package infrastructure
 
 import (
 	. "github.com/onsi/ginkgo/v2"

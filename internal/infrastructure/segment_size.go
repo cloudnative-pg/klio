@@ -1,4 +1,4 @@
-package receiver
+package infrastructure
 
 import (
 	"context"
@@ -45,7 +45,16 @@ func (e *NoSingleColumnError) Error() string {
 	)
 }
 
-func (s *impl) getWALSegmentSize(ctx context.Context, conn *pgconn.PgConn) (uint64, error) {
+func (s *impl) GetWalSegmentSize(ctx context.Context) (uint64, error) {
+	conn, err := pgconn.Connect(ctx, s.config.Source.DSN)
+	if err != nil {
+		return 0, fmt.Errorf("while parsing DSN: %w", err)
+	}
+	defer func() {
+		if closeErr := conn.Close(ctx); closeErr != nil {
+			s.logger.ErrorContext(ctx, "Error while closing the connection")
+		}
+	}()
 	mrr := conn.Exec(ctx, "SHOW wal_segment_size")
 
 	results, err := mrr.ReadAll()
@@ -67,7 +76,17 @@ func (s *impl) getWALSegmentSize(ctx context.Context, conn *pgconn.PgConn) (uint
 		return 0, &NoSingleColumnError{len(row)}
 	}
 
-	return parseWALSegmentSize(string(row[0]))
+	res, err := parseWALSegmentSize(string(row[0]))
+	if err != nil {
+		return 0, err
+	}
+
+	s.logger.Info(
+		"Detected WAL segment size",
+		"walSegmentSize", res,
+	)
+
+	return res, nil
 }
 
 func parseWALSegmentSize(size string) (uint64, error) {

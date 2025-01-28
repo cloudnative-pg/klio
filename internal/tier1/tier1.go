@@ -13,6 +13,7 @@ import (
 	"github.com/kopia/kopia/repo/blob/filesystem"
 	"github.com/thejerf/suture/v4"
 
+	"github.com/EnterpriseDB/klio/internal/infrastructure"
 	"github.com/EnterpriseDB/klio/pkg/config"
 )
 
@@ -34,9 +35,11 @@ type Service interface {
 }
 
 type impl struct {
-	config     *config.Data
-	logger     *slog.Logger
-	repository repo.Repository
+	config         *config.Data
+	logger         *slog.Logger
+	repository     repo.Repository
+	infrastructure infrastructure.Service
+	segmentSize    uint64
 }
 
 func (s *impl) IsReady() bool {
@@ -44,10 +47,11 @@ func (s *impl) IsReady() bool {
 }
 
 // New creates a new tier1 service.
-func New(cfg *config.Data, log *slog.Logger) Service { //nolint:ireturn
+func New(cfg *config.Data, log *slog.Logger, infra infrastructure.Service) Service { //nolint:ireturn
 	return &impl{
-		config: cfg,
-		logger: log.With("service", "tier1"),
+		config:         cfg,
+		logger:         log.With("service", "tier1"),
+		infrastructure: infra,
 	}
 }
 
@@ -81,6 +85,7 @@ func (s *impl) Serve(ctx context.Context) error {
 	}); err != nil {
 		if errors.Is(err, repo.ErrRepositoryNotInitialized) {
 			s.logger.Info("repository is not initialized, triggering initialization")
+			// Triggering repository initialization
 			if err := repo.Initialize(ctx, fsStorage, &repo.NewRepositoryOptions{}, s.config.Tier1.Password); err != nil {
 				return fmt.Errorf("while initializing repository: %w", err)
 			}
@@ -88,6 +93,13 @@ func (s *impl) Serve(ctx context.Context) error {
 			return fmt.Errorf("while connecting to repository: %w", err)
 		}
 	}
+
+	segmentSize, err := s.infrastructure.GetWalSegmentSize(ctx)
+	if err != nil {
+		return fmt.Errorf("while getting wal segment size: %w", err)
+	}
+
+	s.segmentSize = segmentSize
 
 	// Opens a connection to the repository using the persisted configuration file
 	repository, err := repo.Open(ctx, configFile, s.config.Tier1.Password, &repo.Options{})
@@ -103,6 +115,7 @@ func (s *impl) Serve(ctx context.Context) error {
 			s.logger.Error("while closing the repository", "err", err)
 		}
 		s.repository = nil
+		s.segmentSize = 0
 	}()
 
 	cmd, err := s.generateServerStartCommand(ctx)

@@ -14,6 +14,7 @@ import (
 	"github.com/jackc/pgx/v5/pgproto3"
 	"github.com/thejerf/suture/v4"
 
+	"github.com/EnterpriseDB/klio/internal/infrastructure"
 	"github.com/EnterpriseDB/klio/internal/receiver/buffer"
 	"github.com/EnterpriseDB/klio/internal/tier1"
 	"github.com/EnterpriseDB/klio/pkg/config"
@@ -26,17 +27,19 @@ type Service interface {
 
 // Service implements the supervisor service.
 type impl struct {
-	Config *config.Data
-	Logger *slog.Logger
-	Tier1  tier1.Service
+	Config         *config.Data
+	Logger         *slog.Logger
+	Tier1          tier1.Service
+	infrastructure infrastructure.Service
 }
 
 // New creates a new receiver.
-func New(config *config.Data, logger *slog.Logger, t1 tier1.Service) Service { //nolint:ireturn
+func New(config *config.Data, logger *slog.Logger, t1 tier1.Service, infra infrastructure.Service) Service { //nolint:ireturn
 	return &impl{
-		Config: config,
-		Logger: logger.With("service", "receive_wal"),
-		Tier1:  t1,
+		Config:         config,
+		Logger:         logger.With("service", "receive_wal"),
+		Tier1:          t1,
+		infrastructure: infra,
 	}
 }
 
@@ -48,7 +51,7 @@ func (s *impl) String() string {
 // Serve is the implementation of the service and is called when
 // the WAL receiver is attached to the supervisor.
 func (s *impl) Serve(ctx context.Context) error {
-	conn, err := pgconn.Connect(ctx, s.Config.Source.DSN)
+	conn, err := s.infrastructure.NewConn(ctx)
 	if err != nil {
 		return fmt.Errorf("while parsing DSN: %w", err)
 	}
@@ -70,16 +73,6 @@ func (s *impl) Serve(ctx context.Context) error {
 		"systemID", identifyData.SystemID,
 	)
 
-	walSegmentSize, err := s.getWALSegmentSize(ctx, conn)
-	if err != nil {
-		return fmt.Errorf("while getting WAL segment size: %w", err)
-	}
-	s.Logger.Info(
-		"Detected WAL segment size",
-		"walSegmentSize", walSegmentSize,
-	)
-
-	//nolint:godox
 	// TODO(leonardoce): create a physical replication slot and reuse it
 	// to keep track of the latest LSN
 	replicationSlotResult, err := pglogrepl.CreateReplicationSlot(
@@ -103,6 +96,11 @@ func (s *impl) Serve(ctx context.Context) error {
 		"Created replication slot",
 		"consistentPoint", replicationSlotResult.ConsistentPoint,
 		"name", replicationSlotResult.SlotName)
+
+	walSegmentSize, err := s.infrastructure.GetWalSegmentSize(ctx)
+	if err != nil {
+		return err
+	}
 
 	return s.startReplication(ctx, conn, identifyData.XLogPos, identifyData.Timeline, walSegmentSize)
 }
@@ -256,7 +254,8 @@ func (s *impl) manageWALStream(
 				clientXLogPos = xld.WALStart + pglogrepl.LSN(len(xld.WALData))
 
 			default:
-				s.Logger.Info("Received unexpected copydata byteID", "byteID", msg.Data[0])
+				s.Logger.Info("Received unexpected copydata message", "msg", msg)
+				return fmt.Errorf("received unexpected copydata message type: %v", msg)
 			}
 		default:
 			s.Logger.Info("Received unexpected message", "msg", msg)

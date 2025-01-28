@@ -11,6 +11,7 @@ import (
 	"github.com/thejerf/sutureslog"
 	"gopkg.in/validator.v2"
 
+	"github.com/EnterpriseDB/klio/internal/infrastructure"
 	"github.com/EnterpriseDB/klio/internal/receiver"
 	"github.com/EnterpriseDB/klio/internal/tier1"
 	"github.com/EnterpriseDB/klio/pkg/config"
@@ -56,10 +57,12 @@ to quickly create a Cobra application.`,
 				}).MustHook(),
 			},
 		)
+		infra := infrastructure.New(&configuration, logger)
 
-		tier1Service := tier1.New(&configuration, logger)
+		tier1Service := tier1.New(&configuration, logger, infra)
 		supervisor.Add(tier1Service)
-		supervisor.Add(receiver.New(&configuration, logger, tier1Service))
+
+		supervisor.Add(receiver.New(&configuration, logger, tier1Service, infra))
 
 		return supervisor.Serve(cmd.Context())
 	},

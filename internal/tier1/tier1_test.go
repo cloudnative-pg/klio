@@ -8,6 +8,7 @@ import (
 	"path"
 	"path/filepath"
 
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/repo/blob"
 
@@ -16,6 +17,24 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
+
+type fakeInfra struct{}
+
+func (f *fakeInfra) NewConn(_ context.Context) (*pgconn.PgConn, error) {
+	panic("implement me")
+}
+
+func (f *fakeInfra) IsReady() bool {
+	return true
+}
+
+func (f *fakeInfra) Serve(_ context.Context) error {
+	return nil
+}
+
+func (f *fakeInfra) GetWalSegmentSize(_ context.Context) (uint64, error) {
+	return uint64(16 * 1024 * 1024), nil
+}
 
 var _ = Describe("Service", Ordered, func() {
 	var (
@@ -60,7 +79,7 @@ var _ = Describe("Service", Ordered, func() {
 		Expect(err).ToNot(HaveOccurred())
 
 		logger = slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{}))
-		svc = New(cfg, logger)
+		svc = New(cfg, logger, &fakeInfra{})
 	})
 
 	AfterEach(func() {
@@ -82,15 +101,15 @@ var _ = Describe("Service", Ordered, func() {
 			g.Expect(impl.repository).ToNot(BeNil())
 		}).Should(Succeed())
 
-		err := svc.StoreWAL(ctx, "test-wal", []byte("test-content"))
+		err := svc.StoreWAL(ctx, "FFFFFFFFFFFFFFFFFFFFFFFF", []byte("test-content-2"))
 		Expect(err).ToNot(HaveOccurred())
 
-		err = svc.StoreWAL(ctx, "test-wal-2", []byte("test-content-2"))
+		err = svc.StoreWAL(ctx, "000000020000003400000056", []byte("test-content"))
 		Expect(err).ToNot(HaveOccurred())
 
 		name, err := svc.GetLatestWALFileName(ctx)
 		Expect(err).ToNot(HaveOccurred())
-		Expect(name).To(Equal("test-wal-2"))
+		Expect(name).To(Equal("FFFFFFFFFFFFFFFFFFFFFFFF"))
 
 		walEntry, err := svc.GetWAL(ctx, name)
 		Expect(err).ToNot(HaveOccurred())
@@ -118,6 +137,6 @@ var _ = Describe("Service", Ordered, func() {
 	It("should not panic if there is no repository initialized", func() {
 		err := svc.StoreWAL(ctx, "test-wal", []byte("test-content"))
 		Expect(err).To(HaveOccurred())
-		Expect(err.Error()).To(Equal("repository not initialized"))
+		Expect(err.Error()).To(Equal("tier1 is not yet ready"))
 	})
 })

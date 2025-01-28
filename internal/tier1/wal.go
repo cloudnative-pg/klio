@@ -2,11 +2,13 @@ package tier1
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"path"
 	"path/filepath"
 
+	"github.com/cloudnative-pg/machinery/pkg/types"
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/repo/manifest"
 	"github.com/kopia/kopia/snapshot"
@@ -32,8 +34,8 @@ func (e *RepositoryNotInitializedError) Error() string {
 
 // StoreWAL stores a WAL file inside the repository.
 func (s *impl) StoreWAL(ctx context.Context, name string, content []byte) error {
-	if s.repository == nil {
-		return &RepositoryNotInitializedError{}
+	if !s.IsReady() {
+		return errors.New("tier1 is not yet ready")
 	}
 
 	// This enables Kopia debugging
@@ -90,8 +92,8 @@ func (s *impl) StoreWAL(ctx context.Context, name string, content []byte) error 
 
 // GetLatestWALFileName returns the latest WAL file that have been archived.
 func (s *impl) GetLatestWALFileName(ctx context.Context) (string, error) {
-	if s.repository == nil {
-		return "", &RepositoryNotInitializedError{}
+	if !s.IsReady() {
+		return "", errors.New("tier1 is not yet ready")
 	}
 
 	//nolint:godox
@@ -101,18 +103,49 @@ func (s *impl) GetLatestWALFileName(ctx context.Context) (string, error) {
 		return "", fmt.Errorf("while finding manifests: %w", err)
 	}
 
-	// check wal file name to determine the latest one instead of id
-	snap, err := snapshot.LoadSnapshot(ctx, s.repository, manifest.PickLatestID(manifests))
-	if err != nil {
-		return "", fmt.Errorf("while loading snapshot: %w", err)
+	return getLatestWALFileNameFromManifests(manifests, s.segmentSize)
+}
+
+func getLatestWALFileNameFromManifests(manifests []*manifest.EntryMetadata, walSegmentSize uint64) (string, error) {
+	if len(manifests) == 0 {
+		return "", fmt.Errorf("no manifests passed")
 	}
 
-	return filepath.Base(snap.Source.Path), nil
+	type wal struct {
+		name string
+		lsn  types.LSN
+	}
+
+	firstWALName := path.Base(manifests[0].Labels["path"])
+	firstWALLsn, err := types.LSNStartFromWALName(firstWALName, walSegmentSize)
+	if err != nil {
+		return "", err
+	}
+	latestWAL := wal{
+		name: firstWALName,
+		lsn:  firstWALLsn,
+	}
+
+	for _, m := range manifests {
+		lsn, err := types.LSNStartFromWALName(path.Base(m.Labels["path"]), walSegmentSize)
+		if err != nil {
+			return "", err
+		}
+
+		if lsn > latestWAL.lsn {
+			latestWAL = wal{
+				name: path.Base(m.Labels["path"]),
+				lsn:  lsn,
+			}
+		}
+	}
+
+	return latestWAL.name, nil
 }
 
 func (s *impl) GetWAL(ctx context.Context, walName string) (*WalEntry, error) {
-	if s.repository == nil {
-		return nil, &RepositoryNotInitializedError{}
+	if !s.IsReady() {
+		return nil, errors.New("tier1 is not yet ready")
 	}
 
 	manifests, err := s.repository.FindManifests(ctx, s.getSnapshotRepositoryLabels())

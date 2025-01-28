@@ -3,7 +3,7 @@ module github.com/EnterpriseDB/klio
 go 1.23.4
 
 require (
-	github.com/cloudnative-pg/machinery v0.0.0-20250114104348-ac9ba00698fc
+	github.com/cloudnative-pg/machinery v0.0.0-20250123170748-77a23bcd05c3
 	github.com/jackc/pglogrepl v0.0.0-20240307033717-828fbfe908e9
 	github.com/jackc/pgx/v5 v5.7.1
 	github.com/kopia/kopia v0.18.2
