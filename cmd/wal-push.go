@@ -7,28 +7,19 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
-	"github.com/thejerf/suture/v4"
-	"github.com/thejerf/sutureslog"
 	"gopkg.in/validator.v2"
 
-	"github.com/EnterpriseDB/klio/internal/infrastructure"
 	"github.com/EnterpriseDB/klio/internal/receiver"
-	"github.com/EnterpriseDB/klio/internal/tier1"
 	"github.com/EnterpriseDB/klio/pkg/config"
+	"github.com/EnterpriseDB/klio/pkg/klioclient"
 )
 
 // runCmd represents the run command
 //
 //nolint:gochecknoglobals
-var runCmd = &cobra.Command{
-	Use:   "run",
-	Short: "A brief description of your command",
-	Long: `A longer description that spans multiple lines and likely contains examples
-and usage of using your command. For example:
-
-Cobra is a CLI library for Go that empowers applications.
-This application is a tool to generate the needed files
-to quickly create a Cobra application.`,
+var walPushCmd = &cobra.Command{
+	Use:   "wal-push",
+	Short: "Upload the cluster's WALs to the opened Klio server",
 	RunE: func(cmd *cobra.Command, _ []string) error {
 		logger := slog.Default()
 
@@ -43,34 +34,25 @@ to quickly create a Cobra application.`,
 			return fmt.Errorf("could not unmarshal configuration: %w", err)
 		}
 
-		logger.Info("Current Klio configuration", "configuration", configuration)
-
+		logger.Debug("Current configuration", "configuration", configuration)
 		if errs := validator.Validate(&configuration); errs != nil {
 			return fmt.Errorf("configuration validation error: %w", errs)
 		}
 
-		supervisor := suture.New(
-			"klio",
-			suture.Spec{
-				EventHook: (&sutureslog.Handler{
-					Logger: logger,
-				}).MustHook(),
-			},
-		)
-		infra := infrastructure.New(&configuration, logger)
+		client, err := klioclient.Connect(cmd.Context(), logger, &configuration.Server)
+		if err != nil {
+			return fmt.Errorf("while connecting to the Klio server: %w", err)
+		}
 
-		tier1Service := tier1.New(&configuration, logger, infra)
-		supervisor.Add(tier1Service)
+		walReceiver := receiver.New(&configuration, logger, client)
 
-		supervisor.Add(receiver.New(&configuration, logger, tier1Service, infra))
-
-		return supervisor.Serve(cmd.Context())
+		return walReceiver.Start(cmd.Context())
 	},
 }
 
 //nolint:gochecknoinits
 func init() {
-	rootCmd.AddCommand(runCmd)
+	rootCmd.AddCommand(walPushCmd)
 
 	// Here you will define your flags and configuration settings.
 

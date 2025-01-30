@@ -6,16 +6,13 @@ import "time"
 
 // Data is the configuration.
 type Data struct {
-	// ClusterName is the name of the cluster that will be stored
-	ClusterName string `validate:"nonzero"`
+	// ClusterName is the name of the cluster
+	ClusterName string `mapstructure:"cluster_name" validate:"nonzero"`
 
 	// Source is the configuration of the database we should collect WALs for
 	Source Source
 
-	// Tier1 is the configuration of the storage area we use to temporarily
-	// collect data. It will be powered by a file system
-	Tier1 LocalArea
-
+	// Server is the configuration of the Klio server
 	Server Server
 }
 
@@ -37,6 +34,26 @@ type Source struct {
 	StandbyMessageTimeoutSeconds int `validate:"min=1"`
 }
 
+// Server is the configuration of the Klio server.
+type Server struct {
+	// BaseURL is the base URL where the Kopia API server should be reached
+	BaseURL string `mapstructure:"base_url" validate:"nonzero"`
+
+	// TrustedServerCertificateFingerprint is used to authenticate to the server side
+	TrustedServerCertificateFingerprint string `mapstructure:"trusted_server_certificate_fingerprint" validate:"nonzero"`
+
+	// Hostname is the Klio server hostname.
+	// This is used to create the full username, in the form <username>@<hostname>
+	Hostname string `mapstructure:"hostname" validate:"nonzero"`
+
+	// Username is the Klio server username.
+	// This is used to create the full username, in the form <username>@<hostname>
+	Username string `mapstructure:"username" validate:"nonzero"`
+
+	// Password is the Klio server password
+	Password string `mapstructure:"password" validate:"nonzero"`
+}
+
 // SetDefaults sets the default values of the configuration.
 func (s *Source) SetDefaults() {
 	s.StandbyMessageTimeoutSeconds = 10
@@ -46,25 +63,4 @@ func (s *Source) SetDefaults() {
 // time.Duration.
 func (s *Source) StandbyMessageTimeout() time.Duration {
 	return time.Second * time.Duration(s.StandbyMessageTimeoutSeconds)
-}
-
-// LocalArea is the configuration of the spool.
-type LocalArea struct {
-	// Path is the path where the files will be stored
-	Path string `validate:"nonzero"`
-
-	// Password is the storage encryption key
-	Password string `validate:"nonzero"`
-}
-
-// SetDefaults sets the default values of the configuration.
-func (s *LocalArea) SetDefaults() {
-}
-
-// Server is the configuration of the HTTP server.
-type Server struct {
-	Port                 int    `validate:"nonzero"`
-	GenerateCertificates bool   `mapstructure:"generate_certificates"`
-	TLSCertPath          string `mapstructure:"tls_cert_path"         validate:"nonzero"`
-	TLSKeyPath           string `mapstructure:"tls_key_path"          validate:"nonzero"`
 }

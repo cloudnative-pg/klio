@@ -9,33 +9,22 @@ import (
 	"github.com/EnterpriseDB/klio/pkg/config"
 )
 
-// Service is the infrastructure service
-type Service interface {
-	Postgres
-}
-
-// Postgres details the infrastructure Postgres capabilities
-type Postgres interface {
-	// GetWalSegmentSize returns the size of the WAL segment
-	GetWalSegmentSize(ctx context.Context) (uint64, error)
-
-	// NewConn returns the connection to the database
-	NewConn(ctx context.Context) (*pgconn.PgConn, error)
-}
-
-type impl struct {
+// Postgres details the infrastructure Postgres capabilities.
+type Postgres struct {
 	config *config.Data
 	logger *slog.Logger
 }
 
-// New creates a new infrastructure service
-func New(cfg *config.Data, log *slog.Logger) Service {
-	return &impl{
+// NewPostgres creates a new PostgreSQL infrastructure.
+func NewPostgres(cfg *config.Data, log *slog.Logger) *Postgres {
+	return &Postgres{
 		config: cfg,
 		logger: log.With("service", "infrastructure"),
 	}
 }
 
-func (s *impl) NewConn(ctx context.Context) (*pgconn.PgConn, error) {
+// NewConn returns the connection to the database.
+func (s *Postgres) NewConn(ctx context.Context) (*pgconn.PgConn, error) {
+	//nolint:wrapcheck
 	return pgconn.Connect(ctx, s.config.Source.DSN)
 }

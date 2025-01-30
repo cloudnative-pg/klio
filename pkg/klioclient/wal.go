@@ -1,8 +1,7 @@
-package tier1
+package klioclient
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"io"
 	"path"
@@ -16,28 +15,11 @@ import (
 	"github.com/kopia/kopia/snapshot/snapshotfs"
 )
 
-// WALNotFoundError is returned when the WAL file is not found.
-type WALNotFoundError struct {
-	walName string
-}
-
-func (e *WALNotFoundError) Error() string {
-	return fmt.Sprintf("WAL file not found: %s", e.walName)
-}
-
-// RepositoryNotInitializedError is returned when the repository is not initialized.
-type RepositoryNotInitializedError struct{}
-
-func (e *RepositoryNotInitializedError) Error() string {
-	return "repository not initialized"
-}
+// ErrNoManifestsPassed is raised when the Klio repository is empty.
+var ErrNoManifestsPassed = fmt.Errorf("no manifests passed")
 
 // StoreWAL stores a WAL file inside the repository.
-func (s *impl) StoreWAL(ctx context.Context, name string, content []byte) error {
-	if !s.IsReady() {
-		return errors.New("tier1 is not yet ready")
-	}
-
+func (s *Connection) StoreWAL(ctx context.Context, name string, content []byte) error {
 	// This enables Kopia debugging
 	// ctx = logging.WithLogger(ctx, logging.ToWriter(os.Stdout))
 	ctx, writer, err := s.repository.NewWriter(ctx, repo.WriteSessionOptions{
@@ -56,8 +38,8 @@ func (s *impl) StoreWAL(ctx context.Context, name string, content []byte) error 
 
 	source := getWALFileEntry(name, content)
 	sourceInfo := snapshot.SourceInfo{
-		Host:     s.config.ClusterName,
-		UserName: s.config.ClusterName,
+		Host:     s.serverConfig.Hostname,
+		UserName: s.serverConfig.Username,
 		Path:     path.Join("/wal", name),
 	}
 
@@ -91,11 +73,7 @@ func (s *impl) StoreWAL(ctx context.Context, name string, content []byte) error 
 }
 
 // GetLatestWALFileName returns the latest WAL file that have been archived.
-func (s *impl) GetLatestWALFileName(ctx context.Context) (string, error) {
-	if !s.IsReady() {
-		return "", errors.New("tier1 is not yet ready")
-	}
-
+func (s *Connection) GetLatestWALFileName(ctx context.Context, segmentSize uint64) (string, error) {
 	//nolint:godox
 	// TODO: this doesn't scale well, we need to find a better solution.
 	manifests, err := s.repository.FindManifests(ctx, s.getSnapshotRepositoryLabels())
@@ -103,12 +81,12 @@ func (s *impl) GetLatestWALFileName(ctx context.Context) (string, error) {
 		return "", fmt.Errorf("while finding manifests: %w", err)
 	}
 
-	return getLatestWALFileNameFromManifests(manifests, s.segmentSize)
+	return getLatestWALFileNameFromManifests(manifests, segmentSize)
 }
 
 func getLatestWALFileNameFromManifests(manifests []*manifest.EntryMetadata, walSegmentSize uint64) (string, error) {
 	if len(manifests) == 0 {
-		return "", fmt.Errorf("no manifests passed")
+		return "", ErrNoManifestsPassed
 	}
 
 	type wal struct {
@@ -119,22 +97,22 @@ func getLatestWALFileNameFromManifests(manifests []*manifest.EntryMetadata, walS
 	firstWALName := path.Base(manifests[0].Labels["path"])
 	firstWALLsn, err := types.LSNStartFromWALName(firstWALName, walSegmentSize)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("while getting latest WAL file from manifests: %w", err)
 	}
 	latestWAL := wal{
 		name: firstWALName,
 		lsn:  firstWALLsn,
 	}
 
-	for _, m := range manifests {
-		lsn, err := types.LSNStartFromWALName(path.Base(m.Labels["path"]), walSegmentSize)
+	for _, manifest := range manifests {
+		lsn, err := types.LSNStartFromWALName(path.Base(manifest.Labels["path"]), walSegmentSize)
 		if err != nil {
-			return "", err
+			return "", fmt.Errorf("while getting latest WAL file from manifests: %w", err)
 		}
 
 		if lsn > latestWAL.lsn {
 			latestWAL = wal{
-				name: path.Base(m.Labels["path"]),
+				name: path.Base(manifest.Labels["path"]),
 				lsn:  lsn,
 			}
 		}
@@ -143,11 +121,8 @@ func getLatestWALFileNameFromManifests(manifests []*manifest.EntryMetadata, walS
 	return latestWAL.name, nil
 }
 
-func (s *impl) GetWAL(ctx context.Context, walName string) (*WalEntry, error) {
-	if !s.IsReady() {
-		return nil, errors.New("tier1 is not yet ready")
-	}
-
+// GetWAL downloads a WAL file from the Klio server.
+func (s *Connection) GetWAL(ctx context.Context, walName string) (*WalEntry, error) {
 	manifests, err := s.repository.FindManifests(ctx, s.getSnapshotRepositoryLabels())
 	if err != nil {
 		return nil, fmt.Errorf("while finding manifests: %w", err)
@@ -188,11 +163,11 @@ func (s *impl) GetWAL(ctx context.Context, walName string) (*WalEntry, error) {
 	return &WalEntry{walName: walName, content: readerData}, nil
 }
 
-func (s *impl) getSnapshotRepositoryLabels() map[string]string {
+func (s *Connection) getSnapshotRepositoryLabels() map[string]string {
 	return map[string]string{
 		"type":     "snapshot",
-		"hostname": s.config.ClusterName,
-		"username": s.config.ClusterName,
+		"hostname": s.serverConfig.Hostname,
+		"username": s.serverConfig.Username,
 		"content":  "wal",
 	}
 }
