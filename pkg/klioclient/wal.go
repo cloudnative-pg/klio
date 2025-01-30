@@ -2,10 +2,10 @@ package klioclient
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"path"
-	"path/filepath"
 
 	"github.com/cloudnative-pg/machinery/pkg/types"
 	"github.com/kopia/kopia/repo"
@@ -38,8 +38,8 @@ func (s *Connection) StoreWAL(ctx context.Context, name string, content []byte) 
 
 	source := getWALFileEntry(name, content)
 	sourceInfo := snapshot.SourceInfo{
-		Host:     s.serverConfig.Hostname,
-		UserName: s.serverConfig.Username,
+		Host:     s.hostname,
+		UserName: s.username,
 		Path:     path.Join("/wal", name),
 	}
 
@@ -121,26 +121,38 @@ func getLatestWALFileNameFromManifests(manifests []*manifest.EntryMetadata, walS
 	return latestWAL.name, nil
 }
 
+// ErrWALFileNotFound is raised when no WAL has been found.
+var ErrWALFileNotFound = errors.New("wal file not found")
+
+// ErrDuplicateManifestEntries is raised when there are two Kopia manifests
+// for the same source entry.
+var ErrDuplicateManifestEntries = errors.New("duplicate WAL manifest found, repository is corrupted")
+
 // GetWAL downloads a WAL file from the Klio server.
 func (s *Connection) GetWAL(ctx context.Context, walName string) (*WalEntry, error) {
-	manifests, err := s.repository.FindManifests(ctx, s.getSnapshotRepositoryLabels())
+	kopiaPath := path.Join("/wal", walName)
+
+	sourceInfo := snapshot.SourceInfo{
+		Host:     s.hostname,
+		UserName: s.username,
+		Path:     kopiaPath,
+	}
+
+	manifests, err := snapshot.ListSnapshotManifests(ctx, s.repository, &sourceInfo, s.getSnapshotRepositoryLabels())
 	if err != nil {
 		return nil, fmt.Errorf("while finding manifests: %w", err)
 	}
 
-	var walManifest *manifest.EntryMetadata
-	for _, m := range manifests {
-		if filepath.Base(m.Labels["path"]) == walName {
-			walManifest = m
-			break
-		}
+	if len(manifests) == 0 {
+		return nil, ErrWALFileNotFound
+	}
+	if len(manifests) > 1 {
+		return nil, ErrDuplicateManifestEntries
 	}
 
-	if walManifest == nil {
-		return nil, &WALNotFoundError{walName: walName}
-	}
+	walManifestID := manifests[0]
 
-	mf, err := snapshot.LoadSnapshot(ctx, s.repository, walManifest.ID)
+	mf, err := snapshot.LoadSnapshot(ctx, s.repository, walManifestID)
 	if err != nil {
 		return nil, fmt.Errorf("while loading snapshot: %w", err)
 	}
@@ -166,8 +178,8 @@ func (s *Connection) GetWAL(ctx context.Context, walName string) (*WalEntry, err
 func (s *Connection) getSnapshotRepositoryLabels() map[string]string {
 	return map[string]string{
 		"type":     "snapshot",
-		"hostname": s.serverConfig.Hostname,
-		"username": s.serverConfig.Username,
+		"hostname": s.hostname,
+		"username": s.username,
 		"content":  "wal",
 	}
 }
