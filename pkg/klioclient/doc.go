@@ -1,3 +1,2 @@
-// Package klioclient implements a layer to dial with the Kopia
-// library
+// Package klioclient implements a layer to dial with the backend storage
 package klioclient

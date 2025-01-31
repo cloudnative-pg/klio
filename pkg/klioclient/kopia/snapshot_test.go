@@ -1,4 +1,4 @@
-package klioclient
+package kopia
 
 import (
 	"context"

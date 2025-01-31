@@ -80,7 +80,6 @@ func (wal *Data) ProcessWALData(data []byte, startWAL types.LSN) error {
 		}
 	} else {
 		// More data in existing segment
-		//nolint:gosec
 		if uint64(wal.buffer.Len()) != xlogoff {
 			return &UnexpectedWalDataOffsetError{offset: xlogoff, expected: wal.buffer.Len()}
 		}
@@ -116,7 +115,7 @@ func (wal *Data) ProcessWALData(data []byte, startWAL types.LSN) error {
 		xlogoff += bytesToWrite
 
 		// Did we reach the end of a WAL segment?
-		//nolint:gosec
+
 		if uint64(wal.buffer.Len()) == wal.segmentSize {
 			err := wal.closeWALFile()
 			if err != nil {

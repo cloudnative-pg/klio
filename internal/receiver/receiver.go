@@ -24,11 +24,11 @@ type Process struct {
 	config         *config.Data
 	logger         *slog.Logger
 	infrastructure *infrastructure.Postgres
-	client         *klioclient.Connection
+	client         klioclient.Client
 }
 
 // New creates a new receiver.
-func New(cfg *config.Data, log *slog.Logger, client *klioclient.Connection) *Process {
+func New(cfg *config.Data, log *slog.Logger, client klioclient.Client) *Process {
 	return &Process{
 		config:         cfg,
 		logger:         log.With("service", "receive_wal"),

@@ -39,7 +39,7 @@ var walPushCmd = &cobra.Command{
 			return fmt.Errorf("configuration validation error: %w", errs)
 		}
 
-		client, err := klioclient.Connect(cmd.Context(), logger, &configuration.Server)
+		client, err := klioclient.NewKopiaClient(cmd.Context(), logger, &configuration.Server)
 		if err != nil {
 			return fmt.Errorf("while connecting to the Klio server: %w", err)
 		}
