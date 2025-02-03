@@ -2,6 +2,7 @@
 package cmd
 
 import (
+	"errors"
 	"fmt"
 	"log/slog"
 
@@ -14,6 +15,14 @@ import (
 	"github.com/EnterpriseDB/klio/pkg/klioclient"
 )
 
+// ErrSourceSectionIsRequired is raised when the WAL pusher is started without a
+// source specification.
+var ErrSourceSectionIsRequired = errors.New("'source' configuration section is required for WAL pusher")
+
+// ErrClientSectionIsRequired is raired when the WAL pusher is started without a
+// client specification.
+var ErrClientSectionIsRequired = errors.New("'client' configuration section is required for WAL pusher")
+
 // runCmd represents the run command
 //
 //nolint:gochecknoglobals
@@ -25,13 +34,21 @@ var walPushCmd = &cobra.Command{
 
 		var configuration config.Data
 
-		// Sets the defaults values, to be overridden by the user configuration
-		configuration.SetDefaults()
-
 		// IMPORTANT: this requires this program to be built with "-tags viper_bind_struct"
 		// when using environment variables
 		if err := viper.Unmarshal(&configuration); err != nil {
 			return fmt.Errorf("could not unmarshal configuration: %w", err)
+		}
+
+		// Sets the defaults values, to be overridden by the user configuration
+		configuration.SetDefaults()
+
+		if configuration.Source == nil {
+			return ErrSourceSectionIsRequired
+		}
+
+		if configuration.Client == nil {
+			return ErrClientSectionIsRequired
 		}
 
 		logger.Debug("Current configuration", "configuration", configuration)
@@ -39,9 +56,26 @@ var walPushCmd = &cobra.Command{
 			return fmt.Errorf("configuration validation error: %w", errs)
 		}
 
-		client, err := klioclient.NewKopiaClient(cmd.Context(), logger, &configuration.Server)
-		if err != nil {
-			return fmt.Errorf("while connecting to the Klio server: %w", err)
+		var client klioclient.Client
+		var err error
+
+		if configuration.Client.Klio != nil {
+			if client, err = klioclient.NewKlioClient(
+				logger,
+				configuration.Client.Klio,
+			); err != nil {
+				return fmt.Errorf("while connecting to the Klio server: %w", err)
+			}
+		}
+		if configuration.Client.Kopia != nil {
+			client, err = klioclient.NewKopiaClient(
+				cmd.Context(),
+				logger,
+				configuration.Client.Kopia,
+			)
+			if err != nil {
+				return fmt.Errorf("while connecting to the Klio server: %w", err)
+			}
 		}
 
 		walReceiver := receiver.New(&configuration, logger, client)

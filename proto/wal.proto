@@ -1,0 +1,28 @@
+syntax = "proto3";
+package klio.wal.v1;
+option go_package = "github.com/EnterpriseDB/klio/internal/klioserver/grpc";
+
+service WAL {
+    rpc UploadWAL(stream UploadWALRequest) returns (UploadWALResult) {}
+    rpc GetWAL(GetWALRequest) returns (stream GetWALResult) {}
+}
+
+message UploadWALRequest {
+    string cluster_name = 1;
+    string wal_name = 2;
+    bytes wal_block = 3;
+    uint64 segment_size = 4;
+}
+
+message UploadWALResult {
+    uint64 written_size = 1;
+}
+
+message GetWALRequest {
+    string cluster_name = 1;
+    string wal_name = 2;
+}
+
+message GetWALResult {
+    bytes wal_block = 1;
+}

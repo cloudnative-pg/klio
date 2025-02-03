@@ -4,9 +4,9 @@
   "sdk": "go",
   "dependencies": [
     {
-      "name": "k3s",
-      "source": "github.com/marcosnils/daggerverse/k3s@k3s/v0.1.7",
-      "pin": "833ec36632b2457862f6e3bf1f7107ad65e3e515"
+      "name": "protoc-gen-go-grpc",
+      "source": "github.com/cloudnative-pg/daggerverse/protoc-gen-go-grpc",
+      "pin": "9151fdb403298e305889668706b6cd69bb287e88"
     },
     {
       "name": "go",
@@ -17,6 +17,11 @@
       "name": "golangci-lint",
       "source": "github.com/sagikazarmark/daggerverse/golangci-lint",
       "pin": "c1be27189ce47d28f84014b715f78e47db9fbadc"
+    },
+    {
+      "name": "k3s",
+      "source": "github.com/marcosnils/daggerverse/k3s@k3s/v0.1.7",
+      "pin": "833ec36632b2457862f6e3bf1f7107ad65e3e515"
     }
   ],
   "source": ".dagger"

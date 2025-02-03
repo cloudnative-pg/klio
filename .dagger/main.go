@@ -147,3 +147,18 @@ func (m *Klio) CI(
 	})
 	return p.Wait()
 }
+
+// Protoc runs "protoc" and compiles the proto file into the relative
+// client and server
+func (m *Klio) Protoc(
+	ctx context.Context,
+	source *dagger.Directory,
+) *dagger.Directory {
+	return dag.ProtocGenGoGrpc().
+		Run(
+			source,
+			"proto",
+			"module=github.com/EnterpriseDB/klio/internal/klioserver/grpc",
+			"module=github.com/EnterpriseDB/klio/internal/klioserver/grpc",
+		)
+}

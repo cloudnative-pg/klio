@@ -36,3 +36,9 @@ CloudNative-PG, the minimal cluster and **klio**:
 ```
 dagger call kubernetes --source . terminal
 ```
+
+## How to recreate the GRPC stub and skeleton
+
+```
+dagger call protoc --source . -o internal/klioserver/grpc
+```

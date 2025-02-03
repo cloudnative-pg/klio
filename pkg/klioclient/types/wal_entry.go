@@ -1,4 +1,4 @@
-package kopia
+package types
 
 import (
 	"context"
@@ -21,6 +21,14 @@ type WalEntry struct {
 	content []byte
 }
 
+// NewWalEntry creates a new WAL entry.
+func NewWalEntry(name string, content []byte) *WalEntry {
+	return &WalEntry{
+		walName: name,
+		content: content,
+	}
+}
+
 // Open opens the WAL file entry.
 func (entry WalEntry) Open(_ context.Context) (fs.Reader, error) { //nolint:ireturn
 	return &walReader{
@@ -37,6 +45,11 @@ func (entry WalEntry) Name() string {
 // Size returns the size of the WAL file entry.
 func (entry WalEntry) Size() int64 {
 	return int64(len(entry.content))
+}
+
+// Content returns the content of the WAL file entry.
+func (entry WalEntry) Content() []byte {
+	return entry.content
 }
 
 // Mode returns the mode of the WAL file entry.
@@ -103,11 +116,4 @@ type walReader struct {
 
 func (reader walReader) Entry() (fs.Entry, error) { //nolint:ireturn
 	return reader.entry, nil
-}
-
-func getWALFileEntry(walName string, content []byte) fs.File { //nolint:ireturn
-	return WalEntry{
-		walName: walName,
-		content: content,
-	}
 }

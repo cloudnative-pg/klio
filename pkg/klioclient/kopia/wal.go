@@ -8,11 +8,14 @@ import (
 	"path"
 
 	"github.com/cloudnative-pg/machinery/pkg/types"
+	"github.com/kopia/kopia/fs"
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/repo/manifest"
 	"github.com/kopia/kopia/snapshot"
 	"github.com/kopia/kopia/snapshot/policy"
 	"github.com/kopia/kopia/snapshot/snapshotfs"
+
+	klioTypes "github.com/EnterpriseDB/klio/pkg/klioclient/types"
 )
 
 // ErrNoManifestsPassed is raised when the Klio repository is empty.
@@ -129,7 +132,7 @@ var ErrWALFileNotFound = errors.New("wal file not found")
 var ErrDuplicateManifestEntries = errors.New("duplicate WAL manifest found, repository is corrupted")
 
 // GetWAL downloads a WAL file from the Klio server.
-func (s *Connection) GetWAL(ctx context.Context, walName string) (*WalEntry, error) {
+func (s *Connection) GetWAL(ctx context.Context, walName string) (*klioTypes.WalEntry, error) {
 	kopiaPath := path.Join("/wal", walName)
 
 	sourceInfo := snapshot.SourceInfo{
@@ -172,7 +175,7 @@ func (s *Connection) GetWAL(ctx context.Context, walName string) (*WalEntry, err
 		return nil, fmt.Errorf("while reading object: %w", err)
 	}
 
-	return &WalEntry{walName: walName, content: readerData}, nil
+	return klioTypes.NewWalEntry(walName, readerData), nil
 }
 
 func (s *Connection) getSnapshotRepositoryLabels() map[string]string {
@@ -182,4 +185,9 @@ func (s *Connection) getSnapshotRepositoryLabels() map[string]string {
 		"username": s.username,
 		"content":  "wal",
 	}
+}
+
+//nolint:ireturn
+func getWALFileEntry(walName string, content []byte) fs.File {
+	return klioTypes.NewWalEntry(walName, content)
 }
