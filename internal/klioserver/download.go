@@ -13,7 +13,7 @@ import (
 
 // GetWAL implements the relative GRPC call.
 func (w *WALServerImplementation) GetWAL(req *grpc.GetWALRequest, res grpc.WAL_GetWALServer) error {
-	walReader, err := NewWALReader(w.cfg.WALPath, req.GetClusterName(), req.GetWalName())
+	walReader, err := NewWALReader(w.conn, req.GetClusterName(), req.GetWalName())
 	if os.IsNotExist(err) {
 		return status.Errorf(codes.NotFound, "WAL not found: %v/%v", req.GetClusterName(), req.GetWalName())
 	}
@@ -33,7 +33,7 @@ func (w *WALServerImplementation) GetWAL(req *grpc.GetWALRequest, res grpc.WAL_G
 		}
 
 		if errors.Is(readError, io.EOF) {
-			w.logger.Debug("WAL read completed", "name", req.WalName, "cluster", req.GetClusterName())
+			w.logger.Debug("WAL read completed", "name", req.GetWalName(), "cluster", req.GetClusterName())
 			break
 		}
 	}

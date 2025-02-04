@@ -14,6 +14,7 @@ import (
 
 	"github.com/EnterpriseDB/klio/internal/klioserver"
 	klioGRPC "github.com/EnterpriseDB/klio/internal/klioserver/grpc"
+	"github.com/EnterpriseDB/klio/internal/klioserver/repository"
 	"github.com/EnterpriseDB/klio/pkg/config"
 )
 
@@ -31,11 +32,20 @@ type TemporaryConnection struct {
 func ConnectTemporary(
 	logger *slog.Logger,
 	cfg *config.KlioRepositoryClientConfig,
-	dirName string,
+	opts repository.Options,
 ) (*TemporaryConnection, error) {
 	//nolint:gosec
 	listeningPort := rand.IntN(1000)
 	address := fmt.Sprintf("localhost:%v", listeningPort+5000)
+
+	if err := repository.Initialize(opts); err != nil {
+		return nil, fmt.Errorf("initializing repository: %w", err)
+	}
+
+	repoConnection, err := repository.Open(opts)
+	if err != nil {
+		return nil, fmt.Errorf("cannot open local repository: %w", err)
+	}
 
 	listener, err := net.Listen("tcp", address)
 	if err != nil {
@@ -45,13 +55,7 @@ func ConnectTemporary(
 	server := grpc.NewServer(grpc.Creds(insecure.NewCredentials()))
 	klioGRPC.RegisterWALServer(
 		server,
-		klioserver.NewWALServerImplementation(
-			logger,
-			&config.KlioServerConfig{
-				ListenAddress: address,
-				WALPath:       dirName,
-			},
-		),
+		klioserver.NewWALServerImplementation(logger, repoConnection),
 	)
 
 	go func() {
@@ -78,7 +82,7 @@ func ConnectTemporary(
 			grpcConnection: conn,
 		},
 		listener: listener,
-		dirName:  dirName,
+		dirName:  opts.Path,
 	}, nil
 }
 

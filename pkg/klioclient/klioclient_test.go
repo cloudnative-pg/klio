@@ -8,6 +8,7 @@ import (
 	"os"
 	"testing"
 
+	"github.com/EnterpriseDB/klio/internal/klioserver/repository"
 	"github.com/EnterpriseDB/klio/pkg/config"
 	"github.com/EnterpriseDB/klio/pkg/klioclient/grpcclient"
 	"github.com/EnterpriseDB/klio/pkg/klioclient/kopia"
@@ -66,7 +67,10 @@ func BenchmarkLookupSnapshotsViaKlioServer(b *testing.B) {
 			&config.KlioRepositoryClientConfig{
 				ClusterName: "cluster-name",
 			},
-			dirName,
+			repository.Options{
+				Path:     dirName,
+				Password: "random-string",
+			},
 		)
 		if err != nil {
 			return nil, fmt.Errorf("error while creating local kopia repository at %v: %w", dirName, err)
@@ -89,7 +93,6 @@ func benchLookupSnapshots(b *testing.B, creator repositoryCreatorFunction) {
 		500,
 		1000,
 		5000,
-		10000,
 	}
 
 	repositories := make([]testingRepository, len(combinations))

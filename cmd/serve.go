@@ -16,6 +16,7 @@ import (
 
 	"github.com/EnterpriseDB/klio/internal/klioserver"
 	klioGRPC "github.com/EnterpriseDB/klio/internal/klioserver/grpc"
+	"github.com/EnterpriseDB/klio/internal/klioserver/repository"
 	"github.com/EnterpriseDB/klio/pkg/config"
 )
 
@@ -69,11 +70,20 @@ var serveCmd = &cobra.Command{
 			MinVersion:   tls.VersionTLS13,
 		}
 
+		// Connects to the Klio repository
+		repoConnection, err := repository.Open(repository.Options{
+			Path:     configuration.KlioServerConfig.WALPath,
+			Password: configuration.KlioServerConfig.Password,
+		})
+		if err != nil {
+			return fmt.Errorf("failed to connect to local repository: %w", err)
+		}
+
 		// Starts the WAL server
 		server := grpc.NewServer(grpc.Creds(credentials.NewTLS(tlsConfig)))
 		klioGRPC.RegisterWALServer(
 			server,
-			klioserver.NewWALServerImplementation(slog.Default(), configuration.KlioServerConfig),
+			klioserver.NewWALServerImplementation(slog.Default(), repoConnection),
 		)
 		if err := server.Serve(listener); !errors.Is(err, net.ErrClosed) {
 			return fmt.Errorf("error while running server: %w", err)

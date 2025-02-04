@@ -103,6 +103,13 @@ type KlioServerConfig struct {
 
 	// WALPath is the path where the WALs should be stored
 	WALPath string `mapstructure:"wal_path" validate:"nonzero"`
+
+	// PGDataPath is the path to the Kopia repo that is used to snapshot
+	// PostgreSQL
+	PGDataPath string `mapstructure:"wal_path" validate:"nonzero"`
+
+	// Password is the encryption password
+	Password string `mapstructure:"password" validate:"nonzero"`
 }
 
 // SetDefaults sets the default values of the configuration.

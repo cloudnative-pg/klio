@@ -6,6 +6,8 @@ import (
 	"io"
 	"os"
 	"path"
+
+	"github.com/EnterpriseDB/klio/internal/klioserver/repository"
 )
 
 // WALReader is the WAL file writer.
@@ -16,12 +18,12 @@ type WALReader struct {
 }
 
 // NewWALReader creates a new WAL file writer.
-func NewWALReader(baseDir, clusterName, walName string) (*WALReader, error) {
+func NewWALReader(conn *repository.Connection, clusterName, walName string) (*WALReader, error) {
 	if len(walName) < 16 {
 		return nil, NewIncorrectWALNameError(walName)
 	}
 
-	walFileBase := path.Join(baseDir, clusterName, walName[0:16])
+	walFileBase := path.Join(conn.BaseDir(), clusterName, walName[0:16])
 	walFilePath := path.Join(walFileBase, walName)
 
 	//nolint:gosec
@@ -34,7 +36,17 @@ func NewWALReader(baseDir, clusterName, walName string) (*WALReader, error) {
 		)
 	}
 
-	gzipReader, err := gzip.NewReader(walFileReader)
+	decryptingReader, err := conn.ProtectReader(walFileReader)
+	if err != nil {
+		_ = walFileReader.Close()
+		return nil, fmt.Errorf(
+			"error while creating decrypting reader for file %s: %w",
+			walFilePath,
+			err,
+		)
+	}
+
+	gzipReader, err := gzip.NewReader(decryptingReader)
 	if err != nil {
 		return nil, fmt.Errorf("while reading WAL (gzip): %w", err)
 	}

@@ -104,7 +104,7 @@ func (w *WALServerImplementation) UploadWAL(req grpc.WAL_UploadWALServer) error 
 		}
 
 		if walBuffer == nil {
-			walBuffer, err = NewWALWriter(w.cfg.WALPath, blockMeta.clusterName, blockMeta.walFileName)
+			walBuffer, err = NewWALWriter(w.conn, blockMeta.clusterName, blockMeta.walFileName)
 			if err != nil {
 				return status.Errorf(codes.Internal, "error while opening new WAL: %v", err.Error())
 			}
@@ -129,6 +129,7 @@ func (w *WALServerImplementation) UploadWAL(req grpc.WAL_UploadWALServer) error 
 		}); err != nil {
 			return status.Errorf(codes.Internal, "error while closing (partial) WAL: %v", err.Error())
 		}
+
 		return nil
 	}
 
