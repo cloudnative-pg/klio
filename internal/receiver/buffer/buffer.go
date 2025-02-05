@@ -1,6 +1,7 @@
 package buffer
 
 import (
+	"context"
 	"fmt"
 	"log/slog"
 
@@ -29,7 +30,7 @@ func New(logger *slog.Logger, tli int, walSegmentSize uint64, handler Handler) *
 // ProcessWALData processes a WAL message from PG
 //
 //nolint:cyclop
-func (wal *Data) ProcessWALData(data []byte, startWAL types.LSN) error {
+func (wal *Data) ProcessWALData(ctx context.Context, data []byte, startWAL types.LSN) error {
 	// This implementation is largely based on src/bin/pg_basebackup/receivelog.c
 	// [ProcessXLogDataMsg]
 
@@ -74,12 +75,12 @@ func (wal *Data) ProcessWALData(data []byte, startWAL types.LSN) error {
 		}
 
 		if !wal.handler.HasWALFileOpened() {
-			if err := wal.handler.OpenWAL(blockpos); err != nil {
+			if err := wal.handler.OpenWAL(ctx, blockpos); err != nil {
 				return err //nolint:wrapcheck
 			}
 		}
 
-		_, err := wal.handler.Write(data[bytesWritten : bytesWritten+bytesToWrite])
+		_, err := wal.handler.Write(ctx, data[bytesWritten:bytesWritten+bytesToWrite])
 		if err != nil {
 			return fmt.Errorf("while writing to WAL buffer: %w", err)
 		}
@@ -91,7 +92,7 @@ func (wal *Data) ProcessWALData(data []byte, startWAL types.LSN) error {
 
 		// Did we reach the end of a WAL segment?
 		if wal.handler.CurrentOffset() == wal.segmentSize {
-			err := wal.handler.CloseWAL()
+			err := wal.handler.CloseWAL(ctx)
 			if err != nil {
 				return fmt.Errorf("while flushing WAL buffer: %w", err)
 			}

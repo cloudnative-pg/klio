@@ -87,5 +87,5 @@ func (k *kopiaProgress) UploadStarted() {
 
 // UploadedBytes implements snapshotfs.UploadProgress.
 func (k *kopiaProgress) UploadedBytes(numBytes int64) {
-	k.p.NotifyStatus(k.startPath, uint64(numBytes), uint64(k.totalBytes)) //nolint:gosec
+	k.p.NotifyStatus(k.startPath, uint64(numBytes), uint64(k.totalBytes))
 }

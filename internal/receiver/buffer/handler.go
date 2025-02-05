@@ -1,5 +1,7 @@
 package buffer
 
+import "context"
+
 // Handler is the interface used to process WAL data.
 // This is vastly modeled around the pg_basebackup codebase.
 type Handler interface {
@@ -8,14 +10,14 @@ type Handler interface {
 
 	// OpenWAL opens a new WAL for the passed position.
 	// The passed position refers to the start of a WAL file
-	OpenWAL(blockpos uint64) error
+	OpenWAL(ctx context.Context, blockpos uint64) error
 
 	// CloseWAL closes a WAL file
-	CloseWAL() error
+	CloseWAL(ctx context.Context) error
 
 	// CurrentOffset returns the current offset in the WAL file
 	CurrentOffset() uint64
 
 	// Write writes data in the current WAL file
-	Write(p []byte) (n int, err error)
+	Write(ctx context.Context, p []byte) (n int, err error)
 }

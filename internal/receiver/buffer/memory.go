@@ -2,6 +2,7 @@ package buffer
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"log/slog"
 
@@ -42,7 +43,7 @@ func (wal *MemBufferHandler) HasWALFileOpened() bool {
 }
 
 // OpenWAL implements the Handler interface.
-func (wal *MemBufferHandler) OpenWAL(blockpos uint64) error {
+func (wal *MemBufferHandler) OpenWAL(_ context.Context, blockpos uint64) error {
 	var err error
 
 	wal.currentWALFile, err = types.Int64ToLSN(blockpos).WALFileName(wal.tli, wal.segmentSize)
@@ -57,7 +58,7 @@ func (wal *MemBufferHandler) OpenWAL(blockpos uint64) error {
 }
 
 // CloseWAL implements the Handler interface.
-func (wal *MemBufferHandler) CloseWAL() error {
+func (wal *MemBufferHandler) CloseWAL(_ context.Context) error {
 	wal.logger.Debug("Closing WAL File", "walFileName", wal.currentWALFile)
 	if err := wal.flusher(wal.currentWALFile, wal.buffer.Bytes()); err != nil {
 		return err
@@ -71,10 +72,10 @@ func (wal *MemBufferHandler) CloseWAL() error {
 
 // CurrentOffset implements the Handler interface.
 func (wal *MemBufferHandler) CurrentOffset() uint64 {
-	return uint64(wal.buffer.Len()) //nolint:gosec
+	return uint64(wal.buffer.Len())
 }
 
 // Write implements the Handler interface.
-func (wal *MemBufferHandler) Write(p []byte) (int, error) {
+func (wal *MemBufferHandler) Write(_ context.Context, p []byte) (int, error) {
 	return wal.buffer.Write(p) //nolint:wrapcheck
 }

@@ -119,7 +119,7 @@ func (w *WALServerImplementation) UploadWAL(req grpc.WAL_UploadWALServer) error 
 			return status.Errorf(codes.Internal, "error while flushing WAL: %v", err.Error())
 		}
 
-		writtenSize += uint64(bytesWritten) //nolint:gosec
+		writtenSize += uint64(bytesWritten)
 	}
 
 	if walBuffer == nil {

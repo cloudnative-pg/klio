@@ -237,10 +237,7 @@ func (s *Process) manageWALStream(
 					continue
 				}
 
-				if err = buffer.ProcessWALData(
-					xld.WALData,
-					types.LSN(xld.WALStart.String()),
-				); err != nil {
+				if err = buffer.ProcessWALData(ctx, xld.WALData, types.LSN(xld.WALStart.String())); err != nil {
 					s.logger.Error("Error while processing WAL data", "err", err, "lsn", xld.WALStart)
 					return fmt.Errorf("could not process WAL data at %s: %w", xld.WALStart, err)
 				}

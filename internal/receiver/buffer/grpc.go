@@ -41,13 +41,13 @@ func NewKlioClientHandler(
 }
 
 // OpenWAL implements the Handler interface.
-func (wal *KlioClientStreamingHandler) OpenWAL(blockpos uint64) error {
+func (wal *KlioClientStreamingHandler) OpenWAL(ctx context.Context, blockpos uint64) error {
 	currentWALFile, err := types.Int64ToLSN(blockpos).WALFileName(wal.tli, wal.segmentSize)
 	if err != nil {
 		return fmt.Errorf("while creating WAL file name (pos %v): %w", blockpos, err)
 	}
 
-	stream, err := wal.conn.StoreWALStreaming(context.TODO(), wal.currentWALFile, wal.segmentSize)
+	stream, err := wal.conn.StoreWALStreaming(ctx, wal.currentWALFile, wal.segmentSize)
 	if err != nil {
 		return fmt.Errorf("while starting WAL file streaming (pos %v): %w", blockpos, err)
 	}
@@ -65,10 +65,10 @@ func (wal *KlioClientStreamingHandler) HasWALFileOpened() bool {
 }
 
 // CloseWAL implements the Handler interface.
-func (wal *KlioClientStreamingHandler) CloseWAL() error {
+func (wal *KlioClientStreamingHandler) CloseWAL(ctx context.Context) error {
 	wal.logger.Debug("Closing WAL File", "walFileName", wal.currentWALFile)
 
-	if err := wal.stream.Close(context.TODO()); err != nil {
+	if err := wal.stream.Close(ctx); err != nil {
 		return err //nolint:wrapcheck
 	}
 
@@ -84,8 +84,8 @@ func (wal *KlioClientStreamingHandler) CurrentOffset() uint64 {
 }
 
 // Write implements the Handler interface.
-func (wal *KlioClientStreamingHandler) Write(block []byte) (int, error) {
-	err := wal.stream.SendBlock(context.TODO(), block)
+func (wal *KlioClientStreamingHandler) Write(ctx context.Context, block []byte) (int, error) {
+	err := wal.stream.SendBlock(ctx, block)
 	if err != nil {
 		return 0, err //nolint:wrapcheck
 	}
