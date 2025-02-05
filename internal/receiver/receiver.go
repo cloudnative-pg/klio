@@ -16,7 +16,7 @@ import (
 	"github.com/EnterpriseDB/klio/internal/infrastructure"
 	"github.com/EnterpriseDB/klio/internal/receiver/buffer"
 	"github.com/EnterpriseDB/klio/pkg/config"
-	"github.com/EnterpriseDB/klio/pkg/klioclient"
+	"github.com/EnterpriseDB/klio/pkg/klioclient/common"
 )
 
 // Process implements the supervisor service.
@@ -24,11 +24,11 @@ type Process struct {
 	config         *config.Data
 	logger         *slog.Logger
 	infrastructure *infrastructure.Postgres
-	client         klioclient.Client
+	client         common.Client
 }
 
 // New creates a new receiver.
-func New(cfg *config.Data, log *slog.Logger, client klioclient.Client) *Process {
+func New(cfg *config.Data, log *slog.Logger, client common.Client) *Process {
 	return &Process{
 		config:         cfg,
 		logger:         log.With("service", "receive_wal"),
@@ -134,14 +134,19 @@ func (s *Process) startReplication(
 		"startWalLSN",
 		startWalLSN,
 	)
+
+	klioHandler := buffer.NewKlioClientHandler(
+		s.logger,
+		int(timeline),
+		walSegmentSize,
+		s.client,
+	)
+
 	buffer := buffer.New(
 		s.logger,
 		int(timeline),
 		walSegmentSize,
-		func(walName string, data []byte) error {
-			s.logger.Info("Archiving WAL", "walName", walName, "size", len(data))
-			return s.client.StoreWAL(ctx, walName, data)
-		},
+		klioHandler,
 	)
 
 	if err := s.manageWALStream(ctx, conn, clientXLogPos, buffer); err != nil {

@@ -18,6 +18,7 @@ import (
 
 	klioGRPC "github.com/EnterpriseDB/klio/internal/klioserver/grpc"
 	"github.com/EnterpriseDB/klio/pkg/config"
+	"github.com/EnterpriseDB/klio/pkg/klioclient/common"
 	"github.com/EnterpriseDB/klio/pkg/klioclient/types"
 )
 
@@ -162,6 +163,59 @@ func (c *Connection) Close(_ context.Context) error {
 	err := c.grpcConnection.Close()
 	if err != nil {
 		return fmt.Errorf("while closing connection: %w", err)
+	}
+
+	return nil
+}
+
+// StoreWALStreaming implements the WAL streaming service.
+func (c *Connection) StoreWALStreaming(ctx context.Context, name string, segmentSize uint64) (common.WALStream, error) {
+	stream, err := c.walClient.UploadWAL(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("while starting uploading a WAL file: %w", err)
+	}
+
+	return &grpcWALStream{
+		innerStream: stream,
+		segmentSize: segmentSize,
+		clusterName: c.cfg.ClusterName,
+		walName:     name,
+	}, nil
+}
+
+type grpcWALStream struct {
+	innerStream klioGRPC.WAL_UploadWALClient
+	segmentSize uint64
+	clusterName string
+	walName     string
+}
+
+// Close implements common.WALStream.
+func (g *grpcWALStream) Close(_ context.Context) error {
+	result, err := g.innerStream.CloseAndRecv()
+	if err != nil {
+		return fmt.Errorf("while flushing WAL file: %w", err)
+	}
+
+	if result.GetWrittenSize() != g.segmentSize {
+		return &IncompleteWALFileError{
+			uploadedSize: result.GetWrittenSize(),
+			expectedSize: g.segmentSize,
+		}
+	}
+
+	return nil
+}
+
+// SendBlock implements common.WALStream.
+func (g *grpcWALStream) SendBlock(_ context.Context, block []byte) error {
+	if err := g.innerStream.Send(&klioGRPC.UploadWALRequest{
+		ClusterName: g.clusterName,
+		WalName:     g.walName,
+		SegmentSize: g.segmentSize,
+		WalBlock:    block,
+	}); err != nil {
+		return status.Errorf(codes.Internal, "error while sending WAL block: %v", err.Error())
 	}
 
 	return nil

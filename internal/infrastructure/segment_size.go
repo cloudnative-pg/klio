@@ -64,13 +64,14 @@ func parseWALSegmentSize(size string) (uint64, error) {
 		return v * multiplier, nil
 	}
 
+	const multiplier = 1024
 	switch {
 	case strings.HasSuffix(size, "KB"):
-		return parseWithMultiplier(size[0:len(size)-2], 1024)
+		return parseWithMultiplier(size[0:len(size)-2], multiplier)
 	case strings.HasSuffix(size, "MB"):
-		return parseWithMultiplier(size[0:len(size)-2], 1024*1024)
+		return parseWithMultiplier(size[0:len(size)-2], multiplier*multiplier)
 	case strings.HasSuffix(size, "GB"):
-		return parseWithMultiplier(size[0:len(size)-2], 1024*1024*1024)
+		return parseWithMultiplier(size[0:len(size)-2], multiplier*multiplier*multiplier)
 	default:
 		return parseWithMultiplier(size, 1)
 	}

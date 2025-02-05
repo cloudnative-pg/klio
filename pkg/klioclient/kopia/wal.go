@@ -187,6 +187,6 @@ func (s *Connection) getSnapshotRepositoryLabels() map[string]string {
 	}
 }
 
-func getWALFileEntry(walName string, content []byte) fs.File { //nolint:ireturn
+func getWALFileEntry(walName string, content []byte) fs.File {
 	return klioTypes.NewWalEntry(walName, content)
 }

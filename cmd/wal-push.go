@@ -12,7 +12,9 @@ import (
 
 	"github.com/EnterpriseDB/klio/internal/receiver"
 	"github.com/EnterpriseDB/klio/pkg/config"
-	"github.com/EnterpriseDB/klio/pkg/klioclient"
+	"github.com/EnterpriseDB/klio/pkg/klioclient/common"
+	"github.com/EnterpriseDB/klio/pkg/klioclient/grpcclient"
+	"github.com/EnterpriseDB/klio/pkg/klioclient/kopia"
 )
 
 // ErrSourceSectionIsRequired is raised when the WAL pusher is started without a
@@ -56,11 +58,11 @@ var walPushCmd = &cobra.Command{
 			return fmt.Errorf("configuration validation error: %w", errs)
 		}
 
-		var client klioclient.Client
+		var client common.Client
 		var err error
 
 		if configuration.Client.Klio != nil {
-			if client, err = klioclient.NewKlioClient(
+			if client, err = grpcclient.Connect(
 				logger,
 				configuration.Client.Klio,
 			); err != nil {
@@ -68,7 +70,7 @@ var walPushCmd = &cobra.Command{
 			}
 		}
 		if configuration.Client.Kopia != nil {
-			client, err = klioclient.NewKopiaClient(
+			client, err = kopia.Connect(
 				cmd.Context(),
 				logger,
 				configuration.Client.Kopia,

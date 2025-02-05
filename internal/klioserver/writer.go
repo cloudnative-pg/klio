@@ -101,7 +101,7 @@ func (w *WALWriter) Close() error {
 	}
 
 	if err := w.encryptingWriter.Close(); err != nil {
-		return fmt.Errorf("close rror: while closing encrypting writer: %w", err)
+		return fmt.Errorf("close error: while closing encrypting writer: %w", err)
 	}
 
 	// the encrypting writer is closing the underlying file

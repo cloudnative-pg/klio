@@ -19,11 +19,12 @@ type WALReader struct {
 
 // NewWALReader creates a new WAL file writer.
 func NewWALReader(conn *repository.Connection, clusterName, walName string) (*WALReader, error) {
-	if len(walName) < 16 {
+	const expectedWalFileNameLength = 16
+	if len(walName) < expectedWalFileNameLength {
 		return nil, NewIncorrectWALNameError(walName)
 	}
 
-	walFileBase := path.Join(conn.BaseDir(), clusterName, walName[0:16])
+	walFileBase := path.Join(conn.BaseDir(), clusterName, walName[0:expectedWalFileNameLength])
 	walFilePath := path.Join(walFileBase, walName)
 
 	//nolint:gosec

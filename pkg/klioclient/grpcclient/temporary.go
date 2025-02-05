@@ -35,8 +35,8 @@ func ConnectTemporary(
 	opts repository.Options,
 ) (*TemporaryConnection, error) {
 	//nolint:gosec
-	listeningPort := rand.IntN(1000)
-	address := fmt.Sprintf("localhost:%v", listeningPort+5000)
+	listeningPort := rand.IntN(1000) + 5000
+	address := fmt.Sprintf("localhost:%v", listeningPort)
 
 	if err := repository.Initialize(opts); err != nil {
 		return nil, fmt.Errorf("initializing repository: %w", err)
