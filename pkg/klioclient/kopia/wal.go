@@ -8,7 +8,6 @@ import (
 	"path"
 
 	"github.com/cloudnative-pg/machinery/pkg/types"
-	"github.com/kopia/kopia/fs"
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/repo/manifest"
 	"github.com/kopia/kopia/snapshot"
@@ -39,7 +38,7 @@ func (s *Connection) StoreWAL(ctx context.Context, name string, content []byte) 
 		}
 	}()
 
-	source := getWALFileEntry(name, content)
+	source := klioTypes.NewEntry(name, content)
 	sourceInfo := snapshot.SourceInfo{
 		Host:     s.hostname,
 		UserName: s.username,
@@ -132,7 +131,7 @@ var ErrWALFileNotFound = errors.New("wal file not found")
 var ErrDuplicateManifestEntries = errors.New("duplicate WAL manifest found, repository is corrupted")
 
 // GetWAL downloads a WAL file from the Klio server.
-func (s *Connection) GetWAL(ctx context.Context, walName string) (*klioTypes.WalEntry, error) {
+func (s *Connection) GetWAL(ctx context.Context, walName string) (*klioTypes.Entry, error) {
 	kopiaPath := path.Join("/wal", walName)
 
 	sourceInfo := snapshot.SourceInfo{
@@ -175,7 +174,7 @@ func (s *Connection) GetWAL(ctx context.Context, walName string) (*klioTypes.Wal
 		return nil, fmt.Errorf("while reading object: %w", err)
 	}
 
-	return klioTypes.NewWalEntry(walName, readerData), nil
+	return klioTypes.NewEntry(walName, readerData), nil
 }
 
 func (s *Connection) getSnapshotRepositoryLabels() map[string]string {
@@ -185,8 +184,4 @@ func (s *Connection) getSnapshotRepositoryLabels() map[string]string {
 		"username": s.username,
 		"content":  "wal",
 	}
-}
-
-func getWALFileEntry(walName string, content []byte) fs.File {
-	return klioTypes.NewWalEntry(walName, content)
 }

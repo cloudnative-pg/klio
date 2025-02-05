@@ -13,10 +13,10 @@ import (
 // KlioClientStreamingHandler is a handler that streams directly to a
 // Klio server.
 type KlioClientStreamingHandler struct {
-	conn   common.Client
+	conn   common.WALClientStreamer
 	logger *slog.Logger
 
-	stream common.WALStream
+	stream common.WALUploaderImpl
 	offset uint64
 
 	tli            int
@@ -29,7 +29,7 @@ func NewKlioClientHandler(
 	logger *slog.Logger,
 	tli int,
 	segmentSize uint64,
-	conn common.Client,
+	conn common.WALClientStreamer,
 ) *KlioClientStreamingHandler {
 	return &KlioClientStreamingHandler{
 		logger:      logger,

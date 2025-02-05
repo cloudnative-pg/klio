@@ -9,7 +9,6 @@ import (
 	"github.com/kopia/kopia/repo"
 
 	"github.com/EnterpriseDB/klio/pkg/config"
-	"github.com/EnterpriseDB/klio/pkg/klioclient/common"
 )
 
 // Connection represent a connection to a Klio server.
@@ -79,16 +78,4 @@ func (s *Connection) Close(ctx context.Context) error {
 	}
 
 	return nil
-}
-
-// StoreWALStreaming implements common.Client.
-func (s *Connection) StoreWALStreaming(
-	_ context.Context,
-	_ string,
-	_ uint64,
-) (common.WALStream, error) {
-	//nolint:godox
-	// TODO(leonardoce): remove this WAL implementation
-	// once the Kopia implementation of WALs is ruled out
-	panic("unimplemented")
 }

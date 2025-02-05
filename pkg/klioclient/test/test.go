@@ -13,10 +13,10 @@ const fakeWalContent = "deadbeef"
 
 type testingRepository struct {
 	prefilledSnapshots int
-	conn               common.Client
+	conn               common.WALClient
 }
 
-type repositoryCreatorFunction func(ctx context.Context, repoLabel string) (common.Client, error)
+type repositoryCreatorFunction func(ctx context.Context, repoLabel string) (common.WALClient, error)
 
 // BenchLookupSnapshots starts a benchmark that creates a new repo, fills it with fake
 // WALs and then look them up.
@@ -86,7 +86,7 @@ func runSnapshotLookupBenchmark(b *testing.B, repo *testingRepository) {
 	}
 }
 
-func addFakeWals(ctx context.Context, repo common.Client, start int, count int) error {
+func addFakeWals(ctx context.Context, repo common.WALClient, start int, count int) error {
 	for i := range count {
 		walName := fmt.Sprintf("%024X", start+i)
 		err := repo.StoreWAL(ctx, walName, []byte(fakeWalContent))

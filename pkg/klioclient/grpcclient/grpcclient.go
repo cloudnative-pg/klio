@@ -84,7 +84,7 @@ func Connect(logger *slog.Logger, cfg *config.KlioRepositoryClientConfig) (*Conn
 }
 
 // GetWAL get a WAL from a remote connection.
-func (c *Connection) GetWAL(ctx context.Context, walName string) (*types.WalEntry, error) {
+func (c *Connection) GetWAL(ctx context.Context, walName string) (*types.Entry, error) {
 	client, err := c.walClient.GetWAL(ctx, &klioGRPC.GetWALRequest{
 		ClusterName: c.cfg.ClusterName,
 		WalName:     walName,
@@ -109,7 +109,7 @@ func (c *Connection) GetWAL(ctx context.Context, walName string) (*types.WalEntr
 		}
 	}
 
-	return types.NewWalEntry(walName, buffer.Bytes()), nil
+	return types.NewEntry(walName, buffer.Bytes()), nil
 }
 
 // StoreWAL uploads a WAL in the WAL server
@@ -169,18 +169,22 @@ func (c *Connection) Close(_ context.Context) error {
 }
 
 // StoreWALStreaming implements the WAL streaming service.
-func (c *Connection) StoreWALStreaming(ctx context.Context, name string, segmentSize uint64) (common.WALStream, error) {
+func (c *Connection) StoreWALStreaming(
+	ctx context.Context,
+	name string,
+	segmentSize uint64,
+) (*common.WALUploader, error) {
 	stream, err := c.walClient.UploadWAL(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("while starting uploading a WAL file: %w", err)
 	}
 
-	return &grpcWALStream{
+	return common.NewWALUploader(&grpcWALStream{
 		innerStream: stream,
 		segmentSize: segmentSize,
 		clusterName: c.cfg.ClusterName,
 		walName:     name,
-	}, nil
+	}), nil
 }
 
 type grpcWALStream struct {

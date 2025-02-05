@@ -12,7 +12,7 @@ import (
 )
 
 func BenchmarkLookupSnapshotsViaKopia(b *testing.B) {
-	createTemporaryKopiaRepo := func(ctx context.Context, repoLabel string) (common.Client, error) {
+	createTemporaryKopiaRepo := func(ctx context.Context, repoLabel string) (common.WALClient, error) {
 		//nolint:usetesting
 		dirName, err := os.MkdirTemp(
 			"",

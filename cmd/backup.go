@@ -6,33 +6,25 @@ import (
 	"fmt"
 	"log/slog"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"gopkg.in/validator.v2"
 
-	"github.com/EnterpriseDB/klio/internal/receiver"
 	"github.com/EnterpriseDB/klio/pkg/config"
 	"github.com/EnterpriseDB/klio/pkg/klioclient/common"
-	"github.com/EnterpriseDB/klio/pkg/klioclient/grpcclient"
+	"github.com/EnterpriseDB/klio/pkg/klioclient/kopia"
 )
 
-// ErrSourceSectionIsRequired is raised when the WAL pusher is started without a
-// source specification.
-var ErrSourceSectionIsRequired = errors.New("'source' configuration section is required for WAL pusher")
+// ErrKopiaClientSectionIsRequired is raised when the kopia client configuration is missing.
+var ErrKopiaClientSectionIsRequired = errors.New("'client.kopia' configuration section is required")
 
-// ErrClientSectionIsRequired is raired when the WAL pusher is started without a
-// client specification.
-var ErrClientSectionIsRequired = errors.New("'client' configuration section is required for WAL pusher")
-
-// ErrKlioClientSectionIsRequired is raised when the Klio client configuration is missing.
-var ErrKlioClientSectionIsRequired = errors.New("'client.klio' configuration section is required")
-
-// runCmd represents the run command
+// backupCmd represents the backup command
 //
 //nolint:gochecknoglobals
-var walPushCmd = &cobra.Command{
-	Use:   "wal-push",
-	Short: "Upload the cluster's WALs to the opened Klio server",
+var backupCmd = &cobra.Command{
+	Use:   "backup",
+	Short: "Backup the PostgreSQL cluster to the opened Klio server",
 	RunE: func(cmd *cobra.Command, _ []string) error {
 		logger := slog.Default()
 
@@ -47,16 +39,11 @@ var walPushCmd = &cobra.Command{
 		// Sets the defaults values, to be overridden by the user configuration
 		configuration.SetDefaults()
 
-		if configuration.Source == nil {
-			return ErrSourceSectionIsRequired
-		}
-
 		if configuration.Client == nil {
 			return ErrClientSectionIsRequired
 		}
-
-		if configuration.Client.Klio == nil {
-			return ErrKlioClientSectionIsRequired
+		if configuration.Client.Kopia == nil {
+			return ErrKopiaClientSectionIsRequired
 		}
 
 		logger.Debug("Current configuration", "configuration", configuration)
@@ -64,26 +51,54 @@ var walPushCmd = &cobra.Command{
 			return fmt.Errorf("configuration validation error: %w", errs)
 		}
 
-		var client common.WALClientStreamer
-		var err error
-
-		if client, err = grpcclient.Connect(
+		client, err := kopia.Connect(
+			cmd.Context(),
 			logger,
-			configuration.Client.Klio,
-		); err != nil {
+			configuration.Client.Kopia,
+		)
+		if err != nil {
 			return fmt.Errorf("while connecting to the Klio server: %w", err)
 		}
 
-		walReceiver := receiver.New(&configuration, logger, client)
+		dsn, _ := cmd.Flags().GetString("dsn")
 
-		return walReceiver.Start(cmd.Context())
+		conn, err := pgx.Connect(cmd.Context(), dsn)
+		if err != nil {
+			return fmt.Errorf("while connecting to PostgreSQL: %w", err)
+		}
+		defer func() {
+			_ = conn.Close(cmd.Context())
+		}()
+
+		backupExecutor, err := client.CreateBackup(cmd.Context(), common.BackupOptions{
+			Connection: conn,
+			Progress:   common.NewLoggerProgress(logger),
+		})
+		if err != nil {
+			return fmt.Errorf("while creating a backup executor: %w", err)
+		}
+
+		if err := backupExecutor.Start(cmd.Context()); err != nil {
+			return fmt.Errorf("while starting the backup: %w", err)
+		}
+
+		if err := backupExecutor.Upload(cmd.Context()); err != nil {
+			return fmt.Errorf("while uploading data: %w", err)
+		}
+
+		if err := backupExecutor.Close(cmd.Context()); err != nil {
+			return fmt.Errorf("while closing the backup: %w", err)
+		}
+
+		return nil
 	},
 }
 
 //nolint:gochecknoinits
 func init() {
-	rootCmd.AddCommand(walPushCmd)
+	rootCmd.AddCommand(backupCmd)
 
+	backupCmd.Flags().StringP("dsn", "d", "", "The DSN to create a superuser PostgreSQL connection")
 	// Here you will define your flags and configuration settings.
 
 	// Cobra supports Persistent Flags which will work for this command

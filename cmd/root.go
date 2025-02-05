@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"fmt"
+	"log/slog"
 	"os"
 	"strings"
 
@@ -11,6 +12,9 @@ import (
 
 //nolint:gochecknoglobals
 var cfgFile string
+
+//nolint:gochecknoglobals
+var debug bool
 
 // rootCmd represents the base command when called without any subcommands
 //
@@ -41,6 +45,7 @@ func init() {
 	// will be global for your application.
 
 	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.klio.yaml)")
+	rootCmd.PersistentFlags().BoolVar(&debug, "debug", false, "enable debug logging")
 
 	// Cobra also supports local flags, which will only run
 	// when this action is called directly.
@@ -49,6 +54,10 @@ func init() {
 
 // initConfig reads in config file and ENV variables if set.
 func initConfig() {
+	if debug {
+		slog.SetLogLoggerLevel(slog.LevelDebug)
+	}
+
 	if cfgFile != "" {
 		// Use config file from the flag.
 		viper.SetConfigFile(cfgFile)

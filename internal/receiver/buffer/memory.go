@@ -71,7 +71,7 @@ func (wal *MemBufferHandler) CloseWAL() error {
 
 // CurrentOffset implements the Handler interface.
 func (wal *MemBufferHandler) CurrentOffset() uint64 {
-	return uint64(wal.buffer.Len())
+	return uint64(wal.buffer.Len()) //nolint:gosec
 }
 
 // Write implements the Handler interface.
