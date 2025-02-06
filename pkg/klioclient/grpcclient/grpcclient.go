@@ -12,9 +12,7 @@ import (
 	"os"
 
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials"
-	"google.golang.org/grpc/status"
 
 	klioGRPC "github.com/EnterpriseDB/klio/internal/klioserver/grpc"
 	"github.com/EnterpriseDB/klio/pkg/config"
@@ -126,7 +124,7 @@ func (c *Connection) StoreWAL(ctx context.Context, name string, content []byte) 
 	for {
 		readBytes, readError := walReader.Read(buffer)
 		if readError != nil && !errors.Is(readError, io.EOF) {
-			return status.Errorf(codes.Internal, "error while reading WAL (reading): %v", readError.Error())
+			return fmt.Errorf("error while reading WAL (reading from buffer): %w", readError)
 		}
 
 		if err := stream.Send(&klioGRPC.UploadWALRequest{
@@ -135,7 +133,7 @@ func (c *Connection) StoreWAL(ctx context.Context, name string, content []byte) 
 			SegmentSize: uint64(len(content)),
 			WalBlock:    buffer[:readBytes],
 		}); err != nil {
-			return status.Errorf(codes.Internal, "error while sending WAL block: %v", err.Error())
+			return fmt.Errorf("error while sending WAL block (sending via GRPC): %w", err)
 		}
 
 		if errors.Is(readError, io.EOF) {
@@ -219,7 +217,7 @@ func (g *grpcWALStream) SendBlock(_ context.Context, block []byte) error {
 		SegmentSize: g.segmentSize,
 		WalBlock:    block,
 	}); err != nil {
-		return status.Errorf(codes.Internal, "error while sending WAL block: %v", err.Error())
+		return fmt.Errorf("error while sending WAL block (send streaming len=%v): %w", len(block), err)
 	}
 
 	return nil

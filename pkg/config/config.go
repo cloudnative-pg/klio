@@ -6,9 +6,6 @@ import "time"
 
 // Data is the configuration.
 type Data struct {
-	// ClusterName is the name of the cluster
-	ClusterName string `mapstructure:"cluster_name" validate:"nonzero"`
-
 	// Source is the configuration of the database we should collect WALs for.
 	// This is only needed fot the WAL pusher.
 	Source *Source `mapstructure:"source"`

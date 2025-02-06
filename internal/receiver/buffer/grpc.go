@@ -47,13 +47,14 @@ func (wal *KlioClientStreamingHandler) OpenWAL(ctx context.Context, blockpos uin
 		return fmt.Errorf("while creating WAL file name (pos %v): %w", blockpos, err)
 	}
 
+	wal.offset = 0
+	wal.currentWALFile = currentWALFile
+
 	stream, err := wal.conn.StoreWALStreaming(ctx, wal.currentWALFile, wal.segmentSize)
 	if err != nil {
 		return fmt.Errorf("while starting WAL file streaming (pos %v): %w", blockpos, err)
 	}
 
-	wal.offset = 0
-	wal.currentWALFile = currentWALFile
 	wal.stream = stream
 
 	return nil

@@ -42,3 +42,85 @@ dagger call kubernetes --source . terminal
 ```
 dagger call protoc --source . -o internal/klioserver/grpc
 ```
+
+## How to setup manually a Klio server
+
+Given the following configuration file in `/home/klio/.klio.yaml`:
+
+```yaml
+klio_server:
+  listen_address: 0.0.0.0:52000
+  server_cert_path: /home/ubuntu/klio_data/server.crt
+  server_key_path: /home/ubuntu/klio_data/server.key
+  wal_path: /home/ubuntu/klio_data/wals
+  password: thispassword
+```
+
+A new Klio WAL repository can be bootstrapped with:
+
+```
+openssl req -x509 -newkey rsa:4096 -sha256 -days 3650 \
+  -nodes -keyout server.key -out server.crt -subj "/CN=klio-server" \
+  -addext "subjectAltName=DNS:klio-server,IP:52.29.253.97"
+
+~/klio initialize
+```
+
+To initialize the PGData repository:
+
+```
+~/kopia repository create filesystem --path=/home/ubuntu/klio_data/pgdata
+
+~/kopia repository connect filesystem --path=/home/ubuntu/klio_data/pgdata
+
+~/kopia policy set --global --compression=zstd
+```
+
+The WAL server can be started with:
+
+```
+~/klio serve
+```
+
+The Kopia server can be started with:
+
+```
+~/kopia server start \
+  --address=https://0.0.0.0:51515 \
+  --server-username=klio@cluster-example \
+  --server-password=CHANGE_ME_KOPIA_PASSWORD \
+  --server-control-username=klio \
+  --server-control-password=CHANGE_ME_KOPIA_PASSWORD \
+  --tls-cert-file=/home/ubuntu/klio_data/server.crt \
+  --tls-key-file=/home/ubuntu/klio_data/server.key 
+```
+
+## How to setup manually a Klio client
+
+Given the following configuration file in `/var/lib/postgresql/.klio.yaml`:
+
+```yaml
+client:
+  klio:
+    address: 52.29.253.97:52000
+    cluster_name: cluster-example
+    server_cert_path: /tmp/server.crt
+    username: klio
+    password: at2leeyomooduZu8KeR6
+  kopia:
+    base_url: https://52.29.253.97:51515
+    hostname: cluster-example
+    username: klio
+    password: at2leeyomooduZu8KeR6
+    trusted_server_certificate_fingerprint: DB89F46B52E26489AE85063B434144182588722AE6FE63AE557D489E319C6A9F
+
+source:
+  dsn: host=/var/run/postgresql user=postgres replication=yes application_name=klio
+  slot: klio
+```
+
+Important: the certificate fingerprint can be found with:
+
+```
+openssl x509 -in /home/ubuntu/klio_data/server.crt -text -fingerprint -sha256
+```

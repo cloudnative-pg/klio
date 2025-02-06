@@ -25,11 +25,11 @@ func (w *WALServerImplementation) GetWAL(req *grpc.GetWALRequest, res grpc.WAL_G
 	for {
 		readBytes, readError := walReader.Read(buffer)
 		if readError != nil && !errors.Is(readError, io.EOF) {
-			return status.Errorf(codes.Internal, "error while reading WAL (reading): %v", readError.Error())
+			return status.Errorf(codes.Internal, "error while reading WAL (reading into buffer): %v", readError.Error())
 		}
 
 		if err := res.Send(&grpc.GetWALResult{WalBlock: buffer[:readBytes]}); err != nil {
-			return status.Errorf(codes.Internal, "error while sending WAL block: %v", err.Error())
+			return status.Errorf(codes.Internal, "error while reading WAL block (sending to client GRPC): %v", err.Error())
 		}
 
 		if errors.Is(readError, io.EOF) {

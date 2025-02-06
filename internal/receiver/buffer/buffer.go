@@ -82,7 +82,7 @@ func (wal *Data) ProcessWALData(ctx context.Context, data []byte, startWAL types
 
 		_, err := wal.handler.Write(ctx, data[bytesWritten:bytesWritten+bytesToWrite])
 		if err != nil {
-			return fmt.Errorf("while writing to WAL buffer: %w", err)
+			return fmt.Errorf("while writing to WAL handler: %w", err)
 		}
 
 		bytesWritten += bytesToWrite
@@ -94,7 +94,7 @@ func (wal *Data) ProcessWALData(ctx context.Context, data []byte, startWAL types
 		if wal.handler.CurrentOffset() == wal.segmentSize {
 			err := wal.handler.CloseWAL(ctx)
 			if err != nil {
-				return fmt.Errorf("while flushing WAL buffer: %w", err)
+				return fmt.Errorf("while flushing WAL handler: %w", err)
 			}
 
 			xlogoff = 0

@@ -99,6 +99,13 @@ func (w *WALServerImplementation) UploadWAL(req grpc.WAL_UploadWALServer) error 
 			return status.Errorf(codes.Internal, "error while reading WAL block: %v", err.Error())
 		}
 
+		w.logger.Debug(
+			"Received WAL block",
+			"clusterName", request.GetClusterName(),
+			"walName", request.GetWalName(),
+			"blockLen", len(request.GetWalBlock()),
+		)
+
 		if err := blockMeta.handleRequest(request); err != nil {
 			return status.Errorf(codes.InvalidArgument, "%s", err.Error())
 		}
@@ -119,7 +126,7 @@ func (w *WALServerImplementation) UploadWAL(req grpc.WAL_UploadWALServer) error 
 			return status.Errorf(codes.Internal, "error while flushing WAL: %v", err.Error())
 		}
 
-		writtenSize += uint64(bytesWritten)
+		writtenSize += uint64(bytesWritten) //nolint:gosec
 	}
 
 	if walBuffer == nil {
