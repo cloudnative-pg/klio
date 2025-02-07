@@ -63,12 +63,12 @@ func (k *kopiaProgress) FinishedHashingFile(path string, numBytes int64) {
 
 // CachedFile implements snapshotfs.UploadProgress.
 func (k *kopiaProgress) CachedFile(path string, size int64) {
-	k.log.Info("using cached file", "path", path, "size", size)
+	k.log.Info("Using cached file", "path", path, "size", size)
 }
 
 // Error implements snapshotfs.UploadProgress.
 func (k *kopiaProgress) Error(path string, err error, isIgnored bool) {
-	k.log.Warn("error while uploading file", "path", path, "err", err, "isIgnored", isIgnored)
+	k.log.Warn("Error while uploading file", "path", path, "err", err, "isIgnored", isIgnored)
 }
 
 // ExcludedDir implements snapshotfs.UploadProgress.
@@ -88,7 +88,7 @@ func (k *kopiaProgress) FinishedDirectory(path string) {
 
 // FinishedFile implements snapshotfs.UploadProgress.
 func (k *kopiaProgress) FinishedFile(path string, err error) {
-	k.log.Info("Finished uploading file", "path", path, "err", err)
+	k.log.Debug("Finished uploading file", "path", path, "err", err)
 	_ = k.uploadedFiles.Add(1)
 }
 

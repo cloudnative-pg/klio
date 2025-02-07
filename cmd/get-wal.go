@@ -2,38 +2,27 @@
 package cmd
 
 import (
-	"errors"
 	"fmt"
 	"log/slog"
+	"os"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"gopkg.in/validator.v2"
 
-	"github.com/EnterpriseDB/klio/internal/receiver"
 	"github.com/EnterpriseDB/klio/pkg/config"
 	"github.com/EnterpriseDB/klio/pkg/klioclient/common"
 	"github.com/EnterpriseDB/klio/pkg/klioclient/grpcclient"
 )
 
-// ErrSourceSectionIsRequired is raised when the WAL pusher is started without a
-// source specification.
-var ErrSourceSectionIsRequired = errors.New("'source' configuration section is required for WAL pusher")
-
-// ErrClientSectionIsRequired is raired when the WAL pusher is started without a
-// client specification.
-var ErrClientSectionIsRequired = errors.New("'client' configuration section is required for WAL pusher")
-
-// ErrKlioClientSectionIsRequired is raised when the Klio client configuration is missing.
-var ErrKlioClientSectionIsRequired = errors.New("'client.klio' configuration section is required")
-
-// runCmd represents the run command
+// getWalCmd represents the run command
 //
 //nolint:gochecknoglobals
-var walPushCmd = &cobra.Command{
-	Use:   "wal-push",
-	Short: "Upload the cluster's WALs to the opened Klio server",
-	RunE: func(cmd *cobra.Command, _ []string) error {
+var getWalCmd = &cobra.Command{
+	Use:   "get-wal [wal-name] [target-file]",
+	Short: "Get a WAL from the target Klio server",
+	Args:  cobra.ExactArgs(2),
+	RunE: func(cmd *cobra.Command, args []string) error {
 		logger := slog.Default()
 
 		var configuration config.Data
@@ -46,10 +35,6 @@ var walPushCmd = &cobra.Command{
 
 		// Sets the defaults values, to be overridden by the user configuration
 		configuration.SetDefaults()
-
-		if configuration.Source == nil {
-			return ErrSourceSectionIsRequired
-		}
 
 		if configuration.Client == nil {
 			return ErrClientSectionIsRequired
@@ -74,15 +59,24 @@ var walPushCmd = &cobra.Command{
 			return fmt.Errorf("while connecting to the Klio server: %w", err)
 		}
 
-		walReceiver := receiver.New(&configuration, logger, client)
+		//nolint:godox
+		// TODO(leonardoce): support get wal streaming
+		entry, err := client.GetWAL(cmd.Context(), args[0])
+		if err != nil {
+			return fmt.Errorf("while downloading WAL: %w", err)
+		}
 
-		return walReceiver.Start(cmd.Context())
+		if err := os.WriteFile(args[1], entry.Content(), 0o600); err != nil {
+			return fmt.Errorf("while writing %s: %w", args[1], err)
+		}
+
+		return nil
 	},
 }
 
 //nolint:gochecknoinits
 func init() {
-	rootCmd.AddCommand(walPushCmd)
+	rootCmd.AddCommand(getWalCmd)
 
 	// Here you will define your flags and configuration settings.
 

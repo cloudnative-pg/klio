@@ -5,22 +5,22 @@ import (
 	"fmt"
 	"log/slog"
 
-	"github.com/jackc/pgx/v5"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"gopkg.in/validator.v2"
 
+	"github.com/EnterpriseDB/klio/internal/receiver"
 	"github.com/EnterpriseDB/klio/pkg/config"
 	"github.com/EnterpriseDB/klio/pkg/klioclient/common"
-	"github.com/EnterpriseDB/klio/pkg/klioclient/kopia"
+	"github.com/EnterpriseDB/klio/pkg/klioclient/grpcclient"
 )
 
-// backupCmd represents the backup command
+// runCmd represents the run command
 //
 //nolint:gochecknoglobals
-var backupCmd = &cobra.Command{
-	Use:   "backup",
-	Short: "Backup the PostgreSQL cluster to the opened Klio server",
+var sendWalCmd = &cobra.Command{
+	Use:   "send-wal",
+	Short: "Upload the cluster's WALs to the target Klio server",
 	RunE: func(cmd *cobra.Command, _ []string) error {
 		logger := slog.Default()
 
@@ -35,11 +35,16 @@ var backupCmd = &cobra.Command{
 		// Sets the defaults values, to be overridden by the user configuration
 		configuration.SetDefaults()
 
+		if configuration.Source == nil {
+			return ErrSourceSectionIsRequired
+		}
+
 		if configuration.Client == nil {
 			return ErrClientSectionIsRequired
 		}
-		if configuration.Client.Kopia == nil {
-			return ErrKopiaClientSectionIsRequired
+
+		if configuration.Client.Klio == nil {
+			return ErrKlioClientSectionIsRequired
 		}
 
 		logger.Debug("Current configuration", "configuration", configuration)
@@ -47,54 +52,26 @@ var backupCmd = &cobra.Command{
 			return fmt.Errorf("configuration validation error: %w", errs)
 		}
 
-		client, err := kopia.Connect(
-			cmd.Context(),
+		var client common.WALClientStreamer
+		var err error
+
+		if client, err = grpcclient.Connect(
 			logger,
-			configuration.Client.Kopia,
-		)
-		if err != nil {
+			configuration.Client.Klio,
+		); err != nil {
 			return fmt.Errorf("while connecting to the Klio server: %w", err)
 		}
 
-		dsn, _ := cmd.Flags().GetString("dsn")
+		walReceiver := receiver.New(&configuration, logger, client)
 
-		conn, err := pgx.Connect(cmd.Context(), dsn)
-		if err != nil {
-			return fmt.Errorf("while connecting to PostgreSQL: %w", err)
-		}
-		defer func() {
-			_ = conn.Close(cmd.Context())
-		}()
-
-		backupExecutor, err := client.CreateBackup(cmd.Context(), common.BackupOptions{
-			Connection: conn,
-			Progress:   common.NewLoggerProgress(logger),
-		})
-		if err != nil {
-			return fmt.Errorf("while creating a backup executor: %w", err)
-		}
-
-		if err := backupExecutor.Start(cmd.Context()); err != nil {
-			return fmt.Errorf("while starting the backup: %w", err)
-		}
-
-		if err := backupExecutor.Upload(cmd.Context()); err != nil {
-			return fmt.Errorf("while uploading data: %w", err)
-		}
-
-		if err := backupExecutor.Close(cmd.Context()); err != nil {
-			return fmt.Errorf("while closing the backup: %w", err)
-		}
-
-		return nil
+		return walReceiver.Start(cmd.Context())
 	},
 }
 
 //nolint:gochecknoinits
 func init() {
-	rootCmd.AddCommand(backupCmd)
+	rootCmd.AddCommand(sendWalCmd)
 
-	backupCmd.Flags().StringP("dsn", "d", "", "The DSN to create a superuser PostgreSQL connection")
 	// Here you will define your flags and configuration settings.
 
 	// Cobra supports Persistent Flags which will work for this command

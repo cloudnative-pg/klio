@@ -20,10 +20,6 @@ import (
 	"github.com/EnterpriseDB/klio/pkg/config"
 )
 
-// ErrKlioServerSectionIsRequired is raised when the "klio_server" section is not present and the
-// Klio server is started.
-var ErrKlioServerSectionIsRequired = errors.New("'klio_server' configuration section is required for server")
-
 // serveCmd represents the serve command
 //
 //nolint:gochecknoglobals
