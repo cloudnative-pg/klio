@@ -29,6 +29,10 @@ type Source struct {
 	// DSN is the database service we should get the WALs from
 	DSN string `validate:"nonzero"`
 
+	// StandardDSN is the database service name to be used for a standard
+	// database connection
+	StandardDSN string `mapstructure:"standard_dsn" validate:"nonzero"`
+
 	// Slot is the name of the replication slot to be used
 	Slot string `validate:"nonzero"`
 
@@ -72,8 +76,11 @@ type KopiaRepositoryClientConfig struct {
 	// BaseURL is the base URL where the Kopia API server should be reached
 	BaseURL string `mapstructure:"base_url" validate:"nonzero"`
 
+	// ServerKeyPath is the path to the server public key
+	ServerCertPath string `mapstructure:"server_cert_path"`
+
 	// TrustedServerCertificateFingerprint is used to authenticate to the server side
-	TrustedServerCertificateFingerprint string `mapstructure:"trusted_server_certificate_fingerprint" validate:"nonzero"`
+	TrustedServerCertificateFingerprint string `mapstructure:"trusted_server_certificate_fingerprint"`
 
 	// Hostname is the Klio server hostname.
 	// This is used to create the full username, in the form <username>@<hostname>

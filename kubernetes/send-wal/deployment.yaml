@@ -1,0 +1,73 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: klio-send-wal
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: klio-send-wal
+  template:
+    metadata:
+      labels:
+        app: klio-send-wal
+    spec:
+      securityContext:
+        fsGroup: 1000
+        runAsGroup: 1000
+        runAsNonRoot: true
+        runAsUser: 1000
+        seccompProfile:
+          type: RuntimeDefault
+              
+      containers:
+      - name: klio-send-wal
+        command:
+        - klio
+        - --config=/config/klio.yaml
+        - send-wal
+
+        image: registry:5000/klio:dev
+        imagePullPolicy: Always
+
+        resources:
+          requests:
+            memory: '128Mi'
+            cpu: 250m
+          limits:
+            memory: '128Mi'
+            cpu: 250m
+                    
+        ports:
+        - containerPort: 52000
+          protocol: TCP
+          name: klio
+        - containerPort: 51515
+          protocol: TCP
+          name: kopia
+
+        volumeMounts:
+        - name: ca
+          mountPath: /ca
+        - name: config
+          mountPath: /config
+        - name: replication
+          mountPath: /replication
+        - name: klio-server-tls
+          mountPath: /klio-server-tls
+
+      volumes:
+      - name: ca
+        secret:
+          secretName: cluster-example-ca
+      - name: replication
+        secret:
+          secretName: cluster-example-replication
+      - name: config
+        secret:
+          secretName: klio-send-wal
+      - name: klio-server-tls
+        secret:
+          secretName: klio-server-tls

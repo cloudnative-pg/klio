@@ -1,0 +1,38 @@
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: klio-server
+spec:
+  secretName: klio-server-tls
+
+  privateKey:
+    algorithm: RSA
+    encoding: PKCS1
+    size: 2048
+
+  duration: 2160h # 90d
+  renewBefore: 360h # 15d
+
+  usages:
+    - server auth
+    - client auth
+
+  # Avoid using commonName for DNS names in end-entity (leaf) certificates. Unless you have a specific
+  # need for it in your environment, use dnsNames exclusively to avoid issues with commonName.
+  # Usually, commonName is used to give human-readable names to CA certificates and can be avoided for
+  # other certificates.
+  commonName: klio-server
+
+  # At least one of commonName (possibly through literalSubject), dnsNames, uris, emailAddresses, ipAddresses or otherNames is required.
+  dnsNames:
+    - klio-server
+    - klio-server.klio
+
+  #ipAddresses:
+  #  - 192.168.0.5
+  # Needs cert-manager 1.14+ and "OtherNames" feature flag
+
+  issuerRef:
+    name: klio-issuer
+    kind: Issuer
+    group: cert-manager.io

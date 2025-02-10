@@ -1,0 +1,17 @@
+client:
+  klio:
+    address: klio-server:52000
+    cluster_name: cluster-example
+    server_cert_path: /klio-server-tls/tls.crt
+    username: klio
+    password: at2leeyomooduZu8KeR6
+  kopia:
+    base_url: https://klio-server:51515
+    hostname: cluster-example
+    username: klio
+    password: at2leeyomooduZu8KeR6
+    server_cert_path: /klio-server-tls/tls.crt
+
+source:
+  dsn: host=cluster-example-rw user=streaming_replica replication=yes application_name=klio sslcert=/replication/tls.crt sslkey=/replication/tls.key sslrootcert=/ca/ca.crt
+  slot: klio

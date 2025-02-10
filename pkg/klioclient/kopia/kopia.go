@@ -39,12 +39,21 @@ func Connect(
 		return nil, fmt.Errorf("while writing a temporary Kopia config: %w", err)
 	}
 
+	certificateFingerprint := kopiaClientConfig.TrustedServerCertificateFingerprint
+	if len(kopiaClientConfig.ServerCertPath) > 0 {
+		var err error
+		certificateFingerprint, err = extractSHA256CertificateFingerprint(kopiaClientConfig.ServerCertPath)
+		if err != nil {
+			return nil, fmt.Errorf("error while extracting fingerprint of the kopia server certificate: %w", err)
+		}
+	}
+
 	if err = repo.ConnectAPIServer(
 		ctx,
 		configFile.Name(),
 		&repo.APIServerInfo{
 			BaseURL:                             kopiaClientConfig.BaseURL,
-			TrustedServerCertificateFingerprint: kopiaClientConfig.TrustedServerCertificateFingerprint,
+			TrustedServerCertificateFingerprint: certificateFingerprint,
 		},
 		kopiaClientConfig.Password,
 		&repo.ConnectOptions{

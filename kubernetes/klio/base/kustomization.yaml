@@ -1,0 +1,14 @@
+namespace: klio
+resources:
+- namespace.yaml
+- issuer.yaml
+- certificate.yaml
+- pvc.yaml
+- deployment.yaml
+- service.yaml
+secretGenerator:
+- name: config
+  files:
+  - klio.yaml
+  literals:
+  - KOPIA_PASSWORD=thispassword

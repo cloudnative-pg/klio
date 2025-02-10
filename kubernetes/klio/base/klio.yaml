@@ -1,0 +1,6 @@
+klio_server:
+  listen_address: 0.0.0.0:52000
+  server_cert_path: /certs/tls.crt
+  server_key_path: /certs/tls.key
+  wal_path: /data/wals
+  password: thispassword

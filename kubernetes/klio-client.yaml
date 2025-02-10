@@ -1,0 +1,25 @@
+apiVersion: v1
+kind: Secret
+metadata:
+  name: klio-client
+stringData:
+  klio.yaml: |-
+    client:
+      klio:
+        address: klio-server:52000
+        cluster_name: cluster-example
+        server_cert_path: /klio-server-tls/tls.crt
+        username: klio
+        password: at2leeyomooduZu8KeR6
+      kopia:
+        base_url: https://klio-server:51515
+        hostname: cluster-example
+        username: klio
+        password: at2leeyomooduZu8KeR6
+        server_cert_path: /klio-server-tls/tls.crt
+
+    source:
+      dsn: user=postgres replication=yes application_name=klio
+      standard_dsn: user=postgres application_name=klio
+      slot: klio
+      

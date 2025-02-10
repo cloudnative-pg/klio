@@ -1,0 +1,21 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: klio
+resources:
+- ../../base
+
+# dagger call image --source . publish --address  528097305049.dkr.ecr.eu-central-1.amazonaws.com/leonardoce/klio:latest
+images:
+- name: klio
+  newTag: latest
+  newName: 528097305049.dkr.ecr.eu-central-1.amazonaws.com/leonardoce/klio
+
+patches:
+- patch: |-
+    - op: replace
+      path: /spec/storageClass
+      value: ebs-sc
+  target:
+    kind: PersistentVolumeClaim
+    version: v1
+    name: klio-volume

@@ -42,7 +42,7 @@ func (m *Klio) Kubernetes(ctx context.Context, source *dagger.Directory) (*dagge
 	k3s := dag.K3S("k3s-test", dagger.K3SOpts{
 		Image: "rancher/k3s:v1.31.4-k3s1",
 	})
-	k3sServer := k3s.
+	_, err = k3s.
 		With(func(k *dagger.K3S) *dagger.K3S {
 			return k.WithContainer(
 				k.Container().
@@ -56,9 +56,7 @@ mirrors:
 EOF`}).
 					WithServiceBinding("registry", registrySvc),
 			)
-		}).Server()
-
-	k3sServer, err = k3sServer.Start(ctx)
+		}).Server().Start(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -69,10 +67,15 @@ EOF`}).
 		WithEnvVariable("KUBECONFIG", "/.kube/config").
 		WithFile("/.kube/config", k3s.Config()).
 		WithDirectory("/kubernetes", source.Directory("kubernetes")).
-		WithExec([]string{"kubectl", "apply", "--server-side", "-f", "https://raw.githubusercontent.com/cloudnative-pg/cloudnative-pg/release-1.25/releases/cnpg-1.25.0.yaml"}).
+		// Install CNPG and wait for it to be ready
+		WithExec([]string{"kubectl", "apply", "--server-side", "-f", "https://raw.githubusercontent.com/cloudnative-pg/artifacts/refs/heads/main/manifests/operator-manifest.yaml"}).
 		WithExec([]string{"kubectl", "rollout", "status", "deployment", "cnpg-controller-manager", "-n", "cnpg-system"}).
+		// Install cert-manager and wait for it to be ready
 		WithExec([]string{"kubectl", "apply", "-f", "https://github.com/cert-manager/cert-manager/releases/download/v1.16.2/cert-manager.yaml"}).
-		WithExec([]string{"kubectl", "apply", "-f", "/kubernetes"}), nil
+		WithExec([]string{"kubectl", "rollout", "status", "deployment", "-n", "cert-manager", "cert-manager-webhook"}).
+		WithExec([]string{"kubectl", "apply", "-k", "/kubernetes/klio/overlays/dev"}).
+		WithExec([]string{"kubectl", "rollout", "status", "deployment", "klio-server"}).
+		WithExec([]string{"kubectl", "apply", "-f", "/kubernetes/klio-client.yaml"}), nil
 }
 
 // Build compiles and build the binary
@@ -100,7 +103,7 @@ func (m *Klio) Image(
 
 	return dag.Container().
 		From("alpine").
-		WithFile("/app", m.Build(source)).
+		WithFile("/usr/bin/klio", m.Build(source)).
 		WithFile("/usr/bin/kopia", kopiaBinary).
 		WithEntrypoint([]string{"/app"})
 }

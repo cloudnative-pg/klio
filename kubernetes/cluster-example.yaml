@@ -2,8 +2,83 @@ apiVersion: postgresql.cnpg.io/v1
 kind: Cluster
 metadata:
   name: cluster-example
+  annotations:
+    cnpg.io/podPatch: |-
+      [
+        {
+          "op": "add",
+          "path": "/spec/volumes/-",
+          "value": {
+            "name": "klio-server-tls",
+            "secret": {
+              "secretName": "klio-server-tls"
+            }
+          }
+        },
+        {
+          "op": "add",
+          "path": "/spec/volumes/-",
+          "value": {
+            "name": "klio-client",
+            "secret": {
+              "secretName": "klio-client"
+            }
+          }
+        },
+        {
+          "op": "add",
+          "path": "/spec/containers/-",
+          "value": {
+            "name": "klio",
+            "image": "registry:5000/klio:dev",
+            "command": [
+              "klio", "--config=/config/klio.yaml", "send-wal"
+            ],
+            "securityContext": {
+              "runAsUser": 26,
+              "runAsGroup": 26
+            },
+            "env": [
+              {
+                "name": "PGDATA",
+                "value": "/var/lib/postgresql/data/pgdata"
+              },
+              {
+                "name": "PGHOST",
+                "value": "/controller/run"
+              },
+              {
+                "name": "PGPORT",
+                "value": "5432"
+              }
+            ],
+            "volumeMounts": [
+              {
+                "name": "klio-server-tls",
+                "mountPath": "/klio-server-tls"
+              },
+              {
+                "name": "pgdata",
+                "mountPath": "/var/lib/postgresql/data"
+              },
+              {
+                "name": "scratch-data",
+                "mountPath": "/controller"
+              },
+              {
+                "name": "klio-client",
+                "mountPath": "/config"
+              }
+            ]
+          }
+        }
+      ]
 spec:
-  instances: 3
+  instances: 1
+
+  postgresql:
+    pg_hba:
+    - local replication all peer
 
   storage:
     size: 1Gi

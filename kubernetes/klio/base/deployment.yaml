@@ -1,0 +1,155 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: klio-server
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: klio-server
+  template:
+    metadata:
+      labels:
+        app: klio-server
+    spec:
+      securityContext:
+        fsGroup: 1000
+        runAsGroup: 1000
+        runAsNonRoot: true
+        runAsUser: 1000
+        seccompProfile:
+          type: RuntimeDefault
+              
+      initContainers:
+      - name: klio-initialize
+        command:
+        - klio
+        - initialize
+        - --config=/config/klio.yaml
+
+        image: klio
+        imagePullPolicy: Always
+
+        volumeMounts:
+        - name: data
+          mountPath: /data
+        - name: config
+          mountPath: /config
+      - name: kopia-initialize
+        command:
+        - sh 
+        - -c 
+        - '(test ! -d /data/pgdata && kopia repository create filesystem --path=/data/pgdata) ||:'
+
+        image: klio
+        imagePullPolicy: Always
+
+        volumeMounts:
+        - name: data
+          mountPath: /data
+
+        env:
+        - name: KOPIA_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: config
+              key: KOPIA_PASSWORD
+        - name: KOPIA_CONFIG_PATH
+          value: /data/kopia.config
+        - name: KOPIA_LOG_DIR
+          value: /data/kopia_logs
+        - name: KOPIA_CACHE_DIRECTORY
+          value: /data/kopia_cache
+        - name: USER
+          value: kopia
+
+      containers:
+      - name: klio-server
+        command:
+        - klio
+        - --config=/config/klio.yaml
+        - serve
+
+        image: klio:latest
+        imagePullPolicy: Always
+
+        resources:
+          requests:
+            memory: '512Mi'
+            cpu: 750m
+          limits:
+            memory: '512Mi'
+            cpu: 750m
+                    
+        ports:
+        - containerPort: 52000
+          protocol: TCP
+          name: klio
+        - containerPort: 51515
+          protocol: TCP
+          name: kopia
+
+        volumeMounts:
+        - name: data
+          mountPath: /data
+        - name: config
+          mountPath: /config
+        - name: tls
+          mountPath: /certs
+      - name: kopia-server
+        command:
+        - kopia 
+        - server
+        - start
+        - --address=0.0.0.0:51515
+        - --server-username=klio@cluster-example
+        - --server-password=CHANGE_ME_KOPIA_PASSWORD
+        - --server-control-username=klio
+        - --server-control-password=CHANGE_ME_KOPIA_PASSWORD
+        - --tls-cert-file=/certs/tls.crt
+        - --tls-key-file=/certs/tls.key 
+
+        image: klio
+        imagePullPolicy: Always
+
+        resources:
+          requests:
+            memory: '1024Mi'
+            cpu: 750m
+          limits:
+            memory: '1024Mi'
+            cpu: 750m
+
+        volumeMounts:
+        - name: data
+          mountPath: /data
+        - name: tls
+          mountPath: /certs
+
+        env:
+        - name: KOPIA_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: config
+              key: KOPIA_PASSWORD
+        - name: KOPIA_CONFIG_PATH
+          value: /data/kopia.config
+        - name: KOPIA_LOG_DIR
+          value: /data/kopia_logs
+        - name: KOPIA_CACHE_DIRECTORY
+          value: /data/kopia_cache
+        - name: USER
+          value: kopia
+
+      volumes:
+      - name: data
+        persistentVolumeClaim:
+          claimName: klio-volume
+      - name: config
+        secret:
+          secretName: config
+      - name: tls
+        secret:
+          secretName: klio-server-tls
