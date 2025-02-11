@@ -41,6 +41,9 @@ var backupCmd = &cobra.Command{
 		if configuration.Client.Kopia == nil {
 			return ErrKopiaClientSectionIsRequired
 		}
+		if configuration.Source == nil {
+			return ErrSourceSectionIsRequired
+		}
 
 		logger.Debug("Current configuration", "configuration", configuration)
 		if errs := validator.Validate(&configuration); errs != nil {
@@ -56,9 +59,7 @@ var backupCmd = &cobra.Command{
 			return fmt.Errorf("while connecting to the Klio server: %w", err)
 		}
 
-		dsn, _ := cmd.Flags().GetString("dsn")
-
-		conn, err := pgx.Connect(cmd.Context(), dsn)
+		conn, err := pgx.Connect(cmd.Context(), configuration.Source.StandardDSN)
 		if err != nil {
 			return fmt.Errorf("while connecting to PostgreSQL: %w", err)
 		}
@@ -93,8 +94,6 @@ var backupCmd = &cobra.Command{
 //nolint:gochecknoinits
 func init() {
 	rootCmd.AddCommand(backupCmd)
-
-	backupCmd.Flags().StringP("dsn", "d", "", "The DSN to create a superuser PostgreSQL connection")
 	// Here you will define your flags and configuration settings.
 
 	// Cobra supports Persistent Flags which will work for this command
