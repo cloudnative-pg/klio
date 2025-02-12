@@ -20,7 +20,7 @@ func (m *Klio) Kubernetes(ctx context.Context, source *dagger.Directory) (*dagge
 		WithExposedPort(5000).
 		AsService()
 
-	imageTarball := m.Image(source).AsTarball()
+	imageTarball := m.Image(source, true).AsTarball()
 
 	_, err := dag.Container().From("quay.io/skopeo/stable").
 		WithServiceBinding("registry", registrySvc).
@@ -83,7 +83,7 @@ func (m *Klio) Build(
 	source *dagger.Directory,
 ) *dagger.File {
 	return dag.Go(dagger.GoOpts{Version: goVersion}).
-		WithCgoDisabled().
+		WithEnvVariable("GOEXPERIMENT", "boringcrypto").
 		Build(source, dagger.GoBuildOpts{
 			Tags: []string{"viper_bind_struct"},
 		})
@@ -92,20 +92,27 @@ func (m *Klio) Build(
 // Image compiles a Klio image
 func (m *Klio) Image(
 	source *dagger.Directory,
+	addKopiaBinary bool,
 ) *dagger.Container {
-	// Download latest Kopia binary
-	kopiaBinary := dag.Container().
-		From("alpine").
-		WithExec([]string{"apk", "add", "curl"}).
-		WithExec([]string{"curl", "-LO", "https://github.com/kopia/kopia/releases/download/v0.18.2/kopia-0.18.2-linux-x64.tar.gz"}).
-		WithExec([]string{"tar", "xvzf", "kopia-0.18.2-linux-x64.tar.gz"}).
-		File("kopia-0.18.2-linux-x64/kopia")
-
-	return dag.Container().
-		From("alpine").
+	result := dag.Container().
+		From("registry.access.redhat.com/ubi9/ubi-minimal:9.5-1738816775").
 		WithFile("/usr/bin/klio", m.Build(source)).
-		WithFile("/usr/bin/kopia", kopiaBinary).
 		WithEntrypoint([]string{"/app"})
+
+	if addKopiaBinary {
+		// Download latest Kopia binary
+		kopiaBinary := dag.Container().
+			From("alpine").
+			WithExec([]string{"apk", "add", "curl"}).
+			WithExec([]string{"curl", "-LO", "https://github.com/kopia/kopia/releases/download/v0.18.2/kopia-0.18.2-linux-x64.tar.gz"}).
+			WithExec([]string{"tar", "xvzf", "kopia-0.18.2-linux-x64.tar.gz"}).
+			File("kopia-0.18.2-linux-x64/kopia")
+
+		result = result.WithFile("/usr/bin/kopia", kopiaBinary)
+	}
+
+	return result
+
 }
 
 // Lint runs golangci-lint on the source directory
