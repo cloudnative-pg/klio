@@ -1,9 +1,12 @@
 package klioserver
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io"
+	"os"
+	"path"
 
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -156,4 +159,37 @@ func (w *WALServerImplementation) UploadWAL(req grpc.WAL_UploadWALServer) error 
 	}
 
 	return nil
+}
+
+// UploadHistory implements the relative GRPC endpoint.
+func (w *WALServerImplementation) UploadHistory(
+	_ context.Context,
+	req *grpc.UploadHistoryRequest,
+) (*grpc.UploadHistoryResult, error) {
+	fileName := path.Join(w.conn.BaseDir(), req.GetClusterName(), req.GetFileName())
+
+	//nolint:godox
+	// TODO(leonardoce): what should we do about the existing history files?
+	// should we check if they are equal or not?
+	historyFile, err := os.OpenFile(fileName, os.O_CREATE|os.O_TRUNC, 0o600) //nolint:gosec
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "while writing history file: %s", err.Error())
+	}
+
+	defer func() {
+		if err := historyFile.Close(); err != nil {
+			w.logger.Warn("Error while closing history file", "err", err, "filename", fileName)
+		}
+	}()
+
+	writer, err := w.conn.ProtectWriter(historyFile)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "error while setting up encryption: %v", err.Error())
+	}
+
+	if _, err := writer.Write(req.GetContent()); err != nil {
+		return nil, status.Errorf(codes.Internal, "error while writing history data: %v", err.Error())
+	}
+
+	return &grpc.UploadHistoryResult{}, nil
 }

@@ -81,6 +81,19 @@ func Connect(logger *slog.Logger, cfg *config.KlioRepositoryClientConfig) (*Conn
 	}, nil
 }
 
+// StoreHistoryFile uses the underlying GRPC connection to store an history file.
+func (c *Connection) StoreHistoryFile(ctx context.Context, name string, content []byte) error {
+	_, err := c.walClient.UploadHistory(ctx, &klioGRPC.UploadHistoryRequest{
+		FileName: name,
+		Content:  content,
+	})
+	if err != nil {
+		return fmt.Errorf("while uploading history file %v: %w", name, err)
+	}
+
+	return nil
+}
+
 // GetWAL get a WAL from a remote connection.
 func (c *Connection) GetWAL(ctx context.Context, walName string) (*types.Entry, error) {
 	client, err := c.walClient.GetWAL(ctx, &klioGRPC.GetWALRequest{

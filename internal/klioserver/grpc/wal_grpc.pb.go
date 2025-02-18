@@ -19,8 +19,9 @@ import (
 const _ = grpc.SupportPackageIsVersion7
 
 const (
-	WAL_UploadWAL_FullMethodName = "/klio.wal.v1.WAL/UploadWAL"
-	WAL_GetWAL_FullMethodName    = "/klio.wal.v1.WAL/GetWAL"
+	WAL_UploadWAL_FullMethodName     = "/klio.wal.v1.WAL/UploadWAL"
+	WAL_GetWAL_FullMethodName        = "/klio.wal.v1.WAL/GetWAL"
+	WAL_UploadHistory_FullMethodName = "/klio.wal.v1.WAL/UploadHistory"
 )
 
 // WALClient is the client API for WAL service.
@@ -29,6 +30,7 @@ const (
 type WALClient interface {
 	UploadWAL(ctx context.Context, opts ...grpc.CallOption) (WAL_UploadWALClient, error)
 	GetWAL(ctx context.Context, in *GetWALRequest, opts ...grpc.CallOption) (WAL_GetWALClient, error)
+	UploadHistory(ctx context.Context, in *UploadHistoryRequest, opts ...grpc.CallOption) (*UploadHistoryResult, error)
 }
 
 type wALClient struct {
@@ -105,12 +107,22 @@ func (x *wALGetWALClient) Recv() (*GetWALResult, error) {
 	return m, nil
 }
 
+func (c *wALClient) UploadHistory(ctx context.Context, in *UploadHistoryRequest, opts ...grpc.CallOption) (*UploadHistoryResult, error) {
+	out := new(UploadHistoryResult)
+	err := c.cc.Invoke(ctx, WAL_UploadHistory_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // WALServer is the server API for WAL service.
 // All implementations must embed UnimplementedWALServer
 // for forward compatibility
 type WALServer interface {
 	UploadWAL(WAL_UploadWALServer) error
 	GetWAL(*GetWALRequest, WAL_GetWALServer) error
+	UploadHistory(context.Context, *UploadHistoryRequest) (*UploadHistoryResult, error)
 	mustEmbedUnimplementedWALServer()
 }
 
@@ -123,6 +135,9 @@ func (UnimplementedWALServer) UploadWAL(WAL_UploadWALServer) error {
 }
 func (UnimplementedWALServer) GetWAL(*GetWALRequest, WAL_GetWALServer) error {
 	return status.Errorf(codes.Unimplemented, "method GetWAL not implemented")
+}
+func (UnimplementedWALServer) UploadHistory(context.Context, *UploadHistoryRequest) (*UploadHistoryResult, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method UploadHistory not implemented")
 }
 func (UnimplementedWALServer) mustEmbedUnimplementedWALServer() {}
 
@@ -184,13 +199,36 @@ func (x *wALGetWALServer) Send(m *GetWALResult) error {
 	return x.ServerStream.SendMsg(m)
 }
 
+func _WAL_UploadHistory_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(UploadHistoryRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(WALServer).UploadHistory(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: WAL_UploadHistory_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(WALServer).UploadHistory(ctx, req.(*UploadHistoryRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // WAL_ServiceDesc is the grpc.ServiceDesc for WAL service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
 var WAL_ServiceDesc = grpc.ServiceDesc{
 	ServiceName: "klio.wal.v1.WAL",
 	HandlerType: (*WALServer)(nil),
-	Methods:     []grpc.MethodDesc{},
+	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "UploadHistory",
+			Handler:    _WAL_UploadHistory_Handler,
+		},
+	},
 	Streams: []grpc.StreamDesc{
 		{
 			StreamName:    "UploadWAL",

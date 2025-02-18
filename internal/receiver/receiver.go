@@ -61,6 +61,11 @@ func (s *Process) Start(ctx context.Context) error {
 		"systemID", identifyData.SystemID,
 	)
 
+	// Download history files
+	if err := s.downloadHistoryFiles(ctx, conn, identifyData.Timeline); err != nil {
+		return fmt.Errorf("while downloading history files: %w", err)
+	}
+
 	//nolint:godox
 	// TODO(leonardoce): create a physical replication slot and reuse it
 	// to keep track of the latest LSN
@@ -92,6 +97,25 @@ func (s *Process) Start(ctx context.Context) error {
 	}
 
 	return s.startReplication(ctx, conn, identifyData.XLogPos, identifyData.Timeline, walSegmentSize)
+}
+
+func (s *Process) downloadHistoryFiles(
+	ctx context.Context,
+	conn *pgconn.PgConn,
+	currentTli int32,
+) error {
+	for tli := currentTli; tli > 1; tli-- {
+		result, err := pglogrepl.TimelineHistory(ctx, conn, tli)
+		if err != nil {
+			return fmt.Errorf("while downloading history for timeline %v: %w", tli, err)
+		}
+
+		if err := s.client.StoreHistoryFile(ctx, result.FileName, result.Content); err != nil {
+			return fmt.Errorf("while uploading history file: %w", err)
+		}
+	}
+
+	return nil
 }
 
 func (s *Process) startReplication(

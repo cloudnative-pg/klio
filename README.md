@@ -61,7 +61,7 @@ A new Klio WAL repository can be bootstrapped with:
 ```
 openssl req -x509 -newkey rsa:4096 -sha256 -days 3650 \
   -nodes -keyout server.key -out server.crt -subj "/CN=klio-server" \
-  -addext "subjectAltName=DNS:klio-server,IP:52.29.253.97"
+  -addext "subjectAltName=DNS:klio-server,IP:127.0.0.1"
 
 ~/klio initialize
 ```

@@ -21,6 +21,7 @@ linters:
     - mnd
     - paralleltest
     - perfsprint
+    - tenv
     - testpackage
     - wsl
 

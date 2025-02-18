@@ -25,6 +25,9 @@ type WALClient interface {
 	// StoreWAL upload a WAL file to a remote store
 	StoreWAL(ctx context.Context, name string, content []byte) error
 
+	// StoreHistoryFile upload an history file to a remote store
+	StoreHistoryFile(ctx context.Context, name string, content []byte) error
+
 	// GetWAL recovers a WAL file from a remote store
 	GetWAL(ctx context.Context, walName string) (*types.Entry, error)
 
