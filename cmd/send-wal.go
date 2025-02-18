@@ -13,10 +13,10 @@ import (
 	"github.com/spf13/viper"
 	"gopkg.in/validator.v2"
 
-	"github.com/EnterpriseDB/klio/internal/receiver"
+	"github.com/EnterpriseDB/klio/internal/client/klioclient/common"
+	"github.com/EnterpriseDB/klio/internal/client/klioclient/grpcclient"
+	"github.com/EnterpriseDB/klio/internal/client/sendwal"
 	"github.com/EnterpriseDB/klio/pkg/config"
-	"github.com/EnterpriseDB/klio/pkg/klioclient/common"
-	"github.com/EnterpriseDB/klio/pkg/klioclient/grpcclient"
 )
 
 // ErrTimeoutWaitingPG is raised when we couldn't get a connection to PostgreSQL.
@@ -74,9 +74,9 @@ var sendWalCmd = &cobra.Command{
 			return fmt.Errorf("while connecting to the Klio server: %w", err)
 		}
 
-		walReceiver := receiver.New(&configuration, logger, client)
+		sendWalService := sendwal.New(&configuration, logger, client)
 
-		return walReceiver.Start(cmd.Context())
+		return sendWalService.Start(cmd.Context())
 	},
 }
 

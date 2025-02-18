@@ -14,10 +14,10 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 
-	klioGRPC "github.com/EnterpriseDB/klio/internal/klioserver/grpc"
+	"github.com/EnterpriseDB/klio/internal/client/klioclient/common"
+	"github.com/EnterpriseDB/klio/internal/client/klioclient/types"
+	klioGRPC "github.com/EnterpriseDB/klio/internal/grpc"
 	"github.com/EnterpriseDB/klio/pkg/config"
-	"github.com/EnterpriseDB/klio/pkg/klioclient/common"
-	"github.com/EnterpriseDB/klio/pkg/klioclient/types"
 )
 
 // Connection represent a connection to a Klio server.

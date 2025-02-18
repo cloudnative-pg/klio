@@ -1,4 +1,4 @@
-package klioserver
+package walserver
 
 import (
 	"context"
@@ -11,7 +11,7 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
-	"github.com/EnterpriseDB/klio/internal/klioserver/grpc"
+	"github.com/EnterpriseDB/klio/internal/grpc"
 )
 
 var (
@@ -88,7 +88,7 @@ func (m *walUploadBlockMetadata) handleRequest(request *grpc.UploadWALRequest) e
 // UploadWAL uploads a new WAL to the data store.
 //
 //nolint:cyclop
-func (w *WALServerImplementation) UploadWAL(req grpc.WAL_UploadWALServer) error {
+func (w *Implementation) UploadWAL(req grpc.WAL_UploadWALServer) error {
 	var blockMeta walUploadBlockMetadata
 	var walBuffer *WALWriter
 	var writtenSize uint64
@@ -162,7 +162,7 @@ func (w *WALServerImplementation) UploadWAL(req grpc.WAL_UploadWALServer) error 
 }
 
 // UploadHistory implements the relative GRPC endpoint.
-func (w *WALServerImplementation) UploadHistory(
+func (w *Implementation) UploadHistory(
 	_ context.Context,
 	req *grpc.UploadHistoryRequest,
 ) (*grpc.UploadHistoryResult, error) {

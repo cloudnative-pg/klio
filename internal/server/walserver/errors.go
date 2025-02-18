@@ -1,4 +1,4 @@
-package klioserver
+package walserver
 
 import "fmt"
 

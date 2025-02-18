@@ -14,8 +14,8 @@ import (
 	"github.com/kopia/kopia/snapshot/policy"
 	"github.com/kopia/kopia/snapshot/snapshotfs"
 
-	"github.com/EnterpriseDB/klio/pkg/klioclient/common"
-	klioTypes "github.com/EnterpriseDB/klio/pkg/klioclient/types"
+	"github.com/EnterpriseDB/klio/internal/client/klioclient/common"
+	klioTypes "github.com/EnterpriseDB/klio/internal/client/klioclient/types"
 )
 
 type backupImplementation struct {

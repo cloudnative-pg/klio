@@ -12,9 +12,9 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 
-	"github.com/EnterpriseDB/klio/internal/klioserver"
-	klioGRPC "github.com/EnterpriseDB/klio/internal/klioserver/grpc"
-	"github.com/EnterpriseDB/klio/internal/klioserver/repository"
+	klioGRPC "github.com/EnterpriseDB/klio/internal/grpc"
+	"github.com/EnterpriseDB/klio/internal/server/walserver"
+	"github.com/EnterpriseDB/klio/internal/server/walserver/repository"
 	"github.com/EnterpriseDB/klio/pkg/config"
 )
 
@@ -55,7 +55,7 @@ func ConnectTemporary(
 	server := grpc.NewServer(grpc.Creds(insecure.NewCredentials()))
 	klioGRPC.RegisterWALServer(
 		server,
-		klioserver.NewWALServerImplementation(logger, repoConnection),
+		walserver.New(logger, repoConnection),
 	)
 
 	go func() {

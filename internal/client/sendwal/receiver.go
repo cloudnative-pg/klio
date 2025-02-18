@@ -1,5 +1,4 @@
-// Package receiver implements the receive_wal service
-package receiver
+package sendwal
 
 import (
 	"context"
@@ -13,10 +12,10 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgproto3"
 
-	"github.com/EnterpriseDB/klio/internal/infrastructure"
-	"github.com/EnterpriseDB/klio/internal/receiver/buffer"
+	"github.com/EnterpriseDB/klio/internal/client/klioclient/common"
+	"github.com/EnterpriseDB/klio/internal/client/sendwal/buffer"
+	"github.com/EnterpriseDB/klio/internal/client/sendwal/infrastructure"
 	"github.com/EnterpriseDB/klio/pkg/config"
-	"github.com/EnterpriseDB/klio/pkg/klioclient/common"
 )
 
 // Process implements the supervisor service.

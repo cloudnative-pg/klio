@@ -6,7 +6,7 @@ import (
 
 	"github.com/kopia/kopia/snapshot/snapshotfs"
 
-	"github.com/EnterpriseDB/klio/pkg/klioclient/common"
+	"github.com/EnterpriseDB/klio/internal/client/klioclient/common"
 )
 
 // kopiaProgress is the implementation of the Kopia progress.

@@ -16,7 +16,6 @@ linters:
   disable:
     - depguard
     - exhaustruct
-    - exportloopref
     - funlen
     - mnd
     - paralleltest

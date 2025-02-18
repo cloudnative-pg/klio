@@ -10,9 +10,9 @@ import (
 	"github.com/spf13/viper"
 	"gopkg.in/validator.v2"
 
+	"github.com/EnterpriseDB/klio/internal/client/klioclient/common"
+	"github.com/EnterpriseDB/klio/internal/client/klioclient/kopia"
 	"github.com/EnterpriseDB/klio/pkg/config"
-	"github.com/EnterpriseDB/klio/pkg/klioclient/common"
-	"github.com/EnterpriseDB/klio/pkg/klioclient/kopia"
 )
 
 // backupCmd represents the backup command

@@ -1,4 +1,4 @@
-package klioserver
+package walserver
 
 import (
 	"compress/gzip"
@@ -7,7 +7,7 @@ import (
 	"os"
 	"path"
 
-	"github.com/EnterpriseDB/klio/internal/klioserver/repository"
+	"github.com/EnterpriseDB/klio/internal/server/walserver/repository"
 )
 
 // WALReader is the WAL file writer.

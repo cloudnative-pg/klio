@@ -3,7 +3,7 @@ package common
 import (
 	"context"
 
-	"github.com/EnterpriseDB/klio/pkg/klioclient/types"
+	"github.com/EnterpriseDB/klio/internal/client/klioclient/types"
 )
 
 // WALClientStreamer is implemented by clients supporting WAL streaming

@@ -7,7 +7,7 @@ import (
 
 	"github.com/cloudnative-pg/machinery/pkg/types"
 
-	"github.com/EnterpriseDB/klio/pkg/klioclient/common"
+	"github.com/EnterpriseDB/klio/internal/client/klioclient/common"
 )
 
 // KlioClientStreamingHandler is a handler that streams directly to a

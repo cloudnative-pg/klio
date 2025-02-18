@@ -1,4 +1,4 @@
-package klioserver
+package walserver
 
 import (
 	"errors"
@@ -8,11 +8,11 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
-	"github.com/EnterpriseDB/klio/internal/klioserver/grpc"
+	"github.com/EnterpriseDB/klio/internal/grpc"
 )
 
 // GetWAL implements the relative GRPC call.
-func (w *WALServerImplementation) GetWAL(req *grpc.GetWALRequest, res grpc.WAL_GetWALServer) error {
+func (w *Implementation) GetWAL(req *grpc.GetWALRequest, res grpc.WAL_GetWALServer) error {
 	walReader, err := NewWALReader(w.conn, req.GetClusterName(), req.GetWalName())
 	if os.IsNotExist(err) {
 		return status.Errorf(codes.NotFound, "WAL not found: %v/%v", req.GetClusterName(), req.GetWalName())

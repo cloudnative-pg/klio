@@ -168,7 +168,7 @@ func (m *Klio) Protoc(
 		Run(
 			source,
 			"proto",
-			"module=github.com/EnterpriseDB/klio/internal/klioserver/grpc",
-			"module=github.com/EnterpriseDB/klio/internal/klioserver/grpc",
+			"module=github.com/EnterpriseDB/klio/internal/grpc",
+			"module=github.com/EnterpriseDB/klio/internal/grpc",
 		)
 }

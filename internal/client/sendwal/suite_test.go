@@ -1,4 +1,4 @@
-package receiver_test
+package sendwal
 
 import (
 	"testing"

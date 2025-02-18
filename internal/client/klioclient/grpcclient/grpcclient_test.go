@@ -7,10 +7,10 @@ import (
 	"os"
 	"testing"
 
-	"github.com/EnterpriseDB/klio/internal/klioserver/repository"
+	"github.com/EnterpriseDB/klio/internal/client/klioclient/common"
+	"github.com/EnterpriseDB/klio/internal/client/klioclient/test"
+	"github.com/EnterpriseDB/klio/internal/server/walserver/repository"
 	"github.com/EnterpriseDB/klio/pkg/config"
-	"github.com/EnterpriseDB/klio/pkg/klioclient/common"
-	"github.com/EnterpriseDB/klio/pkg/klioclient/test"
 )
 
 func BenchmarkLookupSnapshotsViaKlioServer(b *testing.B) {

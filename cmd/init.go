@@ -9,7 +9,7 @@ import (
 	"github.com/spf13/viper"
 	"gopkg.in/validator.v2"
 
-	"github.com/EnterpriseDB/klio/internal/klioserver/repository"
+	"github.com/EnterpriseDB/klio/internal/server/walserver/repository"
 	"github.com/EnterpriseDB/klio/pkg/config"
 )
 

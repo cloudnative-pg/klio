@@ -6,7 +6,7 @@ import (
 	"math/rand/v2"
 	"testing"
 
-	"github.com/EnterpriseDB/klio/pkg/klioclient/common"
+	"github.com/EnterpriseDB/klio/internal/client/klioclient/common"
 )
 
 const fakeWalContent = "deadbeef"

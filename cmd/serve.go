@@ -14,9 +14,9 @@ import (
 	"google.golang.org/grpc/credentials"
 	"gopkg.in/validator.v2"
 
-	"github.com/EnterpriseDB/klio/internal/klioserver"
-	klioGRPC "github.com/EnterpriseDB/klio/internal/klioserver/grpc"
-	"github.com/EnterpriseDB/klio/internal/klioserver/repository"
+	klioGRPC "github.com/EnterpriseDB/klio/internal/grpc"
+	"github.com/EnterpriseDB/klio/internal/server/walserver"
+	"github.com/EnterpriseDB/klio/internal/server/walserver/repository"
 	"github.com/EnterpriseDB/klio/pkg/config"
 )
 
@@ -79,7 +79,7 @@ var serveCmd = &cobra.Command{
 		server := grpc.NewServer(grpc.Creds(credentials.NewTLS(tlsConfig)))
 		klioGRPC.RegisterWALServer(
 			server,
-			klioserver.NewWALServerImplementation(slog.Default(), repoConnection),
+			walserver.New(slog.Default(), repoConnection),
 		)
 		if err := server.Serve(listener); !errors.Is(err, net.ErrClosed) {
 			return fmt.Errorf("error while running server: %w", err)
