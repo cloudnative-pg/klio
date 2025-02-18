@@ -179,6 +179,18 @@ func (c *Connection) Close(_ context.Context) error {
 	return nil
 }
 
+// GetLatestWALFile gets the latest WAL file from the repository.
+func (c *Connection) GetLatestWALFile(ctx context.Context) (string, error) {
+	result, err := c.walClient.GetLatestWAL(ctx, &klioGRPC.GetLatestWALRequest{
+		ClusterName: c.cfg.ClusterName,
+	})
+	if err != nil {
+		return "", fmt.Errorf("while querying for the latest WAL file: %w", err)
+	}
+
+	return result.GetWalName(), nil
+}
+
 // StoreWALStreaming implements the WAL streaming service.
 func (c *Connection) StoreWALStreaming(
 	ctx context.Context,

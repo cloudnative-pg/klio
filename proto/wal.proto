@@ -1,10 +1,11 @@
 syntax = "proto3";
 package klio.wal.v1;
-option go_package = "github.com/EnterpriseDB/klio/internal/klioserver/grpc";
+option go_package = "github.com/EnterpriseDB/klio/internal/grpc";
 
 service WAL {
     rpc UploadWAL(stream UploadWALRequest) returns (UploadWALResult) {}
-    rpc GetWAL(GetWALRequest) returns (stream GetWALResult) {} 
+    rpc GetWAL(GetWALRequest) returns (stream GetWALResult) {}
+    rpc GetLatestWAL(GetLatestWALRequest) returns (GetLatestWALResult) {}
     rpc UploadHistory(UploadHistoryRequest) returns (UploadHistoryResult) {}
 }
 
@@ -35,3 +36,11 @@ message UploadHistoryRequest {
 }
 
 message UploadHistoryResult {}
+
+message GetLatestWALRequest {
+    string cluster_name = 1;
+}
+
+message GetLatestWALResult {
+    optional string wal_name = 1;
+}

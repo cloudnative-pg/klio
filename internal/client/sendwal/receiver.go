@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"strings"
 	"time"
 
 	"github.com/cloudnative-pg/machinery/pkg/types"
@@ -48,6 +49,11 @@ func (s *Process) Start(ctx context.Context) error {
 		}
 	}()
 
+	walSegmentSize, err := s.infrastructure.GetWalSegmentSize(ctx)
+	if err != nil {
+		return fmt.Errorf("while setting up replication: %w", err)
+	}
+
 	identifyData, err := pglogrepl.IdentifySystem(ctx, conn)
 	if err != nil {
 		return fmt.Errorf("while executing identify_system: %w", err)
@@ -60,24 +66,88 @@ func (s *Process) Start(ctx context.Context) error {
 		"systemID", identifyData.SystemID,
 	)
 
-	// Download history files
+	startingPoint, err := s.getReplicationStartPoint(ctx, conn, identifyData.XLogPos, walSegmentSize)
+	if err != nil {
+		return err
+	}
+
 	if err := s.downloadHistoryFiles(ctx, conn, identifyData.Timeline); err != nil {
 		return fmt.Errorf("while downloading history files: %w", err)
 	}
 
-	//nolint:godox
-	// TODO(leonardoce): create a physical replication slot and reuse it
-	// to keep track of the latest LSN
+	if err := s.ensureReplicationSlotExists(ctx, conn); err != nil {
+		return err
+	}
+
+	return s.startReplication(ctx, conn, startingPoint, identifyData.Timeline, walSegmentSize)
+}
+
+func (s *Process) getReplicationStartPoint(
+	ctx context.Context,
+	conn *pgconn.PgConn,
+	xlogFlushPos pglogrepl.LSN,
+	segmentSize uint64,
+) (pglogrepl.LSN, error) {
+	// Get the latest WAL file that have been pushed to the Klio
+	// server
+	latestWALFile, err := s.client.GetLatestWALFile(ctx)
+	if err != nil {
+		return 0, err //nolint:wrapcheck
+	}
+	if latestWALFile != "" {
+		lsn, err := getReplicationStartFromWALFileName(latestWALFile, segmentSize)
+		if err != nil {
+			return 0, err
+		}
+
+		s.logger.Info(
+			"Starting replication using the latest archived WAL as a starting point",
+			"latestWALFile", latestWALFile,
+			"lsn", lsn)
+
+		return lsn, nil
+	}
+
+	// Find the latest replication point reading the replication slot
+	slotResult, err := ReadReplicationSlot(ctx, conn, s.config.Source.Slot)
+	if err != nil {
+		return 0, fmt.Errorf("while reading replication slot: %w", err)
+	}
+	if slotResult.RestartLSN != 0 {
+		startPoint := pglogrepl.LSN(uint64(slotResult.RestartLSN) & ^(segmentSize - 1))
+		s.logger.Info(
+			"Starting replication using the replication slot as a starting point",
+			"latestWALFile", latestWALFile,
+			"lsn", startPoint)
+
+		return slotResult.RestartLSN, nil
+	}
+
+	return pglogrepl.LSN(uint64(xlogFlushPos) & ^(segmentSize - 1)), nil
+}
+
+func (s *Process) ensureReplicationSlotExists(
+	ctx context.Context,
+	conn *pgconn.PgConn,
+) error {
+	slotResult, err := ReadReplicationSlot(ctx, conn, s.config.Source.Slot)
+	if err != nil {
+		return fmt.Errorf("while reading replication slot: %w", err)
+	}
+
+	if len(slotResult.SlotType) > 0 {
+		// we know the replication slot type, so this replication slot
+		// really exists
+		return nil
+	}
+
 	replicationSlotResult, err := pglogrepl.CreateReplicationSlot(
 		ctx,
 		conn,
 		s.config.Source.Slot,
-		"", // output plugin name: this is meaningful only for physical replication
+		"", // output plugin name: this is meaningful only for logical replication
 		pglogrepl.CreateReplicationSlotOptions{
-			//nolint:godox
-			// TODO: replication slot should not be temporary. It also should
-			// be copied on standbys, since we can't afford not finding WALs.
-			Temporary: true,
+			Temporary: false,
 			Mode:      pglogrepl.PhysicalReplication,
 		},
 	)
@@ -90,12 +160,23 @@ func (s *Process) Start(ctx context.Context) error {
 		"consistentPoint", replicationSlotResult.ConsistentPoint,
 		"name", replicationSlotResult.SlotName)
 
-	walSegmentSize, err := s.infrastructure.GetWalSegmentSize(ctx)
+	return nil
+}
+
+func getReplicationStartFromWALFileName(walFileName string, segmentSize uint64) (pglogrepl.LSN, error) {
+	walFileName, _ = strings.CutSuffix(walFileName, ".partial")
+
+	fileName, err := types.LSNStartFromWALName(walFileName, segmentSize)
 	if err != nil {
-		return fmt.Errorf("while setting up replication: %w", err)
+		return 0, fmt.Errorf("while parsing WAL file name %s: %w", walFileName, err)
 	}
 
-	return s.startReplication(ctx, conn, identifyData.XLogPos, identifyData.Timeline, walSegmentSize)
+	lsn, err := fileName.Parse()
+	if err != nil {
+		return 0, fmt.Errorf("while parsing WAL file name %s: %w", walFileName, err)
+	}
+
+	return pglogrepl.LSN(lsn), nil
 }
 
 func (s *Process) downloadHistoryFiles(

@@ -40,7 +40,7 @@ dagger call kubernetes --source . terminal
 ## How to recreate the GRPC stub and skeleton
 
 ```
-dagger call protoc --source . -o internal/klioserver/grpc
+dagger call protoc --source . -o internal/grpc
 ```
 
 ## How to setup manually a Klio server

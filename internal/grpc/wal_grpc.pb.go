@@ -21,6 +21,7 @@ const _ = grpc.SupportPackageIsVersion7
 const (
 	WAL_UploadWAL_FullMethodName     = "/klio.wal.v1.WAL/UploadWAL"
 	WAL_GetWAL_FullMethodName        = "/klio.wal.v1.WAL/GetWAL"
+	WAL_GetLatestWAL_FullMethodName  = "/klio.wal.v1.WAL/GetLatestWAL"
 	WAL_UploadHistory_FullMethodName = "/klio.wal.v1.WAL/UploadHistory"
 )
 
@@ -30,6 +31,7 @@ const (
 type WALClient interface {
 	UploadWAL(ctx context.Context, opts ...grpc.CallOption) (WAL_UploadWALClient, error)
 	GetWAL(ctx context.Context, in *GetWALRequest, opts ...grpc.CallOption) (WAL_GetWALClient, error)
+	GetLatestWAL(ctx context.Context, in *GetLatestWALRequest, opts ...grpc.CallOption) (*GetLatestWALResult, error)
 	UploadHistory(ctx context.Context, in *UploadHistoryRequest, opts ...grpc.CallOption) (*UploadHistoryResult, error)
 }
 
@@ -107,6 +109,15 @@ func (x *wALGetWALClient) Recv() (*GetWALResult, error) {
 	return m, nil
 }
 
+func (c *wALClient) GetLatestWAL(ctx context.Context, in *GetLatestWALRequest, opts ...grpc.CallOption) (*GetLatestWALResult, error) {
+	out := new(GetLatestWALResult)
+	err := c.cc.Invoke(ctx, WAL_GetLatestWAL_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *wALClient) UploadHistory(ctx context.Context, in *UploadHistoryRequest, opts ...grpc.CallOption) (*UploadHistoryResult, error) {
 	out := new(UploadHistoryResult)
 	err := c.cc.Invoke(ctx, WAL_UploadHistory_FullMethodName, in, out, opts...)
@@ -122,6 +133,7 @@ func (c *wALClient) UploadHistory(ctx context.Context, in *UploadHistoryRequest,
 type WALServer interface {
 	UploadWAL(WAL_UploadWALServer) error
 	GetWAL(*GetWALRequest, WAL_GetWALServer) error
+	GetLatestWAL(context.Context, *GetLatestWALRequest) (*GetLatestWALResult, error)
 	UploadHistory(context.Context, *UploadHistoryRequest) (*UploadHistoryResult, error)
 	mustEmbedUnimplementedWALServer()
 }
@@ -135,6 +147,9 @@ func (UnimplementedWALServer) UploadWAL(WAL_UploadWALServer) error {
 }
 func (UnimplementedWALServer) GetWAL(*GetWALRequest, WAL_GetWALServer) error {
 	return status.Errorf(codes.Unimplemented, "method GetWAL not implemented")
+}
+func (UnimplementedWALServer) GetLatestWAL(context.Context, *GetLatestWALRequest) (*GetLatestWALResult, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetLatestWAL not implemented")
 }
 func (UnimplementedWALServer) UploadHistory(context.Context, *UploadHistoryRequest) (*UploadHistoryResult, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method UploadHistory not implemented")
@@ -199,6 +214,24 @@ func (x *wALGetWALServer) Send(m *GetWALResult) error {
 	return x.ServerStream.SendMsg(m)
 }
 
+func _WAL_GetLatestWAL_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetLatestWALRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(WALServer).GetLatestWAL(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: WAL_GetLatestWAL_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(WALServer).GetLatestWAL(ctx, req.(*GetLatestWALRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _WAL_UploadHistory_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(UploadHistoryRequest)
 	if err := dec(in); err != nil {
@@ -224,6 +257,10 @@ var WAL_ServiceDesc = grpc.ServiceDesc{
 	ServiceName: "klio.wal.v1.WAL",
 	HandlerType: (*WALServer)(nil),
 	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "GetLatestWAL",
+			Handler:    _WAL_GetLatestWAL_Handler,
+		},
 		{
 			MethodName: "UploadHistory",
 			Handler:    _WAL_UploadHistory_Handler,

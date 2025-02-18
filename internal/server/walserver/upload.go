@@ -102,6 +102,14 @@ func (w *Implementation) UploadWAL(req grpc.WAL_UploadWALServer) error {
 			return status.Errorf(codes.Internal, "error while reading WAL block: %v", err.Error())
 		}
 
+		if err := validatePathComponent(request.GetClusterName()); err != nil {
+			return status.Errorf(codes.InvalidArgument, "invalid cluster name: %v", err.Error())
+		}
+
+		if err := validatePathComponent(request.GetWalName()); err != nil {
+			return status.Errorf(codes.InvalidArgument, "invalid WAL name: %v", err.Error())
+		}
+
 		w.logger.Debug(
 			"Received WAL block",
 			"clusterName", request.GetClusterName(),
@@ -166,6 +174,14 @@ func (w *Implementation) UploadHistory(
 	_ context.Context,
 	req *grpc.UploadHistoryRequest,
 ) (*grpc.UploadHistoryResult, error) {
+	if err := validatePathComponent(req.GetClusterName()); err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "invalid cluster name: %v", err.Error())
+	}
+
+	if err := validatePathComponent(req.GetFileName()); err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "invalid file name: %v", err.Error())
+	}
+
 	fileName := path.Join(w.conn.BaseDir(), req.GetClusterName(), req.GetFileName())
 
 	//nolint:godox

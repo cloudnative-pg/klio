@@ -31,6 +31,9 @@ type WALClient interface {
 	// GetWAL recovers a WAL file from a remote store
 	GetWAL(ctx context.Context, walName string) (*types.Entry, error)
 
+	// GetLatestWALFile gets the latest WAL file that have been archived for this server
+	GetLatestWALFile(ctx context.Context) (string, error)
+
 	// Close closes the connection
 	Close(ctx context.Context) error
 }
