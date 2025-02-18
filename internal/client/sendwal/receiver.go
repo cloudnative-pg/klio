@@ -257,16 +257,9 @@ func (s *Process) startReplication(
 		return err
 	}
 
-	copyDoneResult, err := pglogrepl.SendStandbyCopyDone(ctx, conn)
-	if err != nil {
-		return fmt.Errorf("failed to send CopyDone message: %w", err)
+	if err := conn.Close(ctx); err != nil {
+		return fmt.Errorf("while closing connection: %w", err)
 	}
-
-	s.logger.Info(
-		"Physical replication finished",
-		"timeline", copyDoneResult.Timeline,
-		"lsn", copyDoneResult.LSN,
-	)
 
 	return nil
 }
@@ -352,10 +345,27 @@ func (s *Process) manageWALStream(
 				s.logger.Info("Received unexpected copydata message", "msg", msg)
 				return NewUnexpectedCopydataMessageError(msg.Data)
 			}
+
+		case *pgproto3.CommandComplete:
+			s.logger.Info("Streaming replication terminated by the backend with success")
+			return nil
+
 		default:
 			s.logger.Info("Received unexpected message", "msg", msg)
+			return NewUnexpectedMessageError(msg)
 		}
 	}
+
+	copyDoneResult, err := pglogrepl.SendStandbyCopyDone(ctx, conn)
+	if err != nil {
+		return fmt.Errorf("failed to send CopyDone message: %w", err)
+	}
+
+	s.logger.Info(
+		"Physical replication finished",
+		"timeline", copyDoneResult.Timeline,
+		"lsn", copyDoneResult.LSN,
+	)
 
 	return nil
 }

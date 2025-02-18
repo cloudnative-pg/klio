@@ -1,6 +1,28 @@
 package sendwal
 
-import "fmt"
+import (
+	"fmt"
+
+	"github.com/jackc/pgx/v5/pgproto3"
+)
+
+// UnexpectedMessageError is raised from the WAL receiver got a CopyData message
+// of unknown type.
+type UnexpectedMessageError struct {
+	msg pgproto3.BackendMessage
+}
+
+// Error implements the error interface.
+func (e *UnexpectedMessageError) Error() string {
+	return fmt.Sprintf("unexpected message, type=%+v", e.msg)
+}
+
+// NewUnexpectedCopydataMessageError creates a new unexpected copy data message.
+func NewUnexpectedMessageError(msg pgproto3.BackendMessage) *UnexpectedMessageError {
+	return &UnexpectedMessageError{
+		msg: msg,
+	}
+}
 
 // UnexpectedCopydataMessageError is raised from the WAL receiver got a CopyData message
 // of unknown type.
