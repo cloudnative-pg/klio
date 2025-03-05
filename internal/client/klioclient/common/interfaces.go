@@ -2,8 +2,7 @@ package common
 
 import (
 	"context"
-
-	"github.com/EnterpriseDB/klio/internal/client/klioclient/types"
+	"io"
 )
 
 // WALClientStreamer is implemented by clients supporting WAL streaming
@@ -18,6 +17,9 @@ type WALClientStreamer interface {
 type WALStreamer interface {
 	// StoreWALStreaming streams a WAL file to a remote store
 	StoreWALStreaming(ctx context.Context, name string, segmentSize uint64) (*WALUploader, error)
+
+	// GetWALStreaming recovers a WAL file from a remote store
+	GetWALStreaming(ctx context.Context, walName string, o io.Writer) error
 }
 
 // WALClient is the interface that wraps the backend WAL storage.
@@ -27,9 +29,6 @@ type WALClient interface {
 
 	// StoreHistoryFile upload an history file to a remote store
 	StoreHistoryFile(ctx context.Context, name string, content []byte) error
-
-	// GetWAL recovers a WAL file from a remote store
-	GetWAL(ctx context.Context, walName string) (*types.Entry, error)
 
 	// GetLatestWALFile gets the latest WAL file that have been archived for this server
 	GetLatestWALFile(ctx context.Context) (string, error)

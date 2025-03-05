@@ -17,7 +17,7 @@ func (e *UnexpectedMessageError) Error() string {
 	return fmt.Sprintf("unexpected message, type=%+v", e.msg)
 }
 
-// NewUnexpectedCopydataMessageError creates a new unexpected copy data message.
+// NewUnexpectedMessageError creates a new unexpected copy data message.
 func NewUnexpectedMessageError(msg pgproto3.BackendMessage) *UnexpectedMessageError {
 	return &UnexpectedMessageError{
 		msg: msg,

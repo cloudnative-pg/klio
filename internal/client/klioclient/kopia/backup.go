@@ -15,7 +15,6 @@ import (
 	"github.com/kopia/kopia/snapshot/snapshotfs"
 
 	"github.com/EnterpriseDB/klio/internal/client/klioclient/common"
-	klioTypes "github.com/EnterpriseDB/klio/internal/client/klioclient/types"
 )
 
 type backupImplementation struct {
@@ -25,8 +24,8 @@ type backupImplementation struct {
 	repository repo.Repository
 	progress   common.Progress
 
-	pgDataManifestID string
-	tablespaces      []TablespaceMetadata
+	pgDataManifest *snapshot.Manifest
+	tablespaces    []TablespaceMetadata
 }
 
 // BackupMetadata are the Kopia backup metadata.
@@ -80,21 +79,14 @@ func (impl *backupImplementation) UploadPgData(ctx context.Context, pgData strin
 		}
 	}()
 
-	manifest, err := impl.uploadPath(ctx, pgData, writer)
+	impl.pgDataManifest, err = impl.uploadPath(ctx, pgData, writer)
 	if err != nil {
 		return err
 	}
 
-	manifest.Tags = map[string]string{
+	impl.pgDataManifest.Tags = map[string]string{
 		"content": "pgdata",
 	}
-
-	pgDataManifestID, err := snapshot.SaveSnapshot(ctx, writer, manifest)
-	if err != nil {
-		return fmt.Errorf("while saving manifest ID to repository: %w", err)
-	}
-
-	impl.pgDataManifestID = string(pgDataManifestID)
 
 	if err = writer.Flush(ctx); err != nil {
 		return fmt.Errorf("while flushing repo: %w", err)
@@ -174,40 +166,18 @@ func (impl *backupImplementation) FinishBackup(ctx context.Context, data common.
 	if err != nil {
 		return fmt.Errorf("while marshalling metadata: %w", err)
 	}
+	impl.pgDataManifest.Description = string(metadataContent)
 
-	source := klioTypes.NewEntry(data.Name, metadataContent)
-	sourceInfo := snapshot.SourceInfo{
-		Host:     impl.hostname,
-		UserName: impl.username,
-		Path:     path.Join("/backups", data.Name),
-	}
-
-	policyTree, err := policy.TreeForSource(ctx, impl.repository, sourceInfo)
-	if err != nil {
-		return fmt.Errorf("while getting policy tree: %w", err)
-	}
-
-	uploader := snapshotfs.NewUploader(writer)
-	manifest, err := uploader.Upload(ctx, source, policyTree, sourceInfo)
-	if err != nil {
-		return fmt.Errorf("while uploading WAL file to storage: %w", err)
-	}
-	manifest.Tags = map[string]string{
-		"content":     "backup_metadata",
-		"backup_name": data.Name,
-	}
-
-	manifestID, err := snapshot.SaveSnapshot(ctx, writer, manifest)
+	pgDataManifestID, err := snapshot.SaveSnapshot(ctx, writer, impl.pgDataManifest)
 	if err != nil {
 		return fmt.Errorf("while saving manifest ID to repository: %w", err)
 	}
+	impl.logger.Debug("Saved PGData Snapshot", "manifestID", pgDataManifestID)
 
 	err = writer.Flush(ctx)
 	if err != nil {
 		return fmt.Errorf("while flushing repo: %w", err)
 	}
-
-	impl.logger.Debug("Saved backup metadata", "manifestID", manifestID)
 
 	return nil
 }

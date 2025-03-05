@@ -59,15 +59,18 @@ var getWalCmd = &cobra.Command{
 			return fmt.Errorf("while connecting to the Klio server: %w", err)
 		}
 
-		//nolint:godox
-		// TODO(leonardoce): support get wal streaming
-		entry, err := client.GetWAL(cmd.Context(), args[0])
+		output, err := os.OpenFile(args[0], os.O_TRUNC|os.O_CREATE, 0o600)
 		if err != nil {
-			return fmt.Errorf("while downloading WAL: %w", err)
+			return fmt.Errorf("cannot open file %s: %w", args[0], err)
 		}
+		defer func() {
+			if closeErr := output.Close(); closeErr != nil {
+				logger.Error("While closing WAL file", "err", closeErr)
+			}
+		}()
 
-		if err := os.WriteFile(args[1], entry.Content(), 0o600); err != nil {
-			return fmt.Errorf("while writing %s: %w", args[1], err)
+		if err := client.GetWALStreaming(cmd.Context(), args[0], output); err != nil {
+			return fmt.Errorf("while downloading WAL: %w", err)
 		}
 
 		return nil

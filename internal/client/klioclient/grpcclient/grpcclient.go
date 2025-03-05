@@ -15,7 +15,6 @@ import (
 	"google.golang.org/grpc/credentials"
 
 	"github.com/EnterpriseDB/klio/internal/client/klioclient/common"
-	"github.com/EnterpriseDB/klio/internal/client/klioclient/types"
 	klioGRPC "github.com/EnterpriseDB/klio/internal/grpc"
 	"github.com/EnterpriseDB/klio/pkg/config"
 )
@@ -94,17 +93,15 @@ func (c *Connection) StoreHistoryFile(ctx context.Context, name string, content 
 	return nil
 }
 
-// GetWAL get a WAL from a remote connection.
-func (c *Connection) GetWAL(ctx context.Context, walName string) (*types.Entry, error) {
+// GetWALStreaming get a WAL from a remote connection.
+func (c *Connection) GetWALStreaming(ctx context.Context, walName string, out io.Writer) error {
 	client, err := c.walClient.GetWAL(ctx, &klioGRPC.GetWALRequest{
 		ClusterName: c.cfg.ClusterName,
 		WalName:     walName,
 	})
 	if err != nil {
-		return nil, fmt.Errorf("while starting downloading a WAL file: %w", err)
+		return fmt.Errorf("while starting downloading a WAL file: %w", err)
 	}
-
-	var buffer bytes.Buffer
 
 	for {
 		result, err := client.Recv()
@@ -112,15 +109,15 @@ func (c *Connection) GetWAL(ctx context.Context, walName string) (*types.Entry, 
 			break
 		}
 		if err != nil {
-			return nil, fmt.Errorf("while receiving a WAL file block: %w", err)
+			return fmt.Errorf("while receiving a WAL file block: %w", err)
 		}
 
-		if _, err := buffer.Write(result.GetWalBlock()); err != nil {
-			return nil, ErrProgrammaticBuffer
+		if _, err := out.Write(result.GetWalBlock()); err != nil {
+			return ErrProgrammaticBuffer
 		}
 	}
 
-	return types.NewEntry(walName, buffer.Bytes()), nil
+	return nil
 }
 
 // StoreWAL uploads a WAL in the WAL server

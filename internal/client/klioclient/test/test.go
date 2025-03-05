@@ -1,6 +1,7 @@
 package test
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"math/rand/v2"
@@ -13,10 +14,10 @@ const fakeWalContent = "deadbeef"
 
 type testingRepository struct {
 	prefilledSnapshots int
-	conn               common.WALClient
+	conn               common.WALClientStreamer
 }
 
-type repositoryCreatorFunction func(ctx context.Context, repoLabel string) (common.WALClient, error)
+type repositoryCreatorFunction func(ctx context.Context, repoLabel string) (common.WALClientStreamer, error)
 
 // BenchLookupSnapshots starts a benchmark that creates a new repo, fills it with fake
 // WALs and then look them up.
@@ -71,15 +72,16 @@ func runSnapshotLookupBenchmark(b *testing.B, repo *testingRepository) {
 	for range b.N {
 		//nolint:gosec
 		walName := fmt.Sprintf("%024X", rand.IntN(repo.prefilledSnapshots))
-		content, err := repo.conn.GetWAL(context.TODO(), walName)
-		if err != nil {
+
+		var buffer bytes.Buffer
+		if err := repo.conn.GetWALStreaming(context.TODO(), walName, &buffer); err != nil {
 			b.Fatalf("error while looking up WAL %v: %v", walName, err)
 		}
 
-		if len(content.Content()) != len(fakeWalContent) {
+		if buffer.Len() != len(fakeWalContent) {
 			b.Fatalf(
 				"WAL has not the expected length: %v vs %v",
-				len(content.Content()),
+				buffer.Len(),
 				len(fakeWalContent),
 			)
 		}

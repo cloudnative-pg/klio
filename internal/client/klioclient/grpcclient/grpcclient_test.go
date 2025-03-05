@@ -14,7 +14,7 @@ import (
 )
 
 func BenchmarkLookupSnapshotsViaKlioServer(b *testing.B) {
-	createTemporaryKlioRepo := func(_ context.Context, repoLabel string) (common.WALClient, error) {
+	createTemporaryKlioRepo := func(_ context.Context, repoLabel string) (common.WALClientStreamer, error) {
 		//nolint:usetesting
 		dirName, err := os.MkdirTemp(
 			"",
