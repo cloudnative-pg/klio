@@ -1,11 +1,10 @@
-// Package cmd is the implementation of the "run" command
 package cmd
 
 import (
 	"fmt"
 	"log/slog"
+	"strings"
 
-	"github.com/jackc/pgx/v5"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"gopkg.in/validator.v2"
@@ -15,13 +14,14 @@ import (
 	"github.com/EnterpriseDB/klio/pkg/config"
 )
 
-// backupCmd represents the backup command
+// restoreCmd represents the restore command
 //
 //nolint:gochecknoglobals
-var backupCmd = &cobra.Command{
-	Use:   "backup",
-	Short: "Backup the PostgreSQL cluster to the opened Klio server",
-	RunE: func(cmd *cobra.Command, _ []string) error {
+var restoreCmd = &cobra.Command{
+	Use:   "restore [backup-name] [destination]",
+	Short: "Restore a PostgreSQL cluster from a Klio server",
+	Args:  cobra.ExactArgs(2),
+	RunE: func(cmd *cobra.Command, args []string) error {
 		logger := slog.Default()
 
 		var configuration config.Data
@@ -41,13 +41,28 @@ var backupCmd = &cobra.Command{
 		if configuration.Client.Kopia == nil {
 			return ErrKopiaClientSectionIsRequired
 		}
-		if configuration.Source == nil {
-			return ErrSourceSectionIsRequired
-		}
 
 		logger.Debug("Current configuration", "configuration", configuration)
 		if errs := validator.Validate(&configuration); errs != nil {
 			return fmt.Errorf("configuration validation error: %w", errs)
+		}
+
+		backupName := args[0]
+		destinationPath := args[1]
+		tablespaces := make(map[string]string)
+
+		optionSlice, err := cmd.Flags().GetStringSlice("tablespaces")
+		if err != nil {
+			return err
+		}
+
+		for _, option := range optionSlice {
+			splittedOption := strings.Split(option, ":")
+			if len(splittedOption) != 2 || len(splittedOption[0]) == 0 || len(splittedOption) == 0 {
+				return fmt.Errorf("invalid tablespace remap option %q", option)
+			}
+
+			tablespaces[splittedOption[0]] = splittedOption[1]
 		}
 
 		client, err := kopia.Connect(
@@ -59,44 +74,25 @@ var backupCmd = &cobra.Command{
 			return fmt.Errorf("while connecting to the Klio server: %w", err)
 		}
 
-		conn, err := pgx.Connect(cmd.Context(), configuration.Source.StandardDSN)
+		restoreOptions := common.RestoreOptions{
+			Name:                 backupName,
+			PgDataDirectory:      destinationPath,
+			TablespacesDirectory: tablespaces,
+			Progress:             common.NewDownloadProgressLogger(logger),
+		}
+
+		executor, err := client.CreateRestoreExecutor(cmd.Context(), restoreOptions)
 		if err != nil {
-			return fmt.Errorf("while connecting to PostgreSQL: %w", err)
-		}
-		defer func() {
-			_ = conn.Close(cmd.Context())
-		}()
-
-		backupExecutor, err := client.CreateBackupExecutor(
-			cmd.Context(),
-			common.BackupOptions{
-				Connection: conn,
-				Progress:   common.NewUploadProgressLogger(logger),
-			},
-		)
-		if err != nil {
-			return fmt.Errorf("while creating a backup executor: %w", err)
+			return err
 		}
 
-		if err := backupExecutor.Start(cmd.Context()); err != nil {
-			return fmt.Errorf("while starting the backup: %w", err)
-		}
-
-		if err := backupExecutor.Upload(cmd.Context()); err != nil {
-			return fmt.Errorf("while uploading data: %w", err)
-		}
-
-		if err := backupExecutor.Close(cmd.Context()); err != nil {
-			return fmt.Errorf("while closing the backup: %w", err)
-		}
-
-		return nil
+		return executor.Restore(cmd.Context(), destinationPath)
 	},
 }
 
 //nolint:gochecknoinits
 func init() {
-	rootCmd.AddCommand(backupCmd)
+	rootCmd.AddCommand(restoreCmd)
 	// Here you will define your flags and configuration settings.
 
 	// Cobra supports Persistent Flags which will work for this command
@@ -106,4 +102,10 @@ func init() {
 	// Cobra supports local flags which will only run when this command
 	// is called directly, e.g.:
 	// runCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
+
+	restoreCmd.Flags().StringSlice(
+		"tablespaces",
+		nil,
+		"A comma-separated list of tablespace_name:tablespace_path to customize "+
+			"the restore location of a tablespace.")
 }

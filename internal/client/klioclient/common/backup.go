@@ -18,6 +18,10 @@ type TablespaceLayout struct {
 
 	// Path is the path where the tablespace can be found.
 	Path string `json:"path"`
+
+	// Annotations is a generic data store where each backend
+	// can annotate its metadata.
+	Annotations map[string]string
 }
 
 // BackupExecutor guides the execution of a PostgreSQL backup, delegating
@@ -35,11 +39,27 @@ type BackupExecutor struct {
 
 // BackupMetadata is the metadata to be stored with set of backup snapshots.
 type BackupMetadata struct {
-	Name          string `json:"name"`
-	StartLSN      uint64 `json:"startLsn"`
-	EndLSN        uint64 `json:"endLsn"`
-	BackupLabel   string `json:"backupLabel"`
+	// Name is the backup name
+	Name string `json:"name"`
+
+	// StartLSN is the LSN of the backup start
+	StartLSN uint64 `json:"startLsn"`
+
+	// EndLSN is the LSN of the backup end
+	EndLSN uint64 `json:"endLsn"`
+
+	// BackupLabel is the backup label content
+	BackupLabel string `json:"backupLabel"`
+
+	// TablespaceMap is the tablespace map content
 	TablespaceMap string `json:"tablespaceMap"`
+
+	// Tablespaces are the metadata of the tablespaces
+	Tablespaces []TablespaceLayout `json:"tablespaces"`
+
+	// Annotations is a generic data store where each
+	// backend can put its metadata.
+	Annotations map[string]string
 }
 
 // BackupExecutorImplementation is used by a backup executor to upload
@@ -56,14 +76,7 @@ type BackupOptions struct {
 	Connection *pgx.Conn
 
 	// Progress is the callback to be used to report the backup status
-	Progress Progress
-}
-
-// BackupClient is the interface that wraps the backend PGDATA storage.
-type BackupClient interface {
-	// CreateBackup takes a backup of the passed PostgreSQL layout.
-	// Returns the eventual error status or an ID of the taken snapshot
-	CreateBackup(ctx context.Context, options BackupOptions) (*BackupExecutor, error)
+	Progress UploadProgress
 }
 
 // Start starts the execution of a backup.

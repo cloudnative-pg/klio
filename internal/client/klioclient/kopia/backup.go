@@ -17,38 +17,27 @@ import (
 	"github.com/EnterpriseDB/klio/internal/client/klioclient/common"
 )
 
+// manifestIDAnnotationName is the name of the annotation where
+// the Kopia manifest ID is stored.
+const manifestIDAnnotationName = "klio.io/kopiaManifestID"
+
+// backupNameTagName is the name of the tag containing the backup
+// name
+const backupNameTagName = "klio.io/tag"
+
 type backupImplementation struct {
 	hostname   string
 	username   string
 	logger     *slog.Logger
 	repository repo.Repository
-	progress   common.Progress
+	progress   common.UploadProgress
 
 	pgDataManifest *snapshot.Manifest
-	tablespaces    []TablespaceMetadata
+	tablespaces    []common.TablespaceLayout
 }
 
-// BackupMetadata are the Kopia backup metadata.
-type BackupMetadata struct {
-	common.BackupMetadata `json:",inline"`
-
-	// PgDataManifestID is the ID of the manifest of the PGData snapshot
-	PgDataManifestID string `json:"pgDataManifestId"`
-
-	// Tablespaces are the metadata of the tablespaces
-	Tablespaces []TablespaceMetadata `json:"tablespace"`
-}
-
-// TablespaceMetadata are the Kopia tablespace metadata.
-type TablespaceMetadata struct {
-	common.TablespaceLayout `json:",inline"`
-
-	// ManifestID is the ID of the snapshot of this tablespace
-	ManifestID string `json:"manifestId"`
-}
-
-// CreateBackup implements the BackupClient interface.
-func (s *Connection) CreateBackup(
+// CreateBackupExecutor creates a new backup executor.
+func (s *Connection) CreateBackupExecutor(
 	_ context.Context,
 	options common.BackupOptions,
 ) (*common.BackupExecutor, error) {
@@ -127,11 +116,12 @@ func (impl *backupImplementation) UploadTablespace(ctx context.Context, tbl comm
 		return fmt.Errorf("while saving manifest ID to repository: %w", err)
 	}
 
-	impl.tablespaces = append(impl.tablespaces,
-		TablespaceMetadata{
-			TablespaceLayout: tbl,
-			ManifestID:       string(tablespaceManifestID),
-		})
+	if tbl.Annotations == nil {
+		tbl.Annotations = make(map[string]string)
+	}
+	tbl.Annotations[manifestIDAnnotationName] = string(tablespaceManifestID)
+
+	impl.tablespaces = append(impl.tablespaces, tbl)
 
 	if err = writer.Flush(ctx); err != nil {
 		return fmt.Errorf("while flushing repo: %w", err)
@@ -158,15 +148,17 @@ func (impl *backupImplementation) FinishBackup(ctx context.Context, data common.
 		}
 	}()
 
-	metadata := BackupMetadata{
-		BackupMetadata: data,
-		Tablespaces:    impl.tablespaces,
-	}
-	metadataContent, err := json.Marshal(metadata)
+	data.Tablespaces = impl.tablespaces
+	metadataContent, err := json.Marshal(data)
 	if err != nil {
 		return fmt.Errorf("while marshalling metadata: %w", err)
 	}
 	impl.pgDataManifest.Description = string(metadataContent)
+
+	if impl.pgDataManifest.Tags == nil {
+		impl.pgDataManifest.Tags = make(map[string]string)
+	}
+	impl.pgDataManifest.Tags[backupNameTagName] = data.Name
 
 	pgDataManifestID, err := snapshot.SaveSnapshot(ctx, writer, impl.pgDataManifest)
 	if err != nil {
@@ -221,7 +213,7 @@ func (impl *backupImplementation) uploadPath(
 	}
 
 	uploader := snapshotfs.NewUploader(writer)
-	uploader.Progress = &kopiaProgress{
+	uploader.Progress = &kopiaUploadProgress{
 		startPath: sourcePath,
 		p:         impl.progress,
 		log:       impl.logger,

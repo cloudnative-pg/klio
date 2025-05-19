@@ -9,9 +9,9 @@ import (
 	"github.com/EnterpriseDB/klio/internal/client/klioclient/common"
 )
 
-// kopiaProgress is the implementation of the Kopia progress.
-type kopiaProgress struct {
-	p   common.Progress
+// kopiaUploadProgress is the implementation of the Kopia progress.
+type kopiaUploadProgress struct {
+	p   common.UploadProgress
 	log *slog.Logger
 
 	startPath          string
@@ -26,29 +26,29 @@ type kopiaProgress struct {
 }
 
 // Enabled implements snapshotfs.UploadProgress.
-func (k *kopiaProgress) Enabled() bool {
+func (k *kopiaUploadProgress) Enabled() bool {
 	return true
 }
 
 // EstimatedDataSize implements snapshotfs.UploadProgress.
-func (k *kopiaProgress) EstimatedDataSize(fileCount int64, totalBytes int64) {
+func (k *kopiaUploadProgress) EstimatedDataSize(fileCount int64, totalBytes int64) {
 	k.estimatedFileCount.Store(fileCount)
 	k.estimatedBytes.Store(totalBytes)
 	k.log.Debug("received estimation", "fileCount", fileCount, "totalBytes", totalBytes)
 }
 
 // HashedBytes implements snapshotfs.UploadProgress.
-func (k *kopiaProgress) HashedBytes(numBytes int64) {
+func (k *kopiaUploadProgress) HashedBytes(numBytes int64) {
 	k.hashedBytes.Add(numBytes)
 }
 
 // UploadedBytes implements snapshotfs.UploadProgress.
-func (k *kopiaProgress) UploadedBytes(numBytes int64) {
+func (k *kopiaUploadProgress) UploadedBytes(numBytes int64) {
 	k.uploadedBytes.Add(numBytes)
 }
 
 // EstimationParameters implements snapshotfs.UploadProgress.
-func (k *kopiaProgress) EstimationParameters() snapshotfs.EstimationParameters {
+func (k *kopiaUploadProgress) EstimationParameters() snapshotfs.EstimationParameters {
 	return snapshotfs.EstimationParameters{
 		Type:              snapshotfs.EstimationTypeClassic,
 		AdaptiveThreshold: snapshotfs.AdaptiveEstimationThreshold,
@@ -56,49 +56,49 @@ func (k *kopiaProgress) EstimationParameters() snapshotfs.EstimationParameters {
 }
 
 // FinishedHashingFile implements snapshotfs.UploadProgress.
-func (k *kopiaProgress) FinishedHashingFile(path string, numBytes int64) {
+func (k *kopiaUploadProgress) FinishedHashingFile(path string, numBytes int64) {
 	k.log.Info("Finished hashing file", "path", path, "numBytes", numBytes)
 	_ = k.hashedFiles.Add(1)
 }
 
 // CachedFile implements snapshotfs.UploadProgress.
-func (k *kopiaProgress) CachedFile(path string, size int64) {
+func (k *kopiaUploadProgress) CachedFile(path string, size int64) {
 	k.log.Info("Using cached file", "path", path, "size", size)
 }
 
 // Error implements snapshotfs.UploadProgress.
-func (k *kopiaProgress) Error(path string, err error, isIgnored bool) {
+func (k *kopiaUploadProgress) Error(path string, err error, isIgnored bool) {
 	k.log.Warn("Error while uploading file", "path", path, "err", err, "isIgnored", isIgnored)
 }
 
 // ExcludedDir implements snapshotfs.UploadProgress.
-func (k *kopiaProgress) ExcludedDir(path string) {
+func (k *kopiaUploadProgress) ExcludedDir(path string) {
 	k.log.Debug("Excluded directory", "path", path)
 }
 
 // ExcludedFile implements snapshotfs.UploadProgress.
-func (k *kopiaProgress) ExcludedFile(path string, size int64) {
+func (k *kopiaUploadProgress) ExcludedFile(path string, size int64) {
 	k.log.Info("Excluded file", "path", path, "size", size)
 }
 
 // FinishedDirectory implements snapshotfs.UploadProgress.
-func (k *kopiaProgress) FinishedDirectory(path string) {
+func (k *kopiaUploadProgress) FinishedDirectory(path string) {
 	k.log.Debug("Finish directory", "path", path)
 }
 
 // FinishedFile implements snapshotfs.UploadProgress.
-func (k *kopiaProgress) FinishedFile(path string, err error) {
+func (k *kopiaUploadProgress) FinishedFile(path string, err error) {
 	k.log.Debug("Finished uploading file", "path", path, "err", err)
 	_ = k.uploadedFiles.Add(1)
 }
 
 // HashingFile implements snapshotfs.UploadProgress.
-func (k *kopiaProgress) HashingFile(path string) {
+func (k *kopiaUploadProgress) HashingFile(path string) {
 	k.log.Info("Start hashing file", "path", path)
 }
 
 // StartedDirectory implements snapshotfs.UploadProgress.
-func (k *kopiaProgress) StartedDirectory(path string) {
+func (k *kopiaUploadProgress) StartedDirectory(path string) {
 	k.log.Info(
 		"Start directory",
 		"path", path,
@@ -112,11 +112,11 @@ func (k *kopiaProgress) StartedDirectory(path string) {
 }
 
 // UploadFinished implements snapshotfs.UploadProgress.
-func (k *kopiaProgress) UploadFinished() {
+func (k *kopiaUploadProgress) UploadFinished() {
 	k.p.NotifyFinish(k.startPath)
 }
 
 // UploadStarted implements snapshotfs.UploadProgress.
-func (k *kopiaProgress) UploadStarted() {
+func (k *kopiaUploadProgress) UploadStarted() {
 	k.p.NotifyStart(k.startPath)
 }
