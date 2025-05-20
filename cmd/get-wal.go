@@ -25,6 +25,9 @@ var getWalCmd = &cobra.Command{
 	RunE: func(cmd *cobra.Command, args []string) error {
 		logger := slog.Default()
 
+		walName := args[0]
+		targetFileName := args[1]
+
 		var configuration config.Data
 
 		// IMPORTANT: this requires this program to be built with "-tags viper_bind_struct"
@@ -59,9 +62,9 @@ var getWalCmd = &cobra.Command{
 			return fmt.Errorf("while connecting to the Klio server: %w", err)
 		}
 
-		output, err := os.OpenFile(args[0], os.O_TRUNC|os.O_CREATE, 0o600)
+		output, err := os.OpenFile(targetFileName, os.O_TRUNC|os.O_CREATE|os.O_WRONLY, 0o600) //nolint:gosec
 		if err != nil {
-			return fmt.Errorf("cannot open file %s: %w", args[0], err)
+			return fmt.Errorf("cannot open file %s: %w", targetFileName, err)
 		}
 		defer func() {
 			if closeErr := output.Close(); closeErr != nil {
@@ -69,7 +72,7 @@ var getWalCmd = &cobra.Command{
 			}
 		}()
 
-		if err := client.GetWALStreaming(cmd.Context(), args[0], output); err != nil {
+		if err := client.GetWALStreaming(cmd.Context(), walName, output); err != nil {
 			return fmt.Errorf("while downloading WAL: %w", err)
 		}
 

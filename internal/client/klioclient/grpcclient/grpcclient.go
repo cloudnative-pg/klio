@@ -113,7 +113,7 @@ func (c *Connection) GetWALStreaming(ctx context.Context, walName string, out io
 		}
 
 		if _, err := out.Write(result.GetWalBlock()); err != nil {
-			return ErrProgrammaticBuffer
+			return fmt.Errorf("while writing WAL file: %w", err)
 		}
 	}
 
