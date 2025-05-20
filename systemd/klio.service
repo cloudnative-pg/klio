@@ -1,0 +1,11 @@
+[Unit]
+Description=Klio Server
+
+[Service]
+ExecStart=/opt/klio/klio serve
+
+User=klio
+Group=klio
+
+[Install]
+WantedBy=multi-user.target

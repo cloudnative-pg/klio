@@ -1,0 +1,12 @@
+[Unit]
+Description=Klio Send WAL
+
+[Service]
+ExecStart=/opt/klio/klio send-wal --config=/etc/klio/klio.yaml
+User=postgres
+Group=postgres
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
+
