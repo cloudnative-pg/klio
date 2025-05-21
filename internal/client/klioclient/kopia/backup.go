@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
+	"os"
 	"path"
 	"path/filepath"
 
@@ -68,6 +69,18 @@ func (impl *backupImplementation) UploadPgData(ctx context.Context, pgData strin
 		}
 	}()
 
+	// Step 1: add a .kopiaignore file to avoid backing up
+	// the irrelevant part of the PGDATA directory.
+	//
+	// IMPORTANT: yes this is ugly, but I didn't found a way
+	// to achieve a similar behaviour just using the Kopia
+	// API
+	kopiaIgnore := path.Join(pgData, kopiaIgnoreFileName)
+	if err := os.WriteFile(kopiaIgnore, []byte(kopiaIgnoreContent), 0o600); err != nil {
+		return fmt.Errorf("while creating .kopiaignore file: %w", err)
+	}
+
+	// Step 2: upload PGDATA to the target Kopia server
 	impl.pgDataManifest, err = impl.uploadPath(ctx, pgData, writer)
 	if err != nil {
 		return err
@@ -79,6 +92,11 @@ func (impl *backupImplementation) UploadPgData(ctx context.Context, pgData strin
 
 	if err = writer.Flush(ctx); err != nil {
 		return fmt.Errorf("while flushing repo: %w", err)
+	}
+
+	// Step 3: remove .kopiaignore file from PGDATA
+	if err := os.Remove(kopiaIgnore); err != nil {
+		impl.logger.Warn("cannot remove .kopiaignore file", "file", kopiaIgnore)
 	}
 
 	return nil
