@@ -1,45 +1,96 @@
-linters-settings:
-  lll:
-    line-length: 120
-  gci:
-    sections:
-      - standard
-      - default
-      - prefix(github.com/cloudnative-pg/klio)
-      - blank
-      - dot
-  nlreturn:
-    block-size: 3
-
+version: "2"
 linters:
-  enable-all: true
-  disable:
-    - depguard
-    - exhaustruct
-    - funlen
-    - mnd
-    - paralleltest
-    - perfsprint
-    - tenv
-    - testpackage
-    - wsl
-
-run:
-  timeout: 10m
-
-issues:
-  exclude-rules:
-    # Allow dot imports for ginkgo and gomega
-    - source: ginkgo|gomega
-      linters:
-      - revive
-      text: "should not use dot imports"
-    # Exclude some linters from running on tests files.
-    - path: _test\.go
-      linters:
-        - goconst
-    # Exclude lll issues for lines with long annotations
-    - linters:
-      - lll
-      source: "//\\s*\\+"
-  exclude-use-default: false
+  default: none
+  enable:
+    - asciicheck
+    - bodyclose
+    - copyloopvar
+    - dogsled
+    - dupl
+    - durationcheck
+    - errcheck
+    - ginkgolinter
+    - gocognit
+    - goconst
+    - gocritic
+    - gocyclo
+    - goheader
+    - gomoddirectives
+    - gomodguard
+    - goprintffuncname
+    - gosec
+    - govet
+    - importas
+    - ineffassign
+    - lll
+    - makezero
+    - misspell
+    - nakedret
+    - nestif
+    - prealloc
+    - predeclared
+    - revive
+    - rowserrcheck
+    - sqlclosecheck
+    - staticcheck
+    - thelper
+    - tparallel
+    - unconvert
+    - unparam
+    - unused
+    - wastedassign
+    - whitespace
+  settings:
+    gosec:
+      excludes:
+        - G101
+    staticcheck:
+      checks:
+        - all
+        - '-QF1001'
+        - '-QF1007'
+    lll:
+      line-length: 120
+  exclusions:
+    generated: lax
+    rules:
+      - linters:
+          - revive
+        text: should not use dot imports
+        source: ginkgo|gomega
+      - linters:
+          - goconst
+        path: _test\.go
+      - linters:
+          - lll
+        source: //\s*\+
+      - linters:
+          - staticcheck
+        path: api/
+        text: 'ST1016:'
+    paths:
+      - zz_generated.*
+      - third_party$
+      - builtin$
+      - examples$
+formatters:
+  enable:
+    - gci
+    - gofmt
+    - gofumpt
+    - goimports
+  settings:
+    gci:
+      sections:
+        - standard
+        - default
+        - prefix(github.com/cloudnative-pg/klio)
+        - blank
+        - dot
+  exclusions:
+    generated: lax
+    paths:
+      - zz_generated.*
+      - third_party$
+      - builtin$
+      - examples$
