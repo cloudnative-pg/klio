@@ -1,7 +1,9 @@
 {
   "name": "klio",
-  "engineVersion": "v0.14.0",
-  "sdk": "go",
+  "engineVersion": "v0.18.8",
+  "sdk": {
+    "source": "go"
+  },
   "dependencies": [
     {
       "name": "go",
