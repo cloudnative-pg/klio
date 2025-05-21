@@ -34,7 +34,7 @@ type Source struct {
 	StandardDSN string `mapstructure:"standard_dsn" validate:"nonzero"`
 
 	// Slot is the name of the replication slot to be used
-	Slot string `validate:"nonzero"`
+	Slot string `validate:"nonzero,regexp=^[a-z0-9_]+$"`
 
 	// StandbyMessageTimeoutSeconds is the timeout after which the WAL
 	// receiver will send a status update
