@@ -3,6 +3,7 @@ Description=Klio Server
 
 [Service]
 ExecStart=/opt/klio/klio serve
+Restart=always
 
 User=klio
 Group=klio

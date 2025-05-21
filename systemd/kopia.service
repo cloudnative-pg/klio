@@ -11,6 +11,8 @@ ExecStart=/opt/klio/kopia server start \
   --tls-cert-file=/home/klio/server.crt \
   --tls-key-file=/home/klio/server.key 
 
+Restart=always
+
 User=klio
 Group=klio
 
