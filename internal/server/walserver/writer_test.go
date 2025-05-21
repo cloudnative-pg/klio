@@ -25,7 +25,7 @@ func TestWriter(t *testing.T) {
 	assert.NotNil(t, conn)
 	require.NoError(t, err)
 
-	writer, err := NewWALWriter(conn, "cluster-example", "0000001000000000000001F")
+	writer, err := NewWALWriter(conn, "cluster-example", "0000001000000000000001F8")
 	require.NoError(t, err)
 	require.NotNil(t, writer)
 
@@ -39,7 +39,7 @@ func TestWriter(t *testing.T) {
 	err = writer.CloseMarkDone()
 	require.NoError(t, err)
 
-	expectedPath := path.Join(opts.Path, "cluster-example", "0000001000000000", "0000001000000000000001F")
+	expectedPath := path.Join(opts.Path, "cluster-example", "0000001000000000", "0000001000000000000001F8")
 	exists, err := fileutils.FileExists(expectedPath)
 	require.NoError(t, err)
 	assert.True(t, exists)

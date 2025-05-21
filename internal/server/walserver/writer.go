@@ -22,20 +22,19 @@ type WALWriter struct {
 
 // NewWALWriter creates a new WAL file writer.
 func NewWALWriter(conn *repository.Connection, clusterName, walName string) (*WALWriter, error) {
-	if len(walName) < 16 {
+	if !isWALFileName(walName) {
 		return nil, NewIncorrectWALNameError(walName)
 	}
 
-	walFileBase := path.Join(conn.BaseDir(), clusterName, walName[0:16])
-	walFilePartialPath := path.Join(walFileBase, walName+".partial")
-	walFilePath := path.Join(walFileBase, walName)
+	walFilePath := getArchivedWALFileName(conn.BaseDir(), clusterName, walName)
+	walFilePartialPath := walFilePath + ".partial"
 
 	// Step 1: ensure the parent path exists
-	err := os.MkdirAll(walFileBase, 0o750)
+	err := os.MkdirAll(path.Dir(walFilePath), 0o750)
 	if err != nil {
 		return nil, fmt.Errorf(
 			"error while creating directory %s: %w",
-			walFileBase,
+			path.Base(walFilePath),
 			err,
 		)
 	}

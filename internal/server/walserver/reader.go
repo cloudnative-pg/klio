@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"path"
 
 	"github.com/EnterpriseDB/klio/internal/server/walserver/repository"
 )
@@ -19,13 +18,11 @@ type WALReader struct {
 
 // NewWALReader creates a new WAL file writer.
 func NewWALReader(conn *repository.Connection, clusterName, walName string) (*WALReader, error) {
-	const expectedWalFileNameLength = 16
-	if len(walName) < expectedWalFileNameLength {
+	if !isWALFileName(walName) {
 		return nil, NewIncorrectWALNameError(walName)
 	}
 
-	walFileBase := path.Join(conn.BaseDir(), clusterName, walName[0:expectedWalFileNameLength])
-	walFilePath := path.Join(walFileBase, walName)
+	walFilePath := getArchivedWALFileName(conn.BaseDir(), clusterName, walName)
 
 	//nolint:gosec
 	walFileReader, err := os.OpenFile(walFilePath, os.O_RDONLY, 0o600)
