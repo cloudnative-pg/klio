@@ -25,9 +25,9 @@ var walFileRE = regexp.MustCompile(
 		`)` +
 		`$`)
 
-// getArchivedWALFileName gets the name of the file where
+// getWALArchivePath gets the name of the file where
 // the passed WAL file will be archived.
-func getArchivedWALFileName(baseDir, clusterName, walName string) string {
+func getWALArchivePath(baseDir, clusterName, walName string) string {
 	walBase := path.Base(walName)
 
 	if len(walName) == expectedWalFileNameLength {
@@ -36,8 +36,11 @@ func getArchivedWALFileName(baseDir, clusterName, walName string) string {
 	return path.Join(baseDir, clusterName, walBase)
 }
 
-// isWALFileName checks if the passed file name belongs to
+// validateWalFileName checks if the passed file name belongs to
 // a WAL file or not
-func isWALFileName(name string) bool {
-	return walFileRE.Match([]byte(name))
+func validateWalFileName(name string) error {
+	if !walFileRE.Match([]byte(name)) {
+		return NewIncorrectWALNameError(name)
+	}
+	return nil
 }

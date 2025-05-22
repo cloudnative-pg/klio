@@ -18,11 +18,11 @@ type WALReader struct {
 
 // NewWALReader creates a new WAL file writer.
 func NewWALReader(conn *repository.Connection, clusterName, walName string) (*WALReader, error) {
-	if !isWALFileName(walName) {
-		return nil, NewIncorrectWALNameError(walName)
+	if err := validateWalFileName(walName); err != nil {
+		return nil, err
 	}
 
-	walFilePath := getArchivedWALFileName(conn.BaseDir(), clusterName, walName)
+	walFilePath := getWALArchivePath(conn.BaseDir(), clusterName, walName)
 
 	//nolint:gosec
 	walFileReader, err := os.OpenFile(walFilePath, os.O_RDONLY, 0o600)

@@ -22,11 +22,11 @@ type WALWriter struct {
 
 // NewWALWriter creates a new WAL file writer.
 func NewWALWriter(conn *repository.Connection, clusterName, walName string) (*WALWriter, error) {
-	if !isWALFileName(walName) {
-		return nil, NewIncorrectWALNameError(walName)
+	if err := validateWalFileName(walName); err != nil {
+		return nil, err
 	}
 
-	walFilePath := getArchivedWALFileName(conn.BaseDir(), clusterName, walName)
+	walFilePath := getWALArchivePath(conn.BaseDir(), clusterName, walName)
 	walFilePartialPath := walFilePath + ".partial"
 
 	// Step 1: ensure the parent path exists
