@@ -75,6 +75,7 @@ var getWalCmd = &cobra.Command{
 
 		if err := client.GetWALStreaming(cmd.Context(), walName, output); err != nil {
 			if errors.Is(err, common.ErrMissingWALFile) {
+				logger.Error("missing WAL file, exiting with error code 1", "wal_name", walName)
 				os.Exit(1)
 			}
 			return fmt.Errorf("while downloading WAL: %w", err)
