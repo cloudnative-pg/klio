@@ -2,6 +2,7 @@
 package cmd
 
 import (
+	"errors"
 	"fmt"
 	"log/slog"
 	"os"
@@ -73,6 +74,9 @@ var getWalCmd = &cobra.Command{
 		}()
 
 		if err := client.GetWALStreaming(cmd.Context(), walName, output); err != nil {
+			if errors.Is(err, common.ErrMissingWALFile) {
+				os.Exit(1)
+			}
 			return fmt.Errorf("while downloading WAL: %w", err)
 		}
 

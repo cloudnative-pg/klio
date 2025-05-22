@@ -25,7 +25,7 @@ func (w *Implementation) GetWAL(req *grpc.GetWALRequest, res grpc.WAL_GetWALServ
 	}
 
 	walReader, err := NewWALReader(w.conn, req.GetClusterName(), req.GetWalName())
-	if os.IsNotExist(err) {
+	if errors.Is(err, os.ErrNotExist) {
 		return status.Errorf(codes.NotFound, "WAL not found: %v/%v", req.GetClusterName(), req.GetWalName())
 	}
 	if err != nil {
@@ -66,7 +66,7 @@ func (w *Implementation) GetLatestWAL(
 	clusterPath := path.Join(w.conn.BaseDir(), req.GetClusterName())
 	readClusterDir, err := os.ReadDir(clusterPath)
 	if err != nil {
-		if os.IsNotExist(err) {
+		if errors.Is(err, os.ErrNotExist) {
 			return &grpc.GetLatestWALResult{
 				WalName: nil,
 			}, nil

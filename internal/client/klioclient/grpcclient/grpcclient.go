@@ -12,7 +12,9 @@ import (
 	"os"
 
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials"
+	"google.golang.org/grpc/status"
 
 	"github.com/EnterpriseDB/klio/internal/client/klioclient/common"
 	klioGRPC "github.com/EnterpriseDB/klio/internal/grpc"
@@ -100,6 +102,9 @@ func (c *Connection) GetWALStreaming(ctx context.Context, walName string, out io
 		WalName:     walName,
 	})
 	if err != nil {
+		if status.Code(err) == codes.NotFound {
+			return common.ErrMissingWALFile
+		}
 		return fmt.Errorf("while starting downloading a WAL file: %w", err)
 	}
 
