@@ -21,7 +21,7 @@ type TablespaceLayout struct {
 
 	// Annotations is a generic data store where each backend
 	// can annotate its metadata.
-	Annotations map[string]string
+	Annotations map[string]string `json:"annotations"`
 }
 
 // BackupExecutor guides the execution of a PostgreSQL backup, delegating
@@ -59,7 +59,7 @@ type BackupMetadata struct {
 
 	// Annotations is a generic data store where each
 	// backend can put its metadata.
-	Annotations map[string]string
+	Annotations map[string]string `json:"annotations"`
 }
 
 // BackupExecutorImplementation is used by a backup executor to upload
