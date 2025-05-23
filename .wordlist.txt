@@ -23,6 +23,7 @@ PGData
 PutRequest
 PutResult
 StartWALFile
+TLS
 TrueClass
 UTF
 UploadHistory
@@ -31,12 +32,15 @@ UploadHistoryResult
 UploadWAL
 UploadWALRequest
 UploadWALResult
+VM
+VMs
 WAL
 WALFileBlock
 WALs
 bool
 codename
 filesystem
+goreleaser
 klio
 kopia
 namespace
@@ -47,6 +51,7 @@ proto
 sfixed
 sint
 str
+systemd
 ubuntu
 uint
 ulong
