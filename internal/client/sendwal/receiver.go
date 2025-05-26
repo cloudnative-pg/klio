@@ -19,7 +19,7 @@ import (
 	"github.com/EnterpriseDB/klio/pkg/config"
 )
 
-// Process implements the supervisor service.
+// Process implements the WAL sender service.
 type Process struct {
 	config         *config.Data
 	logger         *slog.Logger
@@ -37,8 +37,12 @@ func New(cfg *config.Data, log *slog.Logger, client common.WALClientStreamer) *P
 	}
 }
 
+// ErrReplicationStatusNotFound is raised when the server don't
+// can't find the latest replicated WAL.
+var ErrReplicationStatusNotFound = fmt.Errorf("replication status not found on the server")
+
 // Start the WAL receiver.
-func (s *Process) Start(ctx context.Context) error {
+func (s *Process) Start(ctx context.Context, resetLSN bool) error {
 	conn, err := s.infrastructure.NewConn(ctx)
 	if err != nil {
 		return fmt.Errorf("while parsing DSN: %w", err)
@@ -66,7 +70,7 @@ func (s *Process) Start(ctx context.Context) error {
 		"systemID", identifyData.SystemID,
 	)
 
-	startingPoint, err := s.getReplicationStartPoint(ctx, conn, identifyData.XLogPos, walSegmentSize)
+	startingPoint, err := s.getReplicationStartPoint(ctx, conn, identifyData.XLogPos, walSegmentSize, resetLSN)
 	if err != nil {
 		return err
 	}
@@ -86,6 +90,39 @@ func (s *Process) getReplicationStartPoint(
 	ctx context.Context,
 	conn *pgconn.PgConn,
 	xlogFlushPos pglogrepl.LSN,
+	segmentSize uint64,
+	resetLSN bool,
+) (pglogrepl.LSN, error) {
+	// If the user chooses to use force the WAL sending process
+	// to start, we just use the current XLOG Flush position, taking
+	// care of starting streaming from the beginning of the WAL file.
+	if resetLSN {
+		return getStartWALLSN(xlogFlushPos, segmentSize), nil
+	}
+
+	// Otherwise, we check the replication status of the Klio server
+	// or of the replication slot and use that.
+	startingPoint, err := s.getReplicationStartPointFromServer(ctx, conn, segmentSize)
+	if err != nil {
+		if errors.Is(err, ErrReplicationStatusNotFound) {
+			// If nor the Klio server nor the replication slot are set,
+			// we use the XLOG flush position, taking care of
+			// starting streaming from the beginning of the WAL file.
+			//
+			// This usually happens when we are running against this
+			// PostgreSQL instance for the first time.
+			return getStartWALLSN(xlogFlushPos, segmentSize), nil
+		}
+
+		return 0, err
+	}
+
+	return startingPoint, nil
+}
+
+func (s *Process) getReplicationStartPointFromServer(
+	ctx context.Context,
+	conn *pgconn.PgConn,
 	segmentSize uint64,
 ) (pglogrepl.LSN, error) {
 	// Get the latest WAL file that have been pushed to the Klio
@@ -123,7 +160,15 @@ func (s *Process) getReplicationStartPoint(
 		return slotResult.RestartLSN, nil
 	}
 
-	return pglogrepl.LSN(uint64(xlogFlushPos) & ^(segmentSize - 1)), nil
+	return 0, ErrReplicationStatusNotFound
+}
+
+// getStartWALLSN gets the LSN position of the start of the WAL file
+// that contains the passed LSN.
+// This is used to get the point where to start reading WALs given
+// the current flush position.
+func getStartWALLSN(xlogFlushPos pglogrepl.LSN, segmentSize uint64) pglogrepl.LSN {
+	return pglogrepl.LSN(uint64(xlogFlushPos) & ^(segmentSize - 1))
 }
 
 func (s *Process) ensureReplicationSlotExists(

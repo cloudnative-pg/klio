@@ -76,7 +76,8 @@ var sendWalCmd = &cobra.Command{
 
 		sendWalService := sendwal.New(&configuration, logger, client)
 
-		return sendWalService.Start(cmd.Context())
+		resetLSN, _ := cmd.Flags().GetBool("reset-lsn")
+		return sendWalService.Start(cmd.Context(), resetLSN)
 	},
 }
 
@@ -136,7 +137,11 @@ func waitForPostgreSQLInstance(ctx context.Context, dsn string, waitForPrimary b
 func init() {
 	rootCmd.AddCommand(sendWalCmd)
 
-	sendWalCmd.Flags().Bool("primary", true, "Wait for the current instance to become a primary")
+	sendWalCmd.Flags().Bool(
+		"primary", true, "Wait for the current instance to become a primary")
+	sendWalCmd.Flags().Bool(
+		"reset-lsn", false, "Reset the replication from the PostgreSQL XLOG flush position")
+
 	// Here you will define your flags and configuration settings.
 
 	// Cobra supports Persistent Flags which will work for this command
