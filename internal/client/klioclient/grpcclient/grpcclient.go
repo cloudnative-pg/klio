@@ -114,6 +114,9 @@ func (c *Connection) GetWALStreaming(ctx context.Context, walName string, out io
 			break
 		}
 		if err != nil {
+			if status.Code(err) == codes.NotFound {
+				return common.ErrMissingWALFile
+			}
 			return fmt.Errorf("while receiving a WAL file block: %w", err)
 		}
 
