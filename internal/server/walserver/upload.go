@@ -96,14 +96,24 @@ func (w *Implementation) Put(req grpc.WAL_PutServer) error {
 			break
 		}
 		if err != nil {
-			return status.Errorf(codes.Internal, "error while reading WAL block: %v", err.Error())
+			w.logger.Warn(
+				"Error while reading WAL block",
+				"clusterName", request.GetClusterName(),
+				"walName", request.GetWalName(),
+				"err", err,
+			)
+
+			// What we have read until now is fine, let's keep it.
+			break
 		}
 
 		if err := validatePathComponent(request.GetClusterName()); err != nil {
+			w.logger.Warn("Wrong cluster name used in WAL Put", "clusterName", request.GetClusterName())
 			return status.Errorf(codes.InvalidArgument, "invalid cluster name: %v", err.Error())
 		}
 
 		if err := validatePathComponent(request.GetWalName()); err != nil {
+			w.logger.Warn("Wrong WAL name used in WAL Put", "walName", request.GetWalName())
 			return status.Errorf(codes.InvalidArgument, "invalid WAL name: %v", err.Error())
 		}
 
@@ -115,22 +125,46 @@ func (w *Implementation) Put(req grpc.WAL_PutServer) error {
 		)
 
 		if err := blockMeta.handleRequest(request); err != nil {
+			w.logger.Error(
+				"Incoherent WAL Block received",
+				"clusterName", request.GetClusterName(),
+				"walName", request.GetWalName(),
+				"err", err,
+			)
 			return status.Errorf(codes.InvalidArgument, "%s", err.Error())
 		}
 
 		if walBuffer == nil {
 			walBuffer, err = NewWALWriter(w.conn, blockMeta.clusterName, blockMeta.walFileName)
 			if err != nil {
+				w.logger.Error(
+					"Cannot open new WAL file",
+					"clusterName", request.GetClusterName(),
+					"walName", request.GetWalName(),
+					"err", err,
+				)
 				return status.Errorf(codes.Internal, "error while opening new WAL: %v", err.Error())
 			}
 		}
 
 		bytesWritten, err := walBuffer.Write(request.GetWalBlock())
 		if err != nil {
+			w.logger.Error(
+				"Error while writing WAL data",
+				"clusterName", request.GetClusterName(),
+				"walName", request.GetWalName(),
+				"err", err,
+			)
 			return status.Errorf(codes.Internal, "error while writing WAL: %v", err.Error())
 		}
 
 		if err = walBuffer.Flush(); err != nil {
+			w.logger.Error(
+				"Error while flushing WAL data",
+				"clusterName", request.GetClusterName(),
+				"walName", request.GetWalName(),
+				"err", err,
+			)
 			return status.Errorf(codes.Internal, "error while flushing WAL: %v", err.Error())
 		}
 
@@ -141,6 +175,10 @@ func (w *Implementation) Put(req grpc.WAL_PutServer) error {
 		if err := req.SendAndClose(&grpc.PutResult{
 			WrittenSize: 0,
 		}); err != nil {
+			w.logger.Error(
+				"Error while closing empty WAL file",
+				"err", err,
+			)
 			return status.Errorf(codes.Internal, "error while closing (partial) WAL: %v", err.Error())
 		}
 
@@ -149,17 +187,54 @@ func (w *Implementation) Put(req grpc.WAL_PutServer) error {
 
 	if writtenSize != blockMeta.segmentSize || writtenSize == 0 {
 		if err := walBuffer.Close(); err != nil {
+			w.logger.Warn(
+				"Error while closing partial WAL file",
+				"writtenSize", writtenSize,
+				"walFileName", blockMeta.walFileName,
+				"clusterName", blockMeta.clusterName,
+				"err", err,
+			)
 			return status.Errorf(codes.Internal, "error while closing (partial) WAL: %v", err.Error())
 		}
+
+		w.logger.Info(
+			"Received partial WAL file",
+			"writtenSize", writtenSize,
+			"segmentSize", blockMeta.segmentSize,
+			"walFileName", blockMeta.walFileName,
+			"clusterName", blockMeta.clusterName,
+		)
 	} else {
 		if err := walBuffer.CloseMarkDone(); err != nil {
+			w.logger.Warn(
+				"Error while closing completed WAL file",
+				"writtenSize", writtenSize,
+				"walFileName", blockMeta.walFileName,
+				"clusterName", blockMeta.clusterName,
+				"err", err,
+			)
 			return status.Errorf(codes.Internal, "error while closing (done) WAL: %v", err.Error())
 		}
+
+		w.logger.Info(
+			"Received completed WAL file",
+			"writtenSize", writtenSize,
+			"segmentSize", blockMeta.segmentSize,
+			"walFileName", blockMeta.walFileName,
+			"clusterName", blockMeta.clusterName,
+		)
 	}
 
 	if err := req.SendAndClose(&grpc.PutResult{
 		WrittenSize: writtenSize,
 	}); err != nil {
+		w.logger.Warn(
+			"Error while sending WAL Put response",
+			"writtenSize", writtenSize,
+			"walFileName", blockMeta.walFileName,
+			"clusterName", blockMeta.clusterName,
+			"err", err,
+		)
 		return status.Errorf(codes.Internal, "error while sending response: %v", err.Error())
 	}
 

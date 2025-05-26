@@ -3,6 +3,7 @@ package walserver
 import (
 	"path"
 	"regexp"
+	"strings"
 )
 
 // expectedWalFileNameLength is the expected name of a WAL
@@ -28,12 +29,11 @@ var walFileRE = regexp.MustCompile(
 // getWALArchivePath gets the name of the file where
 // the passed WAL file will be archived.
 func getWALArchivePath(baseDir, clusterName, walName string) string {
-	walBase := path.Base(walName)
-
-	if len(walName) == expectedWalFileNameLength {
-		return path.Join(baseDir, clusterName, walBase[0:16], walBase)
+	walNameWithoutExtension := strings.TrimSuffix(walName, path.Ext(walName))
+	if len(walNameWithoutExtension) == expectedWalFileNameLength {
+		return path.Join(baseDir, clusterName, walName[0:16], walName)
 	}
-	return path.Join(baseDir, clusterName, walBase)
+	return path.Join(baseDir, clusterName, walName)
 }
 
 // validateWalFileName checks if the passed file name belongs to

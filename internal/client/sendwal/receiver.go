@@ -257,6 +257,15 @@ func (s *Process) startReplication(
 		return err
 	}
 
+	if klioHandler.HasWALFileOpened() {
+		// If the transmission terminated but there is still a WAL file in progress,
+		// we close it.
+		// This happens when PG is shut down.
+		if err := klioHandler.CloseWAL(ctx); err != nil {
+			return err
+		}
+	}
+
 	if err := conn.Close(ctx); err != nil {
 		return fmt.Errorf("while closing connection: %w", err)
 	}

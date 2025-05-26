@@ -211,6 +211,7 @@ type grpcWALStream struct {
 	innerStream klioGRPC.WAL_PutClient
 	segmentSize uint64
 	clusterName string
+	sentBytes   uint64
 	walName     string
 }
 
@@ -221,10 +222,10 @@ func (g *grpcWALStream) Close(_ context.Context) error {
 		return fmt.Errorf("while flushing WAL file: %w", err)
 	}
 
-	if result.GetWrittenSize() != g.segmentSize {
+	if result.GetWrittenSize() != g.sentBytes {
 		return &IncompleteWALFileError{
 			uploadedSize: result.GetWrittenSize(),
-			expectedSize: g.segmentSize,
+			expectedSize: g.sentBytes,
 		}
 	}
 
@@ -241,6 +242,8 @@ func (g *grpcWALStream) SendBlock(_ context.Context, block []byte) error {
 	}); err != nil {
 		return fmt.Errorf("error while sending WAL block (send streaming len=%v): %w", len(block), err)
 	}
+
+	g.sentBytes += uint64(len(block))
 
 	return nil
 }

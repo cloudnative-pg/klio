@@ -19,6 +19,10 @@ func TestGetArchivedWALFileName(t *testing.T) {
 			archivedName: "/var/lib/klio/wals/cluster-example/0000000100000076/00000001000000760000007B",
 		},
 		{
+			walName:      "00000001000000760000007B.partial",
+			archivedName: "/var/lib/klio/wals/cluster-example/0000000100000076/00000001000000760000007B.partial",
+		},
+		{
 			walName:      "00000002.history",
 			archivedName: "/var/lib/klio/wals/cluster-example/00000002.history",
 		},
