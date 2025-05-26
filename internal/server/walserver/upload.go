@@ -1,12 +1,9 @@
 package walserver
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	"io"
-	"os"
-	"path"
 
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -41,7 +38,7 @@ type walUploadBlockMetadata struct {
 	segmentSize uint64
 }
 
-func (m *walUploadBlockMetadata) handleRequest(request *grpc.UploadWALRequest) error {
+func (m *walUploadBlockMetadata) handleRequest(request *grpc.PutRequest) error {
 	if request.GetClusterName() == "" {
 		return errEmptyClusterName
 	}
@@ -85,10 +82,10 @@ func (m *walUploadBlockMetadata) handleRequest(request *grpc.UploadWALRequest) e
 	return nil
 }
 
-// UploadWAL uploads a new WAL to the data store.
+// Put uploads a new WAL to the data store.
 //
 //nolint:cyclop
-func (w *Implementation) UploadWAL(req grpc.WAL_UploadWALServer) error {
+func (w *Implementation) Put(req grpc.WAL_PutServer) error {
 	var blockMeta walUploadBlockMetadata
 	var walBuffer *WALWriter
 	var writtenSize uint64
@@ -141,7 +138,7 @@ func (w *Implementation) UploadWAL(req grpc.WAL_UploadWALServer) error {
 	}
 
 	if walBuffer == nil {
-		if err := req.SendAndClose(&grpc.UploadWALResult{
+		if err := req.SendAndClose(&grpc.PutResult{
 			WrittenSize: 0,
 		}); err != nil {
 			return status.Errorf(codes.Internal, "error while closing (partial) WAL: %v", err.Error())
@@ -160,52 +157,11 @@ func (w *Implementation) UploadWAL(req grpc.WAL_UploadWALServer) error {
 		}
 	}
 
-	if err := req.SendAndClose(&grpc.UploadWALResult{
+	if err := req.SendAndClose(&grpc.PutResult{
 		WrittenSize: writtenSize,
 	}); err != nil {
 		return status.Errorf(codes.Internal, "error while sending response: %v", err.Error())
 	}
 
 	return nil
-}
-
-// UploadHistory implements the relative GRPC endpoint.
-func (w *Implementation) UploadHistory(
-	_ context.Context,
-	req *grpc.UploadHistoryRequest,
-) (*grpc.UploadHistoryResult, error) {
-	if err := validatePathComponent(req.GetClusterName()); err != nil {
-		return nil, status.Errorf(codes.InvalidArgument, "invalid cluster name: %v", err.Error())
-	}
-
-	if err := validatePathComponent(req.GetFileName()); err != nil {
-		return nil, status.Errorf(codes.InvalidArgument, "invalid file name: %v", err.Error())
-	}
-
-	fileName := path.Join(w.conn.BaseDir(), req.GetClusterName(), req.GetFileName())
-
-	//nolint:godox
-	// TODO(leonardoce): what should we do about the existing history files?
-	// should we check if they are equal or not?
-	historyFile, err := os.OpenFile(fileName, os.O_CREATE|os.O_TRUNC, 0o600) //nolint:gosec
-	if err != nil {
-		return nil, status.Errorf(codes.Internal, "while writing history file: %s", err.Error())
-	}
-
-	defer func() {
-		if err := historyFile.Close(); err != nil {
-			w.logger.Warn("Error while closing history file", "err", err, "filename", fileName)
-		}
-	}()
-
-	writer, err := w.conn.ProtectWriter(historyFile)
-	if err != nil {
-		return nil, status.Errorf(codes.Internal, "error while setting up encryption: %v", err.Error())
-	}
-
-	if _, err := writer.Write(req.GetContent()); err != nil {
-		return nil, status.Errorf(codes.Internal, "error while writing history data: %v", err.Error())
-	}
-
-	return &grpc.UploadHistoryResult{}, nil
 }

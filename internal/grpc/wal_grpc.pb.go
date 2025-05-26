@@ -19,20 +19,18 @@ import (
 const _ = grpc.SupportPackageIsVersion7
 
 const (
-	WAL_UploadWAL_FullMethodName     = "/klio.wal.v1.WAL/UploadWAL"
-	WAL_GetWAL_FullMethodName        = "/klio.wal.v1.WAL/GetWAL"
-	WAL_GetLatestWAL_FullMethodName  = "/klio.wal.v1.WAL/GetLatestWAL"
-	WAL_UploadHistory_FullMethodName = "/klio.wal.v1.WAL/UploadHistory"
+	WAL_Put_FullMethodName       = "/klio.wal.v1.WAL/Put"
+	WAL_Get_FullMethodName       = "/klio.wal.v1.WAL/Get"
+	WAL_GetLatest_FullMethodName = "/klio.wal.v1.WAL/GetLatest"
 )
 
 // WALClient is the client API for WAL service.
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type WALClient interface {
-	UploadWAL(ctx context.Context, opts ...grpc.CallOption) (WAL_UploadWALClient, error)
-	GetWAL(ctx context.Context, in *GetWALRequest, opts ...grpc.CallOption) (WAL_GetWALClient, error)
-	GetLatestWAL(ctx context.Context, in *GetLatestWALRequest, opts ...grpc.CallOption) (*GetLatestWALResult, error)
-	UploadHistory(ctx context.Context, in *UploadHistoryRequest, opts ...grpc.CallOption) (*UploadHistoryResult, error)
+	Put(ctx context.Context, opts ...grpc.CallOption) (WAL_PutClient, error)
+	Get(ctx context.Context, in *GetRequest, opts ...grpc.CallOption) (WAL_GetClient, error)
+	GetLatest(ctx context.Context, in *GetLatestRequest, opts ...grpc.CallOption) (*GetLatestResult, error)
 }
 
 type wALClient struct {
@@ -43,46 +41,46 @@ func NewWALClient(cc grpc.ClientConnInterface) WALClient {
 	return &wALClient{cc}
 }
 
-func (c *wALClient) UploadWAL(ctx context.Context, opts ...grpc.CallOption) (WAL_UploadWALClient, error) {
-	stream, err := c.cc.NewStream(ctx, &WAL_ServiceDesc.Streams[0], WAL_UploadWAL_FullMethodName, opts...)
+func (c *wALClient) Put(ctx context.Context, opts ...grpc.CallOption) (WAL_PutClient, error) {
+	stream, err := c.cc.NewStream(ctx, &WAL_ServiceDesc.Streams[0], WAL_Put_FullMethodName, opts...)
 	if err != nil {
 		return nil, err
 	}
-	x := &wALUploadWALClient{stream}
+	x := &wALPutClient{stream}
 	return x, nil
 }
 
-type WAL_UploadWALClient interface {
-	Send(*UploadWALRequest) error
-	CloseAndRecv() (*UploadWALResult, error)
+type WAL_PutClient interface {
+	Send(*PutRequest) error
+	CloseAndRecv() (*PutResult, error)
 	grpc.ClientStream
 }
 
-type wALUploadWALClient struct {
+type wALPutClient struct {
 	grpc.ClientStream
 }
 
-func (x *wALUploadWALClient) Send(m *UploadWALRequest) error {
+func (x *wALPutClient) Send(m *PutRequest) error {
 	return x.ClientStream.SendMsg(m)
 }
 
-func (x *wALUploadWALClient) CloseAndRecv() (*UploadWALResult, error) {
+func (x *wALPutClient) CloseAndRecv() (*PutResult, error) {
 	if err := x.ClientStream.CloseSend(); err != nil {
 		return nil, err
 	}
-	m := new(UploadWALResult)
+	m := new(PutResult)
 	if err := x.ClientStream.RecvMsg(m); err != nil {
 		return nil, err
 	}
 	return m, nil
 }
 
-func (c *wALClient) GetWAL(ctx context.Context, in *GetWALRequest, opts ...grpc.CallOption) (WAL_GetWALClient, error) {
-	stream, err := c.cc.NewStream(ctx, &WAL_ServiceDesc.Streams[1], WAL_GetWAL_FullMethodName, opts...)
+func (c *wALClient) Get(ctx context.Context, in *GetRequest, opts ...grpc.CallOption) (WAL_GetClient, error) {
+	stream, err := c.cc.NewStream(ctx, &WAL_ServiceDesc.Streams[1], WAL_Get_FullMethodName, opts...)
 	if err != nil {
 		return nil, err
 	}
-	x := &wALGetWALClient{stream}
+	x := &wALGetClient{stream}
 	if err := x.ClientStream.SendMsg(in); err != nil {
 		return nil, err
 	}
@@ -92,35 +90,26 @@ func (c *wALClient) GetWAL(ctx context.Context, in *GetWALRequest, opts ...grpc.
 	return x, nil
 }
 
-type WAL_GetWALClient interface {
-	Recv() (*GetWALResult, error)
+type WAL_GetClient interface {
+	Recv() (*GetResult, error)
 	grpc.ClientStream
 }
 
-type wALGetWALClient struct {
+type wALGetClient struct {
 	grpc.ClientStream
 }
 
-func (x *wALGetWALClient) Recv() (*GetWALResult, error) {
-	m := new(GetWALResult)
+func (x *wALGetClient) Recv() (*GetResult, error) {
+	m := new(GetResult)
 	if err := x.ClientStream.RecvMsg(m); err != nil {
 		return nil, err
 	}
 	return m, nil
 }
 
-func (c *wALClient) GetLatestWAL(ctx context.Context, in *GetLatestWALRequest, opts ...grpc.CallOption) (*GetLatestWALResult, error) {
-	out := new(GetLatestWALResult)
-	err := c.cc.Invoke(ctx, WAL_GetLatestWAL_FullMethodName, in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *wALClient) UploadHistory(ctx context.Context, in *UploadHistoryRequest, opts ...grpc.CallOption) (*UploadHistoryResult, error) {
-	out := new(UploadHistoryResult)
-	err := c.cc.Invoke(ctx, WAL_UploadHistory_FullMethodName, in, out, opts...)
+func (c *wALClient) GetLatest(ctx context.Context, in *GetLatestRequest, opts ...grpc.CallOption) (*GetLatestResult, error) {
+	out := new(GetLatestResult)
+	err := c.cc.Invoke(ctx, WAL_GetLatest_FullMethodName, in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -131,10 +120,9 @@ func (c *wALClient) UploadHistory(ctx context.Context, in *UploadHistoryRequest,
 // All implementations must embed UnimplementedWALServer
 // for forward compatibility
 type WALServer interface {
-	UploadWAL(WAL_UploadWALServer) error
-	GetWAL(*GetWALRequest, WAL_GetWALServer) error
-	GetLatestWAL(context.Context, *GetLatestWALRequest) (*GetLatestWALResult, error)
-	UploadHistory(context.Context, *UploadHistoryRequest) (*UploadHistoryResult, error)
+	Put(WAL_PutServer) error
+	Get(*GetRequest, WAL_GetServer) error
+	GetLatest(context.Context, *GetLatestRequest) (*GetLatestResult, error)
 	mustEmbedUnimplementedWALServer()
 }
 
@@ -142,17 +130,14 @@ type WALServer interface {
 type UnimplementedWALServer struct {
 }
 
-func (UnimplementedWALServer) UploadWAL(WAL_UploadWALServer) error {
-	return status.Errorf(codes.Unimplemented, "method UploadWAL not implemented")
+func (UnimplementedWALServer) Put(WAL_PutServer) error {
+	return status.Errorf(codes.Unimplemented, "method Put not implemented")
 }
-func (UnimplementedWALServer) GetWAL(*GetWALRequest, WAL_GetWALServer) error {
-	return status.Errorf(codes.Unimplemented, "method GetWAL not implemented")
+func (UnimplementedWALServer) Get(*GetRequest, WAL_GetServer) error {
+	return status.Errorf(codes.Unimplemented, "method Get not implemented")
 }
-func (UnimplementedWALServer) GetLatestWAL(context.Context, *GetLatestWALRequest) (*GetLatestWALResult, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method GetLatestWAL not implemented")
-}
-func (UnimplementedWALServer) UploadHistory(context.Context, *UploadHistoryRequest) (*UploadHistoryResult, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method UploadHistory not implemented")
+func (UnimplementedWALServer) GetLatest(context.Context, *GetLatestRequest) (*GetLatestResult, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetLatest not implemented")
 }
 func (UnimplementedWALServer) mustEmbedUnimplementedWALServer() {}
 
@@ -167,85 +152,67 @@ func RegisterWALServer(s grpc.ServiceRegistrar, srv WALServer) {
 	s.RegisterService(&WAL_ServiceDesc, srv)
 }
 
-func _WAL_UploadWAL_Handler(srv interface{}, stream grpc.ServerStream) error {
-	return srv.(WALServer).UploadWAL(&wALUploadWALServer{stream})
+func _WAL_Put_Handler(srv interface{}, stream grpc.ServerStream) error {
+	return srv.(WALServer).Put(&wALPutServer{stream})
 }
 
-type WAL_UploadWALServer interface {
-	SendAndClose(*UploadWALResult) error
-	Recv() (*UploadWALRequest, error)
+type WAL_PutServer interface {
+	SendAndClose(*PutResult) error
+	Recv() (*PutRequest, error)
 	grpc.ServerStream
 }
 
-type wALUploadWALServer struct {
+type wALPutServer struct {
 	grpc.ServerStream
 }
 
-func (x *wALUploadWALServer) SendAndClose(m *UploadWALResult) error {
+func (x *wALPutServer) SendAndClose(m *PutResult) error {
 	return x.ServerStream.SendMsg(m)
 }
 
-func (x *wALUploadWALServer) Recv() (*UploadWALRequest, error) {
-	m := new(UploadWALRequest)
+func (x *wALPutServer) Recv() (*PutRequest, error) {
+	m := new(PutRequest)
 	if err := x.ServerStream.RecvMsg(m); err != nil {
 		return nil, err
 	}
 	return m, nil
 }
 
-func _WAL_GetWAL_Handler(srv interface{}, stream grpc.ServerStream) error {
-	m := new(GetWALRequest)
+func _WAL_Get_Handler(srv interface{}, stream grpc.ServerStream) error {
+	m := new(GetRequest)
 	if err := stream.RecvMsg(m); err != nil {
 		return err
 	}
-	return srv.(WALServer).GetWAL(m, &wALGetWALServer{stream})
+	return srv.(WALServer).Get(m, &wALGetServer{stream})
 }
 
-type WAL_GetWALServer interface {
-	Send(*GetWALResult) error
+type WAL_GetServer interface {
+	Send(*GetResult) error
 	grpc.ServerStream
 }
 
-type wALGetWALServer struct {
+type wALGetServer struct {
 	grpc.ServerStream
 }
 
-func (x *wALGetWALServer) Send(m *GetWALResult) error {
+func (x *wALGetServer) Send(m *GetResult) error {
 	return x.ServerStream.SendMsg(m)
 }
 
-func _WAL_GetLatestWAL_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(GetLatestWALRequest)
+func _WAL_GetLatest_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetLatestRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(WALServer).GetLatestWAL(ctx, in)
+		return srv.(WALServer).GetLatest(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: WAL_GetLatestWAL_FullMethodName,
+		FullMethod: WAL_GetLatest_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(WALServer).GetLatestWAL(ctx, req.(*GetLatestWALRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _WAL_UploadHistory_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(UploadHistoryRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(WALServer).UploadHistory(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: WAL_UploadHistory_FullMethodName,
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(WALServer).UploadHistory(ctx, req.(*UploadHistoryRequest))
+		return srv.(WALServer).GetLatest(ctx, req.(*GetLatestRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -258,23 +225,19 @@ var WAL_ServiceDesc = grpc.ServiceDesc{
 	HandlerType: (*WALServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
-			MethodName: "GetLatestWAL",
-			Handler:    _WAL_GetLatestWAL_Handler,
-		},
-		{
-			MethodName: "UploadHistory",
-			Handler:    _WAL_UploadHistory_Handler,
+			MethodName: "GetLatest",
+			Handler:    _WAL_GetLatest_Handler,
 		},
 	},
 	Streams: []grpc.StreamDesc{
 		{
-			StreamName:    "UploadWAL",
-			Handler:       _WAL_UploadWAL_Handler,
+			StreamName:    "Put",
+			Handler:       _WAL_Put_Handler,
 			ClientStreams: true,
 		},
 		{
-			StreamName:    "GetWAL",
-			Handler:       _WAL_GetWAL_Handler,
+			StreamName:    "Get",
+			Handler:       _WAL_Get_Handler,
 			ServerStreams: true,
 		},
 	},

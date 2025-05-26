@@ -84,20 +84,12 @@ func Connect(logger *slog.Logger, cfg *config.KlioRepositoryClientConfig) (*Conn
 
 // StoreHistoryFile uses the underlying GRPC connection to store an history file.
 func (c *Connection) StoreHistoryFile(ctx context.Context, name string, content []byte) error {
-	_, err := c.walClient.UploadHistory(ctx, &klioGRPC.UploadHistoryRequest{
-		FileName: name,
-		Content:  content,
-	})
-	if err != nil {
-		return fmt.Errorf("while uploading history file %v: %w", name, err)
-	}
-
-	return nil
+	return c.StoreWAL(ctx, name, content)
 }
 
 // GetWALStreaming get a WAL from a remote connection.
 func (c *Connection) GetWALStreaming(ctx context.Context, walName string, out io.Writer) error {
-	client, err := c.walClient.GetWAL(ctx, &klioGRPC.GetWALRequest{
+	client, err := c.walClient.Get(ctx, &klioGRPC.GetRequest{
 		ClusterName: c.cfg.ClusterName,
 		WalName:     walName,
 	})
@@ -131,7 +123,7 @@ func (c *Connection) GetWALStreaming(ctx context.Context, walName string, out io
 // StoreWAL uploads a WAL in the WAL server
 // Important: this function uploads a full WAL file.
 func (c *Connection) StoreWAL(ctx context.Context, name string, content []byte) error {
-	stream, err := c.walClient.UploadWAL(ctx)
+	stream, err := c.walClient.Put(ctx)
 	if err != nil {
 		return fmt.Errorf("while starting uploading a WAL file: %w", err)
 	}
@@ -145,7 +137,7 @@ func (c *Connection) StoreWAL(ctx context.Context, name string, content []byte) 
 			return fmt.Errorf("error while reading WAL (reading from buffer): %w", readError)
 		}
 
-		if err := stream.Send(&klioGRPC.UploadWALRequest{
+		if err := stream.Send(&klioGRPC.PutRequest{
 			ClusterName: c.cfg.ClusterName,
 			WalName:     name,
 			SegmentSize: uint64(len(content)),
@@ -186,7 +178,7 @@ func (c *Connection) Close(_ context.Context) error {
 
 // GetLatestWALFile gets the latest WAL file from the repository.
 func (c *Connection) GetLatestWALFile(ctx context.Context) (string, error) {
-	result, err := c.walClient.GetLatestWAL(ctx, &klioGRPC.GetLatestWALRequest{
+	result, err := c.walClient.GetLatest(ctx, &klioGRPC.GetLatestRequest{
 		ClusterName: c.cfg.ClusterName,
 	})
 	if err != nil {
@@ -202,7 +194,7 @@ func (c *Connection) StoreWALStreaming(
 	name string,
 	segmentSize uint64,
 ) (*common.WALUploader, error) {
-	stream, err := c.walClient.UploadWAL(ctx)
+	stream, err := c.walClient.Put(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("while starting uploading a WAL file: %w", err)
 	}
@@ -216,7 +208,7 @@ func (c *Connection) StoreWALStreaming(
 }
 
 type grpcWALStream struct {
-	innerStream klioGRPC.WAL_UploadWALClient
+	innerStream klioGRPC.WAL_PutClient
 	segmentSize uint64
 	clusterName string
 	walName     string
@@ -241,7 +233,7 @@ func (g *grpcWALStream) Close(_ context.Context) error {
 
 // SendBlock implements common.WALStream.
 func (g *grpcWALStream) SendBlock(_ context.Context, block []byte) error {
-	if err := g.innerStream.Send(&klioGRPC.UploadWALRequest{
+	if err := g.innerStream.Send(&klioGRPC.PutRequest{
 		ClusterName: g.clusterName,
 		WalName:     g.walName,
 		SegmentSize: g.segmentSize,

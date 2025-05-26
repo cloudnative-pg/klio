@@ -14,8 +14,8 @@ import (
 	"github.com/EnterpriseDB/klio/internal/grpc"
 )
 
-// GetWAL implements the relative GRPC call.
-func (w *Implementation) GetWAL(req *grpc.GetWALRequest, res grpc.WAL_GetWALServer) error {
+// Get implements the relative GRPC call.
+func (w *Implementation) Get(req *grpc.GetRequest, res grpc.WAL_GetServer) error {
 	if err := validatePathComponent(req.GetClusterName()); err != nil {
 		return status.Errorf(codes.InvalidArgument, "invalid cluster name: %v", err.Error())
 	}
@@ -39,7 +39,7 @@ func (w *Implementation) GetWAL(req *grpc.GetWALRequest, res grpc.WAL_GetWALServ
 			return status.Errorf(codes.Internal, "error while reading WAL (reading into buffer): %v", readError.Error())
 		}
 
-		if err := res.Send(&grpc.GetWALResult{WalBlock: buffer[:readBytes]}); err != nil {
+		if err := res.Send(&grpc.GetResult{WalBlock: buffer[:readBytes]}); err != nil {
 			return status.Errorf(codes.Internal, "error while reading WAL block (sending to client GRPC): %v", err.Error())
 		}
 
@@ -52,13 +52,13 @@ func (w *Implementation) GetWAL(req *grpc.GetWALRequest, res grpc.WAL_GetWALServ
 	return nil
 }
 
-// GetLatestWAL implements the relative GRPC call.
+// GetLatest implements the relative GRPC call.
 //
 //nolint:cyclop
-func (w *Implementation) GetLatestWAL(
+func (w *Implementation) GetLatest(
 	_ context.Context,
-	req *grpc.GetLatestWALRequest,
-) (*grpc.GetLatestWALResult, error) {
+	req *grpc.GetLatestRequest,
+) (*grpc.GetLatestResult, error) {
 	if err := validatePathComponent(req.GetClusterName()); err != nil {
 		return nil, status.Errorf(codes.InvalidArgument, "invalid cluster name: %v", err.Error())
 	}
@@ -67,7 +67,7 @@ func (w *Implementation) GetLatestWAL(
 	readClusterDir, err := os.ReadDir(clusterPath)
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
-			return &grpc.GetLatestWALResult{
+			return &grpc.GetLatestResult{
 				WalName: nil,
 			}, nil
 		}
@@ -93,7 +93,7 @@ func (w *Implementation) GetLatestWAL(
 	}
 
 	if latestWalDirectoryName == "" {
-		return &grpc.GetLatestWALResult{
+		return &grpc.GetLatestResult{
 			WalName: nil,
 		}, nil
 	}
@@ -117,12 +117,12 @@ func (w *Implementation) GetLatestWAL(
 	}
 
 	if lastWal == "" {
-		return &grpc.GetLatestWALResult{
+		return &grpc.GetLatestResult{
 			WalName: nil,
 		}, nil
 	}
 
-	return &grpc.GetLatestWALResult{
+	return &grpc.GetLatestResult{
 		WalName: &lastWal,
 	}, nil
 }

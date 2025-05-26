@@ -3,44 +3,35 @@ package klio.wal.v1;
 option go_package = "github.com/EnterpriseDB/klio/internal/grpc";
 
 service WAL {
-    rpc UploadWAL(stream UploadWALRequest) returns (UploadWALResult) {}
-    rpc GetWAL(GetWALRequest) returns (stream GetWALResult) {}
-    rpc GetLatestWAL(GetLatestWALRequest) returns (GetLatestWALResult) {}
-    rpc UploadHistory(UploadHistoryRequest) returns (UploadHistoryResult) {}
+    rpc Put(stream PutRequest) returns (PutResult) {}
+    rpc Get(GetRequest) returns (stream GetResult) {}
+    rpc GetLatest(GetLatestRequest) returns (GetLatestResult) {}
 }
 
-message UploadWALRequest {
+message PutRequest {
     string cluster_name = 1;
     string wal_name = 2;
     bytes wal_block = 3;
     uint64 segment_size = 4;
 }
 
-message UploadWALResult {
+message PutResult {
     uint64 written_size = 1;
 }
 
-message GetWALRequest {
+message GetRequest {
     string cluster_name = 1;
     string wal_name = 2;
 }
 
-message GetWALResult {
+message GetResult {
     bytes wal_block = 1;
 }
 
-message UploadHistoryRequest {
-    string cluster_name = 1;
-    string file_name = 2;
-    bytes content = 3;
-}
-
-message UploadHistoryResult {}
-
-message GetLatestWALRequest {
+message GetLatestRequest {
     string cluster_name = 1;
 }
 
-message GetLatestWALResult {
+message GetLatestResult {
     optional string wal_name = 1;
 }

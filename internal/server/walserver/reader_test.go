@@ -27,11 +27,11 @@ func TestWALReader(t *testing.T) {
 
 	defer conn.Close()
 
-	readerNonExisting, err := NewWALReader(conn, "cluster-example", "0000001000000000000001F")
+	readerNonExisting, err := NewWALReader(conn, "cluster-example", "0000001000000000000001FF")
 	assert.Nil(t, readerNonExisting)
 	require.ErrorIs(t, err, os.ErrNotExist)
 
-	writer, err := NewWALWriter(conn, "cluster-example", "0000001000000000000001F")
+	writer, err := NewWALWriter(conn, "cluster-example", "0000001000000000000001FF")
 	require.Nil(t, err)
 	assert.NotNil(t, writer)
 
@@ -44,7 +44,7 @@ func TestWALReader(t *testing.T) {
 	err = writer.CloseMarkDone()
 	require.Nil(t, err)
 
-	reader, err := NewWALReader(conn, "cluster-example", "0000001000000000000001F")
+	reader, err := NewWALReader(conn, "cluster-example", "0000001000000000000001FF")
 	fmt.Print(err)
 	require.Nil(t, err)
 	assert.NotNil(t, reader)
