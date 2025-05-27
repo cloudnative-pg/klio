@@ -13,6 +13,8 @@ const kopiaIgnoreContent = `
 /pg_xlog/*
 /pg_wal/*
 
+/global/pg_control
+
 pgsql_tmp*
 postgresql.auto.conf.tmp
 current_logfiles.tmp

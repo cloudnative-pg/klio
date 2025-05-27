@@ -3,10 +3,14 @@ package common
 import (
 	"context"
 	"fmt"
+	"path"
 	"time"
 
 	"github.com/jackc/pgx/v5"
 )
+
+// controlDataPath is the name of the pg_controldata file
+const controlDataPath = "global/pg_control"
 
 // TablespaceLayout is the on-disk structure of a tablespace.
 type TablespaceLayout struct {
@@ -65,8 +69,17 @@ type BackupMetadata struct {
 // BackupExecutorImplementation is used by a backup executor to upload
 // pgdata.
 type BackupExecutorImplementation interface {
+	// UploadTablespace uploads the tablespace with the passed layout to
+	// the backup store.
 	UploadTablespace(ctx context.Context, tbl TablespaceLayout) error
+
+	// UploadPgData uploads the PGData to the backup store.
 	UploadPgData(ctx context.Context, pgData string) error
+
+	// UploadControlFile uploads the control file to the backup store.
+	UploadControlFile(ctx context.Context, controlDataFileName string) error
+
+	// FinishBackup is called to mark a backup successfully done.
 	FinishBackup(ctx context.Context, metadata BackupMetadata) error
 }
 
@@ -140,6 +153,11 @@ func (b *BackupExecutor) Upload(ctx context.Context) error {
 	}
 
 	if err := b.impl.UploadPgData(ctx, b.pgData); err != nil {
+		return err //nolint:wrapcheck
+	}
+
+	controlDataFileName := path.Join(b.pgData, controlDataPath)
+	if err := b.impl.UploadControlFile(ctx, controlDataFileName); err != nil {
 		return err //nolint:wrapcheck
 	}
 

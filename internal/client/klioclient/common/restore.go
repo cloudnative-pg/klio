@@ -24,6 +24,10 @@ type RestoreExecutorImplementation interface {
 	// RestorePgData restores the passed pgdata in the specified
 	// directory.
 	RestorePgData(ctx context.Context, metadata *BackupMetadata, destinationDirectory string) error
+
+	// RestoreControlData restores the pg control data file into
+	// the passed file name.
+	RestoreControlData(ctx context.Context, metadata *BackupMetadata, destinationPath string) error
 }
 
 // RestoreExecutor guides the execution of a restore process, delegating
@@ -69,16 +73,9 @@ func (r *RestoreExecutor) Restore(ctx context.Context, destinationPath string) e
 
 	// Restore the tablespaces
 	for _, tbl := range meta.Tablespaces {
-		destinationPath := tbl.Path
-		if v, ok := r.options.TablespacesDirectory[tbl.Name]; ok {
-			destinationPath = v
-		}
-
-		r.options.Progress.NotifyStart(destinationPath)
-		if err := r.impl.RestoreTablespace(ctx, tbl, destinationPath); err != nil {
+		if err := r.restoreTablespace(ctx, tbl); err != nil {
 			return err
 		}
-		defer r.options.Progress.NotifyFinish(destinationPath)
 	}
 
 	// Restore PGDATA
@@ -88,11 +85,34 @@ func (r *RestoreExecutor) Restore(ctx context.Context, destinationPath string) e
 	}
 	r.options.Progress.NotifyFinish(destinationPath)
 
+	// Restore control data file
+	controlDataFileName := path.Join(destinationPath, controlDataPath)
+	r.options.Progress.NotifyStart(controlDataFileName)
+	if err := r.impl.RestoreControlData(ctx, meta, controlDataFileName); err != nil {
+		return err
+	}
+	r.options.Progress.NotifyFinish(controlDataFileName)
+
 	// Restore backup label
 	backupLabel := path.Join(destinationPath, backupLabelFileName)
 	if err := os.WriteFile(backupLabel, []byte(meta.BackupLabel), 0o600); err != nil {
 		return fmt.Errorf("while writing backup label file: %w", err)
 	}
+
+	return nil
+}
+
+func (r *RestoreExecutor) restoreTablespace(ctx context.Context, tbl TablespaceLayout) error {
+	tablespaceDestinationPath := tbl.Path
+	if v, ok := r.options.TablespacesDirectory[tbl.Name]; ok {
+		tablespaceDestinationPath = v
+	}
+
+	r.options.Progress.NotifyStart(tablespaceDestinationPath)
+	if err := r.impl.RestoreTablespace(ctx, tbl, tablespaceDestinationPath); err != nil {
+		return err
+	}
+	defer r.options.Progress.NotifyFinish(tablespaceDestinationPath)
 
 	return nil
 }

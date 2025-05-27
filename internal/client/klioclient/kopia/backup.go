@@ -11,6 +11,7 @@ import (
 
 	"github.com/kopia/kopia/fs/localfs"
 	"github.com/kopia/kopia/repo"
+	"github.com/kopia/kopia/repo/manifest"
 	"github.com/kopia/kopia/snapshot"
 	"github.com/kopia/kopia/snapshot/policy"
 	"github.com/kopia/kopia/snapshot/snapshotfs"
@@ -18,9 +19,17 @@ import (
 	"github.com/EnterpriseDB/klio/internal/client/klioclient/common"
 )
 
-// manifestIDAnnotationName is the name of the annotation where
+// pgDataManifestIDAnnotationName is the name of the annotation where
 // the Kopia manifest ID is stored.
-const manifestIDAnnotationName = "klio.io/kopiaManifestID"
+const pgDataManifestIDAnnotationName = "klio.io/kopiaManifestID"
+
+// tablespaceManifestIDAnnotationName is the name of the annotation where
+// the Kopia manifest ID of a tablespace is stored.
+const tablespaceManifestIDAnnotationName = "klio.io/kopiaManifestID"
+
+// controlDataManifestIDAnnotationName is the name of the annotation where
+// the Kopia manifest ID of the pg control file is stored.
+const controlDataManifestIDAnnotationName = "klio.io/controlDataKopiaManifestID"
 
 // backupNameTagName is the name of the tag containing the backup
 // name
@@ -33,8 +42,9 @@ type backupImplementation struct {
 	repository repo.Repository
 	progress   common.UploadProgress
 
-	pgDataManifest *snapshot.Manifest
-	tablespaces    []common.TablespaceLayout
+	pgDataManifest        *snapshot.Manifest
+	tablespaces           []common.TablespaceLayout
+	controlDataManifestID manifest.ID
 }
 
 // CreateBackupExecutor creates a new backup executor.
@@ -137,13 +147,55 @@ func (impl *backupImplementation) UploadTablespace(ctx context.Context, tbl comm
 	if tbl.Annotations == nil {
 		tbl.Annotations = make(map[string]string)
 	}
-	tbl.Annotations[manifestIDAnnotationName] = string(tablespaceManifestID)
+	tbl.Annotations[tablespaceManifestIDAnnotationName] = string(tablespaceManifestID)
 
 	impl.tablespaces = append(impl.tablespaces, tbl)
 
 	if err = writer.Flush(ctx); err != nil {
 		return fmt.Errorf("while flushing repo: %w", err)
 	}
+
+	return nil
+}
+
+// UploadControlFile implements common.BackupExecutorImplementation
+func (impl *backupImplementation) UploadControlFile(
+	ctx context.Context,
+	controlDataFileName string,
+) error { // This enables Kopia debugging
+	ctx, writer, err := impl.repository.NewWriter(ctx, repo.WriteSessionOptions{
+		Purpose: fmt.Sprintf("backing up control file for cluster %s", impl.hostname),
+	})
+	if err != nil {
+		return fmt.Errorf("while creating repository writer session: %w", err)
+	}
+
+	defer func() {
+		err := writer.Close(ctx)
+		if err != nil {
+			impl.logger.Error("while closing repository write session to archive WALs", "err", err)
+		}
+	}()
+
+	manifest, err := impl.uploadPath(ctx, controlDataFileName, writer)
+	if err != nil {
+		return err
+	}
+
+	manifest.Tags = map[string]string{
+		"content": "controldata",
+	}
+
+	controlDataManifestID, err := snapshot.SaveSnapshot(ctx, writer, manifest)
+	if err != nil {
+		return fmt.Errorf("while saving manifest ID to repository: %w", err)
+	}
+
+	if err = writer.Flush(ctx); err != nil {
+		return fmt.Errorf("while flushing repo: %w", err)
+	}
+
+	impl.controlDataManifestID = controlDataManifestID
 
 	return nil
 }
@@ -165,6 +217,11 @@ func (impl *backupImplementation) FinishBackup(ctx context.Context, data common.
 			impl.logger.Error("while closing repository write session to archive WALs", "err", err)
 		}
 	}()
+
+	if data.Annotations == nil {
+		data.Annotations = make(map[string]string)
+	}
+	data.Annotations[controlDataManifestIDAnnotationName] = string(impl.controlDataManifestID)
 
 	data.Tablespaces = impl.tablespaces
 	metadataContent, err := json.Marshal(data)

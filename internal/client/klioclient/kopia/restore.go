@@ -67,12 +67,10 @@ func (s *restoreImplementation) GetMetadata(ctx context.Context, name string) (*
 		return nil, fmt.Errorf("while unmarshalling backup description for %q: %w", name, err)
 	}
 
-	// Cache the snapshot ID aht the manifest manifest ID
-	// inside the backup metadata
 	if metadata.Annotations == nil {
 		metadata.Annotations = make(map[string]string)
 	}
-	metadata.Annotations[manifestIDAnnotationName] = string(manifest.ID)
+	metadata.Annotations[pgDataManifestIDAnnotationName] = string(manifest.ID)
 
 	return &metadata, nil
 }
@@ -90,13 +88,13 @@ func (s *restoreImplementation) RestoreTablespace(
 
 	restoreOptions := s.getKopiaRestoreOptions(destinationDirectory)
 
-	manifestID := tbl.Annotations[manifestIDAnnotationName]
+	tablespaceManifestID := tbl.Annotations[controlDataManifestIDAnnotationName]
 
-	root, err := snapshot.LoadSnapshot(ctx, s.repository, manifest.ID(manifestID))
+	root, err := snapshot.LoadSnapshot(ctx, s.repository, manifest.ID(tablespaceManifestID))
 	if err != nil {
 		return fmt.Errorf(
 			"while loading snapshot %q for tablespace %q: %w",
-			manifestID,
+			tablespaceManifestID,
 			tbl.Name,
 			err,
 		)
@@ -107,7 +105,7 @@ func (s *restoreImplementation) RestoreTablespace(
 		return fmt.Errorf(
 			"while recoverying snapshot root for manifest (tablespace %q) %q: %w",
 			tbl.Name,
-			manifestID,
+			tablespaceManifestID,
 			err,
 		)
 	}
@@ -129,7 +127,7 @@ func (s *restoreImplementation) RestorePgData(
 	}
 
 	restoreOptions := s.getKopiaRestoreOptions(destinationDirectory)
-	manifestID := metadata.Annotations[manifestIDAnnotationName]
+	manifestID := metadata.Annotations[pgDataManifestIDAnnotationName]
 
 	root, err := snapshot.LoadSnapshot(ctx, s.repository, manifest.ID(manifestID))
 	if err != nil {
@@ -145,6 +143,41 @@ func (s *restoreImplementation) RestorePgData(
 		return fmt.Errorf(
 			"while recoverying snapshot root for manifest (pgdata) %q: %w",
 			manifestID,
+			err,
+		)
+	}
+
+	_, err = restore.Entry(ctx, s.repository, restoreOutput, entry, restoreOptions)
+	return err
+}
+
+func (s *restoreImplementation) RestoreControlData(
+	ctx context.Context,
+	metadata *common.BackupMetadata,
+	destinationPath string,
+) error {
+	restoreOutput, err := getFSOutput(ctx, destinationPath)
+	if err != nil {
+		return err
+	}
+
+	restoreOptions := s.getKopiaRestoreOptions(destinationPath)
+	controlDataManifestID := metadata.Annotations[controlDataManifestIDAnnotationName]
+
+	root, err := snapshot.LoadSnapshot(ctx, s.repository, manifest.ID(controlDataManifestID))
+	if err != nil {
+		return fmt.Errorf(
+			"while loading snapshot %q for controldata: %w",
+			controlDataManifestID,
+			err,
+		)
+	}
+
+	entry, err := snapshotfs.SnapshotRoot(s.repository, root)
+	if err != nil {
+		return fmt.Errorf(
+			"while recoverying snapshot root for manifest (controldata) %q: %w",
+			controlDataManifestID,
 			err,
 		)
 	}
