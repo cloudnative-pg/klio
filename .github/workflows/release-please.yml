@@ -1,0 +1,19 @@
+name: release-please
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  release-please:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Release Please
+        uses: googleapis/release-please-action@v4
+        with:
+          token: ${{ secrets.REPO_GHA_PAT }}
+          config-file: release-please-config.json
+          manifest-file: '.release-please-manifest.json'
