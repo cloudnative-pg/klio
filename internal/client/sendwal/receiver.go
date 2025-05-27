@@ -37,7 +37,7 @@ func New(cfg *config.Data, log *slog.Logger, client common.WALClientStreamer) *P
 	}
 }
 
-// ErrReplicationStatusNotFound is raised when the server don't
+// ErrReplicationStatusNotFound is raised when the server
 // can't find the latest replicated WAL.
 var ErrReplicationStatusNotFound = fmt.Errorf("replication status not found on the server")
 
@@ -97,6 +97,10 @@ func (s *Process) getReplicationStartPoint(
 	// to start, we just use the current XLOG Flush position, taking
 	// care of starting streaming from the beginning of the WAL file.
 	if resetLSN {
+		s.logger.Warn("Resetting the replication LSN to the XLOG flush position",
+			"xlogFlushPos", xlogFlushPos,
+			"segmentSize", segmentSize,
+		)
 		return getStartWALLSN(xlogFlushPos, segmentSize), nil
 	}
 
@@ -111,6 +115,11 @@ func (s *Process) getReplicationStartPoint(
 			//
 			// This usually happens when we are running against this
 			// PostgreSQL instance for the first time.
+			s.logger.Warn(
+				"No replication status found on the server or replication slot, using XLOG flush position as starting point",
+				"xlogFlushPos", xlogFlushPos,
+				"segmentSize", segmentSize,
+			)
 			return getStartWALLSN(xlogFlushPos, segmentSize), nil
 		}
 
