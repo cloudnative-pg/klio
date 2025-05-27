@@ -2,7 +2,6 @@ package common
 
 import (
 	"context"
-	"fmt"
 	"io"
 )
 
@@ -12,10 +11,6 @@ type WALClientStreamer interface {
 	WALClient
 	WALStreamer
 }
-
-// ErrMissingWALFile is raised when the client requires a WAL file
-// that doesn't exist on the server
-var ErrMissingWALFile = fmt.Errorf("non existing WAL file")
 
 // WALStreamer is implemented by clients that support streaming WALs
 // to a remote location block by block.

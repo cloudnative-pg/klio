@@ -100,6 +100,7 @@ func (c *Connection) GetWALStreaming(ctx context.Context, walName string, out io
 		return fmt.Errorf("while starting downloading a WAL file: %w", err)
 	}
 
+	writtenBytes := 0
 	for {
 		result, err := client.Recv()
 		if errors.Is(err, io.EOF) {
@@ -109,12 +110,23 @@ func (c *Connection) GetWALStreaming(ctx context.Context, walName string, out io
 			if status.Code(err) == codes.NotFound {
 				return common.ErrMissingWALFile
 			}
+
+			if writtenBytes > 0 {
+				return common.IncompleteTransmissionError{
+					Inner:        err,
+					WrittenBytes: uint64(writtenBytes),
+				}
+			}
+
 			return fmt.Errorf("while receiving a WAL file block: %w", err)
 		}
 
-		if _, err := out.Write(result.GetWalBlock()); err != nil {
+		b, err := out.Write(result.GetWalBlock())
+		if err != nil {
 			return fmt.Errorf("while writing WAL file: %w", err)
 		}
+
+		writtenBytes += b
 	}
 
 	return nil

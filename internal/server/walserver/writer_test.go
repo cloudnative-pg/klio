@@ -30,7 +30,7 @@ func TestWriter(t *testing.T) {
 	require.NotNil(t, writer)
 
 	block := []byte("this-test")
-	_, err = writer.Write(block)
+	err = writer.WriteBlock(block)
 	require.NoError(t, err)
 
 	err = writer.Flush()

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
+	"path"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -55,6 +56,9 @@ var getWalCmd = &cobra.Command{
 
 		var client common.WALClientStreamer
 		var err error
+		var downloadPartial bool
+
+		downloadPartial, _ = cmd.Flags().GetBool("partial")
 
 		if client, err = grpcclient.Connect(
 			logger,
@@ -73,12 +77,36 @@ var getWalCmd = &cobra.Command{
 			}
 		}()
 
-		if err := client.GetWALStreaming(cmd.Context(), walName, output); err != nil {
-			if errors.Is(err, common.ErrMissingWALFile) {
-				logger.Debug("missing WAL file, exiting with error code 1", "wal_name", walName)
+		// Try to download the requested WAL file. If we did it, everything
+		// is fine.
+		err = client.GetWALStreaming(cmd.Context(), walName, output)
+		switch {
+		case errors.Is(err, common.ErrMissingWALFile):
+			if path.Ext(walName) != "" || !downloadPartial {
+				logger.Debug("Missing WAL file, exiting with error code 1", "wal_name", walName)
 				os.Exit(1)
 			}
-			return fmt.Errorf("while downloading WAL: %w", err)
+
+		default:
+			return err
+		}
+
+		// Let's try downloading the partial file
+		walName = fmt.Sprintf("%s.partial", walName)
+		err = client.GetWALStreaming(cmd.Context(), walName, output)
+
+		var incompleteError common.IncompleteTransmissionError
+		switch {
+		case errors.As(err, &incompleteError):
+			logger.Debug("Incomplete partial WAL file, exiting with error code 1", "wal_name", walName)
+			os.Exit(1)
+
+		case errors.Is(err, common.ErrMissingWALFile):
+			logger.Debug("Missing partial WAL file, exiting with error code 1", "wal_name", walName)
+			os.Exit(1)
+
+		case err != nil:
+			return err
 		}
 
 		return nil
@@ -88,6 +116,12 @@ var getWalCmd = &cobra.Command{
 //nolint:gochecknoinits
 func init() {
 	rootCmd.AddCommand(getWalCmd)
+
+	getWalCmd.Flags().Bool(
+		"partial",
+		false,
+		"Use a partial WAL file if a the completed WAL file is not present. Defaults to false",
+	)
 
 	// Here you will define your flags and configuration settings.
 

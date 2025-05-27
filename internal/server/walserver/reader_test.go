@@ -2,7 +2,6 @@ package walserver
 
 import (
 	"crypto/rand"
-	"fmt"
 	"os"
 	"testing"
 
@@ -38,20 +37,72 @@ func TestWALReader(t *testing.T) {
 	buffer := make([]byte, 16*1024*1024)
 	_, _ = rand.Read(buffer)
 
-	_, err = writer.Write(buffer)
+	err = writer.WriteBlock(buffer)
 	require.Nil(t, err)
 
 	err = writer.CloseMarkDone()
 	require.Nil(t, err)
 
 	reader, err := NewWALReader(conn, "cluster-example", "0000001000000000000001FF")
-	fmt.Print(err)
 	require.Nil(t, err)
 	assert.NotNil(t, reader)
 
-	bufferCompare := make([]byte, 16*1024*1024)
-	_, err = reader.Read(bufferCompare)
+	bufferCompare, err := reader.ReadBlock()
 	require.Nil(t, err)
+	require.Equal(t, buffer, bufferCompare)
+
+	err = reader.Close()
+	require.Nil(t, err)
+}
+
+func TestReaderWriterBlocks(t *testing.T) {
+	// Step 1: write two blocks to the file
+	opts := repository.Options{
+		Path:     t.TempDir(),
+		Password: "this-password",
+	}
+
+	err := repository.Initialize(opts)
+	require.NoError(t, err)
+
+	conn, err := repository.Open(opts)
+	assert.NotNil(t, conn)
+	require.NoError(t, err)
+
+	defer conn.Close()
+
+	writer, err := NewWALWriter(conn, "cluster-example", "0000001000000000000001F8")
+	require.NoError(t, err)
+	require.NotNil(t, writer)
+
+	block1 := []byte("this-test")
+	err = writer.WriteBlock(block1)
+	require.NoError(t, err)
+
+	block2 := []byte("toast-is-good")
+	err = writer.WriteBlock(block2)
+	require.NoError(t, err)
+
+	err = writer.Flush()
+	require.NoError(t, err)
+
+	err = writer.CloseMarkDone()
+	require.NoError(t, err)
+
+	// Step 2: open the compressed file
+	reader, err := NewWALReader(conn, "cluster-example", "0000001000000000000001F8")
+	require.Nil(t, err)
+	assert.NotNil(t, reader)
+
+	// Step 2.1: read the first block
+	block1Read, err := reader.ReadBlock()
+	require.Nil(t, err)
+	assert.Equal(t, block1, block1Read)
+
+	// Step 2.2: read the second block
+	block2Read, err := reader.ReadBlock()
+	require.Nil(t, err)
+	assert.Equal(t, block2, block2Read)
 
 	err = reader.Close()
 	require.Nil(t, err)

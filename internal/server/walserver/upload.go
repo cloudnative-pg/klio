@@ -147,8 +147,7 @@ func (w *Implementation) Put(req grpc.WAL_PutServer) error {
 			}
 		}
 
-		bytesWritten, err := walBuffer.Write(request.GetWalBlock())
-		if err != nil {
+		if err := walBuffer.WriteBlock(request.GetWalBlock()); err != nil {
 			w.logger.Error(
 				"Error while writing WAL data",
 				"clusterName", request.GetClusterName(),
@@ -168,7 +167,7 @@ func (w *Implementation) Put(req grpc.WAL_PutServer) error {
 			return status.Errorf(codes.Internal, "error while flushing WAL: %v", err.Error())
 		}
 
-		writtenSize += uint64(bytesWritten) //nolint:gosec
+		writtenSize += uint64(len(request.GetWalBlock())) //nolint:gosec
 	}
 
 	if walBuffer == nil {

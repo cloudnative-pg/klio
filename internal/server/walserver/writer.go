@@ -1,9 +1,8 @@
 package walserver
 
 import (
-	"compress/gzip"
+	"encoding/binary"
 	"fmt"
-	"io"
 	"os"
 	"path"
 
@@ -14,10 +13,9 @@ import (
 type WALWriter struct {
 	walFilePath        string
 	walFilePartialPath string
+	conn               *repository.Connection
 
-	file             *os.File
-	encryptingWriter io.WriteCloser
-	gzipWriter       *gzip.Writer
+	file *os.File
 }
 
 // NewWALWriter creates a new WAL file writer.
@@ -50,20 +48,11 @@ func NewWALWriter(conn *repository.Connection, clusterName, walName string) (*WA
 		)
 	}
 
-	encryptingWriter, err := conn.ProtectWriter(file)
-	if err != nil {
-		_ = file.Close()
-		return nil, fmt.Errorf("while creating encrypted writer: %w", err)
-	}
-
-	gzipWriter := gzip.NewWriter(encryptingWriter)
-
 	return &WALWriter{
 		walFilePath:        walFilePath,
 		walFilePartialPath: walFilePartialPath,
 		file:               file,
-		gzipWriter:         gzipWriter,
-		encryptingWriter:   encryptingWriter,
+		conn:               conn,
 	}, nil
 }
 
@@ -82,12 +71,8 @@ func (w *WALWriter) CloseMarkDone() error {
 
 // Flush flushes all the buffers to disk and fsyncs it.
 func (w *WALWriter) Flush() error {
-	if err := w.gzipWriter.Flush(); err != nil {
-		return fmt.Errorf("flush error: while flushing: %w", err)
-	}
-
 	if err := w.file.Sync(); err != nil {
-		return fmt.Errorf("flush error: while synching: %w", err)
+		return fmt.Errorf("flush error: while syncing: %w", err)
 	}
 
 	return nil
@@ -95,20 +80,29 @@ func (w *WALWriter) Flush() error {
 
 // Close closes the file.
 func (w *WALWriter) Close() error {
-	if err := w.gzipWriter.Close(); err != nil {
-		return fmt.Errorf("close error: while closing gzipwriter: %w", err)
-	}
-
-	if err := w.encryptingWriter.Close(); err != nil {
-		return fmt.Errorf("close error: while closing encrypting writer: %w", err)
-	}
-
-	// the encrypting writer is closing the underlying file
-
-	return nil
+	return w.file.Close()
 }
 
-// Write writes data.
-func (w *WALWriter) Write(p []byte) (int, error) {
-	return w.gzipWriter.Write(p) //nolint:wrapcheck
+// WriteBlock writes the WAL block to storage
+func (w *WALWriter) WriteBlock(p []byte) error {
+	if len(p) > int(maxBlockLen) {
+		return ErrWrongBlockLen
+	}
+
+	// Step 1: compression and encryption
+	wrappedBlock, err := w.conn.WrapBlock(p)
+	if err != nil {
+		return err
+	}
+
+	// Step 2: writing to permanent storage
+	blockLen := make([]byte, 8)
+	binary.BigEndian.PutUint64(blockLen, uint64(len(wrappedBlock)))
+
+	if _, err := w.file.Write(blockLen); err != nil {
+		return err
+	}
+
+	_, err = w.file.Write(wrappedBlock)
+	return err
 }
