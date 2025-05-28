@@ -1,7 +1,10 @@
 package walserver
 
 import (
+	"bytes"
 	"crypto/rand"
+	"errors"
+	"io"
 	"os"
 	"testing"
 
@@ -11,7 +14,7 @@ import (
 	"github.com/EnterpriseDB/klio/internal/server/walserver/repository"
 )
 
-func TestWALReader(t *testing.T) {
+func TestWALReaderBlockSplit(t *testing.T) {
 	opts := repository.Options{
 		Path:     t.TempDir(),
 		Password: "this-password",
@@ -30,11 +33,12 @@ func TestWALReader(t *testing.T) {
 	assert.Nil(t, readerNonExisting)
 	require.ErrorIs(t, err, os.ErrNotExist)
 
-	writer, err := NewWALWriter(conn, "cluster-example", "0000001000000000000001FF")
+	const fileLen = uint64(16 * 1024 * 1024)
+	writer, err := NewWALWriter(conn, "cluster-example", "0000001000000000000001FF", fileLen)
 	require.Nil(t, err)
 	assert.NotNil(t, writer)
 
-	buffer := make([]byte, 16*1024*1024)
+	buffer := make([]byte, fileLen)
 	_, _ = rand.Read(buffer)
 
 	err = writer.WriteBlock(buffer)
@@ -46,10 +50,21 @@ func TestWALReader(t *testing.T) {
 	reader, err := NewWALReader(conn, "cluster-example", "0000001000000000000001FF")
 	require.Nil(t, err)
 	assert.NotNil(t, reader)
+	assert.Equal(t, reader.GetFileLength(), fileLen)
 
-	bufferCompare, err := reader.ReadBlock()
-	require.Nil(t, err)
-	require.Equal(t, buffer, bufferCompare)
+	// Read the splitted blocks
+	var w bytes.Buffer
+	for {
+		innerBlock, err := reader.ReadBlock()
+		if errors.Is(err, io.EOF) {
+			break
+		}
+		require.Nil(t, err)
+
+		_, _ = w.Write(innerBlock)
+	}
+	require.Equal(t, len(buffer), w.Len())
+	require.Equal(t, buffer, w.Bytes())
 
 	err = reader.Close()
 	require.Nil(t, err)
@@ -71,7 +86,8 @@ func TestReaderWriterBlocks(t *testing.T) {
 
 	defer conn.Close()
 
-	writer, err := NewWALWriter(conn, "cluster-example", "0000001000000000000001F8")
+	const fileLen = uint64(145)
+	writer, err := NewWALWriter(conn, "cluster-example", "0000001000000000000001F8", fileLen)
 	require.NoError(t, err)
 	require.NotNil(t, writer)
 
@@ -93,6 +109,7 @@ func TestReaderWriterBlocks(t *testing.T) {
 	reader, err := NewWALReader(conn, "cluster-example", "0000001000000000000001F8")
 	require.Nil(t, err)
 	assert.NotNil(t, reader)
+	assert.Equal(t, fileLen, reader.GetFileLength())
 
 	// Step 2.1: read the first block
 	block1Read, err := reader.ReadBlock()

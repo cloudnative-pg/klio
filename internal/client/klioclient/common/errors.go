@@ -26,7 +26,7 @@ type IncompleteTransmissionError struct {
 
 	// WrittenBytes is the number of bytes that have successfully beings received
 	// by the server
-	WrittenBytes uint64
+	WrittenBytes int
 }
 
 // Error implements the error interface

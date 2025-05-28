@@ -1,11 +1,13 @@
 package walserver
 
 import (
-	"encoding/binary"
 	"fmt"
 	"os"
 	"path"
 
+	"google.golang.org/protobuf/encoding/protodelim"
+
+	"github.com/EnterpriseDB/klio/internal/grpc"
 	"github.com/EnterpriseDB/klio/internal/server/walserver/repository"
 )
 
@@ -19,7 +21,7 @@ type WALWriter struct {
 }
 
 // NewWALWriter creates a new WAL file writer.
-func NewWALWriter(conn *repository.Connection, clusterName, walName string) (*WALWriter, error) {
+func NewWALWriter(conn *repository.Connection, clusterName, walName string, segmentSize uint64) (*WALWriter, error) {
 	if err := validateWalFileName(walName); err != nil {
 		return nil, err
 	}
@@ -46,6 +48,15 @@ func NewWALWriter(conn *repository.Connection, clusterName, walName string) (*WA
 			walFilePath,
 			err,
 		)
+	}
+
+	startBlock := grpc.StartWALFile{
+		KlioVersion: 1,
+		FileLength:  segmentSize,
+	}
+
+	if _, err := protodelim.MarshalTo(file, &startBlock); err != nil {
+		return nil, fmt.Errorf("while writing WAL file header: %w", err)
 	}
 
 	return &WALWriter{
@@ -84,11 +95,27 @@ func (w *WALWriter) Close() error {
 }
 
 // WriteBlock writes the WAL block to storage
-func (w *WALWriter) WriteBlock(p []byte) error {
-	if len(p) > int(maxBlockLen) {
-		return ErrWrongBlockLen
+func (w *WALWriter) WriteBlock(data []byte) error {
+	const walBlockSize = 1 << 20
+
+	// Process data in blocks
+	for start := 0; start < len(data); start += walBlockSize {
+		end := start + walBlockSize
+		if end > len(data) {
+			end = len(data) // ensure we don't go out of bounds
+		}
+		block := data[start:end]
+
+		if err := w.writeBlockInternal(block); err != nil {
+			return err
+		}
 	}
 
+	return nil
+}
+
+// WriteBlock writes the WAL block to storage
+func (w *WALWriter) writeBlockInternal(p []byte) error {
 	// Step 1: compression and encryption
 	wrappedBlock, err := w.conn.WrapBlock(p)
 	if err != nil {
@@ -96,13 +123,11 @@ func (w *WALWriter) WriteBlock(p []byte) error {
 	}
 
 	// Step 2: writing to permanent storage
-	blockLen := make([]byte, 8)
-	binary.BigEndian.PutUint64(blockLen, uint64(len(wrappedBlock)))
-
-	if _, err := w.file.Write(blockLen); err != nil {
-		return err
+	block := grpc.WALFileBlock{
+		Range:             wrappedBlock,
+		EncryptionVersion: 1,
 	}
 
-	_, err = w.file.Write(wrappedBlock)
+	_, err = protodelim.MarshalTo(w.file, &block)
 	return err
 }

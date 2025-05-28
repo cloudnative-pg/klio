@@ -135,7 +135,7 @@ func (w *Implementation) Put(req grpc.WAL_PutServer) error {
 		}
 
 		if walBuffer == nil {
-			walBuffer, err = NewWALWriter(w.conn, blockMeta.clusterName, blockMeta.walFileName)
+			walBuffer, err = NewWALWriter(w.conn, blockMeta.clusterName, blockMeta.walFileName, blockMeta.segmentSize)
 			if err != nil {
 				w.logger.Error(
 					"Cannot open new WAL file",

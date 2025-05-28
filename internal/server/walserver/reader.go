@@ -1,24 +1,24 @@
 package walserver
 
 import (
-	"encoding/binary"
+	"bufio"
 	"fmt"
 	"os"
 
+	"google.golang.org/protobuf/encoding/protodelim"
+
+	"github.com/EnterpriseDB/klio/internal/grpc"
 	"github.com/EnterpriseDB/klio/internal/server/walserver/repository"
 )
-
-// ErrWrongBlockLen is raised when a block
-var ErrWrongBlockLen = fmt.Errorf("incorrect wrong WAL block length")
-
-// maxBlockLen is the maximum size of a written block
-const maxBlockLen = uint64(32 * 1024 * 1024)
 
 // WALReader is the WAL file writer.
 type WALReader struct {
 	conn        *repository.Connection
 	file        *os.File
+	reader      *bufio.Reader
 	walFilePath string
+
+	segmentLength uint64
 }
 
 // NewWALReader creates a new WAL file writer.
@@ -43,10 +43,19 @@ func NewWALReader(
 		)
 	}
 
+	reader := bufio.NewReader(walFileReader)
+	header := grpc.StartWALFile{}
+
+	if err := protodelim.UnmarshalFrom(reader, &header); err != nil {
+		return nil, fmt.Errorf("while reading WAL file header: %w", err)
+	}
+
 	return &WALReader{
-		conn:        conn,
-		walFilePath: walFilePath,
-		file:        walFileReader,
+		conn:          conn,
+		walFilePath:   walFilePath,
+		file:          walFileReader,
+		reader:        reader,
+		segmentLength: header.GetFileLength(),
 	}, nil
 }
 
@@ -57,22 +66,15 @@ func (r *WALReader) Close() error {
 
 // ReadBlock reads the next WAL block from the file
 func (r *WALReader) ReadBlock() ([]byte, error) {
-	// Step 1: read length of the next block
-	blockLen := make([]byte, 8)
-	if _, err := r.file.Read(blockLen); err != nil {
-		return nil, err
+	block := grpc.WALFileBlock{}
+	if err := protodelim.UnmarshalFrom(r.reader, &block); err != nil {
+		return nil, fmt.Errorf("while reading WAL file block: %w", err)
 	}
 
-	// Step 2: read block
-	blockLenDecoded := binary.BigEndian.Uint64(blockLen)
-	if blockLenDecoded >= maxBlockLen {
-		return nil, ErrWrongBlockLen
-	}
+	return r.conn.UnwrapBlock(block.GetRange())
+}
 
-	block := make([]byte, blockLenDecoded)
-	if _, err := r.file.Read(block); err != nil {
-		return nil, err
-	}
-
-	return r.conn.UnwrapBlock(block)
+// GetFileLength gets the file length
+func (r *WALReader) GetFileLength() uint64 {
+	return r.segmentLength
 }

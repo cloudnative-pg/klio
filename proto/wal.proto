@@ -26,6 +26,7 @@ message GetRequest {
 
 message GetResult {
     bytes wal_block = 1;
+    uint64 segment_size = 2;
 }
 
 message GetLatestRequest {
@@ -34,4 +35,17 @@ message GetLatestRequest {
 
 message GetLatestResult {
     optional string wal_name = 1;
+}
+
+// The following messages are used to write a WAL file
+// in the Klio WAL Storage area
+
+message StartWALFile {
+    uint64 klio_version = 1;
+    uint64 file_length = 2;
+}
+
+message WALFileBlock {
+    bytes range = 1;
+    uint64 encryption_version = 2;
 }

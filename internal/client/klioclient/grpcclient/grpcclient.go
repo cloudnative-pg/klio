@@ -10,6 +10,7 @@ import (
 	"io"
 	"log/slog"
 	"os"
+	"strings"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -100,12 +101,13 @@ func (c *Connection) GetWALStreaming(ctx context.Context, walName string, out io
 		return fmt.Errorf("while starting downloading a WAL file: %w", err)
 	}
 
-	writtenBytes := 0
+	var expectedSize, writtenBytes int
 	for {
 		result, err := client.Recv()
 		if errors.Is(err, io.EOF) {
 			break
 		}
+
 		if err != nil {
 			if status.Code(err) == codes.NotFound {
 				return common.ErrMissingWALFile
@@ -114,11 +116,15 @@ func (c *Connection) GetWALStreaming(ctx context.Context, walName string, out io
 			if writtenBytes > 0 {
 				return common.IncompleteTransmissionError{
 					Inner:        err,
-					WrittenBytes: uint64(writtenBytes),
+					WrittenBytes: writtenBytes,
 				}
 			}
 
 			return fmt.Errorf("while receiving a WAL file block: %w", err)
+		}
+
+		if expectedSize == 0 {
+			expectedSize = int(result.SegmentSize) //nolint:gosec
 		}
 
 		b, err := out.Write(result.GetWalBlock())
@@ -127,6 +133,32 @@ func (c *Connection) GetWALStreaming(ctx context.Context, walName string, out io
 		}
 
 		writtenBytes += b
+	}
+
+	// If this is a partial WAL, we pad it until the target WAL size is reached
+	if strings.HasSuffix(walName, ".partial") && expectedSize > writtenBytes {
+		if err := c.padWithZeros(out, expectedSize-writtenBytes); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (c *Connection) padWithZeros(w io.Writer, zeroBytesToWrite int) error {
+	blockSize := 1024 * 1024
+	zeroBlock := make([]byte, blockSize)
+
+	totalWritten := 0
+	for totalWritten < zeroBytesToWrite {
+		toWrite := min(blockSize, zeroBytesToWrite-totalWritten)
+
+		n, err := w.Write(zeroBlock[:toWrite])
+		if err != nil {
+			return err
+		}
+
+		totalWritten += n
 	}
 
 	return nil

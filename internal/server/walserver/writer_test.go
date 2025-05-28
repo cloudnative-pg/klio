@@ -25,7 +25,8 @@ func TestWriter(t *testing.T) {
 	assert.NotNil(t, conn)
 	require.NoError(t, err)
 
-	writer, err := NewWALWriter(conn, "cluster-example", "0000001000000000000001F8")
+	const fileLen = 123
+	writer, err := NewWALWriter(conn, "cluster-example", "0000001000000000000001F8", fileLen)
 	require.NoError(t, err)
 	require.NotNil(t, writer)
 
