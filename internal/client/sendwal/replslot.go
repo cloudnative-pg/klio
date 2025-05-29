@@ -15,16 +15,16 @@ type ReadReplicationSlotParserError struct {
 	reason string
 }
 
-// Error implements the error interface.
-func (e *ReadReplicationSlotParserError) Error() string {
-	return e.reason
-}
-
 // NewReplicationSlotParserError creates a new ReplicationSlotParserError.
 func NewReplicationSlotParserError(format string, args ...any) *ReadReplicationSlotParserError {
 	return &ReadReplicationSlotParserError{
 		reason: fmt.Sprintf(format, args...),
 	}
+}
+
+// Error implements the error interface.
+func (e *ReadReplicationSlotParserError) Error() string {
+	return e.reason
 }
 
 // ParseReadReplicationSlotResult is the parsed result of the IDENTIFY_SYSTEM command.
@@ -40,7 +40,7 @@ func ReadReplicationSlot(
 	conn *pgconn.PgConn,
 	slotName string,
 ) (ParseReadReplicationSlotResult, error) {
-	sql := fmt.Sprintf("READ_REPLICATION_SLOT %s", slotName)
+	sql := "READ_REPLICATION_SLOT " + slotName
 	return ParseReadReplicationSlot(conn.Exec(ctx, sql))
 }
 

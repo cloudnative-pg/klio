@@ -59,22 +59,32 @@ func NewWALReader(
 	}, nil
 }
 
-// Close closes the file
+// Close closes the file.
 func (r *WALReader) Close() error {
-	return r.file.Close()
+	err := r.file.Close()
+	if err != nil {
+		return fmt.Errorf("while closing the walreader: %w", err)
+	}
+
+	return nil
 }
 
-// ReadBlock reads the next WAL block from the file
+// ReadBlock reads the next WAL block from the file.
 func (r *WALReader) ReadBlock() ([]byte, error) {
 	block := grpc.WALFileBlock{}
 	if err := protodelim.UnmarshalFrom(r.reader, &block); err != nil {
 		return nil, fmt.Errorf("while reading WAL file block: %w", err)
 	}
 
-	return r.conn.UnwrapBlock(block.GetRange())
+	bytesRead, err := r.conn.UnwrapBlock(block.GetRange())
+	if err != nil {
+		return nil, fmt.Errorf("while unwrapping WAL file block: %w", err)
+	}
+
+	return bytesRead, nil
 }
 
-// GetFileLength gets the file length
+// GetFileLength gets the file length.
 func (r *WALReader) GetFileLength() uint64 {
 	return r.segmentLength
 }

@@ -36,12 +36,12 @@ type DownloadProgress interface {
 }
 
 // DownloadProgressLogger uses the logger to communicate the restore
-// status
+// status.
 type DownloadProgressLogger struct {
 	log *slog.Logger
 }
 
-// NewDownloadProgressLogger creates a new DownloadProcessLogger
+// NewDownloadProgressLogger creates a new DownloadProcessLogger.
 func NewDownloadProgressLogger(log *slog.Logger) *DownloadProgressLogger {
 	return &DownloadProgressLogger{
 		log: log,

@@ -3,49 +3,49 @@ package klio.wal.v1;
 option go_package = "github.com/EnterpriseDB/klio/internal/grpc";
 
 service WAL {
-    rpc Put(stream PutRequest) returns (PutResult) {}
-    rpc Get(GetRequest) returns (stream GetResult) {}
-    rpc GetLatest(GetLatestRequest) returns (GetLatestResult) {}
+  rpc Put(stream PutRequest) returns (PutResult) {}
+  rpc Get(GetRequest) returns (stream GetResult) {}
+  rpc GetLatest(GetLatestRequest) returns (GetLatestResult) {}
 }
 
 message PutRequest {
-    string cluster_name = 1;
-    string wal_name = 2;
-    bytes wal_block = 3;
-    uint64 segment_size = 4;
+  string cluster_name = 1;
+  string wal_name = 2;
+  bytes wal_block = 3;
+  uint64 segment_size = 4;
 }
 
 message PutResult {
-    uint64 written_size = 1;
+  uint64 written_size = 1;
 }
 
 message GetRequest {
-    string cluster_name = 1;
-    string wal_name = 2;
+  string cluster_name = 1;
+  string wal_name = 2;
 }
 
 message GetResult {
-    bytes wal_block = 1;
-    uint64 segment_size = 2;
+  bytes wal_block = 1;
+  uint64 segment_size = 2;
 }
 
 message GetLatestRequest {
-    string cluster_name = 1;
+  string cluster_name = 1;
 }
 
 message GetLatestResult {
-    optional string wal_name = 1;
+  optional string wal_name = 1;
 }
 
 // The following messages are used to write a WAL file
 // in the Klio WAL Storage area
 
 message StartWALFile {
-    uint64 klio_version = 1;
-    uint64 file_length = 2;
+  uint64 klio_version = 1;
+  uint64 file_length = 2;
 }
 
 message WALFileBlock {
-    bytes range = 1;
-    uint64 encryption_version = 2;
+  bytes range = 1;
+  uint64 encryption_version = 2;
 }

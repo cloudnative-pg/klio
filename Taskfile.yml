@@ -1,0 +1,145 @@
+version: 3
+
+# We have multiple parallel tasks that run for a long time. Prefix their output with the task name so we can understand
+# what task is writing.
+output: prefixed
+
+tasks:
+  lint:
+    desc: Run golangci-lint
+    env:
+      # renovate: datasource=git-refs depName=golangci-lint lookupName=https://github.com/sagikazarmark/daggerverse currentValue=main
+      DAGGER_GOLANGCI_LINT_SHA: ceffda4aebd349a24fc00e591b4ed9b801535b65
+      # renovate: datasource=docker depName=golangci/golangci-lint versioning=semver
+      GOLANGCI_LINT_VERSION: v2.1.6
+    cmds:
+      - >
+        GITHUB_REF= dagger -s call -m github.com/sagikazarmark/daggerverse/golangci-lint@${DAGGER_GOLANGCI_LINT_SHA}
+        --version ${GOLANGCI_LINT_VERSION}
+        run --source . --config .golangci.yml stdout
+    sources:
+      - ./**/*.go
+
+  wordlist-ordered:
+    desc: Order the word list file
+    cmds:
+      - LANG=C LC_ALL=C sort .wordlist.txt > .wordlist.txt.new
+      - mv -f .wordlist.txt.new .wordlist.txt
+    sources:
+      - .wordlist.txt
+
+  spellcheck:
+    desc: Run spellcheck
+    deps:
+      - wordlist-ordered
+    env:
+      # renovate: datasource=git-refs depName=spellcheck lookupName=https://github.com/cloudnative-pg/daggerverse currentValue=main
+      DAGGER_SPELLCHECK_SHA: d8681eb0132bb9f56c9c245cc33f95d09c4645f4
+    cmds:
+      - >
+        GITHUB_REF= dagger -s call -m github.com/cloudnative-pg/daggerverse/spellcheck@${DAGGER_SPELLCHECK_SHA}
+        spellcheck --source . with-exec --use-entrypoint --args="" stdout
+    sources:
+      - ./**/*.md
+      - .spellcheck.yaml
+      - .wordlist.txt
+
+  commitlint:
+    desc: Check for conventional commits
+    env:
+      # renovate: datasource=git-refs depName=commitlint lookupName=https://github.com/cloudnative-pg/daggerverse currentValue=main
+      DAGGER_COMMITLINT_SHA: d8681eb0132bb9f56c9c245cc33f95d09c4645f4
+    cmds:
+      - >
+        GITHUB_REF= dagger -s call -m github.com/cloudnative-pg/daggerverse/commitlint@${DAGGER_COMMITLINT_SHA}
+        lint --source . --args "--from=origin/main" stdout
+
+  uncommitted:
+    desc: Check for uncommitted changes
+    deps:
+      - wordlist-ordered
+      - protoc-gen-go-grpc
+      - protoc-gen-doc
+    env:
+      # renovate: datasource=git-refs depName=uncommitted lookupName=https://github.com/cloudnative-pg/daggerverse currentValue=main
+      DAGGER_UNCOMMITTED_SHA: d8681eb0132bb9f56c9c245cc33f95d09c4645f4
+    cmds:
+      - GITHUB_REF= dagger -s call -m github.com/cloudnative-pg/daggerverse/uncommitted@${DAGGER_UNCOMMITTED_SHA} check-uncommitted --source . stdout
+    sources:
+      - ./**
+
+  go-test:
+    desc: Run go test
+    env:
+      # renovate: datasource=docker depName=golang versioning=semver
+      GOLANG_IMAGE_VERSION: 1.24.3
+      # renovate: datasource=git-refs depname=kubernetes packageName=https://github.com/kubernetes/kubernetes versioning=semver
+      K8S_VERSION: 1.31.0
+      # renovate: datasource=git-refs depName=controller-runtime packageName=https://github.com/kubernetes-sigs/controller-runtime versioning=semver
+      SETUP_ENVTEST_VERSION: 0.20.4
+    cmds:
+      # TODO: move this out of the plugin repo and into the daggerverse
+      - >
+        GITHUB_REF= dagger -s call -m github.com/cloudnative-pg/plugin-barman-cloud/dagger/gotest
+        --go-version ${GOLANG_IMAGE_VERSION}
+        --kube-version ${K8S_VERSION}
+        --setup-envtest-version ${SETUP_ENVTEST_VERSION}
+        unit-test --src .
+    sources:
+      - ./**/*.go
+
+  protolint:
+    desc: Run protolint
+    env:
+      # renovate: datasource=git-refs depName=protolint lookupName=https://github.com/cloudnative-pg/daggerverse currentValue=main
+      DAGGER_PROTOLINT_SHA: d8681eb0132bb9f56c9c245cc33f95d09c4645f4
+    cmds:
+      - >
+        GITHUB_REF= dagger -s call -m github.com/cloudnative-pg/daggerverse/protolint@${DAGGER_PROTOLINT_SHA}
+        lint --source . --args "--config_path=.protolint.yaml" --args proto/ stdout
+    sources:
+      - proto/**/*.proto
+
+  protoc-gen-go-grpc:
+    desc: Compile proto files
+    deps:
+      - protolint
+    env:
+      # renovate: datasource=git-refs depName=protoc-gen-go-grpc lookupName=https://github.com/cloudnative-pg/daggerverse currentValue=main
+      DAGGER_PROTOC_GEN_GO_GRPC_SHA: d8681eb0132bb9f56c9c245cc33f95d09c4645f4
+    cmds:
+      - >
+        GITHUB_REF= dagger -s call
+        -m github.com/cloudnative-pg/daggerverse/protoc-gen-go-grpc@${DAGGER_PROTOC_GEN_GO_GRPC_SHA}
+        run --source . --go-opt module=github.com/EnterpriseDB/klio/internal/grpc
+        --go-grpcopt module=github.com/EnterpriseDB/klio/internal/grpc --proto-path proto -o internal/grpc/
+    sources:
+      - proto/**/*.proto
+
+  protoc-gen-doc:
+    desc: Generate documentation from proto files
+    env:
+      # renovate: datasource=git-refs depName=protoc-gen-doc lookupName=https://github.com/cloudnative-pg/daggerverse currentValue=main
+      DAGGER_PROTOC_GEN_DOC_SHA: d8681eb0132bb9f56c9c245cc33f95d09c4645f4
+    cmds:
+      - >
+        GITHUB_REF= dagger -s call -m github.com/cloudnative-pg/daggerverse/protoc-gen-doc@${DAGGER_PROTOC_GEN_DOC_SHA}
+        generate --proto-dir proto --doc-opt "markdown,protocol.md" -o docs
+    sources:
+      - proto/**/*.proto
+
+  ci:
+    desc: Run the CI pipeline
+    deps:
+      - lint
+      - spellcheck
+      - commitlint
+      - go-test
+      - uncommitted
+
+  clean:
+    desc: Remove autogenerated artifacts
+    cmds:
+      - rm -f docs/protocol.md
+      - rm -rf .task/
+      - rm -f pkg/*/*.pb.go

@@ -32,7 +32,7 @@ const tablespaceManifestIDAnnotationName = "klio.io/kopiaManifestID"
 const controlDataManifestIDAnnotationName = "klio.io/controlDataKopiaManifestID"
 
 // backupNameTagName is the name of the tag containing the backup
-// name
+// name.
 const backupNameTagName = "klio.io/tag"
 
 type backupImplementation struct {
@@ -136,7 +136,7 @@ func (impl *backupImplementation) UploadTablespace(ctx context.Context, tbl comm
 	manifest.Tags = map[string]string{
 		"content":         "tablespace",
 		"tablespace_name": path.Base(tbl.Name),
-		"oid":             fmt.Sprintf("%v", tbl.Oid),
+		"oid":             tbl.Oid,
 	}
 
 	tablespaceManifestID, err := snapshot.SaveSnapshot(ctx, writer, manifest)
@@ -158,13 +158,13 @@ func (impl *backupImplementation) UploadTablespace(ctx context.Context, tbl comm
 	return nil
 }
 
-// UploadControlFile implements common.BackupExecutorImplementation
+// UploadControlFile implements common.BackupExecutorImplementation.
 func (impl *backupImplementation) UploadControlFile(
 	ctx context.Context,
 	controlDataFileName string,
 ) error { // This enables Kopia debugging
 	ctx, writer, err := impl.repository.NewWriter(ctx, repo.WriteSessionOptions{
-		Purpose: fmt.Sprintf("backing up control file for cluster %s", impl.hostname),
+		Purpose: "backing up control file for cluster " + impl.hostname,
 	})
 	if err != nil {
 		return fmt.Errorf("while creating repository writer session: %w", err)
@@ -205,7 +205,7 @@ func (impl *backupImplementation) FinishBackup(ctx context.Context, data common.
 	// This enables Kopia debugging
 	// ctx = logging.WithLogger(ctx, logging.ToWriter(os.Stdout))
 	ctx, writer, err := impl.repository.NewWriter(ctx, repo.WriteSessionOptions{
-		Purpose: fmt.Sprintf("archiving backup metadata %s", data.Name),
+		Purpose: "archiving backup metadata " + data.Name,
 	})
 	if err != nil {
 		return fmt.Errorf("while creating repository writer session: %w", err)

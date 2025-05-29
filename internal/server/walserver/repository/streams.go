@@ -3,6 +3,7 @@ package repository
 import (
 	"bytes"
 	"compress/gzip"
+	"errors"
 	"fmt"
 	"io"
 
@@ -10,9 +11,9 @@ import (
 )
 
 // ErrIVGeneration is raised when random IV bytes cannot be generated.
-var ErrIVGeneration = fmt.Errorf("error while generating random IV bytes")
+var ErrIVGeneration = errors.New("error while generating random IV bytes")
 
-// WrapBlock protects a block encrypting and compressing it
+// WrapBlock protects a block encrypting and compressing it.
 func (c *Connection) WrapBlock(block []byte) ([]byte, error) {
 	var buffer bytes.Buffer
 
@@ -37,7 +38,7 @@ func (c *Connection) WrapBlock(block []byte) ([]byte, error) {
 	return buffer.Bytes(), nil
 }
 
-// UnwrapBlock reads back a block, decompressing and decrypting it
+// UnwrapBlock reads back a block, decompressing and decrypting it.
 func (c *Connection) UnwrapBlock(block []byte) ([]byte, error) {
 	buffer := bytes.NewBuffer(block)
 

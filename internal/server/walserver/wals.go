@@ -7,10 +7,10 @@ import (
 )
 
 // expectedWalFileNameLength is the expected name of a WAL
-// file
+// file.
 const expectedWalFileNameLength = 24
 
-// walFileRE matches a WAL file regular expression
+// walFileRE matches a WAL file regular expression.
 var walFileRE = regexp.MustCompile(
 	`^` +
 		`([\dA-Fa-f]{8})` + // everything has a timeline
@@ -33,14 +33,16 @@ func getWALArchivePath(baseDir, clusterName, walName string) string {
 	if len(walNameWithoutExtension) == expectedWalFileNameLength {
 		return path.Join(baseDir, clusterName, walName[0:16], walName)
 	}
+
 	return path.Join(baseDir, clusterName, walName)
 }
 
 // validateWalFileName checks if the passed file name belongs to
-// a WAL file or not
+// a WAL file or not.
 func validateWalFileName(name string) error {
-	if !walFileRE.Match([]byte(name)) {
+	if !walFileRE.MatchString(name) {
 		return NewIncorrectWALNameError(name)
 	}
+
 	return nil
 }

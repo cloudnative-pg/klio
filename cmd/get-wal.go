@@ -88,11 +88,11 @@ var getWalCmd = &cobra.Command{
 			}
 
 		default:
-			return err
+			return fmt.Errorf("unknown error: %w", err)
 		}
 
 		// Let's try downloading the partial file
-		walName = fmt.Sprintf("%s.partial", walName)
+		walName += ".partial"
 		err = client.GetWALStreaming(cmd.Context(), walName, output)
 
 		var incompleteError common.IncompleteTransmissionError
@@ -106,7 +106,7 @@ var getWalCmd = &cobra.Command{
 			os.Exit(1)
 
 		case err != nil:
-			return err
+			return fmt.Errorf("unknown error: %w", err)
 		}
 
 		return nil

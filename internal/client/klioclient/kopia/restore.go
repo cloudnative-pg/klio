@@ -25,7 +25,7 @@ type restoreImplementation struct {
 }
 
 // CreateRestoreExecutor creates a restore executor using the kopia
-// client
+// client.
 func (s *Connection) CreateRestoreExecutor(
 	_ context.Context,
 	opts common.RestoreOptions,
@@ -51,10 +51,10 @@ func (s *restoreImplementation) GetMetadata(ctx context.Context, name string) (*
 		return nil, fmt.Errorf("while looking for backup entry: %w", err)
 	}
 	if len(entries) > 1 {
-		return nil, fmt.Errorf("found more then one backup with the name %q", name)
+		return nil, newMultipleBackupsFoundError(name, len(entries))
 	}
 	if len(entries) == 0 {
-		return nil, fmt.Errorf("no backup found with name %q", name)
+		return nil, newNoBackupFoundError(name)
 	}
 
 	manifest, err := snapshot.LoadSnapshot(ctx, s.repository, entries[0].ID)
@@ -110,8 +110,11 @@ func (s *restoreImplementation) RestoreTablespace(
 		)
 	}
 
-	_, err = restore.Entry(ctx, s.repository, restoreOutput, entry, restoreOptions)
-	return err
+	if _, err := restore.Entry(ctx, s.repository, restoreOutput, entry, restoreOptions); err != nil {
+		return fmt.Errorf("while restoring entry: %w", err)
+	}
+
+	return nil
 }
 
 // RestorePgData restores the passed pgdata in the specified
@@ -147,8 +150,11 @@ func (s *restoreImplementation) RestorePgData(
 		)
 	}
 
-	_, err = restore.Entry(ctx, s.repository, restoreOutput, entry, restoreOptions)
-	return err
+	if _, err := restore.Entry(ctx, s.repository, restoreOutput, entry, restoreOptions); err != nil {
+		return fmt.Errorf("while restoring entry: %w", err)
+	}
+
+	return nil
 }
 
 func (s *restoreImplementation) RestoreControlData(
@@ -183,11 +189,15 @@ func (s *restoreImplementation) RestoreControlData(
 	}
 
 	_, err = restore.Entry(ctx, s.repository, restoreOutput, entry, restoreOptions)
-	return err
+	if err != nil {
+		return fmt.Errorf("while restoring entry: %w", err)
+	}
+
+	return nil
 }
 
 // getFSOutput creates the file system output representation for
-// the Kopia API
+// the Kopia API.
 func getFSOutput(ctx context.Context, directory string) (*restore.FilesystemOutput, error) {
 	result := restore.FilesystemOutput{
 		TargetPath:             directory,
@@ -210,7 +220,7 @@ func getFSOutput(ctx context.Context, directory string) (*restore.FilesystemOutp
 }
 
 // getKopiaProgressCallback converts a common.DownloadProgressCallback
-// to a callback suitable for the Kopia API
+// to a callback suitable for the Kopia API.
 func (s *restoreImplementation) getKopiaProgressCallback(destinationDirectory string) restore.ProgressCallback {
 	if s.progress == nil {
 		return nil
@@ -234,7 +244,7 @@ func (s *restoreImplementation) getKopiaProgressCallback(destinationDirectory st
 }
 
 // getKopiaRestoreOptions gets the common kopia restore options
-// to be used by PgData and by tablespaces
+// to be used by PgData and by tablespaces.
 func (s *restoreImplementation) getKopiaRestoreOptions(destinationDirectory string) restore.Options {
 	return restore.Options{
 		Parallel:               0,

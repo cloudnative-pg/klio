@@ -35,39 +35,39 @@ func TestWALReaderBlockSplit(t *testing.T) {
 
 	const fileLen = uint64(16 * 1024 * 1024)
 	writer, err := NewWALWriter(conn, "cluster-example", "0000001000000000000001FF", fileLen)
-	require.Nil(t, err)
+	require.NoError(t, err)
 	assert.NotNil(t, writer)
 
 	buffer := make([]byte, fileLen)
 	_, _ = rand.Read(buffer)
 
 	err = writer.WriteBlock(buffer)
-	require.Nil(t, err)
+	require.NoError(t, err)
 
 	err = writer.CloseMarkDone()
-	require.Nil(t, err)
+	require.NoError(t, err)
 
 	reader, err := NewWALReader(conn, "cluster-example", "0000001000000000000001FF")
-	require.Nil(t, err)
+	require.NoError(t, err)
 	assert.NotNil(t, reader)
-	assert.Equal(t, reader.GetFileLength(), fileLen)
+	assert.Equal(t, fileLen, reader.GetFileLength())
 
 	// Read the splitted blocks
-	var w bytes.Buffer
+	var wBlocks bytes.Buffer
 	for {
 		innerBlock, err := reader.ReadBlock()
 		if errors.Is(err, io.EOF) {
 			break
 		}
-		require.Nil(t, err)
+		require.NoError(t, err)
 
-		_, _ = w.Write(innerBlock)
+		_, _ = wBlocks.Write(innerBlock)
 	}
-	require.Equal(t, len(buffer), w.Len())
-	require.Equal(t, buffer, w.Bytes())
+	require.Equal(t, len(buffer), wBlocks.Len())
+	require.Equal(t, buffer, wBlocks.Bytes())
 
 	err = reader.Close()
-	require.Nil(t, err)
+	require.NoError(t, err)
 }
 
 func TestReaderWriterBlocks(t *testing.T) {
@@ -107,20 +107,20 @@ func TestReaderWriterBlocks(t *testing.T) {
 
 	// Step 2: open the compressed file
 	reader, err := NewWALReader(conn, "cluster-example", "0000001000000000000001F8")
-	require.Nil(t, err)
+	require.NoError(t, err)
 	assert.NotNil(t, reader)
 	assert.Equal(t, fileLen, reader.GetFileLength())
 
 	// Step 2.1: read the first block
 	block1Read, err := reader.ReadBlock()
-	require.Nil(t, err)
+	require.NoError(t, err)
 	assert.Equal(t, block1, block1Read)
 
 	// Step 2.2: read the second block
 	block2Read, err := reader.ReadBlock()
-	require.Nil(t, err)
+	require.NoError(t, err)
 	assert.Equal(t, block2, block2Read)
 
 	err = reader.Close()
-	require.Nil(t, err)
+	require.NoError(t, err)
 }

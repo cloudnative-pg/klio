@@ -7,7 +7,7 @@ import (
 	"path"
 )
 
-// backupLabelFileName is the file name where the backup label should be stored
+// backupLabelFileName is the file name where the backup label should be stored.
 const backupLabelFileName = "backup_label"
 
 // RestoreExecutorImplementation is used by a restore executor to download
@@ -56,7 +56,7 @@ type RestoreOptions struct {
 }
 
 // NewRestoreExecutorForImpl creates a new restore executor given
-// a certain implementation
+// a certain implementation.
 func NewRestoreExecutorForImpl(impl RestoreExecutorImplementation, opts RestoreOptions) *RestoreExecutor {
 	return &RestoreExecutor{
 		impl:    impl,
@@ -68,20 +68,20 @@ func NewRestoreExecutorForImpl(impl RestoreExecutorImplementation, opts RestoreO
 func (r *RestoreExecutor) Restore(ctx context.Context, destinationPath string) error {
 	meta, err := r.impl.GetMetadata(ctx, r.options.Name)
 	if err != nil {
-		return err
+		return fmt.Errorf("while getting metadata for backup %s: %w", r.options.Name, err)
 	}
 
 	// Restore the tablespaces
 	for _, tbl := range meta.Tablespaces {
 		if err := r.restoreTablespace(ctx, tbl); err != nil {
-			return err
+			return fmt.Errorf("while restoring tablespace %s: %w", tbl.Name, err)
 		}
 	}
 
 	// Restore PGDATA
 	r.options.Progress.NotifyStart(destinationPath)
 	if err := r.impl.RestorePgData(ctx, meta, destinationPath); err != nil {
-		return err
+		return fmt.Errorf("while restoring pgdata to %s: %w", destinationPath, err)
 	}
 	r.options.Progress.NotifyFinish(destinationPath)
 
@@ -89,14 +89,14 @@ func (r *RestoreExecutor) Restore(ctx context.Context, destinationPath string) e
 	controlDataFileName := path.Join(destinationPath, controlDataPath)
 	r.options.Progress.NotifyStart(controlDataFileName)
 	if err := r.impl.RestoreControlData(ctx, meta, controlDataFileName); err != nil {
-		return err
+		return fmt.Errorf("while restoring control data file to %s: %w", controlDataFileName, err)
 	}
 	r.options.Progress.NotifyFinish(controlDataFileName)
 
 	// Restore backup label
 	backupLabel := path.Join(destinationPath, backupLabelFileName)
 	if err := os.WriteFile(backupLabel, []byte(meta.BackupLabel), 0o600); err != nil {
-		return fmt.Errorf("while writing backup label file: %w", err)
+		return fmt.Errorf("while writing backup label %s file: %w", backupLabel, err)
 	}
 
 	return nil
@@ -110,7 +110,7 @@ func (r *RestoreExecutor) restoreTablespace(ctx context.Context, tbl TablespaceL
 
 	r.options.Progress.NotifyStart(tablespaceDestinationPath)
 	if err := r.impl.RestoreTablespace(ctx, tbl, tablespaceDestinationPath); err != nil {
-		return err
+		return fmt.Errorf("while restoring tablespace %s to %s: %w", tbl.Name, tablespaceDestinationPath, err)
 	}
 	defer r.options.Progress.NotifyFinish(tablespaceDestinationPath)
 

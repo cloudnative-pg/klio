@@ -2,10 +2,9 @@ package main
 
 import (
 	"context"
-	"dagger/klio/internal/dagger"
 	"time"
 
-	"github.com/sourcegraph/conc/pool"
+	"dagger/klio/internal/dagger"
 )
 
 const postgresPassword = "mysecretpassword"
@@ -68,10 +67,13 @@ EOF`}).
 		WithFile("/.kube/config", k3s.Config()).
 		WithDirectory("/kubernetes", source.Directory("kubernetes")).
 		// Install CNPG and wait for it to be ready
-		WithExec([]string{"kubectl", "apply", "--server-side", "-f", "https://raw.githubusercontent.com/cloudnative-pg/artifacts/refs/heads/main/manifests/operator-manifest.yaml"}).
-		WithExec([]string{"kubectl", "rollout", "status", "deployment", "cnpg-controller-manager", "-n", "cnpg-system"}).
+		WithExec([]string{"kubectl", "apply", "--server-side", "-f",
+			"https://raw.githubusercontent.com/cloudnative-pg/artifacts/refs/heads/main/manifests/operator-manifest.yaml"}).
+		WithExec([]string{"kubectl", "rollout", "status", "deployment", "cnpg-controller-manager", "-n",
+			"cnpg-system"}).
 		// Install cert-manager and wait for it to be ready
-		WithExec([]string{"kubectl", "apply", "-f", "https://github.com/cert-manager/cert-manager/releases/download/v1.16.2/cert-manager.yaml"}).
+		WithExec([]string{"kubectl", "apply", "-f",
+			"https://github.com/cert-manager/cert-manager/releases/download/v1.16.2/cert-manager.yaml"}).
 		WithExec([]string{"kubectl", "rollout", "status", "deployment", "-n", "cert-manager", "cert-manager-webhook"}).
 		WithExec([]string{"kubectl", "apply", "-k", "/kubernetes/klio/overlays/dev"}).
 		WithExec([]string{"kubectl", "rollout", "status", "deployment", "klio-server"}).
@@ -104,7 +106,8 @@ func (m *Klio) Image(
 		kopiaBinary := dag.Container().
 			From("alpine").
 			WithExec([]string{"apk", "add", "curl"}).
-			WithExec([]string{"curl", "-LO", "https://github.com/kopia/kopia/releases/download/v0.18.2/kopia-0.18.2-linux-x64.tar.gz"}).
+			WithExec([]string{"curl", "-LO",
+				"https://github.com/kopia/kopia/releases/download/v0.18.2/kopia-0.18.2-linux-x64.tar.gz"}).
 			WithExec([]string{"tar", "xvzf", "kopia-0.18.2-linux-x64.tar.gz"}).
 			File("kopia-0.18.2-linux-x64/kopia")
 
@@ -113,62 +116,4 @@ func (m *Klio) Image(
 
 	return result
 
-}
-
-// Lint runs golangci-lint on the source directory
-func (m *Klio) Lint(
-	source *dagger.Directory,
-) *dagger.Container {
-	return dag.GolangciLint().
-		WithBuildCache(dag.CacheVolume("golangci-lint-build-cache")).
-		WithLinterCache(dag.CacheVolume("golangci-lint-linter-cache")).
-		WithModuleCache(dag.CacheVolume("golangci-lint-module-cache")).
-		Run(source)
-}
-
-// Test runs the unit tests
-func (m *Klio) Test(
-	source *dagger.Directory,
-) *dagger.Container {
-	return dag.Go(dagger.GoOpts{Version: goVersion}).
-		WithCgoDisabled().
-		WithSource(source).
-		Exec([]string{"go", "install", "github.com/kopia/kopia@latest"}).
-		WithExec([]string{
-			"go",
-			"test",
-			"./...",
-		})
-}
-
-// CI exec the regular CI checks
-func (m *Klio) CI(
-	ctx context.Context,
-	source *dagger.Directory,
-) error {
-	p := pool.New().WithContext(ctx)
-	p.Go(func(ctx context.Context) error {
-		_, err := m.Lint(source).Sync(ctx)
-		return err
-	})
-	p.Go(func(ctx context.Context) error {
-		_, err := m.Test(source).Sync(ctx)
-		return err
-	})
-	return p.Wait()
-}
-
-// Protoc runs "protoc" and compiles the proto file into the relative
-// client and server
-func (m *Klio) Protoc(
-	ctx context.Context,
-	source *dagger.Directory,
-) *dagger.Directory {
-	return dag.ProtocGenGoGrpc().
-		Run(
-			source,
-			"proto",
-			"module=github.com/EnterpriseDB/klio/internal/grpc",
-			"module=github.com/EnterpriseDB/klio/internal/grpc",
-		)
 }

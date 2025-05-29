@@ -53,13 +53,13 @@ var restoreCmd = &cobra.Command{
 
 		optionSlice, err := cmd.Flags().GetStringSlice("tablespaces")
 		if err != nil {
-			return err
+			return fmt.Errorf("could not parse tablespaces: %w", err)
 		}
 
 		for _, option := range optionSlice {
 			splittedOption := strings.Split(option, ":")
 			if len(splittedOption) != 2 || len(splittedOption[0]) == 0 || len(splittedOption) == 0 {
-				return fmt.Errorf("invalid tablespace remap option %q", option)
+				return newInvalidTablespaceRemapOptionError(option)
 			}
 
 			tablespaces[splittedOption[0]] = splittedOption[1]
@@ -83,7 +83,7 @@ var restoreCmd = &cobra.Command{
 
 		executor, err := client.CreateRestoreExecutor(cmd.Context(), restoreOptions)
 		if err != nil {
-			return err
+			return fmt.Errorf("while creating restore executor: %w", err)
 		}
 
 		return executor.Restore(cmd.Context(), destinationPath)

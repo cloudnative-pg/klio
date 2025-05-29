@@ -1,56 +1,19 @@
 version: "2"
 linters:
-  default: none
-  enable:
-    - asciicheck
-    - bodyclose
-    - copyloopvar
-    - dogsled
-    - dupl
-    - durationcheck
-    - errcheck
-    - ginkgolinter
-    - gocognit
-    - goconst
-    - gocritic
-    - gocyclo
-    - goheader
-    - gomoddirectives
-    - gomodguard
-    - goprintffuncname
-    - gosec
-    - govet
-    - importas
-    - ineffassign
-    - lll
-    - makezero
-    - misspell
-    - nakedret
-    - nestif
-    - prealloc
-    - predeclared
-    - revive
-    - rowserrcheck
-    - sqlclosecheck
-    - staticcheck
-    - thelper
-    - tparallel
-    - unconvert
-    - unparam
-    - unused
-    - wastedassign
-    - whitespace
+  default: all
+  disable:
+    - mnd
+    - depguard
+    - exhaustruct
+    - funlen
+    - paralleltest
+    - testpackage
+    - wsl
   settings:
-    gosec:
-      excludes:
-        - G101
-    staticcheck:
-      checks:
-        - all
-        - '-QF1001'
-        - '-QF1007'
     lll:
       line-length: 120
+    nlreturn:
+      block-size: 3
   exclusions:
     generated: lax
     rules:
@@ -64,10 +27,6 @@ linters:
       - linters:
           - lll
         source: //\s*\+
-      - linters:
-          - staticcheck
-        path: api/
-        text: 'ST1016:'
     paths:
       - zz_generated.*
       - third_party$

@@ -9,7 +9,7 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
-// controlDataPath is the name of the pg_controldata file
+// controlDataPath is the name of the pg_controldata file.
 const controlDataPath = "global/pg_control"
 
 // TablespaceLayout is the on-disk structure of a tablespace.
@@ -90,6 +90,14 @@ type BackupOptions struct {
 
 	// Progress is the callback to be used to report the backup status
 	Progress UploadProgress
+}
+
+// NewBackupExecutorForImpl creates a new backup executor for the passed implementation.
+func NewBackupExecutorForImpl(impl BackupExecutorImplementation, opts BackupOptions) *BackupExecutor {
+	return &BackupExecutor{
+		impl:    impl,
+		options: opts,
+	}
 }
 
 // Start starts the execution of a backup.
@@ -186,12 +194,4 @@ func (b *BackupExecutor) Close(ctx context.Context) error {
 		BackupLabel:   string(labelFile),
 		TablespaceMap: string(spcmapFile),
 	})
-}
-
-// NewBackupExecutorForImpl creates a new backup executor for the passed implementation.
-func NewBackupExecutorForImpl(impl BackupExecutorImplementation, opts BackupOptions) *BackupExecutor {
-	return &BackupExecutor{
-		impl:    impl,
-		options: opts,
-	}
 }

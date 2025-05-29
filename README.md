@@ -1,7 +1,7 @@
 # Klio - EDB Postgres Backup & Recovery Manager for CloudNativePG
 
 The EDB Postgres Backup and Recovery Manager for CloudNativePG (codename “Klio”,
-inspired by Clio, the muse of history, symbolising the preservation and recovery
+inspired by Clio, the muse of history, symbolizing the preservation and recovery
 of past events, which resonates with database backup) is designed to set a new
 benchmark in enterprise-grade backup and recovery for PostgreSQL databases on
 Kubernetes, specifically. 
@@ -9,7 +9,7 @@ Kubernetes, specifically.
 It effectively manages:
 
 * The WAL archive for a specific PostgreSQL cluster
-* The catalogue of physical base backups for the same PostgreSQL cluster
+* The catalog of physical base backups for the same PostgreSQL cluster
 
 These critical backup components are stored across two tiers:
 
@@ -24,22 +24,22 @@ These critical backup components are stored across two tiers:
 More information can be found in the [design
 document](https://docs.google.com/document/d/1ZTJf7siLxLvH31X6eztY0xeySJ-QT9o6BCA9EAs1gxc/edit?tab=t.0)
 
-## Development environment prequisites
+## Development environment prerequisites
 
-* A [dagger.io](https://dagger.io/) installation
+* A [dagger](https://dagger.io/) installation
 
 ## How to spawn up a testing environment
 
 The following command will spawn up a new temporary Kubernetes environment with
-CloudNative-PG, the minimal cluster and **klio**:
+CloudNativePG, the minimal cluster and **klio**:
 
-```
+```sh
 dagger call kubernetes --source . terminal
 ```
 
 ## How to recreate the GRPC stub and skeleton
 
-```
+```sh
 dagger call protoc --source . -o internal/grpc
 ```
 
@@ -58,7 +58,7 @@ klio_server:
 
 A new Klio WAL repository can be bootstrapped with:
 
-```
+```sh
 openssl req -x509 -newkey rsa:4096 -sha256 -days 3650 \
   -nodes -keyout server.key -out server.crt -subj "/CN=klio-server" \
   -addext "subjectAltName=DNS:klio-server,IP:127.0.0.1"
@@ -68,7 +68,7 @@ openssl req -x509 -newkey rsa:4096 -sha256 -days 3650 \
 
 To initialize the PGData repository:
 
-```
+```sh
 ~/kopia repository create filesystem --path=/home/ubuntu/klio_data/pgdata
 
 ~/kopia repository connect filesystem --path=/home/ubuntu/klio_data/pgdata
@@ -78,13 +78,13 @@ To initialize the PGData repository:
 
 The WAL server can be started with:
 
-```
+```sh
 ~/klio serve
 ```
 
 The Kopia server can be started with:
 
-```
+```sh
 ~/kopia server start \
   --address=https://0.0.0.0:51515 \
   --server-username=klio@cluster-example \
@@ -121,6 +121,6 @@ source:
 
 Important: the certificate fingerprint can be found with:
 
-```
+```sh
 openssl x509 -in /home/ubuntu/klio_data/server.crt -text -fingerprint -sha256
 ```

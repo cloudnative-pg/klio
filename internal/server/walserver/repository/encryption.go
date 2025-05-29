@@ -6,6 +6,7 @@ import (
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/hex"
+	"errors"
 	"fmt"
 
 	"go.uber.org/multierr"
@@ -20,16 +21,16 @@ const (
 )
 
 // ErrInvalidSaltFormat is raised when the encryption key salt is not valid.
-var ErrInvalidSaltFormat = fmt.Errorf("invalid key salt format")
+var ErrInvalidSaltFormat = errors.New("invalid key salt format")
 
 // ErrInvalidNonceFormat is raised when the encryption nonce is not valid.
-var ErrInvalidNonceFormat = fmt.Errorf("invalid nonce format")
+var ErrInvalidNonceFormat = errors.New("invalid nonce format")
 
 // ErrInvalidEncryptedKeyFormat is raised when the encrypted key is not valid.
-var ErrInvalidEncryptedKeyFormat = fmt.Errorf("invalid encrypted key format")
+var ErrInvalidEncryptedKeyFormat = errors.New("invalid encrypted key format")
 
 // ErrInvalidPassword is raised when the password is not valid.
-var ErrInvalidPassword = fmt.Errorf("invalid password")
+var ErrInvalidPassword = errors.New("invalid password")
 
 // envelopedMasterKey represents a master key enveloped
 // with a password.

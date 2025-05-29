@@ -1,7 +1,5 @@
 package walserver
 
-import "fmt"
-
 // IncorrectWALNameError is raised when a WAL file name is not correct.
 type IncorrectWALNameError struct {
 	WalName string
@@ -16,5 +14,5 @@ func NewIncorrectWALNameError(name string) *IncorrectWALNameError {
 
 // Error implements the error interface.
 func (e *IncorrectWALNameError) Error() string {
-	return fmt.Sprintf("incorrect WAL file name: %s", e.WalName)
+	return "incorrect WAL file name: " + e.WalName
 }

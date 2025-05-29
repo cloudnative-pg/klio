@@ -1,6 +1,8 @@
 package cmd
 
-import "errors"
+import (
+	"errors"
+)
 
 var (
 	// ErrKopiaClientSectionIsRequired is raised when the kopia client configuration is missing.
@@ -21,3 +23,17 @@ var (
 	// Klio server is started.
 	ErrKlioServerSectionIsRequired = errors.New("'klio_server' configuration section is required")
 )
+
+type invalidTablespaceRemapOptionError struct {
+	Option string
+}
+
+func newInvalidTablespaceRemapOptionError(option string) *invalidTablespaceRemapOptionError {
+	return &invalidTablespaceRemapOptionError{
+		Option: option,
+	}
+}
+
+func (e *invalidTablespaceRemapOptionError) Error() string {
+	return "invalid tablespace remap option " + e.Option
+}

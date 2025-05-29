@@ -89,7 +89,7 @@ func (c *Connection) StoreHistoryFile(ctx context.Context, name string, content 
 }
 
 // GetWALStreaming get a WAL from a remote connection.
-func (c *Connection) GetWALStreaming(ctx context.Context, walName string, out io.Writer) error {
+func (c *Connection) GetWALStreaming(ctx context.Context, walName string, out io.Writer) error { //nolint:cyclop
 	client, err := c.walClient.Get(ctx, &klioGRPC.GetRequest{
 		ClusterName: c.cfg.ClusterName,
 		WalName:     walName,
@@ -98,6 +98,7 @@ func (c *Connection) GetWALStreaming(ctx context.Context, walName string, out io
 		if status.Code(err) == codes.NotFound {
 			return common.ErrMissingWALFile
 		}
+
 		return fmt.Errorf("while starting downloading a WAL file: %w", err)
 	}
 
@@ -124,7 +125,7 @@ func (c *Connection) GetWALStreaming(ctx context.Context, walName string, out io
 		}
 
 		if expectedSize == 0 {
-			expectedSize = int(result.SegmentSize) //nolint:gosec
+			expectedSize = int(result.GetSegmentSize()) //nolint:gosec
 		}
 
 		b, err := out.Write(result.GetWalBlock())
@@ -140,25 +141,6 @@ func (c *Connection) GetWALStreaming(ctx context.Context, walName string, out io
 		if err := c.padWithZeros(out, expectedSize-writtenBytes); err != nil {
 			return err
 		}
-	}
-
-	return nil
-}
-
-func (c *Connection) padWithZeros(w io.Writer, zeroBytesToWrite int) error {
-	blockSize := 1024 * 1024
-	zeroBlock := make([]byte, blockSize)
-
-	totalWritten := 0
-	for totalWritten < zeroBytesToWrite {
-		toWrite := min(blockSize, zeroBytesToWrite-totalWritten)
-
-		n, err := w.Write(zeroBlock[:toWrite])
-		if err != nil {
-			return err
-		}
-
-		totalWritten += n
 	}
 
 	return nil
@@ -249,6 +231,25 @@ func (c *Connection) StoreWALStreaming(
 		clusterName: c.cfg.ClusterName,
 		walName:     name,
 	}), nil
+}
+
+func (c *Connection) padWithZeros(wBlocks io.Writer, zeroBytesToWrite int) error {
+	blockSize := 1024 * 1024
+	zeroBlock := make([]byte, blockSize)
+
+	totalWritten := 0
+	for totalWritten < zeroBytesToWrite {
+		toWrite := min(blockSize, zeroBytesToWrite-totalWritten)
+
+		n, err := wBlocks.Write(zeroBlock[:toWrite])
+		if err != nil {
+			return fmt.Errorf("while writing padding zeros to the WAL file: %w", err)
+		}
+
+		totalWritten += n
+	}
+
+	return nil
 }
 
 type grpcWALStream struct {

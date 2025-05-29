@@ -1,6 +1,6 @@
 package common
 
-import "fmt"
+import "errors"
 
 // WALNotFoundError is returned when the WAL file is not found.
 type WALNotFoundError struct {
@@ -8,12 +8,12 @@ type WALNotFoundError struct {
 }
 
 func (e *WALNotFoundError) Error() string {
-	return fmt.Sprintf("WAL file not found: %s", e.WalName)
+	return "WAL file not found: " + e.WalName
 }
 
 // ErrMissingWALFile is raised when the client requires a WAL file
-// that doesn't exist on the server
-var ErrMissingWALFile = fmt.Errorf("non existing WAL file")
+// that doesn't exist on the server.
+var ErrMissingWALFile = errors.New("non existing WAL file")
 
 // IncompleteTransmissionError is raised when downloading a WAL file
 // from a Klio server and the transmission got interrupted after having
@@ -29,12 +29,12 @@ type IncompleteTransmissionError struct {
 	WrittenBytes int
 }
 
-// Error implements the error interface
+// Error implements the error interface.
 func (e IncompleteTransmissionError) Error() string {
-	return fmt.Sprintf("incomplete WAL file received: %s", e.Inner.Error())
+	return "incomplete WAL file received: " + e.Inner.Error()
 }
 
-// Unwrap implements the error interface
+// Unwrap implements the error interface.
 func (e IncompleteTransmissionError) Unwrap() error {
 	return e.Inner
 }

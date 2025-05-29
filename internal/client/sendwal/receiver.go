@@ -262,7 +262,7 @@ func (s *Process) startReplication(
 		// we close it.
 		// This happens when PG is shut down.
 		if err := klioHandler.CloseWAL(ctx); err != nil {
-			return err
+			return fmt.Errorf("while closing the WAL file: %w", err)
 		}
 	}
 

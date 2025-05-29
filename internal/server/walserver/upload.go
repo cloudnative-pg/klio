@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"strconv"
 
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -74,8 +75,8 @@ func (m *walUploadBlockMetadata) handleRequest(request *grpc.PutRequest) error {
 	} else if m.segmentSize != request.GetSegmentSize() {
 		return &incoherentRequestError{
 			involvedField: "wal segment size",
-			expectedValue: fmt.Sprintf("%v", m.segmentSize),
-			foundValue:    fmt.Sprintf("%v", request.GetSegmentSize()),
+			expectedValue: strconv.FormatUint(m.segmentSize, 10),
+			foundValue:    strconv.FormatUint(request.GetSegmentSize(), 10),
 		}
 	}
 
@@ -131,6 +132,7 @@ func (w *Implementation) Put(req grpc.WAL_PutServer) error {
 				"walName", request.GetWalName(),
 				"err", err,
 			)
+
 			return status.Errorf(codes.InvalidArgument, "%s", err.Error())
 		}
 
@@ -143,6 +145,7 @@ func (w *Implementation) Put(req grpc.WAL_PutServer) error {
 					"walName", request.GetWalName(),
 					"err", err,
 				)
+
 				return status.Errorf(codes.Internal, "error while opening new WAL: %v", err.Error())
 			}
 		}
@@ -154,6 +157,7 @@ func (w *Implementation) Put(req grpc.WAL_PutServer) error {
 				"walName", request.GetWalName(),
 				"err", err,
 			)
+
 			return status.Errorf(codes.Internal, "error while writing WAL: %v", err.Error())
 		}
 
@@ -164,10 +168,11 @@ func (w *Implementation) Put(req grpc.WAL_PutServer) error {
 				"walName", request.GetWalName(),
 				"err", err,
 			)
+
 			return status.Errorf(codes.Internal, "error while flushing WAL: %v", err.Error())
 		}
 
-		writtenSize += uint64(len(request.GetWalBlock())) //nolint:gosec
+		writtenSize += uint64(len(request.GetWalBlock()))
 	}
 
 	if walBuffer == nil {
@@ -178,6 +183,7 @@ func (w *Implementation) Put(req grpc.WAL_PutServer) error {
 				"Error while closing empty WAL file",
 				"err", err,
 			)
+
 			return status.Errorf(codes.Internal, "error while closing (partial) WAL: %v", err.Error())
 		}
 
@@ -193,6 +199,7 @@ func (w *Implementation) Put(req grpc.WAL_PutServer) error {
 				"clusterName", blockMeta.clusterName,
 				"err", err,
 			)
+
 			return status.Errorf(codes.Internal, "error while closing (partial) WAL: %v", err.Error())
 		}
 
@@ -212,6 +219,7 @@ func (w *Implementation) Put(req grpc.WAL_PutServer) error {
 				"clusterName", blockMeta.clusterName,
 				"err", err,
 			)
+
 			return status.Errorf(codes.Internal, "error while closing (done) WAL: %v", err.Error())
 		}
 
@@ -234,6 +242,7 @@ func (w *Implementation) Put(req grpc.WAL_PutServer) error {
 			"clusterName", blockMeta.clusterName,
 			"err", err,
 		)
+
 		return status.Errorf(codes.Internal, "error while sending response: %v", err.Error())
 	}
 

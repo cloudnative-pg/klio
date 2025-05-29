@@ -91,10 +91,15 @@ func (w *WALWriter) Flush() error {
 
 // Close closes the file.
 func (w *WALWriter) Close() error {
-	return w.file.Close()
+	err := w.file.Close()
+	if err != nil {
+		return fmt.Errorf("while closing the wal writer: %w", err)
+	}
+
+	return nil
 }
 
-// WriteBlock writes the WAL block to storage
+// WriteBlock writes the WAL block to storage.
 func (w *WALWriter) WriteBlock(data []byte) error {
 	const walBlockSize = 1 << 20
 
@@ -107,19 +112,19 @@ func (w *WALWriter) WriteBlock(data []byte) error {
 		block := data[start:end]
 
 		if err := w.writeBlockInternal(block); err != nil {
-			return err
+			return fmt.Errorf("while writing WAL block: %w", err)
 		}
 	}
 
 	return nil
 }
 
-// WriteBlock writes the WAL block to storage
+// WriteBlock writes the WAL block to storage.
 func (w *WALWriter) writeBlockInternal(p []byte) error {
 	// Step 1: compression and encryption
 	wrappedBlock, err := w.conn.WrapBlock(p)
 	if err != nil {
-		return err
+		return fmt.Errorf("while wrapping WAL block: %w", err)
 	}
 
 	// Step 2: writing to permanent storage
@@ -129,5 +134,9 @@ func (w *WALWriter) writeBlockInternal(p []byte) error {
 	}
 
 	_, err = protodelim.MarshalTo(w.file, &block)
-	return err
+	if err != nil {
+		return fmt.Errorf("while writing WAL file block: %w", err)
+	}
+
+	return nil
 }
