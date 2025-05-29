@@ -1,3 +1,90 @@
 {
-  "$schema": "https://docs.renovatebot.com/renovate-schema.json"
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": [
+    "config:recommended",
+    ":gitSignOff",
+    ":semanticCommitType(chore)",
+    ":labels(automated,no-issue)",
+    "customManagers:githubActionsVersions",
+    ":automergeMinor",
+    ":automergeDigest",
+    "docker:pinDigests",
+    "helpers:pinGitHubActionDigests"
+  ],
+  "repositories": [
+    "EnterpriseDB/klio"
+  ],
+  "onboarding": true,
+  "platform": "github",
+  "enabled": true,
+  "prConcurrentLimit": 5,
+  "gomod": {
+    "ignorePaths": [
+      ".dagger/**/go.mod"
+    ]
+  },
+  "postUpdateOptions": [
+    "gomodTidy"
+  ],
+  "semanticCommits": "enabled",
+  "commitBodyTable": true,
+  "customManagers": [
+    {
+      "customType": "regex",
+      "managerFilePatterns": [
+        "/(^Taskfile\\.yml$)"
+      ],
+      "matchStrings": [
+        "# renovate: datasource=(?<datasource>[a-z-.]+?) depName=(?<depName>[^\\s]+?)(?: (?:lookupName|packageName)=(?<packageName>[^\\s]+?))?(?: versioning=(?<versioning>[^\\s]+?))?(?: extractVersion=(?<extractVersion>[^\\s]+?))?(?: currentValue=(?<currentValue>[^\\s]+?))?\\s+[A-Za-z0-9_]+?_SHA\\s*:\\s*[\"']?(?<currentDigest>[a-f0-9]+?)[\"']?\\s",
+        "# renovate: datasource=(?<datasource>[a-z-.]+?) depName=(?<depName>[^\\s]+?)(?: (?:lookupName|packageName)=(?<packageName>[^\\s]+?))?(?: versioning=(?<versioning>[^\\s]+?))?(?: extractVersion=(?<extractVersion>[^\\s]+?))?\\s+[A-Za-z0-9_]+?_VERSION\\s*:\\s*[\"']?(?<currentValue>.+?)[\"']?\\s"
+      ]
+    }
+  ],
+  "packageRules": [
+    {
+      "matchDatasources": [
+        "go"
+      ],
+      "matchPackageNames": [
+        "!/k8s.io/"
+      ],
+      "matchUpdateTypes": [
+        "minor",
+        "patch",
+        "digest"
+      ],
+      "groupName": "all non-major go dependencies"
+    },
+    {
+      "matchDatasources": [
+        "git-refs"
+      ],
+      "matchPackageNames": [
+        "https://github.com/cloudnative-pg/daggerverse"
+      ],
+      "matchUpdateTypes": [
+        "digest"
+      ],
+      "groupName": "all cloudnative-pg daggerverse dependencies"
+    },
+    {
+      "matchDatasources": [
+        "git-refs"
+      ],
+      "matchPackageNames": [
+        "https://github.com/sagikazarmark/daggerverse"
+      ],
+      "matchUpdateTypes": [
+        "digest"
+      ],
+      "groupName": "all sagikazarmark daggerverse dependencies"
+    },
+    {
+      "matchUpdateTypes": [
+        "minor",
+        "patch"
+      ],
+      "matchCurrentVersion": "!/^0/"
+    }
+  ]
 }
