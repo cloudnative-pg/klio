@@ -17,7 +17,7 @@ type testingRepository struct {
 	conn               common.WALClientStreamer
 }
 
-type repositoryCreatorFunction func(ctx context.Context, repoLabel string) (common.WALClientStreamer, error)
+type repositoryCreatorFunction func(ctx context.Context) (common.WALClientStreamer, error)
 
 // BenchLookupSnapshots starts a benchmark that creates a new repo, fills it with fake
 // WALs and then look them up.
@@ -35,7 +35,7 @@ func BenchLookupSnapshots(b *testing.B, creator repositoryCreatorFunction) {
 
 	repositories := make([]testingRepository, len(combinations))
 	for repoIdx, combination := range combinations {
-		conn, err := creator(ctx, fmt.Sprintf("repo_%v_*", combination))
+		conn, err := creator(ctx)
 		if err != nil {
 			b.Fatalf("Error while creating repositories: %v", err)
 		}

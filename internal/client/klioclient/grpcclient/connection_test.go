@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
-	"os"
 	"testing"
 
 	"github.com/EnterpriseDB/klio/internal/client/klioclient/common"
@@ -14,15 +13,8 @@ import (
 )
 
 func BenchmarkLookupSnapshotsViaKlioServer(b *testing.B) {
-	createTemporaryKlioRepo := func(_ context.Context, repoLabel string) (common.WALClientStreamer, error) {
-		//nolint:usetesting
-		dirName, err := os.MkdirTemp(
-			"",
-			"klio_"+repoLabel,
-		)
-		if err != nil {
-			return nil, fmt.Errorf("error while creating local temporary directory: %w", err)
-		}
+	createTemporaryKlioRepo := func(_ context.Context) (common.WALClientStreamer, error) {
+		dirName := b.TempDir()
 
 		conn, err := ConnectTemporary(
 			slog.Default(),
