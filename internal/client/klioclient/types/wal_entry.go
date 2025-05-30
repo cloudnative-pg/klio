@@ -30,7 +30,7 @@ func NewEntry(name string, content []byte) *Entry {
 }
 
 // Open opens the WAL file entry.
-func (entry Entry) Open(_ context.Context) (fs.Reader, error) { //nolint:ireturn
+func (entry Entry) Open(_ context.Context) (fs.Reader, error) { //nolint:ireturn,nolintlint
 	return &entryReader{
 		Buffer: filebuffer.New(entry.content),
 		entry:  entry,
@@ -114,6 +114,6 @@ type entryReader struct {
 	entry Entry
 }
 
-func (reader entryReader) Entry() (fs.Entry, error) { //nolint:ireturn
+func (reader entryReader) Entry() (fs.Entry, error) { //nolint:ireturn,nolintlint
 	return reader.entry, nil
 }

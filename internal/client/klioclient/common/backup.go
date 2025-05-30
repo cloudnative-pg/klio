@@ -31,14 +31,13 @@ type TablespaceLayout struct {
 // BackupExecutor guides the execution of a PostgreSQL backup, delegating
 // the upload process to the underlying implementation.
 type BackupExecutor struct {
-	name string
-
+	name        string
 	pgData      string
+	startLSN    uint64
 	tablespaces []TablespaceLayout
 
 	options  BackupOptions
-	startLSN uint64
-	impl     BackupExecutorImplementation
+	uploader BackupUploader
 }
 
 // BackupMetadata is the metadata to be stored with set of backup snapshots.
@@ -66,9 +65,8 @@ type BackupMetadata struct {
 	Annotations map[string]string `json:"annotations"`
 }
 
-// BackupExecutorImplementation is used by a backup executor to upload
-// pgdata.
-type BackupExecutorImplementation interface {
+// BackupUploader is used by a backup executor to upload several backup data.
+type BackupUploader interface {
 	// UploadTablespace uploads the tablespace with the passed layout to
 	// the backup store.
 	UploadTablespace(ctx context.Context, tbl TablespaceLayout) error
@@ -79,8 +77,8 @@ type BackupExecutorImplementation interface {
 	// UploadControlFile uploads the control file to the backup store.
 	UploadControlFile(ctx context.Context, controlDataFileName string) error
 
-	// FinishBackup is called to mark a backup successfully done.
-	FinishBackup(ctx context.Context, metadata BackupMetadata) error
+	// UploadBackupMetadata is called to mark a backup successfully done.
+	UploadBackupMetadata(ctx context.Context, metadata BackupMetadata) error
 }
 
 // BackupOptions are the information needed to take a backup.
@@ -93,10 +91,10 @@ type BackupOptions struct {
 }
 
 // NewBackupExecutorForImpl creates a new backup executor for the passed implementation.
-func NewBackupExecutorForImpl(impl BackupExecutorImplementation, opts BackupOptions) *BackupExecutor {
+func NewBackupExecutorForImpl(uploader BackupUploader, opts BackupOptions) *BackupExecutor {
 	return &BackupExecutor{
-		impl:    impl,
-		options: opts,
+		uploader: uploader,
+		options:  opts,
 	}
 }
 
@@ -155,17 +153,17 @@ func (b *BackupExecutor) Start(ctx context.Context) error {
 // Upload starts the uploading process.
 func (b *BackupExecutor) Upload(ctx context.Context) error {
 	for _, tbl := range b.tablespaces {
-		if err := b.impl.UploadTablespace(ctx, tbl); err != nil {
+		if err := b.uploader.UploadTablespace(ctx, tbl); err != nil {
 			return err //nolint:wrapcheck
 		}
 	}
 
-	if err := b.impl.UploadPgData(ctx, b.pgData); err != nil {
+	if err := b.uploader.UploadPgData(ctx, b.pgData); err != nil {
 		return err //nolint:wrapcheck
 	}
 
 	controlDataFileName := path.Join(b.pgData, controlDataPath)
-	if err := b.impl.UploadControlFile(ctx, controlDataFileName); err != nil {
+	if err := b.uploader.UploadControlFile(ctx, controlDataFileName); err != nil {
 		return err //nolint:wrapcheck
 	}
 
@@ -187,7 +185,7 @@ func (b *BackupExecutor) Close(ctx context.Context) error {
 	}
 
 	//nolint:wrapcheck
-	return b.impl.FinishBackup(ctx, BackupMetadata{
+	return b.uploader.UploadBackupMetadata(ctx, BackupMetadata{
 		Name:          b.name,
 		StartLSN:      b.startLSN,
 		EndLSN:        b.startLSN,
