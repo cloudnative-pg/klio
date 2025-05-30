@@ -80,6 +80,20 @@
       "groupName": "all sagikazarmark daggerverse dependencies"
     },
     {
+      "matchDatasources": [
+        "go"
+      ],
+      "matchPackageNames": [
+        "github.com/kopia/kopia"
+      ],
+      "matchUpdateTypes": [
+        "minor",
+        "patch",
+        "digest"
+      ],
+      "groupName": "all kopia api"
+    },
+    {
       "matchUpdateTypes": [
         "minor",
         "patch"
