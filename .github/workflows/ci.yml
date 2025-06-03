@@ -12,7 +12,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Cleanup Disk
-        uses: jlumbroso/free-disk-space@v1.3.1
+        uses: jlumbroso/free-disk-space@54081f138730dfa15788a46383842cd2f914a1be # v1.3.1
         with:
           android: true
           dotnet: true
@@ -30,7 +30,7 @@ jobs:
           df -h
           echo "-----------------------------------------------------"
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
         # We need the full history for the commitlint task
         with:
           fetch-depth: 0
@@ -48,7 +48,7 @@ jobs:
           task ci
       -
         name: Upload assets
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: klio
           path: |
