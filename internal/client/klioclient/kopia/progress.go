@@ -6,13 +6,13 @@ import (
 
 	"github.com/kopia/kopia/snapshot/snapshotfs"
 
-	"github.com/EnterpriseDB/klio/internal/client/klioclient/common"
+	"github.com/EnterpriseDB/klio/internal/client/klioclient/notifier"
 )
 
 // kopiaUploadProgress is the implementation of the Kopia progress.
 type kopiaUploadProgress struct {
-	p   common.UploadProgress
-	log *slog.Logger
+	notifier notifier.Upload
+	log      *slog.Logger
 
 	startPath          string
 	estimatedFileCount atomic.Int64
@@ -113,10 +113,10 @@ func (k *kopiaUploadProgress) StartedDirectory(path string) {
 
 // UploadFinished implements snapshotfs.UploadProgress.
 func (k *kopiaUploadProgress) UploadFinished() {
-	k.p.NotifyFinish(k.startPath)
+	k.notifier.NotifyFinish(k.startPath)
 }
 
 // UploadStarted implements snapshotfs.UploadProgress.
 func (k *kopiaUploadProgress) UploadStarted() {
-	k.p.NotifyStart(k.startPath)
+	k.notifier.NotifyStart(k.startPath)
 }

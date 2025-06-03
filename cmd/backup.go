@@ -12,6 +12,7 @@ import (
 
 	"github.com/EnterpriseDB/klio/internal/client/klioclient/common"
 	"github.com/EnterpriseDB/klio/internal/client/klioclient/kopia"
+	"github.com/EnterpriseDB/klio/internal/client/klioclient/notifier"
 	"github.com/EnterpriseDB/klio/pkg/config"
 )
 
@@ -67,13 +68,9 @@ var backupCmd = &cobra.Command{
 			_ = conn.Close(cmd.Context())
 		}()
 
-		backupExecutor, err := client.CreateBackupExecutor(
-			cmd.Context(),
-			common.BackupOptions{
-				Connection: conn,
-				Progress:   common.NewUploadProgressLogger(logger),
-			},
-		)
+		uploader := client.NewUploader(cmd.Context(), notifier.NewUploadLogNotifier(logger))
+		backupExecutor := common.NewBackupExecutor(conn, uploader)
+
 		if err != nil {
 			return fmt.Errorf("while creating a backup executor: %w", err)
 		}

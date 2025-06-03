@@ -17,6 +17,7 @@ import (
 	"github.com/kopia/kopia/snapshot/snapshotfs"
 
 	"github.com/EnterpriseDB/klio/internal/client/klioclient/common"
+	"github.com/EnterpriseDB/klio/internal/client/klioclient/notifier"
 )
 
 // pgDataManifestIDAnnotationName is the name of the annotation where
@@ -40,27 +41,22 @@ type backupUploader struct {
 	username   string
 	logger     *slog.Logger
 	repository repo.Repository
-	progress   common.UploadProgress
+	progress   notifier.Upload
 
 	pgDataManifest        *snapshot.Manifest
 	tablespaces           []common.TablespaceLayout
 	controlDataManifestID manifest.ID
 }
 
-// CreateBackupExecutor creates a new backup executor.
-func (s *Connection) CreateBackupExecutor(
-	_ context.Context,
-	options common.BackupOptions,
-) (*common.BackupExecutor, error) {
-	impl := &backupUploader{
+// NewUploader creates a new backup executor.
+func (s *Connection) NewUploader(_ context.Context, logger notifier.Upload) common.BackupUploader { //nolint:ireturn
+	return &backupUploader{
 		hostname:   s.hostname,
 		username:   s.username,
 		logger:     s.logger,
 		repository: s.repository,
-		progress:   options.Progress,
+		progress:   logger,
 	}
-
-	return common.NewBackupExecutorForImpl(impl, options), nil
 }
 
 // UploadPgData implements common.BackupUploader.
@@ -290,7 +286,7 @@ func (impl *backupUploader) uploadPath(
 	uploader := snapshotfs.NewUploader(writer)
 	uploader.Progress = &kopiaUploadProgress{
 		startPath: sourcePath,
-		p:         impl.progress,
+		notifier:  impl.progress,
 		log:       impl.logger,
 	}
 

@@ -36,7 +36,9 @@ type BackupExecutor struct {
 	startLSN    uint64
 	tablespaces []TablespaceLayout
 
-	options  BackupOptions
+	// A connection to the target database
+	Connection *pgx.Conn
+
 	uploader BackupUploader
 }
 
@@ -81,20 +83,11 @@ type BackupUploader interface {
 	UploadBackupMetadata(ctx context.Context, metadata BackupMetadata) error
 }
 
-// BackupOptions are the information needed to take a backup.
-type BackupOptions struct {
-	// A connection to the target database
-	Connection *pgx.Conn
-
-	// Progress is the callback to be used to report the backup status
-	Progress UploadProgress
-}
-
-// NewBackupExecutorForImpl creates a new backup executor for the passed implementation.
-func NewBackupExecutorForImpl(uploader BackupUploader, opts BackupOptions) *BackupExecutor {
+// NewBackupExecutor creates a new backup executor for the passed implementation.
+func NewBackupExecutor(conn *pgx.Conn, uploader BackupUploader) *BackupExecutor {
 	return &BackupExecutor{
-		uploader: uploader,
-		options:  opts,
+		uploader:   uploader,
+		Connection: conn,
 	}
 }
 
@@ -102,7 +95,7 @@ func NewBackupExecutorForImpl(uploader BackupUploader, opts BackupOptions) *Back
 func (b *BackupExecutor) Start(ctx context.Context) error {
 	b.name = time.Now().Format("20060102150405")
 
-	row := b.options.Connection.QueryRow(ctx, "SHOW data_directory")
+	row := b.Connection.QueryRow(ctx, "SHOW data_directory")
 	if err := row.Scan(&b.pgData); err != nil {
 		return fmt.Errorf("while reading pgdata: %w", err)
 	}
@@ -111,7 +104,7 @@ func (b *BackupExecutor) Start(ctx context.Context) error {
 	// TODO(leonardoce): how should we discover the tablespaces?
 	// perhaps it would be better to look inside PGData and
 	// read the links
-	tablespaceRows, err := b.options.Connection.Query(
+	tablespaceRows, err := b.Connection.Query(
 		ctx,
 		`SELECT oid::text, spcname::text, pg_tablespace_location(oid)::text FROM pg_tablespace`,
 	)
@@ -138,7 +131,7 @@ func (b *BackupExecutor) Start(ctx context.Context) error {
 		return fmt.Errorf("while reading tablespaces: %w", err)
 	}
 
-	row = b.options.Connection.QueryRow(
+	row = b.Connection.QueryRow(
 		ctx,
 		"SELECT pg_backup_start($1, fast:=true) - '0/0'",
 		b.name,
@@ -172,7 +165,7 @@ func (b *BackupExecutor) Upload(ctx context.Context) error {
 
 // Close finishes a backup.
 func (b *BackupExecutor) Close(ctx context.Context) error {
-	row := b.options.Connection.QueryRow(ctx, "SELECT lsn - '0/0', labelfile, spcmapfile FROM pg_backup_stop()")
+	row := b.Connection.QueryRow(ctx, "SELECT lsn - '0/0', labelfile, spcmapfile FROM pg_backup_stop()")
 
 	var (
 		endLSN     uint64

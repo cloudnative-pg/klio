@@ -11,6 +11,7 @@ import (
 
 	"github.com/EnterpriseDB/klio/internal/client/klioclient/common"
 	"github.com/EnterpriseDB/klio/internal/client/klioclient/kopia"
+	"github.com/EnterpriseDB/klio/internal/client/klioclient/notifier"
 	"github.com/EnterpriseDB/klio/pkg/config"
 )
 
@@ -78,7 +79,7 @@ var restoreCmd = &cobra.Command{
 			Name:                 backupName,
 			PgDataDirectory:      destinationPath,
 			TablespacesDirectory: tablespaces,
-			Progress:             common.NewDownloadProgressLogger(logger),
+			Notifier:             notifier.NewDownloadLogNotifier(logger),
 		}
 
 		executor, err := client.CreateRestoreExecutor(cmd.Context(), restoreOptions)

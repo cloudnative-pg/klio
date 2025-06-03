@@ -14,6 +14,7 @@ import (
 	"github.com/kopia/kopia/snapshot/snapshotfs"
 
 	"github.com/EnterpriseDB/klio/internal/client/klioclient/common"
+	"github.com/EnterpriseDB/klio/internal/client/klioclient/notifier"
 )
 
 type restoreImplementation struct {
@@ -21,7 +22,7 @@ type restoreImplementation struct {
 	username   string
 	logger     *slog.Logger
 	repository repo.Repository
-	progress   common.DownloadProgress
+	progress   notifier.Download
 }
 
 // CreateRestoreExecutor creates a restore executor using the kopia
@@ -35,7 +36,7 @@ func (s *Connection) CreateRestoreExecutor(
 		username:   s.username,
 		logger:     s.logger,
 		repository: s.repository,
-		progress:   opts.Progress,
+		progress:   opts.Notifier,
 	}
 
 	return common.NewRestoreExecutorForImpl(impl, opts), nil
@@ -227,7 +228,7 @@ func (s *restoreImplementation) getKopiaProgressCallback(destinationDirectory st
 	}
 
 	return func(_ context.Context, stats restore.Stats) {
-		s.progress.NotifyStatus(destinationDirectory, common.DownloadStats{
+		s.progress.NotifyStatus(destinationDirectory, notifier.DownloadStats{
 			RestoredTotalFileSize: stats.RestoredTotalFileSize,
 			EnqueuedTotalFileSize: stats.EnqueuedTotalFileSize,
 			SkippedTotalFileSize:  stats.SkippedTotalFileSize,

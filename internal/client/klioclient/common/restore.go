@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"os"
 	"path"
+
+	"github.com/EnterpriseDB/klio/internal/client/klioclient/notifier"
 )
 
 // backupLabelFileName is the file name where the backup label should be stored.
@@ -50,9 +52,9 @@ type RestoreOptions struct {
 	// that will be used to download the tablespaces.
 	TablespacesDirectory map[string]string
 
-	// Progress is the set of callbacks to be used to report the restore
+	// Notifier is the set of callbacks to be used to report the restore
 	// status. If null, no callback will be invoked.
-	Progress DownloadProgress
+	Notifier notifier.Download
 }
 
 // NewRestoreExecutorForImpl creates a new restore executor given
@@ -79,19 +81,19 @@ func (r *RestoreExecutor) Restore(ctx context.Context, destinationPath string) e
 	}
 
 	// Restore PGDATA
-	r.options.Progress.NotifyStart(destinationPath)
+	r.options.Notifier.NotifyStart(destinationPath)
 	if err := r.impl.RestorePgData(ctx, meta, destinationPath); err != nil {
 		return fmt.Errorf("while restoring pgdata to %s: %w", destinationPath, err)
 	}
-	r.options.Progress.NotifyFinish(destinationPath)
+	r.options.Notifier.NotifyFinish(destinationPath)
 
 	// Restore control data file
 	controlDataFileName := path.Join(destinationPath, controlDataPath)
-	r.options.Progress.NotifyStart(controlDataFileName)
+	r.options.Notifier.NotifyStart(controlDataFileName)
 	if err := r.impl.RestoreControlData(ctx, meta, controlDataFileName); err != nil {
 		return fmt.Errorf("while restoring control data file to %s: %w", controlDataFileName, err)
 	}
-	r.options.Progress.NotifyFinish(controlDataFileName)
+	r.options.Notifier.NotifyFinish(controlDataFileName)
 
 	// Restore backup label
 	backupLabel := path.Join(destinationPath, backupLabelFileName)
@@ -108,11 +110,11 @@ func (r *RestoreExecutor) restoreTablespace(ctx context.Context, tbl TablespaceL
 		tablespaceDestinationPath = v
 	}
 
-	r.options.Progress.NotifyStart(tablespaceDestinationPath)
+	r.options.Notifier.NotifyStart(tablespaceDestinationPath)
 	if err := r.impl.RestoreTablespace(ctx, tbl, tablespaceDestinationPath); err != nil {
 		return fmt.Errorf("while restoring tablespace %s to %s: %w", tbl.Name, tablespaceDestinationPath, err)
 	}
-	defer r.options.Progress.NotifyFinish(tablespaceDestinationPath)
+	defer r.options.Notifier.NotifyFinish(tablespaceDestinationPath)
 
 	return nil
 }
