@@ -87,8 +87,11 @@ var getWalCmd = &cobra.Command{
 				os.Exit(1)
 			}
 
-		default:
+		case err != nil:
 			return fmt.Errorf("unknown error: %w", err)
+
+		default:
+			return nil
 		}
 
 		// Let's try downloading the partial file
