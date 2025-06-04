@@ -26,6 +26,7 @@ spec:
       - name: klio-initialize
         command:
         - klio
+        - server
         - initialize
         - --config=/config/klio.yaml
 
@@ -70,7 +71,8 @@ spec:
         command:
         - klio
         - --config=/config/klio.yaml
-        - serve
+        - server
+        - start
 
         image: klio:latest
         imagePullPolicy: Always

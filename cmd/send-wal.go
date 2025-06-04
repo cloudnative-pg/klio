@@ -74,8 +74,8 @@ var sendWalCmd = &cobra.Command{
 			return fmt.Errorf("while connecting to the Klio server: %w", err)
 		}
 
-		sendWalService := sendwal.New(&configuration, logger, client)
-		return sendWalService.Start(cmd.Context())
+		return sendwal.New(&configuration, logger, client).
+			Start(cmd.Context())
 	},
 }
 

@@ -36,7 +36,9 @@ const controlDataManifestIDAnnotationName = "klio.io/controlDataKopiaManifestID"
 // name.
 const backupNameTagName = "klio.io/tag"
 
-type backupUploader struct {
+// BackupUploader is the implementation based on a Kopia client
+// of the common.BackupUploader interface.
+type BackupUploader struct {
 	hostname   string
 	username   string
 	logger     *slog.Logger
@@ -49,8 +51,8 @@ type backupUploader struct {
 }
 
 // NewUploader creates a new backup executor.
-func (s *Connection) NewUploader(_ context.Context, logger notifier.Upload) common.BackupUploader { //nolint:ireturn
-	return &backupUploader{
+func (s *Connection) NewUploader(_ context.Context, logger notifier.Upload) *BackupUploader {
+	return &BackupUploader{
 		hostname:   s.hostname,
 		username:   s.username,
 		logger:     s.logger,
@@ -60,7 +62,7 @@ func (s *Connection) NewUploader(_ context.Context, logger notifier.Upload) comm
 }
 
 // UploadPgData implements common.BackupUploader.
-func (impl *backupUploader) UploadPgData(ctx context.Context, pgData string) error {
+func (impl *BackupUploader) UploadPgData(ctx context.Context, pgData string) error {
 	ctx, writer, err := impl.repository.NewWriter(ctx, repo.WriteSessionOptions{
 		Purpose: fmt.Sprintf("backing up pgdata %s for cluster %s", pgData, impl.hostname),
 	})
@@ -109,7 +111,7 @@ func (impl *backupUploader) UploadPgData(ctx context.Context, pgData string) err
 }
 
 // UploadTablespace implements common.BackupUploader.
-func (impl *backupUploader) UploadTablespace(ctx context.Context, tbl common.TablespaceLayout) error {
+func (impl *BackupUploader) UploadTablespace(ctx context.Context, tbl common.TablespaceLayout) error {
 	ctx, writer, err := impl.repository.NewWriter(ctx, repo.WriteSessionOptions{
 		Purpose: fmt.Sprintf("backing up tablespace %s for cluster %s", tbl.Path, impl.hostname),
 	})
@@ -155,7 +157,7 @@ func (impl *backupUploader) UploadTablespace(ctx context.Context, tbl common.Tab
 }
 
 // UploadControlFile implements common.BackupUploader.
-func (impl *backupUploader) UploadControlFile(
+func (impl *BackupUploader) UploadControlFile(
 	ctx context.Context,
 	controlDataFileName string,
 ) error { // This enables Kopia debugging
@@ -197,7 +199,7 @@ func (impl *backupUploader) UploadControlFile(
 }
 
 // UploadBackupMetadata implements common.BackupUploader.
-func (impl *backupUploader) UploadBackupMetadata(ctx context.Context, data common.BackupMetadata) error {
+func (impl *BackupUploader) UploadBackupMetadata(ctx context.Context, data common.BackupMetadata) error {
 	// This enables Kopia debugging
 	// ctx = logging.WithLogger(ctx, logging.ToWriter(os.Stdout))
 	ctx, writer, err := impl.repository.NewWriter(ctx, repo.WriteSessionOptions{
@@ -245,7 +247,7 @@ func (impl *backupUploader) UploadBackupMetadata(ctx context.Context, data commo
 	return nil
 }
 
-func (impl *backupUploader) uploadPath(
+func (impl *BackupUploader) uploadPath(
 	ctx context.Context,
 	filePath string,
 	writer repo.RepositoryWriter,

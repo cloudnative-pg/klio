@@ -1,6 +1,7 @@
 Bignum
 ByteString
 CloudNativePG
+ClusterMetadata
 EDB
 FalseClass
 Fixnum
@@ -11,6 +12,8 @@ GetLatestResult
 GetLatestWAL
 GetLatestWALRequest
 GetLatestWALResult
+GetMetadata
+GetMetadataRequest
 GetRequest
 GetResult
 GetWAL
@@ -22,6 +25,12 @@ Kubernetes
 PGData
 PutRequest
 PutResult
+RequestWALStart
+RequestWALStartRequest
+RequestWALStartResult
+ResetWALStream
+ResetWALStreamRequest
+ResetWALStreamResult
 StartWALFile
 TLS
 TrueClass
@@ -36,6 +45,7 @@ VM
 VMs
 WAL
 WALFileBlock
+WALGap
 WALs
 bool
 codename
@@ -43,11 +53,13 @@ filesystem
 goreleaser
 klio
 kopia
+lsn
 namespace
 pgdata
 postgres
 postgresql
 proto
+protobuf
 sfixed
 sint
 str

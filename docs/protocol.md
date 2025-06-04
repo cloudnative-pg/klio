@@ -4,14 +4,19 @@
 ## Table of Contents
 
 - [wal.proto](#wal-proto)
-    - [GetLatestRequest](#klio-wal-v1-GetLatestRequest)
-    - [GetLatestResult](#klio-wal-v1-GetLatestResult)
+    - [ClusterMetadata](#klio-wal-v1-ClusterMetadata)
+    - [GetMetadataRequest](#klio-wal-v1-GetMetadataRequest)
     - [GetRequest](#klio-wal-v1-GetRequest)
     - [GetResult](#klio-wal-v1-GetResult)
     - [PutRequest](#klio-wal-v1-PutRequest)
     - [PutResult](#klio-wal-v1-PutResult)
+    - [RequestWALStartRequest](#klio-wal-v1-RequestWALStartRequest)
+    - [RequestWALStartResult](#klio-wal-v1-RequestWALStartResult)
+    - [ResetWALStreamRequest](#klio-wal-v1-ResetWALStreamRequest)
+    - [ResetWALStreamResult](#klio-wal-v1-ResetWALStreamResult)
     - [StartWALFile](#klio-wal-v1-StartWALFile)
     - [WALFileBlock](#klio-wal-v1-WALFileBlock)
+    - [WALGap](#klio-wal-v1-WALGap)
   
     - [WAL](#klio-wal-v1-WAL)
   
@@ -26,30 +31,32 @@
 
 
 
-<a name="klio-wal-v1-GetLatestRequest"></a>
+<a name="klio-wal-v1-ClusterMetadata"></a>
 
-### GetLatestRequest
+### ClusterMetadata
+The following messages are written in the cluster metadata
+file
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| system_id | [string](#string) |  | The system ID of the current cluster |
+| gaps | [WALGap](#klio-wal-v1-WALGap) | repeated | The gaps we are aware of in the collected WALs. |
+
+
+
+
+
+
+<a name="klio-wal-v1-GetMetadataRequest"></a>
+
+### GetMetadataRequest
 
 
 
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
 | cluster_name | [string](#string) |  |  |
-
-
-
-
-
-
-<a name="klio-wal-v1-GetLatestResult"></a>
-
-### GetLatestResult
-
-
-
-| Field | Type | Label | Description |
-| ----- | ---- | ----- | ----------- |
-| wal_name | [string](#string) | optional |  |
 
 
 
@@ -121,6 +128,70 @@
 
 
 
+<a name="klio-wal-v1-RequestWALStartRequest"></a>
+
+### RequestWALStartRequest
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| cluster_name | [string](#string) |  | This is the cluster name |
+| system_id | [string](#string) |  | This is the system ID |
+| current_wal_name | [string](#string) |  | This is the current WAL name that is being written by PostgreSQL. If empty, the start WAL name will be found by looking at the stored WAL files. |
+
+
+
+
+
+
+<a name="klio-wal-v1-RequestWALStartResult"></a>
+
+### RequestWALStartResult
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| wal_name | [string](#string) |  | The WAL file where the client is expected to start streaming. |
+
+
+
+
+
+
+<a name="klio-wal-v1-ResetWALStreamRequest"></a>
+
+### ResetWALStreamRequest
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| cluster_name | [string](#string) |  | This is the cluster name |
+| system_id | [string](#string) |  | This is the system ID |
+| current_wal_name | [string](#string) |  | This is the current WAL name that is being written by PostgreSQL. If empty, the start WAL name will be found by looking at the stored WAL files. |
+
+
+
+
+
+
+<a name="klio-wal-v1-ResetWALStreamResult"></a>
+
+### ResetWALStreamResult
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| wal_name | [string](#string) |  | The WAL file where the client is expected to start streaming. |
+
+
+
+
+
+
 <a name="klio-wal-v1-StartWALFile"></a>
 
 ### StartWALFile
@@ -152,6 +223,25 @@
 
 
 
+
+<a name="klio-wal-v1-WALGap"></a>
+
+### WALGap
+WALGap is a know gap in the WAL collection process.
+This is usually caused by an invocation of the reset-lsn Klio
+feature.
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| ts | [google.protobuf.Timestamp](#google-protobuf-Timestamp) |  | When this gap was detected and created. |
+| start | [string](#string) |  | When the gap started. |
+| end | [string](#string) |  | When the gap ends. |
+
+
+
+
+
  
 
  
@@ -168,7 +258,9 @@
 | ----------- | ------------ | ------------- | ------------|
 | Put | [PutRequest](#klio-wal-v1-PutRequest) stream | [PutResult](#klio-wal-v1-PutResult) |  |
 | Get | [GetRequest](#klio-wal-v1-GetRequest) | [GetResult](#klio-wal-v1-GetResult) stream |  |
-| GetLatest | [GetLatestRequest](#klio-wal-v1-GetLatestRequest) | [GetLatestResult](#klio-wal-v1-GetLatestResult) |  |
+| GetMetadata | [GetMetadataRequest](#klio-wal-v1-GetMetadataRequest) | [ClusterMetadata](#klio-wal-v1-ClusterMetadata) |  |
+| RequestWALStart | [RequestWALStartRequest](#klio-wal-v1-RequestWALStartRequest) | [RequestWALStartResult](#klio-wal-v1-RequestWALStartResult) |  |
+| ResetWALStream | [ResetWALStreamRequest](#klio-wal-v1-ResetWALStreamRequest) | [ResetWALStreamResult](#klio-wal-v1-ResetWALStreamResult) |  |
 
  
 

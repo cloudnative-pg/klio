@@ -85,10 +85,10 @@ func (m *walUploadBlockMetadata) handleRequest(request *grpc.PutRequest) error {
 
 // Put uploads a new WAL to the data store.
 //
-//nolint:cyclop
+//nolint:cyclop,gocognit
 func (w *Implementation) Put(req grpc.WAL_PutServer) error {
 	var blockMeta walUploadBlockMetadata
-	var walBuffer *WALWriter
+	var walBuffer *Writer
 	var writtenSize uint64
 
 	for {
@@ -118,6 +118,10 @@ func (w *Implementation) Put(req grpc.WAL_PutServer) error {
 			return status.Errorf(codes.InvalidArgument, "invalid WAL name: %v", err.Error())
 		}
 
+		if err := validateWalFileName(request.GetWalName()); err != nil {
+			return status.Errorf(codes.InvalidArgument, "invalid WAL name: %q", request.GetWalName())
+		}
+
 		w.logger.Debug(
 			"Received WAL block",
 			"clusterName", request.GetClusterName(),
@@ -137,7 +141,7 @@ func (w *Implementation) Put(req grpc.WAL_PutServer) error {
 		}
 
 		if walBuffer == nil {
-			walBuffer, err = NewWALWriter(w.conn, blockMeta.clusterName, blockMeta.walFileName, blockMeta.segmentSize)
+			walBuffer, err = NewWriter(w.conn, blockMeta.clusterName, blockMeta.walFileName, blockMeta.segmentSize)
 			if err != nil {
 				w.logger.Error(
 					"Cannot open new WAL file",

@@ -2,7 +2,7 @@
 Description=Klio Server
 
 [Service]
-ExecStart=/opt/klio/klio serve
+ExecStart=/opt/klio/klio server start
 Restart=always
 
 User=klio

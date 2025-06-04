@@ -19,9 +19,11 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	WAL_Put_FullMethodName       = "/klio.wal.v1.WAL/Put"
-	WAL_Get_FullMethodName       = "/klio.wal.v1.WAL/Get"
-	WAL_GetLatest_FullMethodName = "/klio.wal.v1.WAL/GetLatest"
+	WAL_Put_FullMethodName             = "/klio.wal.v1.WAL/Put"
+	WAL_Get_FullMethodName             = "/klio.wal.v1.WAL/Get"
+	WAL_GetMetadata_FullMethodName     = "/klio.wal.v1.WAL/GetMetadata"
+	WAL_RequestWALStart_FullMethodName = "/klio.wal.v1.WAL/RequestWALStart"
+	WAL_ResetWALStream_FullMethodName  = "/klio.wal.v1.WAL/ResetWALStream"
 )
 
 // WALClient is the client API for WAL service.
@@ -30,7 +32,9 @@ const (
 type WALClient interface {
 	Put(ctx context.Context, opts ...grpc.CallOption) (grpc.ClientStreamingClient[PutRequest, PutResult], error)
 	Get(ctx context.Context, in *GetRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[GetResult], error)
-	GetLatest(ctx context.Context, in *GetLatestRequest, opts ...grpc.CallOption) (*GetLatestResult, error)
+	GetMetadata(ctx context.Context, in *GetMetadataRequest, opts ...grpc.CallOption) (*ClusterMetadata, error)
+	RequestWALStart(ctx context.Context, in *RequestWALStartRequest, opts ...grpc.CallOption) (*RequestWALStartResult, error)
+	ResetWALStream(ctx context.Context, in *ResetWALStreamRequest, opts ...grpc.CallOption) (*ResetWALStreamResult, error)
 }
 
 type wALClient struct {
@@ -73,10 +77,30 @@ func (c *wALClient) Get(ctx context.Context, in *GetRequest, opts ...grpc.CallOp
 // This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
 type WAL_GetClient = grpc.ServerStreamingClient[GetResult]
 
-func (c *wALClient) GetLatest(ctx context.Context, in *GetLatestRequest, opts ...grpc.CallOption) (*GetLatestResult, error) {
+func (c *wALClient) GetMetadata(ctx context.Context, in *GetMetadataRequest, opts ...grpc.CallOption) (*ClusterMetadata, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(GetLatestResult)
-	err := c.cc.Invoke(ctx, WAL_GetLatest_FullMethodName, in, out, cOpts...)
+	out := new(ClusterMetadata)
+	err := c.cc.Invoke(ctx, WAL_GetMetadata_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *wALClient) RequestWALStart(ctx context.Context, in *RequestWALStartRequest, opts ...grpc.CallOption) (*RequestWALStartResult, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(RequestWALStartResult)
+	err := c.cc.Invoke(ctx, WAL_RequestWALStart_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *wALClient) ResetWALStream(ctx context.Context, in *ResetWALStreamRequest, opts ...grpc.CallOption) (*ResetWALStreamResult, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ResetWALStreamResult)
+	err := c.cc.Invoke(ctx, WAL_ResetWALStream_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -89,7 +113,9 @@ func (c *wALClient) GetLatest(ctx context.Context, in *GetLatestRequest, opts ..
 type WALServer interface {
 	Put(grpc.ClientStreamingServer[PutRequest, PutResult]) error
 	Get(*GetRequest, grpc.ServerStreamingServer[GetResult]) error
-	GetLatest(context.Context, *GetLatestRequest) (*GetLatestResult, error)
+	GetMetadata(context.Context, *GetMetadataRequest) (*ClusterMetadata, error)
+	RequestWALStart(context.Context, *RequestWALStartRequest) (*RequestWALStartResult, error)
+	ResetWALStream(context.Context, *ResetWALStreamRequest) (*ResetWALStreamResult, error)
 	mustEmbedUnimplementedWALServer()
 }
 
@@ -106,8 +132,14 @@ func (UnimplementedWALServer) Put(grpc.ClientStreamingServer[PutRequest, PutResu
 func (UnimplementedWALServer) Get(*GetRequest, grpc.ServerStreamingServer[GetResult]) error {
 	return status.Errorf(codes.Unimplemented, "method Get not implemented")
 }
-func (UnimplementedWALServer) GetLatest(context.Context, *GetLatestRequest) (*GetLatestResult, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method GetLatest not implemented")
+func (UnimplementedWALServer) GetMetadata(context.Context, *GetMetadataRequest) (*ClusterMetadata, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetMetadata not implemented")
+}
+func (UnimplementedWALServer) RequestWALStart(context.Context, *RequestWALStartRequest) (*RequestWALStartResult, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method RequestWALStart not implemented")
+}
+func (UnimplementedWALServer) ResetWALStream(context.Context, *ResetWALStreamRequest) (*ResetWALStreamResult, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ResetWALStream not implemented")
 }
 func (UnimplementedWALServer) mustEmbedUnimplementedWALServer() {}
 func (UnimplementedWALServer) testEmbeddedByValue()             {}
@@ -148,20 +180,56 @@ func _WAL_Get_Handler(srv interface{}, stream grpc.ServerStream) error {
 // This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
 type WAL_GetServer = grpc.ServerStreamingServer[GetResult]
 
-func _WAL_GetLatest_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(GetLatestRequest)
+func _WAL_GetMetadata_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetMetadataRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(WALServer).GetLatest(ctx, in)
+		return srv.(WALServer).GetMetadata(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: WAL_GetLatest_FullMethodName,
+		FullMethod: WAL_GetMetadata_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(WALServer).GetLatest(ctx, req.(*GetLatestRequest))
+		return srv.(WALServer).GetMetadata(ctx, req.(*GetMetadataRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _WAL_RequestWALStart_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(RequestWALStartRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(WALServer).RequestWALStart(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: WAL_RequestWALStart_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(WALServer).RequestWALStart(ctx, req.(*RequestWALStartRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _WAL_ResetWALStream_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ResetWALStreamRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(WALServer).ResetWALStream(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: WAL_ResetWALStream_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(WALServer).ResetWALStream(ctx, req.(*ResetWALStreamRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -174,8 +242,16 @@ var WAL_ServiceDesc = grpc.ServiceDesc{
 	HandlerType: (*WALServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
-			MethodName: "GetLatest",
-			Handler:    _WAL_GetLatest_Handler,
+			MethodName: "GetMetadata",
+			Handler:    _WAL_GetMetadata_Handler,
+		},
+		{
+			MethodName: "RequestWALStart",
+			Handler:    _WAL_RequestWALStart_Handler,
+		},
+		{
+			MethodName: "ResetWALStream",
+			Handler:    _WAL_ResetWALStream_Handler,
 		},
 	},
 	Streams: []grpc.StreamDesc{

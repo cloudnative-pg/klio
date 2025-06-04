@@ -1,11 +1,18 @@
 syntax = "proto3";
+
 package klio.wal.v1;
+
+import "google/protobuf/timestamp.proto";
+
 option go_package = "github.com/EnterpriseDB/klio/internal/grpc";
 
 service WAL {
   rpc Put(stream PutRequest) returns (PutResult) {}
   rpc Get(GetRequest) returns (stream GetResult) {}
-  rpc GetLatest(GetLatestRequest) returns (GetLatestResult) {}
+
+  rpc GetMetadata(GetMetadataRequest) returns (ClusterMetadata) {}
+  rpc RequestWALStart(RequestWALStartRequest) returns (RequestWALStartResult) {}
+  rpc ResetWALStream(ResetWALStreamRequest) returns (ResetWALStreamResult) {}
 }
 
 message PutRequest {
@@ -19,6 +26,10 @@ message PutResult {
   uint64 written_size = 1;
 }
 
+message GetMetadataRequest {
+  string cluster_name = 1;
+}
+
 message GetRequest {
   string cluster_name = 1;
   string wal_name = 2;
@@ -29,12 +40,66 @@ message GetResult {
   uint64 segment_size = 2;
 }
 
-message GetLatestRequest {
+message RequestWALStartRequest {
+  // This is the cluster name
   string cluster_name = 1;
+
+  // This is the system ID
+  string system_id = 2;
+
+  // This is the current WAL name that is being written
+  // by PostgreSQL. If empty, the start WAL name will be
+  // found by looking at the stored WAL files.
+  string current_wal_name = 3;
 }
 
-message GetLatestResult {
-  optional string wal_name = 1;
+message RequestWALStartResult {
+  // The WAL file where the client is expected to start
+  // streaming.
+  string wal_name = 1;
+}
+
+message ResetWALStreamRequest {
+  // This is the cluster name
+  string cluster_name = 1;
+
+  // This is the system ID
+  string system_id = 2;
+
+  // This is the current WAL name that is being written
+  // by PostgreSQL. If empty, the start WAL name will be
+  // found by looking at the stored WAL files.
+  string current_wal_name = 3;
+}
+
+message ResetWALStreamResult {
+  // The WAL file where the client is expected to start
+  // streaming.
+  string wal_name = 1;
+}
+
+// The following messages are written in the cluster metadata
+// file
+message ClusterMetadata {
+  // The system ID of the current cluster
+  string system_id = 1;
+
+  // The gaps we are aware of in the collected WALs.
+  repeated WALGap gaps = 2;
+}
+
+// WALGap is a know gap in the WAL collection process.
+// This is usually caused by an invocation of the reset-lsn Klio
+// feature.
+message WALGap {
+  // When this gap was detected and created.
+  google.protobuf.Timestamp ts = 1;
+
+  // When the gap started.
+  string start = 2;
+
+  // When the gap ends.
+  string end = 3;
 }
 
 // The following messages are used to write a WAL file

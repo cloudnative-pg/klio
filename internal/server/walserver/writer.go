@@ -11,8 +11,8 @@ import (
 	"github.com/EnterpriseDB/klio/internal/server/walserver/repository"
 )
 
-// WALWriter is the WAL file writer.
-type WALWriter struct {
+// Writer is the repository file writer.
+type Writer struct {
 	walFilePath        string
 	walFilePartialPath string
 	conn               *repository.Connection
@@ -20,12 +20,8 @@ type WALWriter struct {
 	file *os.File
 }
 
-// NewWALWriter creates a new WAL file writer.
-func NewWALWriter(conn *repository.Connection, clusterName, walName string, segmentSize uint64) (*WALWriter, error) {
-	if err := validateWalFileName(walName); err != nil {
-		return nil, err
-	}
-
+// NewWriter creates a new WAL file writer.
+func NewWriter(conn *repository.Connection, clusterName, walName string, segmentSize uint64) (*Writer, error) {
 	walFilePath := getWALArchivePath(conn.BaseDir(), clusterName, walName)
 	walFilePartialPath := walFilePath + ".partial"
 
@@ -59,7 +55,7 @@ func NewWALWriter(conn *repository.Connection, clusterName, walName string, segm
 		return nil, fmt.Errorf("while writing WAL file header: %w", err)
 	}
 
-	return &WALWriter{
+	return &Writer{
 		walFilePath:        walFilePath,
 		walFilePartialPath: walFilePartialPath,
 		file:               file,
@@ -68,7 +64,7 @@ func NewWALWriter(conn *repository.Connection, clusterName, walName string, segm
 }
 
 // CloseMarkDone closes the WAL writer and mark the file as completed.
-func (w *WALWriter) CloseMarkDone() error {
+func (w *Writer) CloseMarkDone() error {
 	if err := w.Close(); err != nil {
 		return fmt.Errorf("while closing partial file: %w", err)
 	}
@@ -81,7 +77,7 @@ func (w *WALWriter) CloseMarkDone() error {
 }
 
 // Flush flushes all the buffers to disk and fsyncs it.
-func (w *WALWriter) Flush() error {
+func (w *Writer) Flush() error {
 	if err := w.file.Sync(); err != nil {
 		return fmt.Errorf("flush error: while syncing: %w", err)
 	}
@@ -90,7 +86,7 @@ func (w *WALWriter) Flush() error {
 }
 
 // Close closes the file.
-func (w *WALWriter) Close() error {
+func (w *Writer) Close() error {
 	err := w.file.Close()
 	if err != nil {
 		return fmt.Errorf("while closing the wal writer: %w", err)
@@ -100,7 +96,7 @@ func (w *WALWriter) Close() error {
 }
 
 // WriteBlock writes the WAL block to storage.
-func (w *WALWriter) WriteBlock(data []byte) error {
+func (w *Writer) WriteBlock(data []byte) error {
 	const walBlockSize = 1 << 20
 
 	// Process data in blocks
@@ -120,7 +116,7 @@ func (w *WALWriter) WriteBlock(data []byte) error {
 }
 
 // WriteBlock writes the WAL block to storage.
-func (w *WALWriter) writeBlockInternal(p []byte) error {
+func (w *Writer) writeBlockInternal(p []byte) error {
 	// Step 1: compression and encryption
 	wrappedBlock, err := w.conn.WrapBlock(p)
 	if err != nil {

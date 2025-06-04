@@ -29,12 +29,12 @@ func TestWALReaderBlockSplit(t *testing.T) {
 
 	defer conn.Close()
 
-	readerNonExisting, err := NewWALReader(conn, "cluster-example", "0000001000000000000001FF")
+	readerNonExisting, err := NewReader(conn, "cluster-example", "0000001000000000000001FF")
 	assert.Nil(t, readerNonExisting)
 	require.ErrorIs(t, err, os.ErrNotExist)
 
 	const fileLen = uint64(16 * 1024 * 1024)
-	writer, err := NewWALWriter(conn, "cluster-example", "0000001000000000000001FF", fileLen)
+	writer, err := NewWriter(conn, "cluster-example", "0000001000000000000001FF", fileLen)
 	require.NoError(t, err)
 	assert.NotNil(t, writer)
 
@@ -47,7 +47,7 @@ func TestWALReaderBlockSplit(t *testing.T) {
 	err = writer.CloseMarkDone()
 	require.NoError(t, err)
 
-	reader, err := NewWALReader(conn, "cluster-example", "0000001000000000000001FF")
+	reader, err := NewReader(conn, "cluster-example", "0000001000000000000001FF")
 	require.NoError(t, err)
 	assert.NotNil(t, reader)
 	assert.Equal(t, fileLen, reader.GetFileLength())
@@ -87,7 +87,7 @@ func TestReaderWriterBlocks(t *testing.T) {
 	defer conn.Close()
 
 	const fileLen = uint64(145)
-	writer, err := NewWALWriter(conn, "cluster-example", "0000001000000000000001F8", fileLen)
+	writer, err := NewWriter(conn, "cluster-example", "0000001000000000000001F8", fileLen)
 	require.NoError(t, err)
 	require.NotNil(t, writer)
 
@@ -106,7 +106,7 @@ func TestReaderWriterBlocks(t *testing.T) {
 	require.NoError(t, err)
 
 	// Step 2: open the compressed file
-	reader, err := NewWALReader(conn, "cluster-example", "0000001000000000000001F8")
+	reader, err := NewReader(conn, "cluster-example", "0000001000000000000001F8")
 	require.NoError(t, err)
 	assert.NotNil(t, reader)
 	assert.Equal(t, fileLen, reader.GetFileLength())

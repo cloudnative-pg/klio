@@ -1,5 +1,4 @@
-// Package cmd is the implementation of the "run" command
-package cmd
+package server
 
 import (
 	"fmt"
@@ -51,7 +50,7 @@ var initializeCmd = &cobra.Command{
 
 //nolint:gochecknoinits
 func init() {
-	rootCmd.AddCommand(initializeCmd)
+	ServerCmd.AddCommand(initializeCmd)
 
 	// Here you will define your flags and configuration settings.
 

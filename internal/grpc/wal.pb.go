@@ -9,6 +9,7 @@ package grpc
 import (
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
+	timestamppb "google.golang.org/protobuf/types/known/timestamppb"
 	reflect "reflect"
 	sync "sync"
 	unsafe "unsafe"
@@ -133,6 +134,50 @@ func (x *PutResult) GetWrittenSize() uint64 {
 	return 0
 }
 
+type GetMetadataRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	ClusterName   string                 `protobuf:"bytes,1,opt,name=cluster_name,json=clusterName,proto3" json:"cluster_name,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetMetadataRequest) Reset() {
+	*x = GetMetadataRequest{}
+	mi := &file_proto_wal_proto_msgTypes[2]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetMetadataRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetMetadataRequest) ProtoMessage() {}
+
+func (x *GetMetadataRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_wal_proto_msgTypes[2]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetMetadataRequest.ProtoReflect.Descriptor instead.
+func (*GetMetadataRequest) Descriptor() ([]byte, []int) {
+	return file_proto_wal_proto_rawDescGZIP(), []int{2}
+}
+
+func (x *GetMetadataRequest) GetClusterName() string {
+	if x != nil {
+		return x.ClusterName
+	}
+	return ""
+}
+
 type GetRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	ClusterName   string                 `protobuf:"bytes,1,opt,name=cluster_name,json=clusterName,proto3" json:"cluster_name,omitempty"`
@@ -143,7 +188,7 @@ type GetRequest struct {
 
 func (x *GetRequest) Reset() {
 	*x = GetRequest{}
-	mi := &file_proto_wal_proto_msgTypes[2]
+	mi := &file_proto_wal_proto_msgTypes[3]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -155,7 +200,7 @@ func (x *GetRequest) String() string {
 func (*GetRequest) ProtoMessage() {}
 
 func (x *GetRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_wal_proto_msgTypes[2]
+	mi := &file_proto_wal_proto_msgTypes[3]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -168,7 +213,7 @@ func (x *GetRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetRequest.ProtoReflect.Descriptor instead.
 func (*GetRequest) Descriptor() ([]byte, []int) {
-	return file_proto_wal_proto_rawDescGZIP(), []int{2}
+	return file_proto_wal_proto_rawDescGZIP(), []int{3}
 }
 
 func (x *GetRequest) GetClusterName() string {
@@ -195,7 +240,7 @@ type GetResult struct {
 
 func (x *GetResult) Reset() {
 	*x = GetResult{}
-	mi := &file_proto_wal_proto_msgTypes[3]
+	mi := &file_proto_wal_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -207,7 +252,7 @@ func (x *GetResult) String() string {
 func (*GetResult) ProtoMessage() {}
 
 func (x *GetResult) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_wal_proto_msgTypes[3]
+	mi := &file_proto_wal_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -220,7 +265,7 @@ func (x *GetResult) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetResult.ProtoReflect.Descriptor instead.
 func (*GetResult) Descriptor() ([]byte, []int) {
-	return file_proto_wal_proto_rawDescGZIP(), []int{3}
+	return file_proto_wal_proto_rawDescGZIP(), []int{4}
 }
 
 func (x *GetResult) GetWalBlock() []byte {
@@ -237,28 +282,35 @@ func (x *GetResult) GetSegmentSize() uint64 {
 	return 0
 }
 
-type GetLatestRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	ClusterName   string                 `protobuf:"bytes,1,opt,name=cluster_name,json=clusterName,proto3" json:"cluster_name,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+type RequestWALStartRequest struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// This is the cluster name
+	ClusterName string `protobuf:"bytes,1,opt,name=cluster_name,json=clusterName,proto3" json:"cluster_name,omitempty"`
+	// This is the system ID
+	SystemId string `protobuf:"bytes,2,opt,name=system_id,json=systemId,proto3" json:"system_id,omitempty"`
+	// This is the current WAL name that is being written
+	// by PostgreSQL. If empty, the start WAL name will be
+	// found by looking at the stored WAL files.
+	CurrentWalName string `protobuf:"bytes,3,opt,name=current_wal_name,json=currentWalName,proto3" json:"current_wal_name,omitempty"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
 }
 
-func (x *GetLatestRequest) Reset() {
-	*x = GetLatestRequest{}
-	mi := &file_proto_wal_proto_msgTypes[4]
+func (x *RequestWALStartRequest) Reset() {
+	*x = RequestWALStartRequest{}
+	mi := &file_proto_wal_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *GetLatestRequest) String() string {
+func (x *RequestWALStartRequest) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*GetLatestRequest) ProtoMessage() {}
+func (*RequestWALStartRequest) ProtoMessage() {}
 
-func (x *GetLatestRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_wal_proto_msgTypes[4]
+func (x *RequestWALStartRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_wal_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -269,40 +321,56 @@ func (x *GetLatestRequest) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use GetLatestRequest.ProtoReflect.Descriptor instead.
-func (*GetLatestRequest) Descriptor() ([]byte, []int) {
-	return file_proto_wal_proto_rawDescGZIP(), []int{4}
+// Deprecated: Use RequestWALStartRequest.ProtoReflect.Descriptor instead.
+func (*RequestWALStartRequest) Descriptor() ([]byte, []int) {
+	return file_proto_wal_proto_rawDescGZIP(), []int{5}
 }
 
-func (x *GetLatestRequest) GetClusterName() string {
+func (x *RequestWALStartRequest) GetClusterName() string {
 	if x != nil {
 		return x.ClusterName
 	}
 	return ""
 }
 
-type GetLatestResult struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	WalName       *string                `protobuf:"bytes,1,opt,name=wal_name,json=walName,proto3,oneof" json:"wal_name,omitempty"`
+func (x *RequestWALStartRequest) GetSystemId() string {
+	if x != nil {
+		return x.SystemId
+	}
+	return ""
+}
+
+func (x *RequestWALStartRequest) GetCurrentWalName() string {
+	if x != nil {
+		return x.CurrentWalName
+	}
+	return ""
+}
+
+type RequestWALStartResult struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// The WAL file where the client is expected to start
+	// streaming.
+	WalName       string `protobuf:"bytes,1,opt,name=wal_name,json=walName,proto3" json:"wal_name,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
-func (x *GetLatestResult) Reset() {
-	*x = GetLatestResult{}
-	mi := &file_proto_wal_proto_msgTypes[5]
+func (x *RequestWALStartResult) Reset() {
+	*x = RequestWALStartResult{}
+	mi := &file_proto_wal_proto_msgTypes[6]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *GetLatestResult) String() string {
+func (x *RequestWALStartResult) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*GetLatestResult) ProtoMessage() {}
+func (*RequestWALStartResult) ProtoMessage() {}
 
-func (x *GetLatestResult) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_wal_proto_msgTypes[5]
+func (x *RequestWALStartResult) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_wal_proto_msgTypes[6]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -313,14 +381,247 @@ func (x *GetLatestResult) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use GetLatestResult.ProtoReflect.Descriptor instead.
-func (*GetLatestResult) Descriptor() ([]byte, []int) {
-	return file_proto_wal_proto_rawDescGZIP(), []int{5}
+// Deprecated: Use RequestWALStartResult.ProtoReflect.Descriptor instead.
+func (*RequestWALStartResult) Descriptor() ([]byte, []int) {
+	return file_proto_wal_proto_rawDescGZIP(), []int{6}
 }
 
-func (x *GetLatestResult) GetWalName() string {
-	if x != nil && x.WalName != nil {
-		return *x.WalName
+func (x *RequestWALStartResult) GetWalName() string {
+	if x != nil {
+		return x.WalName
+	}
+	return ""
+}
+
+type ResetWALStreamRequest struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// This is the cluster name
+	ClusterName string `protobuf:"bytes,1,opt,name=cluster_name,json=clusterName,proto3" json:"cluster_name,omitempty"`
+	// This is the system ID
+	SystemId string `protobuf:"bytes,2,opt,name=system_id,json=systemId,proto3" json:"system_id,omitempty"`
+	// This is the current WAL name that is being written
+	// by PostgreSQL. If empty, the start WAL name will be
+	// found by looking at the stored WAL files.
+	CurrentWalName string `protobuf:"bytes,3,opt,name=current_wal_name,json=currentWalName,proto3" json:"current_wal_name,omitempty"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
+}
+
+func (x *ResetWALStreamRequest) Reset() {
+	*x = ResetWALStreamRequest{}
+	mi := &file_proto_wal_proto_msgTypes[7]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ResetWALStreamRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ResetWALStreamRequest) ProtoMessage() {}
+
+func (x *ResetWALStreamRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_wal_proto_msgTypes[7]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ResetWALStreamRequest.ProtoReflect.Descriptor instead.
+func (*ResetWALStreamRequest) Descriptor() ([]byte, []int) {
+	return file_proto_wal_proto_rawDescGZIP(), []int{7}
+}
+
+func (x *ResetWALStreamRequest) GetClusterName() string {
+	if x != nil {
+		return x.ClusterName
+	}
+	return ""
+}
+
+func (x *ResetWALStreamRequest) GetSystemId() string {
+	if x != nil {
+		return x.SystemId
+	}
+	return ""
+}
+
+func (x *ResetWALStreamRequest) GetCurrentWalName() string {
+	if x != nil {
+		return x.CurrentWalName
+	}
+	return ""
+}
+
+type ResetWALStreamResult struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// The WAL file where the client is expected to start
+	// streaming.
+	WalName       string `protobuf:"bytes,1,opt,name=wal_name,json=walName,proto3" json:"wal_name,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ResetWALStreamResult) Reset() {
+	*x = ResetWALStreamResult{}
+	mi := &file_proto_wal_proto_msgTypes[8]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ResetWALStreamResult) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ResetWALStreamResult) ProtoMessage() {}
+
+func (x *ResetWALStreamResult) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_wal_proto_msgTypes[8]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ResetWALStreamResult.ProtoReflect.Descriptor instead.
+func (*ResetWALStreamResult) Descriptor() ([]byte, []int) {
+	return file_proto_wal_proto_rawDescGZIP(), []int{8}
+}
+
+func (x *ResetWALStreamResult) GetWalName() string {
+	if x != nil {
+		return x.WalName
+	}
+	return ""
+}
+
+// The following messages are written in the cluster metadata
+// file
+type ClusterMetadata struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// The system ID of the current cluster
+	SystemId string `protobuf:"bytes,1,opt,name=system_id,json=systemId,proto3" json:"system_id,omitempty"`
+	// The gaps we are aware of in the collected WALs.
+	Gaps          []*WALGap `protobuf:"bytes,2,rep,name=gaps,proto3" json:"gaps,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ClusterMetadata) Reset() {
+	*x = ClusterMetadata{}
+	mi := &file_proto_wal_proto_msgTypes[9]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ClusterMetadata) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ClusterMetadata) ProtoMessage() {}
+
+func (x *ClusterMetadata) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_wal_proto_msgTypes[9]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ClusterMetadata.ProtoReflect.Descriptor instead.
+func (*ClusterMetadata) Descriptor() ([]byte, []int) {
+	return file_proto_wal_proto_rawDescGZIP(), []int{9}
+}
+
+func (x *ClusterMetadata) GetSystemId() string {
+	if x != nil {
+		return x.SystemId
+	}
+	return ""
+}
+
+func (x *ClusterMetadata) GetGaps() []*WALGap {
+	if x != nil {
+		return x.Gaps
+	}
+	return nil
+}
+
+// WALGap is a know gap in the WAL collection process.
+// This is usually caused by an invocation of the reset-lsn Klio
+// feature.
+type WALGap struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// When this gap was detected and created.
+	Ts *timestamppb.Timestamp `protobuf:"bytes,1,opt,name=ts,proto3" json:"ts,omitempty"`
+	// When the gap started.
+	Start string `protobuf:"bytes,2,opt,name=start,proto3" json:"start,omitempty"`
+	// When the gap ends.
+	End           string `protobuf:"bytes,3,opt,name=end,proto3" json:"end,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *WALGap) Reset() {
+	*x = WALGap{}
+	mi := &file_proto_wal_proto_msgTypes[10]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *WALGap) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*WALGap) ProtoMessage() {}
+
+func (x *WALGap) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_wal_proto_msgTypes[10]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use WALGap.ProtoReflect.Descriptor instead.
+func (*WALGap) Descriptor() ([]byte, []int) {
+	return file_proto_wal_proto_rawDescGZIP(), []int{10}
+}
+
+func (x *WALGap) GetTs() *timestamppb.Timestamp {
+	if x != nil {
+		return x.Ts
+	}
+	return nil
+}
+
+func (x *WALGap) GetStart() string {
+	if x != nil {
+		return x.Start
+	}
+	return ""
+}
+
+func (x *WALGap) GetEnd() string {
+	if x != nil {
+		return x.End
 	}
 	return ""
 }
@@ -335,7 +636,7 @@ type StartWALFile struct {
 
 func (x *StartWALFile) Reset() {
 	*x = StartWALFile{}
-	mi := &file_proto_wal_proto_msgTypes[6]
+	mi := &file_proto_wal_proto_msgTypes[11]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -347,7 +648,7 @@ func (x *StartWALFile) String() string {
 func (*StartWALFile) ProtoMessage() {}
 
 func (x *StartWALFile) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_wal_proto_msgTypes[6]
+	mi := &file_proto_wal_proto_msgTypes[11]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -360,7 +661,7 @@ func (x *StartWALFile) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use StartWALFile.ProtoReflect.Descriptor instead.
 func (*StartWALFile) Descriptor() ([]byte, []int) {
-	return file_proto_wal_proto_rawDescGZIP(), []int{6}
+	return file_proto_wal_proto_rawDescGZIP(), []int{11}
 }
 
 func (x *StartWALFile) GetKlioVersion() uint64 {
@@ -387,7 +688,7 @@ type WALFileBlock struct {
 
 func (x *WALFileBlock) Reset() {
 	*x = WALFileBlock{}
-	mi := &file_proto_wal_proto_msgTypes[7]
+	mi := &file_proto_wal_proto_msgTypes[12]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -399,7 +700,7 @@ func (x *WALFileBlock) String() string {
 func (*WALFileBlock) ProtoMessage() {}
 
 func (x *WALFileBlock) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_wal_proto_msgTypes[7]
+	mi := &file_proto_wal_proto_msgTypes[12]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -412,7 +713,7 @@ func (x *WALFileBlock) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use WALFileBlock.ProtoReflect.Descriptor instead.
 func (*WALFileBlock) Descriptor() ([]byte, []int) {
-	return file_proto_wal_proto_rawDescGZIP(), []int{7}
+	return file_proto_wal_proto_rawDescGZIP(), []int{12}
 }
 
 func (x *WALFileBlock) GetRange() []byte {
@@ -433,7 +734,7 @@ var File_proto_wal_proto protoreflect.FileDescriptor
 
 const file_proto_wal_proto_rawDesc = "" +
 	"\n" +
-	"\x0fproto/wal.proto\x12\vklio.wal.v1\"\x8a\x01\n" +
+	"\x0fproto/wal.proto\x12\vklio.wal.v1\x1a\x1fgoogle/protobuf/timestamp.proto\"\x8a\x01\n" +
 	"\n" +
 	"PutRequest\x12!\n" +
 	"\fcluster_name\x18\x01 \x01(\tR\vclusterName\x12\x19\n" +
@@ -441,30 +742,48 @@ const file_proto_wal_proto_rawDesc = "" +
 	"\twal_block\x18\x03 \x01(\fR\bwalBlock\x12!\n" +
 	"\fsegment_size\x18\x04 \x01(\x04R\vsegmentSize\".\n" +
 	"\tPutResult\x12!\n" +
-	"\fwritten_size\x18\x01 \x01(\x04R\vwrittenSize\"J\n" +
+	"\fwritten_size\x18\x01 \x01(\x04R\vwrittenSize\"7\n" +
+	"\x12GetMetadataRequest\x12!\n" +
+	"\fcluster_name\x18\x01 \x01(\tR\vclusterName\"J\n" +
 	"\n" +
 	"GetRequest\x12!\n" +
 	"\fcluster_name\x18\x01 \x01(\tR\vclusterName\x12\x19\n" +
 	"\bwal_name\x18\x02 \x01(\tR\awalName\"K\n" +
 	"\tGetResult\x12\x1b\n" +
 	"\twal_block\x18\x01 \x01(\fR\bwalBlock\x12!\n" +
-	"\fsegment_size\x18\x02 \x01(\x04R\vsegmentSize\"5\n" +
-	"\x10GetLatestRequest\x12!\n" +
-	"\fcluster_name\x18\x01 \x01(\tR\vclusterName\">\n" +
-	"\x0fGetLatestResult\x12\x1e\n" +
-	"\bwal_name\x18\x01 \x01(\tH\x00R\awalName\x88\x01\x01B\v\n" +
-	"\t_wal_name\"R\n" +
+	"\fsegment_size\x18\x02 \x01(\x04R\vsegmentSize\"\x82\x01\n" +
+	"\x16RequestWALStartRequest\x12!\n" +
+	"\fcluster_name\x18\x01 \x01(\tR\vclusterName\x12\x1b\n" +
+	"\tsystem_id\x18\x02 \x01(\tR\bsystemId\x12(\n" +
+	"\x10current_wal_name\x18\x03 \x01(\tR\x0ecurrentWalName\"2\n" +
+	"\x15RequestWALStartResult\x12\x19\n" +
+	"\bwal_name\x18\x01 \x01(\tR\awalName\"\x81\x01\n" +
+	"\x15ResetWALStreamRequest\x12!\n" +
+	"\fcluster_name\x18\x01 \x01(\tR\vclusterName\x12\x1b\n" +
+	"\tsystem_id\x18\x02 \x01(\tR\bsystemId\x12(\n" +
+	"\x10current_wal_name\x18\x03 \x01(\tR\x0ecurrentWalName\"1\n" +
+	"\x14ResetWALStreamResult\x12\x19\n" +
+	"\bwal_name\x18\x01 \x01(\tR\awalName\"W\n" +
+	"\x0fClusterMetadata\x12\x1b\n" +
+	"\tsystem_id\x18\x01 \x01(\tR\bsystemId\x12'\n" +
+	"\x04gaps\x18\x02 \x03(\v2\x13.klio.wal.v1.WALGapR\x04gaps\"\\\n" +
+	"\x06WALGap\x12*\n" +
+	"\x02ts\x18\x01 \x01(\v2\x1a.google.protobuf.TimestampR\x02ts\x12\x14\n" +
+	"\x05start\x18\x02 \x01(\tR\x05start\x12\x10\n" +
+	"\x03end\x18\x03 \x01(\tR\x03end\"R\n" +
 	"\fStartWALFile\x12!\n" +
 	"\fklio_version\x18\x01 \x01(\x04R\vklioVersion\x12\x1f\n" +
 	"\vfile_length\x18\x02 \x01(\x04R\n" +
 	"fileLength\"S\n" +
 	"\fWALFileBlock\x12\x14\n" +
 	"\x05range\x18\x01 \x01(\fR\x05range\x12-\n" +
-	"\x12encryption_version\x18\x02 \x01(\x04R\x11encryptionVersion2\xc9\x01\n" +
+	"\x12encryption_version\x18\x02 \x01(\x04R\x11encryptionVersion2\x86\x03\n" +
 	"\x03WAL\x12:\n" +
 	"\x03Put\x12\x17.klio.wal.v1.PutRequest\x1a\x16.klio.wal.v1.PutResult\"\x00(\x01\x12:\n" +
-	"\x03Get\x12\x17.klio.wal.v1.GetRequest\x1a\x16.klio.wal.v1.GetResult\"\x000\x01\x12J\n" +
-	"\tGetLatest\x12\x1d.klio.wal.v1.GetLatestRequest\x1a\x1c.klio.wal.v1.GetLatestResult\"\x00B,Z*github.com/EnterpriseDB/klio/internal/grpcb\x06proto3"
+	"\x03Get\x12\x17.klio.wal.v1.GetRequest\x1a\x16.klio.wal.v1.GetResult\"\x000\x01\x12N\n" +
+	"\vGetMetadata\x12\x1f.klio.wal.v1.GetMetadataRequest\x1a\x1c.klio.wal.v1.ClusterMetadata\"\x00\x12\\\n" +
+	"\x0fRequestWALStart\x12#.klio.wal.v1.RequestWALStartRequest\x1a\".klio.wal.v1.RequestWALStartResult\"\x00\x12Y\n" +
+	"\x0eResetWALStream\x12\".klio.wal.v1.ResetWALStreamRequest\x1a!.klio.wal.v1.ResetWALStreamResult\"\x00B,Z*github.com/EnterpriseDB/klio/internal/grpcb\x06proto3"
 
 var (
 	file_proto_wal_proto_rawDescOnce sync.Once
@@ -478,29 +797,41 @@ func file_proto_wal_proto_rawDescGZIP() []byte {
 	return file_proto_wal_proto_rawDescData
 }
 
-var file_proto_wal_proto_msgTypes = make([]protoimpl.MessageInfo, 8)
+var file_proto_wal_proto_msgTypes = make([]protoimpl.MessageInfo, 13)
 var file_proto_wal_proto_goTypes = []any{
-	(*PutRequest)(nil),       // 0: klio.wal.v1.PutRequest
-	(*PutResult)(nil),        // 1: klio.wal.v1.PutResult
-	(*GetRequest)(nil),       // 2: klio.wal.v1.GetRequest
-	(*GetResult)(nil),        // 3: klio.wal.v1.GetResult
-	(*GetLatestRequest)(nil), // 4: klio.wal.v1.GetLatestRequest
-	(*GetLatestResult)(nil),  // 5: klio.wal.v1.GetLatestResult
-	(*StartWALFile)(nil),     // 6: klio.wal.v1.StartWALFile
-	(*WALFileBlock)(nil),     // 7: klio.wal.v1.WALFileBlock
+	(*PutRequest)(nil),             // 0: klio.wal.v1.PutRequest
+	(*PutResult)(nil),              // 1: klio.wal.v1.PutResult
+	(*GetMetadataRequest)(nil),     // 2: klio.wal.v1.GetMetadataRequest
+	(*GetRequest)(nil),             // 3: klio.wal.v1.GetRequest
+	(*GetResult)(nil),              // 4: klio.wal.v1.GetResult
+	(*RequestWALStartRequest)(nil), // 5: klio.wal.v1.RequestWALStartRequest
+	(*RequestWALStartResult)(nil),  // 6: klio.wal.v1.RequestWALStartResult
+	(*ResetWALStreamRequest)(nil),  // 7: klio.wal.v1.ResetWALStreamRequest
+	(*ResetWALStreamResult)(nil),   // 8: klio.wal.v1.ResetWALStreamResult
+	(*ClusterMetadata)(nil),        // 9: klio.wal.v1.ClusterMetadata
+	(*WALGap)(nil),                 // 10: klio.wal.v1.WALGap
+	(*StartWALFile)(nil),           // 11: klio.wal.v1.StartWALFile
+	(*WALFileBlock)(nil),           // 12: klio.wal.v1.WALFileBlock
+	(*timestamppb.Timestamp)(nil),  // 13: google.protobuf.Timestamp
 }
 var file_proto_wal_proto_depIdxs = []int32{
-	0, // 0: klio.wal.v1.WAL.Put:input_type -> klio.wal.v1.PutRequest
-	2, // 1: klio.wal.v1.WAL.Get:input_type -> klio.wal.v1.GetRequest
-	4, // 2: klio.wal.v1.WAL.GetLatest:input_type -> klio.wal.v1.GetLatestRequest
-	1, // 3: klio.wal.v1.WAL.Put:output_type -> klio.wal.v1.PutResult
-	3, // 4: klio.wal.v1.WAL.Get:output_type -> klio.wal.v1.GetResult
-	5, // 5: klio.wal.v1.WAL.GetLatest:output_type -> klio.wal.v1.GetLatestResult
-	3, // [3:6] is the sub-list for method output_type
-	0, // [0:3] is the sub-list for method input_type
-	0, // [0:0] is the sub-list for extension type_name
-	0, // [0:0] is the sub-list for extension extendee
-	0, // [0:0] is the sub-list for field type_name
+	10, // 0: klio.wal.v1.ClusterMetadata.gaps:type_name -> klio.wal.v1.WALGap
+	13, // 1: klio.wal.v1.WALGap.ts:type_name -> google.protobuf.Timestamp
+	0,  // 2: klio.wal.v1.WAL.Put:input_type -> klio.wal.v1.PutRequest
+	3,  // 3: klio.wal.v1.WAL.Get:input_type -> klio.wal.v1.GetRequest
+	2,  // 4: klio.wal.v1.WAL.GetMetadata:input_type -> klio.wal.v1.GetMetadataRequest
+	5,  // 5: klio.wal.v1.WAL.RequestWALStart:input_type -> klio.wal.v1.RequestWALStartRequest
+	7,  // 6: klio.wal.v1.WAL.ResetWALStream:input_type -> klio.wal.v1.ResetWALStreamRequest
+	1,  // 7: klio.wal.v1.WAL.Put:output_type -> klio.wal.v1.PutResult
+	4,  // 8: klio.wal.v1.WAL.Get:output_type -> klio.wal.v1.GetResult
+	9,  // 9: klio.wal.v1.WAL.GetMetadata:output_type -> klio.wal.v1.ClusterMetadata
+	6,  // 10: klio.wal.v1.WAL.RequestWALStart:output_type -> klio.wal.v1.RequestWALStartResult
+	8,  // 11: klio.wal.v1.WAL.ResetWALStream:output_type -> klio.wal.v1.ResetWALStreamResult
+	7,  // [7:12] is the sub-list for method output_type
+	2,  // [2:7] is the sub-list for method input_type
+	2,  // [2:2] is the sub-list for extension type_name
+	2,  // [2:2] is the sub-list for extension extendee
+	0,  // [0:2] is the sub-list for field type_name
 }
 
 func init() { file_proto_wal_proto_init() }
@@ -508,14 +839,13 @@ func file_proto_wal_proto_init() {
 	if File_proto_wal_proto != nil {
 		return
 	}
-	file_proto_wal_proto_msgTypes[5].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_proto_wal_proto_rawDesc), len(file_proto_wal_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   8,
+			NumMessages:   13,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

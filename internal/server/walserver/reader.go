@@ -11,8 +11,8 @@ import (
 	"github.com/EnterpriseDB/klio/internal/server/walserver/repository"
 )
 
-// WALReader is the WAL file writer.
-type WALReader struct {
+// Reader is the WAL file writer.
+type Reader struct {
 	conn        *repository.Connection
 	file        *os.File
 	reader      *bufio.Reader
@@ -21,16 +21,12 @@ type WALReader struct {
 	segmentLength uint64
 }
 
-// NewWALReader creates a new WAL file writer.
-func NewWALReader(
+// NewReader creates a new WAL file writer.
+func NewReader(
 	conn *repository.Connection,
 	clusterName,
 	walName string,
-) (*WALReader, error) {
-	if err := validateWalFileName(walName); err != nil {
-		return nil, err
-	}
-
+) (*Reader, error) {
 	walFilePath := getWALArchivePath(conn.BaseDir(), clusterName, walName)
 
 	//nolint:gosec
@@ -50,7 +46,7 @@ func NewWALReader(
 		return nil, fmt.Errorf("while reading WAL file header: %w", err)
 	}
 
-	return &WALReader{
+	return &Reader{
 		conn:          conn,
 		walFilePath:   walFilePath,
 		file:          walFileReader,
@@ -60,7 +56,7 @@ func NewWALReader(
 }
 
 // Close closes the file.
-func (r *WALReader) Close() error {
+func (r *Reader) Close() error {
 	err := r.file.Close()
 	if err != nil {
 		return fmt.Errorf("while closing the walreader: %w", err)
@@ -70,7 +66,7 @@ func (r *WALReader) Close() error {
 }
 
 // ReadBlock reads the next WAL block from the file.
-func (r *WALReader) ReadBlock() ([]byte, error) {
+func (r *Reader) ReadBlock() ([]byte, error) {
 	block := grpc.WALFileBlock{}
 	if err := protodelim.UnmarshalFrom(r.reader, &block); err != nil {
 		return nil, fmt.Errorf("while reading WAL file block: %w", err)
@@ -85,6 +81,6 @@ func (r *WALReader) ReadBlock() ([]byte, error) {
 }
 
 // GetFileLength gets the file length.
-func (r *WALReader) GetFileLength() uint64 {
+func (r *Reader) GetFileLength() uint64 {
 	return r.segmentLength
 }

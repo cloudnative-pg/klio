@@ -18,10 +18,6 @@ var (
 
 	// ErrKlioClientSectionIsRequired is raised when the Klio client configuration is missing.
 	ErrKlioClientSectionIsRequired = errors.New("'client.klio' configuration section is required")
-
-	// ErrKlioServerSectionIsRequired is raised when the "klio_server" section is not present and the
-	// Klio server is started.
-	ErrKlioServerSectionIsRequired = errors.New("'klio_server' configuration section is required")
 )
 
 type invalidTablespaceRemapOptionError struct {

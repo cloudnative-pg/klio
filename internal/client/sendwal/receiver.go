@@ -37,8 +37,9 @@ func New(cfg *config.Data, log *slog.Logger, client common.WALClientStreamer) *P
 	}
 }
 
-// DropReplicationSlot drops the Klio replication slot
-func (s *Process) DropReplicationSlot(
+// ResetReplicationStatus reset the replication status on the server side and then
+// drops the Klio replication slot.
+func (s *Process) ResetReplicationStatus(
 	ctx context.Context,
 ) error {
 	conn, err := s.infrastructure.NewConn(ctx)
@@ -51,15 +52,43 @@ func (s *Process) DropReplicationSlot(
 		}
 	}()
 
-	slotName := s.config.Source.Slot
+	identifyData, err := pglogrepl.IdentifySystem(ctx, conn)
+	if err != nil {
+		return fmt.Errorf("while invoking IDENTIFY_SYSTEM: %w", err)
+	}
 
+	walSegmentSize, err := s.infrastructure.GetWalSegmentSize(ctx)
+	if err != nil {
+		return fmt.Errorf("while setting up replication: %w", err)
+	}
+
+	clientWALFileName, err := types.Int64ToLSN(uint64(identifyData.XLogPos)).WALFileName(
+		int(identifyData.Timeline), walSegmentSize)
+	if err != nil {
+		return fmt.Errorf("while converting LSN to WAL file name: %q %w", identifyData.XLogPos, err)
+	}
+
+	result, err := s.client.ResetWALStream(ctx, common.WALStartOptions{
+		ClusterName:            s.config.Client.Klio.ClusterName,
+		SystemID:               identifyData.SystemID,
+		ClientPreferredWALName: clientWALFileName,
+	})
+	if err != nil {
+		return fmt.Errorf("while invoking server-side replication reset: %w", err)
+	}
+
+	s.logger.Info(
+		"Reset server-side replication status",
+		"walName", result)
+
+	slotName := s.config.Source.Slot
 	if err := pglogrepl.DropReplicationSlot(
 		ctx,
 		conn,
 		slotName,
 		pglogrepl.DropReplicationSlotOptions{},
 	); err != nil {
-		return err
+		return fmt.Errorf("while dropping replication slot: %w", err)
 	}
 
 	s.logger.Info(
@@ -98,7 +127,7 @@ func (s *Process) Start(ctx context.Context) error {
 		"systemID", identifyData.SystemID,
 	)
 
-	startingPoint, err := s.getReplicationStartPoint(ctx, conn, identifyData.XLogPos, walSegmentSize)
+	startingPoint, err := s.getReplicationStartPoint(ctx, conn, identifyData, walSegmentSize)
 	if err != nil {
 		return err
 	}
@@ -114,32 +143,12 @@ func (s *Process) Start(ctx context.Context) error {
 	return s.startReplication(ctx, conn, startingPoint, identifyData.Timeline, walSegmentSize)
 }
 
-func (s *Process) getReplicationStartPoint(
+func (s *Process) getReplicationStartPointFromClient(
 	ctx context.Context,
 	conn *pgconn.PgConn,
 	xlogFlushPos pglogrepl.LSN,
 	segmentSize uint64,
 ) (pglogrepl.LSN, error) {
-	// Get the latest WAL file that have been pushed to the Klio
-	// server
-	latestWALFile, err := s.client.GetLatestWALFile(ctx)
-	if err != nil {
-		return 0, err //nolint:wrapcheck
-	}
-	if latestWALFile != "" {
-		lsn, err := getReplicationStartFromWALFileName(latestWALFile, segmentSize)
-		if err != nil {
-			return 0, err
-		}
-
-		s.logger.Info(
-			"Starting replication using the latest archived WAL as a starting point",
-			"latestWALFile", latestWALFile,
-			"lsn", lsn)
-
-		return lsn, nil
-	}
-
 	// Find the latest replication point reading the replication slot
 	slotResult, err := ReadReplicationSlot(ctx, conn, s.config.Source.Slot)
 	if err != nil {
@@ -147,9 +156,8 @@ func (s *Process) getReplicationStartPoint(
 	}
 	if slotResult.RestartLSN != 0 {
 		startPoint := pglogrepl.LSN(uint64(slotResult.RestartLSN) & ^(segmentSize - 1))
-		s.logger.Info(
-			"Starting replication using the replication slot as a starting point",
-			"latestWALFile", latestWALFile,
+		s.logger.Debug(
+			"Read replication slot",
 			"lsn", startPoint)
 
 		return slotResult.RestartLSN, nil
@@ -161,12 +169,52 @@ func (s *Process) getReplicationStartPoint(
 	//
 	// This usually happens when we are running against this
 	// PostgreSQL instance for the first time.
-	s.logger.Warn(
-		"No replication status found on the server or replication slot, using XLOG flush position as starting point",
+	s.logger.Debug(
+		"Current flush LSN",
 		"xlogFlushPos", xlogFlushPos,
 		"segmentSize", segmentSize,
 	)
+
 	return getStartWALLSN(xlogFlushPos, segmentSize), nil
+}
+
+func (s *Process) getReplicationStartPoint(
+	ctx context.Context,
+	conn *pgconn.PgConn,
+	data pglogrepl.IdentifySystemResult,
+	segmentSize uint64,
+) (pglogrepl.LSN, error) {
+	clientStartLSN, err := s.getReplicationStartPointFromClient(ctx, conn, data.XLogPos, segmentSize)
+	if err != nil {
+		return 0, err
+	}
+
+	clientWALFileName, err := types.Int64ToLSN(uint64(clientStartLSN)).WALFileName(int(data.Timeline), segmentSize)
+	if err != nil {
+		return 0, fmt.Errorf("while converting LSN to WAL file name: %q %w", clientStartLSN, err)
+	}
+
+	opts := common.WALStartOptions{
+		ClusterName:            s.config.Client.Klio.ClusterName,
+		SystemID:               data.SystemID,
+		ClientPreferredWALName: clientWALFileName,
+	}
+
+	serverWALFileName, err := s.client.RequestWALStart(ctx, opts)
+	if err != nil {
+		return 0, fmt.Errorf("during server-side replication point validation: %w", err)
+	}
+
+	lsn, err := getReplicationStartFromWALFileName(serverWALFileName, segmentSize)
+	if err != nil {
+		return 0, err
+	}
+
+	s.logger.Info(
+		"Negotiated replication start with the server",
+		"lsn", lsn)
+
+	return lsn, nil
 }
 
 // getStartWALLSN gets the LSN position of the start of the WAL file

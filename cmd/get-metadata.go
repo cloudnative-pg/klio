@@ -1,26 +1,27 @@
-// Package cmd is the implementation of the "klio" command
 package cmd
 
 import (
 	"fmt"
 	"log/slog"
+	"os"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
+	"google.golang.org/protobuf/encoding/protojson"
 	"gopkg.in/validator.v2"
 
 	"github.com/EnterpriseDB/klio/internal/client/klioclient/common"
 	"github.com/EnterpriseDB/klio/internal/client/klioclient/grpcclient"
-	"github.com/EnterpriseDB/klio/internal/client/sendwal"
 	"github.com/EnterpriseDB/klio/pkg/config"
 )
 
-// resetLSNCommand represents the run command
+// getMetadataCmd represents the get-metadata command
 //
 //nolint:gochecknoglobals
-var resetLSNCommand = &cobra.Command{
-	Use:   "reset-lsn",
-	Short: "Reset the replication status to the latest flush LSN",
+var getMetadataCmd = &cobra.Command{
+	Use:   "get-metadata",
+	Short: "Get the metadata of a cluster from the target Klio server",
+	Args:  cobra.ExactArgs(0),
 	RunE: func(cmd *cobra.Command, _ []string) error {
 		logger := slog.Default()
 
@@ -34,10 +35,6 @@ var resetLSNCommand = &cobra.Command{
 
 		// Sets the defaults values, to be overridden by the user configuration
 		configuration.SetDefaults()
-
-		if configuration.Source == nil {
-			return ErrSourceSectionIsRequired
-		}
 
 		if configuration.Client == nil {
 			return ErrClientSectionIsRequired
@@ -62,15 +59,23 @@ var resetLSNCommand = &cobra.Command{
 			return fmt.Errorf("while connecting to the Klio server: %w", err)
 		}
 
-		return sendwal.
-			New(&configuration, logger, client).
-			ResetReplicationStatus(cmd.Context())
+		metadata, err := client.GetMetadata(cmd.Context())
+		if err != nil {
+			return fmt.Errorf("while downloading metadata: %w", err)
+		}
+
+		_, err = os.Stdout.WriteString(protojson.Format(metadata))
+		if err != nil {
+			return fmt.Errorf("while downloading metadata: %w", err)
+		}
+
+		return nil
 	},
 }
 
 //nolint:gochecknoinits
 func init() {
-	rootCmd.AddCommand(resetLSNCommand)
+	rootCmd.AddCommand(getMetadataCmd)
 
 	// Here you will define your flags and configuration settings.
 

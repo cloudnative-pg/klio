@@ -3,6 +3,8 @@ package common
 import (
 	"context"
 	"io"
+
+	"github.com/EnterpriseDB/klio/internal/grpc"
 )
 
 // WALClientStreamer is implemented by clients supporting WAL streaming
@@ -30,11 +32,31 @@ type WALClient interface {
 	// StoreHistoryFile upload an history file to a remote store
 	StoreHistoryFile(ctx context.Context, name string, content []byte) error
 
-	// GetLatestWALFile gets the latest WAL file that have been archived for this server
-	GetLatestWALFile(ctx context.Context) (string, error)
+	// RequestWALStart requests the WAL streaming starting point
+	RequestWALStart(ctx context.Context, opts WALStartOptions) (string, error)
+
+	// RequestWALStart requests the WAL streaming starting point
+	ResetWALStream(ctx context.Context, opts WALStartOptions) (string, error)
+
+	// GetMetadata gets the metadata of the configured cluster
+	GetMetadata(ctx context.Context) (*grpc.ClusterMetadata, error)
 
 	// Close closes the connection
 	Close(ctx context.Context) error
+}
+
+// WALStartOptions are the options transferred by the client
+// to the WAL server before starting the replication.
+type WALStartOptions struct {
+	// ClusterName is the name of the cluster
+	ClusterName string
+
+	// SystemID is the detected system ID
+	SystemID string
+
+	// ClientPreferredWALName is the WAL name from which the client
+	// would prefer to start streaming
+	ClientPreferredWALName string
 }
 
 // WALUploaderImpl is the underlying implementation of a WAL
