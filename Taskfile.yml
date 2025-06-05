@@ -149,8 +149,12 @@ tasks:
         dagger call -m github.com/act3-ai/dagger/goreleaser@0beeb456ee366b53a0b6e15446bc7803e8f16fe5 --source .
         release with-clean with-snapshot with-config --config .goreleaser.yaml
         run --args "--skip=publish"
-        directory --path dist
-        export --path dist
+        directory --path .
+        filter --include dist
+        export --path .
+      # TODO: revert this workaround when https://github.com/dagger/dagger/issues/6387 is fixed.
+      # "directory --path dist export --path dist" should work properly but it creates the dist/
+      # directory with wrong permissions (0700).
 
   goreleaser-publish:
     desc: Upload the release artifacts
