@@ -12,12 +12,16 @@ import (
 // backupLabelFileName is the file name where the backup label should be stored.
 const backupLabelFileName = "backup_label"
 
-// RestoreExecutorImplementation is used by a restore executor to download
+// BackupRestorer is used by a restore executor to download
 // data from the backup store to the local file system.
-type RestoreExecutorImplementation interface {
+type BackupRestorer interface {
 	// GetMetadata gets the backup metadata from the backup store given
 	// the backup name.
 	GetMetadata(ctx context.Context, name string) (*BackupMetadata, error)
+
+	// GetDownloadNotifier returns the notifier that will be used to notify the user about the downloading process of the
+	// data used by the restore process.
+	GetDownloadNotifier() notifier.Download
 
 	// RestoreTablespace restores the passed tablespace in the specified
 	// folder.
@@ -35,13 +39,13 @@ type RestoreExecutorImplementation interface {
 // RestoreExecutor guides the execution of a restore process, delegating
 // the download of data to the underlying implementation.
 type RestoreExecutor struct {
-	impl    RestoreExecutorImplementation
-	options RestoreOptions
+	restorer      BackupRestorer
+	configuration RestoreConfiguration
 }
 
-// RestoreOptions are the options that should be used by the restore
+// RestoreConfiguration are the configuration that should be used by the restore
 // process.
-type RestoreOptions struct {
+type RestoreConfiguration struct {
 	// Name is the name of the backup that should be restored.
 	Name string
 
@@ -51,26 +55,22 @@ type RestoreOptions struct {
 	// TablespacesDirectory allow the user to customize the location
 	// that will be used to download the tablespaces.
 	TablespacesDirectory map[string]string
-
-	// Notifier is the set of callbacks to be used to report the restore
-	// status. If null, no callback will be invoked.
-	Notifier notifier.Download
 }
 
-// NewRestoreExecutorForImpl creates a new restore executor given
+// NewRestoreExecutor creates a new restore executor given
 // a certain implementation.
-func NewRestoreExecutorForImpl(impl RestoreExecutorImplementation, opts RestoreOptions) *RestoreExecutor {
+func NewRestoreExecutor(restorer BackupRestorer, conf RestoreConfiguration) *RestoreExecutor {
 	return &RestoreExecutor{
-		impl:    impl,
-		options: opts,
+		restorer:      restorer,
+		configuration: conf,
 	}
 }
 
 // Restore handles the restore process.
 func (r *RestoreExecutor) Restore(ctx context.Context, destinationPath string) error {
-	meta, err := r.impl.GetMetadata(ctx, r.options.Name)
+	meta, err := r.restorer.GetMetadata(ctx, r.configuration.Name)
 	if err != nil {
-		return fmt.Errorf("while getting metadata for backup %s: %w", r.options.Name, err)
+		return fmt.Errorf("while getting metadata for backup %s: %w", r.configuration.Name, err)
 	}
 
 	// Restore the tablespaces
@@ -81,19 +81,19 @@ func (r *RestoreExecutor) Restore(ctx context.Context, destinationPath string) e
 	}
 
 	// Restore PGDATA
-	r.options.Notifier.NotifyStart(destinationPath)
-	if err := r.impl.RestorePgData(ctx, meta, destinationPath); err != nil {
+	r.restorer.GetDownloadNotifier().NotifyStart(destinationPath)
+	if err := r.restorer.RestorePgData(ctx, meta, destinationPath); err != nil {
 		return fmt.Errorf("while restoring pgdata to %s: %w", destinationPath, err)
 	}
-	r.options.Notifier.NotifyFinish(destinationPath)
+	r.restorer.GetDownloadNotifier().NotifyFinish(destinationPath)
 
 	// Restore control data file
 	controlDataFileName := path.Join(destinationPath, controlDataPath)
-	r.options.Notifier.NotifyStart(controlDataFileName)
-	if err := r.impl.RestoreControlData(ctx, meta, controlDataFileName); err != nil {
+	r.restorer.GetDownloadNotifier().NotifyStart(controlDataFileName)
+	if err := r.restorer.RestoreControlData(ctx, meta, controlDataFileName); err != nil {
 		return fmt.Errorf("while restoring control data file to %s: %w", controlDataFileName, err)
 	}
-	r.options.Notifier.NotifyFinish(controlDataFileName)
+	r.restorer.GetDownloadNotifier().NotifyFinish(controlDataFileName)
 
 	// Restore backup label
 	backupLabel := path.Join(destinationPath, backupLabelFileName)
@@ -106,15 +106,15 @@ func (r *RestoreExecutor) Restore(ctx context.Context, destinationPath string) e
 
 func (r *RestoreExecutor) restoreTablespace(ctx context.Context, tbl TablespaceLayout) error {
 	tablespaceDestinationPath := tbl.Path
-	if v, ok := r.options.TablespacesDirectory[tbl.Name]; ok {
+	if v, ok := r.configuration.TablespacesDirectory[tbl.Name]; ok {
 		tablespaceDestinationPath = v
 	}
 
-	r.options.Notifier.NotifyStart(tablespaceDestinationPath)
-	if err := r.impl.RestoreTablespace(ctx, tbl, tablespaceDestinationPath); err != nil {
+	r.restorer.GetDownloadNotifier().NotifyStart(tablespaceDestinationPath)
+	if err := r.restorer.RestoreTablespace(ctx, tbl, tablespaceDestinationPath); err != nil {
 		return fmt.Errorf("while restoring tablespace %s to %s: %w", tbl.Name, tablespaceDestinationPath, err)
 	}
-	defer r.options.Notifier.NotifyFinish(tablespaceDestinationPath)
+	defer r.restorer.GetDownloadNotifier().NotifyFinish(tablespaceDestinationPath)
 
 	return nil
 }

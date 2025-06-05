@@ -33,7 +33,7 @@ var restoreCmd = &cobra.Command{
 			return fmt.Errorf("could not unmarshal configuration: %w", err)
 		}
 
-		// Sets the defaults values, to be overridden by the user configuration
+		// Sets the default values, to be overridden by the user configuration
 		configuration.SetDefaults()
 
 		if configuration.Client == nil {
@@ -58,12 +58,12 @@ var restoreCmd = &cobra.Command{
 		}
 
 		for _, option := range optionSlice {
-			splittedOption := strings.Split(option, ":")
-			if len(splittedOption) != 2 || len(splittedOption[0]) == 0 || len(splittedOption) == 0 {
+			splitOption := strings.Split(option, ":")
+			if len(splitOption) != 2 || len(splitOption[0]) == 0 || len(splitOption) == 0 {
 				return newInvalidTablespaceRemapOptionError(option)
 			}
 
-			tablespaces[splittedOption[0]] = splittedOption[1]
+			tablespaces[splitOption[0]] = splitOption[1]
 		}
 
 		client, err := kopia.Connect(
@@ -75,17 +75,14 @@ var restoreCmd = &cobra.Command{
 			return fmt.Errorf("while connecting to the Klio server: %w", err)
 		}
 
-		restoreOptions := common.RestoreOptions{
-			Name:                 backupName,
-			PgDataDirectory:      destinationPath,
-			TablespacesDirectory: tablespaces,
-			Notifier:             notifier.NewDownloadLogNotifier(logger),
-		}
-
-		executor, err := client.CreateRestoreExecutor(cmd.Context(), restoreOptions)
-		if err != nil {
-			return fmt.Errorf("while creating restore executor: %w", err)
-		}
+		executor := common.NewRestoreExecutor(
+			client.CreateRestorer(notifier.NewDownloadLogNotifier(logger)),
+			common.RestoreConfiguration{
+				Name:                 backupName,
+				PgDataDirectory:      destinationPath,
+				TablespacesDirectory: tablespaces,
+			},
+		)
 
 		return executor.Restore(cmd.Context(), destinationPath)
 	},

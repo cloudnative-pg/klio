@@ -17,33 +17,36 @@ import (
 	"github.com/EnterpriseDB/klio/internal/client/klioclient/notifier"
 )
 
-type restoreImplementation struct {
+// RestoreImplementation is an implementation of common.BackupRestorer.
+type RestoreImplementation struct {
 	hostname   string
 	username   string
 	logger     *slog.Logger
 	repository repo.Repository
-	progress   notifier.Download
+	notifier   notifier.Download
 }
 
-// CreateRestoreExecutor creates a restore executor using the kopia
+// GetDownloadNotifier returns the notifier used by the RestoreImplementation.
+//
+//nolint:ireturn
+func (s *RestoreImplementation) GetDownloadNotifier() notifier.Download {
+	return s.notifier
+}
+
+// CreateRestorer creates a restore executor using the kopia
 // client.
-func (s *Connection) CreateRestoreExecutor(
-	_ context.Context,
-	opts common.RestoreOptions,
-) (*common.RestoreExecutor, error) {
-	impl := &restoreImplementation{
+func (s *Connection) CreateRestorer(notifier notifier.Download) *RestoreImplementation {
+	return &RestoreImplementation{
 		hostname:   s.hostname,
 		username:   s.username,
 		logger:     s.logger,
 		repository: s.repository,
-		progress:   opts.Notifier,
+		notifier:   notifier,
 	}
-
-	return common.NewRestoreExecutorForImpl(impl, opts), nil
 }
 
 // GetMetadata implements the RestoreExecutor interface.
-func (s *restoreImplementation) GetMetadata(ctx context.Context, name string) (*common.BackupMetadata, error) {
+func (s *RestoreImplementation) GetMetadata(ctx context.Context, name string) (*common.BackupMetadata, error) {
 	// Look for the kopia manifest with that name
 	entries, err := s.repository.FindManifests(ctx, map[string]string{
 		backupNameTagName: name,
@@ -58,26 +61,26 @@ func (s *restoreImplementation) GetMetadata(ctx context.Context, name string) (*
 		return nil, newNoBackupFoundError(name)
 	}
 
-	manifest, err := snapshot.LoadSnapshot(ctx, s.repository, entries[0].ID)
+	snapshotManifest, err := snapshot.LoadSnapshot(ctx, s.repository, entries[0].ID)
 	if err != nil {
 		return nil, fmt.Errorf("while loading snapshot from manifest ID %q: %w", entries[0].ID, err)
 	}
 
 	var metadata common.BackupMetadata
-	if err := json.Unmarshal([]byte(manifest.Description), &metadata); err != nil {
+	if err := json.Unmarshal([]byte(snapshotManifest.Description), &metadata); err != nil {
 		return nil, fmt.Errorf("while unmarshalling backup description for %q: %w", name, err)
 	}
 
 	if metadata.Annotations == nil {
 		metadata.Annotations = make(map[string]string)
 	}
-	metadata.Annotations[pgDataManifestIDAnnotationName] = string(manifest.ID)
+	metadata.Annotations[pgDataManifestIDAnnotationName] = string(snapshotManifest.ID)
 
 	return &metadata, nil
 }
 
 // RestoreTablespace implements the RestoreExecutor interface.
-func (s *restoreImplementation) RestoreTablespace(
+func (s *RestoreImplementation) RestoreTablespace(
 	ctx context.Context,
 	tbl common.TablespaceLayout,
 	destinationDirectory string,
@@ -120,7 +123,7 @@ func (s *restoreImplementation) RestoreTablespace(
 
 // RestorePgData restores the passed pgdata in the specified
 // directory.
-func (s *restoreImplementation) RestorePgData(
+func (s *RestoreImplementation) RestorePgData(
 	ctx context.Context,
 	metadata *common.BackupMetadata,
 	destinationDirectory string,
@@ -158,7 +161,8 @@ func (s *restoreImplementation) RestorePgData(
 	return nil
 }
 
-func (s *restoreImplementation) RestoreControlData(
+// RestoreControlData restores the control data from the backup.
+func (s *RestoreImplementation) RestoreControlData(
 	ctx context.Context,
 	metadata *common.BackupMetadata,
 	destinationPath string,
@@ -222,13 +226,9 @@ func getFSOutput(ctx context.Context, directory string) (*restore.FilesystemOutp
 
 // getKopiaProgressCallback converts a common.DownloadProgressCallback
 // to a callback suitable for the Kopia API.
-func (s *restoreImplementation) getKopiaProgressCallback(destinationDirectory string) restore.ProgressCallback {
-	if s.progress == nil {
-		return nil
-	}
-
+func (s *RestoreImplementation) getKopiaProgressCallback(destinationDirectory string) restore.ProgressCallback {
 	return func(_ context.Context, stats restore.Stats) {
-		s.progress.NotifyStatus(destinationDirectory, notifier.DownloadStats{
+		s.notifier.NotifyStatus(destinationDirectory, notifier.DownloadStats{
 			RestoredTotalFileSize: stats.RestoredTotalFileSize,
 			EnqueuedTotalFileSize: stats.EnqueuedTotalFileSize,
 			SkippedTotalFileSize:  stats.SkippedTotalFileSize,
@@ -246,7 +246,7 @@ func (s *restoreImplementation) getKopiaProgressCallback(destinationDirectory st
 
 // getKopiaRestoreOptions gets the common kopia restore options
 // to be used by PgData and by tablespaces.
-func (s *restoreImplementation) getKopiaRestoreOptions(destinationDirectory string) restore.Options {
+func (s *RestoreImplementation) getKopiaRestoreOptions(destinationDirectory string) restore.Options {
 	return restore.Options{
 		Parallel:               0,
 		Incremental:            true,
