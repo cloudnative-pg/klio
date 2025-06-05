@@ -16,7 +16,9 @@ before:
     - go generate ./...
 
 builds:
-  - env:
+  - binary: klio/klio_{{ .Os }}_{{ .Arch }}
+    no_unique_dist_dir: true
+    env:
       - CGO_ENABLED=0
       - GOEXPERIMENT=boringcrypto
     flags:
