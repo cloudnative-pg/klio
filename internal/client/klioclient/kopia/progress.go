@@ -4,7 +4,7 @@ import (
 	"log/slog"
 	"sync/atomic"
 
-	"github.com/kopia/kopia/snapshot/snapshotfs"
+	"github.com/kopia/kopia/snapshot/upload"
 
 	"github.com/EnterpriseDB/klio/internal/client/klioclient/notifier"
 )
@@ -48,10 +48,10 @@ func (k *kopiaUploadProgress) UploadedBytes(numBytes int64) {
 }
 
 // EstimationParameters implements snapshotfs.UploadProgress.
-func (k *kopiaUploadProgress) EstimationParameters() snapshotfs.EstimationParameters {
-	return snapshotfs.EstimationParameters{
-		Type:              snapshotfs.EstimationTypeClassic,
-		AdaptiveThreshold: snapshotfs.AdaptiveEstimationThreshold,
+func (k *kopiaUploadProgress) EstimationParameters() upload.EstimationParameters {
+	return upload.EstimationParameters{
+		Type:              upload.EstimationTypeClassic,
+		AdaptiveThreshold: upload.AdaptiveEstimationThreshold,
 	}
 }
 

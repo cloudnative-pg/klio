@@ -14,7 +14,7 @@ import (
 	"github.com/kopia/kopia/repo/manifest"
 	"github.com/kopia/kopia/snapshot"
 	"github.com/kopia/kopia/snapshot/policy"
-	"github.com/kopia/kopia/snapshot/snapshotfs"
+	"github.com/kopia/kopia/snapshot/upload"
 
 	"github.com/EnterpriseDB/klio/internal/client/klioclient/common"
 	"github.com/EnterpriseDB/klio/internal/client/klioclient/notifier"
@@ -283,7 +283,7 @@ func (impl *backupUploader) uploadPath(
 		return nil, fmt.Errorf("while loading manifests: %w", err)
 	}
 
-	uploader := snapshotfs.NewUploader(writer)
+	uploader := upload.NewUploader(writer)
 	uploader.Progress = &kopiaUploadProgress{
 		startPath: sourcePath,
 		notifier:  impl.progress,
