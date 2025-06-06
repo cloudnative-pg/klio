@@ -11,16 +11,16 @@
     "docker:pinDigests",
     "helpers:pinGitHubActionDigests"
   ],
-  "repositories": [
-    "EnterpriseDB/klio"
-  ],
-  "onboarding": true,
-  "platform": "github",
   "enabled": true,
   "prConcurrentLimit": 5,
   "gomod": {
     "ignorePaths": [
       ".dagger/**/go.mod"
+    ]
+  },
+  "kustomize": {
+    "ignorePaths": [
+      "kubernetes/klio/overlays/**/kustomization.yaml"
     ]
   },
   "postUpdateOptions": [
