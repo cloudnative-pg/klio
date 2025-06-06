@@ -37,7 +37,7 @@ var startCmd = &cobra.Command{
 		// Sets the defaults values, to be overridden by the user configuration
 		configuration.SetDefaults()
 
-		if configuration.KlioServerConfig == nil {
+		if configuration.Server == nil {
 			return ErrKlioServerSectionIsRequired
 		}
 
@@ -46,15 +46,15 @@ var startCmd = &cobra.Command{
 		}
 
 		// Configure a listener
-		listener, err := net.Listen("tcp", configuration.KlioServerConfig.ListenAddress)
+		listener, err := net.Listen("tcp", configuration.Server.Klio.ListenAddress)
 		if err != nil {
 			return fmt.Errorf("cannot listen on TCP socket: %w", err)
 		}
 
 		// Load TLS certificates
 		cert, err := tls.LoadX509KeyPair(
-			configuration.KlioServerConfig.ServerCertPath,
-			configuration.KlioServerConfig.ServerKeyPath,
+			configuration.Server.Klio.ServerCertPath,
+			configuration.Server.Klio.ServerKeyPath,
 		)
 		if err != nil {
 			return fmt.Errorf("failed to load server key pair: %w", err)
@@ -67,8 +67,8 @@ var startCmd = &cobra.Command{
 
 		// Connects to the Klio repository
 		repoConnection, err := repository.Open(repository.Options{
-			Path:     configuration.KlioServerConfig.WALPath,
-			Password: configuration.KlioServerConfig.Password,
+			Path:     configuration.Server.Klio.WALPath,
+			Password: configuration.Server.Klio.Password,
 		})
 		if err != nil {
 			return fmt.Errorf("failed to connect to local repository: %w", err)

@@ -10,11 +10,11 @@ type Data struct {
 	// This is only needed fot the WAL pusher.
 	Source *Source `mapstructure:"source"`
 
-	// Client is the configuration of the Klio server
+	// Client is the configuration of the Klio client
 	Client *ClientConfig `mapstructure:"client"`
 
-	// KlioServerConfig is the configuration of the Klio server
-	KlioServerConfig *KlioServerConfig `mapstructure:"klio_server"`
+	// Server is the configuration of the Klio server
+	Server *ServerConfig `mapstructure:"server"`
 }
 
 // SetDefaults sets the default values of the configuration.
@@ -22,6 +22,32 @@ func (d *Data) SetDefaults() {
 	if d.Source != nil {
 		d.Source.SetDefaults()
 	}
+}
+
+// ServerConfig is the configuration of the server.
+type ServerConfig struct {
+	// Kopia is the configuration of the Kopia server
+	Kopia *KopiaServerConfig `mapstructure:"kopia" validate:"nonzero"`
+
+	// Klio is the configuration of the Klio server
+	Klio *KlioServerConfig `mapstructure:"klio" validate:"nonzero"`
+}
+
+// KopiaServerConfig is the configuration that will be used for
+// the kopia server.
+type KopiaServerConfig struct {
+	// EncryptionPassword is the encryption password that is used to create and
+	// operate on the Kopia repository.
+	EncryptionPassword string `mapstructure:"password" validate:"nonzero"`
+
+	// LogDirectory is the directory where the Kopia server log files are written.
+	LogDirectory string `mapstructure:"logs" validate:"nonzero"`
+
+	// CacheDirectory is the directory of the Kopia cache
+	CacheDirectory string `mapstructure:"cache" validate:"nonzero"`
+
+	// RepositoryDirectory is the directory where the Kopia repository is stored.
+	RepositoryDirectory string `mapstructure:"repository" validate:"nonzero"`
 }
 
 // Source is the configuration of the WAL receiver.

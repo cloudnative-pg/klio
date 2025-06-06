@@ -3,11 +3,13 @@ package server
 import (
 	"fmt"
 	"log/slog"
+	"os"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"gopkg.in/validator.v2"
 
+	"github.com/EnterpriseDB/klio/internal/server/kopiaserver"
 	"github.com/EnterpriseDB/klio/internal/server/walserver/repository"
 	"github.com/EnterpriseDB/klio/pkg/config"
 )
@@ -18,7 +20,7 @@ import (
 var initializeCmd = &cobra.Command{
 	Use:   "initialize",
 	Short: "Initialize a new Klio repository on the configured folder",
-	RunE: func(_ *cobra.Command, _ []string) error {
+	RunE: func(cmd *cobra.Command, _ []string) error {
 		logger := slog.Default()
 
 		var configuration config.Data
@@ -32,7 +34,7 @@ var initializeCmd = &cobra.Command{
 		// Sets the defaults values, to be overridden by the user configuration
 		configuration.SetDefaults()
 
-		if configuration.KlioServerConfig == nil {
+		if configuration.Server == nil {
 			return ErrKlioServerSectionIsRequired
 		}
 
@@ -41,10 +43,36 @@ var initializeCmd = &cobra.Command{
 			return fmt.Errorf("configuration validation error: %w", errs)
 		}
 
-		return repository.Initialize(repository.Options{
-			Path:     configuration.KlioServerConfig.WALPath,
-			Password: configuration.KlioServerConfig.Password,
-		})
+		walDirectory := configuration.Server.Klio.WALPath
+		kopiaDirectory := configuration.Server.Kopia.RepositoryDirectory
+
+		if _, err := os.Stat(walDirectory); err != nil {
+			if !os.IsNotExist(err) {
+				return fmt.Errorf("while checking if the Klio WAL directory %q exists, %w", walDirectory, err)
+			}
+
+			if err := repository.Initialize(repository.Options{
+				Path:     configuration.Server.Klio.WALPath,
+				Password: configuration.Server.Klio.Password,
+			}); err != nil {
+				return fmt.Errorf("while initializing the Klio WAL directory %q, %w", walDirectory, err)
+			}
+		}
+
+		if _, err := os.Stat(kopiaDirectory); err != nil {
+			if !os.IsNotExist(err) {
+				return fmt.Errorf("while checking if the Kopia repository directory %q exists, %w", walDirectory, err)
+			}
+
+			if err := kopiaserver.Initialize(cmd.Context(), kopiaserver.InitOptions{
+				Path:     configuration.Server.Kopia.RepositoryDirectory,
+				Password: configuration.Server.Kopia.EncryptionPassword,
+			}); err != nil {
+				return fmt.Errorf("while initializing the Kopia repository directory %q, %w", walDirectory, err)
+			}
+		}
+
+		return nil
 	},
 }
 
