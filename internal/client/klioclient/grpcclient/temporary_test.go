@@ -91,7 +91,7 @@ func (s *TemporaryConnection) Close() error {
 		return fmt.Errorf("while closing listener: %w", err)
 	}
 
-	if err := s.Connection.grpcConnection.Close(); err != nil {
+	if err := s.grpcConnection.Close(); err != nil {
 		return fmt.Errorf("while closing connection: %w", err)
 	}
 
