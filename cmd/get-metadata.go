@@ -44,7 +44,6 @@ var getMetadataCmd = &cobra.Command{
 			return ErrKlioClientSectionIsRequired
 		}
 
-		logger.Debug("Current configuration", "configuration", configuration)
 		if errs := validator.Validate(&configuration); errs != nil {
 			return fmt.Errorf("configuration validation error: %w", errs)
 		}

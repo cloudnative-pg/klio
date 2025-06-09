@@ -2,7 +2,6 @@ package server
 
 import (
 	"fmt"
-	"log/slog"
 	"os"
 
 	"github.com/spf13/cobra"
@@ -21,8 +20,6 @@ var initializeCmd = &cobra.Command{
 	Use:   "initialize",
 	Short: "Initialize a new Klio repository on the configured folder",
 	RunE: func(cmd *cobra.Command, _ []string) error {
-		logger := slog.Default()
-
 		var configuration config.Data
 
 		// IMPORTANT: this requires this program to be built with "-tags viper_bind_struct"
@@ -38,7 +35,6 @@ var initializeCmd = &cobra.Command{
 			return ErrKlioServerSectionIsRequired
 		}
 
-		logger.Debug("Current configuration", "configuration", configuration)
 		if errs := validator.Validate(&configuration); errs != nil {
 			return fmt.Errorf("configuration validation error: %w", errs)
 		}

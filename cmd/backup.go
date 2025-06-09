@@ -46,7 +46,6 @@ var backupCmd = &cobra.Command{
 			return ErrSourceSectionIsRequired
 		}
 
-		logger.Debug("Current configuration", "configuration", configuration)
 		if errs := validator.Validate(&configuration); errs != nil {
 			return fmt.Errorf("configuration validation error: %w", errs)
 		}
@@ -57,7 +56,7 @@ var backupCmd = &cobra.Command{
 			configuration.Client.Kopia,
 		)
 		if err != nil {
-			return fmt.Errorf("while connecting to the Klio server: %w", err)
+			return fmt.Errorf("while connecting to the Klio server: %w %q", err, configuration.Client.Kopia.BaseURL)
 		}
 
 		conn, err := pgx.Connect(cmd.Context(), configuration.Source.StandardDSN)
