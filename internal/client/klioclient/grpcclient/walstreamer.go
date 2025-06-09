@@ -20,7 +20,7 @@ func (c *Connection) StoreWALStreaming(
 	name string,
 	segmentSize uint64,
 ) (*common.WALUploader, error) {
-	stream, err := c.walClient.Put(ctx)
+	stream, err := c.Put(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("while starting uploading a WAL file: %w", err)
 	}
@@ -35,7 +35,7 @@ func (c *Connection) StoreWALStreaming(
 
 // GetWALStreaming get a WAL from a remote connection.
 func (c *Connection) GetWALStreaming(ctx context.Context, walName string, out io.Writer) error { //nolint:cyclop
-	client, err := c.walClient.Get(ctx, &klioGRPC.GetRequest{
+	client, err := c.Get(ctx, &klioGRPC.GetRequest{
 		ClusterName: c.cfg.ClusterName,
 		WalName:     walName,
 	})

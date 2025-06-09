@@ -8,12 +8,13 @@ import (
 	"github.com/cloudnative-pg/machinery/pkg/types"
 
 	"github.com/EnterpriseDB/klio/internal/client/klioclient/common"
+	"github.com/EnterpriseDB/klio/internal/client/klioclient/grpcclient"
 )
 
 // KlioClientStreamingHandler is a handler that streams directly to a
 // Klio server.
 type KlioClientStreamingHandler struct {
-	conn   common.WALClientStreamer
+	conn   *grpcclient.Connection
 	logger *slog.Logger
 
 	stream common.WALUploaderImpl
@@ -29,7 +30,7 @@ func NewKlioClientHandler(
 	logger *slog.Logger,
 	tli int,
 	segmentSize uint64,
-	conn common.WALClientStreamer,
+	conn *grpcclient.Connection,
 ) *KlioClientStreamingHandler {
 	return &KlioClientStreamingHandler{
 		logger:      logger,

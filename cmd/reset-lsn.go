@@ -9,7 +9,6 @@ import (
 	"github.com/spf13/viper"
 	"gopkg.in/validator.v2"
 
-	"github.com/EnterpriseDB/klio/internal/client/klioclient/common"
 	"github.com/EnterpriseDB/klio/internal/client/klioclient/grpcclient"
 	"github.com/EnterpriseDB/klio/internal/client/sendwal"
 	"github.com/EnterpriseDB/klio/pkg/config"
@@ -52,13 +51,11 @@ var resetLSNCommand = &cobra.Command{
 			return fmt.Errorf("configuration validation error: %w", errs)
 		}
 
-		var client common.WALClientStreamer
-		var err error
-
-		if client, err = grpcclient.Connect(
+		client, err := grpcclient.Connect(
 			logger,
 			configuration.Client.Klio,
-		); err != nil {
+		)
+		if err != nil {
 			return fmt.Errorf("while connecting to the Klio server: %w", err)
 		}
 

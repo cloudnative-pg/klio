@@ -45,18 +45,8 @@ type Connection struct {
 	logger *slog.Logger
 	cfg    *config.KlioRepositoryClientConfig
 
-	walClient      klioGRPC.WALClient
+	klioGRPC.WALClient
 	grpcConnection *grpc.ClientConn
-}
-
-// Close closes the GRPC connection.
-func (c *Connection) Close(_ context.Context) error {
-	err := c.grpcConnection.Close()
-	if err != nil {
-		return fmt.Errorf("while closing connection: %w", err)
-	}
-
-	return nil
 }
 
 // Connect opens a connection to a Klio server.
@@ -89,7 +79,7 @@ func Connect(logger *slog.Logger, cfg *config.KlioRepositoryClientConfig) (*Conn
 	return &Connection{
 		logger:         logger,
 		cfg:            cfg,
-		walClient:      walClient,
+		WALClient:      walClient,
 		grpcConnection: conn,
 	}, nil
 }

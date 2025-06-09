@@ -1,7 +1,6 @@
 package grpcclient
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -78,7 +77,7 @@ func ConnectTemporary(
 		Connection: Connection{
 			logger:         logger,
 			cfg:            cfg,
-			walClient:      walClient,
+			WALClient:      walClient,
 			grpcConnection: conn,
 		},
 		listener: listener,
@@ -87,12 +86,12 @@ func ConnectTemporary(
 }
 
 // Close closes the connection to the repository.
-func (s *TemporaryConnection) Close(ctx context.Context) error {
+func (s *TemporaryConnection) Close() error {
 	if err := s.listener.Close(); err != nil {
 		return fmt.Errorf("while closing listener: %w", err)
 	}
 
-	if err := s.Connection.Close(ctx); err != nil {
+	if err := s.Connection.grpcConnection.Close(); err != nil {
 		return fmt.Errorf("while closing connection: %w", err)
 	}
 

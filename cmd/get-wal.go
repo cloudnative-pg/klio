@@ -54,16 +54,15 @@ var getWalCmd = &cobra.Command{
 			return fmt.Errorf("configuration validation error: %w", errs)
 		}
 
-		var client common.WALClientStreamer
-		var err error
 		var downloadPartial bool
 
 		downloadPartial, _ = cmd.Flags().GetBool("partial")
 
-		if client, err = grpcclient.Connect(
+		client, err := grpcclient.Connect(
 			logger,
 			configuration.Client.Klio,
-		); err != nil {
+		)
+		if err != nil {
 			return fmt.Errorf("while connecting to the Klio server: %w", err)
 		}
 

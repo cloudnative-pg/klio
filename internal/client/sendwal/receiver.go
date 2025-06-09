@@ -13,9 +13,10 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgproto3"
 
-	"github.com/EnterpriseDB/klio/internal/client/klioclient/common"
+	"github.com/EnterpriseDB/klio/internal/client/klioclient/grpcclient"
 	"github.com/EnterpriseDB/klio/internal/client/sendwal/buffer"
 	"github.com/EnterpriseDB/klio/internal/client/sendwal/infrastructure"
+	klioGRPC "github.com/EnterpriseDB/klio/internal/grpc"
 	"github.com/EnterpriseDB/klio/pkg/config"
 )
 
@@ -24,11 +25,11 @@ type Process struct {
 	config         *config.Data
 	logger         *slog.Logger
 	infrastructure *infrastructure.Postgres
-	client         common.WALClientStreamer
+	client         *grpcclient.Connection
 }
 
 // New creates a new receiver.
-func New(cfg *config.Data, log *slog.Logger, client common.WALClientStreamer) *Process {
+func New(cfg *config.Data, log *slog.Logger, client *grpcclient.Connection) *Process {
 	return &Process{
 		config:         cfg,
 		logger:         log.With("service", "receive_wal"),
@@ -68,10 +69,10 @@ func (s *Process) ResetReplicationStatus(
 		return fmt.Errorf("while converting LSN to WAL file name: %q %w", identifyData.XLogPos, err)
 	}
 
-	result, err := s.client.ResetWALStream(ctx, common.WALStartOptions{
-		ClusterName:            s.config.Client.Klio.ClusterName,
-		SystemID:               identifyData.SystemID,
-		ClientPreferredWALName: clientWALFileName,
+	result, err := s.client.ResetWALStream(ctx, &klioGRPC.ResetWALStreamRequest{
+		ClusterName:    s.config.Client.Klio.ClusterName,
+		SystemId:       identifyData.SystemID,
+		CurrentWalName: clientWALFileName,
 	})
 	if err != nil {
 		return fmt.Errorf("while invoking server-side replication reset: %w", err)
@@ -194,10 +195,10 @@ func (s *Process) getReplicationStartPoint(
 		return 0, fmt.Errorf("while converting LSN to WAL file name: %q %w", clientStartLSN, err)
 	}
 
-	opts := common.WALStartOptions{
-		ClusterName:            s.config.Client.Klio.ClusterName,
-		SystemID:               data.SystemID,
-		ClientPreferredWALName: clientWALFileName,
+	opts := &klioGRPC.RequestWALStartRequest{
+		ClusterName:    s.config.Client.Klio.ClusterName,
+		SystemId:       data.SystemID,
+		CurrentWalName: clientWALFileName,
 	}
 
 	serverWALFileName, err := s.client.RequestWALStart(ctx, opts)
@@ -205,7 +206,7 @@ func (s *Process) getReplicationStartPoint(
 		return 0, fmt.Errorf("during server-side replication point validation: %w", err)
 	}
 
-	lsn, err := getReplicationStartFromWALFileName(serverWALFileName, segmentSize)
+	lsn, err := getReplicationStartFromWALFileName(serverWALFileName.GetWalName(), segmentSize)
 	if err != nil {
 		return 0, err
 	}

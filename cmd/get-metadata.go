@@ -10,8 +10,8 @@ import (
 	"google.golang.org/protobuf/encoding/protojson"
 	"gopkg.in/validator.v2"
 
-	"github.com/EnterpriseDB/klio/internal/client/klioclient/common"
 	"github.com/EnterpriseDB/klio/internal/client/klioclient/grpcclient"
+	klioGRPC "github.com/EnterpriseDB/klio/internal/grpc"
 	"github.com/EnterpriseDB/klio/pkg/config"
 )
 
@@ -49,17 +49,17 @@ var getMetadataCmd = &cobra.Command{
 			return fmt.Errorf("configuration validation error: %w", errs)
 		}
 
-		var client common.WALClientStreamer
-		var err error
-
-		if client, err = grpcclient.Connect(
+		client, err := grpcclient.Connect(
 			logger,
 			configuration.Client.Klio,
-		); err != nil {
+		)
+		if err != nil {
 			return fmt.Errorf("while connecting to the Klio server: %w", err)
 		}
 
-		metadata, err := client.GetMetadata(cmd.Context())
+		metadata, err := client.GetMetadata(cmd.Context(), &klioGRPC.GetMetadataRequest{
+			ClusterName: configuration.Client.Klio.ClusterName,
+		})
 		if err != nil {
 			return fmt.Errorf("while downloading metadata: %w", err)
 		}

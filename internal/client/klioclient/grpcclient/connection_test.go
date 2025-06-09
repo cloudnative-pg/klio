@@ -6,14 +6,12 @@ import (
 	"log/slog"
 	"testing"
 
-	"github.com/EnterpriseDB/klio/internal/client/klioclient/common"
-	"github.com/EnterpriseDB/klio/internal/client/klioclient/test"
 	"github.com/EnterpriseDB/klio/internal/server/walserver/repository"
 	"github.com/EnterpriseDB/klio/pkg/config"
 )
 
 func BenchmarkLookupSnapshotsViaKlioServer(b *testing.B) {
-	createTemporaryKlioRepo := func(_ context.Context) (common.WALClientStreamer, error) {
+	createTemporaryKlioRepo := func(_ context.Context) (*TemporaryConnection, error) {
 		dirName := b.TempDir()
 
 		conn, err := ConnectTemporary(
@@ -33,5 +31,5 @@ func BenchmarkLookupSnapshotsViaKlioServer(b *testing.B) {
 		return conn, nil
 	}
 
-	test.BenchLookupSnapshots(b, createTemporaryKlioRepo)
+	BenchLookupSnapshots(b, createTemporaryKlioRepo)
 }

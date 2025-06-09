@@ -7,14 +7,13 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/EnterpriseDB/klio/internal/client/klioclient/common"
 	klioGRPC "github.com/EnterpriseDB/klio/internal/grpc"
 )
 
 // StoreWAL uploads a WAL in the WAL server
 // Important: this function uploads a full WAL file.
 func (c *Connection) StoreWAL(ctx context.Context, name string, content []byte) error {
-	stream, err := c.walClient.Put(ctx)
+	stream, err := c.Put(ctx)
 	if err != nil {
 		return fmt.Errorf("while starting uploading a WAL file: %w", err)
 	}
@@ -60,50 +59,4 @@ func (c *Connection) StoreWAL(ctx context.Context, name string, content []byte) 
 // StoreHistoryFile uses the underlying GRPC connection to store a history file.
 func (c *Connection) StoreHistoryFile(ctx context.Context, name string, content []byte) error {
 	return c.StoreWAL(ctx, name, content)
-}
-
-// RequestWALStart requests the WAL streaming starting point.
-func (c *Connection) RequestWALStart(ctx context.Context, opts common.WALStartOptions) (string, error) {
-	response, err := c.walClient.RequestWALStart(
-		ctx,
-		&klioGRPC.RequestWALStartRequest{
-			ClusterName:    opts.ClusterName,
-			SystemId:       opts.SystemID,
-			CurrentWalName: opts.ClientPreferredWALName,
-		},
-	)
-	if err != nil {
-		return "", fmt.Errorf("while negotiating replication starting point: %w", err)
-	}
-
-	return response.GetWalName(), nil
-}
-
-// ResetWALStream reset the server-side replication status to the passed starting point.
-func (c *Connection) ResetWALStream(ctx context.Context, opts common.WALStartOptions) (string, error) {
-	response, err := c.walClient.RequestWALStart(
-		ctx,
-		&klioGRPC.RequestWALStartRequest{
-			ClusterName:    opts.ClusterName,
-			SystemId:       opts.SystemID,
-			CurrentWalName: opts.ClientPreferredWALName,
-		},
-	)
-	if err != nil {
-		return "", fmt.Errorf("while resetting replication starting point: %w", err)
-	}
-
-	return response.GetWalName(), nil
-}
-
-// GetMetadata reset the server-side replication status to the passed starting point.
-func (c *Connection) GetMetadata(ctx context.Context) (*klioGRPC.ClusterMetadata, error) {
-	response, err := c.walClient.GetMetadata(ctx, &klioGRPC.GetMetadataRequest{
-		ClusterName: c.cfg.ClusterName,
-	})
-	if err != nil {
-		return nil, fmt.Errorf("while getting cluster Klio metadata: %w", err)
-	}
-
-	return response, nil
 }
