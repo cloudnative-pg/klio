@@ -1,0 +1,4 @@
+## Append samples of your project ##
+resources:
+- klio_v1alpha1_server.yaml
+# +kubebuilder:scaffold:manifestskustomizesamples
