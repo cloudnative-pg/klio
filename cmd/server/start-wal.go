@@ -68,14 +68,32 @@ var startWALCmd = &cobra.Command{
 		// Connects to the Klio repository
 		repoConnection, err := repository.Open(repository.Options{
 			Path:     configuration.Server.Klio.WALPath,
-			Password: configuration.Server.Klio.Password,
+			Password: configuration.Server.Klio.EncryptionPassword,
 		})
 		if err != nil {
 			return fmt.Errorf("failed to connect to local repository: %w", err)
 		}
 
 		// Starts the WAL server
-		server := grpc.NewServer(grpc.Creds(credentials.NewTLS(tlsConfig)))
+		opts := []grpc.ServerOption{
+			grpc.Creds(credentials.NewTLS(tlsConfig)),
+		}
+
+		if configuration.Server.Klio.HTPasswdFile != "" {
+			decorator, err := walserver.EnsureValidAuthentication(
+				configuration.Server.Klio.HTPasswdFile,
+			)
+			if err != nil {
+				return fmt.Errorf("while initializing htpasswd file parser: %w", err)
+			}
+
+			opts = append(
+				opts,
+				grpc.UnaryInterceptor(decorator),
+			)
+		}
+
+		server := grpc.NewServer(opts...)
 		klioGRPC.RegisterWALServer(
 			server,
 			walserver.New(slog.Default(), repoConnection),

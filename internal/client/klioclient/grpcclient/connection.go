@@ -69,6 +69,10 @@ func Connect(logger *slog.Logger, cfg *config.KlioRepositoryClientConfig) (*Conn
 	conn, err := grpc.NewClient(
 		cfg.Address,
 		grpc.WithTransportCredentials(credentials.NewTLS(tlsConfig)),
+		grpc.WithPerRPCCredentials(&basicAuthCredentials{
+			username: cfg.Username,
+			password: cfg.Password,
+		}),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("while establishing connection to the server: %w", err)

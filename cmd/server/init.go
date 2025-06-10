@@ -49,7 +49,7 @@ var initializeCmd = &cobra.Command{
 
 			if err := repository.Initialize(repository.Options{
 				Path:     configuration.Server.Klio.WALPath,
-				Password: configuration.Server.Klio.Password,
+				Password: configuration.Server.Klio.EncryptionPassword,
 			}); err != nil {
 				return fmt.Errorf("while initializing the Klio WAL directory %q, %w", walDirectory, err)
 			}

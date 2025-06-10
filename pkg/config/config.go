@@ -38,7 +38,7 @@ type ServerConfig struct {
 type KopiaServerConfig struct {
 	// EncryptionPassword is the encryption password that is used to create and
 	// operate on the Kopia repository.
-	EncryptionPassword string `mapstructure:"password" validate:"nonzero"`
+	EncryptionPassword string `mapstructure:"encryption_password" validate:"nonzero"`
 
 	// LogDirectory is the directory where the Kopia server log files are written.
 	LogDirectory string `mapstructure:"logs" validate:"nonzero"`
@@ -57,6 +57,10 @@ type KopiaServerConfig struct {
 
 	// ListenAddress is the address where we should listen to
 	ListenAddress string `mapstructure:"listen_address" validate:"nonzero"`
+
+	// HTPasswdFile is the file containing the credentials of the users that are
+	// allowed to use the Kopia server
+	HTPasswdFile string `mapstructure:"htpasswd_file" validate:"nonzero"`
 }
 
 // Source is the configuration of the WAL receiver.
@@ -147,8 +151,12 @@ type KlioServerConfig struct {
 	// PostgreSQL
 	PGDataPath string `mapstructure:"wal_path" validate:"nonzero"`
 
-	// Password is the encryption password
-	Password string `mapstructure:"password" validate:"nonzero"`
+	// EncryptionPassword is the encryption password
+	EncryptionPassword string `mapstructure:"encryption_password" validate:"nonzero"`
+
+	// HTPasswdFile is the file containing the credentials of the users that are
+	// allowed to use the Kopia server
+	HTPasswdFile string `mapstructure:"htpasswd_file" validate:"nonzero"`
 }
 
 // SetDefaults sets the default values of the configuration.

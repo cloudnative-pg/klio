@@ -21,9 +21,7 @@ type InitOptions struct {
 // Initialize creates a new Kopia repository with the
 // specified configuration.
 func Initialize(ctx context.Context, opts InitOptions) error {
-	storage, err := filesystem.New(ctx, &filesystem.Options{
-		Path: opts.Path,
-	}, true)
+	storage, err := filesystem.New(ctx, &filesystem.Options{Path: opts.Path}, true)
 	if err != nil {
 		return fmt.Errorf("while creating Kopia filesystem storage: %w", err)
 	}

@@ -7,24 +7,26 @@ import (
 	"os"
 	"os/exec"
 
-	"github.com/EnterpriseDB/klio/pkg/config"
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/repo/blob/filesystem"
 	"github.com/kopia/kopia/repo/content"
+
+	"github.com/EnterpriseDB/klio/pkg/config"
 )
 
-// kopiaCommand is the name of the kopia binary
+// kopiaCommand is the name of the kopia binary.
 const kopiaCommand = "kopia"
 
-func Start(ctx context.Context, log *slog.Logger, cfg *config.KopiaServerConfig) error {
+// Start runs a Kopia server with the passed configuration.
+func Start(ctx context.Context, cfg *config.KopiaServerConfig) error {
+	log := slog.Default()
+
 	kopiaBinary, err := exec.LookPath(kopiaCommand)
 	if err != nil {
 		return fmt.Errorf("kopia binary not found (%q): %w", kopiaCommand, err)
 	}
 
-	storage, err := filesystem.New(ctx, &filesystem.Options{
-		Path: cfg.RepositoryDirectory,
-	}, true)
+	storage, err := filesystem.New(ctx, &filesystem.Options{Path: cfg.RepositoryDirectory}, true)
 	if err != nil {
 		return fmt.Errorf("while creating Kopia filesystem storage: %w", err)
 	}
@@ -36,7 +38,7 @@ func Start(ctx context.Context, log *slog.Logger, cfg *config.KopiaServerConfig)
 
 	defer func() {
 		if err := os.Remove(configFile.Name()); err != nil {
-			slog.Warn(
+			log.Warn(
 				"Error while removing temporary configuration file",
 				"err", err,
 				"configFile", configFile.Name(),
@@ -45,20 +47,28 @@ func Start(ctx context.Context, log *slog.Logger, cfg *config.KopiaServerConfig)
 	}()
 
 	if err := repo.Connect(ctx, configFile.Name(), storage, cfg.EncryptionPassword, &repo.ConnectOptions{
-		// TODO(leonardoce): these are just the default values... should
+		// These are just the default values... should
 		// we set something else?
 		ClientOptions:  repo.ClientOptions{},
 		CachingOptions: content.CachingOptions{},
 	}); err != nil {
-		return err
+		return fmt.Errorf("while connecting to the repository: %w", err)
 	}
 
-	// Let's start the Kopia server
-	kopiaServer := exec.Command(
-		kopiaBinary, "server", "start",
-		"--tls-key-file="+cfg.TLSKey,
-		"--tls-cert-file="+cfg.TLSCert,
-		"--address="+cfg.ListenAddress)
+	// Start the Kopia server
+	args := []string{
+		"server", "start",
+		"--tls-key-file=" + cfg.TLSKey,
+		"--tls-cert-file=" + cfg.TLSCert,
+		"--address=" + cfg.ListenAddress,
+	}
+
+	// If present, add the option to use an htpasswd file for authentication
+	if cfg.HTPasswdFile != "" {
+		args = append(args, "--htpasswd-file="+cfg.HTPasswdFile)
+	}
+
+	kopiaServer := exec.Command(kopiaBinary, args...) //nolint:gosec
 	kopiaServer.Env = append(kopiaServer.Env,
 		"KOPIA_CONFIG_PATH="+configFile.Name(),
 		"KOPIA_LOG_DIR="+cfg.LogDirectory,

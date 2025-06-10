@@ -2,8 +2,6 @@ package server
 
 import (
 	"fmt"
-	"log/slog"
-
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"gopkg.in/validator.v2"
@@ -38,8 +36,7 @@ var startPgDataCmd = &cobra.Command{
 			return fmt.Errorf("configuration validation error: %w", errs)
 		}
 
-		log := slog.Default()
-		if err := kopiaserver.Start(cmd.Context(), log, configuration.Server.Kopia); err != nil {
+		if err := kopiaserver.Start(cmd.Context(), configuration.Server.Kopia); err != nil {
 			return fmt.Errorf("while running kopia server: %w", err)
 		}
 

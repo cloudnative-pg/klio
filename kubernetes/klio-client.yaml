@@ -9,13 +9,13 @@ stringData:
         address: klio-server:52000
         cluster_name: cluster-example
         server_cert_path: /klio-server-tls/tls.crt
-        username: klio
-        password: at2leeyomooduZu8KeR6
+        username: klio@cluster-example
+        password: thispassword
       kopia:
         base_url: https://klio-server:51515
         hostname: cluster-example
-        username: klio
-        password: at2leeyomooduZu8KeR6
+        username: klio@cluster-example
+        password: thispassword
         server_cert_path: /klio-server-tls/tls.crt
 
     source:

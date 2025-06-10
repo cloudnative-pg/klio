@@ -4,13 +4,15 @@ server:
     tls_cert: /certs/tls.crt
     tls_key: /certs/tls.key
     wal_path: /data/wals
-    password: thispassword
+    encryption_password: thispassword
+    htpasswd_file: /config/htpasswd
 
   kopia:
     listen_address: 0.0.0.0:51515
-    password: thispassword
+    encryption_password: thispassword
     logs: /data/kopia_logs
     cache: /data/kopia_cache
     repository: /data/pgdata
     tls_cert: /certs/tls.crt
     tls_key: /certs/tls.key
+    htpasswd_file: /config/htpasswd

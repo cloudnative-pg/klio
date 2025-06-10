@@ -139,7 +139,12 @@ func (impl *BackupUploader) UploadTablespace(ctx context.Context, tbl common.Tab
 
 	tablespaceManifestID, err := snapshot.SaveSnapshot(ctx, writer, manifest)
 	if err != nil {
-		return fmt.Errorf("while saving manifest ID to repository: %w", err)
+		return fmt.Errorf(
+			"while saving manifest ID to repository (tablespace %q, cluster %q, user %q): %w",
+			tbl.Name,
+			impl.hostname,
+			impl.username,
+			err)
 	}
 
 	if tbl.Annotations == nil {
@@ -186,7 +191,12 @@ func (impl *BackupUploader) UploadControlFile(
 
 	controlDataManifestID, err := snapshot.SaveSnapshot(ctx, writer, manifest)
 	if err != nil {
-		return fmt.Errorf("while saving manifest ID to repository: %w", err)
+		return fmt.Errorf(
+			"while saving manifest ID to repository (pg_controldata of cluster %q, user %q): %w",
+			impl.hostname,
+			impl.username,
+			err,
+		)
 	}
 
 	if err = writer.Flush(ctx); err != nil {
@@ -235,7 +245,12 @@ func (impl *BackupUploader) UploadBackupMetadata(ctx context.Context, data commo
 
 	pgDataManifestID, err := snapshot.SaveSnapshot(ctx, writer, impl.pgDataManifest)
 	if err != nil {
-		return fmt.Errorf("while saving manifest ID to repository: %w", err)
+		return fmt.Errorf(
+			"while saving manifest ID to repository (pgdata of cluster %q user %q): %w",
+			impl.hostname,
+			impl.username,
+			err,
+		)
 	}
 	impl.logger.Debug("Saved PGData Snapshot", "manifestID", pgDataManifestID)
 

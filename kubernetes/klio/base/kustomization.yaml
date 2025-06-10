@@ -10,3 +10,4 @@ secretGenerator:
 - name: config
   files:
   - klio.yaml
+  - htpasswd

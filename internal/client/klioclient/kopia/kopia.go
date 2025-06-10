@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
+	"strings"
 
 	"github.com/kopia/kopia/repo"
 
@@ -48,6 +49,16 @@ func Connect(
 		}
 	}
 
+	// Normalize the hostname by eventually removing
+	// the '@<hostname>' suffix, which is already been
+	// appended by Kopia.
+	//
+	// We should have a debate about
+	// this. Should we really do it? Should we just
+	// drop the suffix?
+	hostName := kopiaClientConfig.Hostname
+	userName := strings.TrimSuffix(kopiaClientConfig.Username, "@"+hostName)
+
 	if err = repo.ConnectAPIServer(
 		ctx,
 		configFile.Name(),
@@ -58,8 +69,8 @@ func Connect(
 		kopiaClientConfig.Password,
 		&repo.ConnectOptions{
 			ClientOptions: repo.ClientOptions{
-				Hostname: kopiaClientConfig.Hostname,
-				Username: kopiaClientConfig.Username,
+				Hostname: hostName,
+				Username: userName,
 			},
 		},
 	); err != nil {
@@ -73,8 +84,8 @@ func Connect(
 
 	return &Connection{
 		logger:     logger,
-		hostname:   kopiaClientConfig.Hostname,
-		username:   kopiaClientConfig.Username,
+		hostname:   hostName,
+		username:   userName,
 		repository: repository,
 	}, nil
 }
