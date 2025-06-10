@@ -1,6 +1,16 @@
-klio_server:
-  listen_address: 0.0.0.0:52000
-  server_cert_path: /certs/tls.crt
-  server_key_path: /certs/tls.key
-  wal_path: /data/wals
-  password: thispassword
+server:
+  klio:
+    listen_address: 0.0.0.0:52000
+    tls_cert: /certs/tls.crt
+    tls_key: /certs/tls.key
+    wal_path: /data/wals
+    password: thispassword
+
+  kopia:
+    listen_address: 0.0.0.0:51515
+    password: thispassword
+    logs: /data/kopia_logs
+    cache: /data/kopia_cache
+    repository: /data/pgdata
+    tls_cert: /certs/tls.crt
+    tls_key: /certs/tls.key

@@ -10,5 +10,3 @@ secretGenerator:
 - name: config
   files:
   - klio.yaml
-  literals:
-  - KOPIA_PASSWORD=thispassword

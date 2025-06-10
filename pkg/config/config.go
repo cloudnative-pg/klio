@@ -48,6 +48,15 @@ type KopiaServerConfig struct {
 
 	// RepositoryDirectory is the directory where the Kopia repository is stored.
 	RepositoryDirectory string `mapstructure:"repository" validate:"nonzero"`
+
+	// TLSKey is the file of the TLS private key
+	TLSKey string `mapstructure:"tls_key" validate:"nonzero"`
+
+	// TLSCert is the file of the TLS public key
+	TLSCert string `mapstructure:"tls_cert" validate:"nonzero"`
+
+	// ListenAddress is the address where we should listen to
+	ListenAddress string `mapstructure:"listen_address" validate:"nonzero"`
 }
 
 // Source is the configuration of the WAL receiver.
@@ -85,7 +94,7 @@ type KlioRepositoryClientConfig struct {
 	// ClusterName is the name of the target cluster where to upload WALs
 	ClusterName string `mapstructure:"cluster_name" validate:"nonzero"`
 
-	// ServerKeyPath is the path to the server public key
+	// ServerCertPath is the path to the server public key
 	ServerCertPath string `mapstructure:"server_cert_path" validate:"nonzero"`
 
 	// Username is the Klio server username.
@@ -102,7 +111,7 @@ type KopiaRepositoryClientConfig struct {
 	// BaseURL is the base URL where the Kopia API server should be reached
 	BaseURL string `mapstructure:"base_url" validate:"nonzero"`
 
-	// ServerKeyPath is the path to the server public key
+	// ServerCertPath is the path to the server public key
 	ServerCertPath string `mapstructure:"server_cert_path"`
 
 	// TrustedServerCertificateFingerprint is used to authenticate to the server side
@@ -125,11 +134,11 @@ type KlioServerConfig struct {
 	// ListenAddress is the listening address
 	ListenAddress string `mapstructure:"listen_address" validate:"nonzero"`
 
-	// ServerKeyPath is the path to the server public key
-	ServerCertPath string `mapstructure:"server_cert_path" validate:"nonzero"`
+	// TLSCert is the path to the server public key
+	TLSCert string `mapstructure:"tls_cert" validate:"nonzero"`
 
-	// ServerKeyPath is the path to the server private key
-	ServerKeyPath string `mapstructure:"server_key_path" validate:"nonzero"`
+	// TLSKey is the path to the server private key
+	TLSKey string `mapstructure:"tls_key" validate:"nonzero"`
 
 	// WALPath is the path where the WALs should be stored
 	WALPath string `mapstructure:"wal_path" validate:"nonzero"`

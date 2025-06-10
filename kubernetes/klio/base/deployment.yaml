@@ -38,41 +38,14 @@ spec:
           mountPath: /data
         - name: config
           mountPath: /config
-      - name: kopia-initialize
-        command:
-        - sh 
-        - -c 
-        - '(test ! -d /data/pgdata && kopia repository create filesystem --path=/data/pgdata) ||:'
-
-        image: klio
-        imagePullPolicy: Always
-
-        volumeMounts:
-        - name: data
-          mountPath: /data
-
-        env:
-        - name: KOPIA_PASSWORD
-          valueFrom:
-            secretKeyRef:
-              name: config
-              key: KOPIA_PASSWORD
-        - name: KOPIA_CONFIG_PATH
-          value: /data/kopia.config
-        - name: KOPIA_LOG_DIR
-          value: /data/kopia_logs
-        - name: KOPIA_CACHE_DIRECTORY
-          value: /data/kopia_cache
-        - name: USER
-          value: kopia
 
       containers:
-      - name: klio-server
+      - name: klio-wal-server
         command:
         - klio
         - --config=/config/klio.yaml
         - server
-        - start
+        - start-wal
 
         image: klio:latest
         imagePullPolicy: Always
@@ -100,18 +73,12 @@ spec:
           mountPath: /config
         - name: tls
           mountPath: /certs
-      - name: kopia-server
+      - name: klio-pgdata-server
         command:
-        - kopia 
+        - klio
+        - --config=/config/klio.yaml
         - server
-        - start
-        - --address=0.0.0.0:51515
-        - --server-username=klio@cluster-example
-        - --server-password=CHANGE_ME_KOPIA_PASSWORD
-        - --server-control-username=klio
-        - --server-control-password=CHANGE_ME_KOPIA_PASSWORD
-        - --tls-cert-file=/certs/tls.crt
-        - --tls-key-file=/certs/tls.key 
+        - start-pgdata
 
         image: klio
         imagePullPolicy: Always
@@ -127,23 +94,10 @@ spec:
         volumeMounts:
         - name: data
           mountPath: /data
+        - name: config
+          mountPath: /config
         - name: tls
           mountPath: /certs
-
-        env:
-        - name: KOPIA_PASSWORD
-          valueFrom:
-            secretKeyRef:
-              name: config
-              key: KOPIA_PASSWORD
-        - name: KOPIA_CONFIG_PATH
-          value: /data/kopia.config
-        - name: KOPIA_LOG_DIR
-          value: /data/kopia_logs
-        - name: KOPIA_CACHE_DIRECTORY
-          value: /data/kopia_cache
-        - name: USER
-          value: kopia
 
       volumes:
       - name: data

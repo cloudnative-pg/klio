@@ -19,12 +19,12 @@ import (
 	"github.com/EnterpriseDB/klio/pkg/config"
 )
 
-// startCmd represents the start command
+// startWALCmd represents the start command
 //
 //nolint:gochecknoglobals
-var startCmd = &cobra.Command{
-	Use:   "start",
-	Short: "Starts a Klio server",
+var startWALCmd = &cobra.Command{
+	Use:   "start-wal",
+	Short: "Starts a Klio WAL server",
 	RunE: func(_ *cobra.Command, _ []string) error {
 		var configuration config.Data
 
@@ -53,8 +53,8 @@ var startCmd = &cobra.Command{
 
 		// Load TLS certificates
 		cert, err := tls.LoadX509KeyPair(
-			configuration.Server.Klio.ServerCertPath,
-			configuration.Server.Klio.ServerKeyPath,
+			configuration.Server.Klio.TLSCert,
+			configuration.Server.Klio.TLSKey,
 		)
 		if err != nil {
 			return fmt.Errorf("failed to load server key pair: %w", err)
@@ -90,5 +90,5 @@ var startCmd = &cobra.Command{
 
 //nolint:gochecknoinits
 func init() {
-	ServerCmd.AddCommand(startCmd)
+	ServerCmd.AddCommand(startWALCmd)
 }
