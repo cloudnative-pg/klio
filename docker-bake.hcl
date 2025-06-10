@@ -14,6 +14,10 @@ variable "environment" {
 }
 suffix = (environment == "testing") ? "-testing" : ""
 
+variable "insecure" {
+  default = "false"
+}
+
 variable "registry" {
   default = "localhost:5000"
 }
@@ -38,17 +42,30 @@ variable "version" {
 
 target "default" {
   dockerfile = "Dockerfile"
+  context = "."
+  platforms = [
+    "linux/amd64",
+    "linux/arm64"
+  ]
 
   tags = [
     "${getImageName()}:latest",
   ]
 
   args = {
-    "BASE_IMAGE" = base_image
+    "BASE_IMAGE" = "${base_image}",
   }
-  platforms = [
-    "linux/amd64",
-    "linux/arm64"
+
+  output = [
+    {
+      "type" = "image",
+      "registry.insecure" = "${insecure}",
+    },
+  ]
+
+  attest = [
+    "type=provenance,mode=max",
+    "type=sbom"
   ]
 
   annotations = [
