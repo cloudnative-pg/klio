@@ -40,6 +40,11 @@ spec:
             description: ServerSpec defines the desired state of Server.
             properties:
               image:
+                description: Image is the image to be used for the Klio server
+                type: string
+              imagePullPolicy:
+                default: IfNotPresent
+                description: ImagePullPolicy defines the policy for pulling the image
                 type: string
               kopiaConfiguration:
                 description: KopiaConfiguration defines the configuration for the
@@ -79,6 +84,8 @@ spec:
                     default: kopia
                     description: User specifies the username to run Kopia as
                     type: string
+                required:
+                - password
                 type: object
               password:
                 description: Password is a reference to a secret containing the Klio
@@ -96,7 +103,7 @@ spec:
                 type: object
               pvcTemplate:
                 description: Template to be used to generate the Persistent Volume
-                  Claim
+                  Claim needed for data folder
                 properties:
                   accessModes:
                     description: |-
@@ -297,12 +304,16 @@ spec:
             required:
             - image
             - kopiaConfiguration
+            - password
             - pvcTemplate
             - tlsSecretName
             type: object
           status:
             description: ServerStatus defines the observed state of Server.
             type: object
+        required:
+        - metadata
+        - spec
         type: object
     served: true
     storage: true

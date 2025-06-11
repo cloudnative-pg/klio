@@ -24,7 +24,6 @@ type ServerSpec struct {
 	TLSSecretName string `json:"tlsSecretName"`
 
 	// Password is a reference to a secret containing the Klio password
-	// +optional
 	Password *machineryapi.SecretKeySelector `json:"password"`
 
 	// Template to be used to generate the Persistent Volume Claim needed for data folder
@@ -53,7 +52,7 @@ type KopiaConfiguration struct {
 	// +kubebuilder:default="kopia"
 	User string `json:"user,omitempty"`
 
-	Password *machineryapi.SecretKeySelector `json:"password,omitempty"`
+	Password *machineryapi.SecretKeySelector `json:"password"`
 }
 
 // ServerStatus defines the observed state of Server.
@@ -68,9 +67,9 @@ type ServerStatus struct {
 // Server is the Schema for the servers API.
 type Server struct {
 	metav1.TypeMeta   `json:",inline"`
-	metav1.ObjectMeta `json:"metadata,omitempty"`
+	metav1.ObjectMeta `json:"metadata"`
 
-	Spec   ServerSpec   `json:"spec,omitempty"`
+	Spec   ServerSpec   `json:"spec"`
 	Status ServerStatus `json:"status,omitempty"`
 }
 

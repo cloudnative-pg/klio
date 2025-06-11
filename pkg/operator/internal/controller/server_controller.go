@@ -3,7 +3,8 @@ package controller
 import (
 	"context"
 
-	corev1 "k8s.io/api/core/v1"
+	appsv1 "k8s.io/api/apps/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -22,6 +23,7 @@ type ServerReconciler struct {
 // +kubebuilder:rbac:groups=klio.cnpg.io,resources=servers,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=klio.cnpg.io,resources=servers/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=klio.cnpg.io,resources=servers/finalizers,verbs=update
+// +kubebuilder:rbac:groups=apps,resources=statefulsets,verbs=get;list;watch;create;update;patch;delete
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
@@ -34,12 +36,21 @@ type ServerReconciler struct {
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.21.0/pkg/reconcile
 func (r *ServerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	contextLogger := logf.FromContext(ctx).WithValues("namespace", req.Namespace, "name", req.Name)
-	contextLogger.V(4).Info("Reconciling Klio Server")
+	contextLogger.V(1).Info("Reconciling Klio Server")
 
 	var server kliov1alpha1.Server
-	if err := r.Client.Get(ctx, req.NamespacedName, &server); err != nil {
-		contextLogger.Error(err, "unable to fetch Server")
+	if err := r.Get(ctx, req.NamespacedName, &server); err != nil {
+		if errors.IsNotFound(err) {
+			contextLogger.V(1).Info("Klio Server not found, nothing to do")
+			return ctrl.Result{}, nil
+		}
+		contextLogger.Error(err, "Failed to get Klio Server")
 		return ctrl.Result{}, client.IgnoreNotFound(err)
+	}
+
+	if server.DeletionTimestamp != nil {
+		contextLogger.V(4).Info("Klio Server is being deleted, nothing to do")
+		return ctrl.Result{}, nil
 	}
 
 	if err := r.reconcile(ctx, &server); err != nil {
@@ -57,9 +68,7 @@ func (r *ServerReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		}).
 		For(&kliov1alpha1.Server{}).
 		Named("server").
-		Owns(&corev1.Pod{}).
-		Owns(&corev1.Service{}).
-		Owns(&corev1.PersistentVolumeClaim{}).
+		Owns(&appsv1.StatefulSet{}).
 		// TODO: we should probably add a way for the user to let the secrets passed to be watched
 		Complete(r)
 }
