@@ -21,6 +21,11 @@ type ServerSpec struct {
 	// +kubebuilder:default=IfNotPresent
 	ImagePullPolicy corev1.PullPolicy `json:"imagePullPolicy,omitempty"`
 
+	// ImagePullSecrets is an optional list of references to secrets in the same namespace to use for pulling any of the
+	// images
+	// +optional
+	ImagePullSecrets []corev1.LocalObjectReference `json:"imagePullSecrets,omitempty"`
+
 	TLSSecretName string `json:"tlsSecretName"`
 
 	// Password is a reference to a secret containing the Klio password

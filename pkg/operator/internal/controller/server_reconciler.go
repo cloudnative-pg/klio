@@ -87,6 +87,7 @@ func (r *ServerReconciler) reconcileStatefulSet(ctx context.Context, server *kli
 					},
 				},
 				Spec: corev1.PodSpec{
+					ImagePullSecrets: server.Spec.ImagePullSecrets,
 					SecurityContext: &corev1.PodSecurityContext{
 						FSGroup:      ptr.To(int64(1000)),
 						RunAsGroup:   ptr.To(int64(1000)),

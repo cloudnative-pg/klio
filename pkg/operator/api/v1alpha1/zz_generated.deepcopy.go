@@ -6,6 +6,7 @@ package v1alpha1
 
 import (
 	"github.com/cloudnative-pg/machinery/pkg/api"
+	"k8s.io/api/core/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 )
 
@@ -92,6 +93,11 @@ func (in *ServerList) DeepCopyObject() runtime.Object {
 func (in *ServerSpec) DeepCopyInto(out *ServerSpec) {
 	*out = *in
 	in.KopiaConfiguration.DeepCopyInto(&out.KopiaConfiguration)
+	if in.ImagePullSecrets != nil {
+		in, out := &in.ImagePullSecrets, &out.ImagePullSecrets
+		*out = make([]v1.LocalObjectReference, len(*in))
+		copy(*out, *in)
+	}
 	if in.Password != nil {
 		in, out := &in.Password, &out.Password
 		*out = new(api.SecretKeySelector)
