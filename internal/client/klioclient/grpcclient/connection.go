@@ -43,14 +43,14 @@ func (g *grpcWALStream) Close(_ context.Context) error {
 // Connection represents a connection to a Klio server.
 type Connection struct {
 	logger *slog.Logger
-	cfg    *config.KlioRepositoryClientConfig
+	cfg    *config.WalRepositoryClientConfig
 
 	klioGRPC.WALClient
 	grpcConnection *grpc.ClientConn
 }
 
 // Connect opens a connection to a Klio server.
-func Connect(logger *slog.Logger, cfg *config.KlioRepositoryClientConfig) (*Connection, error) {
+func Connect(logger *slog.Logger, cfg *config.WalRepositoryClientConfig) (*Connection, error) {
 	certPEMBlock, err := os.ReadFile(cfg.ServerCertPath)
 	if err != nil {
 		return nil, fmt.Errorf("while reading the server certificate: %w", err)

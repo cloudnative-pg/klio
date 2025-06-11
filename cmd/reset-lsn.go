@@ -42,7 +42,7 @@ var resetLSNCommand = &cobra.Command{
 			return ErrClientSectionIsRequired
 		}
 
-		if configuration.Client.Klio == nil {
+		if configuration.Client.Wal == nil {
 			return ErrKlioClientSectionIsRequired
 		}
 
@@ -52,7 +52,7 @@ var resetLSNCommand = &cobra.Command{
 
 		client, err := grpcclient.Connect(
 			logger,
-			configuration.Client.Klio,
+			configuration.Client.Wal,
 		)
 		if err != nil {
 			return fmt.Errorf("while connecting to the Klio server: %w", err)

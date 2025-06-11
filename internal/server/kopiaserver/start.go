@@ -18,7 +18,7 @@ import (
 const kopiaCommand = "kopia"
 
 // Start runs a Kopia server with the passed configuration.
-func Start(ctx context.Context, cfg *config.KopiaServerConfig) error {
+func Start(ctx context.Context, cfg *config.BaseServerConfig) error {
 	log := slog.Default()
 
 	kopiaBinary, err := exec.LookPath(kopiaCommand)

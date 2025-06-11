@@ -16,7 +16,7 @@ func BenchmarkLookupSnapshotsViaKlioServer(b *testing.B) {
 
 		conn, err := ConnectTemporary(
 			slog.Default(),
-			&config.KlioRepositoryClientConfig{
+			&config.WalRepositoryClientConfig{
 				ClusterName: "cluster-name",
 			},
 			repository.Options{

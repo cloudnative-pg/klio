@@ -33,7 +33,7 @@ type LocalRepositoryOptions struct {
 func Connect(
 	ctx context.Context,
 	logger *slog.Logger,
-	kopiaClientConfig *config.KopiaRepositoryClientConfig,
+	kopiaClientConfig *config.BaseRepositoryClientConfig,
 ) (*Connection, error) {
 	configFile, err := os.CreateTemp("", "kopiaconfig_*")
 	if err != nil {

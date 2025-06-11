@@ -39,7 +39,7 @@ var restoreCmd = &cobra.Command{
 		if configuration.Client == nil {
 			return ErrClientSectionIsRequired
 		}
-		if configuration.Client.Kopia == nil {
+		if configuration.Client.Base == nil {
 			return ErrKopiaClientSectionIsRequired
 		}
 
@@ -68,7 +68,7 @@ var restoreCmd = &cobra.Command{
 		client, err := kopia.Connect(
 			cmd.Context(),
 			logger,
-			configuration.Client.Kopia,
+			configuration.Client.Base,
 		)
 		if err != nil {
 			return fmt.Errorf("while connecting to the Klio server: %w", err)

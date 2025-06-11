@@ -39,8 +39,8 @@ var initializeCmd = &cobra.Command{
 			return fmt.Errorf("configuration validation error: %w", errs)
 		}
 
-		walDirectory := configuration.Server.Klio.WALPath
-		kopiaDirectory := configuration.Server.Kopia.RepositoryDirectory
+		walDirectory := configuration.Server.Wal.WALPath
+		kopiaDirectory := configuration.Server.Base.RepositoryDirectory
 
 		if _, err := os.Stat(walDirectory); err != nil {
 			if !os.IsNotExist(err) {
@@ -48,8 +48,8 @@ var initializeCmd = &cobra.Command{
 			}
 
 			if err := repository.Initialize(repository.Options{
-				Path:     configuration.Server.Klio.WALPath,
-				Password: configuration.Server.Klio.EncryptionPassword,
+				Path:     configuration.Server.Wal.WALPath,
+				Password: configuration.Server.Wal.EncryptionPassword,
 			}); err != nil {
 				return fmt.Errorf("while initializing the Klio WAL directory %q, %w", walDirectory, err)
 			}
@@ -61,8 +61,8 @@ var initializeCmd = &cobra.Command{
 			}
 
 			if err := kopiaserver.Initialize(cmd.Context(), kopiaserver.InitOptions{
-				Path:     configuration.Server.Kopia.RepositoryDirectory,
-				Password: configuration.Server.Kopia.EncryptionPassword,
+				Path:     configuration.Server.Base.RepositoryDirectory,
+				Password: configuration.Server.Base.EncryptionPassword,
 			}); err != nil {
 				return fmt.Errorf("while initializing the Kopia repository directory %q, %w", walDirectory, err)
 			}

@@ -70,7 +70,7 @@ func (s *Process) ResetReplicationStatus(
 	}
 
 	result, err := s.client.ResetWALStream(ctx, &klioGRPC.ResetWALStreamRequest{
-		ClusterName:    s.config.Client.Klio.ClusterName,
+		ClusterName:    s.config.Client.Wal.ClusterName,
 		SystemId:       identifyData.SystemID,
 		CurrentWalName: clientWALFileName,
 	})
@@ -196,7 +196,7 @@ func (s *Process) getReplicationStartPoint(
 	}
 
 	opts := &klioGRPC.RequestWALStartRequest{
-		ClusterName:    s.config.Client.Klio.ClusterName,
+		ClusterName:    s.config.Client.Wal.ClusterName,
 		SystemId:       data.SystemID,
 		CurrentWalName: clientWALFileName,
 	}

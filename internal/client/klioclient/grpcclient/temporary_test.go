@@ -30,7 +30,7 @@ type TemporaryConnection struct {
 // if not initialized.
 func ConnectTemporary(
 	logger *slog.Logger,
-	cfg *config.KlioRepositoryClientConfig,
+	cfg *config.WalRepositoryClientConfig,
 	opts repository.Options,
 ) (*TemporaryConnection, error) {
 	//nolint:gosec

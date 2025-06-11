@@ -46,15 +46,15 @@ var startWALCmd = &cobra.Command{
 		}
 
 		// Configure a listener
-		listener, err := net.Listen("tcp", configuration.Server.Klio.ListenAddress)
+		listener, err := net.Listen("tcp", configuration.Server.Wal.ListenAddress)
 		if err != nil {
 			return fmt.Errorf("cannot listen on TCP socket: %w", err)
 		}
 
 		// Load TLS certificates
 		cert, err := tls.LoadX509KeyPair(
-			configuration.Server.Klio.TLSCert,
-			configuration.Server.Klio.TLSKey,
+			configuration.Server.Wal.TLSCert,
+			configuration.Server.Wal.TLSKey,
 		)
 		if err != nil {
 			return fmt.Errorf("failed to load server key pair: %w", err)
@@ -67,8 +67,8 @@ var startWALCmd = &cobra.Command{
 
 		// Connects to the Klio repository
 		repoConnection, err := repository.Open(repository.Options{
-			Path:     configuration.Server.Klio.WALPath,
-			Password: configuration.Server.Klio.EncryptionPassword,
+			Path:     configuration.Server.Wal.WALPath,
+			Password: configuration.Server.Wal.EncryptionPassword,
 		})
 		if err != nil {
 			return fmt.Errorf("failed to connect to local repository: %w", err)
@@ -79,9 +79,9 @@ var startWALCmd = &cobra.Command{
 			grpc.Creds(credentials.NewTLS(tlsConfig)),
 		}
 
-		if configuration.Server.Klio.HTPasswdFile != "" {
+		if configuration.Server.Wal.HTPasswdFile != "" {
 			decorator, err := walserver.EnsureValidAuthentication(
-				configuration.Server.Klio.HTPasswdFile,
+				configuration.Server.Wal.HTPasswdFile,
 			)
 			if err != nil {
 				return fmt.Errorf("while initializing htpasswd file parser: %w", err)

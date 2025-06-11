@@ -26,16 +26,16 @@ func (d *Data) SetDefaults() {
 
 // ServerConfig is the configuration of the server.
 type ServerConfig struct {
-	// Kopia is the configuration of the Kopia server
-	Kopia *KopiaServerConfig `mapstructure:"kopia" validate:"nonzero"`
+	// Base is the configuration of the Base server
+	Base *BaseServerConfig `mapstructure:"base" validate:"nonzero"`
 
-	// Klio is the configuration of the Klio server
-	Klio *KlioServerConfig `mapstructure:"klio" validate:"nonzero"`
+	// Wal is the configuration of the Wal server
+	Wal *WalServerConfig `mapstructure:"wal" validate:"nonzero"`
 }
 
-// KopiaServerConfig is the configuration that will be used for
+// BaseServerConfig is the configuration that will be used for
 // the kopia server.
-type KopiaServerConfig struct {
+type BaseServerConfig struct {
 	// EncryptionPassword is the encryption password that is used to create and
 	// operate on the Kopia repository.
 	EncryptionPassword string `mapstructure:"encryption_password" validate:"nonzero"`
@@ -82,16 +82,16 @@ type Source struct {
 
 // ClientConfig is the configuration of the Klio server.
 type ClientConfig struct {
-	// Kopia is the configuration of the target Kopia repository
-	Kopia *KopiaRepositoryClientConfig `mapstructure:"kopia"`
+	// Base is the configuration of the target Base repository
+	Base *BaseRepositoryClientConfig `mapstructure:"base"`
 
-	// Klio is the configuration of the Klio repository
-	Klio *KlioRepositoryClientConfig `mapstructure:"klio"`
+	// Wal is the configuration of the Wal repository
+	Wal *WalRepositoryClientConfig `mapstructure:"wal"`
 }
 
-// KlioRepositoryClientConfig is the configuration of the Klio repository
+// WalRepositoryClientConfig is the configuration of the Klio repository
 // where WALs should be uploaded.
-type KlioRepositoryClientConfig struct {
+type WalRepositoryClientConfig struct {
 	// Address of the Klio server
 	Address string `validate:"nonzero"`
 
@@ -109,9 +109,9 @@ type KlioRepositoryClientConfig struct {
 	Password string `mapstructure:"password" validate:"nonzero"`
 }
 
-// KopiaRepositoryClientConfig is the configuration of the Kopia repository
+// BaseRepositoryClientConfig is the configuration of the Kopia repository
 // to be used to upload the data directory.
-type KopiaRepositoryClientConfig struct {
+type BaseRepositoryClientConfig struct {
 	// BaseURL is the base URL where the Kopia API server should be reached
 	BaseURL string `mapstructure:"base_url" validate:"nonzero"`
 
@@ -133,8 +133,8 @@ type KopiaRepositoryClientConfig struct {
 	Password string `mapstructure:"password" validate:"nonzero"`
 }
 
-// KlioServerConfig is the configuration of the Klio server.
-type KlioServerConfig struct {
+// WalServerConfig is the configuration of the Klio server.
+type WalServerConfig struct {
 	// ListenAddress is the listening address
 	ListenAddress string `mapstructure:"listen_address" validate:"nonzero"`
 

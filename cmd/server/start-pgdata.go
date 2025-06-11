@@ -36,7 +36,7 @@ var startPgDataCmd = &cobra.Command{
 			return fmt.Errorf("configuration validation error: %w", errs)
 		}
 
-		if err := kopiaserver.Start(cmd.Context(), configuration.Server.Kopia); err != nil {
+		if err := kopiaserver.Start(cmd.Context(), configuration.Server.Base); err != nil {
 			return fmt.Errorf("while running kopia server: %w", err)
 		}
 
