@@ -1,0 +1,25 @@
+# Introduction
+
+The EDB Postgres Backup and Recovery Manager for CloudNativePG (codename “Klio”,
+inspired by Clio, the muse of history, symbolizing the preservation and recovery
+of past events, which resonates with database backup) is designed to set a new
+benchmark in enterprise-grade backup and recovery for PostgreSQL databases on
+Kubernetes, specifically.
+
+It effectively manages:
+
+* The WAL archive for a specific PostgreSQL cluster
+* The catalog of physical base backups for the same PostgreSQL cluster
+
+These critical backup components are stored across two tiers:
+
+* Tier 1 - Local volume: A local Persistent Volume Claim (PVC) within the same
+namespace as the `Cluster` resource, providing immediate, high-speed access.
+
+* Tier 2 - Secondary Storage: An object store where data is asynchronously
+replicated from Tier 1. When directly or indirectly relayed outside the
+Kubernetes cluster, this tier ensures geographical redundancy and improved
+disaster recovery (DR) outcomes.
+
+More information can be found in the [design
+document](https://docs.google.com/document/d/1ZTJf7siLxLvH31X6eztY0xeySJ-QT9o6BCA9EAs1gxc/edit?tab=t.0)

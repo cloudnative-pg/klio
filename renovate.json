@@ -23,6 +23,9 @@
       "kubernetes/klio/overlays/**/kustomization.yaml"
     ]
   },
+  "lockFileMaintenance": {
+    "enabled": true
+  },
   "postUpdateOptions": [
     "gomodTidy"
   ],
@@ -92,6 +95,13 @@
         "digest"
       ],
       "groupName": "all kopia api"
+    },
+    {
+      "matchFileNames": [
+        "web/package.json",
+        "web/yarn.lock"
+      ],
+      "groupName": "documentation dependencies"
     },
     {
       "matchUpdateTypes": [

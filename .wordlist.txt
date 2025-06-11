@@ -6,6 +6,7 @@ CRDs
 CRs
 CloudNativePG
 ClusterMetadata
+Docusaurus
 EDB
 FalseClass
 Fixnum
@@ -60,11 +61,17 @@ YAML
 bool
 codename
 config
+enterprisedb
 filesystem
+github
 goreleaser
+http
+https
+io
 klio
 kopia
 kubectl
+localhost
 lsn
 makefile
 namespace
