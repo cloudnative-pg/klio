@@ -28,6 +28,10 @@ type ServerSpec struct {
 
 	TLSSecretName string `json:"tlsSecretName"`
 
+	// Resources defines the resource requirements for the Klio server
+	// +optional
+	Resources corev1.ResourceRequirements `json:"resources,omitempty"`
+
 	// Password is a reference to a secret containing the Klio password
 	Password *machineryapi.SecretKeySelector `json:"password"`
 
@@ -56,6 +60,10 @@ type KopiaConfiguration struct {
 	// +optional
 	// +kubebuilder:default="kopia"
 	User string `json:"user,omitempty"`
+
+	// Resources defines the resource requirements for the Kopia server
+	// +optional
+	Resources corev1.ResourceRequirements `json:"resources,omitempty"`
 
 	Password *machineryapi.SecretKeySelector `json:"password"`
 }

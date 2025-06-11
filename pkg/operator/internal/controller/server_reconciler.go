@@ -6,7 +6,6 @@ import (
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/ptr"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -126,16 +125,7 @@ func (r *ServerReconciler) reconcileStatefulSet(ctx context.Context, server *kli
 							Command:         []string{"klio", "serve"},
 							Image:           server.Spec.Image,
 							ImagePullPolicy: server.Spec.ImagePullPolicy,
-							Resources: corev1.ResourceRequirements{
-								Requests: corev1.ResourceList{
-									corev1.ResourceMemory: resource.MustParse("512Mi"),
-									corev1.ResourceCPU:    resource.MustParse("750m"),
-								},
-								Limits: corev1.ResourceList{
-									corev1.ResourceMemory: resource.MustParse("512Mi"),
-									corev1.ResourceCPU:    resource.MustParse("750m"),
-								},
-							},
+							Resources:       server.Spec.Resources,
 							Ports: []corev1.ContainerPort{
 								{Name: "klio", ContainerPort: 52000, Protocol: corev1.ProtocolTCP},
 								{Name: "kopia", ContainerPort: 51515, Protocol: corev1.ProtocolTCP},
@@ -161,16 +151,7 @@ func (r *ServerReconciler) reconcileStatefulSet(ctx context.Context, server *kli
 							},
 							Image:           server.Spec.Image,
 							ImagePullPolicy: server.Spec.ImagePullPolicy,
-							Resources: corev1.ResourceRequirements{
-								Requests: corev1.ResourceList{
-									corev1.ResourceMemory: resource.MustParse("1024Mi"),
-									corev1.ResourceCPU:    resource.MustParse("750m"),
-								},
-								Limits: corev1.ResourceList{
-									corev1.ResourceMemory: resource.MustParse("1024Mi"),
-									corev1.ResourceCPU:    resource.MustParse("750m"),
-								},
-							},
+							Resources:       server.Spec.KopiaConfiguration.Resources,
 							VolumeMounts: []corev1.VolumeMount{
 								{Name: "data", MountPath: "/data"},
 								{Name: "tls", MountPath: "/certs"},
