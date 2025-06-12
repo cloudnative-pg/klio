@@ -4,6 +4,7 @@ FROM kopia/kopia:latest@sha256:0c55a361a353f69a121572920e7af3eb54b014f99df1f2fd8
 FROM ${BASE_IMAGE} AS base
 ARG TARGETARCH
 ARG TARGETOS
-COPY --from=kopia /bin/kopia /kopia
-COPY dist/klio/klio_${TARGETOS}_${TARGETARCH} /klio
+COPY --from=kopia /bin/kopia /usr/bin/kopia
+COPY dist/klio_${TARGETOS}_${TARGETARCH}*/klio /usr/bin/klio
+ENTRYPOINT ["/usr/bin/klio"]
 USER 26

@@ -16,9 +16,7 @@ before:
     - go generate ./...
 
 builds:
-  - binary: klio/klio_{{ .Os }}_{{ .Arch }}
-    no_unique_dist_dir: true
-    env:
+  - env:
       - CGO_ENABLED=0
       - GOEXPERIMENT=boringcrypto
     flags:
@@ -62,7 +60,6 @@ archives:
       {{ .ProjectName }}_
       {{- title .Os }}_
       {{- if eq .Arch "amd64" }}x86_64
-      {{- else if eq .Arch "386" }}i386
       {{- else }}{{ .Arch }}{{ end }}
       {{- if .Arm }}v{{ .Arm }}{{ end }}
     # use zip for windows archives
