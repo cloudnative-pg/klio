@@ -61,6 +61,12 @@ type BaseServerConfig struct {
 	// HTPasswdFile is the file containing the credentials of the users that are
 	// allowed to use the Kopia server
 	HTPasswdFile string `mapstructure:"htpasswd_file" validate:"nonzero"`
+
+	// AdminUser kopia super-user name
+	AdminUser string `mapstructure:"admin_user"`
+
+	// AdminPassword kopia super-user password
+	AdminPassword string `mapstructure:"admin_password"`
 }
 
 // Source is the configuration of the WAL receiver.

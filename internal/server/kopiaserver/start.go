@@ -75,6 +75,15 @@ func Start(ctx context.Context, cfg *config.BaseServerConfig) error {
 		"KOPIA_CACHE_DIRECTORY="+cfg.CacheDirectory,
 		"KOPIA_PASSWORD="+cfg.EncryptionPassword,
 	)
+
+	if cfg.AdminUser != "" && cfg.AdminPassword != "" {
+		kopiaServer.Env = append(
+			kopiaServer.Env,
+			"KOPIA_SERVER_CONTROL_USER="+cfg.AdminUser,
+			"KOPIA_SERVER_CONTROL_PASSWORD="+cfg.AdminPassword,
+		)
+	}
+
 	kopiaServer.Stdout = os.Stdout
 	kopiaServer.Stderr = os.Stderr
 

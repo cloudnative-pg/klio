@@ -2,6 +2,7 @@ package server
 
 import (
 	"fmt"
+
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"gopkg.in/validator.v2"
@@ -10,12 +11,12 @@ import (
 	"github.com/EnterpriseDB/klio/pkg/config"
 )
 
-// startPgDataCmd represents the start command
+// startBase represents the start command
 //
 //nolint:gochecknoglobals
-var startPgDataCmd = &cobra.Command{
-	Use:   "start-pgdata",
-	Short: "Starts a Klio PGDATA server (kopia)",
+var startBase = &cobra.Command{
+	Use:   "start-base",
+	Short: "Starts a Klio base server",
 	RunE: func(cmd *cobra.Command, _ []string) error {
 		var configuration config.Data
 
@@ -46,5 +47,5 @@ var startPgDataCmd = &cobra.Command{
 
 //nolint:gochecknoinits
 func init() {
-	ServerCmd.AddCommand(startPgDataCmd)
+	ServerCmd.AddCommand(startBase)
 }
