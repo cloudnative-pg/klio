@@ -36,9 +36,18 @@ spec:
     key: password
 
   tlsSecretName: server-sample-tls
+  users:
+    name: server-sample-users
 
   image: klio:dev
   imagePullPolicy: Never
+---
+apiVersion: v1
+data:
+  htpasswd: a2xpb0BjbHVzdGVyLWV4YW1wbGU6JDJ5JDEwJE5zRHl1NG1Ha1pDTE93eGkvWjdkek9aOFVPTzBBQXBCY28ua3I2LlhyVFJGRERxRFpaMkFpCg==
+kind: Secret
+metadata:
+  name: server-sample-users
 ---
 apiVersion: v1
 data:

@@ -23,7 +23,8 @@ const klioServerLabel = "klio.cnpg.io/klio-server"
 const kopiaDataMountPath = "/data"
 const kopiaLogsMountPath = "/logs"
 const kopiaCacheMountPath = "/cache"
-const htpasswdFilePath = "/htpasswd"
+const htpasswdFileName = "htpasswd"
+const kopiaConfigMountPath = "/config"
 
 func (r *ServerReconciler) reconcile(ctx context.Context, server *kliov1alpha1.Server) error {
 	if err := r.reconcileStatefulSet(ctx, server); err != nil {
@@ -168,6 +169,30 @@ func (r *ServerReconciler) reconcileStatefulSet(ctx context.Context, server *kli
 								EmptyDir: &corev1.EmptyDirVolumeSource{},
 							},
 						},
+						{
+							Name: "config",
+							VolumeSource: corev1.VolumeSource{
+								Projected: &corev1.ProjectedVolumeSource{
+									Sources: []corev1.VolumeProjection{
+										{
+											Secret: &corev1.SecretProjection{
+												// the secret users should be used here
+												LocalObjectReference: corev1.LocalObjectReference{
+													Name: server.Spec.Users.Name,
+												},
+												Items: []corev1.KeyToPath{
+													{
+														Key:  "htpasswd",
+														Path: htpasswdFileName,
+													},
+												},
+												Optional: ptr.To(false),
+											},
+										},
+									},
+								},
+							},
+						},
 					},
 				},
 			},
@@ -290,7 +315,7 @@ func (r *ServerReconciler) getServerEnv(server *kliov1alpha1.Server) []corev1.En
 		{Name: "BASE_TLS_CERT", Value: "/certs/tls.crt"},
 		{Name: "BASE_TLS_KEY", Value: "/certs/tls.key"},
 		{Name: "BASE_LISTEN_ADDRESS", Value: "0.0.0.0:51515"},
-		{Name: "BASE_HTPASSWD_FILE", Value: htpasswdFilePath},
+		{Name: "BASE_HTPASSWD_FILE", Value: path.Join(kopiaConfigMountPath, htpasswdFileName)},
 		{Name: "WAL_LISTEN_ADDRESS", Value: "0.0.0.0:52000"},
 		{Name: "WAL_TLS_CERT", Value: "/certs/tls.crt"},
 		{Name: "WAL_TLS_KEY", Value: "/certs/tls.key"},
@@ -306,7 +331,7 @@ func (r *ServerReconciler) getServerEnv(server *kliov1alpha1.Server) []corev1.En
 				},
 			},
 		},
-		{Name: "WAL_HTPASSWD_FILE", Value: htpasswdFilePath},
+		{Name: "WAL_HTPASSWD_FILE", Value: path.Join(kopiaConfigMountPath, htpasswdFileName)},
 	}
 
 	if server.Spec.BaseConfiguration.AdminUser.Name != "" {
@@ -346,5 +371,6 @@ func getVolumeMounts() []corev1.VolumeMount {
 		{Name: "logs", MountPath: kopiaLogsMountPath},
 		{Name: "cache", MountPath: kopiaCacheMountPath},
 		{Name: "tmp", MountPath: "/tmp"},
+		{Name: "config", MountPath: kopiaConfigMountPath},
 	}
 }

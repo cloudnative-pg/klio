@@ -49,6 +49,9 @@ type ServerSpec struct {
 
 	// Password is a reference to a secret containing the Klio password
 	Password *machineryapi.SecretKeySelector `json:"password"`
+
+	// Users is a reference to a secret containing a htpasswd file at the 'htpasswd' key.
+	Users corev1.LocalObjectReference `json:"users"`
 }
 
 // BaseConfiguration defines the configuration for the Kopia server
