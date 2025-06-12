@@ -32,31 +32,44 @@ type ServerSpec struct {
 	// +optional
 	Resources corev1.ResourceRequirements `json:"resources,omitempty"`
 
+	LogConfiguration LogConfiguration `json:"logConfiguration"`
+
+	CacheConfiguration CacheConfiguration `json:"cacheConfiguration"`
+
+	DataConfiguration DataConfiguration `json:"dataConfiguration"`
+
 	// Password is a reference to a secret containing the Klio password
 	Password *machineryapi.SecretKeySelector `json:"password"`
-
-	// Template to be used to generate the Persistent Volume Claim needed for data folder
-	PersistentVolumeClaimTemplate corev1.PersistentVolumeClaimSpec `json:"pvcTemplate"`
 }
 
 // KopiaConfiguration defines the configuration for the Kopia server
 type KopiaConfiguration struct {
-	// LogDirectory specifies where Kopia logs should be stored
-	// +optional
-	// +kubebuilder:default="/data/kopia_logs"
-	LogDirectory string `json:"logDirectory,omitempty"`
-
-	// CacheDirectory specifies where Kopia cache should be stored
-	// +optional
-	// +kubebuilder:default="/data/kopia_cache"
-	CacheDirectory string `json:"cacheDirectory,omitempty"`
-
 	// Resources defines the resource requirements for the Kopia server
 	// +optional
 	Resources corev1.ResourceRequirements `json:"resources,omitempty"`
 
 	// AdminUser is a reference to a secret of type 'kubernetes.io/basic-auth'
 	AdminUser corev1.LocalObjectReference `json:"adminUser"`
+}
+
+// DataConfiguration defines the configuration for the data directory
+type DataConfiguration struct {
+	// Template to be used to generate the Persistent Volume Claim needed for data folder
+	PersistentVolumeClaimTemplate corev1.PersistentVolumeClaimSpec `json:"pvcTemplate"`
+}
+
+// LogConfiguration defines the configuration for the logs directory
+type LogConfiguration struct {
+	PersistentVolumeClaimTemplate corev1.PersistentVolumeClaimSpec `json:"pvcTemplate"`
+
+	// KopiasLogDirectory specifies where Kopia logs should be stored. The volume will be mounted under /logs
+	// +kubebuilder:default="/kopia"
+	KopiaLogsDirectory string `json:"kopiaLogsDirectory"`
+}
+
+// CacheConfiguration defines the configuration for the cache directory
+type CacheConfiguration struct {
+	PersistentVolumeClaimTemplate corev1.PersistentVolumeClaimSpec `json:"pvcTemplate"`
 }
 
 // ServerStatus defines the observed state of Server.

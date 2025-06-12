@@ -3,6 +3,7 @@ package controller
 import (
 	"context"
 	"fmt"
+	"path"
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -14,6 +15,7 @@ import (
 	kliov1alpha1 "github.com/cloudnative-pg/klio/pkg/operator/api/v1alpha1"
 )
 
+const pvcTypeLabel = "klio.cnpg.io/pvcType"
 const typeLabel = "klio.cnpg.io/type"
 const kopiaTypeLabelValue = "kopia"
 const klioServerLabel = "klio.cnpg.io/klio-server"
@@ -49,10 +51,30 @@ func (r *ServerReconciler) reconcileStatefulSet(ctx context.Context, server *kli
 						Name: "data",
 						Labels: map[string]string{
 							klioServerLabel: server.Name,
-							typeLabel:       kopiaTypeLabelValue,
+							pvcTypeLabel:    "data",
 						},
 					},
-					Spec: server.Spec.PersistentVolumeClaimTemplate,
+					Spec: server.Spec.DataConfiguration.PersistentVolumeClaimTemplate,
+				},
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "cache",
+						Labels: map[string]string{
+							klioServerLabel: server.Name,
+							pvcTypeLabel:    "cache",
+						},
+					},
+					Spec: server.Spec.CacheConfiguration.PersistentVolumeClaimTemplate,
+				},
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "logs",
+						Labels: map[string]string{
+							klioServerLabel: server.Name,
+							pvcTypeLabel:    "logs",
+						},
+					},
+					Spec: server.Spec.LogConfiguration.PersistentVolumeClaimTemplate,
 				},
 			},
 			Replicas: ptr.To(int32(1)),
@@ -88,7 +110,9 @@ func (r *ServerReconciler) reconcileStatefulSet(ctx context.Context, server *kli
 							ImagePullPolicy: server.Spec.ImagePullPolicy,
 							VolumeMounts: []corev1.VolumeMount{
 								{Name: "data", MountPath: "/data"},
-								{Name: "config", MountPath: "/config"},
+								{Name: "tls", MountPath: "/certs"},
+								{Name: "logs", MountPath: "/logs"},
+								{Name: "cache", MountPath: "/cache"},
 							},
 						},
 						{
@@ -99,6 +123,9 @@ func (r *ServerReconciler) reconcileStatefulSet(ctx context.Context, server *kli
 							ImagePullPolicy: server.Spec.ImagePullPolicy,
 							VolumeMounts: []corev1.VolumeMount{
 								{Name: "data", MountPath: "/data"},
+								{Name: "tls", MountPath: "/certs"},
+								{Name: "logs", MountPath: "/logs"},
+								{Name: "cache", MountPath: "/cache"},
 							},
 							Env: kopiaEnv,
 						},
@@ -118,6 +145,8 @@ func (r *ServerReconciler) reconcileStatefulSet(ctx context.Context, server *kli
 							VolumeMounts: []corev1.VolumeMount{
 								{Name: "data", MountPath: "/data"},
 								{Name: "tls", MountPath: "/certs"},
+								{Name: "logs", MountPath: "/logs"},
+								{Name: "cache", MountPath: "/cache"},
 							},
 						},
 						// TODO: remove hardcoded
@@ -139,32 +168,18 @@ func (r *ServerReconciler) reconcileStatefulSet(ctx context.Context, server *kli
 							VolumeMounts: []corev1.VolumeMount{
 								{Name: "data", MountPath: "/data"},
 								{Name: "tls", MountPath: "/certs"},
+								{Name: "logs", MountPath: "/logs"},
+								{Name: "cache", MountPath: "/cache"},
 							},
 							Env: kopiaEnv,
 						},
 					},
 					Volumes: []corev1.Volume{
 						{
-							Name: "data",
-							VolumeSource: corev1.VolumeSource{
-								PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
-									ClaimName: server.Name,
-								},
-							},
-						},
-						{
 							Name: "tls",
 							VolumeSource: corev1.VolumeSource{
 								Secret: &corev1.SecretVolumeSource{
 									SecretName: server.Spec.TLSSecretName,
-								},
-							},
-						},
-						{
-							Name: "config",
-							VolumeSource: corev1.VolumeSource{
-								EmptyDir: &corev1.EmptyDirVolumeSource{
-									Medium: corev1.StorageMediumDefault,
 								},
 							},
 						},
@@ -239,8 +254,8 @@ func (r *ServerReconciler) getKopiaEnv(server *kliov1alpha1.Server) []corev1.Env
 			},
 		},
 		{Name: "KOPIA_CONFIG_PATH", Value: "/data/kopia.config"},
-		{Name: "KOPIA_LOG_DIR", Value: server.Spec.KopiaConfiguration.LogDirectory},
-		{Name: "KOPIA_CACHE_DIRECTORY", Value: server.Spec.KopiaConfiguration.CacheDirectory},
+		{Name: "KOPIA_LOG_DIR", Value: path.Join("/logs", server.Spec.LogConfiguration.KopiaLogsDirectory)},
+		{Name: "KOPIA_CACHE_DIRECTORY", Value: "/cache/kopia"},
 	}
 }
 
