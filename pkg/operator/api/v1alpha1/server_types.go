@@ -51,16 +51,12 @@ type KopiaConfiguration struct {
 	// +kubebuilder:default="/data/kopia_cache"
 	CacheDirectory string `json:"cacheDirectory,omitempty"`
 
-	// User specifies the username to run Kopia as
-	// +optional
-	// +kubebuilder:default="kopia"
-	User string `json:"user,omitempty"`
-
 	// Resources defines the resource requirements for the Kopia server
 	// +optional
 	Resources corev1.ResourceRequirements `json:"resources,omitempty"`
 
-	Password *machineryapi.SecretKeySelector `json:"password"`
+	// AdminUser is a reference to a secret of type 'kubernetes.io/basic-auth'
+	AdminUser corev1.LocalObjectReference `json:"adminUser"`
 }
 
 // ServerStatus defines the observed state of Server.

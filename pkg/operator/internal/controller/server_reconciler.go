@@ -27,25 +27,9 @@ func (r *ServerReconciler) reconcile(ctx context.Context, server *kliov1alpha1.S
 }
 
 func (r *ServerReconciler) reconcileStatefulSet(ctx context.Context, server *kliov1alpha1.Server) error {
-	kopiaEnv := []corev1.EnvVar{
-		{
-			Name: "KOPIA_PASSWORD",
-			ValueFrom: &corev1.EnvVarSource{
-				SecretKeyRef: &corev1.SecretKeySelector{
-					LocalObjectReference: corev1.LocalObjectReference{
-						Name: server.Spec.KopiaConfiguration.Password.Name,
-					},
-					Key: server.Spec.KopiaConfiguration.Password.Key,
-				},
-			},
-		},
-		{Name: "KOPIA_CONFIG_PATH", Value: "/data/kopia.config"},
-		{Name: "KOPIA_LOG_DIR", Value: server.Spec.KopiaConfiguration.LogDirectory},
-		{Name: "KOPIA_CACHE_DIRECTORY", Value: server.Spec.KopiaConfiguration.CacheDirectory},
-		{Name: "USER", Value: server.Spec.KopiaConfiguration.User},
-	}
-
+	kopiaEnv := r.getKopiaEnv(server)
 	klioEnv := r.getKlioEnvs(server)
+
 	kopiaName := server.Name + "-kopia"
 
 	expected := &appsv1.StatefulSet{
@@ -228,6 +212,36 @@ func (r *ServerReconciler) reconcileStatefulSet(ctx context.Context, server *kli
 	}
 
 	return nil
+}
+
+func (r *ServerReconciler) getKopiaEnv(server *kliov1alpha1.Server) []corev1.EnvVar {
+	return []corev1.EnvVar{
+		{
+			Name: "USER",
+			ValueFrom: &corev1.EnvVarSource{
+				SecretKeyRef: &corev1.SecretKeySelector{
+					LocalObjectReference: corev1.LocalObjectReference{
+						Name: server.Spec.KopiaConfiguration.AdminUser.Name,
+					},
+					Key: corev1.BasicAuthUsernameKey,
+				},
+			},
+		},
+		{
+			Name: "KOPIA_PASSWORD",
+			ValueFrom: &corev1.EnvVarSource{
+				SecretKeyRef: &corev1.SecretKeySelector{
+					LocalObjectReference: corev1.LocalObjectReference{
+						Name: server.Spec.KopiaConfiguration.AdminUser.Name,
+					},
+					Key: corev1.BasicAuthPasswordKey,
+				},
+			},
+		},
+		{Name: "KOPIA_CONFIG_PATH", Value: "/data/kopia.config"},
+		{Name: "KOPIA_LOG_DIR", Value: server.Spec.KopiaConfiguration.LogDirectory},
+		{Name: "KOPIA_CACHE_DIRECTORY", Value: server.Spec.KopiaConfiguration.CacheDirectory},
+	}
 }
 
 func (r *ServerReconciler) getKlioEnvs(server *kliov1alpha1.Server) []corev1.EnvVar {

@@ -71,6 +71,20 @@ spec:
                 description: KopiaConfiguration defines the configuration for the
                   Kopia server
                 properties:
+                  adminUser:
+                    description: AdminUser is a reference to a secret of type 'kubernetes.io/basic-auth'
+                    properties:
+                      name:
+                        default: ""
+                        description: |-
+                          Name of the referent.
+                          This field is effectively required, but due to backwards compatibility is
+                          allowed to be empty. Instances of this type with an empty value here are
+                          almost certainly wrong.
+                          More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                        type: string
+                    type: object
+                    x-kubernetes-map-type: atomic
                   cacheDirectory:
                     default: /data/kopia_cache
                     description: CacheDirectory specifies where Kopia cache should
@@ -81,21 +95,6 @@ spec:
                     description: LogDirectory specifies where Kopia logs should be
                       stored
                     type: string
-                  password:
-                    description: |-
-                      SecretKeySelector contains enough information to let you locate
-                      the key of a Secret
-                    properties:
-                      key:
-                        description: The key to select
-                        type: string
-                      name:
-                        description: Name of the referent.
-                        type: string
-                    required:
-                    - key
-                    - name
-                    type: object
                   resources:
                     description: Resources defines the resource requirements for the
                       Kopia server
@@ -156,12 +155,8 @@ spec:
                           More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
                         type: object
                     type: object
-                  user:
-                    default: kopia
-                    description: User specifies the username to run Kopia as
-                    type: string
                 required:
-                - password
+                - adminUser
                 type: object
               password:
                 description: Password is a reference to a secret containing the Klio
