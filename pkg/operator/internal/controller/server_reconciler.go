@@ -39,7 +39,7 @@ func (r *ServerReconciler) reconcileStatefulSet(ctx context.Context, server *kli
 				},
 			},
 		},
-		{Name: "KOPIA_CONFIG_PATH", Value: server.Spec.KopiaConfiguration.ConfigPath},
+		{Name: "KOPIA_CONFIG_PATH", Value: "/data/kopia.config"},
 		{Name: "KOPIA_LOG_DIR", Value: server.Spec.KopiaConfiguration.LogDirectory},
 		{Name: "KOPIA_CACHE_DIRECTORY", Value: server.Spec.KopiaConfiguration.CacheDirectory},
 		{Name: "USER", Value: server.Spec.KopiaConfiguration.User},

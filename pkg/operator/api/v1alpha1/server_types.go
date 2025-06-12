@@ -41,11 +41,6 @@ type ServerSpec struct {
 
 // KopiaConfiguration defines the configuration for the Kopia server
 type KopiaConfiguration struct {
-	// ConfigPath specifies where the Kopia configuration file should be stored
-	// +optional
-	// +kubebuilder:default="/data/kopia.config"
-	ConfigPath string `json:"configPath,omitempty"`
-
 	// LogDirectory specifies where Kopia logs should be stored
 	// +optional
 	// +kubebuilder:default="/data/kopia_logs"
