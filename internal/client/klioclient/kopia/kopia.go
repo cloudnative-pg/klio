@@ -40,13 +40,9 @@ func Connect(
 		return nil, fmt.Errorf("while writing a temporary Kopia config: %w", err)
 	}
 
-	certificateFingerprint := kopiaClientConfig.TrustedServerCertificateFingerprint
-	if len(kopiaClientConfig.ServerCertPath) > 0 {
-		var err error
-		certificateFingerprint, err = extractSHA256CertificateFingerprint(kopiaClientConfig.ServerCertPath)
-		if err != nil {
-			return nil, fmt.Errorf("error while extracting fingerprint of the kopia server certificate: %w", err)
-		}
+	certificateFingerprint, err := extractSHA256CertificateFingerprint(kopiaClientConfig.ServerCertPath)
+	if err != nil {
+		return nil, fmt.Errorf("error while extracting fingerprint of the kopia server certificate: %w", err)
 	}
 
 	// Normalize the hostname by eventually removing
@@ -63,7 +59,7 @@ func Connect(
 		ctx,
 		configFile.Name(),
 		&repo.APIServerInfo{
-			BaseURL:                             kopiaClientConfig.BaseURL,
+			BaseURL:                             kopiaClientConfig.URL,
 			TrustedServerCertificateFingerprint: certificateFingerprint,
 		},
 		kopiaClientConfig.Password,

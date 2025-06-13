@@ -18,7 +18,7 @@ var startBase = &cobra.Command{
 	Use:   "start-base",
 	Short: "Starts a Klio base server",
 	RunE: func(cmd *cobra.Command, _ []string) error {
-		var configuration config.Data
+		var configuration config.ServerConfig
 
 		// IMPORTANT: this requires this program to be built with "-tags viper_bind_struct"
 		// when using environment variables
@@ -26,18 +26,11 @@ var startBase = &cobra.Command{
 			return fmt.Errorf("could not unmarshal configuration: %w", err)
 		}
 
-		// Sets the defaults values, to be overridden by the user configuration
-		configuration.SetDefaults()
-
-		if configuration.Server == nil {
-			return ErrKlioServerSectionIsRequired
-		}
-
 		if errs := validator.Validate(&configuration); errs != nil {
 			return fmt.Errorf("configuration validation error: %w", errs)
 		}
 
-		if err := kopiaserver.Start(cmd.Context(), configuration.Server.Base); err != nil {
+		if err := kopiaserver.Start(cmd.Context(), &configuration.Base); err != nil {
 			return fmt.Errorf("while running kopia server: %w", err)
 		}
 

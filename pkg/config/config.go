@@ -8,18 +8,15 @@ import "time"
 type Data struct {
 	// Source is the configuration of the database we should collect WALs for.
 	// This is only needed fot the WAL pusher.
-	Source *Source `mapstructure:"source"`
+	Source SourceConfig `mapstructure:"source"`
 
 	// Client is the configuration of the Klio client
-	Client *ClientConfig `mapstructure:"client"`
-
-	// Server is the configuration of the Klio server
-	Server *ServerConfig `mapstructure:"server"`
+	Client ClientConfig `mapstructure:"client"`
 }
 
 // SetDefaults sets the default values of the configuration.
 func (d *Data) SetDefaults() {
-	if d.Source != nil {
+	if d.Source != (SourceConfig{}) {
 		d.Source.SetDefaults()
 	}
 }
@@ -27,10 +24,10 @@ func (d *Data) SetDefaults() {
 // ServerConfig is the configuration of the server.
 type ServerConfig struct {
 	// Base is the configuration of the Base server
-	Base *BaseServerConfig `mapstructure:"base" validate:"nonzero"`
+	Base BaseServerConfig `mapstructure:"base" validate:"nonzero"`
 
 	// Wal is the configuration of the Wal server
-	Wal *WalServerConfig `mapstructure:"wal" validate:"nonzero"`
+	Wal WalServerConfig `mapstructure:"wal" validate:"nonzero"`
 }
 
 // BaseServerConfig is the configuration that will be used for
@@ -69,30 +66,30 @@ type BaseServerConfig struct {
 	AdminPassword string `mapstructure:"admin_password"`
 }
 
-// Source is the configuration of the WAL receiver.
-type Source struct {
+// SourceConfig is the configuration of the WAL receiver.
+type SourceConfig struct {
 	// DSN is the database service we should get the WALs from
-	DSN string `validate:"nonzero"`
+	DSN string `mapstructure:"dsn" validate:"nonzero"`
 
 	// StandardDSN is the database service name to be used for a standard
 	// database connection
 	StandardDSN string `mapstructure:"standard_dsn" validate:"nonzero"`
 
 	// Slot is the name of the replication slot to be used
-	Slot string `validate:"nonzero,regexp=^[a-z0-9_]+$"`
+	Slot string `mapstructure:"slot" validate:"nonzero,regexp=^[a-z0-9_]+$"`
 
 	// StandbyMessageTimeoutSeconds is the timeout after which the WAL
 	// receiver will send a status update
-	StandbyMessageTimeoutSeconds int `validate:"min=1"`
+	StandbyMessageTimeoutSeconds int `mapstructure:"standby_message_timeout_seconds" validate:"min=1"`
 }
 
 // ClientConfig is the configuration of the Klio server.
 type ClientConfig struct {
 	// Base is the configuration of the target Base repository
-	Base *BaseRepositoryClientConfig `mapstructure:"base"`
+	Base BaseRepositoryClientConfig `mapstructure:"base"`
 
 	// Wal is the configuration of the Wal repository
-	Wal *WalRepositoryClientConfig `mapstructure:"wal"`
+	Wal WalRepositoryClientConfig `mapstructure:"wal"`
 }
 
 // WalRepositoryClientConfig is the configuration of the Klio repository
@@ -118,14 +115,11 @@ type WalRepositoryClientConfig struct {
 // BaseRepositoryClientConfig is the configuration of the Kopia repository
 // to be used to upload the data directory.
 type BaseRepositoryClientConfig struct {
-	// BaseURL is the base URL where the Kopia API server should be reached
-	BaseURL string `mapstructure:"base_url" validate:"nonzero"`
+	// URL is the base URL where the Kopia API server should be reached
+	URL string `mapstructure:"url" validate:"nonzero"`
 
 	// ServerCertPath is the path to the server public key
-	ServerCertPath string `mapstructure:"server_cert_path"`
-
-	// TrustedServerCertificateFingerprint is used to authenticate to the server side
-	TrustedServerCertificateFingerprint string `mapstructure:"trusted_server_certificate_fingerprint"`
+	ServerCertPath string `mapstructure:"server_cert_path" validate:"nonzero"`
 
 	// Hostname is the Klio server hostname.
 	// This is used to create the full username, in the form <username>@<hostname>
@@ -151,11 +145,7 @@ type WalServerConfig struct {
 	TLSKey string `mapstructure:"tls_key" validate:"nonzero"`
 
 	// WALPath is the path where the WALs should be stored
-	WALPath string `mapstructure:"wal_path" validate:"nonzero"`
-
-	// PGDataPath is the path to the Kopia repo that is used to snapshot
-	// PostgreSQL
-	PGDataPath string `mapstructure:"wal_path" validate:"nonzero"`
+	WALPath string `mapstructure:"path" validate:"nonzero"`
 
 	// EncryptionPassword is the encryption password
 	EncryptionPassword string `mapstructure:"encryption_password" validate:"nonzero"`
@@ -166,12 +156,12 @@ type WalServerConfig struct {
 }
 
 // SetDefaults sets the default values of the configuration.
-func (s *Source) SetDefaults() {
+func (s *SourceConfig) SetDefaults() {
 	s.StandbyMessageTimeoutSeconds = 10
 }
 
 // StandbyMessageTimeout returns the stanby message timeout in a
 // time.Duration.
-func (s *Source) StandbyMessageTimeout() time.Duration {
+func (s *SourceConfig) StandbyMessageTimeout() time.Duration {
 	return time.Second * time.Duration(s.StandbyMessageTimeoutSeconds)
 }

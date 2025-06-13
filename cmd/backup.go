@@ -36,13 +36,13 @@ var backupCmd = &cobra.Command{
 		// Sets the defaults values, to be overridden by the user configuration
 		configuration.SetDefaults()
 
-		if configuration.Client == nil {
+		if configuration.Client == (config.ClientConfig{}) {
 			return ErrClientSectionIsRequired
 		}
-		if configuration.Client.Base == nil {
+		if configuration.Client.Base == (config.BaseRepositoryClientConfig{}) {
 			return ErrKopiaClientSectionIsRequired
 		}
-		if configuration.Source == nil {
+		if configuration.Source == (config.SourceConfig{}) {
 			return ErrSourceSectionIsRequired
 		}
 
@@ -53,10 +53,10 @@ var backupCmd = &cobra.Command{
 		client, err := kopia.Connect(
 			cmd.Context(),
 			logger,
-			configuration.Client.Base,
+			&configuration.Client.Base,
 		)
 		if err != nil {
-			return fmt.Errorf("while connecting to the Klio server: %w %q", err, configuration.Client.Base.BaseURL)
+			return fmt.Errorf("while connecting to the Klio server: %w %q", err, configuration.Client.Base.URL)
 		}
 
 		conn, err := pgx.Connect(cmd.Context(), configuration.Source.StandardDSN)

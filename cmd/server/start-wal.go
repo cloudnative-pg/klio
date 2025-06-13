@@ -26,7 +26,7 @@ var startWALCmd = &cobra.Command{
 	Use:   "start-wal",
 	Short: "Starts a Klio WAL server",
 	RunE: func(_ *cobra.Command, _ []string) error {
-		var configuration config.Data
+		var configuration config.ServerConfig
 
 		// IMPORTANT: this requires this program to be built with "-tags viper_bind_struct"
 		// when using environment variables
@@ -34,27 +34,20 @@ var startWALCmd = &cobra.Command{
 			return fmt.Errorf("could not unmarshal configuration: %w", err)
 		}
 
-		// Sets the defaults values, to be overridden by the user configuration
-		configuration.SetDefaults()
-
-		if configuration.Server == nil {
-			return ErrKlioServerSectionIsRequired
-		}
-
 		if errs := validator.Validate(&configuration); errs != nil {
 			return fmt.Errorf("configuration validation error: %w", errs)
 		}
 
 		// Configure a listener
-		listener, err := net.Listen("tcp", configuration.Server.Wal.ListenAddress)
+		listener, err := net.Listen("tcp", configuration.Wal.ListenAddress)
 		if err != nil {
 			return fmt.Errorf("cannot listen on TCP socket: %w", err)
 		}
 
 		// Load TLS certificates
 		cert, err := tls.LoadX509KeyPair(
-			configuration.Server.Wal.TLSCert,
-			configuration.Server.Wal.TLSKey,
+			configuration.Wal.TLSCert,
+			configuration.Wal.TLSKey,
 		)
 		if err != nil {
 			return fmt.Errorf("failed to load server key pair: %w", err)
@@ -67,8 +60,8 @@ var startWALCmd = &cobra.Command{
 
 		// Connects to the Klio repository
 		repoConnection, err := repository.Open(repository.Options{
-			Path:     configuration.Server.Wal.WALPath,
-			Password: configuration.Server.Wal.EncryptionPassword,
+			Path:     configuration.Wal.WALPath,
+			Password: configuration.Wal.EncryptionPassword,
 		})
 		if err != nil {
 			return fmt.Errorf("failed to connect to local repository: %w", err)
@@ -79,9 +72,9 @@ var startWALCmd = &cobra.Command{
 			grpc.Creds(credentials.NewTLS(tlsConfig)),
 		}
 
-		if configuration.Server.Wal.HTPasswdFile != "" {
+		if configuration.Wal.HTPasswdFile != "" {
 			decorator, err := walserver.EnsureValidAuthentication(
-				configuration.Server.Wal.HTPasswdFile,
+				configuration.Wal.HTPasswdFile,
 			)
 			if err != nil {
 				return fmt.Errorf("while initializing htpasswd file parser: %w", err)

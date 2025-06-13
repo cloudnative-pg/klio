@@ -36,10 +36,10 @@ var restoreCmd = &cobra.Command{
 		// Sets the default values, to be overridden by the user configuration
 		configuration.SetDefaults()
 
-		if configuration.Client == nil {
+		if configuration.Client == (config.ClientConfig{}) {
 			return ErrClientSectionIsRequired
 		}
-		if configuration.Client.Base == nil {
+		if configuration.Client.Base == (config.BaseRepositoryClientConfig{}) {
 			return ErrKopiaClientSectionIsRequired
 		}
 
@@ -68,7 +68,7 @@ var restoreCmd = &cobra.Command{
 		client, err := kopia.Connect(
 			cmd.Context(),
 			logger,
-			configuration.Client.Base,
+			&configuration.Client.Base,
 		)
 		if err != nil {
 			return fmt.Errorf("while connecting to the Klio server: %w", err)

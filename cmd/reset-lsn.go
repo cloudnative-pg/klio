@@ -34,15 +34,15 @@ var resetLSNCommand = &cobra.Command{
 		// Sets the defaults values, to be overridden by the user configuration
 		configuration.SetDefaults()
 
-		if configuration.Source == nil {
+		if configuration.Source == (config.SourceConfig{}) {
 			return ErrSourceSectionIsRequired
 		}
 
-		if configuration.Client == nil {
+		if configuration.Client == (config.ClientConfig{}) {
 			return ErrClientSectionIsRequired
 		}
 
-		if configuration.Client.Wal == nil {
+		if configuration.Client.Wal == (config.WalRepositoryClientConfig{}) {
 			return ErrKlioClientSectionIsRequired
 		}
 
@@ -52,7 +52,7 @@ var resetLSNCommand = &cobra.Command{
 
 		client, err := grpcclient.Connect(
 			logger,
-			configuration.Client.Wal,
+			&configuration.Client.Wal,
 		)
 		if err != nil {
 			return fmt.Errorf("while connecting to the Klio server: %w", err)
