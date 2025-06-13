@@ -1,0 +1,123 @@
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+  name: cluster-example
+  annotations:
+    cnpg.io/podPatch: |-
+      [
+        {
+          "op": "add",
+          "path": "/spec/volumes/-",
+          "value": {
+            "name": "klio-server-tls",
+            "secret": {
+              "secretName": "server-sample-tls"
+            }
+          }
+        },
+        {
+          "op": "add",
+          "path": "/spec/containers/-",
+          "value": {
+            "name": "klio",
+            "image": "klio:dev",
+            "imagePullPolicy": "Never",
+            "args": [
+              "send-wal"
+            ],
+            "securityContext": {
+              "runAsUser": 26,
+              "runAsGroup": 26
+            },
+            "env": [
+              {
+                "name": "PGDATA",
+                "value": "/var/lib/postgresql/data/pgdata"
+              },
+              {
+                "name": "PGHOST",
+                "value": "/controller/run"
+              },
+              {
+                "name": "PGPORT",
+                "value": "5432"
+              },
+              {
+                "name": "SOURCE_DSN",
+                "value": "user=postgres replication=yes application_name=klio"
+              },
+              {
+                "name": "SOURCE_STANDARD_DSN",
+                "value": "user=postgres application_name=klio"
+              },
+              {
+                "name": "SOURCE_SLOT",
+                "value": "klio"
+              },
+              {
+                "name": "CLIENT_BASE_URL",
+                "value": "https://server-sample:51515"
+              },
+              {
+                "name": "CLIENT_BASE_SERVER_CERT_PATH",
+                "value": "/certs/tls.crt"
+              },
+              {
+                "name": "CLIENT_BASE_HOSTNAME",
+                "value": "cluster-example"
+              },
+              {
+                "name": "CLIENT_BASE_USERNAME",
+                "value": "klio"
+              },
+              {
+                "name": "CLIENT_BASE_PASSWORD",
+                "value": "pippopippo"
+              },
+              {
+                "name": "CLIENT_WAL_ADDRESS",
+                "value": "server-sample:52000"
+              },
+              {
+                "name": "CLIENT_WAL_CLUSTER_NAME",
+                "value": "cluster-example"
+              },
+              {
+                "name": "CLIENT_WAL_SERVER_CERT_PATH",
+                "value": "/certs/tls.crt"
+              },
+              {
+                "name": "CLIENT_WAL_USERNAME",
+                "value": "klio"
+              },
+              {
+                "name": "CLIENT_WAL_PASSWORD",
+                "value": "pippopippo"
+              }
+            ],
+            "volumeMounts": [
+              {
+                "name": "klio-server-tls",
+                "mountPath": "/certs"
+              },
+              {
+                "name": "pgdata",
+                "mountPath": "/var/lib/postgresql/data"
+              },
+              {
+                "name": "scratch-data",
+                "mountPath": "/controller"
+              }
+            ]
+          }
+        }
+      ]
+spec:
+  instances: 1
+
+  postgresql:
+    pg_hba:
+    - local replication all peer
+
+  storage:
+    size: 1Gi

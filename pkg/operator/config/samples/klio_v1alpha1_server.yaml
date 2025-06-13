@@ -1,9 +1,85 @@
 apiVersion: klio.cnpg.io/v1alpha1
 kind: Server
 metadata:
-  labels:
-    app.kubernetes.io/name: operator
-    app.kubernetes.io/managed-by: kustomize
   name: server-sample
 spec:
-  # TODO(user): Add fields here
+  baseConfiguration:
+    adminUser:
+      name: server-sample-adm
+
+  cacheConfiguration:
+    pvcTemplate:
+      resources:
+        requests:
+          storage: 1Gi
+      accessModes:
+      - ReadWriteOnce
+
+  dataConfiguration:
+    pvcTemplate:
+      resources:
+        requests:
+          storage: 1Gi
+      accessModes:
+      - ReadWriteOnce
+
+  logConfiguration:
+    pvcTemplate:
+      resources:
+        requests:
+          storage: 1Gi
+      accessModes:
+      - ReadWriteOnce
+
+  password:
+    name: server-sample-encryption
+    key: password
+
+  tlsSecretName: server-sample-tls
+
+  image: klio:dev
+  imagePullPolicy: Never
+---
+apiVersion: v1
+data:
+  password: cGlwcG9waXBwbw==
+  username: a29waWE=
+kind: Secret
+metadata:
+  name: server-sample-adm
+---
+apiVersion: v1
+data:
+  password: dGhpc3Bhc3N3b3Jk
+kind: Secret
+metadata:
+  name: server-sample-encryption
+---
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  name: selfsigned-issuer
+spec:
+  selfSigned: {}
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: server-sample
+spec:
+  secretName: server-sample-tls
+  commonName: server-sample
+  dnsNames:
+    - server-sample
+
+  duration: 2160h # 90d
+  renewBefore: 360h # 15d
+
+  isCA: false
+  usages:
+    - server auth
+
+  issuerRef:
+    name: selfsigned-issuer
+    kind: Issuer
+    group: cert-manager.io

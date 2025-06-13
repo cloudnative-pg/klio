@@ -17,34 +17,40 @@ import (
 
 const pvcTypeLabel = "klio.cnpg.io/pvcType"
 const typeLabel = "klio.cnpg.io/type"
-const kopiaTypeLabelValue = "kopia"
+const baseTypeLabelValue = "base"
 const klioServerLabel = "klio.cnpg.io/klio-server"
+
+const kopiaDataMountPath = "/data"
+const kopiaLogsMountPath = "/logs"
+const kopiaCacheMountPath = "/cache"
+const htpasswdFilePath = "/htpasswd"
 
 func (r *ServerReconciler) reconcile(ctx context.Context, server *kliov1alpha1.Server) error {
 	if err := r.reconcileStatefulSet(ctx, server); err != nil {
 		return fmt.Errorf("failed to reconcile StatefulSet: %w", err)
 	}
 
+	if err := r.reconcileService(ctx, server); err != nil {
+		return fmt.Errorf("failed to reconcile Service: %w", err)
+	}
+
 	return nil
 }
 
 func (r *ServerReconciler) reconcileStatefulSet(ctx context.Context, server *kliov1alpha1.Server) error {
-	kopiaEnv := r.getKopiaEnv(server)
-	klioEnv := r.getKlioEnvs(server)
-
-	kopiaName := server.Name + "-kopia"
+	klioName := server.Name + "-klio"
 
 	expected := &appsv1.StatefulSet{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      kopiaName,
+			Name:      klioName,
 			Namespace: server.Namespace,
 			Labels: map[string]string{
 				klioServerLabel: server.Name,
-				typeLabel:       kopiaTypeLabelValue,
+				typeLabel:       baseTypeLabelValue,
 			},
 		},
 		Spec: appsv1.StatefulSetSpec{
-			ServiceName: kopiaName,
+			ServiceName: klioName,
 			VolumeClaimTemplates: []corev1.PersistentVolumeClaim{
 				{
 					ObjectMeta: metav1.ObjectMeta{
@@ -81,14 +87,14 @@ func (r *ServerReconciler) reconcileStatefulSet(ctx context.Context, server *kli
 			Selector: &metav1.LabelSelector{
 				MatchLabels: map[string]string{
 					klioServerLabel: server.Name,
-					typeLabel:       kopiaTypeLabelValue,
+					typeLabel:       baseTypeLabelValue,
 				},
 			},
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
 					Labels: map[string]string{
 						klioServerLabel: server.Name,
-						typeLabel:       kopiaTypeLabelValue,
+						typeLabel:       baseTypeLabelValue,
 					},
 				},
 				Spec: corev1.PodSpec{
@@ -104,74 +110,47 @@ func (r *ServerReconciler) reconcileStatefulSet(ctx context.Context, server *kli
 					},
 					InitContainers: []corev1.Container{
 						{
-							Name:            "klio-initialize",
-							Command:         []string{"klio", "initialize", "--config=/config/klio.yaml"},
+							Name: "init",
+							Args: []string{
+								"server",
+								"initialize",
+							},
 							Image:           server.Spec.Image,
 							ImagePullPolicy: server.Spec.ImagePullPolicy,
-							VolumeMounts: []corev1.VolumeMount{
-								{Name: "data", MountPath: "/data"},
-								{Name: "tls", MountPath: "/certs"},
-								{Name: "logs", MountPath: "/logs"},
-								{Name: "cache", MountPath: "/cache"},
-							},
-						},
-						{
-							Name: "kopia-initialize",
-							Command: []string{"sh", "-c",
-								"(test ! -d /data/pgdata && kopia repository create filesystem --path=/data/pgdata) ||:"},
-							Image:           server.Spec.Image,
-							ImagePullPolicy: server.Spec.ImagePullPolicy,
-							VolumeMounts: []corev1.VolumeMount{
-								{Name: "data", MountPath: "/data"},
-								{Name: "tls", MountPath: "/certs"},
-								{Name: "logs", MountPath: "/logs"},
-								{Name: "cache", MountPath: "/cache"},
-							},
-							Env: kopiaEnv,
+							VolumeMounts:    getVolumeMounts(),
+							Env:             r.getServerEnv(server),
 						},
 					},
 					Containers: []corev1.Container{
 						{
-							Name:            "klio-server",
-							Command:         []string{"klio", "serve"},
+							Name: "base",
+							Args: []string{
+								"server",
+								"start-base",
+							},
+							Image:           server.Spec.Image,
+							ImagePullPolicy: server.Spec.ImagePullPolicy,
+							Resources:       server.Spec.BaseConfiguration.Resources,
+							VolumeMounts:    getVolumeMounts(),
+							Ports: []corev1.ContainerPort{
+								{Name: "base", ContainerPort: 51515, Protocol: corev1.ProtocolTCP},
+							},
+							Env: r.getServerEnv(server),
+						},
+						{
+							Name: "wal",
+							Args: []string{
+								"server",
+								"start-wal",
+							},
 							Image:           server.Spec.Image,
 							ImagePullPolicy: server.Spec.ImagePullPolicy,
 							Resources:       server.Spec.Resources,
 							Ports: []corev1.ContainerPort{
-								{Name: "klio", ContainerPort: 52000, Protocol: corev1.ProtocolTCP},
-								{Name: "kopia", ContainerPort: 51515, Protocol: corev1.ProtocolTCP},
+								{Name: "wal", ContainerPort: 52000, Protocol: corev1.ProtocolTCP},
 							},
-							Env: klioEnv,
-							VolumeMounts: []corev1.VolumeMount{
-								{Name: "data", MountPath: "/data"},
-								{Name: "tls", MountPath: "/certs"},
-								{Name: "logs", MountPath: "/logs"},
-								{Name: "cache", MountPath: "/cache"},
-							},
-						},
-						// TODO: remove hardcoded
-						{
-							Name: "kopia-server",
-							Command: []string{
-								"kopia", "server", "start",
-								"--address=0.0.0.0:51515",
-								"--server-username=klio@cluster-example",
-								"--server-password=CHANGE_ME_KOPIA_PASSWORD
-								"--server-control-username=klio",
-								"--server-control-password=CHANGE_ME_KOPIA_PASSWORD
-								"--tls-cert-file=/certs/tls.crt",
-								"--tls-key-file=/certs/tls.key",
-							},
-							Image:           server.Spec.Image,
-							ImagePullPolicy: server.Spec.ImagePullPolicy,
-							Resources:       server.Spec.KopiaConfiguration.Resources,
-							VolumeMounts: []corev1.VolumeMount{
-								{Name: "data", MountPath: "/data"},
-								{Name: "tls", MountPath: "/certs"},
-								{Name: "logs", MountPath: "/logs"},
-								{Name: "cache", MountPath: "/cache"},
-							},
-							Env: kopiaEnv,
+							Env:          r.getServerEnv(server),
+							VolumeMounts: getVolumeMounts(),
 						},
 					},
 					Volumes: []corev1.Volume{
@@ -181,6 +160,12 @@ func (r *ServerReconciler) reconcileStatefulSet(ctx context.Context, server *kli
 								Secret: &corev1.SecretVolumeSource{
 									SecretName: server.Spec.TLSSecretName,
 								},
+							},
+						},
+						{
+							Name: "tmp",
+							VolumeSource: corev1.VolumeSource{
+								EmptyDir: &corev1.EmptyDirVolumeSource{},
 							},
 						},
 					},
@@ -229,44 +214,67 @@ func (r *ServerReconciler) reconcileStatefulSet(ctx context.Context, server *kli
 	return nil
 }
 
-func (r *ServerReconciler) getKopiaEnv(server *kliov1alpha1.Server) []corev1.EnvVar {
-	return []corev1.EnvVar{
-		{
-			Name: "USER",
-			ValueFrom: &corev1.EnvVarSource{
-				SecretKeyRef: &corev1.SecretKeySelector{
-					LocalObjectReference: corev1.LocalObjectReference{
-						Name: server.Spec.KopiaConfiguration.AdminUser.Name,
-					},
-					Key: corev1.BasicAuthUsernameKey,
-				},
+func (r *ServerReconciler) reconcileService(ctx context.Context, server *kliov1alpha1.Server) error {
+	expected := &corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      server.Name,
+			Namespace: server.Namespace,
+			Labels: map[string]string{
+				klioServerLabel: server.Name,
+				typeLabel:       baseTypeLabelValue,
 			},
 		},
-		{
-			Name: "KOPIA_PASSWORD",
-			ValueFrom: &corev1.EnvVarSource{
-				SecretKeyRef: &corev1.SecretKeySelector{
-					LocalObjectReference: corev1.LocalObjectReference{
-						Name: server.Spec.KopiaConfiguration.AdminUser.Name,
-					},
-					Key: corev1.BasicAuthPasswordKey,
+		Spec: corev1.ServiceSpec{
+			ClusterIP: "None",
+			Ports: []corev1.ServicePort{
+				{
+					Name: "base",
+					Port: 51515,
+				},
+				{
+					Name: "wal",
+					Port: 52000,
 				},
 			},
+			Selector: map[string]string{
+				klioServerLabel: server.Name,
+				typeLabel:       baseTypeLabelValue,
+			},
 		},
-		{Name: "KOPIA_CONFIG_PATH", Value: "/data/kopia.config"},
-		{Name: "KOPIA_LOG_DIR", Value: path.Join("/logs", server.Spec.LogConfiguration.KopiaLogsDirectory)},
-		{Name: "KOPIA_CACHE_DIRECTORY", Value: "/cache/kopia"},
 	}
+
+	err := ctrl.SetControllerReference(server, expected, r.Scheme)
+	if err != nil {
+		return fmt.Errorf("failed to set controller reference: %w", err)
+	}
+
+	var current corev1.Service
+	err = r.Get(ctx, client.ObjectKeyFromObject(expected), &current)
+	if err != nil {
+		if client.IgnoreNotFound(err) != nil {
+			return err
+		}
+		return r.Create(ctx, expected)
+	}
+
+	if !metav1.IsControlledBy(&current, server) {
+		return fmt.Errorf("service is not owned by Server %s/%s", server.Namespace, server.Name)
+	}
+
+	if err := r.Update(ctx, expected); err != nil {
+		return fmt.Errorf("failed to update service %s/%s: %w", expected.Namespace, expected.Name, err)
+	}
+
+	return nil
 }
 
-func (r *ServerReconciler) getKlioEnvs(server *kliov1alpha1.Server) []corev1.EnvVar {
-	return []corev1.EnvVar{
-		{Name: "KLIO_SERVER_LISTEN_ADDRESS", Value: "0.0.0.0:52000"},
-		{Name: "KLIO_SERVER_SERVER_CERT_PATH", Value: "/certs/tls.crt"},
-		{Name: "KLIO_SERVER_SERVER_KEY_PATH", Value: "/certs/tls.key"},
-		{Name: "KLIO_SERVER_WAL_PATH", Value: "/data/wals"},
+func (r *ServerReconciler) getServerEnv(server *kliov1alpha1.Server) []corev1.EnvVar {
+	basePath := path.Join(kopiaDataMountPath, "base")
+	walPath := path.Join(kopiaDataMountPath, "wal")
+
+	result := []corev1.EnvVar{
 		{
-			Name: "KLIO_SERVER_PASSWORD",
+			Name: "BASE_ENCRYPTION_PASSWORD",
 			ValueFrom: &corev1.EnvVarSource{
 				SecretKeyRef: &corev1.SecretKeySelector{
 					LocalObjectReference: corev1.LocalObjectReference{
@@ -276,5 +284,67 @@ func (r *ServerReconciler) getKlioEnvs(server *kliov1alpha1.Server) []corev1.Env
 				},
 			},
 		},
+		{Name: "BASE_LOGS", Value: kopiaLogsMountPath},
+		{Name: "BASE_CACHE", Value: kopiaCacheMountPath},
+		{Name: "BASE_REPOSITORY", Value: basePath},
+		{Name: "BASE_TLS_CERT", Value: "/certs/tls.crt"},
+		{Name: "BASE_TLS_KEY", Value: "/certs/tls.key"},
+		{Name: "BASE_LISTEN_ADDRESS", Value: "0.0.0.0:51515"},
+		{Name: "BASE_HTPASSWD_FILE", Value: htpasswdFilePath},
+		{Name: "WAL_LISTEN_ADDRESS", Value: "0.0.0.0:52000"},
+		{Name: "WAL_TLS_CERT", Value: "/certs/tls.crt"},
+		{Name: "WAL_TLS_KEY", Value: "/certs/tls.key"},
+		{Name: "WAL_PATH", Value: walPath},
+		{
+			Name: "WAL_ENCRYPTION_PASSWORD",
+			ValueFrom: &corev1.EnvVarSource{
+				SecretKeyRef: &corev1.SecretKeySelector{
+					LocalObjectReference: corev1.LocalObjectReference{
+						Name: server.Spec.Password.Name,
+					},
+					Key: server.Spec.Password.Key,
+				},
+			},
+		},
+		{Name: "WAL_HTPASSWD_FILE", Value: htpasswdFilePath},
+	}
+
+	if server.Spec.BaseConfiguration.AdminUser.Name != "" {
+		result = append(result,
+			corev1.EnvVar{
+				Name: "BASE_ADMIN_USER",
+				ValueFrom: &corev1.EnvVarSource{
+					SecretKeyRef: &corev1.SecretKeySelector{
+						LocalObjectReference: corev1.LocalObjectReference{
+							Name: server.Spec.BaseConfiguration.AdminUser.Name,
+						},
+						Key: corev1.BasicAuthUsernameKey,
+					},
+				},
+			},
+			corev1.EnvVar{
+				Name: "BASE_ADMIN_PASSWORD",
+				ValueFrom: &corev1.EnvVarSource{
+					SecretKeyRef: &corev1.SecretKeySelector{
+						LocalObjectReference: corev1.LocalObjectReference{
+							Name: server.Spec.BaseConfiguration.AdminUser.Name,
+						},
+						Key: corev1.BasicAuthPasswordKey,
+					},
+				},
+			},
+		)
+	}
+
+	return result
+}
+
+func getVolumeMounts() []corev1.VolumeMount {
+	return []corev1.VolumeMount{
+		{Name: "data", MountPath: kopiaDataMountPath},
+		{Name: "tls", MountPath: "/certs"},
+		{Name: "logs", MountPath: kopiaLogsMountPath},
+		{Name: "cache", MountPath: kopiaCacheMountPath},
+		{Name: "tmp", MountPath: "/tmp"},
 	}
 }

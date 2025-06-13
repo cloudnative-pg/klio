@@ -39,9 +39,88 @@ spec:
           spec:
             description: ServerSpec defines the desired state of Server.
             properties:
+              baseConfiguration:
+                description: BaseConfiguration is the configuration of the Kopia server
+                properties:
+                  adminUser:
+                    description: AdminUser is a reference to a secret of type 'kubernetes.io/basic-auth'
+                    properties:
+                      name:
+                        default: ""
+                        description: |-
+                          Name of the referent.
+                          This field is effectively required, but due to backwards compatibility is
+                          allowed to be empty. Instances of this type with an empty value here are
+                          almost certainly wrong.
+                          More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                        type: string
+                    type: object
+                    x-kubernetes-map-type: atomic
+                  resources:
+                    description: Resources defines the resource requirements for the
+                      Kopia server
+                    properties:
+                      claims:
+                        description: |-
+                          Claims lists the names of resources, defined in spec.resourceClaims,
+                          that are used by this container.
+
+                          This is an alpha field and requires enabling the
+                          DynamicResourceAllocation feature gate.
+
+                          This field is immutable. It can only be set for containers.
+                        items:
+                          description: ResourceClaim references one entry in PodSpec.ResourceClaims.
+                          properties:
+                            name:
+                              description: |-
+                                Name must match the name of one entry in pod.spec.resourceClaims of
+                                the Pod where this field is used. It makes that resource available
+                                inside a container.
+                              type: string
+                            request:
+                              description: |-
+                                Request is the name chosen for a request in the referenced claim.
+                                If empty, everything from the claim is made available, otherwise
+                                only the result of this request.
+                              type: string
+                          required:
+                          - name
+                          type: object
+                        type: array
+                        x-kubernetes-list-map-keys:
+                        - name
+                        x-kubernetes-list-type: map
+                      limits:
+                        additionalProperties:
+                          anyOf:
+                          - type: integer
+                          - type: string
+                          pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                          x-kubernetes-int-or-string: true
+                        description: |-
+                          Limits describes the maximum amount of compute resources allowed.
+                          More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
+                        type: object
+                      requests:
+                        additionalProperties:
+                          anyOf:
+                          - type: integer
+                          - type: string
+                          pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                          x-kubernetes-int-or-string: true
+                        description: |-
+                          Requests describes the minimum amount of compute resources required.
+                          If Requests is omitted for a container, it defaults to Limits if that is explicitly specified,
+                          otherwise to an implementation-defined value. Requests cannot exceed Limits.
+                          More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
+                        type: object
+                    type: object
+                type: object
               cacheConfiguration:
-                description: CacheConfiguration defines the configuration for the
-                  cache directory
+                description: |-
+                  CacheConfiguration is the configuration of the PVC that should be
+                  used for the cache
                 properties:
                   pvcTemplate:
                     description: |-
@@ -246,8 +325,9 @@ spec:
                 - pvcTemplate
                 type: object
               dataConfiguration:
-                description: DataConfiguration defines the configuration for the data
-                  directory
+                description: |-
+                  DataConfiguration is the configuration of the PVC that should be used
+                  for the base backups
                 properties:
                   pvcTemplate:
                     description: Template to be used to generate the Persistent Volume
@@ -478,96 +558,10 @@ spec:
                   type: object
                   x-kubernetes-map-type: atomic
                 type: array
-              kopiaConfiguration:
-                description: KopiaConfiguration defines the configuration for the
-                  Kopia server
-                properties:
-                  adminUser:
-                    description: AdminUser is a reference to a secret of type 'kubernetes.io/basic-auth'
-                    properties:
-                      name:
-                        default: ""
-                        description: |-
-                          Name of the referent.
-                          This field is effectively required, but due to backwards compatibility is
-                          allowed to be empty. Instances of this type with an empty value here are
-                          almost certainly wrong.
-                          More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-                        type: string
-                    type: object
-                    x-kubernetes-map-type: atomic
-                  resources:
-                    description: Resources defines the resource requirements for the
-                      Kopia server
-                    properties:
-                      claims:
-                        description: |-
-                          Claims lists the names of resources, defined in spec.resourceClaims,
-                          that are used by this container.
-
-                          This is an alpha field and requires enabling the
-                          DynamicResourceAllocation feature gate.
-
-                          This field is immutable. It can only be set for containers.
-                        items:
-                          description: ResourceClaim references one entry in PodSpec.ResourceClaims.
-                          properties:
-                            name:
-                              description: |-
-                                Name must match the name of one entry in pod.spec.resourceClaims of
-                                the Pod where this field is used. It makes that resource available
-                                inside a container.
-                              type: string
-                            request:
-                              description: |-
-                                Request is the name chosen for a request in the referenced claim.
-                                If empty, everything from the claim is made available, otherwise
-                                only the result of this request.
-                              type: string
-                          required:
-                          - name
-                          type: object
-                        type: array
-                        x-kubernetes-list-map-keys:
-                        - name
-                        x-kubernetes-list-type: map
-                      limits:
-                        additionalProperties:
-                          anyOf:
-                          - type: integer
-                          - type: string
-                          pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
-                          x-kubernetes-int-or-string: true
-                        description: |-
-                          Limits describes the maximum amount of compute resources allowed.
-                          More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
-                        type: object
-                      requests:
-                        additionalProperties:
-                          anyOf:
-                          - type: integer
-                          - type: string
-                          pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
-                          x-kubernetes-int-or-string: true
-                        description: |-
-                          Requests describes the minimum amount of compute resources required.
-                          If Requests is omitted for a container, it defaults to Limits if that is explicitly specified,
-                          otherwise to an implementation-defined value. Requests cannot exceed Limits.
-                          More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
-                        type: object
-                    type: object
-                required:
-                - adminUser
-                type: object
               logConfiguration:
-                description: LogConfiguration defines the configuration for the logs
-                  directory
+                description: LogConfiguration is the configuration of the logging
+                  infrastructure
                 properties:
-                  kopiaLogsDirectory:
-                    default: /kopia
-                    description: KopiasLogDirectory specifies where Kopia logs should
-                      be stored. The volume will be mounted under /logs
-                    type: string
                   pvcTemplate:
                     description: |-
                       PersistentVolumeClaimSpec describes the common attributes of storage devices
@@ -768,7 +762,6 @@ spec:
                         type: string
                     type: object
                 required:
-                - kopiaLogsDirectory
                 - pvcTemplate
                 type: object
               password:
@@ -846,12 +839,14 @@ spec:
                     type: object
                 type: object
               tlsSecretName:
+                description: |-
+                  TLSSecretName is the name of the Kubernetes secret containing the server-side certificate
+                  to be used for the Klio server.
                 type: string
             required:
             - cacheConfiguration
             - dataConfiguration
             - image
-            - kopiaConfiguration
             - logConfiguration
             - password
             - tlsSecretName
