@@ -70,7 +70,7 @@ func Connect(logger *slog.Logger, cfg *config.WalRepositoryClientConfig) (*Conne
 		cfg.Address,
 		grpc.WithTransportCredentials(credentials.NewTLS(tlsConfig)),
 		grpc.WithPerRPCCredentials(&basicAuthCredentials{
-			username: cfg.Username,
+			username: fmt.Sprintf("%s@%s", cfg.Username, cfg.ClusterName),
 			password: cfg.Password,
 		}),
 	)
