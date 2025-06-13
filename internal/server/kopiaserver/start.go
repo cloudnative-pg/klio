@@ -18,6 +18,8 @@ import (
 const kopiaCommand = "kopia"
 
 // Start runs a Kopia server with the passed configuration.
+//
+//nolint:cyclop
 func Start(ctx context.Context, cfg *config.BaseServerConfig) error {
 	log := slog.Default()
 
@@ -50,7 +52,7 @@ func Start(ctx context.Context, cfg *config.BaseServerConfig) error {
 		// These are just the default values... should
 		// we set something else?
 		ClientOptions:  repo.ClientOptions{},
-		CachingOptions: content.CachingOptions{},
+		CachingOptions: kopiaCachingOptions(cfg),
 	}); err != nil {
 		return fmt.Errorf("while connecting to the repository: %w", err)
 	}
@@ -98,4 +100,18 @@ func Start(ctx context.Context, cfg *config.BaseServerConfig) error {
 	}
 
 	return nil
+}
+
+// kopiaCachingOptions returns the Kopia cache size for the passed configuration.
+func kopiaCachingOptions(cfg *config.BaseServerConfig) content.CachingOptions {
+	// https://github.com/kopia/kopia/blob/01335949d83a033ed01b29e1dd019b4379d7fb0d/cli/command_repository_connect.go#L68
+	contentCacheSizeMB := int64(5000)
+	metadataCacheSizeMB := int64(5000)
+
+	// https://github.com/kopia/kopia/blob/01335949d83a033ed01b29e1dd019b4379d7fb0d/cli/command_repository_connect.go#L92
+	return content.CachingOptions{
+		CacheDirectory:         cfg.CacheDirectory,
+		ContentCacheSizeBytes:  contentCacheSizeMB << 20,
+		MetadataCacheSizeBytes: metadataCacheSizeMB << 20,
+	}
 }
