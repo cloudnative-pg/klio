@@ -34,13 +34,13 @@ nfpms:
     maintainer: Cloud Native Team <info@enterprisedb.com>
 
     contents:
-      - src: systemd/klio.service
+      - src: hack/systemd/klio.service
         dst: /usr/share/klio/klio.service
 
-      - src: systemd/klio-send-wal.service
+      - src: hack/systemd/klio-send-wal.service
         dst: /usr/share/klio/klio-send-wal.service
 
-      - src: systemd/kopia.service
+      - src: hack/systemd/kopia.service
         dst: /usr/share/klio/kopia.service
 
     formats:

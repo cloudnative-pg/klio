@@ -20,7 +20,7 @@
   },
   "kustomize": {
     "ignorePaths": [
-      "kubernetes/klio/overlays/**/kustomization.yaml"
+      "core/kubernetes/klio/overlays/**/kustomization.yaml"
     ]
   },
   "lockFileMaintenance": {
