@@ -51,12 +51,12 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
       - name: Run CI task
         run: |
-          task ci
+          task all:ci
       - name: Upload assets
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: klio
           path: |
-            dist/*.deb
-            dist/*.rpm
-            dist/*.tar.gz
+            core/dist/*.deb
+            core/dist/*.rpm
+            core/dist/*.tar.gz

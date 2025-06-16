@@ -8,7 +8,7 @@ on:
     branches:
       - main
     paths:
-      - 'web/**'
+      - 'documentation/web/**'
 
 # Prevent parallel deployments when multiple commits are pushed to main
 # in a short time.
@@ -35,7 +35,7 @@ jobs:
           node-version: latest
           check-latest: 'false'
           cache: yarn
-          cache-dependency-path: web/yarn.lock
+          cache-dependency-path: documentation/web/yarn.lock
 
       - name: Setup Pages
         uses: actions/configure-pages@v5
@@ -45,13 +45,13 @@ jobs:
         run: yarn install --frozen-lockfile --non-interactive
 
       - name: Build website
-        working-directory: web
+        working-directory: documentation/web
         run: yarn build
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: web/build
+          path: documentation/web/build
 
   deploy:
     permissions:

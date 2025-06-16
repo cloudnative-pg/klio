@@ -12,47 +12,21 @@ vars:
   REGISTRY_PORT: 5000
 
 tasks:
-  lint:
-    desc: Run golangci-lint
-    env:
-      # renovate: datasource=git-refs depName=golangci-lint lookupName=https://github.com/sagikazarmark/daggerverse currentValue=main
-      DAGGER_GOLANGCI_LINT_SHA: ceffda4aebd349a24fc00e591b4ed9b801535b65
-      # renovate: datasource=docker depName=golangci/golangci-lint versioning=semver
-      GOLANGCI_LINT_VERSION: v2.1.6
-    cmds:
-      - >
-        GITHUB_REF= dagger -s call -m github.com/sagikazarmark/daggerverse/golangci-lint@${DAGGER_GOLANGCI_LINT_SHA}
-        --version ${GOLANGCI_LINT_VERSION}
-        run --source . --config .golangci.yml stdout
-    sources:
-      - ./**/*.go
 
-  wordlist-ordered:
-    desc: Order the word list file
-    run: once
-    cmds:
-      - LANG=C LC_ALL=C sort .wordlist.txt > .wordlist.txt.new
-      - mv -f .wordlist.txt.new .wordlist.txt
-    sources:
-      - .wordlist.txt
+  ####################################
+  ## ALL
+  ####################################
 
-  spellcheck:
-    desc: Run spellcheck
+  all:ci:
+    desc: Run the CI pipeline
     deps:
-      - wordlist-ordered
-    env:
-      # renovate: datasource=git-refs depName=spellcheck lookupName=https://github.com/cloudnative-pg/daggerverse currentValue=main
-      DAGGER_SPELLCHECK_SHA: d8681eb0132bb9f56c9c245cc33f95d09c4645f4
-    cmds:
-      - >
-        GITHUB_REF= dagger -s call -m github.com/cloudnative-pg/daggerverse/spellcheck@${DAGGER_SPELLCHECK_SHA}
-        spellcheck --source . with-exec --use-entrypoint --args="" stdout
-    sources:
-      - ./**/*.md
-      - .spellcheck.yaml
-      - .wordlist.txt
+      - all:commitlint
+      - all:uncommitted
+      - core:ci
+      - documentation:ci
+      - operator:ci
 
-  commitlint:
+  all:commitlint:
     desc: Check for conventional commits
     env:
       # renovate: datasource=git-refs depName=commitlint lookupName=https://github.com/cloudnative-pg/daggerverse currentValue=main
@@ -62,12 +36,11 @@ tasks:
         GITHUB_REF= dagger -s call -m github.com/cloudnative-pg/daggerverse/commitlint@${DAGGER_COMMITLINT_SHA}
         lint --source . --args "--from=origin/main" stdout
 
-  uncommitted:
+  all:uncommitted:
     desc: Check for uncommitted changes
     deps:
-      - wordlist-ordered
-      - protoc-gen-go-grpc
-      - protoc-gen-doc
+      - documentation:wordlist-ordered
+      - documentation:protoc-gen-doc
     env:
       # renovate: datasource=git-refs depName=uncommitted lookupName=https://github.com/cloudnative-pg/daggerverse currentValue=main
       DAGGER_UNCOMMITTED_SHA: d8681eb0132bb9f56c9c245cc33f95d09c4645f4
@@ -78,8 +51,73 @@ tasks:
     sources:
       - ./**
 
-  go-test:
+  ####################################
+  ## CORE
+  ####################################
+
+  core:ci:
+    desc: Run the core CI pipeline
+    deps:
+      - core:lint
+      - core:protolint
+      - core:protoc-gen-go-grpc
+      - core:go-test
+      - core:containerize-snapshot
+
+  core:lint:
+    desc: Run golangci-lint on core
+    deps:
+      - core:protoc-gen-go-grpc
+    cmds:
+      - task: internal:lint
+        vars:
+          WORKDIR: "core"
+    sources:
+      - core/**/*.go
+
+  core:protolint:
+    desc: Run protolint
+    dir: core
+    run: once
+    env:
+      # renovate: datasource=git-refs depName=protolint lookupName=https://github.com/cloudnative-pg/daggerverse currentValue=main
+      DAGGER_PROTOLINT_SHA: d8681eb0132bb9f56c9c245cc33f95d09c4645f4
+    cmds:
+      - >
+        GITHUB_REF= dagger -s call -m github.com/cloudnative-pg/daggerverse/protolint@${DAGGER_PROTOLINT_SHA}
+        lint --source . --args "--config_path=.protolint.yaml" --args proto/ stdout
+    sources:
+      - proto/**/*.proto
+
+  core:protoc-gen-go-grpc:
+    desc: Compile proto files
+    deps:
+      - core:protolint
+    dir: core
+    run: once
+    env:
+      # renovate: datasource=git-refs depName=protoc-gen-go-grpc lookupName=https://github.com/cloudnative-pg/daggerverse currentValue=main
+      DAGGER_PROTOC_GEN_GO_GRPC_SHA: d8681eb0132bb9f56c9c245cc33f95d09c4645f4
+    cmds:
+      - >
+        GITHUB_REF= dagger -s call
+        -m github.com/cloudnative-pg/daggerverse/protoc-gen-go-grpc@${DAGGER_PROTOC_GEN_GO_GRPC_SHA}
+        run --source . --go-opt module=github.com/EnterpriseDB/klio/internal/grpc
+        --go-grpcopt module=github.com/EnterpriseDB/klio/internal/grpc --proto-path proto -o internal/grpc/
+    sources:
+      - proto/**/*.proto
+
+  core:clean:
+    desc: Cleanup of the core build artifacts
+    dir: core
+    cmds:
+      - rm -rf internal/grpc/*.pb.go
+
+  core:go-test:
     desc: Run go test
+    dir: core
+    deps:
+      - core:protoc-gen-go-grpc
     env:
       # renovate: datasource=docker depName=golang versioning=semver
       GOLANG_IMAGE_VERSION: 1.24.3
@@ -98,62 +136,11 @@ tasks:
     sources:
       - ./**/*.go
 
-  protolint:
-    desc: Run protolint
-    env:
-      # renovate: datasource=git-refs depName=protolint lookupName=https://github.com/cloudnative-pg/daggerverse currentValue=main
-      DAGGER_PROTOLINT_SHA: d8681eb0132bb9f56c9c245cc33f95d09c4645f4
-    cmds:
-      - >
-        GITHUB_REF= dagger -s call -m github.com/cloudnative-pg/daggerverse/protolint@${DAGGER_PROTOLINT_SHA}
-        lint --source . --args "--config_path=.protolint.yaml" --args proto/ stdout
-    sources:
-      - proto/**/*.proto
-
-  protoc-gen-go-grpc:
-    desc: Compile proto files
-    deps:
-      - protolint
-    env:
-      # renovate: datasource=git-refs depName=protoc-gen-go-grpc lookupName=https://github.com/cloudnative-pg/daggerverse currentValue=main
-      DAGGER_PROTOC_GEN_GO_GRPC_SHA: d8681eb0132bb9f56c9c245cc33f95d09c4645f4
-    cmds:
-      - >
-        GITHUB_REF= dagger -s call
-        -m github.com/cloudnative-pg/daggerverse/protoc-gen-go-grpc@${DAGGER_PROTOC_GEN_GO_GRPC_SHA}
-        run --source . --go-opt module=github.com/EnterpriseDB/klio/internal/grpc
-        --go-grpcopt module=github.com/EnterpriseDB/klio/internal/grpc --proto-path proto -o internal/grpc/
-    sources:
-      - proto/**/*.proto
-
-  protoc-gen-doc:
-    desc: Generate documentation from proto files
-    run: once
-    env:
-      # renovate: datasource=git-refs depName=protoc-gen-doc lookupName=https://github.com/cloudnative-pg/daggerverse currentValue=main
-      DAGGER_PROTOC_GEN_DOC_SHA: d8681eb0132bb9f56c9c245cc33f95d09c4645f4
-    cmds:
-      - >
-        GITHUB_REF= dagger -s call -m github.com/cloudnative-pg/daggerverse/protoc-gen-doc@${DAGGER_PROTOC_GEN_DOC_SHA}
-        generate --proto-dir proto --doc-opt "markdown,protocol.md" -o web/docs/developer
-    sources:
-      - proto/**/*.proto
-
-  ci:
-    desc: Run the CI pipeline
-    deps:
-      - lint
-      - spellcheck
-      - commitlint
-      - go-test
-      - uncommitted
-      - goreleaser-snapshot
-      - containerize-snapshot
-      - docusaurus-build-test
-      - docusaurus-version-is-aligned
-
-  goreleaser-snapshot:
+  core:goreleaser-snapshot:
     desc: Build snapshot packages
+    deps:
+      - core:protoc-gen-go-grpc
+    dir: core
     env:
       # renovate: datasource=git-refs depName=goreleaser lookupName=https://github.com/act3-ai/dagger currentValue=main
       DAGGER_GORELEASER_SHA: 0beeb456ee366b53a0b6e15446bc7803e8f16fe5
@@ -169,9 +156,15 @@ tasks:
       # TODO: revert this workaround when https://github.com/dagger/dagger/issues/6387 is fixed.
       # "directory --path dist export --path dist" should work properly but it creates the dist/
       # directory with wrong permissions (0700).
+    sources:
+      - ./**
+      - exclude: dist/**
 
-  goreleaser-publish:
+  core:goreleaser-publish:
     desc: Upload the release artifacts
+    deps:
+      - core:protoc-gen-go-grpc
+    dir: core
     requires:
       # We expect this to run in a GitHub workflow, so we put a few GitHub-specific vars here
       # to prevent running this task locally by accident.
@@ -194,43 +187,97 @@ tasks:
         release with-clean with-config --config .goreleaser.yaml
         run
 
-  generate-certs:
+  core:containerize-snapshot:
+    desc: Snapshot container images
+    dir: core
+    deps:
+      - core:goreleaser-snapshot
+      - internal:start-registry
+    vars:
+      GITHUB_REF_NAME: '{{ .GITHUB_REF_NAME | default "dev" }}'
+      IMAGE_VERSION: '{{ regexReplaceAll "[/_]" .GITHUB_REF_NAME "-" }}'
+      TAG: '{{regexReplaceAll "(\\d+)/merge" .IMAGE_VERSION "pr-${1}"}}'
+    cmds:
+      - task: internal:containerize
+        vars:
+          ENVIRONMENT: "testing"
+          INSECURE:
+            sh: '[ -n "$GITHUB_ACTIONS" ] && echo "false" || echo "true"'
+          REGISTRY:
+            sh: '[ -n "$GITHUB_ACTIONS" ] && echo "ghcr.io/enterprisedb" || echo "{{ .REGISTRY_NAME }}:{{ .REGISTRY_PORT }}"'
+          VERSION: "{{ .TAG }}"
+          LATEST: "false"
+          WORKDIR: "core"
+
+  core:containerize-publish:
+    desc: Publish container images
+    deps:
+      - core:goreleaser-publish
+    requires:
+      # We expect this to run in a GitHub workflow, so we put a few GitHub-specific vars here
+      # to prevent running this task locally by accident.
+      vars:
+        - CI
+        - GITHUB_REPOSITORY
+        - GITHUB_REF
+        - GITHUB_REF_NAME
+    preconditions:
+      - sh: "[[ {{.GITHUB_REF}} =~ 'refs/tags/v.*' ]]"
+        msg: not a tag, failing
+    cmds:
+      - task: internal:containerize
+        vars:
+          ENVIRONMENT: "production"
+          REGISTRY: "ghcr.io/enterprisedb"
+          INSECURE: "false"
+          VERSION: "{{ .GITHUB_REF_NAME }}"
+          LATEST: "true"
+          WORKDIR: "core"
+
+  ####################################
+  ## INTERNAL
+  ####################################
+
+  internal:generate-certs:
     desc: Generate certificates for the local registry
     run: once
+    internal: true
     cmds:
-      - > 
-          mkdir -p certs &&
-          docker volume create {{ .REGISTRY_CERT_VOLUME }} &&
-          docker run -v {{ .REGISTRY_CERT_VOLUME }}:/certs -w /certs --name certs-klio --entrypoint=/bin/sh alpine/openssl -c '
-          openssl genrsa -out ca-key.pem 4096 &&
-          openssl req -new -x509 -days 365 -key ca-key.pem -sha256 -out ca.pem \
-              -subj "/O=CloudNativePG/OU=Barman Cloud Plugin Testing" &&
-          openssl genrsa -out server-key.pem 4096 &&
-          openssl req -subj "/CN={{ .REGISTRY_NAME }}" -sha256 -new -key server-key.pem -out server.csr &&
-          echo subjectAltName = DNS:{{ .REGISTRY_NAME }},IP:127.0.0.1 >> extfile.cnf &&
-          echo extendedKeyUsage = serverAuth >> extfile.cnf &&
-          openssl x509 -req -days 365 -sha256 -in server.csr -CA ca.pem -CAkey ca-key.pem \
-              -CAcreateserial -out server-cert.pem -extfile extfile.cnf'
-          docker cp certs-klio:/certs/ca.pem certs/ca.pem &&
-          docker rm certs-klio
+      - >
+        mkdir -p certs &&
+        docker volume create {{ .REGISTRY_CERT_VOLUME }} &&
+        docker run -v {{ .REGISTRY_CERT_VOLUME }}:/certs -w /certs --name certs-klio --entrypoint=/bin/sh alpine/openssl -c '
+        openssl genrsa -out ca-key.pem 4096 &&
+        openssl req -new -x509 -days 365 -key ca-key.pem -sha256 -out ca.pem \
+            -subj "/O=CloudNativePG/OU=Barman Cloud Plugin Testing" &&
+        openssl genrsa -out server-key.pem 4096 &&
+        openssl req -subj "/CN={{ .REGISTRY_NAME }}" -sha256 -new -key server-key.pem -out server.csr &&
+        echo subjectAltName = DNS:{{ .REGISTRY_NAME }},IP:127.0.0.1 >> extfile.cnf &&
+        echo extendedKeyUsage = serverAuth >> extfile.cnf &&
+        openssl x509 -req -days 365 -sha256 -in server.csr -CA ca.pem -CAkey ca-key.pem \
+            -CAcreateserial -out server-cert.pem -extfile extfile.cnf'
+        docker cp certs-klio:/certs/ca.pem certs/ca.pem &&
+        docker rm certs-klio
     status:
       - docker volume inspect {{ .REGISTRY_CERT_VOLUME }}
       - test -f certs/ca.pem
 
-  start-build-network:
+  internal:start-build-network:
     desc: Create a docker network for image building used by the dagger engine and the registry
+    internal: true
     run: once
     cmds:
       - docker network create {{ .REGISTRY_NETWORK}}
     status:
       - docker network inspect {{ .REGISTRY_NETWORK }}
 
-  start-registry:
+  internal:start-registry:
     desc: Start a container registry
+    internal: true
     run: once
     deps:
-      - generate-certs
-      - start-build-network
+      - internal:generate-certs
+      - internal:start-build-network
     env:
       # TODO: renovate
       REGISTRY_VERSION: 2
@@ -244,20 +291,22 @@ tasks:
     status:
       - \[ "$(docker inspect -f {{`'{{.State.Running}}'`}} "{{ .REGISTRY_NAME }}" 2> /dev/null)" == 'true' \]
 
-  create-builder:
+  internal:create-builder:
     desc: Create a buildx builder
+    internal: true
     run: once
     deps:
-      - start-build-network
+      - internal:start-build-network
     cmds:
       - dagger run docker buildx create --name {{ .BUILDER_NAME }} --driver-opt "network={{ .REGISTRY_NETWORK }}"
     status:
       - docker buildx inspect {{ .BUILDER_NAME }}
 
-  containerize:
+  internal:containerize:
     desc: Build container images
+    dir: '{{ .WORKDIR }}'
     deps:
-      - create-builder
+      - internal:create-builder
     internal: true
     requires:
       vars:
@@ -266,6 +315,7 @@ tasks:
         - INSECURE
         - VERSION
         - LATEST
+        - WORKDIR
     env:
       environment: "{{ .ENVIRONMENT }}"
       registry: "{{ .REGISTRY }}"
@@ -275,53 +325,97 @@ tasks:
     cmds:
       - dagger run docker buildx bake --builder {{ .BUILDER_NAME }} --push
 
-  containerize-snapshot:
-    desc: Snapshot container images
-    deps:
-      - goreleaser-snapshot
-      - start-registry
-    vars:
-      IMAGE_VERSION: '{{ regexReplaceAll "[/_]" .GITHUB_REF_NAME "-" | default "dev"}}'
-      TAG: '{{regexReplaceAll "(\\d+)/merge" .IMAGE_VERSION "pr-${1}"}}'
+  internal:lint:
+    desc: Run golangci-lint
+    env:
+      # renovate: datasource=git-refs depName=golangci-lint lookupName=https://github.com/sagikazarmark/daggerverse currentValue=main
+      DAGGER_GOLANGCI_LINT_SHA: ceffda4aebd349a24fc00e591b4ed9b801535b65
+      # renovate: datasource=docker depName=golangci/golangci-lint versioning=semver
+      GOLANGCI_LINT_VERSION: v2.1.6
+    internal: true
+    dir: '{{ .WORKDIR }}'
     cmds:
-      - task: containerize
-        vars:
-          ENVIRONMENT: "testing"
-          INSECURE:
-            sh: '[ -n "$GITHUB_ACTIONS" ] && echo "false" || echo "true"'
-          REGISTRY:
-            sh: '[ -n "$GITHUB_ACTIONS" ] && echo "ghcr.io/enterprisedb" || echo "{{ .REGISTRY_NAME }}:{{ .REGISTRY_PORT }}"'
-          VERSION: "{{ .TAG }}"
-          LATEST: "false"
+      - >
+        echo $(pwd);
+        GITHUB_REF= dagger -s call -m github.com/sagikazarmark/daggerverse/golangci-lint@${DAGGER_GOLANGCI_LINT_SHA}
+        --version ${GOLANGCI_LINT_VERSION}
+        run --source . --config .golangci.yml stdout
 
-  containerize-publish:
-    desc: Publish container images
+  ####################################
+  ## OPERATOR
+  ####################################
+
+  operator:ci:
+    desc: Run the operator CI pipeline
     deps:
-      - goreleaser-publish
-    requires:
-      # We expect this to run in a GitHub workflow, so we put a few GitHub-specific vars here
-      # to prevent running this task locally by accident.
-      vars:
-        - CI
-        - GITHUB_REPOSITORY
-        - GITHUB_REF
-        - GITHUB_REF_NAME
-    preconditions:
-      - sh: "[[ {{.GITHUB_REF}} =~ 'refs/tags/v.*' ]]"
-        msg: not a tag, failing
-    cmds:
-      - task: containerize
-        vars:
-          ENVIRONMENT: "production"
-          REGISTRY: "ghcr.io/enterprisedb"
-          INSECURE: "false"
-          VERSION: "{{ .GITHUB_REF_NAME }}"
-          LATEST: "true"
+      - operator:lint
 
-  docusaurus-build-test:
+  operator:lint:
+    desc: Run golangci-lint on operator
+    cmds:
+      - task: internal:lint
+        vars:
+          WORKDIR: "operator"
+    sources:
+      - ./**/*.go
+
+  ####################################
+  ## DOCUMENTATION
+  ####################################
+
+  documentation:ci:
+    desc: Run the documentation CI pipeline
+    deps:
+      - documentation:spellcheck
+      - documentation:protoc-gen-doc
+      - documentation:docusaurus-build-test
+
+  documentation:wordlist-ordered:
+    desc: Order the word list file
+    dir: documentation
+    run: once
+    cmds:
+      - LANG=C LC_ALL=C sort .wordlist.txt > .wordlist.txt.new
+      - mv -f .wordlist.txt.new .wordlist.txt
+    sources:
+      - .wordlist.txt
+
+  documentation:spellcheck:
+    desc: Run spellcheck
+    dir: documentation
+    deps:
+      - documentation:wordlist-ordered
+      - documentation:protoc-gen-doc
+    env:
+      # renovate: datasource=git-refs depName=spellcheck lookupName=https://github.com/cloudnative-pg/daggerverse currentValue=main
+      DAGGER_SPELLCHECK_SHA: d8681eb0132bb9f56c9c245cc33f95d09c4645f4
+    cmds:
+      - >
+        GITHUB_REF= dagger -s call -m github.com/cloudnative-pg/daggerverse/spellcheck@${DAGGER_SPELLCHECK_SHA}
+        spellcheck --source . with-exec --use-entrypoint --args="" stdout
+    sources:
+      - ./**/*.md
+      - .spellcheck.yaml
+      - .wordlist.txt
+
+  documentation:protoc-gen-doc:
+    desc: Generate documentation from proto files
+    run: once
+    env:
+      # renovate: datasource=git-refs depName=protoc-gen-doc lookupName=https://github.com/cloudnative-pg/daggerverse currentValue=main
+      DAGGER_PROTOC_GEN_DOC_SHA: d8681eb0132bb9f56c9c245cc33f95d09c4645f4
+    cmds:
+      - >
+        GITHUB_REF= dagger -s call -m github.com/cloudnative-pg/daggerverse/protoc-gen-doc@${DAGGER_PROTOC_GEN_DOC_SHA}
+        generate --proto-dir core/proto --doc-opt "markdown,protocol.md" -o documentation/web/docs/developer/
+    sources:
+      - core/proto/**/*.proto
+
+  documentation:docusaurus-build-test:
     desc: Check that the documentation builds
+    dir: documentation
     deps:
-      - protoc-gen-doc
+      - documentation:protoc-gen-doc
     env:
       # renovate: datasource=git-refs depName=docusaurus lookupName=https://github.com/levlaz/daggerverse currentValue=main
       DAGGER_DOCUSAURUS_SHA: 3b7d706c741b2d91d4f2ad8d0f4c4eb921cb18d6
@@ -331,17 +425,22 @@ tasks:
     src:
       - ./web/**/*
 
-  docusaurus-version-is-aligned:
-    desc: Verify that a documentation version exists for the current version of the plugin
-    cmds:
-      # TODO: move this out of the plugin repo and into the daggerverse
-      - dagger -s call -m github.com/cloudnative-pg/plugin-barman-cloud/dagger/check-doc-version has-version-documentation --src .
-    src:
-      - .release-please-manifest.json
-      - ./web/versions.json
+#  FIXME: this task expects very specific directory locations. It should be generalized and put in the daggerverse.
+#  FIXME: commented out until we can fix it.
+#  docusaurus-version-is-aligned:
+#    desc: Verify that a documentation version exists for the current version of the plugin
+#    cmds:
+#      - dagger -s call -m github.com/cloudnative-pg/plugin-barman-cloud/dagger/check-doc-version has-version-documentation --src .
+#    src:
+#      - .release-please-manifest.json
+#      - ./web/versions.json
 
-  docusaurus-dev-serve:
+  # FIXME: this times out after a few seconds. It's easier to serve the documentation through a node container.
+  documentation:docusaurus-dev-serve:
     desc: Build and serve the dev documentation on http://localhost:3000
+    dir: documentation
+    deps:
+      - documentation:protoc-gen-doc
     env:
       # renovate: datasource=git-refs depName=docusaurus lookupName=https://github.com/levlaz/daggerverse currentValue=main
       DAGGER_DOCUSAURUS_SHA: 3b7d706c741b2d91d4f2ad8d0f4c4eb921cb18d6
@@ -351,8 +450,20 @@ tasks:
         dagger call -m github.com/levlaz/daggerverse/docusaurus@${DAGGER_DOCUSAURUS_SHA}
         --src web --yarn serve-dev up
 
-  cleanup-local-env:
-    desc: Cleanup of the local environment
+  documentation:clean:
+    desc: Cleanup of the documentation build artifacts and modules
+    dir: documentation
+    cmds:
+      - rm -rf web/build
+      - rm -rf web/docs/developer/protocol.md
+      - rm -rf web/node_modules
+
+  ####################################
+  ## CLEANUP
+  ####################################
+
+  clean:build-env:
+    desc: Cleanup of the build environment
     cmds:
       - docker rm -f {{ .REGISTRY_NAME }} 2> /dev/null || true
       - docker buildx rm {{ .BUILDER_NAME }} 2> /dev/null || true
@@ -360,9 +471,11 @@ tasks:
       - docker volume rm {{ .REGISTRY_CERT_VOLUME }} 2> /dev/null || true
       - rm -rf certs/
 
-  clean:
-    desc: Remove autogenerated artifacts
+  clean:all:
+    desc: Full cleanup of generated elements
+    deps:
+      - clean:build-env
+      - documentation:clean
+      - core:clean
     cmds:
-      - rm -f docs/protocol.md
       - rm -rf .task/
-      - rm -f pkg/*/*.pb.go

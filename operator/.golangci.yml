@@ -1,52 +1,55 @@
 version: "2"
-run:
-  allow-parallel-runners: true
 linters:
-  default: none
-  enable:
-    - copyloopvar
-    - dupl
-    - errcheck
-    - ginkgolinter
-    - goconst
-    - gocyclo
-    - govet
-    - ineffassign
-    - lll
-    - misspell
-    - nakedret
-    - prealloc
-    - revive
-    - staticcheck
-    - unconvert
-    - unparam
-    - unused
+  default: all
+  disable:
+    - mnd
+    - depguard
+    - exhaustruct
+    - funlen
+    - paralleltest
+    - testpackage
+    - wsl
   settings:
-    revive:
-      rules:
-        - name: comment-spacings
-        - name: import-shadowing
+    lll:
+      line-length: 120
+    nlreturn:
+      block-size: 3
   exclusions:
     generated: lax
     rules:
       - linters:
-          - lll
-        path: api/*
+          - revive
+        text: should not use dot imports
+        source: ginkgo|gomega
       - linters:
-          - dupl
+          - goconst
+        path: _test\.go
+      - linters:
           - lll
-        path: internal/*
+        source: //\s*\+
     paths:
+      - zz_generated.*
       - third_party$
       - builtin$
       - examples$
 formatters:
   enable:
+    - gci
     - gofmt
+    - gofumpt
     - goimports
+  settings:
+    gci:
+      sections:
+        - standard
+        - default
+        - prefix(github.com/cloudnative-pg/klio)
+        - blank
+        - dot
   exclusions:
     generated: lax
     paths:
+      - zz_generated.*
       - third_party$
       - builtin$
       - examples$
