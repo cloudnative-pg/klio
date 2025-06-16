@@ -14,6 +14,9 @@ linters:
       line-length: 120
     nlreturn:
       block-size: 3
+    varnamelen:
+      ignore-names:
+        - g
   exclusions:
     generated: lax
     rules:
@@ -40,6 +43,8 @@ formatters:
     - goimports
   settings:
     gci:
+      no-prefix-comments: false
+      no-inline-comments: false
       sections:
         - standard
         - default

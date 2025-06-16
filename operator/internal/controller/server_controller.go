@@ -2,6 +2,7 @@ package controller
 
 import (
 	"context"
+	"fmt"
 
 	appsv1 "k8s.io/api/apps/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -14,7 +15,7 @@ import (
 	kliov1alpha1 "github.com/cloudnative-pg/klio/pkg/operator/api/v1alpha1"
 )
 
-// ServerReconciler reconciles a Server object
+// ServerReconciler reconciles a Server object.
 type ServerReconciler struct {
 	client.Client
 	Scheme *runtime.Scheme
@@ -26,8 +27,7 @@ type ServerReconciler struct {
 // +kubebuilder:rbac:groups=apps,resources=statefulsets,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups="",resources=services,verbs=get;list;watch;create;update;patch;delete
 
-// Reconcile is part of the main kubernetes reconciliation loop which aims to
-// move the current state of the cluster closer to the desired state.
+//nolint:godox
 // TODO(user): Modify the Reconcile function to compare the state specified by
 // the Server object against the actual cluster state, and then
 // perform operations to make the cluster state reflect the state specified by
@@ -35,6 +35,9 @@ type ServerReconciler struct {
 //
 // For more details, check Reconcile and its Result here:
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.21.0/pkg/reconcile
+
+// Reconcile is part of the main kubernetes reconciliation loop which aims to
+// move the current state of the cluster closer to the desired state.
 func (r *ServerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	contextLogger := logf.FromContext(ctx).WithValues("namespace", req.Namespace, "name", req.Name)
 	contextLogger.V(1).Info("Reconciling Klio Server")
@@ -46,7 +49,8 @@ func (r *ServerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 			return ctrl.Result{}, nil
 		}
 		contextLogger.Error(err, "Failed to get Klio Server")
-		return ctrl.Result{}, client.IgnoreNotFound(err)
+
+		return ctrl.Result{}, fmt.Errorf("failed to get Klio Server: %w", err)
 	}
 
 	if server.DeletionTimestamp != nil {
@@ -63,13 +67,19 @@ func (r *ServerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *ServerReconciler) SetupWithManager(mgr ctrl.Manager) error {
-	return ctrl.NewControllerManagedBy(mgr).
+	err := ctrl.NewControllerManagedBy(mgr).
 		WithOptions(controller.Options{
 			MaxConcurrentReconciles: 10,
 		}).
 		For(&kliov1alpha1.Server{}).
 		Named("server").
 		Owns(&appsv1.StatefulSet{}).
+		//nolint:godox
 		// TODO: we should probably add a way for the user to let the secrets passed to be watched
 		Complete(r)
+	if err != nil {
+		return fmt.Errorf("failed setting up the server controller: %w", err)
+	}
+
+	return nil
 }

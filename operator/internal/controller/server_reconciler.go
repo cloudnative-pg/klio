@@ -15,16 +15,20 @@ import (
 	kliov1alpha1 "github.com/cloudnative-pg/klio/pkg/operator/api/v1alpha1"
 )
 
-const pvcTypeLabel = "klio.cnpg.io/pvcType"
-const typeLabel = "klio.cnpg.io/type"
-const baseTypeLabelValue = "base"
-const klioServerLabel = "klio.cnpg.io/klio-server"
+const (
+	pvcTypeLabel       = "klio.cnpg.io/pvcType"
+	typeLabel          = "klio.cnpg.io/type"
+	baseTypeLabelValue = "base"
+	klioServerLabel    = "klio.cnpg.io/klio-server"
+)
 
-const kopiaDataMountPath = "/data"
-const kopiaLogsMountPath = "/logs"
-const kopiaCacheMountPath = "/cache"
-const htpasswdFileName = "htpasswd"
-const kopiaConfigMountPath = "/config"
+const (
+	kopiaDataMountPath   = "/data"
+	kopiaLogsMountPath   = "/logs"
+	kopiaCacheMountPath  = "/cache"
+	htpasswdFileName     = "htpasswd"
+	kopiaConfigMountPath = "/config"
+)
 
 func (r *ServerReconciler) reconcile(ctx context.Context, server *kliov1alpha1.Server) error {
 	if err := r.reconcileStatefulSet(ctx, server); err != nil {
@@ -200,6 +204,7 @@ func (r *ServerReconciler) reconcileStatefulSet(ctx context.Context, server *kli
 		Status: appsv1.StatefulSetStatus{},
 	}
 
+	//nolint:godox
 	// TODO improve
 	type hashBuilder struct {
 		sts     *appsv1.StatefulSet
@@ -223,17 +228,29 @@ func (r *ServerReconciler) reconcileStatefulSet(ctx context.Context, server *kli
 	err = r.Get(ctx, client.ObjectKeyFromObject(expected), &current)
 	if err != nil {
 		if client.IgnoreNotFound(err) != nil {
-			return err
+			return fmt.Errorf("failed to get statefulset %v/%v: %w", expected.Namespace, expected.Name, err)
 		}
-		return r.Create(ctx, expected)
+
+		if err := r.Create(ctx, expected); err != nil {
+			return fmt.Errorf("failed to create StatefulSet %s/%s: %w", expected.Namespace, expected.Name, err)
+		}
+
+		return nil
 	}
 
 	if !metav1.IsControlledBy(&current, server) {
-		return fmt.Errorf("StatefulSet is not owned by Server %s/%s", server.Namespace, server.Name)
+		return &statefulSetNotOwnedByServerError{
+			ServerName:      server.Name,
+			ServerNamespace: server.Namespace,
+		}
 	}
 
 	if current.Annotations["klio.cnpg.io/klio-server-hash"] != hash {
-		return r.Update(ctx, expected)
+		if err := r.Update(ctx, expected); err != nil {
+			return fmt.Errorf("failed to update StatefulSet %s/%s: %w", expected.Namespace, expected.Name, err)
+		}
+
+		return nil
 	}
 
 	return nil
@@ -277,13 +294,21 @@ func (r *ServerReconciler) reconcileService(ctx context.Context, server *kliov1a
 	err = r.Get(ctx, client.ObjectKeyFromObject(expected), &current)
 	if err != nil {
 		if client.IgnoreNotFound(err) != nil {
-			return err
+			return fmt.Errorf("failed to get service %s/%s: %w", expected.Namespace, expected.Name, err)
 		}
-		return r.Create(ctx, expected)
+
+		if err := r.Create(ctx, expected); err != nil {
+			return fmt.Errorf("failed to create Service %s/%s: %w", expected.Namespace, expected.Name, err)
+		}
+
+		return nil
 	}
 
 	if !metav1.IsControlledBy(&current, server) {
-		return fmt.Errorf("service is not owned by Server %s/%s", server.Namespace, server.Name)
+		return &serviceNotOwnedByServerError{
+			ServerName:      server.Name,
+			ServerNamespace: server.Namespace,
+		}
 	}
 
 	if err := r.Update(ctx, expected); err != nil {

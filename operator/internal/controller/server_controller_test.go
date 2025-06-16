@@ -3,15 +3,15 @@ package controller
 import (
 	"context"
 
-	. "github.com/onsi/ginkgo/v2"
-	. "github.com/onsi/gomega"
 	"k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
 	kliov1alpha1 "github.com/cloudnative-pg/klio/pkg/operator/api/v1alpha1"
+
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
 )
 
 var _ = Describe("Server Controller", func() {
@@ -21,7 +21,8 @@ var _ = Describe("Server Controller", func() {
 		ctx := context.Background()
 
 		typeNamespacedName := types.NamespacedName{
-			Name:      resourceName,
+			Name: resourceName,
+			//nolint:godox
 			Namespace: "default", // TODO(user):Modify as needed
 		}
 		server := &kliov1alpha1.Server{}
@@ -35,6 +36,7 @@ var _ = Describe("Server Controller", func() {
 						Name:      resourceName,
 						Namespace: "default",
 					},
+					//nolint:godox
 					// TODO(user): Specify other spec details if needed.
 				}
 				Expect(k8sClient.Create(ctx, resource)).To(Succeed())
@@ -42,6 +44,7 @@ var _ = Describe("Server Controller", func() {
 		})
 
 		AfterEach(func() {
+			//nolint:godox
 			// TODO(user): Cleanup logic after each test, like removing the resource instance.
 			resource := &kliov1alpha1.Server{}
 			err := k8sClient.Get(ctx, typeNamespacedName, resource)
@@ -61,6 +64,7 @@ var _ = Describe("Server Controller", func() {
 				NamespacedName: typeNamespacedName,
 			})
 			Expect(err).NotTo(HaveOccurred())
+			//nolint:godox
 			// TODO(user): Add more specific assertions depending on your controller's reconciliation logic.
 			// Example: If you expect a certain status condition after reconciliation, verify it here.
 		})

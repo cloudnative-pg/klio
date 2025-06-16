@@ -4,11 +4,13 @@ import (
 	"fmt"
 	"hash"
 	"hash/fnv"
+	"strconv"
 
 	"github.com/davecgh/go-spew/spew"
 	"k8s.io/apimachinery/pkg/util/rand"
 )
 
+//nolint:godox
 // TODO: move to machinery
 
 // DeepHashObject writes specified object to hash using the spew library
@@ -23,8 +25,11 @@ func DeepHashObject(hasher hash.Hash, objectToWrite interface{}) error {
 		SpewKeys:       true,
 	}
 
-	_, err := printer.Fprintf(hasher, "%#v", objectToWrite)
-	return err
+	if _, err := printer.Fprintf(hasher, "%#v", objectToWrite); err != nil {
+		return fmt.Errorf("failed to hash object: %w", err)
+	}
+
+	return nil
 }
 
 // ComputeHash returns a hash value calculated from the provided object.
@@ -35,7 +40,7 @@ func ComputeHash(object interface{}) (string, error) {
 		return "", err
 	}
 
-	return rand.SafeEncodeString(fmt.Sprint(hasher.Sum32())), nil
+	return rand.SafeEncodeString(strconv.FormatUint(uint64(hasher.Sum32()), 10)), nil
 }
 
 // ComputeVersionedHash follows the same rules of ComputeHash with the exception that accepts also a epoc value.

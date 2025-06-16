@@ -3,12 +3,13 @@ package utils
 import (
 	"bufio"
 	"bytes"
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
 	"strings"
 
-	. "github.com/onsi/ginkgo/v2" // nolint:revive,staticcheck
+	. "github.com/onsi/ginkgo/v2" //nolint:staticcheck
 )
 
 const (
@@ -24,7 +25,7 @@ func warnError(err error) {
 	_, _ = fmt.Fprintf(GinkgoWriter, "warning: %v\n", err)
 }
 
-// Run executes the provided command within this context
+// Run executes the provided command within this context.
 func Run(cmd *exec.Cmd) (string, error) {
 	dir, _ := GetProjectDir()
 	cmd.Dir = dir
@@ -47,15 +48,16 @@ func Run(cmd *exec.Cmd) (string, error) {
 // InstallPrometheusOperator installs the prometheus Operator to be used to export the enabled metrics.
 func InstallPrometheusOperator() error {
 	url := fmt.Sprintf(prometheusOperatorURL, prometheusOperatorVersion)
-	cmd := exec.Command("kubectl", "create", "-f", url)
+	cmd := exec.Command("kubectl", "create", "-f", url) //nolint:gosec
 	_, err := Run(cmd)
+
 	return err
 }
 
-// UninstallPrometheusOperator uninstalls the prometheus
+// UninstallPrometheusOperator uninstalls the prometheus.
 func UninstallPrometheusOperator() {
 	url := fmt.Sprintf(prometheusOperatorURL, prometheusOperatorVersion)
-	cmd := exec.Command("kubectl", "delete", "-f", url)
+	cmd := exec.Command("kubectl", "delete", "-f", url) //nolint:gosec
 	if _, err := Run(cmd); err != nil {
 		warnError(err)
 	}
@@ -88,10 +90,10 @@ func IsPrometheusCRDsInstalled() bool {
 	return false
 }
 
-// UninstallCertManager uninstalls the cert manager
+// UninstallCertManager uninstalls the cert manager.
 func UninstallCertManager() {
 	url := fmt.Sprintf(certmanagerURLTmpl, certmanagerVersion)
-	cmd := exec.Command("kubectl", "delete", "-f", url)
+	cmd := exec.Command("kubectl", "delete", "-f", url) //nolint:gosec
 	if _, err := Run(cmd); err != nil {
 		warnError(err)
 	}
@@ -100,7 +102,7 @@ func UninstallCertManager() {
 // InstallCertManager installs the cert manager bundle.
 func InstallCertManager() error {
 	url := fmt.Sprintf(certmanagerURLTmpl, certmanagerVersion)
-	cmd := exec.Command("kubectl", "apply", "-f", url)
+	cmd := exec.Command("kubectl", "apply", "-f", url) //nolint:gosec
 	if _, err := Run(cmd); err != nil {
 		return err
 	}
@@ -113,6 +115,7 @@ func InstallCertManager() error {
 	)
 
 	_, err := Run(cmd)
+
 	return err
 }
 
@@ -149,15 +152,16 @@ func IsCertManagerCRDsInstalled() bool {
 	return false
 }
 
-// LoadImageToKindClusterWithName loads a local docker image to the kind cluster
+// LoadImageToKindClusterWithName loads a local docker image to the kind cluster.
 func LoadImageToKindClusterWithName(name string) error {
 	cluster := "kind"
 	if v, ok := os.LookupEnv("KIND_CLUSTER"); ok {
 		cluster = v
 	}
 	kindOptions := []string{"load", "docker-image", name, "--name", cluster}
-	cmd := exec.Command("kind", kindOptions...)
+	cmd := exec.Command("kind", kindOptions...) //nolint:gosec
 	_, err := Run(cmd)
+
 	return err
 }
 
@@ -175,21 +179,24 @@ func GetNonEmptyLines(output string) []string {
 	return res
 }
 
-// GetProjectDir will return the directory where the project is
+// GetProjectDir will return the directory where the project is.
 func GetProjectDir() (string, error) {
-	wd, err := os.Getwd()
+	workDir, err := os.Getwd()
 	if err != nil {
-		return wd, fmt.Errorf("failed to get current working directory: %w", err)
+		return workDir, fmt.Errorf("failed to get current working directory: %w", err)
 	}
-	wd = strings.ReplaceAll(wd, "/test/e2e", "")
-	return wd, nil
+	workDir = strings.ReplaceAll(workDir, "/test/e2e", "")
+
+	return workDir, nil
 }
 
 // UncommentCode searches for target in the file and remove the comment prefix
 // of the target content. The target content may span multiple lines.
+//
+//nolint:cyclop
 func UncommentCode(filename, target, prefix string) error {
 	// false positive
-	// nolint:gosec
+	//nolint:gosec
 	content, err := os.ReadFile(filename)
 	if err != nil {
 		return fmt.Errorf("failed to read file %q: %w", filename, err)
@@ -198,7 +205,7 @@ func UncommentCode(filename, target, prefix string) error {
 
 	idx := strings.Index(strContent, target)
 	if idx < 0 {
-		return fmt.Errorf("unable to find the code %q to be uncomment", target)
+		return fmt.Errorf("could not uncomment code %q: %w", target, errUncommentTargetNotFound)
 	}
 
 	out := new(bytes.Buffer)
@@ -224,15 +231,17 @@ func UncommentCode(filename, target, prefix string) error {
 		}
 	}
 
-	if _, err = out.Write(content[idx+len(target):]); err != nil {
+	if _, err := out.Write(content[idx+len(target):]); err != nil {
 		return fmt.Errorf("failed to write to output: %w", err)
 	}
 
 	// false positive
-	// nolint:gosec
-	if err = os.WriteFile(filename, out.Bytes(), 0644); err != nil {
+	//nolint:gosec
+	if err := os.WriteFile(filename, out.Bytes(), 0o644); err != nil {
 		return fmt.Errorf("failed to write file %q: %w", filename, err)
 	}
 
 	return nil
 }
+
+var errUncommentTargetNotFound = errors.New("uncomment target not found")

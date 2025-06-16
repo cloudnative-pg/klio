@@ -54,7 +54,7 @@ type ServerSpec struct {
 	Users corev1.LocalObjectReference `json:"users"`
 }
 
-// BaseConfiguration defines the configuration for the Kopia server
+// BaseConfiguration defines the configuration for the Kopia server.
 type BaseConfiguration struct {
 	// Resources defines the resource requirements for the Kopia server
 	// +optional
@@ -65,18 +65,18 @@ type BaseConfiguration struct {
 	AdminUser corev1.LocalObjectReference `json:"adminUser,omitempty"`
 }
 
-// DataConfiguration defines the configuration for the data directory
+// DataConfiguration defines the configuration for the data directory.
 type DataConfiguration struct {
 	// Template to be used to generate the Persistent Volume Claim needed for data folder
 	PersistentVolumeClaimTemplate corev1.PersistentVolumeClaimSpec `json:"pvcTemplate"`
 }
 
-// LogConfiguration defines the configuration for the logs directory
+// LogConfiguration defines the configuration for the logs directory.
 type LogConfiguration struct {
 	PersistentVolumeClaimTemplate corev1.PersistentVolumeClaimSpec `json:"pvcTemplate"`
 }
 
-// CacheConfiguration defines the configuration for the cache directory
+// CacheConfiguration defines the configuration for the cache directory.
 type CacheConfiguration struct {
 	PersistentVolumeClaimTemplate corev1.PersistentVolumeClaimSpec `json:"pvcTemplate"`
 }
@@ -108,6 +108,7 @@ type ServerList struct {
 	Items           []Server `json:"items"`
 }
 
+//nolint:gochecknoinits
 func init() {
 	SchemeBuilder.Register(&Server{}, &ServerList{})
 }

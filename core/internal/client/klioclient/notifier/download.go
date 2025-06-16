@@ -42,7 +42,7 @@ type downloadProgressLogger struct {
 }
 
 // NewDownloadLogNotifier creates a new DownloadProcessLogger.
-func NewDownloadLogNotifier(log *slog.Logger) Download { //nolint:ireturn
+func NewDownloadLogNotifier(log *slog.Logger) Download { //nolint:nolintlint,ireturn
 	return &downloadProgressLogger{
 		log: log,
 	}

@@ -1,13 +1,9 @@
 package controller
 
 import (
-	"context"
 	"os"
 	"path/filepath"
 	"testing"
-
-	. "github.com/onsi/ginkgo/v2"
-	. "github.com/onsi/gomega"
 
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
@@ -16,19 +12,20 @@ import (
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
-	kliov1alpha1 "github.com/cloudnative-pg/klio/pkg/operator/api/v1alpha1"
 	// +kubebuilder:scaffold:imports
+	kliov1alpha1 "github.com/cloudnative-pg/klio/pkg/operator/api/v1alpha1"
+
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
 )
 
 // These tests use Ginkgo (BDD-style Go testing framework). Refer to
 // http://onsi.github.io/ginkgo/ to learn more about Ginkgo.
 
 var (
-	ctx       context.Context
-	cancel    context.CancelFunc
-	testEnv   *envtest.Environment
-	cfg       *rest.Config
-	k8sClient client.Client
+	testEnv   *envtest.Environment //nolint:gochecknoglobals
+	cfg       *rest.Config         //nolint:gochecknoglobals
+	k8sClient client.Client        //nolint:gochecknoglobals
 )
 
 func TestControllers(t *testing.T) {
@@ -39,8 +36,6 @@ func TestControllers(t *testing.T) {
 
 var _ = BeforeSuite(func() {
 	logf.SetLogger(zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)))
-
-	ctx, cancel = context.WithCancel(context.TODO())
 
 	var err error
 	err = kliov1alpha1.AddToScheme(scheme.Scheme)
@@ -71,7 +66,6 @@ var _ = BeforeSuite(func() {
 
 var _ = AfterSuite(func() {
 	By("tearing down the test environment")
-	cancel()
 	err := testEnv.Stop()
 	Expect(err).NotTo(HaveOccurred())
 })
@@ -96,5 +90,6 @@ func getFirstFoundEnvTestBinaryDir() string {
 			return filepath.Join(basePath, entry.Name())
 		}
 	}
+
 	return ""
 }

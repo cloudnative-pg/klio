@@ -27,9 +27,7 @@ type RestoreImplementation struct {
 }
 
 // GetDownloadNotifier returns the notifier used by the RestoreImplementation.
-//
-//nolint:ireturn
-func (s *RestoreImplementation) GetDownloadNotifier() notifier.Download {
+func (s *RestoreImplementation) GetDownloadNotifier() notifier.Download { //nolint:nolintlint,ireturn
 	return s.notifier
 }
 

@@ -24,7 +24,7 @@ type uploadProgressLogger struct {
 }
 
 // NewUploadLogNotifier creates a new LoggerProcess.
-func NewUploadLogNotifier(log *slog.Logger) Upload { //nolint:ireturn
+func NewUploadLogNotifier(log *slog.Logger) Upload { //nolint:nolintlint,ireturn
 	return &uploadProgressLogger{
 		log: log,
 	}
