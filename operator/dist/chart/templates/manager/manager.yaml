@@ -1,17 +1,19 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: operator-controller-manager
+  name: klio-operator
   namespace: {{ .Release.Namespace }}
   labels:
     {{- include "chart.labels" . | nindent 4 }}
     control-plane: controller-manager
+    app.kubernetes.io/name: klio-operator
 spec:
-  replicas:  {{ .Values.controllerManager.replicas }}
+  replicas: {{ .Values.controllerManager.replicas }}
   selector:
     matchLabels:
       {{- include "chart.selectorLabels" . | nindent 6 }}
       control-plane: controller-manager
+      app.kubernetes.io/name: klio-operator
   template:
     metadata:
       annotations:
@@ -19,6 +21,7 @@ spec:
       labels:
         {{- include "chart.labels" . | nindent 8 }}
         control-plane: controller-manager
+        app.kubernetes.io/name: klio-operator
         {{- if and .Values.controllerManager.pod .Values.controllerManager.pod.labels }}
         {{- range $key, $value := .Values.controllerManager.pod.labels }}
         {{ $key }}: {{ $value }}
@@ -50,23 +53,32 @@ spec:
             {{- toYaml .Values.controllerManager.container.resources | nindent 12 }}
           securityContext:
             {{- toYaml .Values.controllerManager.container.securityContext | nindent 12 }}
-          {{- if and .Values.certmanager.enable .Values.metrics.enable }}
           volumeMounts:
             {{- if and .Values.metrics.enable .Values.certmanager.enable }}
             - name: metrics-certs
               mountPath: /tmp/k8s-metrics-server/metrics-certs
               readOnly: true
             {{- end }}
-          {{- end }}
+            - mountPath: /pluginServer
+              name: plugin-server
+              readOnly: true
+            - mountPath: /pluginClient
+              name: plugin-client
+              readOnly: true
       securityContext:
         {{- toYaml .Values.controllerManager.securityContext | nindent 8 }}
       serviceAccountName: {{ .Values.controllerManager.serviceAccountName }}
       terminationGracePeriodSeconds: {{ .Values.controllerManager.terminationGracePeriodSeconds }}
-      {{- if and .Values.certmanager.enable .Values.metrics.enable }}
       volumes:
         {{- if and .Values.metrics.enable .Values.certmanager.enable }}
         - name: metrics-certs
           secret:
             secretName: metrics-server-cert
         {{- end }}
-      {{- end }}
+        - name: plugin-server
+          secret:
+            secretName: klio-plugin-server-tls
+        - name: plugin-client
+          secret:
+            secretName: klio-plugin-client-tls
+

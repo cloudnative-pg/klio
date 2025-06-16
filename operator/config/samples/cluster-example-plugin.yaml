@@ -1,0 +1,28 @@
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+  name: cluster-example
+spec:
+  instances: 3
+  postgresql:
+    pg_hba:
+      - local replication all peer
+
+  plugins:
+    - name: klio.cnpg.io
+      enabled: true
+      parameters:
+        serverAddress: server-sample.default
+        clientSecretName: klio-client
+        serverSecretName: server-sample-tls
+
+  storage:
+    size: 1Gi
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: klio-client
+data:
+  password: cGlwcG9waXBwbw==
+  username: a2xpbw==

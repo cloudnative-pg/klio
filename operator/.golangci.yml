@@ -9,6 +9,11 @@ linters:
     - paralleltest
     - testpackage
     - wsl
+    - err113
+    - wrapcheck
+    - varnamelen
+    - nilnil
+    - godox
   settings:
     lll:
       line-length: 120

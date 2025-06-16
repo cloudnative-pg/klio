@@ -1,0 +1,45 @@
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: klio-plugin-client
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "chart.labels" . | nindent 4 }}
+spec:
+  secretName: klio-plugin-client-tls
+  commonName: "klio-plugin-client"
+  duration: 2160h # 90d
+  renewBefore: 360h # 15d
+  isCA: false
+  usages:
+    - client auth
+  issuerRef:
+    name: selfsigned-issuer
+    kind: Issuer
+    group: cert-manager.io
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: klio-plugin-server
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "chart.labels" . | nindent 4 }}
+spec:
+  secretName: klio-plugin-server-tls
+  commonName: klio-plugin
+  dnsNames:
+    - klio-plugin
+    - klio-plugin.{{ .Release.Namespace }}
+    - klio-plugin.{{ .Release.Namespace }}.svc
+    - klio-plugin.{{ .Release.Namespace }}.svc.cluster.local
+  duration: 2160h # 90d
+  renewBefore: 360h # 15d
+  isCA: false
+  usages:
+    - server auth
+  issuerRef:
+    name: selfsigned-issuer
+    kind: Issuer
+    group: cert-manager.io

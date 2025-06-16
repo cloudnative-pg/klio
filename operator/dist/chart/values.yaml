@@ -15,6 +15,10 @@ controllerManager:
       - "--leader-elect"
       - "--metrics-bind-address=:8443"
       - "--health-probe-bind-address=:8081"
+      - "--plugin-server-cert=/pluginServer/tls.crt"
+      - "--plugin-server-key=/pluginServer/tls.key"
+      - "--plugin-client-cert=/pluginClient/tls.crt"
+      - "--plugin-server-address=:9090"
     # -- The environment variables to set for the controller manager container.
     env: {}
     # -- The resources to allocate for the controller manager container.
@@ -71,8 +75,12 @@ prometheus:
 
 certmanager:
   # -- Enable cert-manager injection to webhooks
-  enable: false
+  enable: true
 
 networkPolicy:
   # -- Enable NetworkPolicies
   enable: false
+
+crd:
+  # -- Keep CRDs on uninstall
+  keep: false

@@ -19,6 +19,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 
 	kliov1alpha1 "github.com/cloudnative-pg/klio/operator/api/v1alpha1"
+	"github.com/cloudnative-pg/klio/operator/internal/cnpgi"
 	"github.com/cloudnative-pg/klio/operator/internal/controller"
 
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
@@ -49,6 +50,13 @@ func main() {
 	var secureMetrics bool
 	var enableHTTP2 bool
 	var tlsOpts []func(*tls.Config)
+
+	// Add new flag variables for CNPGI configuration
+	var pluginServerCert string
+	var pluginServerKey string
+	var pluginClientCert string
+	var pluginServerAddress string
+
 	flag.StringVar(&metricsAddr, "metrics-bind-address", "0", "The address the metrics endpoint binds to. "+
 		"Use :8443 for HTTPS or :8080 for HTTP, or leave as 0 to disable the metrics service.")
 	flag.StringVar(&probeAddr, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
@@ -66,9 +74,17 @@ func main() {
 	flag.StringVar(&metricsCertKey, "metrics-cert-key", "tls.key", "The name of the metrics server key file.")
 	flag.BoolVar(&enableHTTP2, "enable-http2", false,
 		"If set, HTTP/2 will be enabled for the metrics and webhook servers")
+
+	// Add flag definitions for CNPGI configuration
+	flag.StringVar(&pluginServerCert, "plugin-server-cert", "", "Path to the plugin server certificate")
+	flag.StringVar(&pluginServerKey, "plugin-server-key", "", "Path to the plugin server key")
+	flag.StringVar(&pluginClientCert, "plugin-client-cert", "", "Path to the plugin client certificate")
+	flag.StringVar(&pluginServerAddress, "plugin-server-address", ":9090", "Address of the plugin server")
+
 	opts := zap.Options{
 		Development: true,
 	}
+
 	opts.BindFlags(flag.CommandLine)
 	flag.Parse()
 
@@ -187,6 +203,17 @@ func main() {
 	})
 	if err != nil {
 		setupLog.Error(err, "unable to start manager")
+		os.Exit(1)
+	}
+
+	if err := mgr.Add(&cnpgi.CNPGI{
+		Client:         mgr.GetClient(),
+		ServerCertPath: pluginServerCert,
+		ServerKeyPath:  pluginServerKey,
+		ClientCertPath: pluginClientCert,
+		ServerAddress:  pluginServerAddress,
+	}); err != nil {
+		setupLog.Error(err, "unable to create CNPGI runnable")
 		os.Exit(1)
 	}
 
