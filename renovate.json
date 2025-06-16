@@ -98,8 +98,8 @@
     },
     {
       "matchFileNames": [
-        "web/package.json",
-        "web/yarn.lock"
+        "documentation/web/package.json",
+        "documentation/web/yarn.lock"
       ],
       "groupName": "documentation dependencies"
     },
