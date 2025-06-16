@@ -11,10 +11,18 @@ now = timestamp()
 
 variable "environment" {
   default = "testing"
+  validation {
+    condition = contains(["testing", "production"], environment)
+    error_message = "environment must be either testing or production"
+  }
 }
 suffix = (environment == "testing") ? "-testing" : ""
 
 variable "insecure" {
+  default = "false"
+}
+
+variable "latest" {
   default = "false"
 }
 
@@ -49,7 +57,8 @@ target "default" {
   ]
 
   tags = [
-    "${getImageName()}:latest",
+    latest("${getImageName()}", "${latest}"),
+    "${getImageName()}:${version}",
   ]
 
   args = {
@@ -111,4 +120,9 @@ target "default" {
 function digest {
   params = [ imageNameWithSha ]
   result = index(split("@", imageNameWithSha), 1)
+}
+
+function latest {
+  params = [ image, latest ]
+  result = (latest == "true") ? "${image}:latest" : ""
 }

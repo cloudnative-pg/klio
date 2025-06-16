@@ -157,6 +157,7 @@ tasks:
     env:
       # renovate: datasource=git-refs depName=goreleaser lookupName=https://github.com/act3-ai/dagger currentValue=main
       DAGGER_GORELEASER_SHA: 0beeb456ee366b53a0b6e15446bc7803e8f16fe5
+    run: once
     cmds:
       - >
         dagger call -m github.com/act3-ai/dagger/goreleaser@0beeb456ee366b53a0b6e15446bc7803e8f16fe5 --source .
@@ -247,25 +248,56 @@ tasks:
     desc: Create a buildx builder
     run: once
     deps:
-      - start-registry
+      - start-build-network
     cmds:
       - dagger run docker buildx create --name {{ .BUILDER_NAME }} --driver-opt "network={{ .REGISTRY_NETWORK }}"
     status:
       - docker buildx inspect {{ .BUILDER_NAME }}
 
-  containerize-snapshot:
+  containerize:
     desc: Build container images
     deps:
-      - goreleaser-snapshot
       - create-builder
+    internal: true
+    requires:
+      vars:
+        - ENVIRONMENT
+        - REGISTRY
+        - INSECURE
+        - VERSION
+        - LATEST
     env:
-      registry: "{{ .REGISTRY_NAME }}:{{ .REGISTRY_PORT }}"
-      insecure: "true"
+      environment: "{{ .ENVIRONMENT }}"
+      registry: "{{ .REGISTRY }}"
+      insecure: "{{ .INSECURE }}"
+      version: "{{ .VERSION }}"
+      latest: "{{ .LATEST }}"
     cmds:
-        - dagger run docker buildx bake --builder {{ .BUILDER_NAME }} --push
+      - dagger run docker buildx bake --builder {{ .BUILDER_NAME }} --push
+
+  containerize-snapshot:
+    desc: Snapshot container images
+    deps:
+      - goreleaser-snapshot
+      - start-registry
+    vars:
+      IMAGE_VERSION: '{{ regexReplaceAll "[/_]" .GITHUB_REF_NAME "-" | default "dev"}}'
+      TAG: '{{regexReplaceAll "(\\d+)/merge" .IMAGE_VERSION "pr-${1}"}}'
+    cmds:
+      - task: containerize
+        vars:
+          ENVIRONMENT: "testing"
+          INSECURE:
+            sh: '[ -n "$GITHUB_ACTIONS" ] && echo "false" || echo "true"'
+          REGISTRY:
+            sh: '[ -n "$GITHUB_ACTIONS" ] && echo "ghcr.io/enterprisedb" || echo "{{ .REGISTRY_NAME }}:{{ .REGISTRY_PORT }}"'
+          VERSION: "{{ .TAG }}"
+          LATEST: "false"
 
   containerize-publish:
     desc: Publish container images
+    deps:
+      - goreleaser-publish
     requires:
       # We expect this to run in a GitHub workflow, so we put a few GitHub-specific vars here
       # to prevent running this task locally by accident.
@@ -274,13 +306,17 @@ tasks:
         - GITHUB_REPOSITORY
         - GITHUB_REF
         - GITHUB_REF_NAME
-        - GITHUB_TOKEN
     preconditions:
       - sh: "[[ {{.GITHUB_REF}} =~ 'refs/tags/v.*' ]]"
         msg: not a tag, failing
     cmds:
-      - >
-        dagger run docker buildx bake --push
+      - task: containerize
+        vars:
+          ENVIRONMENT: "production"
+          REGISTRY: "ghcr.io/enterprisedb"
+          INSECURE: "false"
+          VERSION: "{{ .GITHUB_REF_NAME }}"
+          LATEST: "true"
 
   docusaurus-build-test:
     desc: Check that the documentation builds
