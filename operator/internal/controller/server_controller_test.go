@@ -8,7 +8,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
-	kliov1alpha1 "github.com/cloudnative-pg/klio/pkg/operator/api/v1alpha1"
+	kliov1alpha1 "github.com/cloudnative-pg/klio/operator/api/v1alpha1"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"

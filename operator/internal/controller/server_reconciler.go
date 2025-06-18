@@ -12,7 +12,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	kliov1alpha1 "github.com/cloudnative-pg/klio/pkg/operator/api/v1alpha1"
+	kliov1alpha1 "github.com/cloudnative-pg/klio/operator/api/v1alpha1"
 )
 
 const (

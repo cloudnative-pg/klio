@@ -8,7 +8,7 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/cloudnative-pg/klio/pkg/operator/test/utils"
+	"github.com/cloudnative-pg/klio/operator/test/utils"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"

@@ -1,4 +1,4 @@
-module github.com/cloudnative-pg/klio/pkg/operator
+module github.com/cloudnative-pg/klio/operator
 
 go 1.24.0
 
