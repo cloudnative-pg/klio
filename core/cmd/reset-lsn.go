@@ -9,9 +9,9 @@ import (
 	"github.com/spf13/viper"
 	"gopkg.in/validator.v2"
 
-	"github.com/EnterpriseDB/klio/internal/client/klioclient/grpcclient"
-	"github.com/EnterpriseDB/klio/internal/client/sendwal"
-	"github.com/EnterpriseDB/klio/pkg/config"
+	"github.com/cloudnative-pg/klio/core/internal/client/klioclient/grpcclient"
+	"github.com/cloudnative-pg/klio/core/internal/client/sendwal"
+	"github.com/cloudnative-pg/klio/core/pkg/config"
 )
 
 // resetLSNCommand represents the run command

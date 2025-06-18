@@ -102,8 +102,8 @@ tasks:
       - >
         GITHUB_REF= dagger -s call
         -m github.com/cloudnative-pg/daggerverse/protoc-gen-go-grpc@${DAGGER_PROTOC_GEN_GO_GRPC_SHA}
-        run --source . --go-opt module=github.com/EnterpriseDB/klio/internal/grpc
-        --go-grpcopt module=github.com/EnterpriseDB/klio/internal/grpc --proto-path proto -o internal/grpc/
+        run --source . --go-opt module=github.com/cloudnative-pg/klio/core/internal/grpc
+        --go-grpcopt module=github.com/cloudnative-pg/klio/core/internal/grpc --proto-path proto -o internal/grpc/
     sources:
       - proto/**/*.proto
 

@@ -12,9 +12,9 @@ import (
 	"github.com/spf13/viper"
 	"gopkg.in/validator.v2"
 
-	"github.com/EnterpriseDB/klio/internal/client/klioclient/common"
-	"github.com/EnterpriseDB/klio/internal/client/klioclient/grpcclient"
-	"github.com/EnterpriseDB/klio/pkg/config"
+	"github.com/cloudnative-pg/klio/core/internal/client/klioclient/common"
+	"github.com/cloudnative-pg/klio/core/internal/client/klioclient/grpcclient"
+	"github.com/cloudnative-pg/klio/core/pkg/config"
 )
 
 // getWalCmd represents the run command

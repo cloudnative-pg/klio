@@ -9,7 +9,7 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
-	"github.com/EnterpriseDB/klio/internal/grpc"
+	"github.com/cloudnative-pg/klio/core/internal/grpc"
 )
 
 var (

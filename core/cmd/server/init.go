@@ -8,9 +8,9 @@ import (
 	"github.com/spf13/viper"
 	"gopkg.in/validator.v2"
 
-	"github.com/EnterpriseDB/klio/internal/server/kopiaserver"
-	"github.com/EnterpriseDB/klio/internal/server/walserver/repository"
-	"github.com/EnterpriseDB/klio/pkg/config"
+	"github.com/cloudnative-pg/klio/core/internal/server/kopiaserver"
+	"github.com/cloudnative-pg/klio/core/internal/server/walserver/repository"
+	"github.com/cloudnative-pg/klio/core/pkg/config"
 )
 
 // initializeCmd represents the "init" command

@@ -13,8 +13,8 @@ import (
 	"github.com/kopia/kopia/snapshot/restore"
 	"github.com/kopia/kopia/snapshot/snapshotfs"
 
-	"github.com/EnterpriseDB/klio/internal/client/klioclient/common"
-	"github.com/EnterpriseDB/klio/internal/client/klioclient/notifier"
+	"github.com/cloudnative-pg/klio/core/internal/client/klioclient/common"
+	"github.com/cloudnative-pg/klio/core/internal/client/klioclient/notifier"
 )
 
 // RestoreImplementation is an implementation of common.BackupRestorer.

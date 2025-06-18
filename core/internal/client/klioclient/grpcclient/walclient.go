@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"io"
 
-	klioGRPC "github.com/EnterpriseDB/klio/internal/grpc"
+	klioGRPC "github.com/cloudnative-pg/klio/core/internal/grpc"
 )
 
 // StoreWAL uploads a WAL in the WAL server

@@ -6,7 +6,7 @@ import (
 
 	"github.com/kopia/kopia/snapshot/upload"
 
-	"github.com/EnterpriseDB/klio/internal/client/klioclient/notifier"
+	"github.com/cloudnative-pg/klio/core/internal/client/klioclient/notifier"
 )
 
 // kopiaUploadProgress is the implementation of the Kopia progress.

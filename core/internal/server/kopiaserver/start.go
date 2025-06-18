@@ -11,7 +11,7 @@ import (
 	"github.com/kopia/kopia/repo/blob/filesystem"
 	"github.com/kopia/kopia/repo/content"
 
-	"github.com/EnterpriseDB/klio/pkg/config"
+	"github.com/cloudnative-pg/klio/core/pkg/config"
 )
 
 // kopiaCommand is the name of the kopia binary.

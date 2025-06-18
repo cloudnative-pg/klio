@@ -6,8 +6,8 @@ import (
 	"log/slog"
 	"testing"
 
-	"github.com/EnterpriseDB/klio/internal/server/walserver/repository"
-	"github.com/EnterpriseDB/klio/pkg/config"
+	"github.com/cloudnative-pg/klio/core/internal/server/walserver/repository"
+	"github.com/cloudnative-pg/klio/core/pkg/config"
 )
 
 func BenchmarkLookupSnapshotsViaKlioServer(b *testing.B) {

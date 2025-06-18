@@ -9,7 +9,7 @@ import (
 
 	"github.com/kopia/kopia/repo"
 
-	"github.com/EnterpriseDB/klio/pkg/config"
+	"github.com/cloudnative-pg/klio/core/pkg/config"
 )
 
 // Connection represent a connection to a Klio server.

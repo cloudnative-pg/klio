@@ -9,10 +9,10 @@ import (
 	"github.com/spf13/viper"
 	"gopkg.in/validator.v2"
 
-	"github.com/EnterpriseDB/klio/internal/client/klioclient/common"
-	"github.com/EnterpriseDB/klio/internal/client/klioclient/kopia"
-	"github.com/EnterpriseDB/klio/internal/client/klioclient/notifier"
-	"github.com/EnterpriseDB/klio/pkg/config"
+	"github.com/cloudnative-pg/klio/core/internal/client/klioclient/common"
+	"github.com/cloudnative-pg/klio/core/internal/client/klioclient/kopia"
+	"github.com/cloudnative-pg/klio/core/internal/client/klioclient/notifier"
+	"github.com/cloudnative-pg/klio/core/pkg/config"
 )
 
 // restoreCmd represents the restore command

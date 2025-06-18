@@ -8,7 +8,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 
-	"github.com/EnterpriseDB/klio/cmd/server"
+	"github.com/cloudnative-pg/klio/core/cmd/server"
 )
 
 //nolint:gochecknoglobals

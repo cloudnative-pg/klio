@@ -4,7 +4,7 @@ package klio.wal.v1;
 
 import "google/protobuf/timestamp.proto";
 
-option go_package = "github.com/EnterpriseDB/klio/internal/grpc";
+option go_package = "github.com/cloudnative-pg/klio/core/internal/grpc";
 
 service WAL {
   rpc Put(stream PutRequest) returns (PutResult) {}

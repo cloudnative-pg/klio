@@ -7,8 +7,8 @@ import (
 	"github.com/spf13/viper"
 	"gopkg.in/validator.v2"
 
-	"github.com/EnterpriseDB/klio/internal/server/kopiaserver"
-	"github.com/EnterpriseDB/klio/pkg/config"
+	"github.com/cloudnative-pg/klio/core/internal/server/kopiaserver"
+	"github.com/cloudnative-pg/klio/core/pkg/config"
 )
 
 // startBase represents the start command

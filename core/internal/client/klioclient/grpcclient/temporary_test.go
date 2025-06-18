@@ -11,10 +11,10 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 
-	klioGRPC "github.com/EnterpriseDB/klio/internal/grpc"
-	"github.com/EnterpriseDB/klio/internal/server/walserver"
-	"github.com/EnterpriseDB/klio/internal/server/walserver/repository"
-	"github.com/EnterpriseDB/klio/pkg/config"
+	klioGRPC "github.com/cloudnative-pg/klio/core/internal/grpc"
+	"github.com/cloudnative-pg/klio/core/internal/server/walserver"
+	"github.com/cloudnative-pg/klio/core/internal/server/walserver/repository"
+	"github.com/cloudnative-pg/klio/core/pkg/config"
 )
 
 // TemporaryConnection is a connection to a temporary repository, to be

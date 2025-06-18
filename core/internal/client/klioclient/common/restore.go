@@ -6,7 +6,7 @@ import (
 	"os"
 	"path"
 
-	"github.com/EnterpriseDB/klio/internal/client/klioclient/notifier"
+	"github.com/cloudnative-pg/klio/core/internal/client/klioclient/notifier"
 )
 
 // backupLabelFileName is the file name where the backup label should be stored.

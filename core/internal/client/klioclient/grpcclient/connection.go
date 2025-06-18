@@ -11,8 +11,8 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 
-	klioGRPC "github.com/EnterpriseDB/klio/internal/grpc"
-	"github.com/EnterpriseDB/klio/pkg/config"
+	klioGRPC "github.com/cloudnative-pg/klio/core/internal/grpc"
+	"github.com/cloudnative-pg/klio/core/pkg/config"
 )
 
 type grpcWALStream struct {

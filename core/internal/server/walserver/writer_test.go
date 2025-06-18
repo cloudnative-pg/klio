@@ -9,7 +9,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/EnterpriseDB/klio/internal/server/walserver/repository"
+	"github.com/cloudnative-pg/klio/core/internal/server/walserver/repository"
 )
 
 func TestWriter(t *testing.T) {

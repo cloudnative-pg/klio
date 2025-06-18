@@ -13,11 +13,11 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgproto3"
 
-	"github.com/EnterpriseDB/klio/internal/client/klioclient/grpcclient"
-	"github.com/EnterpriseDB/klio/internal/client/sendwal/buffer"
-	"github.com/EnterpriseDB/klio/internal/client/sendwal/infrastructure"
-	klioGRPC "github.com/EnterpriseDB/klio/internal/grpc"
-	"github.com/EnterpriseDB/klio/pkg/config"
+	"github.com/cloudnative-pg/klio/core/internal/client/klioclient/grpcclient"
+	"github.com/cloudnative-pg/klio/core/internal/client/sendwal/buffer"
+	"github.com/cloudnative-pg/klio/core/internal/client/sendwal/infrastructure"
+	klioGRPC "github.com/cloudnative-pg/klio/core/internal/grpc"
+	"github.com/cloudnative-pg/klio/core/pkg/config"
 )
 
 // Process implements the WAL sender service.

@@ -6,7 +6,7 @@ import (
 
 	"google.golang.org/protobuf/proto"
 
-	"github.com/EnterpriseDB/klio/internal/grpc"
+	"github.com/cloudnative-pg/klio/core/internal/grpc"
 )
 
 // ErrIncoherentMetadata happens when the cluster metadata is incoherent

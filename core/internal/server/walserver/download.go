@@ -8,7 +8,7 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
-	"github.com/EnterpriseDB/klio/internal/grpc"
+	"github.com/cloudnative-pg/klio/core/internal/grpc"
 )
 
 // metadataFileName is the name of the file containing the

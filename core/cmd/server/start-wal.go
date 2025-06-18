@@ -13,10 +13,10 @@ import (
 	"google.golang.org/grpc/credentials"
 	"gopkg.in/validator.v2"
 
-	klioGRPC "github.com/EnterpriseDB/klio/internal/grpc"
-	"github.com/EnterpriseDB/klio/internal/server/walserver"
-	"github.com/EnterpriseDB/klio/internal/server/walserver/repository"
-	"github.com/EnterpriseDB/klio/pkg/config"
+	klioGRPC "github.com/cloudnative-pg/klio/core/internal/grpc"
+	"github.com/cloudnative-pg/klio/core/internal/server/walserver"
+	"github.com/cloudnative-pg/klio/core/internal/server/walserver/repository"
+	"github.com/cloudnative-pg/klio/core/pkg/config"
 )
 
 // startWALCmd represents the start command

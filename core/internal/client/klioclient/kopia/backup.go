@@ -16,8 +16,8 @@ import (
 	"github.com/kopia/kopia/snapshot/policy"
 	"github.com/kopia/kopia/snapshot/upload"
 
-	"github.com/EnterpriseDB/klio/internal/client/klioclient/common"
-	"github.com/EnterpriseDB/klio/internal/client/klioclient/notifier"
+	"github.com/cloudnative-pg/klio/core/internal/client/klioclient/common"
+	"github.com/cloudnative-pg/klio/core/internal/client/klioclient/notifier"
 )
 
 // pgDataManifestIDAnnotationName is the name of the annotation where

@@ -12,7 +12,7 @@ import (
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
-	"github.com/EnterpriseDB/klio/internal/grpc"
+	"github.com/cloudnative-pg/klio/core/internal/grpc"
 )
 
 // GetMetadata implements the GetMetadata GRPC call.

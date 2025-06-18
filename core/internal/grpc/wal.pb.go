@@ -783,7 +783,7 @@ const file_proto_wal_proto_rawDesc = "" +
 	"\x03Get\x12\x17.klio.wal.v1.GetRequest\x1a\x16.klio.wal.v1.GetResult\"\x000\x01\x12N\n" +
 	"\vGetMetadata\x12\x1f.klio.wal.v1.GetMetadataRequest\x1a\x1c.klio.wal.v1.ClusterMetadata\"\x00\x12\\\n" +
 	"\x0fRequestWALStart\x12#.klio.wal.v1.RequestWALStartRequest\x1a\".klio.wal.v1.RequestWALStartResult\"\x00\x12Y\n" +
-	"\x0eResetWALStream\x12\".klio.wal.v1.ResetWALStreamRequest\x1a!.klio.wal.v1.ResetWALStreamResult\"\x00B,Z*github.com/EnterpriseDB/klio/internal/grpcb\x06proto3"
+	"\x0eResetWALStream\x12\".klio.wal.v1.ResetWALStreamRequest\x1a!.klio.wal.v1.ResetWALStreamResult\"\x00B1Z/github.com/cloudnative-pg/klio/core/internal/grpcb\x06proto3"
 
 var (
 	file_proto_wal_proto_rawDescOnce sync.Once

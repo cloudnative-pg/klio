@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	klioGRPC "github.com/EnterpriseDB/klio/internal/grpc"
+	klioGRPC "github.com/cloudnative-pg/klio/core/internal/grpc"
 )
 
 // SendBlock implements common.WALUploaderImpl.

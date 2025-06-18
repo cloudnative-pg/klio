@@ -10,9 +10,9 @@ import (
 	"google.golang.org/protobuf/encoding/protojson"
 	"gopkg.in/validator.v2"
 
-	"github.com/EnterpriseDB/klio/internal/client/klioclient/grpcclient"
-	klioGRPC "github.com/EnterpriseDB/klio/internal/grpc"
-	"github.com/EnterpriseDB/klio/pkg/config"
+	"github.com/cloudnative-pg/klio/core/internal/client/klioclient/grpcclient"
+	klioGRPC "github.com/cloudnative-pg/klio/core/internal/grpc"
+	"github.com/cloudnative-pg/klio/core/pkg/config"
 )
 
 // getMetadataCmd represents the get-metadata command

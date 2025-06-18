@@ -1,4 +1,4 @@
-module github.com/EnterpriseDB/klio
+module github.com/cloudnative-pg/klio/core
 
 go 1.23.4
 

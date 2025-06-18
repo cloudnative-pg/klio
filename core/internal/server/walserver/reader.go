@@ -7,8 +7,8 @@ import (
 
 	"google.golang.org/protobuf/encoding/protodelim"
 
-	"github.com/EnterpriseDB/klio/internal/grpc"
-	"github.com/EnterpriseDB/klio/internal/server/walserver/repository"
+	"github.com/cloudnative-pg/klio/core/internal/grpc"
+	"github.com/cloudnative-pg/klio/core/internal/server/walserver/repository"
 )
 
 // Reader is the WAL file writer.
