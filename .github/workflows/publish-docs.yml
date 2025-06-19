@@ -41,7 +41,7 @@ jobs:
         uses: actions/configure-pages@v5
 
       - name: Install dependencies
-        working-directory: web
+        working-directory: documentation/web
         run: yarn install --frozen-lockfile --non-interactive
 
       - name: Build website
