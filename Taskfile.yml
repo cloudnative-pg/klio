@@ -352,6 +352,7 @@ tasks:
     desc: Run the operator CI pipeline
     deps:
       - operator:lint
+      - operator:controller-gen
       - operator:containerize-snapshot
 
   operator:lint:
@@ -407,6 +408,32 @@ tasks:
           LATEST: "true"
           WORKDIR: "operator"
 
+  operator:controller-gen:
+    desc: Run controller-gen
+    dir: operator
+    run: once
+    env:
+      # renovate: datasource=git-refs depName=controller-gen lookupName=https://github.com/cloudnative-pg/daggerverse currentValue=main
+      DAGGER_CONTROLLER_GEN_SHA: d8681eb0132bb9f56c9c245cc33f95d09c4645f4
+    cmds:
+      - >
+        GITHUB_REF= dagger -s call -m github.com/cloudnative-pg/daggerverse/controller-gen@${DAGGER_CONTROLLER_GEN_SHA}
+        controller-gen --source . --args object:headerFile=hack/boilerplate.go.txt --args paths=./api/...
+        file --path api/v1alpha1/zz_generated.deepcopy.go export --path api/v1alpha1/zz_generated.deepcopy.go
+      - >
+        GITHUB_REF= dagger -s call -m github.com/cloudnative-pg/daggerverse/controller-gen@${DAGGER_CONTROLLER_GEN_SHA}
+        controller-gen --source . --args rbac:roleName=manager-role --args crd --args webhook --args paths=./...
+        --args output:crd:artifacts:config=config/crd/bases
+        directory --path config/
+        filter --include crd/bases/,rbac/role.yaml
+        export --path config/
+    sources:
+      - ./api/**/*.go
+    generates:
+      - ./api/v1alpha1/zz_generated.deepcopy.go
+      - ./config/rbac/role.yaml
+      - ./config/crd/bases/*.yaml
+
   ####################################
   ## DOCUMENTATION
   ####################################
@@ -416,6 +443,7 @@ tasks:
     deps:
       - documentation:spellcheck
       - documentation:protoc-gen-doc
+      - documentation:apidoc
       - documentation:docusaurus-build-test
       - documentation:uncommitted
 
@@ -460,11 +488,34 @@ tasks:
     sources:
       - core/proto/**/*.proto
 
+  documentation:apidoc:
+    desc: Generate the server API documentation
+    deps:
+      - operator:controller-gen
+    run: once
+    env:
+      # renovate: datasource=git-refs depName=crd-gen-refs lookupName=https://github.com/cloudnative-pg/daggerverse currentValue=main
+      DAGGER_CRDGENREF_SHA: d8681eb0132bb9f56c9c245cc33f95d09c4645f4
+    cmds:
+      - >
+        GITHUB_REF= dagger -s call -m github.com/cloudnative-pg/daggerverse/crd-ref-docs@${DAGGER_CRDGENREF_SHA} generate
+        --src .
+        --source-path operator/api/v1alpha1
+        --config-file documentation/crd-gen-refs/config.yaml
+        --renderer markdown
+        --templates-dir documentation/crd-gen-refs/markdown
+        file --path out.md
+        export --path documentation/web/docs/user/operator_api.md
+    sources:
+      - operator/api/v1alpha1/**
+      - documentation/crd-gen-refs/**
+
   documentation:docusaurus-build-test:
     desc: Check that the documentation builds
     dir: documentation
     deps:
       - documentation:protoc-gen-doc
+      - documentation:apidoc
     env:
       # renovate: datasource=git-refs depName=docusaurus lookupName=https://github.com/levlaz/daggerverse currentValue=main
       DAGGER_DOCUSAURUS_SHA: 3b7d706c741b2d91d4f2ad8d0f4c4eb921cb18d6
