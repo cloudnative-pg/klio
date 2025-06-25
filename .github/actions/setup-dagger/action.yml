@@ -1,0 +1,15 @@
+name: Setup dagger
+description: Sets up dagger and task
+runs:
+  using: composite
+  steps:
+    - name: Install Task
+      uses: arduino/setup-task@v2
+
+    - name: Install Dagger
+      shell: bash
+      env:
+        # renovate: datasource=github-tags depName=dagger/dagger versioning=semver
+        DAGGER_VERSION: 0.18.5
+      run: |
+        curl -L https://dl.dagger.io/dagger/install.sh | BIN_DIR=$HOME/.local/bin sh

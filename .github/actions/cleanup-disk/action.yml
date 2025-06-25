@@ -1,0 +1,25 @@
+name: Cleanup runner's disk
+description: Free up disk space on the runner
+runs:
+  using: composite
+  steps:
+    - name: Cleanup Disk
+      uses: jlumbroso/free-disk-space@54081f138730dfa15788a46383842cd2f914a1be # v1.3.1
+      with:
+        android: true
+        dotnet: true
+        haskell: true
+        tool-cache: true
+        large-packages: false
+        swap-storage: false
+
+    - name: Cleanup docker cache
+      shell: bash
+      run: |
+        echo "-------------Disk info before cleanup----------------"
+        df -h
+        echo "-----------------------------------------------------"
+        docker system prune -a -f
+        echo "-------------Disk info after cleanup----------------"
+        df -h
+        echo "-----------------------------------------------------"

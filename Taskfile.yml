@@ -21,7 +21,6 @@ tasks:
     desc: Run the CI pipeline
     deps:
       - all:commitlint
-      - all:uncommitted
       - core:ci
       - documentation:ci
       - operator:ci
@@ -35,21 +34,6 @@ tasks:
       - >
         GITHUB_REF= dagger -s call -m github.com/cloudnative-pg/daggerverse/commitlint@${DAGGER_COMMITLINT_SHA}
         lint --source . --args "--from=origin/main" stdout
-
-  all:uncommitted:
-    desc: Check for uncommitted changes
-    deps:
-      - documentation:wordlist-ordered
-      - documentation:protoc-gen-doc
-    env:
-      # renovate: datasource=git-refs depName=uncommitted lookupName=https://github.com/cloudnative-pg/daggerverse currentValue=main
-      DAGGER_UNCOMMITTED_SHA: d8681eb0132bb9f56c9c245cc33f95d09c4645f4
-    cmds:
-      - >
-        GITHUB_REF= dagger -s call -m github.com/cloudnative-pg/daggerverse/uncommitted@${DAGGER_UNCOMMITTED_SHA}
-        check-uncommitted --source . stdout
-    sources:
-      - ./**
 
   ####################################
   ## CORE
@@ -341,6 +325,17 @@ tasks:
         --version ${GOLANGCI_LINT_VERSION}
         run --source . --config .golangci.yml stdout
 
+  internal:uncommitted:
+    desc: Check for uncommitted changes
+    internal: true
+    env:
+      # renovate: datasource=git-refs depName=uncommitted lookupName=https://github.com/cloudnative-pg/daggerverse currentValue=main
+      DAGGER_UNCOMMITTED_SHA: d8681eb0132bb9f56c9c245cc33f95d09c4645f4
+    cmds:
+      - >
+        GITHUB_REF= dagger -s call -m github.com/cloudnative-pg/daggerverse/uncommitted@${DAGGER_UNCOMMITTED_SHA}
+        check-uncommitted --source . stdout
+
   ####################################
   ## OPERATOR
   ####################################
@@ -369,6 +364,7 @@ tasks:
       - documentation:spellcheck
       - documentation:protoc-gen-doc
       - documentation:docusaurus-build-test
+      - documentation:uncommitted
 
   documentation:wordlist-ordered:
     desc: Order the word list file
@@ -449,6 +445,19 @@ tasks:
       - >
         dagger call -m github.com/levlaz/daggerverse/docusaurus@${DAGGER_DOCUSAURUS_SHA}
         --src web --yarn serve-dev up
+
+  documentation:uncommitted:
+    desc: Check for uncommitted changes after documentation generation
+    deps:
+      - documentation:wordlist-ordered
+      - documentation:protoc-gen-doc
+    env:
+      # renovate: datasource=git-refs depName=uncommitted lookupName=https://github.com/cloudnative-pg/daggerverse currentValue=main
+      DAGGER_UNCOMMITTED_SHA: d8681eb0132bb9f56c9c245cc33f95d09c4645f4
+    cmds:
+      - task: internal:uncommitted
+    sources:
+      - ./**
 
   documentation:clean:
     desc: Cleanup of the documentation build artifacts and modules

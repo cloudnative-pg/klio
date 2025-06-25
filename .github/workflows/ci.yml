@@ -8,50 +8,111 @@ on:
       - main
 
 jobs:
-  ci:
+
+  change-triage:
+    name: Check changed files
     runs-on: ubuntu-latest
+    outputs:
+      docs-changed: ${{ steps.filter.outputs.docs-changed }}
+      core-changed: ${{ steps.filter.outputs.core-changed }}
+      operator-changed: ${{ steps.filter.outputs.operator-changed }}
+      renovate-changed: ${{ steps.filter.outputs.renovate-changed }}
     steps:
-      - name: Cleanup Disk
-        uses: jlumbroso/free-disk-space@54081f138730dfa15788a46383842cd2f914a1be # v1.3.1
-        with:
-          android: true
-          dotnet: true
-          haskell: true
-          tool-cache: true
-          large-packages: false
-          swap-storage: false
-      - name: Cleanup docker cache
-        run: |
-          echo "-------------Disk info before cleanup----------------"
-          df -h
-          echo "-----------------------------------------------------"
-          docker system prune -a -f
-          echo "-------------Disk info after cleanup----------------"
-          df -h
-          echo "-----------------------------------------------------"
       - name: Checkout
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
-        # We need the full history for the commitlint task
         with:
           fetch-depth: 0
           ref: ${{ github.event.pull_request.head.sha }}
-      - name: Install Task
-        uses: arduino/setup-task@v2
-      - name: Install Dagger
-        env:
-          # renovate: datasource=github-tags depName=dagger/dagger versioning=semver
-          DAGGER_VERSION: 0.18.5
+
+      - name: Check for changes
+        uses: dorny/paths-filter@de90cc6fb38fc0963ad72b210f1f284cd68cea36 # v3.0.2
+        id: filter
+        with:
+          filters: |
+            docs-changed:
+              - 'documentation/**'
+              - 'core/proto/**/*.proto'
+              - 'operator/api/**/*.go'
+              - 'Taskfile.yml'
+              - '.github/**'
+            core-changed:
+              - 'core/**'
+              - 'Taskfile.yml'
+              - '.github/**'
+            operator-changed:
+              - 'operator/**'
+              - 'Taskfile.yml'
+              - '.github/**'
+            renovate-changed:
+              - 'renovate.json'
+
+  commitlint:
+    name: Commit Linter
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.sha }}
+
+      - name: Setup dagger
+        uses: ./.github/actions/setup-dagger
+
+      - name: Run commitlint
         run: |
-          curl -L https://dl.dagger.io/dagger/install.sh | BIN_DIR=$HOME/.local/bin sh
+          task all:commitlint
+
+  documentation:
+    name: Documentation CI
+    needs:
+      - change-triage
+    if: needs.change-triage.outputs.docs-changed == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.sha }}
+
+      - name: Setup dagger
+        uses: ./.github/actions/setup-dagger
+
+      - name: Run CI task
+        run: |
+          task documentation:ci
+
+  core:
+    name: Core CI
+    needs:
+      - change-triage
+    if: needs.change-triage.outputs.core-changed == 'true'
+    runs-on: ["edb", "2xlarge"]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.sha }}
+
+      - name: Cleanup disk
+        uses: ./.github/actions/cleanup-disk
+
+      - name: Setup dagger
+        uses: ./.github/actions/setup-dagger
+
       - name: Login to ghcr.io
         uses: docker/login-action@74a5d142397b4f367a81961eba4e8cd7edddf772 # v3
         with:
           registry: "ghcr.io"
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Run CI task
         run: |
-          task all:ci
+          task core:ci
+
       - name: Upload assets
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
@@ -60,3 +121,42 @@ jobs:
             core/dist/*.deb
             core/dist/*.rpm
             core/dist/*.tar.gz
+
+  operator:
+    name: Operator CI
+    needs:
+      - change-triage
+    if: needs.change-triage.outputs.operator-changed == 'true'
+    runs-on: ["edb", "2xlarge"]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.sha }}
+
+      - name: Cleanup disk
+        uses: ./.github/actions/cleanup-disk
+
+      - name: Setup dagger
+        uses: ./.github/actions/setup-dagger
+
+      - name: Run CI task
+        run: |
+          task operator:ci
+
+  renovate:
+    name: Renovate Linter
+    needs:
+      - change-triage
+    if: needs.change-triage.outputs.renovate-changed == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.sha }}
+
+      - name: Validate Renovate JSON
+        run: npx --yes --package renovate@40.48.6 -- renovate-config-validator
