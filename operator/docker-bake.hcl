@@ -1,7 +1,7 @@
 url = "https://www.enterprisedb.com"
 authors = "EnterpriseDB"
-title = "Klio"
-description = "Single container image for Klio client and server"
+title = "Klio Operator Image"
+description = "Klio Operator is a Kubernetes operator designed to manage and deploy Klio servers on Kubernetes clusters. It automates the lifecycle of Klio server resources, streamlining deployment, configuration, and management tasks for cloud-native environments."
 # TODO: add revision information, documentation links, and license information
 revision = ""
 documentation = ""
@@ -40,7 +40,7 @@ function "getRegistry" {
 
 function "getImageName" {
   params = []
-  result = "${getRegistry()}/klio${suffix}"
+  result = "${getRegistry()}/klio-operator${suffix}"
 }
 
 variable "version" {

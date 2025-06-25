@@ -35,6 +35,13 @@ tasks:
         GITHUB_REF= dagger -s call -m github.com/cloudnative-pg/daggerverse/commitlint@${DAGGER_COMMITLINT_SHA}
         lint --source . --args "--from=origin/main" stdout
 
+  all:publish:
+    desc: Publish the release artifacts
+    deps:
+      - core:goreleaser-publish
+      - core:containerize-publish
+      - operator:containerize-publish
+
   ####################################
   ## CORE
   ####################################
@@ -149,6 +156,7 @@ tasks:
     deps:
       - core:protoc-gen-go-grpc
     dir: core
+    run: once
     requires:
       # We expect this to run in a GitHub workflow, so we put a few GitHub-specific vars here
       # to prevent running this task locally by accident.
@@ -344,6 +352,7 @@ tasks:
     desc: Run the operator CI pipeline
     deps:
       - operator:lint
+      - operator:containerize-snapshot
 
   operator:lint:
     desc: Run golangci-lint on operator
@@ -353,6 +362,50 @@ tasks:
           WORKDIR: "operator"
     sources:
       - ./**/*.go
+
+  operator:containerize-snapshot:
+    desc: Snapshot container images
+    dir: operator
+    deps:
+      - internal:start-registry
+    vars:
+      GITHUB_REF_NAME: '{{ .GITHUB_REF_NAME | default "dev" }}'
+      IMAGE_VERSION: '{{ regexReplaceAll "[/_]" .GITHUB_REF_NAME "-" }}'
+      TAG: '{{regexReplaceAll "(\\d+)/merge" .IMAGE_VERSION "pr-${1}"}}'
+    cmds:
+      - task: internal:containerize
+        vars:
+          ENVIRONMENT: "testing"
+          INSECURE:
+            sh: '[ -n "$GITHUB_ACTIONS" ] && echo "false" || echo "true"'
+          REGISTRY:
+            sh: '[ -n "$GITHUB_ACTIONS" ] && echo "ghcr.io/enterprisedb" || echo "{{ .REGISTRY_NAME }}:{{ .REGISTRY_PORT }}"'
+          VERSION: "{{ .TAG }}"
+          LATEST: "false"
+          WORKDIR: "operator"
+
+  operator:containerize-publish:
+    desc: Publish operator images
+    requires:
+      # We expect this to run in a GitHub workflow, so we put a few GitHub-specific vars here
+      # to prevent running this task locally by accident.
+      vars:
+        - CI
+        - GITHUB_REPOSITORY
+        - GITHUB_REF
+        - GITHUB_REF_NAME
+    preconditions:
+      - sh: "[[ {{.GITHUB_REF}} =~ 'refs/tags/v.*' ]]"
+        msg: not a tag, failing
+    cmds:
+      - task: internal:containerize
+        vars:
+          ENVIRONMENT: "production"
+          REGISTRY: "ghcr.io/enterprisedb"
+          INSECURE: "false"
+          VERSION: "{{ .GITHUB_REF_NAME }}"
+          LATEST: "true"
+          WORKDIR: "operator"
 
   ####################################
   ## DOCUMENTATION

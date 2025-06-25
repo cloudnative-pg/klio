@@ -141,6 +141,13 @@ jobs:
       - name: Setup dagger
         uses: ./.github/actions/setup-dagger
 
+      - name: Login to ghcr.io
+        uses: docker/login-action@74a5d142397b4f367a81961eba4e8cd7edddf772 # v3
+        with:
+          registry: "ghcr.io"
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Run CI task
         run: |
           task operator:ci
