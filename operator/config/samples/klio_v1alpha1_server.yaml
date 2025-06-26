@@ -40,7 +40,7 @@ spec:
     name: server-sample-users
 
   image: klio:dev
-  imagePullPolicy: Never
+  imagePullPolicy: IfNotPresent
 ---
 apiVersion: v1
 data:

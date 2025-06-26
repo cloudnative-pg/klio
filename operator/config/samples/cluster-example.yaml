@@ -21,7 +21,7 @@ metadata:
           "value": {
             "name": "klio",
             "image": "klio:dev",
-            "imagePullPolicy": "Never",
+            "imagePullPolicy": "IfNotPresent",
             "args": [
               "send-wal"
             ],

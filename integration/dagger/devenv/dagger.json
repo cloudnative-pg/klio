@@ -1,0 +1,19 @@
+{
+  "name": "devenv",
+  "engineVersion": "v0.18.5",
+  "sdk": {
+    "source": "go"
+  },
+  "dependencies": [
+    {
+      "name": "go",
+      "source": "github.com/sagikazarmark/daggerverse/go",
+      "pin": "ceffda4aebd349a24fc00e591b4ed9b801535b65"
+    },
+    {
+      "name": "k3s",
+      "source": "github.com/marcosnils/daggerverse/k3s",
+      "pin": "fe8f9ede8cf6afdb1b15adbfd0103ce86c141bbc"
+    }
+  ]
+}

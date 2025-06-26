@@ -61,6 +61,7 @@ StartWALFile
 TLS
 TLSSecretName
 TODO
+Taskfile
 TrueClass
 UTF
 UnDeploy
@@ -104,6 +105,7 @@ namespace
 pgdata
 postgres
 postgresql
+pre
 proto
 protobuf
 sfixed

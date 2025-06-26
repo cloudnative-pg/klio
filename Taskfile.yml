@@ -592,3 +592,13 @@ tasks:
       - core:clean
     cmds:
       - rm -rf .task/
+
+  ########################################
+  ## INTEGRATION
+  ########################################
+
+  integration:devenv:
+    desc: Create and connect to an ephemeral development environment
+    interactive: true
+    cmds:
+      - dagger call -m integration/dagger/devenv kubernetes --source .

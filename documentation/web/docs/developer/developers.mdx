@@ -4,13 +4,30 @@
 
 * A [dagger](https://dagger.io/) installation
 
-## How to spawn up a testing environment
+## How to get an ephemeral development environment
 
-The following command will spawn up a new temporary Kubernetes environment with
-CloudNativePG, the minimal cluster and **klio**:
+For a quick and convenient development experience, you can create an ephemeral
+development environment using the `integration:devenv` task from the Taskfile:
 
 ```sh
-dagger call kubernetes --source . terminal
+task integration:devenv
+```
+
+This command creates and connects you to an ephemeral development environment
+with all the necessary components pre-configured, making it easier to test and
+develop Klio features without affecting your local setup.
+
+Here are the instructions to deploy the Klio server and the CNPG cluster with
+the Klio plugin, using manifests under `operator/config/samples`.
+The following commands are executed inside the dagger container created from
+the previous step:
+
+```sh
+# Deploy the Klio server with the related resources
+dagger /apps $ sed 's/klio:dev/registry:5000\/klio:dev/' ../operator/config/samples/klio_v1alpha1_server.yaml | kubectl apply -f -
+
+# Deploy the CNPG Cluster with a patch for the plugin
+dagger /apps $ sed 's/klio:dev/registry:5000\/klio:dev/' ../operator/config/samples/cluster-example.yaml | kubectl apply -f -
 ```
 
 ## How to recreate the GRPC stub and skeleton
