@@ -23,14 +23,6 @@ spec:
       accessModes:
       - ReadWriteOnce
 
-  logConfiguration:
-    pvcTemplate:
-      resources:
-        requests:
-          storage: 1Gi
-      accessModes:
-      - ReadWriteOnce
-
   password:
     name: server-sample-encryption
     key: password

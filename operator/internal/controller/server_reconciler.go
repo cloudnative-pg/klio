@@ -24,7 +24,6 @@ const (
 
 const (
 	kopiaDataMountPath   = "/data"
-	kopiaLogsMountPath   = "/logs"
 	kopiaCacheMountPath  = "/cache"
 	htpasswdFileName     = "htpasswd"
 	kopiaConfigMountPath = "/config"
@@ -76,16 +75,6 @@ func (r *ServerReconciler) reconcileStatefulSet(ctx context.Context, server *kli
 						},
 					},
 					Spec: server.Spec.CacheConfiguration.PersistentVolumeClaimTemplate,
-				},
-				{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: "logs",
-						Labels: map[string]string{
-							klioServerLabel: server.Name,
-							pvcTypeLabel:    "logs",
-						},
-					},
-					Spec: server.Spec.LogConfiguration.PersistentVolumeClaimTemplate,
 				},
 			},
 			Replicas: ptr.To(int32(1)),
@@ -334,7 +323,6 @@ func (r *ServerReconciler) getServerEnv(server *kliov1alpha1.Server) []corev1.En
 				},
 			},
 		},
-		{Name: "BASE_LOGS", Value: kopiaLogsMountPath},
 		{Name: "BASE_CACHE", Value: kopiaCacheMountPath},
 		{Name: "BASE_REPOSITORY", Value: basePath},
 		{Name: "BASE_TLS_CERT", Value: "/certs/tls.crt"},
@@ -393,7 +381,6 @@ func getVolumeMounts() []corev1.VolumeMount {
 	return []corev1.VolumeMount{
 		{Name: "data", MountPath: kopiaDataMountPath},
 		{Name: "tls", MountPath: "/certs"},
-		{Name: "logs", MountPath: kopiaLogsMountPath},
 		{Name: "cache", MountPath: kopiaCacheMountPath},
 		{Name: "tmp", MountPath: "/tmp"},
 		{Name: "config", MountPath: kopiaConfigMountPath},

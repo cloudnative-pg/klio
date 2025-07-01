@@ -41,7 +41,6 @@ Kubernetes
 Kustomize
 Liveness
 LocalObjectReference
-LogConfiguration
 NetworkPolicies
 OCI
 ObjectMeta

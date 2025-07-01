@@ -36,9 +36,6 @@ type ServerSpec struct {
 	// +optional
 	Resources corev1.ResourceRequirements `json:"resources,omitempty"`
 
-	// LogConfiguration is the configuration of the logging infrastructure
-	LogConfiguration LogConfiguration `json:"logConfiguration"`
-
 	// CacheConfiguration is the configuration of the PVC that should be
 	// used for the cache
 	CacheConfiguration CacheConfiguration `json:"cacheConfiguration"`
@@ -68,11 +65,6 @@ type BaseConfiguration struct {
 // DataConfiguration defines the configuration for the data directory.
 type DataConfiguration struct {
 	// Template to be used to generate the Persistent Volume Claim needed for data folder
-	PersistentVolumeClaimTemplate corev1.PersistentVolumeClaimSpec `json:"pvcTemplate"`
-}
-
-// LogConfiguration defines the configuration for the logs directory.
-type LogConfiguration struct {
 	PersistentVolumeClaimTemplate corev1.PersistentVolumeClaimSpec `json:"pvcTemplate"`
 }
 

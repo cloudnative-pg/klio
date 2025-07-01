@@ -37,9 +37,6 @@ type BaseServerConfig struct {
 	// operate on the Kopia repository.
 	EncryptionPassword string `mapstructure:"encryption_password" validate:"nonzero"`
 
-	// LogDirectory is the directory where the Kopia server log files are written.
-	LogDirectory string `mapstructure:"logs" validate:"nonzero"`
-
 	// CacheDirectory is the directory of the Kopia cache
 	CacheDirectory string `mapstructure:"cache" validate:"nonzero"`
 
