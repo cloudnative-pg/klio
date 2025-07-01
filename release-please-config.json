@@ -4,6 +4,18 @@
   "bump-minor-pre-major": true,
   "bump-patch-for-minor-pre-major": true,
   "draft": false,
+  "extra-files": [
+    {
+      "path": "operator/dist/chart/Chart.yaml",
+      "type": "yaml",
+      "jsonpath": "$.appVersion"
+    },
+    {
+      "path": "operator/dist/chart/Chart.yaml",
+      "type": "yaml",
+      "jsonpath": "$.version"
+    }
+  ],
   "prerelease": false,
   "packages": {
     ".": {}

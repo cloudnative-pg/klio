@@ -1,0 +1,78 @@
+# [MANAGER]: Manager Deployment Configurations
+controllerManager:
+  # -- The number of replicas for the controller manager deployment.
+  replicas: 1
+  container:
+    image:
+      # -- The image to use for the controller manager.
+      repository: controller
+      # -- The tag to use for the controller manager image.
+      tag: latest
+    # -- The image pull policy for the controller manager.
+    imagePullPolicy: Always
+    # -- The arguments to pass to the controller manager.
+    args:
+      - "--leader-elect"
+      - "--metrics-bind-address=:8443"
+      - "--health-probe-bind-address=:8081"
+    # -- The environment variables to set for the controller manager container.
+    env: {}
+    # -- The resources to allocate for the controller manager container.
+    resources:
+      limits:
+        cpu: 500m
+        memory: 128Mi
+      requests:
+        cpu: 10m
+        memory: 64Mi
+    # -- Liveness probe configuration.
+    livenessProbe:
+      initialDelaySeconds: 15
+      periodSeconds: 20
+      httpGet:
+        path: /healthz
+        port: 8081
+    # -- Readiness probe configuration.
+    readinessProbe:
+      initialDelaySeconds: 5
+      periodSeconds: 10
+      httpGet:
+        path: /readyz
+        port: 8081
+    # -- The security context for the controller manager container.
+    securityContext:
+      allowPrivilegeEscalation: false
+      capabilities:
+        drop:
+          - "ALL"
+  # -- The security context for the controller manager pod.
+  securityContext:
+    runAsNonRoot: true
+    seccompProfile:
+      type: RuntimeDefault
+  # -- The termination grace period for the controller manager pod.
+  terminationGracePeriodSeconds: 10
+  # -- The service account name for the controller manager pod.
+  serviceAccountName: operator-controller-manager
+
+rbac:
+  # -- Enable RBAC (Permissions) configurations
+  enable: true
+
+metrics:
+  # -- Set to true to generate manifests for exporting metrics.
+  # To disable metrics export set false, and ensure that the
+  # ControllerManager argument "--metrics-bind-address=:8443" is removed.
+  enable: true
+
+prometheus:
+  # -- To enable a ServiceMonitor to export metrics to Prometheus set true
+  enable: false
+
+certmanager:
+  # -- Enable cert-manager injection to webhooks
+  enable: false
+
+networkPolicy:
+  # -- Enable NetworkPolicies
+  enable: false

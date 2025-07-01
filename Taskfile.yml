@@ -41,6 +41,7 @@ tasks:
       - core:goreleaser-publish
       - core:containerize-publish
       - operator:containerize-publish
+      - operator:helm-publish
 
   ####################################
   ## CORE
@@ -148,8 +149,8 @@ tasks:
       # "directory --path dist export --path dist" should work properly but it creates the dist/
       # directory with wrong permissions (0700).
     sources:
-      - ./**
-      - exclude: dist/**
+      - ./**/*
+      - exclude: dist/**/*
 
   core:goreleaser-publish:
     desc: Upload the release artifacts
@@ -354,6 +355,9 @@ tasks:
       - operator:lint
       - operator:controller-gen
       - operator:containerize-snapshot
+      - operator:helm-chart
+      - operator:helm-lint
+      - operator:uncommitted
 
   operator:lint:
     desc: Run golangci-lint on operator
@@ -422,17 +426,112 @@ tasks:
         file --path api/v1alpha1/zz_generated.deepcopy.go export --path api/v1alpha1/zz_generated.deepcopy.go
       - >
         GITHUB_REF= dagger -s call -m github.com/cloudnative-pg/daggerverse/controller-gen@${DAGGER_CONTROLLER_GEN_SHA}
-        controller-gen --source . --args rbac:roleName=manager-role --args crd --args webhook --args paths=./...
-        --args output:crd:artifacts:config=config/crd/bases
+        controller-gen --source . --args rbac:roleName=manager-role --args crd --args webhook
+        --args paths=./api/... --args paths=./internal/... --args output:crd:artifacts:config=config/crd/bases
         directory --path config/
-        filter --include crd/bases/,rbac/role.yaml
+        filter --include crd/bases/,rbac/
         export --path config/
     sources:
       - ./api/**/*.go
+      - ./internal/**/*.go
     generates:
       - ./api/v1alpha1/zz_generated.deepcopy.go
       - ./config/rbac/role.yaml
       - ./config/crd/bases/*.yaml
+
+  operator:helm-chart:
+    desc: Generate the Helm chart for the operator
+    deps:
+      - operator:controller-gen
+    dir: operator
+    run: once
+    env:
+      # renovate: datasource=git-refs depName=kustomize lookupName=https://github.com/sagikazarmark/daggerverse currentValue=main
+      DAGGER_KUSTOMIZE_SHA: d814d0d7c421348f51cdda96870a05ca2aa8e96a
+      # renovate: datasource=docker depName=registry.k8s.io/kustomize/kustomize versioning=semver
+      KUSTOMIZE_IMAGE_VERSION: v5.6.0
+    cmds:
+      # Generate the Helm chart for the operator.
+      # Kubebuilder wants to generate the CRDs in the chart/templates/crd directory, but we want to
+      # generate them in the chart/crds directory, as the Helm convention is that CRDs should not be templates.
+      # We build the CRDs in a second step with kustomize.
+      # Additionally, kubebuilder follows only the changes in the rbac. Any name change in the CRDs will not
+      # be ported over to the Helm chart automatically.
+      - >
+        GITHUB_REF= dagger -s call -m dagger/kubebuilder
+        helm --source .
+        without-directory --path chart/templates/crd
+        export --path dist
+      - >
+        GITHUB_REF= dagger -s call -m github.com/sagikazarmark/daggerverse/kustomize@${DAGGER_KUSTOMIZE_SHA}
+        --version ${KUSTOMIZE_IMAGE_VERSION}
+        build --source config/crd
+        export --path dist/chart/crds/klio.yaml
+    sources:
+      - config/**/*
+    generates:
+      - dist/**
+
+  operator:helm-lint:
+    desc: Generate the Helm chart for the operator
+    dir: operator
+    run: once
+    deps:
+      - operator:helm-chart
+    env:
+      # renovate: datasource=git-refs depName=helm lookupName=https://github.com/sagikazarmark/daggerverse currentValue=main
+      DAGGER_HELM_SHA: 4981f49ead356d64a860ef85caec9b0622933ad7
+    cmds:
+      - >
+        GITHUB_REF= dagger -s call -m github.com/sagikazarmark/daggerverse/helm@${DAGGER_HELM_SHA}
+        lint --chart dist/chart/ stdout
+    sources:
+      - dist/chart/**/*
+
+  operator:helm-publish:
+    desc: Publish the Helm chart for the operator as an OCI artifact
+    dir: operator
+    run: once
+    deps:
+      - operator:helm-chart
+    requires:
+      # We expect this to run in a GitHub workflow, so we put a few GitHub-specific vars here
+      # to prevent running this task locally by accident.
+      vars:
+        - CI
+        - GITHUB_ACTOR
+        - GITHUB_TOKEN
+    env:
+      # renovate: datasource=git-refs depName=helm lookupName=https://github.com/sagikazarmark/daggerverse currentValue=main
+      DAGGER_HELM_SHA: 4981f49ead356d64a860ef85caec9b0622933ad7
+      GITHUB_TOKEN: '{{ .GITHUB_TOKEN }}'
+    cmds:
+      # Nothing should have changed in the chart, so we can use the uncommitted task to check for changes.
+      - task: internal:uncommitted
+      - >
+        GITHUB_REF= dagger -s call -m github.com/sagikazarmark/daggerverse/helm@${DAGGER_HELM_SHA}
+        package --chart dist/chart/
+        with-name --name klio_chart.tgz
+        export --path dist/chart/ --allow-parent-dir-path
+      # TODO: sign the chart
+      # Pushing the chart to the registry. It automatically gets the name and the
+      # version from the Chart.yaml file.
+      - >
+        GITHUB_REF= dagger -s call -m github.com/sagikazarmark/daggerverse/helm@${DAGGER_HELM_SHA}
+        with-registry-auth --address "ghcr.io/enterprisedb" --username "{{ .GITHUB_ACTOR }}" --secret env://GITHUB_TOKEN
+        push --pkg dist/chart/klio_chart.tgz
+        --registry "oci://ghcr.io/enterprisedb/"
+    sources:
+      - dist/chart/**/*
+
+  operator:uncommitted:
+    desc: Check for uncommitted changes after chart generation
+    deps:
+      - operator:helm-chart
+    cmds:
+      - task: internal:uncommitted
+    sources:
+      - ./**/*
 
   ####################################
   ## DOCUMENTATION
@@ -444,6 +543,7 @@ tasks:
       - documentation:spellcheck
       - documentation:protoc-gen-doc
       - documentation:apidoc
+      - documentation:helm-chart
       - documentation:docusaurus-build-test
       - documentation:uncommitted
 
@@ -507,8 +607,28 @@ tasks:
         file --path out.md
         export --path documentation/web/docs/user/operator_api.md
     sources:
-      - operator/api/v1alpha1/**
-      - documentation/crd-gen-refs/**
+      - operator/api/v1alpha1/**/*
+      - documentation/crd-gen-refs/**/*
+
+  documentation:helm-chart:
+    desc: Generate the the documentation for the Helm chart
+    run: once
+    deps:
+      - operator:helm-chart
+    env:
+      # renovate: datasource=git-refs depName=helm-docs lookupName=https://github.com/sagikazarmark/daggerverse currentValue=main
+      DAGGER_HELM_DOCS_SHA: d814d0d7c421348f51cdda96870a05ca2aa8e96a
+      # renovate: datasource=docker depName=jnorwood/helm-docs versioning=semver
+      HELM_DOCS_IMAGE_VERSION: v1.14.2
+    cmds:
+      - >
+        GITHUB_REF= dagger -s call -m github.com/sagikazarmark/daggerverse/helm-docs@${DAGGER_HELM_DOCS_SHA}
+        --version ${HELM_DOCS_IMAGE_VERSION}
+        generate --chart operator/dist/chart --templates documentation/helm-docs/helm_chart.md.gotmpl
+        export --path documentation/web/docs/user/helm_chart.md
+    sources:
+      - operator/dist/chart/**/*
+      - documentation/helm-docs/helm_chart.md.gotmpl
 
   documentation:docusaurus-build-test:
     desc: Check that the documentation builds
@@ -516,13 +636,14 @@ tasks:
     deps:
       - documentation:protoc-gen-doc
       - documentation:apidoc
+      - documentation:helm-chart
     env:
       # renovate: datasource=git-refs depName=docusaurus lookupName=https://github.com/levlaz/daggerverse currentValue=main
       DAGGER_DOCUSAURUS_SHA: 3b7d706c741b2d91d4f2ad8d0f4c4eb921cb18d6
     cmds:
       - GITHUB_REF= dagger -s call -m github.com/levlaz/daggerverse/docusaurus@${DAGGER_DOCUSAURUS_SHA}
         --src web --yarn build
-    src:
+    sources:
       - ./web/**/*
 
 #  FIXME: this task expects very specific directory locations. It should be generalized and put in the daggerverse.
@@ -531,7 +652,7 @@ tasks:
 #    desc: Verify that a documentation version exists for the current version of the plugin
 #    cmds:
 #      - dagger -s call -m github.com/cloudnative-pg/plugin-barman-cloud/dagger/check-doc-version has-version-documentation --src .
-#    src:
+#    sources:
 #      - .release-please-manifest.json
 #      - ./web/versions.json
 
@@ -555,13 +676,11 @@ tasks:
     deps:
       - documentation:wordlist-ordered
       - documentation:protoc-gen-doc
-    env:
-      # renovate: datasource=git-refs depName=uncommitted lookupName=https://github.com/cloudnative-pg/daggerverse currentValue=main
-      DAGGER_UNCOMMITTED_SHA: d8681eb0132bb9f56c9c245cc33f95d09c4645f4
+      - documentation:helm-chart
     cmds:
       - task: internal:uncommitted
     sources:
-      - ./**
+      - ./**/*
 
   documentation:clean:
     desc: Cleanup of the documentation build artifacts and modules
