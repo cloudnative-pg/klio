@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1.4
 
-ARG BASE_IMAGE=registry.redhat.io/ubi10/ubi-micro:latest
+ARG BASE_IMAGE=registry.access.redhat.com/ubi10/ubi-micro:latest
 
 # Build stage: build on the host platform for the target platform
 FROM --platform=${BUILDPLATFORM} golang:1.24 AS builder

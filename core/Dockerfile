@@ -1,4 +1,4 @@
-ARG BASE_IMAGE=registry.redhat.io/ubi10/ubi-micro:latest
+ARG BASE_IMAGE=registry.access.redhat.com/ubi10/ubi-micro:latest
 FROM kopia/kopia:latest@sha256:0c55a361a353f69a121572920e7af3eb54b014f99df1f2fd8a595adcc33c2904 AS kopia
 
 FROM ${BASE_IMAGE} AS base
