@@ -20,8 +20,8 @@ metadata:
           "path": "/spec/containers/-",
           "value": {
             "name": "klio",
-            "image": "klio:dev",
-            "imagePullPolicy": "IfNotPresent",
+            "image": "registry.dev:5000/klio-testing:dev",
+            "imagePullPolicy": "Always",
             "args": [
               "send-wal"
             ],

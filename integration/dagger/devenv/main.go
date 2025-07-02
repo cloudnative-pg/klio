@@ -63,7 +63,7 @@ func (m *Devenv) Kubernetes(ctx context.Context, source *dagger.Directory) (*dag
 		AsService()
 
 	_, err := dag.Container().From("quay.io/skopeo/stable").
-		WithServiceBinding("registry", registrySvc).
+		WithServiceBinding("registry.dev", registrySvc).
 		WithEnvVariable("BUST", time.Now().String()).
 		WithWorkdir("/tmp").
 		WithFile("/tmp/klio_tarball.tar", klioImage.AsTarball()).
@@ -73,7 +73,7 @@ func (m *Devenv) Kubernetes(ctx context.Context, source *dagger.Directory) (*dag
 				"copy",
 				"--dest-tls-verify=false",
 				"docker-archive:klio_tarball.tar",
-				"docker://registry:5000/klio:dev",
+				"docker://registry.dev:5000/klio-testing:dev",
 			}, dagger.ContainerWithExecOpts{UseEntrypoint: true},
 		).
 		WithExec(
@@ -81,7 +81,7 @@ func (m *Devenv) Kubernetes(ctx context.Context, source *dagger.Directory) (*dag
 				"copy",
 				"--dest-tls-verify=false",
 				"docker-archive:klio_op_tarball.tar",
-				"docker://registry:5000/klio-op:dev",
+				"docker://registry.dev:5000/klio-operator-testing:dev",
 			}, dagger.ContainerWithExecOpts{UseEntrypoint: true},
 		).Sync(ctx)
 
@@ -100,11 +100,11 @@ func (m *Devenv) Kubernetes(ctx context.Context, source *dagger.Directory) (*dag
 					WithExec([]string{"sh", "-c", `
 cat <<EOF > /etc/rancher/k3s/registries.yaml
 mirrors:
-  "registry:5000":
+  "registry.dev:5000":
     endpoint:
-      - "http://registry:5000"
+      - "http://registry.dev:5000"
 EOF`}).
-					WithServiceBinding("registry", registrySvc),
+					WithServiceBinding("registry.dev", registrySvc),
 			)
 		}).Server().Start(ctx)
 	if err != nil {
@@ -134,7 +134,7 @@ resources:
 images:
 - name: controller
   newTag: dev
-  newName: registry:5000/klio-op
+  newName: registry.dev:5000/klio-operator-testing
 `).
 		WithExec([]string{"kubectl", "apply", "-k", "/operator/config/dev"}).
 		Terminal()

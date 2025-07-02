@@ -31,8 +31,8 @@ spec:
   users:
     name: server-sample-users
 
-  image: klio:dev
-  imagePullPolicy: IfNotPresent
+  image: registry.dev:5000/klio-testing:dev
+  imagePullPolicy: Always
 ---
 apiVersion: v1
 data:

@@ -126,6 +126,7 @@ proto
 protobuf
 rbac
 readinessProbe
+rollout
 securityContext
 serviceAccountName
 sfixed

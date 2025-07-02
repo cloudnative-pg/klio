@@ -24,11 +24,29 @@ the previous step:
 
 ```sh
 # Deploy the Klio server with the related resources
-dagger /apps $ sed 's/klio:dev/registry:5000\/klio:dev/' ../operator/config/samples/klio_v1alpha1_server.yaml | kubectl apply -f -
+dagger /apps $ kubectl apply -f ../operator/config/samples/klio_v1alpha1_server.yaml
 
 # Deploy the CNPG Cluster with a patch for the plugin
-dagger /apps $ sed 's/klio:dev/registry:5000\/klio:dev/' ../operator/config/samples/cluster-example.yaml | kubectl apply -f -
+dagger /apps $ kubectl apply -f ../operator/config/samples/cluster-example.yaml
 ```
+
+## How to test Klio in a kind cluster during development
+
+During the development phase, it is recommended to test any changes in a test
+environment as soon as they are implemented. To perform such a test, a developer
+can build and deploy the binaries and the images in a reusable Kubernetes environment.
+
+This section will guide you through the steps required to deploy the Klio operator and
+its resources inside a kind cluster.
+
+1. Create a kind cluster using the `hack/setup-cluster.sh` script from the CNPG repository.
+2. To build and deploy Klio images and operator, exec the command: `KIND_CLUSTER_NAME=pg-operator-e2e-v1-33-1 task integration:deploy-to-kind`
+3. Once the operator is in `Ready` state, you can deploy the resources:
+  * Klio server: `kubectl apply -f operator/config/samples/klio_v1alpha1_server.yaml`
+  * CNPG Cluster with Klio plugin: `kubectl apply -f operator/config/samples/cluster-example.yaml`
+
+Repeat step 2 to deploy the new changes applied to the code, and reset the operator.
+To rollout the new Klio server image it is enough to delete the Pod: `kubectl delete pod server-sample-klio-0`
 
 ## How to recreate the GRPC stub and skeleton
 
