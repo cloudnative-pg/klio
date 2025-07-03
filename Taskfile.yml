@@ -459,7 +459,7 @@ tasks:
     run: once
     env:
       # renovate: datasource=git-refs depName=kustomize lookupName=https://github.com/sagikazarmark/daggerverse currentValue=main
-      DAGGER_KUSTOMIZE_SHA: d814d0d7c421348f51cdda96870a05ca2aa8e96a
+      DAGGER_KUSTOMIZE_SHA: ceffda4aebd349a24fc00e591b4ed9b801535b65
       # renovate: datasource=docker depName=registry.k8s.io/kustomize/kustomize versioning=semver
       KUSTOMIZE_IMAGE_VERSION: v5.6.0
     cmds:
@@ -492,7 +492,7 @@ tasks:
       - operator:helm-chart
     env:
       # renovate: datasource=git-refs depName=helm lookupName=https://github.com/sagikazarmark/daggerverse currentValue=main
-      DAGGER_HELM_SHA: 4981f49ead356d64a860ef85caec9b0622933ad7
+      DAGGER_HELM_SHA: ceffda4aebd349a24fc00e591b4ed9b801535b65
     cmds:
       - >
         GITHUB_REF= dagger -s call -m github.com/sagikazarmark/daggerverse/helm@${DAGGER_HELM_SHA}
@@ -515,7 +515,7 @@ tasks:
         - GITHUB_TOKEN
     env:
       # renovate: datasource=git-refs depName=helm lookupName=https://github.com/sagikazarmark/daggerverse currentValue=main
-      DAGGER_HELM_SHA: 4981f49ead356d64a860ef85caec9b0622933ad7
+      DAGGER_HELM_SHA: ceffda4aebd349a24fc00e591b4ed9b801535b65
       GITHUB_TOKEN: '{{ .GITHUB_TOKEN }}'
     cmds:
       # Nothing should have changed in the chart, so we can use the uncommitted task to check for changes.
@@ -629,7 +629,7 @@ tasks:
       - operator:helm-chart
     env:
       # renovate: datasource=git-refs depName=helm-docs lookupName=https://github.com/sagikazarmark/daggerverse currentValue=main
-      DAGGER_HELM_DOCS_SHA: d814d0d7c421348f51cdda96870a05ca2aa8e96a
+      DAGGER_HELM_DOCS_SHA: ceffda4aebd349a24fc00e591b4ed9b801535b65
       # renovate: datasource=docker depName=jnorwood/helm-docs versioning=semver
       HELM_DOCS_IMAGE_VERSION: v1.14.2
     cmds:
