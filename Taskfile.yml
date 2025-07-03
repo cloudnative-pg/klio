@@ -135,7 +135,7 @@ tasks:
     dir: core
     env:
       # renovate: datasource=git-refs depName=goreleaser lookupName=https://github.com/act3-ai/dagger currentValue=main
-      DAGGER_GORELEASER_SHA: 0beeb456ee366b53a0b6e15446bc7803e8f16fe5
+      DAGGER_GORELEASER_SHA: 020ff28e3f7fc5bd63881d8ddb4bfd7be0e407f1
     run: once
     cmds:
       - >
@@ -169,7 +169,7 @@ tasks:
         - GITHUB_TOKEN
     env:
       # renovate: datasource=git-refs depName=goreleaser lookupName=https://github.com/act3-ai/dagger currentValue=main
-      DAGGER_GORELEASER_SHA: 0beeb456ee366b53a0b6e15446bc7803e8f16fe5
+      DAGGER_GORELEASER_SHA: 020ff28e3f7fc5bd63881d8ddb4bfd7be0e407f1
     preconditions:
       - sh: "[[ {{.GITHUB_REF}} =~ 'refs/tags/v.*' ]]"
         msg: not a tag, failing
