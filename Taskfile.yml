@@ -117,7 +117,7 @@ tasks:
       # renovate: datasource=git-refs depName=kubernetes packageName=https://github.com/kubernetes/kubernetes versioning=semver
       K8S_VERSION: 1.31.0
       # renovate: datasource=git-refs depName=controller-runtime packageName=https://github.com/kubernetes-sigs/controller-runtime versioning=semver
-      SETUP_ENVTEST_VERSION: 0.20.4
+      SETUP_ENVTEST_VERSION: 0.21.0
     cmds:
       # TODO: move this out of the plugin repo and into the daggerverse
       - >
