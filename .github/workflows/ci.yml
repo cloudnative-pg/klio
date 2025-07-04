@@ -166,4 +166,7 @@ jobs:
           ref: ${{ github.event.pull_request.head.sha }}
 
       - name: Validate Renovate JSON
-        run: npx --yes --package renovate@40.48.6 -- renovate-config-validator
+        env:
+          # renovate: datasource=npm depName=renovate versioning=semver
+          RENOVATE_VERSION: 40.48.6
+        run: npx --yes --package renovate@${RENOVATE_VERSION} -- renovate-config-validator

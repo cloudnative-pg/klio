@@ -1,4 +1,5 @@
-version: 3
+# renovate: datasource=github-tags depName=go-task/task versioning=semver
+version: 3.44.0
 
 # We have multiple parallel tasks that run for a long time. Prefix their output with the task name so we can understand
 # what task is writing.
@@ -113,7 +114,7 @@ tasks:
     env:
       # renovate: datasource=docker depName=golang versioning=semver
       GOLANG_IMAGE_VERSION: 1.24.4
-      # renovate: datasource=git-refs depname=kubernetes packageName=https://github.com/kubernetes/kubernetes versioning=semver
+      # renovate: datasource=git-refs depName=kubernetes packageName=https://github.com/kubernetes/kubernetes versioning=semver
       K8S_VERSION: 1.31.0
       # renovate: datasource=git-refs depName=controller-runtime packageName=https://github.com/kubernetes-sigs/controller-runtime versioning=semver
       SETUP_ENVTEST_VERSION: 0.20.4
@@ -135,11 +136,11 @@ tasks:
     dir: core
     env:
       # renovate: datasource=git-refs depName=goreleaser lookupName=https://github.com/act3-ai/dagger currentValue=main
-      DAGGER_GORELEASER_SHA: 020ff28e3f7fc5bd63881d8ddb4bfd7be0e407f1
+      DAGGER_GORELEASER_SHA: 0beeb456ee366b53a0b6e15446bc7803e8f16fe5
     run: once
     cmds:
       - >
-        dagger call -m github.com/act3-ai/dagger/goreleaser@0beeb456ee366b53a0b6e15446bc7803e8f16fe5 --source .
+        dagger call -m github.com/act3-ai/dagger/goreleaser@${DAGGER_GORELEASER_SHA} --source .
         release with-clean with-snapshot with-config --config .goreleaser.yaml
         run --args "--skip=publish"
         directory --path .
@@ -169,13 +170,13 @@ tasks:
         - GITHUB_TOKEN
     env:
       # renovate: datasource=git-refs depName=goreleaser lookupName=https://github.com/act3-ai/dagger currentValue=main
-      DAGGER_GORELEASER_SHA: 020ff28e3f7fc5bd63881d8ddb4bfd7be0e407f1
+      DAGGER_GORELEASER_SHA: 0beeb456ee366b53a0b6e15446bc7803e8f16fe5
     preconditions:
       - sh: "[[ {{.GITHUB_REF}} =~ 'refs/tags/v.*' ]]"
         msg: not a tag, failing
     cmds:
       - >
-        dagger call -m github.com/act3-ai/dagger/goreleaser@0beeb456ee366b53a0b6e15446bc7803e8f16fe5 --source .
+        dagger call -m github.com/act3-ai/dagger/goreleaser@${DAGGER_GORELEASER_SHA} --source .
         with-env-variable --name GITHUB_TOKEN --value {{.GITHUB_TOKEN}}
         release with-clean with-config --config .goreleaser.yaml
         run
@@ -272,8 +273,8 @@ tasks:
       - internal:generate-certs
       - internal:start-build-network
     env:
-      # TODO: renovate
-      REGISTRY_VERSION: 2
+      # renovate: datasource=docker depName=registry versioning=docker
+      REGISTRY_VERSION: 2.8.3
     cmds:
       - >
         docker run -d --name {{ .REGISTRY_NAME }}
@@ -761,11 +762,13 @@ tasks:
         sh: mktemp -t kubeconfig-XXXXX
       OPERATOR_IMAGE_REPOSITORY: '{{ .OPERATOR_IMAGE_REPOSITORY | default (printf "%s:%s/klio-operator-testing" .REGISTRY_NAME .REGISTRY_PORT) }}'
       OPERATOR_IMAGE_TAG: '{{ .OPERATOR_IMAGE_TAG | default "dev" }}'
+      # renovate: datasource=docker depName=alpine/k8s versioning=docker
+      ALPINE_K8S_VERSION: '1.33.2'
     cmds:
       - kind get kubeconfig --name {{ .KIND_CLUSTER_NAME }} > {{ .KUBECONFIG_PATH }}
       - >
         dagger core container
-        from --address alpine/k8s:1.33.2
+        from --address alpine/k8s:{{ .ALPINE_K8S_VERSION }}
         with-mounted-file --path /kube/.config --source {{ .KUBECONFIG_PATH }}
         with-directory --path /chart --directory operator/dist/chart
         with-env-variable --name KUBECONFIG --value /kube/.config

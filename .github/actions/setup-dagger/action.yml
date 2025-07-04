@@ -5,6 +5,11 @@ runs:
   steps:
     - name: Install Task
       uses: arduino/setup-task@v2
+      env:
+        # renovate: datasource=github-tags depName=go-task/task versioning=semver
+        TASK_VERSION: 3.44.0
+      with:
+        version: ${{ env.TASK_VERSION }}
 
     - name: Install Dagger
       shell: bash

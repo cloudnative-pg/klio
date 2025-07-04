@@ -36,7 +36,24 @@ func (m *Devenv) buildCore(
 		})
 }
 
-func (m *Devenv) Kubernetes(ctx context.Context, source *dagger.Directory) (*dagger.Container, error) {
+func (m *Devenv) Kubernetes(
+	ctx context.Context,
+	source *dagger.Directory,
+// +optional
+// renovate image: datasource=docker depName=registry versioning=docker
+// +default="registry:2.8"
+	registryImage string,
+// +optional
+// renovate image: datasource=docker depName=skopeo lookupName=quay.io/skopeo/stable versioning=docker
+// +default="quay.io/skopeo/stable:v1.19.0"
+	skopeoImage string,
+// renovate image: datasource=docker depName=k3s lookupName=rancher/k3s versioning=docker
+// +default="rancher/k3s:v1.31.4-k3s1"
+	k3sImage string,
+// renovate image: datasource=docker depName=alpine/k8s versioning=docker
+// +default="alpine/k8s:1.33.2"
+	alpineK8S string,
+) (*dagger.Container, error) {
 	klioImage := source.
 		Directory("core").
 		WithFile("dist/klio_linux_amd64/klio", m.buildCore(source.Directory("core"))).
@@ -58,11 +75,11 @@ func (m *Devenv) Kubernetes(ctx context.Context, source *dagger.Directory) (*dag
 		DockerBuild()
 
 	registrySvc := dag.Container().
-		From("registry:2.8").
+		From(registryImage).
 		WithExposedPort(5000).
 		AsService()
 
-	_, err := dag.Container().From("quay.io/skopeo/stable").
+	_, err := dag.Container().From(skopeoImage).
 		WithServiceBinding("registry.dev", registrySvc).
 		WithEnvVariable("BUST", time.Now().String()).
 		WithWorkdir("/tmp").
@@ -90,7 +107,7 @@ func (m *Devenv) Kubernetes(ctx context.Context, source *dagger.Directory) (*dag
 	}
 
 	k3s := dag.K3S("k3s-test", dagger.K3SOpts{
-		Image: "rancher/k3s:v1.31.4-k3s1",
+		Image: k3sImage,
 	})
 	_, err = k3s.
 		With(func(k *dagger.K3S) *dagger.K3S {
@@ -111,7 +128,7 @@ EOF`}).
 		return nil, err
 	}
 
-	kubectlCtr := dag.Container().From("alpine/k8s:1.33.2").
+	kubectlCtr := dag.Container().From(alpineK8S).
 		WithExec([]string{"apk", "add", "--no-cache", "k9s"}).
 		WithEnvVariable("KUBECONFIG", "/.kube/config").
 		WithFile("/.kube/config", k3s.Config()).
