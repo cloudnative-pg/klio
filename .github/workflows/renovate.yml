@@ -3,6 +3,15 @@ on:
   schedule:
     - cron: '0 0/6 * * *'
   workflow_dispatch:
+    inputs:
+      logLevel:
+        description: 'Log level'
+        default: 'info'
+        type: choice
+        options:
+          - warning
+          - info
+          - debug
 
 permissions: read-all
 
@@ -16,6 +25,7 @@ jobs:
         uses: renovatebot/github-action@87c405b9750f1b6affae06311395b50e3882d54f # v42.0.6
         env:
           RENOVATE_REPOSITORIES: ${{ github.repository }}
+          LOG_LEVEL: ${{ inputs.logLevel || 'info' }}
         with:
           configurationFile: renovate.json
           token: ${{ secrets.RENOVATE_TOKEN }}
