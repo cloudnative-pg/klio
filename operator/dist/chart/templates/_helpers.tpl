@@ -1,9 +1,9 @@
 {{- define "chart.name" -}}
 {{- if .Chart }}
-  {{- if .Chart.Name }}
-    {{- .Chart.Name | trunc 63 | trimSuffix "-" }}
-  {{- else if .Values.nameOverride }}
+  {{- if .Values.nameOverride }}
     {{ .Values.nameOverride | trunc 63 | trimSuffix "-" }}
+  {{- else if .Chart.Name }}
+    {{- .Chart.Name | trunc 63 | trimSuffix "-" }}
   {{- else }}
     operator
   {{- end }}

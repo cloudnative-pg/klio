@@ -6,14 +6,12 @@ metadata:
   labels:
     {{- include "chart.labels" . | nindent 4 }}
     control-plane: controller-manager
-    app.kubernetes.io/name: klio-operator
 spec:
   replicas: {{ .Values.controllerManager.replicas }}
   selector:
     matchLabels:
       {{- include "chart.selectorLabels" . | nindent 6 }}
       control-plane: controller-manager
-      app.kubernetes.io/name: klio-operator
   template:
     metadata:
       annotations:
@@ -21,7 +19,6 @@ spec:
       labels:
         {{- include "chart.labels" . | nindent 8 }}
         control-plane: controller-manager
-        app.kubernetes.io/name: klio-operator
         {{- if and .Values.controllerManager.pod .Values.controllerManager.pod.labels }}
         {{- range $key, $value := .Values.controllerManager.pod.labels }}
         {{ $key }}: {{ $value }}
@@ -77,8 +74,7 @@ spec:
         {{- end }}
         - name: plugin-server
           secret:
-            secretName: klio-plugin-server-tls
+            secretName: {{ .Values.plugin.serverSecret }}
         - name: plugin-client
           secret:
-            secretName: klio-plugin-client-tls
-
+            secretName: {{ .Values.plugin.clientSecret }}

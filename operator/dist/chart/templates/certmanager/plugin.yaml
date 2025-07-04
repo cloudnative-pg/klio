@@ -1,3 +1,4 @@
+{{- if .Values.certmanager.enable }}
 ---
 apiVersion: cert-manager.io/v1
 kind: Certificate
@@ -7,11 +8,8 @@ metadata:
   labels:
     {{- include "chart.labels" . | nindent 4 }}
 spec:
-  secretName: klio-plugin-client-tls
-  commonName: "klio-plugin-client"
-  duration: 2160h # 90d
-  renewBefore: 360h # 15d
-  isCA: false
+  secretName: {{ .Values.plugin.clientSecret }}
+  commonName: klio-plugin-client
   usages:
     - client auth
   issuerRef:
@@ -27,19 +25,16 @@ metadata:
   labels:
     {{- include "chart.labels" . | nindent 4 }}
 spec:
-  secretName: klio-plugin-server-tls
-  commonName: klio-plugin
+  secretName: {{ .Values.plugin.serverSecret }}
   dnsNames:
     - klio-plugin
     - klio-plugin.{{ .Release.Namespace }}
     - klio-plugin.{{ .Release.Namespace }}.svc
-    - klio-plugin.{{ .Release.Namespace }}.svc.cluster.local
-  duration: 2160h # 90d
-  renewBefore: 360h # 15d
-  isCA: false
+    - klio-plugin.{{ .Release.Namespace }}.svc.{{ .Values.certmanager.clusterDomain }}
   usages:
     - server auth
   issuerRef:
     name: selfsigned-issuer
     kind: Issuer
     group: cert-manager.io
+{{- end }}

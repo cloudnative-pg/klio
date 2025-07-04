@@ -91,9 +91,12 @@ aspirational
 auth
 bool
 certmanager
+clientSecret
+clusterDomain
 codename
 config
 controllerManager
+crd
 customizable
 deduplication
 enterprisedb
@@ -115,6 +118,7 @@ livenessProbe
 localhost
 lsn
 makefile
+nameOverride
 namespace
 networkPolicy
 pgdata
@@ -128,6 +132,7 @@ rbac
 readinessProbe
 rollout
 securityContext
+serverSecret
 serviceAccountName
 sfixed
 sint
@@ -139,5 +144,6 @@ uint
 ulong
 unicode
 wal
+webhook
 webhooks
 yaml

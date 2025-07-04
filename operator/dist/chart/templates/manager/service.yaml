@@ -3,17 +3,18 @@ kind: Service
 metadata:
   namespace: {{ .Release.Namespace }}
   labels:
-    app: klio-plugin
-    cnpg.io/pluginName: klio.cnpg.io
+    {{- include "chart.labels" . | nindent 4 }}
+    cnpg.io/pluginName: {{ .Values.plugin.name }}
   annotations:
-    cnpg.io/pluginClientSecret: klio-plugin-client-tls
-    cnpg.io/pluginServerSecret: klio-plugin-server-tls
-    cnpg.io/pluginPort: "9090"
+    cnpg.io/pluginClientSecret: {{ .Values.plugin.clientSecret }}
+    cnpg.io/pluginServerSecret: {{ .Values.plugin.serverSecret }}
+    cnpg.io/pluginPort: "{{ .Values.plugin.port }}"
   name: klio-plugin
 spec:
   ports:
-    - port: 9090
+    - port: {{ .Values.plugin.port }}
       protocol: TCP
-      targetPort: 9090
+      targetPort: {{ .Values.plugin.port }}
   selector:
-    app.kubernetes.io/name: klio-operator
+    {{- include "chart.selectorLabels" . | nindent 4 }}
+    control-plane: controller-manager

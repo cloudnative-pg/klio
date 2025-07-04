@@ -21,8 +21,9 @@ See the [Helm documentation](https://helm.sh/docs/) for more details on how to c
 
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
-| certmanager.enable | bool | `false` | Enable cert-manager injection to webhooks |
-| controllerManager.container.args | list | `["--leader-elect","--metrics-bind-address=:8443","--health-probe-bind-address=:8081"]` | The arguments to pass to the controller manager. |
+| certmanager.clusterDomain | string | `"cluster.local"` | The domain name of the Kubernetes cluster. |
+| certmanager.enable | bool | `true` | Enable cert-manager injection to webhook and certificate creation. |
+| controllerManager.container.args | list | `["--leader-elect","--metrics-bind-address=:8443","--health-probe-bind-address=:8081","--plugin-server-cert=/pluginServer/tls.crt","--plugin-server-key=/pluginServer/tls.key","--plugin-client-cert=/pluginClient/tls.crt","--plugin-server-address=:9090"]` | The arguments to pass to the controller manager. |
 | controllerManager.container.env | object | `{}` | The environment variables to set for the controller manager container. |
 | controllerManager.container.image.repository | string | `"controller"` | The image to use for the controller manager. |
 | controllerManager.container.image.tag | string | `"latest"` | The tag to use for the controller manager image. |
@@ -35,9 +36,15 @@ See the [Helm documentation](https://helm.sh/docs/) for more details on how to c
 | controllerManager.securityContext | object | `{"runAsNonRoot":true,"seccompProfile":{"type":"RuntimeDefault"}}` | The security context for the controller manager pod. |
 | controllerManager.serviceAccountName | string | `"operator-controller-manager"` | The service account name for the controller manager pod. |
 | controllerManager.terminationGracePeriodSeconds | int | `10` | The termination grace period for the controller manager pod. |
+| crd.enable | bool | `false` | Workaround for the certificate.yaml template. Do not edit. |
 | metrics.enable | bool | `true` | Set to true to generate manifests for exporting metrics. To disable metrics export set false, and ensure that the ControllerManager argument "--metrics-bind-address=:8443" is removed. |
+| nameOverride | string | `"klio-operator"` | Override the Chart name |
 | networkPolicy.enable | bool | `false` | Enable NetworkPolicies |
-| prometheus.enable | bool | `false` | To enable a ServiceMonitor to export metrics to Prometheus set true |
+| plugin.clientSecret | string | `"klio-plugin-client-tls"` | The Client TLS certificate. |
+| plugin.name | string | `"klio.cnpg.io"` | The name the plugin will use to register itself with the CNPG Operator. |
+| plugin.port | int | `9090` | The port the plugin will listen on. |
+| plugin.serverSecret | string | `"klio-plugin-server-tls"` | The Server TLS certificate. |
+| prometheus.enable | bool | `false` | To enable a ServiceMonitor to export metrics to Prometheus set true. |
 | rbac.enable | bool | `true` | Enable RBAC (Permissions) configurations |
 
 ----------------------------------------------

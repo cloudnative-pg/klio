@@ -1,3 +1,5 @@
+# -- Override the Chart name
+nameOverride: "klio-operator"
 # [MANAGER]: Manager Deployment Configurations
 controllerManager:
   # -- The number of replicas for the controller manager deployment.
@@ -59,6 +61,16 @@ controllerManager:
   # -- The service account name for the controller manager pod.
   serviceAccountName: operator-controller-manager
 
+plugin:
+  # -- The name the plugin will use to register itself with the CNPG Operator.
+  name: klio.cnpg.io
+  # -- The Server TLS certificate.
+  serverSecret: klio-plugin-server-tls
+  # -- The Client TLS certificate.
+  clientSecret: klio-plugin-client-tls
+  # -- The port the plugin will listen on.
+  port: 9090
+
 rbac:
   # -- Enable RBAC (Permissions) configurations
   enable: true
@@ -70,17 +82,22 @@ metrics:
   enable: true
 
 prometheus:
-  # -- To enable a ServiceMonitor to export metrics to Prometheus set true
+  # -- To enable a ServiceMonitor to export metrics to Prometheus set true.
   enable: false
 
 certmanager:
-  # -- Enable cert-manager injection to webhooks
+  # -- Enable cert-manager injection to webhook and certificate creation.
   enable: true
+  # -- The domain name of the Kubernetes cluster.
+  clusterDomain: cluster.local
 
 networkPolicy:
   # -- Enable NetworkPolicies
   enable: false
 
+# TODO(fcanovai): this exists only to make the certificate.yaml template work. That template is automatically
+# generated and cannot be modified. It should be removed once the template is fixed, since it is not related to the
+# CRDs at all.
 crd:
-  # -- Keep CRDs on uninstall
-  keep: false
+  # -- Workaround for the certificate.yaml template. Do not edit.
+  enable: false
