@@ -764,6 +764,8 @@ tasks:
       OPERATOR_IMAGE_TAG: '{{ .OPERATOR_IMAGE_TAG | default "dev" }}'
       # renovate: datasource=docker depName=alpine/k8s versioning=docker
       ALPINE_K8S_VERSION: '1.33.2'
+      # renovate: datasource=github-tags depName=cert-manager/cert-manager versioning=semver
+      CERT_MANAGER_VERSION: 'v1.18.2'
     cmds:
       - kind get kubeconfig --name {{ .KIND_CLUSTER_NAME }} > {{ .KUBECONFIG_PATH }}
       - >
@@ -774,6 +776,8 @@ tasks:
         with-env-variable --name KUBECONFIG --value /kube/.config
         with-service-binding --alias localhost --service tcp://127.0.0.1:{{ .KIND_HOSTPORT }}
         with-exec --args "sh" --args "-c" --args "kubectl config set-cluster kind-{{ .KIND_CLUSTER_NAME }} --server=https://localhost:{{ .KIND_HOSTPORT }}"
-        with-exec --args "sh" --args "-c" --args "kubectl apply -f https://github.com/cert-manager/cert-manager/releases/download/v1.18.0/cert-manager.yaml"
+        with-exec --args "sh" --args "-c" --args "helm repo add jetstack https://charts.jetstack.io --force-update"
+        with-exec --args "sh" --args "-c" --args "helm uninstall --wait --ignore-not-found cert-manager -n cert-manager || true"
+        with-exec --args "sh" --args "-c" --args "helm upgrade -i --wait --create-namespace --namespace cert-manager --version {{ .CERT_MANAGER_VERSION }} --set crds.enabled=true cert-manager jetstack/cert-manager"
         with-exec --args "sh" --args "-c" --args "helm uninstall --wait --ignore-not-found klio -n cnpg-system || true"
         with-exec --args "sh" --args "-c" --args "helm upgrade -i --wait --create-namespace --namespace cnpg-system --set controllerManager.container.image.repository={{ .OPERATOR_IMAGE_REPOSITORY }} --set controllerManager.container.image.tag={{ .OPERATOR_IMAGE_TAG }} klio /chart"
