@@ -386,6 +386,7 @@ tasks:
     dir: operator
     deps:
       - internal:start-registry
+      - operator:controller-gen
     vars:
       GITHUB_REF_NAME: '{{ .GITHUB_REF_NAME | default "dev" }}'
       IMAGE_VERSION: '{{ regexReplaceAll "[/_]" .GITHUB_REF_NAME "-" }}'
