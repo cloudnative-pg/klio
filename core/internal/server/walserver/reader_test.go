@@ -141,15 +141,15 @@ func TestReaderWriter100KBlocks(t *testing.T) {
 
 	defer conn.Close()
 
-	block1 := make([]byte, 100*1024)
+	block1 := make([]byte, 131072)
 	_, _ = rand.Read(block1)
 
-	fileLen := uint64(160 * len(block1)) //nolint:gosec
+	fileLen := uint64(128 * len(block1)) //nolint:gosec
 	writer, err := NewWriter(conn, "cluster-example", "0000001000000000000001F8", fileLen)
 	require.NoError(t, err)
 	require.NotNil(t, writer)
 
-	for range 160 {
+	for range 128 {
 		err = writer.WriteBlock(block1)
 		require.NoError(t, err)
 

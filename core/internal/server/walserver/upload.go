@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"strconv"
+	"time"
 
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -90,6 +91,7 @@ func (w *Implementation) Put(req grpc.WAL_PutServer) error {
 	var blockMeta walUploadBlockMetadata
 	var walBuffer *Writer
 	var writtenSize uint64
+	startTime := time.Now()
 
 	for {
 		request, err := req.Recv()
@@ -213,6 +215,7 @@ func (w *Implementation) Put(req grpc.WAL_PutServer) error {
 			"segmentSize", blockMeta.segmentSize,
 			"walFileName", blockMeta.walFileName,
 			"clusterName", blockMeta.clusterName,
+			"elapsedTime", time.Since(startTime),
 		)
 	} else {
 		if err := walBuffer.CloseMarkDone(); err != nil {
@@ -233,6 +236,7 @@ func (w *Implementation) Put(req grpc.WAL_PutServer) error {
 			"segmentSize", blockMeta.segmentSize,
 			"walFileName", blockMeta.walFileName,
 			"clusterName", blockMeta.clusterName,
+			"elapsedTime", time.Since(startTime),
 		)
 	}
 

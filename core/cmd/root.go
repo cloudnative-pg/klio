@@ -11,6 +11,8 @@ import (
 
 	"github.com/cloudnative-pg/klio/core/cmd/backup"
 	"github.com/cloudnative-pg/klio/core/cmd/server"
+
+	_ "net/http/pprof"
 )
 
 //nolint:gochecknoglobals
@@ -39,8 +41,13 @@ var rootCmd = &cobra.Command{
 		logFlags.ConfigureLogging()
 
 		if pprofServerAddress != "" {
-			log.Info("Starting PPROF server", "pprofServerAddress", pprofServerAddress)
-			_ = http.ListenAndServe(pprofServerAddress, nil) //nolint:gosec
+			go func() {
+				log.Info("Starting PPROF server", "pprofServerAddress", pprofServerAddress)
+				err := http.ListenAndServe(pprofServerAddress, nil) //nolint:gosec
+				if err != nil {
+					log.Error(err, "Error while starting the PPROF server")
+				}
+			}()
 		}
 
 		return nil

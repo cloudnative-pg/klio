@@ -2,6 +2,8 @@ apiVersion: klio.cnpg.io/v1alpha1
 kind: Server
 metadata:
   name: server-sample
+  annotations:
+    klio.cnpg.io/pprof: "true"
 spec:
   baseConfiguration:
     adminUser:

@@ -201,7 +201,7 @@ func (r *ServerReconciler) reconcileStatefulSet(ctx context.Context, server *kli
 		for i := range expected.Spec.Template.Spec.Containers {
 			expected.Spec.Template.Spec.Containers[i].Args = append(
 				expected.Spec.Template.Spec.Containers[i].Args,
-				"--pprof-server=0:6060")
+				"--pprof-server=:606"+strconv.Itoa(i))
 		}
 	}
 
