@@ -236,6 +236,11 @@ func reconcilePodSpec(cluster *cnpgv1.Cluster, spec *corev1.PodSpec, cfg *plugin
 	pluginSidecar.Name = "klio-plugin"
 	pluginSidecar.Args = []string{"cnpgi"}
 
+	if cfg.EnablePPROF {
+		sendWalSidecar.Args = append(sendWalSidecar.Args, "--pprof-server=0:6060")
+		pluginSidecar.Args = append(pluginSidecar.Args, "--pprof-server=0:6060")
+	}
+
 	if err := injectPluginSidecarPodSpec(spec, sendWalSidecar, mainContainerName); err != nil {
 		return err
 	}

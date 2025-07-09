@@ -2,16 +2,12 @@ package repository
 
 import (
 	"bytes"
-	"compress/gzip"
-	"errors"
 	"fmt"
 	"io"
 
+	"github.com/klauspost/compress/s2"
 	"github.com/minio/sio"
 )
-
-// ErrIVGeneration is raised when random IV bytes cannot be generated.
-var ErrIVGeneration = errors.New("error while generating random IV bytes")
 
 // WrapBlock protects a block encrypting and compressing it.
 func (c *Connection) WrapBlock(block []byte) ([]byte, error) {
@@ -22,12 +18,13 @@ func (c *Connection) WrapBlock(block []byte) ([]byte, error) {
 		return nil, fmt.Errorf("while creating encrypted block: %w", err)
 	}
 
-	gzipWriter := gzip.NewWriter(encryptingWriter)
-	if _, err := gzipWriter.Write(block); err != nil {
+	compressingWriter := s2.NewWriter(encryptingWriter)
+
+	if _, err := compressingWriter.Write(block); err != nil {
 		return nil, fmt.Errorf("while compressing and encrypting WAL block: %w", err)
 	}
 
-	if err := gzipWriter.Close(); err != nil {
+	if err := compressingWriter.Close(); err != nil {
 		return nil, fmt.Errorf("while closing compressed WAL block: %w", err)
 	}
 
@@ -47,19 +44,10 @@ func (c *Connection) UnwrapBlock(block []byte) ([]byte, error) {
 		return nil, fmt.Errorf("while opening decrypting WAL block: %w", err)
 	}
 
-	gzipReader, err := gzip.NewReader(decryptingReader)
-	if err != nil {
-		return nil, fmt.Errorf("while opening compressed WAL block: %w", err)
-	}
-
-	result, err := io.ReadAll(gzipReader)
+	decompressingReader := s2.NewReader(decryptingReader)
+	result, err := io.ReadAll(decompressingReader)
 	if err != nil {
 		return nil, fmt.Errorf("while reading compressed and encrypted WAL block: %w", err)
-	}
-
-	err = gzipReader.Close()
-	if err != nil {
-		return nil, fmt.Errorf("while closing compressed and encrypted WAL block: %w", err)
 	}
 
 	return result, nil

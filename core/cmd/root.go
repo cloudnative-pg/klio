@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"net/http"
 	"os"
 	"strings"
 
@@ -21,6 +22,9 @@ var debug bool
 //nolint:gochecknoglobals
 var logFlags = &log.Flags{}
 
+//nolint:gochecknoglobals
+var pprofServerAddress string
+
 // rootCmd represents the base command when called without any subcommands
 //
 //nolint:gochecknoglobals
@@ -33,6 +37,11 @@ var rootCmd = &cobra.Command{
 			log.SetLogLevel(log.DebugLevelString)
 		}
 		logFlags.ConfigureLogging()
+
+		if pprofServerAddress != "" {
+			log.Info("Starting PPROF server", "pprofServerAddress", pprofServerAddress)
+			_ = http.ListenAndServe(pprofServerAddress, nil) //nolint:gosec
+		}
 
 		return nil
 	},
@@ -58,12 +67,29 @@ func init() {
 	// Cobra supports persistent flags, which, if defined here,
 	// will be global for your application.
 	logFlags.AddFlags(rootCmd.PersistentFlags())
-	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.klio.yaml)")
-	rootCmd.PersistentFlags().BoolVar(&debug, "debug", false, "enable debug logging")
+	rootCmd.PersistentFlags().StringVar(
+		&cfgFile,
+		"config",
+		"",
+		"config file (default is $HOME/.klio.yaml)")
+	rootCmd.PersistentFlags().BoolVar(
+		&debug,
+		"debug",
+		false,
+		"enable debug logging")
+	rootCmd.PersistentFlags().StringVar(
+		&pprofServerAddress,
+		"pprof-server",
+		"",
+		"enable the PPROF server using the specified address")
 
 	// Cobra also supports local flags, which will only run
 	// when this action is called directly.
-	rootCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
+	rootCmd.Flags().BoolP(
+		"toggle",
+		"t",
+		false,
+		"Help message for toggle")
 
 	rootCmd.AddCommand(server.ServerCmd)
 	rootCmd.AddCommand(backup.BackupCmd)

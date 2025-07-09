@@ -124,3 +124,42 @@ func TestReaderWriterBlocks(t *testing.T) {
 	err = reader.Close()
 	require.NoError(t, err)
 }
+
+func TestReaderWriter100KBlocks(t *testing.T) {
+	// Step 1: write two blocks to the file
+	opts := repository.Options{
+		Path:     t.TempDir(),
+		Password: "this-password",
+	}
+
+	err := repository.Initialize(opts)
+	require.NoError(t, err)
+
+	conn, err := repository.Open(opts)
+	assert.NotNil(t, conn)
+	require.NoError(t, err)
+
+	defer conn.Close()
+
+	block1 := make([]byte, 100*1024)
+	_, _ = rand.Read(block1)
+
+	fileLen := uint64(160 * len(block1)) //nolint:gosec
+	writer, err := NewWriter(conn, "cluster-example", "0000001000000000000001F8", fileLen)
+	require.NoError(t, err)
+	require.NotNil(t, writer)
+
+	for range 160 {
+		err = writer.WriteBlock(block1)
+		require.NoError(t, err)
+
+		err = writer.Flush()
+		require.NoError(t, err)
+	}
+
+	err = writer.Flush()
+	require.NoError(t, err)
+
+	err = writer.CloseMarkDone()
+	require.NoError(t, err)
+}

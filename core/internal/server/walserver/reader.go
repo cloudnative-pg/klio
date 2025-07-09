@@ -3,9 +3,11 @@ package walserver
 import (
 	"bufio"
 	"fmt"
+	"io"
 	"os"
 
 	"google.golang.org/protobuf/encoding/protodelim"
+	"google.golang.org/protobuf/encoding/protowire"
 
 	"github.com/cloudnative-pg/klio/core/internal/grpc"
 	"github.com/cloudnative-pg/klio/core/internal/server/walserver/repository"
@@ -67,12 +69,19 @@ func (r *Reader) Close() error {
 
 // ReadBlock reads the next WAL block from the file.
 func (r *Reader) ReadBlock() ([]byte, error) {
-	block := grpc.WALFileBlock{}
-	if err := protodelim.UnmarshalFrom(r.reader, &block); err != nil {
+	blockLenBytes := make([]byte, 8)
+	if _, err := io.ReadFull(r.reader, blockLenBytes); err != nil {
+		return nil, fmt.Errorf("while reading WAL file block prefix: %w", err)
+	}
+
+	blockLen, _ := protowire.ConsumeFixed64(blockLenBytes)
+
+	block := make([]byte, blockLen)
+	if _, err := io.ReadFull(r.reader, block); err != nil {
 		return nil, fmt.Errorf("while reading WAL file block: %w", err)
 	}
 
-	bytesRead, err := r.conn.UnwrapBlock(block.GetRange())
+	bytesRead, err := r.conn.UnwrapBlock(block)
 	if err != nil {
 		return nil, fmt.Errorf("while unwrapping WAL file block: %w", err)
 	}

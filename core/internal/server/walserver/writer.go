@@ -6,6 +6,7 @@ import (
 	"path"
 
 	"google.golang.org/protobuf/encoding/protodelim"
+	"google.golang.org/protobuf/encoding/protowire"
 
 	"github.com/cloudnative-pg/klio/core/internal/grpc"
 	"github.com/cloudnative-pg/klio/core/internal/server/walserver/repository"
@@ -124,12 +125,13 @@ func (w *Writer) writeBlockInternal(p []byte) error {
 	}
 
 	// Step 2: writing to permanent storage
-	block := grpc.WALFileBlock{
-		Range:             wrappedBlock,
-		EncryptionVersion: 1,
+	prefix := protowire.AppendFixed64(nil, uint64(len(wrappedBlock)))
+	_, err = w.file.Write(prefix)
+	if err != nil {
+		return fmt.Errorf("while writing prefix: %w", err)
 	}
 
-	_, err = protodelim.MarshalTo(w.file, &block)
+	_, err = w.file.Write(wrappedBlock)
 	if err != nil {
 		return fmt.Errorf("while writing WAL file block: %w", err)
 	}

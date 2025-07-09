@@ -1,6 +1,7 @@
 package walserver
 
 import (
+	"crypto/rand"
 	"os"
 	"path"
 	"testing"
@@ -48,4 +49,41 @@ func TestWriter(t *testing.T) {
 	data, err := os.Stat(expectedPath)
 	require.NoError(t, err)
 	assert.Greater(t, data.Size(), int64(len(block)))
+}
+
+func BenchmarkWriter(b *testing.B) {
+	block := make([]byte, 100*1024)
+	_, _ = rand.Read(block)
+
+	opts := repository.Options{
+		Path:     b.TempDir(),
+		Password: "this-password",
+	}
+
+	err := repository.Initialize(opts)
+	require.NoError(b, err)
+
+	conn, err := repository.Open(opts)
+	assert.NotNil(b, conn)
+	require.NoError(b, err)
+
+	defer conn.Close()
+
+	writer, err := NewWriter(
+		conn, "cluster-example", "0000001000000000000001FF", uint64(len(block)*b.N)) //nolint:gosec
+	require.NoError(b, err)
+	assert.NotNil(b, writer)
+
+	b.ResetTimer()
+	b.SetBytes(int64(len(block) * b.N))
+	for range b.N {
+		err := writer.WriteBlock(block)
+		require.NoError(b, err)
+
+		err = writer.Flush()
+		require.NoError(b, err)
+	}
+
+	err = writer.CloseMarkDone()
+	require.NoError(b, err)
 }

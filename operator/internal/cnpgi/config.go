@@ -3,6 +3,7 @@ package cnpgi
 import (
 	"errors"
 	"fmt"
+	"strconv"
 
 	cnpgv1 "github.com/cloudnative-pg/cloudnative-pg/api/v1"
 )
@@ -12,8 +13,10 @@ type pluginConfiguration struct {
 	ClientSecretName string
 	ServerSecretName string
 	Enabled          bool
+	EnablePPROF      bool
 }
 
+//nolint:cyclop
 func newConfigFromCluster(cluster *cnpgv1.Cluster) (*pluginConfiguration, error) {
 	var conf pluginConfiguration
 	var rawConf *cnpgv1.PluginConfiguration
@@ -52,7 +55,29 @@ func newConfigFromCluster(cluster *cnpgv1.Cluster) (*pluginConfiguration, error)
 		return nil, err
 	}
 
+	enablePprofString, err := tryGetParameter(rawConf, "pprof")
+	if err != nil {
+		return nil, err
+	}
+	if enablePprofString != "" {
+		conf.EnablePPROF, err = strconv.ParseBool(enablePprofString)
+		if err != nil {
+			return nil, err
+		}
+	}
+
 	return &conf, nil
+}
+
+func tryGetParameter(cfg *cnpgv1.PluginConfiguration, name string) (string, error) {
+	result, err := getParameter(cfg, name)
+
+	var parameterMissingErr *parameterMissingError
+	if errors.As(err, &parameterMissingErr) {
+		return "", nil
+	}
+
+	return result, err
 }
 
 func getParameter(cfg *cnpgv1.PluginConfiguration, name string) (string, error) {

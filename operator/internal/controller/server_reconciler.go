@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"path"
+	"strconv"
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -41,8 +42,11 @@ func (r *ServerReconciler) reconcile(ctx context.Context, server *kliov1alpha1.S
 	return nil
 }
 
+//nolint:cyclop
 func (r *ServerReconciler) reconcileStatefulSet(ctx context.Context, server *kliov1alpha1.Server) error {
 	klioName := server.Name + "-klio"
+
+	pprof, _ := strconv.ParseBool(server.GetAnnotations()["klio.cnpg.io/pprof"])
 
 	expected := &appsv1.StatefulSet{
 		ObjectMeta: metav1.ObjectMeta{
@@ -191,6 +195,14 @@ func (r *ServerReconciler) reconcileStatefulSet(ctx context.Context, server *kli
 			},
 		},
 		Status: appsv1.StatefulSetStatus{},
+	}
+
+	if pprof {
+		for i := range expected.Spec.Template.Spec.Containers {
+			expected.Spec.Template.Spec.Containers[i].Args = append(
+				expected.Spec.Template.Spec.Containers[i].Args,
+				"--pprof-server=0:6060")
+		}
 	}
 
 	//nolint:godox

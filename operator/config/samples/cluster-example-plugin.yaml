@@ -15,6 +15,7 @@ spec:
         serverAddress: server-sample.default
         clientSecretName: klio-client
         serverSecretName: server-sample-tls
+        pprof: 't'
 
   storage:
     size: 1Gi

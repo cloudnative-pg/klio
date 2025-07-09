@@ -15,7 +15,6 @@
     - [ResetWALStreamRequest](#klio-wal-v1-ResetWALStreamRequest)
     - [ResetWALStreamResult](#klio-wal-v1-ResetWALStreamResult)
     - [StartWALFile](#klio-wal-v1-StartWALFile)
-    - [WALFileBlock](#klio-wal-v1-WALFileBlock)
     - [WALGap](#klio-wal-v1-WALGap)
   
     - [WAL](#klio-wal-v1-WAL)
@@ -202,22 +201,6 @@ file
 | ----- | ---- | ----- | ----------- |
 | klio_version | [uint64](#uint64) |  |  |
 | file_length | [uint64](#uint64) |  |  |
-
-
-
-
-
-
-<a name="klio-wal-v1-WALFileBlock"></a>
-
-### WALFileBlock
-
-
-
-| Field | Type | Label | Description |
-| ----- | ---- | ----- | ----------- |
-| range | [bytes](#bytes) |  |  |
-| encryption_version | [uint64](#uint64) |  |  |
 
 
 
