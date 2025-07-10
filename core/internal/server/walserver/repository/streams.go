@@ -18,7 +18,7 @@ func (c *Connection) WrapBlock(block []byte) ([]byte, error) {
 		return nil, fmt.Errorf("while creating encrypted block: %w", err)
 	}
 
-	compressingWriter := s2.NewWriter(encryptingWriter)
+	compressingWriter := s2.NewWriter(encryptingWriter, s2.WriterBlockSize(64*1024))
 
 	if _, err := compressingWriter.Write(block); err != nil {
 		return nil, fmt.Errorf("while compressing and encrypting WAL block: %w", err)

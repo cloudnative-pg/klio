@@ -1,6 +1,7 @@
 package walserver
 
 import (
+	"bufio"
 	"fmt"
 	"os"
 	"path"
@@ -18,8 +19,12 @@ type Writer struct {
 	walFilePartialPath string
 	conn               *repository.Connection
 
-	file *os.File
+	file   *os.File
+	buffer *bufio.Writer
 }
+
+// defaultChunkSize we write in chunks of 64KB
+const defaultChunkSize = 64 * 1024
 
 // NewWriter creates a new WAL file writer.
 func NewWriter(conn *repository.Connection, clusterName, walName string, segmentSize uint64) (*Writer, error) {
@@ -38,7 +43,7 @@ func NewWriter(conn *repository.Connection, clusterName, walName string, segment
 
 	// Step 2: open the file
 	//nolint:gosec
-	file, err := os.OpenFile(walFilePartialPath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC|os.O_SYNC, 0o600)
+	file, err := os.OpenFile(walFilePartialPath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o600)
 	if err != nil {
 		return nil, fmt.Errorf(
 			"error while opening file %s: %w",
@@ -52,7 +57,8 @@ func NewWriter(conn *repository.Connection, clusterName, walName string, segment
 		FileLength:  segmentSize,
 	}
 
-	if _, err := protodelim.MarshalTo(file, &startBlock); err != nil {
+	buffer := bufio.NewWriterSize(file, defaultChunkSize)
+	if _, err := protodelim.MarshalTo(buffer, &startBlock); err != nil {
 		return nil, fmt.Errorf("while writing WAL file header: %w", err)
 	}
 
@@ -61,11 +67,16 @@ func NewWriter(conn *repository.Connection, clusterName, walName string, segment
 		walFilePartialPath: walFilePartialPath,
 		file:               file,
 		conn:               conn,
+		buffer:             buffer,
 	}, nil
 }
 
 // CloseMarkDone closes the WAL writer and mark the file as completed.
 func (w *Writer) CloseMarkDone() error {
+	if err := w.buffer.Flush(); err != nil {
+		return fmt.Errorf("while flushing data: %w", err)
+	}
+
 	if err := w.Close(); err != nil {
 		return fmt.Errorf("while closing partial file: %w", err)
 	}
@@ -79,8 +90,12 @@ func (w *Writer) CloseMarkDone() error {
 
 // Flush flushes all the buffers to disk and fsyncs it.
 func (w *Writer) Flush() error {
+	if err := w.buffer.Flush(); err != nil {
+		return fmt.Errorf("flush: while writing buffer: %w", err)
+	}
+
 	if err := w.file.Sync(); err != nil {
-		return fmt.Errorf("flush error: while syncing: %w", err)
+		return fmt.Errorf("flush: while syncing: %w", err)
 	}
 
 	return nil
@@ -88,8 +103,11 @@ func (w *Writer) Flush() error {
 
 // Close closes the file.
 func (w *Writer) Close() error {
-	err := w.file.Close()
-	if err != nil {
+	if err := w.buffer.Flush(); err != nil {
+		return fmt.Errorf("close: while writing buffer: %w", err)
+	}
+
+	if err := w.file.Close(); err != nil {
 		return fmt.Errorf("while closing the wal writer: %w", err)
 	}
 
@@ -126,12 +144,12 @@ func (w *Writer) writeBlockInternal(p []byte) error {
 
 	// Step 2: writing to permanent storage
 	prefix := protowire.AppendFixed64(nil, uint64(len(wrappedBlock)))
-	_, err = w.file.Write(prefix)
+	_, err = w.buffer.Write(prefix)
 	if err != nil {
 		return fmt.Errorf("while writing prefix: %w", err)
 	}
 
-	_, err = w.file.Write(wrappedBlock)
+	_, err = w.buffer.Write(wrappedBlock)
 	if err != nil {
 		return fmt.Errorf("while writing WAL file block: %w", err)
 	}

@@ -71,6 +71,10 @@ func Connect(cfg *config.WalRepositoryClientConfig) (*Connection, error) {
 			username: fmt.Sprintf("%s@%s", cfg.Username, cfg.ClusterName),
 			password: cfg.Password,
 		}),
+		grpc.WithInitialWindowSize(256*1024),
+		grpc.WithInitialConnWindowSize(256*1024),
+		grpc.WithReadBufferSize(256*1024),
+		grpc.WithWriteBufferSize(256*1024),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("while establishing connection to the server: %w", err)

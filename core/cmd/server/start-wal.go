@@ -70,6 +70,10 @@ var startWALCmd = &cobra.Command{
 		// Starts the WAL server
 		opts := []grpc.ServerOption{
 			grpc.Creds(credentials.NewTLS(tlsConfig)),
+			grpc.InitialConnWindowSize(256 * 1024),
+			grpc.InitialWindowSize(256 * 1024),
+			grpc.ReadBufferSize(256 * 1024),
+			grpc.WriteBufferSize(256 * 1024),
 		}
 
 		if configuration.Wal.HTPasswdFile != "" {
