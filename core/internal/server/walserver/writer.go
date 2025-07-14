@@ -23,7 +23,7 @@ type Writer struct {
 	buffer *bufio.Writer
 }
 
-// defaultChunkSize we write in chunks of 64KB
+// defaultChunkSize we write in chunks of 64KB.
 const defaultChunkSize = 64 * 1024
 
 // NewWriter creates a new WAL file writer.

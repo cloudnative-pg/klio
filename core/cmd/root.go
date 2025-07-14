@@ -12,7 +12,7 @@ import (
 	"github.com/cloudnative-pg/klio/core/cmd/backup"
 	"github.com/cloudnative-pg/klio/core/cmd/server"
 
-	_ "net/http/pprof"
+	_ "net/http/pprof" //nolint:gosec
 )
 
 //nolint:gochecknoglobals
