@@ -46,6 +46,7 @@ OCI
 ObjectMeta
 OpenShift
 PGData
+PITR
 PersistentVolumeClaimSpec
 PullPolicy
 PutRequest
@@ -138,6 +139,7 @@ sfixed
 sint
 str
 systemd
+tablespaces
 terminationGracePeriodSeconds
 ubuntu
 uint

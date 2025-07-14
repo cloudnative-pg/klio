@@ -1,8 +1,7 @@
 ---
 title: EDB Klio Operator Helm Chart
-sidebar_position: 2
+sidebar_position: 90
 ---
-
 ![Version: 0.1.0](https://img.shields.io/badge/Version-0.1.0-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: 0.1.0](https://img.shields.io/badge/AppVersion-0.1.0-informational?style=flat-square)
 
 The EDB Klio Operator Helm chart from EDB allows you to deploy the Klio
