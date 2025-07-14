@@ -1,9 +1,9 @@
 package kopia
 
 import (
-	"log/slog"
 	"sync/atomic"
 
+	"github.com/cloudnative-pg/machinery/pkg/log"
 	"github.com/kopia/kopia/snapshot/upload"
 
 	"github.com/cloudnative-pg/klio/core/internal/client/klioclient/notifier"
@@ -12,7 +12,7 @@ import (
 // kopiaUploadProgress is the implementation of the Kopia progress.
 type kopiaUploadProgress struct {
 	notifier notifier.Upload
-	log      *slog.Logger
+	log      log.Logger
 
 	startPath          string
 	estimatedFileCount atomic.Int64
@@ -68,7 +68,7 @@ func (k *kopiaUploadProgress) CachedFile(path string, size int64) {
 
 // Error implements snapshotfs.UploadProgress.
 func (k *kopiaUploadProgress) Error(path string, err error, isIgnored bool) {
-	k.log.Warn("Error while uploading file", "path", path, "err", err, "isIgnored", isIgnored)
+	k.log.Warning("Error while uploading file", "path", path, "err", err, "isIgnored", isIgnored)
 }
 
 // ExcludedDir implements snapshotfs.UploadProgress.

@@ -4,10 +4,10 @@ package cmd
 import (
 	"errors"
 	"fmt"
-	"log/slog"
 	"os"
 	"path"
 
+	"github.com/cloudnative-pg/machinery/pkg/log"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"gopkg.in/validator.v2"
@@ -25,7 +25,7 @@ var getWalCmd = &cobra.Command{
 	Short: "Get a WAL from the target Klio server",
 	Args:  cobra.ExactArgs(2),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		logger := slog.Default()
+		contextLogger := log.FromContext(cmd.Context())
 
 		walName := args[0]
 		targetFileName := args[1]
@@ -57,10 +57,7 @@ var getWalCmd = &cobra.Command{
 
 		downloadPartial, _ = cmd.Flags().GetBool("partial")
 
-		client, err := grpcclient.Connect(
-			logger,
-			&configuration.Client.Wal,
-		)
+		client, err := grpcclient.Connect(&configuration.Client.Wal)
 		if err != nil {
 			return fmt.Errorf("while connecting to the Klio server: %w", err)
 		}
@@ -71,7 +68,7 @@ var getWalCmd = &cobra.Command{
 		}
 		defer func() {
 			if closeErr := output.Close(); closeErr != nil {
-				logger.Error("While closing WAL file", "err", closeErr)
+				contextLogger.Error(closeErr, "While closing WAL file")
 			}
 		}()
 
@@ -81,7 +78,7 @@ var getWalCmd = &cobra.Command{
 		switch {
 		case errors.Is(err, common.ErrMissingWALFile):
 			if path.Ext(walName) != "" || !downloadPartial {
-				logger.Debug("Missing WAL file, exiting with error code 1", "wal_name", walName)
+				contextLogger.Debug("Missing WAL file, exiting with error code 1", "wal_name", walName)
 				os.Exit(1)
 			}
 
@@ -99,11 +96,11 @@ var getWalCmd = &cobra.Command{
 		var incompleteError common.IncompleteTransmissionError
 		switch {
 		case errors.As(err, &incompleteError):
-			logger.Debug("Incomplete partial WAL file, exiting with error code 1", "wal_name", walName)
+			contextLogger.Debug("Incomplete partial WAL file, exiting with error code 1", "wal_name", walName)
 			os.Exit(1)
 
 		case errors.Is(err, common.ErrMissingWALFile):
-			logger.Debug("Missing partial WAL file, exiting with error code 1", "wal_name", walName)
+			contextLogger.Debug("Missing partial WAL file, exiting with error code 1", "wal_name", walName)
 			os.Exit(1)
 
 		case err != nil:

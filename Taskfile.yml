@@ -733,6 +733,10 @@ tasks:
   integration:devenv:
     desc: Create and connect to an ephemeral development environment
     interactive: true
+    deps:
+      - core:containerize-snapshot
+      - operator:containerize-snapshot
+      - operator:helm-chart
     cmds:
       - dagger call -m integration/dagger/devenv kubernetes --source .
 

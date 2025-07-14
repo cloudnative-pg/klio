@@ -2,7 +2,6 @@ package cmd
 
 import (
 	"fmt"
-	"log/slog"
 	"os"
 
 	"github.com/spf13/cobra"
@@ -23,8 +22,6 @@ var getMetadataCmd = &cobra.Command{
 	Short: "Get the metadata of a cluster from the target Klio server",
 	Args:  cobra.ExactArgs(0),
 	RunE: func(cmd *cobra.Command, _ []string) error {
-		logger := slog.Default()
-
 		var configuration config.Data
 
 		// IMPORTANT: this requires this program to be built with "-tags viper_bind_struct"
@@ -48,10 +45,7 @@ var getMetadataCmd = &cobra.Command{
 			return fmt.Errorf("configuration validation error: %w", errs)
 		}
 
-		client, err := grpcclient.Connect(
-			logger,
-			&configuration.Client.Wal,
-		)
+		client, err := grpcclient.Connect(&configuration.Client.Wal)
 		if err != nil {
 			return fmt.Errorf("while connecting to the Klio server: %w", err)
 		}

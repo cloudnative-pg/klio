@@ -4,11 +4,11 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"log/slog"
 	"os"
 	"path"
 	"path/filepath"
 
+	"github.com/cloudnative-pg/machinery/pkg/log"
 	"github.com/kopia/kopia/fs/localfs"
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/repo/manifest"
@@ -41,9 +41,7 @@ const backupNameTagName = "klio.io/tag"
 type BackupUploader struct {
 	hostname   string
 	username   string
-	logger     *slog.Logger
 	repository repo.Repository
-	progress   notifier.Upload
 
 	pgDataManifest        *snapshot.Manifest
 	tablespaces           []common.TablespaceLayout
@@ -51,18 +49,18 @@ type BackupUploader struct {
 }
 
 // NewUploader creates a new backup executor.
-func (s *Connection) NewUploader(_ context.Context, logger notifier.Upload) *BackupUploader {
+func (s *Connection) NewUploader() *BackupUploader {
 	return &BackupUploader{
 		hostname:   s.hostname,
 		username:   s.username,
-		logger:     s.logger,
 		repository: s.repository,
-		progress:   logger,
 	}
 }
 
 // UploadPgData implements common.BackupUploader.
 func (impl *BackupUploader) UploadPgData(ctx context.Context, pgData string) error {
+	contextLogger := log.FromContext(ctx)
+
 	ctx, writer, err := impl.repository.NewWriter(ctx, repo.WriteSessionOptions{
 		Purpose: fmt.Sprintf("backing up pgdata %s for cluster %s", pgData, impl.hostname),
 	})
@@ -73,7 +71,7 @@ func (impl *BackupUploader) UploadPgData(ctx context.Context, pgData string) err
 	defer func() {
 		err := writer.Close(ctx)
 		if err != nil {
-			impl.logger.Error("while closing repository write session to archive WALs", "err", err)
+			contextLogger.Error(err, "while closing repository write session to archive WALs")
 		}
 	}()
 
@@ -104,7 +102,7 @@ func (impl *BackupUploader) UploadPgData(ctx context.Context, pgData string) err
 
 	// Step 3: remove .kopiaignore file from PGDATA
 	if err := os.Remove(kopiaIgnore); err != nil {
-		impl.logger.Warn("cannot remove .kopiaignore file", "file", kopiaIgnore)
+		contextLogger.Warning("cannot remove .kopiaignore file", "file", kopiaIgnore)
 	}
 
 	return nil
@@ -112,6 +110,8 @@ func (impl *BackupUploader) UploadPgData(ctx context.Context, pgData string) err
 
 // UploadTablespace implements common.BackupUploader.
 func (impl *BackupUploader) UploadTablespace(ctx context.Context, tbl common.TablespaceLayout) error {
+	contextLogger := log.FromContext(ctx)
+
 	ctx, writer, err := impl.repository.NewWriter(ctx, repo.WriteSessionOptions{
 		Purpose: fmt.Sprintf("backing up tablespace %s for cluster %s", tbl.Path, impl.hostname),
 	})
@@ -122,7 +122,7 @@ func (impl *BackupUploader) UploadTablespace(ctx context.Context, tbl common.Tab
 	defer func() {
 		err := writer.Close(ctx)
 		if err != nil {
-			impl.logger.Error("while closing repository write session to archive WALs", "err", err)
+			contextLogger.Error(err, "while closing repository write session to archive WALs")
 		}
 	}()
 
@@ -166,6 +166,8 @@ func (impl *BackupUploader) UploadControlFile(
 	ctx context.Context,
 	controlDataFileName string,
 ) error { // This enables Kopia debugging
+	contextLogger := log.FromContext(ctx)
+
 	ctx, writer, err := impl.repository.NewWriter(ctx, repo.WriteSessionOptions{
 		Purpose: "backing up control file for cluster " + impl.hostname,
 	})
@@ -176,7 +178,7 @@ func (impl *BackupUploader) UploadControlFile(
 	defer func() {
 		err := writer.Close(ctx)
 		if err != nil {
-			impl.logger.Error("while closing repository write session to archive WALs", "err", err)
+			contextLogger.Error(err, "while closing repository write session to archive WALs")
 		}
 	}()
 
@@ -209,7 +211,9 @@ func (impl *BackupUploader) UploadControlFile(
 }
 
 // UploadBackupMetadata implements common.BackupUploader.
-func (impl *BackupUploader) UploadBackupMetadata(ctx context.Context, data common.BackupMetadata) error {
+func (impl *BackupUploader) UploadBackupMetadata(ctx context.Context, data *common.BackupMetadata) error {
+	contextLogger := log.FromContext(ctx)
+
 	// This enables Kopia debugging
 	// ctx = logging.WithLogger(ctx, logging.ToWriter(os.Stdout))
 	ctx, writer, err := impl.repository.NewWriter(ctx, repo.WriteSessionOptions{
@@ -222,7 +226,7 @@ func (impl *BackupUploader) UploadBackupMetadata(ctx context.Context, data commo
 	defer func() {
 		err := writer.Close(ctx)
 		if err != nil {
-			impl.logger.Error("while closing repository write session to archive WALs", "err", err)
+			contextLogger.Error(err, "while closing repository write session to archive WALs")
 		}
 	}()
 
@@ -252,7 +256,7 @@ func (impl *BackupUploader) UploadBackupMetadata(ctx context.Context, data commo
 			err,
 		)
 	}
-	impl.logger.Debug("Saved PGData Snapshot", "manifestID", pgDataManifestID)
+	contextLogger.Debug("Saved PGData Snapshot", "manifestID", pgDataManifestID)
 
 	err = writer.Flush(ctx)
 	if err != nil {
@@ -267,6 +271,8 @@ func (impl *BackupUploader) uploadPath(
 	filePath string,
 	writer repo.RepositoryWriter,
 ) (*snapshot.Manifest, error) {
+	contextLogger := log.FromContext(ctx)
+
 	// Kopia backup mode
 	// ctx = logging.WithLogger(ctx, logging.ToWriter(os.Stdout))
 	sourcePath, err := filepath.Abs(filePath)
@@ -303,8 +309,8 @@ func (impl *BackupUploader) uploadPath(
 	uploader := upload.NewUploader(writer)
 	uploader.Progress = &kopiaUploadProgress{
 		startPath: sourcePath,
-		notifier:  impl.progress,
-		log:       impl.logger,
+		notifier:  notifier.NewUploadLogNotifier(contextLogger),
+		log:       contextLogger,
 	}
 
 	manifest, err := uploader.Upload(ctx, entry, policyTree, sourceInfo, manifests...)

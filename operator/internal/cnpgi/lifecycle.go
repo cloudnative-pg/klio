@@ -148,10 +148,8 @@ func reconcilePodSpec(cluster *cnpgv1.Cluster, spec *corev1.PodSpec, cfg *plugin
 	})
 
 	sidecarTemplate := corev1.Container{
-		Name:          "klio",
 		Image:         "registry.dev:5000/klio-testing:dev",
 		RestartPolicy: ptr.To(corev1.ContainerRestartPolicyAlways),
-		Args:          []string{"send-wal"},
 		SecurityContext: &corev1.SecurityContext{
 			RunAsUser:  ptr.To(int64(26)),
 			RunAsGroup: ptr.To(int64(26)),
@@ -229,7 +227,19 @@ func reconcilePodSpec(cluster *cnpgv1.Cluster, spec *corev1.PodSpec, cfg *plugin
 		}
 	}
 
-	if err := injectPluginSidecarPodSpec(spec, &sidecarTemplate, mainContainerName); err != nil {
+	sendWalSidecar := sidecarTemplate.DeepCopy()
+	sendWalSidecar.Name = "klio-wal"
+	sendWalSidecar.Args = []string{"send-wal"}
+
+	pluginSidecar := sidecarTemplate.DeepCopy()
+	pluginSidecar.Name = "klio-plugin"
+	pluginSidecar.Args = []string{"cnpgi"}
+
+	if err := injectPluginSidecarPodSpec(spec, sendWalSidecar, mainContainerName); err != nil {
+		return err
+	}
+
+	if err := injectPluginSidecarPodSpec(spec, pluginSidecar, mainContainerName); err != nil {
 		return err
 	}
 

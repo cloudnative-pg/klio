@@ -17,7 +17,7 @@ func (s *Postgres) GetWalSegmentSize(ctx context.Context) (uint64, error) {
 	}
 	defer func() {
 		if closeErr := conn.Close(ctx); closeErr != nil {
-			s.logger.ErrorContext(ctx, "Error while closing the connection")
+			s.logger.Error(closeErr, "Error while closing the connection")
 		}
 	}()
 	mrr := conn.Exec(ctx, "SHOW wal_segment_size")

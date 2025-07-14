@@ -140,20 +140,8 @@ EOF`}).
 		WithExec([]string{"kubectl", "apply", "-f",
 			"https://github.com/cert-manager/cert-manager/releases/download/v1.18.0/cert-manager.yaml"}).
 		WithExec([]string{"kubectl", "rollout", "status", "deployment", "-n", "cert-manager", "cert-manager-webhook"}).
-		WithNewFile("/operator/config/dev/kustomization.yaml",
-			`
-apiVersion: kustomize.config.k8s.io/v1beta1
-kind: Kustomization
-namespace: cnpg-system
-resources:
-- ../default
-
-images:
-- name: controller
-  newTag: dev
-  newName: registry.dev:5000/klio-operator-testing
-`).
-		WithExec([]string{"kubectl", "apply", "-k", "/operator/config/dev"}).
+		WithExec([]string{"sh", "-c", "helm uninstall --wait --ignore-not-found klio -n cnpg-system || true"}).
+		WithExec([]string{"sh", "-c", "helm upgrade -i --wait --create-namespace --namespace cnpg-system --set controllerManager.container.image.repository=registry.dev:5000/klio-operator-testing --set controllerManager.container.image.tag=dev klio /operator/dist/chart"}).
 		Terminal()
 
 	return kubectlCtr, nil

@@ -4,10 +4,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"log/slog"
 	"strings"
 	"time"
 
+	"github.com/cloudnative-pg/machinery/pkg/log"
 	"github.com/cloudnative-pg/machinery/pkg/types"
 	"github.com/jackc/pglogrepl"
 	"github.com/jackc/pgx/v5/pgconn"
@@ -23,17 +23,17 @@ import (
 // Process implements the WAL sender service.
 type Process struct {
 	config         *config.Data
-	logger         *slog.Logger
+	logger         log.Logger
 	infrastructure *infrastructure.Postgres
 	client         *grpcclient.Connection
 }
 
 // New creates a new receiver.
-func New(cfg *config.Data, log *slog.Logger, client *grpcclient.Connection) *Process {
+func New(cfg *config.Data, logger log.Logger, client *grpcclient.Connection) *Process {
 	return &Process{
 		config:         cfg,
-		logger:         log.With("service", "receive_wal"),
-		infrastructure: infrastructure.NewPostgres(cfg, log),
+		logger:         logger.WithValues("service", "receive_wal"),
+		infrastructure: infrastructure.NewPostgres(cfg, logger),
 		client:         client,
 	}
 }
@@ -49,7 +49,7 @@ func (s *Process) ResetReplicationStatus(
 	}
 	defer func() {
 		if closeErr := conn.Close(ctx); closeErr != nil {
-			s.logger.ErrorContext(ctx, "Error while closing the connection")
+			s.logger.Error(closeErr, "error while closing the connection")
 		}
 	}()
 
@@ -107,7 +107,7 @@ func (s *Process) Start(ctx context.Context) error {
 	}
 	defer func() {
 		if closeErr := conn.Close(ctx); closeErr != nil {
-			s.logger.ErrorContext(ctx, "Error while closing the connection")
+			s.logger.Error(closeErr, "Error while closing the connection")
 		}
 	}()
 
@@ -393,7 +393,7 @@ func (s *Process) manageWALStream(
 				},
 			)
 			if err != nil {
-				s.logger.Error("Failed to send standby status update, skipping", "err", err)
+				s.logger.Error(err, "Failed to send standby status update, skipping")
 			} else {
 				s.logger.Debug("Sent Standby status message", "xlogPos", clientXLogPos)
 			}
@@ -411,7 +411,7 @@ func (s *Process) manageWALStream(
 			if errors.Is(err, context.Canceled) {
 				break
 			}
-			s.logger.Error("Receive message failed", "err", err)
+			s.logger.Error(err, "receive message failed")
 
 			break
 		}
@@ -422,7 +422,7 @@ func (s *Process) manageWALStream(
 			case pglogrepl.PrimaryKeepaliveMessageByteID:
 				pkm, err := pglogrepl.ParsePrimaryKeepaliveMessage(msg.Data[1:])
 				if err != nil {
-					s.logger.Error("ParsePrimaryKeepaliveMessage failed", "err", err)
+					s.logger.Error(err, "parsePrimaryKeepaliveMessage failed")
 					continue
 				}
 				s.logger.Debug(
@@ -439,12 +439,12 @@ func (s *Process) manageWALStream(
 			case pglogrepl.XLogDataByteID:
 				xld, err := pglogrepl.ParseXLogData(msg.Data[1:])
 				if err != nil {
-					s.logger.Error("ParseXLogData failed", "err", err)
+					s.logger.Error(err, "ParseXLogData failed")
 					continue
 				}
 
 				if err = buffer.ProcessWALData(ctx, xld.WALData, types.LSN(xld.WALStart.String())); err != nil {
-					s.logger.Error("Error while processing WAL data", "err", err, "lsn", xld.WALStart)
+					s.logger.Error(err, "Error while processing WAL data", "lsn", xld.WALStart)
 					return fmt.Errorf("could not process WAL data at %s: %w", xld.WALStart, err)
 				}
 

@@ -4,9 +4,9 @@ import (
 	"crypto/tls"
 	"errors"
 	"fmt"
-	"log/slog"
 	"net"
 
+	"github.com/cloudnative-pg/machinery/pkg/log"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"google.golang.org/grpc"
@@ -25,7 +25,7 @@ import (
 var startWALCmd = &cobra.Command{
 	Use:   "start-wal",
 	Short: "Starts a Klio WAL server",
-	RunE: func(_ *cobra.Command, _ []string) error {
+	RunE: func(cmd *cobra.Command, _ []string) error {
 		var configuration config.ServerConfig
 
 		// IMPORTANT: this requires this program to be built with "-tags viper_bind_struct"
@@ -89,7 +89,7 @@ var startWALCmd = &cobra.Command{
 		server := grpc.NewServer(opts...)
 		klioGRPC.RegisterWALServer(
 			server,
-			walserver.New(slog.Default(), repoConnection),
+			walserver.New(log.FromContext(cmd.Context()), repoConnection),
 		)
 		if err := server.Serve(listener); !errors.Is(err, net.ErrClosed) {
 			return fmt.Errorf("error while running server: %w", err)

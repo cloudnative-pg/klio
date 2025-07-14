@@ -3,10 +3,10 @@ package kopiaserver
 import (
 	"context"
 	"fmt"
-	"log/slog"
 	"os"
 	"os/exec"
 
+	"github.com/cloudnative-pg/machinery/pkg/log"
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/repo/blob/filesystem"
 	"github.com/kopia/kopia/repo/content"
@@ -21,7 +21,7 @@ const kopiaCommand = "kopia"
 //
 //nolint:cyclop
 func Start(ctx context.Context, cfg *config.BaseServerConfig) error {
-	log := slog.Default()
+	contextLogger := log.FromContext(ctx)
 
 	kopiaBinary, err := exec.LookPath(kopiaCommand)
 	if err != nil {
@@ -40,7 +40,7 @@ func Start(ctx context.Context, cfg *config.BaseServerConfig) error {
 
 	defer func() {
 		if err := os.Remove(configFile.Name()); err != nil {
-			log.Warn(
+			contextLogger.Warning(
 				"Error while removing temporary configuration file",
 				"err", err,
 				"configFile", configFile.Name(),
@@ -90,7 +90,7 @@ func Start(ctx context.Context, cfg *config.BaseServerConfig) error {
 	kopiaServer.Stdout = os.Stdout
 	kopiaServer.Stderr = os.Stderr
 
-	log.Info("Starting Kopia server", "args", kopiaServer.Args)
+	contextLogger.Info("Starting Kopia server", "args", kopiaServer.Args)
 
 	if err := kopiaServer.Start(); err != nil {
 		return fmt.Errorf("while starting the kopia server: %w", err)

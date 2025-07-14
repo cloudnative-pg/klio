@@ -2,9 +2,9 @@ package cmd
 
 import (
 	"fmt"
-	"log/slog"
 	"strings"
 
+	"github.com/cloudnative-pg/machinery/pkg/log"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"gopkg.in/validator.v2"
@@ -23,7 +23,7 @@ var restoreCmd = &cobra.Command{
 	Short: "Restore a PostgreSQL cluster from a Klio server",
 	Args:  cobra.ExactArgs(2),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		logger := slog.Default()
+		contextLogger := log.FromContext(cmd.Context())
 
 		var configuration config.Data
 
@@ -65,17 +65,13 @@ var restoreCmd = &cobra.Command{
 			tablespaces[splitOption[0]] = splitOption[1]
 		}
 
-		client, err := kopia.Connect(
-			cmd.Context(),
-			logger,
-			&configuration.Client.Base,
-		)
+		client, err := kopia.Connect(cmd.Context(), &configuration.Client.Base)
 		if err != nil {
 			return fmt.Errorf("while connecting to the Klio server: %w", err)
 		}
 
 		executor := common.NewRestoreExecutor(
-			client.CreateRestorer(notifier.NewDownloadLogNotifier(logger)),
+			client.CreateRestorer(notifier.NewDownloadLogNotifier(contextLogger)),
 			common.RestoreConfiguration{
 				Name:                 backupName,
 				PgDataDirectory:      destinationPath,

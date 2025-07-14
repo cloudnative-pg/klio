@@ -3,8 +3,8 @@ package buffer
 import (
 	"context"
 	"fmt"
-	"log/slog"
 
+	"github.com/cloudnative-pg/machinery/pkg/log"
 	"github.com/cloudnative-pg/machinery/pkg/types"
 )
 
@@ -12,13 +12,13 @@ import (
 type Data struct {
 	segmentSize uint64
 	tli         int
-	logger      *slog.Logger
+	logger      log.Logger
 
 	handler Handler
 }
 
 // New creates a new WAL buffer.
-func New(logger *slog.Logger, tli int, walSegmentSize uint64, handler Handler) *Data {
+func New(logger log.Logger, tli int, walSegmentSize uint64, handler Handler) *Data {
 	return &Data{
 		segmentSize: walSegmentSize,
 		tli:         tli,

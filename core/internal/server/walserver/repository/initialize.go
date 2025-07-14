@@ -3,11 +3,11 @@ package repository
 import (
 	"encoding/json"
 	"fmt"
-	"log/slog"
 	"os"
 	"path"
 
 	"github.com/cloudnative-pg/machinery/pkg/fileutils"
+	"github.com/cloudnative-pg/machinery/pkg/log"
 )
 
 const repositoryConfigFileName = "repository.config"
@@ -31,7 +31,7 @@ func Initialize(options Options) error {
 		return fmt.Errorf("while checking config file %s existence: %w", configFilePath, err)
 	}
 	if configExisting {
-		slog.Default().Debug("stopping the repository initialization, configuration already exists", "path", options.Path)
+		log.Debug("stopping the repository initialization, configuration already exists", "path", options.Path)
 		return nil
 	}
 

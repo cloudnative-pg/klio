@@ -3,8 +3,9 @@ package grpcclient
 import (
 	"context"
 	"fmt"
-	"log/slog"
 	"testing"
+
+	"github.com/cloudnative-pg/machinery/pkg/log"
 
 	"github.com/cloudnative-pg/klio/core/internal/server/walserver/repository"
 	"github.com/cloudnative-pg/klio/core/pkg/config"
@@ -15,7 +16,7 @@ func BenchmarkLookupSnapshotsViaKlioServer(b *testing.B) {
 		dirName := b.TempDir()
 
 		conn, err := ConnectTemporary(
-			slog.Default(),
+			log.GetLogger(),
 			&config.WalRepositoryClientConfig{
 				ClusterName: "cluster-name",
 			},

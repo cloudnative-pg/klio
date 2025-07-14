@@ -40,10 +40,10 @@ This section will guide you through the steps required to deploy the Klio operat
 its resources inside a kind cluster.
 
 1. Create a kind cluster using the `hack/setup-cluster.sh` script from the CNPG repository.
-2. To build and deploy Klio images and operator, exec the command: `KIND_CLUSTER_NAME=pg-operator-e2e-v1-33-1 task integration:deploy-to-kind`
+2. To build and deploy Klio images and operator, exec the command: `KIND_CLUSTER_NAME=$(kind get clusters) task integration:deploy-to-kind`
 3. Once the operator is in `Ready` state, you can deploy the resources:
   * Klio server: `kubectl apply -f operator/config/samples/klio_v1alpha1_server.yaml`
-  * CNPG Cluster with Klio plugin: `kubectl apply -f operator/config/samples/cluster-example.yaml`
+  * CNPG Cluster with Klio plugin: `kubectl apply -f operator/config/samples/cluster-example-plugin.yaml`
 
 Repeat step 2 to deploy the new changes applied to the code, and reset the operator.
 To rollout the new Klio server image it is enough to delete the Pod: `kubectl delete pod server-sample-klio-0`

@@ -3,8 +3,8 @@ package buffer
 import (
 	"context"
 	"fmt"
-	"log/slog"
 
+	"github.com/cloudnative-pg/machinery/pkg/log"
 	"github.com/cloudnative-pg/machinery/pkg/types"
 
 	"github.com/cloudnative-pg/klio/core/internal/client/klioclient/common"
@@ -15,7 +15,7 @@ import (
 // Klio server.
 type KlioClientStreamingHandler struct {
 	conn   *grpcclient.Connection
-	logger *slog.Logger
+	logger log.Logger
 
 	stream common.WALUploaderImpl
 	offset uint64
@@ -27,7 +27,7 @@ type KlioClientStreamingHandler struct {
 
 // NewKlioClientHandler creates a new klio handler.
 func NewKlioClientHandler(
-	logger *slog.Logger,
+	logger log.Logger,
 	tli int,
 	segmentSize uint64,
 	conn *grpcclient.Connection,

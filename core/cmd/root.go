@@ -1,10 +1,10 @@
 package cmd
 
 import (
-	"log/slog"
 	"os"
 	"strings"
 
+	"github.com/cloudnative-pg/machinery/pkg/log"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 
@@ -17,12 +17,24 @@ var cfgFile string
 //nolint:gochecknoglobals
 var debug bool
 
+//nolint:gochecknoglobals
+var logFlags = &log.Flags{}
+
 // rootCmd represents the base command when called without any subcommands
 //
 //nolint:gochecknoglobals
 var rootCmd = &cobra.Command{
 	Use:   "klio",
 	Short: "Klio is a Cloud Native Backup & Recovery solution",
+	PersistentPreRunE: func(_ *cobra.Command, _ []string) error {
+		// TODO: fix, it is for backward compatibility
+		if debug {
+			log.SetLogLevel(log.DebugLevelString)
+		}
+		logFlags.ConfigureLogging()
+
+		return nil
+	},
 	// Uncomment the following line if your bare application
 	// has an action associated with it:
 	// Run: func(cmd *cobra.Command, args []string) { },
@@ -44,7 +56,7 @@ func init() {
 	// Here you will define your flags and configuration settings.
 	// Cobra supports persistent flags, which, if defined here,
 	// will be global for your application.
-
+	logFlags.AddFlags(rootCmd.PersistentFlags())
 	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.klio.yaml)")
 	rootCmd.PersistentFlags().BoolVar(&debug, "debug", false, "enable debug logging")
 
@@ -57,10 +69,6 @@ func init() {
 
 // initConfig reads in config file and ENV variables if set.
 func initConfig() {
-	if debug {
-		slog.SetLogLoggerLevel(slog.LevelDebug)
-	}
-
 	if cfgFile != "" {
 		// Use config file from the flag.
 		viper.SetConfigFile(cfgFile)
@@ -80,6 +88,6 @@ func initConfig() {
 
 	// If a config file is found, read it in.
 	if err := viper.ReadInConfig(); err == nil {
-		slog.Debug("Using config file", "configFile", viper.ConfigFileUsed())
+		log.Debug("Using config file", "configFile", viper.ConfigFileUsed())
 	}
 }

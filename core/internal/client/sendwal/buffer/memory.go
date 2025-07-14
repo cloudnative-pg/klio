@@ -4,8 +4,8 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"log/slog"
 
+	"github.com/cloudnative-pg/machinery/pkg/log"
 	"github.com/cloudnative-pg/machinery/pkg/types"
 )
 
@@ -18,7 +18,7 @@ type Flusher func(walName string, data []byte) error
 type MemBufferHandler struct {
 	currentWALFile string
 	buffer         bytes.Buffer
-	logger         *slog.Logger
+	logger         log.Logger
 	flusher        Flusher
 
 	tli         int
@@ -26,7 +26,7 @@ type MemBufferHandler struct {
 }
 
 // NewMemBufferHandler creates a new memory buffer handler.
-func NewMemBufferHandler(logger *slog.Logger, tli int, segmentSize uint64, flusher Flusher) *MemBufferHandler {
+func NewMemBufferHandler(logger log.Logger, tli int, segmentSize uint64, flusher Flusher) *MemBufferHandler {
 	return &MemBufferHandler{
 		currentWALFile: "",
 		buffer:         *bytes.NewBuffer(make([]byte, 0, segmentSize)),

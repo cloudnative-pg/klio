@@ -2,8 +2,8 @@
 package cmd
 
 import (
+	"encoding/json"
 	"fmt"
-	"log/slog"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/spf13/cobra"
@@ -12,7 +12,6 @@ import (
 
 	"github.com/cloudnative-pg/klio/core/internal/client/klioclient/common"
 	"github.com/cloudnative-pg/klio/core/internal/client/klioclient/kopia"
-	"github.com/cloudnative-pg/klio/core/internal/client/klioclient/notifier"
 	"github.com/cloudnative-pg/klio/core/pkg/config"
 )
 
@@ -23,8 +22,6 @@ var backupCmd = &cobra.Command{
 	Use:   "backup",
 	Short: "Backup the PostgreSQL cluster to the opened Klio server",
 	RunE: func(cmd *cobra.Command, _ []string) error {
-		logger := slog.Default()
-
 		var configuration config.Data
 
 		// IMPORTANT: this requires this program to be built with "-tags viper_bind_struct"
@@ -52,7 +49,6 @@ var backupCmd = &cobra.Command{
 
 		client, err := kopia.Connect(
 			cmd.Context(),
-			logger,
 			&configuration.Client.Base,
 		)
 		if err != nil {
@@ -67,14 +63,19 @@ var backupCmd = &cobra.Command{
 			_ = conn.Close(cmd.Context())
 		}()
 
-		uploader := client.NewUploader(cmd.Context(), notifier.NewUploadLogNotifier(logger))
+		uploader := client.NewUploader()
 		backupExecutor := common.NewBackupExecutor(conn, uploader)
 
 		if err != nil {
 			return fmt.Errorf("while creating a backup executor: %w", err)
 		}
 
-		if err := backupExecutor.Start(cmd.Context()); err != nil {
+		var opts common.BackupOptions
+
+		backupName, _ := cmd.Flags().GetString("name")
+		opts.Name = backupName
+
+		if err := backupExecutor.Start(cmd.Context(), opts); err != nil {
 			return fmt.Errorf("while starting the backup: %w", err)
 		}
 
@@ -82,9 +83,20 @@ var backupCmd = &cobra.Command{
 			return fmt.Errorf("while uploading data: %w", err)
 		}
 
-		if err := backupExecutor.Close(cmd.Context()); err != nil {
+		metadata, err := backupExecutor.Close(cmd.Context())
+		if err != nil {
 			return fmt.Errorf("while closing the backup: %w", err)
 		}
+
+		// Marshal metadata to JSON
+		jsonData, err := json.Marshal(metadata)
+		if err != nil {
+			return fmt.Errorf("failed to marshal metadata to JSON: %w", err)
+		}
+
+		fmt.Println() //nolint:forbidigo
+
+		fmt.Print(string(jsonData)) //nolint:forbidigo
 
 		return nil
 	},
@@ -94,6 +106,8 @@ var backupCmd = &cobra.Command{
 func init() {
 	rootCmd.AddCommand(backupCmd)
 	// Here you will define your flags and configuration settings.
+
+	backupCmd.Flags().StringP("name", "n", "", "The backup name")
 
 	// Cobra supports Persistent Flags which will work for this command
 	// and all subcommands, e.g.:

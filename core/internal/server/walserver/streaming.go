@@ -168,9 +168,9 @@ func (w *Implementation) getLatestWALFileForCluster(
 		}
 
 		w.logger.Error(
+			err,
 			"while reading cluster directory",
 			"clusterPath", clusterPath,
-			"err", err,
 		)
 
 		return "", fmt.Errorf("while reading cluster directory: %w", err)
@@ -194,7 +194,7 @@ func (w *Implementation) getLatestWALFileForCluster(
 	latestWalDirectoryName = path.Join(clusterPath, latestWalDirectoryName)
 	readWalDirectory, err := os.ReadDir(latestWalDirectoryName)
 	if err != nil {
-		w.logger.Error("while reading directory", "latestWalDirectoryName", latestWalDirectoryName, "err", err)
+		w.logger.Error(err, "while reading directory", "latestWalDirectoryName", latestWalDirectoryName)
 		return "", fmt.Errorf("while reading WAL directory: %w", err)
 	}
 

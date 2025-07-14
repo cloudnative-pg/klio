@@ -3,8 +3,8 @@ package cmd
 
 import (
 	"fmt"
-	"log/slog"
 
+	"github.com/cloudnative-pg/machinery/pkg/log"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"gopkg.in/validator.v2"
@@ -21,7 +21,7 @@ var resetLSNCommand = &cobra.Command{
 	Use:   "reset-lsn",
 	Short: "Reset the replication status to the latest flush LSN",
 	RunE: func(cmd *cobra.Command, _ []string) error {
-		logger := slog.Default()
+		contextLogger := log.FromContext(cmd.Context())
 
 		var configuration config.Data
 
@@ -50,16 +50,13 @@ var resetLSNCommand = &cobra.Command{
 			return fmt.Errorf("configuration validation error: %w", errs)
 		}
 
-		client, err := grpcclient.Connect(
-			logger,
-			&configuration.Client.Wal,
-		)
+		client, err := grpcclient.Connect(&configuration.Client.Wal)
 		if err != nil {
 			return fmt.Errorf("while connecting to the Klio server: %w", err)
 		}
 
 		return sendwal.
-			New(&configuration, logger, client).
+			New(&configuration, contextLogger, client).
 			ResetReplicationStatus(cmd.Context())
 	},
 }

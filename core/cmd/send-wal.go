@@ -5,9 +5,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"log/slog"
 	"time"
 
+	"github.com/cloudnative-pg/machinery/pkg/log"
 	"github.com/jackc/pgx/v5"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -28,7 +28,7 @@ var sendWalCmd = &cobra.Command{
 	Use:   "send-wal",
 	Short: "Upload the cluster's WALs to the target Klio server",
 	RunE: func(cmd *cobra.Command, _ []string) error {
-		logger := slog.Default()
+		logger := log.FromContext(cmd.Context())
 
 		var configuration config.Data
 
@@ -62,10 +62,7 @@ var sendWalCmd = &cobra.Command{
 			return ErrTimeoutWaitingPG
 		}
 
-		client, err := grpcclient.Connect(
-			logger,
-			&configuration.Client.Wal,
-		)
+		client, err := grpcclient.Connect(&configuration.Client.Wal)
 		if err != nil {
 			return fmt.Errorf("while connecting to the Klio server: %w", err)
 		}
@@ -96,7 +93,7 @@ func retryWaitForPostgreSQLInstance(ctx context.Context, dsn string, waitForPrim
 }
 
 func waitForPostgreSQLInstance(ctx context.Context, dsn string, waitForPrimary bool) bool {
-	logger := slog.Default()
+	logger := log.FromContext(ctx)
 
 	conn, err := pgx.Connect(ctx, dsn)
 	if err != nil {

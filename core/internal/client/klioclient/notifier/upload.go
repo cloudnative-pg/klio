@@ -1,7 +1,7 @@
 package notifier
 
 import (
-	"log/slog"
+	"github.com/cloudnative-pg/machinery/pkg/log"
 )
 
 // Upload is an interface type that is used by the
@@ -20,11 +20,11 @@ type Upload interface {
 // uploadProgressLogger is a progress implementation logging the
 // status on the passed logger.
 type uploadProgressLogger struct {
-	log *slog.Logger
+	log log.Logger
 }
 
 // NewUploadLogNotifier creates a new LoggerProcess.
-func NewUploadLogNotifier(log *slog.Logger) Upload { //nolint:nolintlint,ireturn
+func NewUploadLogNotifier(log log.Logger) Upload { //nolint:nolintlint,ireturn
 	return &uploadProgressLogger{
 		log: log,
 	}

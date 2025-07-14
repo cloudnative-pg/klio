@@ -3,11 +3,11 @@ package grpcclient
 import (
 	"errors"
 	"fmt"
-	"log/slog"
 	"math/rand/v2"
 	"net"
 	"os"
 
+	"github.com/cloudnative-pg/machinery/pkg/log"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 
@@ -29,7 +29,7 @@ type TemporaryConnection struct {
 // ConnectTemporary creates a connection to a local Kopia repository, creating it
 // if not initialized.
 func ConnectTemporary(
-	logger *slog.Logger,
+	logger log.Logger,
 	cfg *config.WalRepositoryClientConfig,
 	opts repository.Options,
 ) (*TemporaryConnection, error) {
@@ -59,7 +59,7 @@ func ConnectTemporary(
 
 	go func() {
 		if err := server.Serve(listener); !errors.Is(err, net.ErrClosed) {
-			slog.Error("error while running temporary server", "err", err)
+			logger.Error(err, "error while running temporary server")
 		}
 	}()
 
@@ -75,7 +75,6 @@ func ConnectTemporary(
 
 	return &TemporaryConnection{
 		Connection: Connection{
-			logger:         logger,
 			cfg:            cfg,
 			WALClient:      walClient,
 			grpcConnection: conn,

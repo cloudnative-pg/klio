@@ -3,9 +3,9 @@ package kopia
 import (
 	"context"
 	"fmt"
-	"log/slog"
 	"os"
 
+	"github.com/cloudnative-pg/machinery/pkg/log"
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/repo/blob/filesystem"
 )
@@ -34,7 +34,7 @@ func (s *TemporaryConnection) Close(ctx context.Context) error {
 // if not initialized.
 func ConnectTemporary(
 	ctx context.Context,
-	logger *slog.Logger,
+	logger log.Logger,
 	options LocalRepositoryOptions,
 ) (*TemporaryConnection, error) {
 	fsStorage, err := filesystem.New(
@@ -55,7 +55,7 @@ func ConnectTemporary(
 	defer func() {
 		err := os.Remove(configFile.Name())
 		if err != nil {
-			logger.Error("Error while removing temporary config file", "configFile", configFile.Name(), "err", err)
+			logger.Error(err, "Error while removing temporary config file", "configFile", configFile.Name())
 		}
 	}()
 
@@ -83,7 +83,6 @@ func ConnectTemporary(
 	return &TemporaryConnection{
 		options: options,
 		Connection: Connection{
-			logger:     logger,
 			hostname:   options.Hostname,
 			username:   options.Username,
 			repository: repository,

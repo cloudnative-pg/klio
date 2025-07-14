@@ -1,7 +1,7 @@
 package walserver
 
 import (
-	"log/slog"
+	"github.com/cloudnative-pg/machinery/pkg/log"
 
 	"github.com/cloudnative-pg/klio/core/internal/grpc"
 	"github.com/cloudnative-pg/klio/core/internal/server/walserver/repository"
@@ -11,13 +11,13 @@ import (
 type Implementation struct {
 	grpc.UnimplementedWALServer
 
-	logger *slog.Logger
+	logger log.Logger
 	conn   *repository.Connection
 }
 
 // New creates a new WAL server implementation.
 func New(
-	logger *slog.Logger,
+	logger log.Logger,
 	conn *repository.Connection,
 ) *Implementation {
 	return &Implementation{

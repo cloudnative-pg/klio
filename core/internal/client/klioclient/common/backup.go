@@ -6,7 +6,9 @@ import (
 	"path"
 	"time"
 
+	"github.com/cloudnative-pg/machinery/pkg/types"
 	"github.com/jackc/pgx/v5"
+	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 // controlDataPath is the name of the pg_controldata file.
@@ -40,6 +42,8 @@ type BackupExecutor struct {
 	Connection *pgx.Conn
 
 	uploader BackupUploader
+
+	startedAt int64
 }
 
 // BackupMetadata is the metadata to be stored with set of backup snapshots.
@@ -53,6 +57,12 @@ type BackupMetadata struct {
 	// EndLSN is the LSN of the backup end
 	EndLSN uint64 `json:"endLsn"`
 
+	// StartWAL is the current WAL when the backup started
+	StartWAL string `json:"startWal"`
+
+	// EndWAL is the current WAL when the backup ends
+	EndWAL string `json:"endWal"`
+
 	// BackupLabel is the backup label content
 	BackupLabel string `json:"backupLabel"`
 
@@ -60,11 +70,17 @@ type BackupMetadata struct {
 	TablespaceMap string `json:"tablespaceMap"`
 
 	// Tablespaces are the metadata of the tablespaces
-	Tablespaces []TablespaceLayout `json:"tablespaces"`
+	Tablespaces []TablespaceLayout `json:"tablespaces,omitempty"`
 
 	// Annotations is a generic data store where each
 	// backend can put its metadata.
-	Annotations map[string]string `json:"annotations"`
+	Annotations map[string]string `json:"annotations,omitempty"`
+
+	// StartedAt is the current time when the backup started.
+	StartedAt int64 `json:"startedAt"`
+
+	// StoppedAt is the current time when the backup ended.
+	StoppedAt int64 `json:"stoppedAt"`
 }
 
 // BackupUploader is used by a backup executor to upload several backup data.
@@ -80,20 +96,34 @@ type BackupUploader interface {
 	UploadControlFile(ctx context.Context, controlDataFileName string) error
 
 	// UploadBackupMetadata is called to mark a backup successfully done.
-	UploadBackupMetadata(ctx context.Context, metadata BackupMetadata) error
+	UploadBackupMetadata(ctx context.Context, metadata *BackupMetadata) error
 }
 
 // NewBackupExecutor creates a new backup executor for the passed implementation.
 func NewBackupExecutor(conn *pgx.Conn, uploader BackupUploader) *BackupExecutor {
 	return &BackupExecutor{
-		uploader:   uploader,
-		Connection: conn,
+		tablespaces: nil,
+		Connection:  conn,
+		uploader:    uploader,
 	}
 }
 
+// BackupOptions contain the backup options.
+type BackupOptions struct {
+	// Name is the backup name. If not set a new name will be generated
+	// using the current timestamp.
+	Name string
+}
+
 // Start starts the execution of a backup.
-func (b *BackupExecutor) Start(ctx context.Context) error {
-	b.name = time.Now().Format("20060102150405")
+func (b *BackupExecutor) Start(ctx context.Context, opts BackupOptions) error {
+	now := time.Now()
+	b.startedAt = now.Unix()
+
+	b.name = now.Format("20060102150405")
+	if opts.Name != "" {
+		b.name = opts.Name
+	}
 
 	row := b.Connection.QueryRow(ctx, "SHOW data_directory")
 	if err := row.Scan(&b.pgData); err != nil {
@@ -164,7 +194,22 @@ func (b *BackupExecutor) Upload(ctx context.Context) error {
 }
 
 // Close finishes a backup.
-func (b *BackupExecutor) Close(ctx context.Context) error {
+func (b *BackupExecutor) Close(ctx context.Context) (*BackupMetadata, error) {
+	contextLogger := log.FromContext(ctx)
+
+	var tli int
+	var segmentSize uint64
+
+	tliRow := b.Connection.QueryRow(ctx, "SELECT timeline_id FROM pg_control_checkpoint()")
+	if err := tliRow.Scan(&tli); err != nil {
+		contextLogger.Error(err, "While getting current timeline, skipped")
+	}
+
+	segmentRow := b.Connection.QueryRow(ctx, "SELECT bytes_per_wal_segment FROM pg_control_init()")
+	if err := segmentRow.Scan(&segmentSize); err != nil {
+		contextLogger.Error(err, "While getting segment size, skipped")
+	}
+
 	row := b.Connection.QueryRow(ctx, "SELECT lsn - '0/0', labelfile, spcmapfile FROM pg_backup_stop()")
 
 	var (
@@ -174,15 +219,39 @@ func (b *BackupExecutor) Close(ctx context.Context) error {
 	)
 
 	if err := row.Scan(&endLSN, &labelFile, &spcmapFile); err != nil {
-		return fmt.Errorf("while running pg_backup_stop: %w", err)
+		return nil, fmt.Errorf("while running pg_backup_stop: %w", err)
 	}
 
 	//nolint:wrapcheck
-	return b.uploader.UploadBackupMetadata(ctx, BackupMetadata{
+	metadata := &BackupMetadata{
 		Name:          b.name,
+		StartedAt:     b.startedAt,
+		StoppedAt:     time.Now().Unix(),
 		StartLSN:      b.startLSN,
-		EndLSN:        b.startLSN,
+		EndLSN:        endLSN,
 		BackupLabel:   string(labelFile),
 		TablespaceMap: string(spcmapFile),
-	})
+	}
+
+	if tli > 0 && segmentSize > 0 {
+		startWALFile, err := types.Int64ToLSN(b.startLSN).WALFileName(tli, segmentSize)
+		if err != nil {
+			contextLogger.Error(err, "While computing the WAL name when the backup started")
+		} else {
+			metadata.StartWAL = startWALFile
+		}
+
+		endWALFile, err := types.Int64ToLSN(endLSN).WALFileName(tli, segmentSize)
+		if err != nil {
+			contextLogger.Error(err, "While computing the WAL name when the backup started")
+		} else {
+			metadata.EndWAL = endWALFile
+		}
+	}
+
+	if err := b.uploader.UploadBackupMetadata(ctx, metadata); err != nil {
+		return nil, fmt.Errorf("while uploading backup metadata: %w", err)
+	}
+
+	return metadata, nil
 }

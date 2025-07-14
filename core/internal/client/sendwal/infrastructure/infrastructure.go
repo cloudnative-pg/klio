@@ -2,8 +2,8 @@ package infrastructure
 
 import (
 	"context"
-	"log/slog"
 
+	"github.com/cloudnative-pg/machinery/pkg/log"
 	"github.com/jackc/pgx/v5/pgconn"
 
 	"github.com/cloudnative-pg/klio/core/pkg/config"
@@ -12,14 +12,14 @@ import (
 // Postgres details the infrastructure Postgres capabilities.
 type Postgres struct {
 	config *config.Data
-	logger *slog.Logger
+	logger log.Logger
 }
 
 // NewPostgres creates a new PostgreSQL infrastructure.
-func NewPostgres(cfg *config.Data, log *slog.Logger) *Postgres {
+func NewPostgres(cfg *config.Data, log log.Logger) *Postgres {
 	return &Postgres{
 		config: cfg,
-		logger: log.With("service", "infrastructure"),
+		logger: log.WithValues("service", "infrastructure"),
 	}
 }
 

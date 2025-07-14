@@ -5,7 +5,6 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
-	"log/slog"
 	"os"
 
 	"google.golang.org/grpc"
@@ -42,15 +41,14 @@ func (g *grpcWALStream) Close(_ context.Context) error {
 
 // Connection represents a connection to a Klio server.
 type Connection struct {
-	logger *slog.Logger
-	cfg    *config.WalRepositoryClientConfig
+	cfg *config.WalRepositoryClientConfig
 
 	klioGRPC.WALClient
 	grpcConnection *grpc.ClientConn
 }
 
 // Connect opens a connection to a Klio server.
-func Connect(logger *slog.Logger, cfg *config.WalRepositoryClientConfig) (*Connection, error) {
+func Connect(cfg *config.WalRepositoryClientConfig) (*Connection, error) {
 	certPEMBlock, err := os.ReadFile(cfg.ServerCertPath)
 	if err != nil {
 		return nil, fmt.Errorf("while reading the server certificate: %w", err)
@@ -81,7 +79,6 @@ func Connect(logger *slog.Logger, cfg *config.WalRepositoryClientConfig) (*Conne
 	walClient := klioGRPC.NewWALClient(conn)
 
 	return &Connection{
-		logger:         logger,
 		cfg:            cfg,
 		WALClient:      walClient,
 		grpcConnection: conn,

@@ -28,7 +28,7 @@ type repositoryCreatorFunction func(ctx context.Context) (*TemporaryConnection, 
 func BenchLookupSnapshots(b *testing.B, creator repositoryCreatorFunction) {
 	b.Helper()
 
-	ctx := context.TODO()
+	ctx := b.Context()
 
 	combinations := []int{
 		100,
@@ -78,7 +78,7 @@ func runSnapshotLookupBenchmark(b *testing.B, repo *testingRepository) {
 		walName := fmt.Sprintf("%024X", rand.IntN(repo.prefilledSnapshots))
 
 		var buffer bytes.Buffer
-		if err := repo.client.GetWALStreaming(context.TODO(), walName, &buffer); err != nil {
+		if err := repo.client.GetWALStreaming(b.Context(), walName, &buffer); err != nil {
 			b.Fatalf("error while looking up WAL %v: %v", walName, err)
 		}
 

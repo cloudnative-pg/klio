@@ -1,7 +1,7 @@
 package notifier
 
 import (
-	"log/slog"
+	"github.com/cloudnative-pg/machinery/pkg/log"
 )
 
 // DownloadStats represents restore statistics.
@@ -38,11 +38,11 @@ type Download interface {
 // downloadProgressLogger uses the logger to communicate the restore
 // status.
 type downloadProgressLogger struct {
-	log *slog.Logger
+	log log.Logger
 }
 
 // NewDownloadLogNotifier creates a new DownloadProcessLogger.
-func NewDownloadLogNotifier(log *slog.Logger) Download { //nolint:nolintlint,ireturn
+func NewDownloadLogNotifier(log log.Logger) Download { //nolint:nolintlint,ireturn
 	return &downloadProgressLogger{
 		log: log,
 	}

@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"log/slog"
 	"math"
 
 	"github.com/kopia/kopia/repo"
@@ -21,13 +20,14 @@ import (
 type RestoreImplementation struct {
 	hostname   string
 	username   string
-	logger     *slog.Logger
 	repository repo.Repository
 	notifier   notifier.Download
 }
 
 // GetDownloadNotifier returns the notifier used by the RestoreImplementation.
-func (s *RestoreImplementation) GetDownloadNotifier() notifier.Download { //nolint:nolintlint,ireturn
+//
+//nolint:nolintlint,ireturn
+func (s *RestoreImplementation) GetDownloadNotifier() notifier.Download {
 	return s.notifier
 }
 
@@ -37,7 +37,6 @@ func (s *Connection) CreateRestorer(notifier notifier.Download) *RestoreImplemen
 	return &RestoreImplementation{
 		hostname:   s.hostname,
 		username:   s.username,
-		logger:     s.logger,
 		repository: s.repository,
 		notifier:   notifier,
 	}

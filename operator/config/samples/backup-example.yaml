@@ -1,0 +1,13 @@
+apiVersion: postgresql.cnpg.io/v1
+kind: Backup
+metadata:
+  name: backup-example
+spec:
+  method: plugin
+  # needed because we currently rely on send-wal
+  target: primary
+  cluster:
+    name: cluster-example
+
+  pluginConfiguration:
+    name: klio.enterprisedb.com

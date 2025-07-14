@@ -3,7 +3,6 @@ package kopia
 import (
 	"context"
 	"fmt"
-	"log/slog"
 	"os"
 	"strings"
 
@@ -14,7 +13,6 @@ import (
 
 // Connection represent a connection to a Klio server.
 type Connection struct {
-	logger     *slog.Logger
 	repository repo.Repository
 	hostname   string
 	username   string
@@ -32,7 +30,6 @@ type LocalRepositoryOptions struct {
 // Connect creates a new Kopia client and opens a connection to it.
 func Connect(
 	ctx context.Context,
-	logger *slog.Logger,
 	kopiaClientConfig *config.BaseRepositoryClientConfig,
 ) (*Connection, error) {
 	configFile, err := os.CreateTemp("", "kopiaconfig_*")
@@ -79,7 +76,6 @@ func Connect(
 	}
 
 	return &Connection{
-		logger:     logger,
 		hostname:   hostName,
 		username:   userName,
 		repository: repository,

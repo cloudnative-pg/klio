@@ -22,7 +22,7 @@ func (w *Implementation) getClusterMetadata(clusterName string) (*grpc.ClusterMe
 
 	defer func() {
 		if err := walReader.Close(); err != nil {
-			w.logger.Error("Error while closing metadata file for read", "clusterName", clusterName, "err", err)
+			w.logger.Error(err, "Error while closing metadata file for read", "clusterName", clusterName)
 		}
 	}()
 
@@ -53,7 +53,7 @@ func (w *Implementation) writeClusterMetadata(clusterName string, metadata *grpc
 
 	defer func() {
 		if err := walWriter.CloseMarkDone(); err != nil {
-			w.logger.Error("Error while closing metadata file for read", "clusterName", clusterName, "err", err)
+			w.logger.Error(err, "Error while closing metadata file for read", "clusterName", clusterName)
 		}
 	}()
 
