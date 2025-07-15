@@ -110,7 +110,3 @@ message StartWALFile {
   uint64 file_length = 2;
 }
 
-message WALFileBlock {
-  bytes range = 1;
-  uint64 encryption_version = 2;
-}

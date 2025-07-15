@@ -678,58 +678,6 @@ func (x *StartWALFile) GetFileLength() uint64 {
 	return 0
 }
 
-type WALFileBlock struct {
-	state             protoimpl.MessageState `protogen:"open.v1"`
-	Range             []byte                 `protobuf:"bytes,1,opt,name=range,proto3" json:"range,omitempty"`
-	EncryptionVersion uint64                 `protobuf:"varint,2,opt,name=encryption_version,json=encryptionVersion,proto3" json:"encryption_version,omitempty"`
-	unknownFields     protoimpl.UnknownFields
-	sizeCache         protoimpl.SizeCache
-}
-
-func (x *WALFileBlock) Reset() {
-	*x = WALFileBlock{}
-	mi := &file_proto_wal_proto_msgTypes[12]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *WALFileBlock) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*WALFileBlock) ProtoMessage() {}
-
-func (x *WALFileBlock) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_wal_proto_msgTypes[12]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use WALFileBlock.ProtoReflect.Descriptor instead.
-func (*WALFileBlock) Descriptor() ([]byte, []int) {
-	return file_proto_wal_proto_rawDescGZIP(), []int{12}
-}
-
-func (x *WALFileBlock) GetRange() []byte {
-	if x != nil {
-		return x.Range
-	}
-	return nil
-}
-
-func (x *WALFileBlock) GetEncryptionVersion() uint64 {
-	if x != nil {
-		return x.EncryptionVersion
-	}
-	return 0
-}
-
 var File_proto_wal_proto protoreflect.FileDescriptor
 
 const file_proto_wal_proto_rawDesc = "" +
@@ -774,10 +722,7 @@ const file_proto_wal_proto_rawDesc = "" +
 	"\fStartWALFile\x12!\n" +
 	"\fklio_version\x18\x01 \x01(\x04R\vklioVersion\x12\x1f\n" +
 	"\vfile_length\x18\x02 \x01(\x04R\n" +
-	"fileLength\"S\n" +
-	"\fWALFileBlock\x12\x14\n" +
-	"\x05range\x18\x01 \x01(\fR\x05range\x12-\n" +
-	"\x12encryption_version\x18\x02 \x01(\x04R\x11encryptionVersion2\x86\x03\n" +
+	"fileLength2\x86\x03\n" +
 	"\x03WAL\x12:\n" +
 	"\x03Put\x12\x17.klio.wal.v1.PutRequest\x1a\x16.klio.wal.v1.PutResult\"\x00(\x01\x12:\n" +
 	"\x03Get\x12\x17.klio.wal.v1.GetRequest\x1a\x16.klio.wal.v1.GetResult\"\x000\x01\x12N\n" +
@@ -797,7 +742,7 @@ func file_proto_wal_proto_rawDescGZIP() []byte {
 	return file_proto_wal_proto_rawDescData
 }
 
-var file_proto_wal_proto_msgTypes = make([]protoimpl.MessageInfo, 13)
+var file_proto_wal_proto_msgTypes = make([]protoimpl.MessageInfo, 12)
 var file_proto_wal_proto_goTypes = []any{
 	(*PutRequest)(nil),             // 0: klio.wal.v1.PutRequest
 	(*PutResult)(nil),              // 1: klio.wal.v1.PutResult
@@ -811,12 +756,11 @@ var file_proto_wal_proto_goTypes = []any{
 	(*ClusterMetadata)(nil),        // 9: klio.wal.v1.ClusterMetadata
 	(*WALGap)(nil),                 // 10: klio.wal.v1.WALGap
 	(*StartWALFile)(nil),           // 11: klio.wal.v1.StartWALFile
-	(*WALFileBlock)(nil),           // 12: klio.wal.v1.WALFileBlock
-	(*timestamppb.Timestamp)(nil),  // 13: google.protobuf.Timestamp
+	(*timestamppb.Timestamp)(nil),  // 12: google.protobuf.Timestamp
 }
 var file_proto_wal_proto_depIdxs = []int32{
 	10, // 0: klio.wal.v1.ClusterMetadata.gaps:type_name -> klio.wal.v1.WALGap
-	13, // 1: klio.wal.v1.WALGap.ts:type_name -> google.protobuf.Timestamp
+	12, // 1: klio.wal.v1.WALGap.ts:type_name -> google.protobuf.Timestamp
 	0,  // 2: klio.wal.v1.WAL.Put:input_type -> klio.wal.v1.PutRequest
 	3,  // 3: klio.wal.v1.WAL.Get:input_type -> klio.wal.v1.GetRequest
 	2,  // 4: klio.wal.v1.WAL.GetMetadata:input_type -> klio.wal.v1.GetMetadataRequest
@@ -845,7 +789,7 @@ func file_proto_wal_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_proto_wal_proto_rawDesc), len(file_proto_wal_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   13,
+			NumMessages:   12,
 			NumExtensions: 0,
 			NumServices:   1,
 		},
