@@ -46,7 +46,15 @@ its resources inside a kind cluster.
   * CNPG Cluster with Klio plugin: `kubectl apply -f operator/config/samples/cluster-example-plugin.yaml`
 
 Repeat step 2 to deploy the new changes applied to the code, and reset the operator.
-To rollout the new Klio server image it is enough to delete the Pod: `kubectl delete pod server-sample-klio-0`
+Then rolloout the new binary in both server and cluster pods:
+
+1. delete the Klio Server pod: `kubectl delete pod server-sample-klio-0`
+2. delete the Cluster's pods: `kubectl delete pod -l cnpg.io/cluster=cluster-example`
+
+### How to get performance profiles with pprof
+
+1. Open a port forward connection to port 6061: `kubectl port-forward pod/server-sample-klio-0 6061`
+2. run pprof tool, e.g.: `go tool pprof -http=:9999 http://localhost:6061/debug/pprof/profile\?seconds=30`
 
 ## How to recreate the GRPC stub and skeleton
 
