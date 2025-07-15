@@ -1,5 +1,4 @@
-// Package cmd is the implementation of the "run" command
-package cmd
+package backup
 
 import (
 	"encoding/json"
@@ -10,16 +9,17 @@ import (
 	"github.com/spf13/viper"
 	"gopkg.in/validator.v2"
 
+	"github.com/cloudnative-pg/klio/core/cmd/clierrors"
 	"github.com/cloudnative-pg/klio/core/internal/client/klioclient/common"
 	"github.com/cloudnative-pg/klio/core/internal/client/klioclient/kopia"
 	"github.com/cloudnative-pg/klio/core/pkg/config"
 )
 
-// backupCmd represents the backup command
+// runCmd represents the run command
 //
 //nolint:gochecknoglobals
-var backupCmd = &cobra.Command{
-	Use:   "backup",
+var runCmd = &cobra.Command{
+	Use:   "run",
 	Short: "Backup the PostgreSQL cluster to the opened Klio server",
 	RunE: func(cmd *cobra.Command, _ []string) error {
 		var configuration config.Data
@@ -34,13 +34,13 @@ var backupCmd = &cobra.Command{
 		configuration.SetDefaults()
 
 		if configuration.Client == (config.ClientConfig{}) {
-			return ErrClientSectionIsRequired
+			return clierrors.ErrClientSectionIsRequired
 		}
 		if configuration.Client.Base == (config.BaseRepositoryClientConfig{}) {
-			return ErrKopiaClientSectionIsRequired
+			return clierrors.ErrKopiaClientSectionIsRequired
 		}
 		if configuration.Source == (config.SourceConfig{}) {
-			return ErrSourceSectionIsRequired
+			return clierrors.ErrSourceSectionIsRequired
 		}
 
 		if errs := validator.Validate(&configuration); errs != nil {
@@ -104,10 +104,8 @@ var backupCmd = &cobra.Command{
 
 //nolint:gochecknoinits
 func init() {
-	rootCmd.AddCommand(backupCmd)
 	// Here you will define your flags and configuration settings.
-
-	backupCmd.Flags().StringP("name", "n", "", "The backup name")
+	runCmd.Flags().StringP("name", "n", "", "The backup name")
 
 	// Cobra supports Persistent Flags which will work for this command
 	// and all subcommands, e.g.:
@@ -116,4 +114,6 @@ func init() {
 	// Cobra supports local flags which will only run when this command
 	// is called directly, e.g.:
 	// runCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
+
+	BackupCmd.AddCommand(runCmd)
 }

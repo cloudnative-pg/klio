@@ -1,15 +1,16 @@
-package server
+// Package backup contains the implementation of the `klio backup` command.
+package backup
 
 import (
 	"github.com/spf13/cobra"
 )
 
-// ServerCmd the `klio server` command
+// BackupCmd the `klio backup` command
 //
 //nolint:gochecknoglobals
-var ServerCmd = &cobra.Command{
-	Use:   "server",
-	Short: "Starts and manage a Klio server",
+var BackupCmd = &cobra.Command{
+	Use:   "backup",
+	Short: "Manage physical backups",
 	// Uncomment the following line if your bare application
 	// has an action associated with it:
 	// Run: func(cmd *cobra.Command, args []string) { },

@@ -18,6 +18,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/scheme"
 
+	"github.com/cloudnative-pg/klio/core/cmd/clierrors"
 	"github.com/cloudnative-pg/klio/core/internal/cnpgi"
 	"github.com/cloudnative-pg/klio/core/pkg/config"
 )
@@ -44,19 +45,19 @@ var cnpgiCmd = &cobra.Command{
 		configuration.SetDefaults()
 
 		if configuration.Source == (config.SourceConfig{}) {
-			return ErrSourceSectionIsRequired
+			return clierrors.ErrSourceSectionIsRequired
 		}
 
 		if configuration.Client == (config.ClientConfig{}) {
-			return ErrClientSectionIsRequired
+			return clierrors.ErrClientSectionIsRequired
 		}
 
 		if configuration.Client.Base == (config.BaseRepositoryClientConfig{}) {
-			return ErrKlioClientSectionIsRequired
+			return clierrors.ErrKlioClientSectionIsRequired
 		}
 
 		if configuration.Client.Wal == (config.WalRepositoryClientConfig{}) {
-			return ErrKlioClientSectionIsRequired
+			return clierrors.ErrKlioClientSectionIsRequired
 		}
 
 		if errs := validator.Validate(&configuration); errs != nil {

@@ -4,8 +4,8 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
+	"os"
 	"os/exec"
 	"time"
 
@@ -53,31 +53,26 @@ func (b BackupServiceImplementation) Backup(
 
 	backupName := fmt.Sprintf("backup-%v", pgTime.ToCompactISO8601(time.Now()))
 
-	cmd := exec.CommandContext(ctx, "klio", "--config=/config/klio.yaml", "backup", "-n", backupName) //nolint:gosec
+	contextLogger.Info("Starting Klio backup", "backupName", backupName)
+	cmd := exec.CommandContext(ctx, "klio", "backup", "run", "-n", backupName) //nolint:gosec
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	if err := cmd.Run(); err != nil {
+		return nil, fmt.Errorf("failed to execute klio backup run command: %w", err)
+	}
 
-	var stdout, stderr bytes.Buffer
+	contextLogger.Info("Backup completed, getting metadata", "backupName", backupName)
+	cmd = exec.CommandContext(ctx, "klio", "backup", "get-metadata", backupName) //nolint:gosec
+
+	var stdout bytes.Buffer
 	cmd.Stdout = &stdout
-	cmd.Stderr = &stderr
-
-	err := cmd.Run()
-	if err != nil {
-		return nil, fmt.Errorf("failed to execute klio backup command: %w, stderr: %s", err, stderr.String())
+	cmd.Stderr = os.Stderr
+	if err := cmd.Run(); err != nil {
+		return nil, fmt.Errorf("failed to execute klio backup get-metadata command: %w", err)
 	}
-	output := stdout.String()
+
 	var metadata common.BackupMetadata
-
-	contextLogger.Info("receiving backup metadata call", "metadata", output)
-
-	// get last line
-
-	lines := bytes.Split([]byte(output), []byte("\n"))
-	if len(lines) == 0 {
-		return nil, errors.New("no output received from klio backup command")
-	}
-	output = string(lines[len(lines)-1])
-	contextLogger.Info("parsing backup metadata", "output", output)
-
-	if err := json.Unmarshal([]byte(output), &metadata); err != nil {
+	if err := json.Unmarshal(stdout.Bytes(), &metadata); err != nil {
 		return nil, fmt.Errorf("failed to parse backup metadata: %w", err)
 	}
 

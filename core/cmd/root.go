@@ -8,6 +8,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 
+	"github.com/cloudnative-pg/klio/core/cmd/backup"
 	"github.com/cloudnative-pg/klio/core/cmd/server"
 )
 
@@ -65,6 +66,7 @@ func init() {
 	rootCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
 
 	rootCmd.AddCommand(server.ServerCmd)
+	rootCmd.AddCommand(backup.BackupCmd)
 }
 
 // initConfig reads in config file and ENV variables if set.

@@ -9,6 +9,7 @@ import (
 	"google.golang.org/protobuf/encoding/protojson"
 	"gopkg.in/validator.v2"
 
+	"github.com/cloudnative-pg/klio/core/cmd/clierrors"
 	"github.com/cloudnative-pg/klio/core/internal/client/klioclient/grpcclient"
 	klioGRPC "github.com/cloudnative-pg/klio/core/internal/grpc"
 	"github.com/cloudnative-pg/klio/core/pkg/config"
@@ -34,11 +35,11 @@ var getMetadataCmd = &cobra.Command{
 		configuration.SetDefaults()
 
 		if configuration.Client == (config.ClientConfig{}) {
-			return ErrClientSectionIsRequired
+			return clierrors.ErrClientSectionIsRequired
 		}
 
 		if configuration.Client.Wal == (config.WalRepositoryClientConfig{}) {
-			return ErrKlioClientSectionIsRequired
+			return clierrors.ErrKlioClientSectionIsRequired
 		}
 
 		if errs := validator.Validate(&configuration); errs != nil {

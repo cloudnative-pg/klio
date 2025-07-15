@@ -148,8 +148,9 @@ func reconcilePodSpec(cluster *cnpgv1.Cluster, spec *corev1.PodSpec, cfg *plugin
 	})
 
 	sidecarTemplate := corev1.Container{
-		Image:         "registry.dev:5000/klio-testing:dev",
-		RestartPolicy: ptr.To(corev1.ContainerRestartPolicyAlways),
+		Image:           "registry.dev:5000/klio-testing:dev",
+		ImagePullPolicy: corev1.PullAlways, // TODO: this should be a plugin configuration parameter
+		RestartPolicy:   ptr.To(corev1.ContainerRestartPolicyAlways),
 		SecurityContext: &corev1.SecurityContext{
 			RunAsUser:  ptr.To(int64(26)),
 			RunAsGroup: ptr.To(int64(26)),

@@ -9,6 +9,7 @@ import (
 	"github.com/spf13/viper"
 	"gopkg.in/validator.v2"
 
+	"github.com/cloudnative-pg/klio/core/cmd/clierrors"
 	"github.com/cloudnative-pg/klio/core/internal/client/klioclient/common"
 	"github.com/cloudnative-pg/klio/core/internal/client/klioclient/kopia"
 	"github.com/cloudnative-pg/klio/core/internal/client/klioclient/notifier"
@@ -37,10 +38,10 @@ var restoreCmd = &cobra.Command{
 		configuration.SetDefaults()
 
 		if configuration.Client == (config.ClientConfig{}) {
-			return ErrClientSectionIsRequired
+			return clierrors.ErrClientSectionIsRequired
 		}
 		if configuration.Client.Base == (config.BaseRepositoryClientConfig{}) {
-			return ErrKopiaClientSectionIsRequired
+			return clierrors.ErrKopiaClientSectionIsRequired
 		}
 
 		if errs := validator.Validate(&configuration); errs != nil {
@@ -81,6 +82,20 @@ var restoreCmd = &cobra.Command{
 
 		return executor.Restore(cmd.Context(), destinationPath)
 	},
+}
+
+type invalidTablespaceRemapOptionError struct {
+	Option string
+}
+
+func newInvalidTablespaceRemapOptionError(option string) *invalidTablespaceRemapOptionError {
+	return &invalidTablespaceRemapOptionError{
+		Option: option,
+	}
+}
+
+func (e *invalidTablespaceRemapOptionError) Error() string {
+	return "invalid tablespace remap option " + e.Option
 }
 
 //nolint:gochecknoinits
