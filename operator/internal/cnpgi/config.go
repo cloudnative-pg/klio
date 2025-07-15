@@ -16,7 +16,6 @@ type pluginConfiguration struct {
 	EnablePPROF      bool
 }
 
-//nolint:cyclop
 func newConfigFromCluster(cluster *cnpgv1.Cluster) (*pluginConfiguration, error) {
 	var conf pluginConfiguration
 	var rawConf *cnpgv1.PluginConfiguration
