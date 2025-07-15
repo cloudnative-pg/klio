@@ -10,4 +10,4 @@ spec:
     name: cluster-example
 
   pluginConfiguration:
-    name: klio.enterprisedb.com
+    name: klio.cnpg.io
