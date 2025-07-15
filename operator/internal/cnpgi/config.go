@@ -55,18 +55,23 @@ func newConfigFromCluster(cluster *cnpgv1.Cluster) (*pluginConfiguration, error)
 		return nil, err
 	}
 
-	enablePprofString, err := tryGetParameter(rawConf, "pprof")
+	conf.EnablePPROF, err = tryGetBooleanParameter(rawConf, "pprof")
 	if err != nil {
 		return nil, err
 	}
-	if enablePprofString != "" {
-		conf.EnablePPROF, err = strconv.ParseBool(enablePprofString)
-		if err != nil {
-			return nil, err
-		}
-	}
 
 	return &conf, nil
+}
+
+// tryGetParameter attempts to retrieve a parameter from the plugin configuration, returns any error encountered or
+// false if the parameter is missing.
+func tryGetBooleanParameter(cfg *cnpgv1.PluginConfiguration, name string) (bool, error) {
+	result, err := tryGetParameter(cfg, name)
+	if err != nil || result == "" {
+		return false, err
+	}
+
+	return strconv.ParseBool(result)
 }
 
 func tryGetParameter(cfg *cnpgv1.PluginConfiguration, name string) (string, error) {

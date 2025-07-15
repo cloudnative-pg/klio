@@ -23,9 +23,6 @@ type Writer struct {
 	buffer *bufio.Writer
 }
 
-// defaultChunkSize we write in chunks of 64KB.
-const defaultChunkSize = 64 * 1024
-
 // NewWriter creates a new WAL file writer.
 func NewWriter(conn *repository.Connection, clusterName, walName string, segmentSize uint64) (*Writer, error) {
 	walFilePath := getWALArchivePath(conn.BaseDir(), clusterName, walName)
@@ -137,7 +134,7 @@ func (w *Writer) WriteBlock(data []byte) error {
 // WriteBlock writes the WAL block to storage.
 func (w *Writer) writeBlockInternal(p []byte) error {
 	// Step 1: compression and encryption
-	wrappedBlock, err := w.conn.WrapBlock(p)
+	wrappedBlock, err := w.conn.WrapBlock(p, defaultChunkSize)
 	if err != nil {
 		return fmt.Errorf("while wrapping WAL block: %w", err)
 	}
