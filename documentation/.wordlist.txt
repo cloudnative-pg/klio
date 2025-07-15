@@ -125,6 +125,7 @@ networkPolicy
 pgdata
 postgres
 postgresql
+pprof
 pre
 prometheus
 proto

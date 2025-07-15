@@ -46,7 +46,7 @@ its resources inside a kind cluster.
   * CNPG Cluster with Klio plugin: `kubectl apply -f operator/config/samples/cluster-example-plugin.yaml`
 
 Repeat step 2 to deploy the new changes applied to the code, and reset the operator.
-Then rolloout the new binary in both server and cluster pods:
+Then rollout the new binary in both server and cluster pods:
 
 1. delete the Klio Server pod: `kubectl delete pod server-sample-klio-0`
 2. delete the Cluster's pods: `kubectl delete pod -l cnpg.io/cluster=cluster-example`
