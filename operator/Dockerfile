@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1
 
-ARG BASE_IMAGE=registry.access.redhat.com/ubi10/ubi-micro:10.0-1751548774@sha256:d2f137c785e19a98811578e9cdd07dd087c5702c5eaedf4a5b56592d2a2cb986
+ARG BASE_IMAGE=registry.access.redhat.com/ubi10/ubi-micro:10.0-1752626510@sha256:a42817394eb48392dac6ef1677e8554ae290753f4c5048fdb571b369960d5644
 
 # Build stage: build on the host platform for the target platform
 FROM --platform=${BUILDPLATFORM} golang:1.24@sha256:20a022e5112a144aa7b7aeb3f22ebf2cdaefcc4aac0d64e8deeee8cdc18b9c0f AS builder
