@@ -11,6 +11,7 @@ require (
 	github.com/cloudnative-pg/machinery v0.2.0
 	github.com/jackc/pglogrepl v0.0.0-20250509230407-a9884f6bd75a
 	github.com/jackc/pgx/v5 v5.7.5
+	github.com/klauspost/compress v1.18.0
 	github.com/kopia/kopia v0.20.1
 	github.com/minio/sio v0.4.1
 	github.com/onsi/ginkgo/v2 v2.23.4
@@ -69,7 +70,6 @@ require (
 	github.com/jackc/pgservicefile v0.0.0-20240606120523-5a60cdf6a761 // indirect
 	github.com/josharian/intern v1.0.0 // indirect
 	github.com/json-iterator/go v1.1.12 // indirect
-	github.com/klauspost/compress v1.18.0 // indirect
 	github.com/klauspost/cpuid/v2 v2.2.10 // indirect
 	github.com/klauspost/pgzip v1.2.6 // indirect
 	github.com/klauspost/reedsolomon v1.12.4 // indirect

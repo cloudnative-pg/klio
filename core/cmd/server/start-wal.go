@@ -74,6 +74,8 @@ var startWALCmd = &cobra.Command{
 			grpc.InitialWindowSize(256 * 1024),
 			grpc.ReadBufferSize(256 * 1024),
 			grpc.WriteBufferSize(256 * 1024),
+			grpc.MaxRecvMsgSize(8 * 1024 * 1024),
+			grpc.MaxSendMsgSize(8 * 1024 * 1024),
 		}
 
 		if configuration.Wal.HTPasswdFile != "" {

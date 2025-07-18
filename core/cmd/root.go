@@ -11,6 +11,7 @@ import (
 
 	"github.com/cloudnative-pg/klio/core/cmd/backup"
 	"github.com/cloudnative-pg/klio/core/cmd/server"
+	"github.com/cloudnative-pg/klio/core/cmd/walplayer"
 
 	_ "net/http/pprof" //nolint:gosec
 )
@@ -85,6 +86,7 @@ func init() {
 
 	rootCmd.AddCommand(server.ServerCmd)
 	rootCmd.AddCommand(backup.BackupCmd)
+	rootCmd.AddCommand(walplayer.WalPlayerCmd)
 }
 
 // initConfig reads in config file and ENV variables if set.
