@@ -14,8 +14,7 @@ import (
 // KlioClientStreamingHandler is a handler that streams directly to a
 // Klio server.
 type KlioClientStreamingHandler struct {
-	conn   *grpcclient.Connection
-	logger log.Logger
+	conn *grpcclient.Connection
 
 	stream common.WALUploaderImpl
 	offset uint64
@@ -27,13 +26,11 @@ type KlioClientStreamingHandler struct {
 
 // NewKlioClientHandler creates a new klio handler.
 func NewKlioClientHandler(
-	logger log.Logger,
 	tli int,
 	segmentSize uint64,
 	conn *grpcclient.Connection,
 ) *KlioClientStreamingHandler {
 	return &KlioClientStreamingHandler{
-		logger:      logger,
 		conn:        conn,
 		tli:         tli,
 		segmentSize: segmentSize,
@@ -68,7 +65,9 @@ func (wal *KlioClientStreamingHandler) HasWALFileOpened() bool {
 
 // CloseWAL implements the Handler interface.
 func (wal *KlioClientStreamingHandler) CloseWAL(ctx context.Context) error {
-	wal.logger.Debug("Closing WAL File", "walFileName", wal.currentWALFile)
+	contextLogger := log.FromContext(ctx)
+
+	contextLogger.Debug("Closing WAL File", "walFileName", wal.currentWALFile)
 
 	if err := wal.stream.Close(ctx); err != nil {
 		return err //nolint:wrapcheck

@@ -23,7 +23,6 @@ import (
 // Process implements the WAL sender service.
 type Process struct {
 	config         *config.Data
-	logger         log.Logger
 	infrastructure *infrastructure.Postgres
 	client         *grpcclient.Connection
 }
@@ -32,7 +31,6 @@ type Process struct {
 func New(cfg *config.Data, logger log.Logger, client *grpcclient.Connection) *Process {
 	return &Process{
 		config:         cfg,
-		logger:         logger.WithValues("service", "receive_wal"),
 		infrastructure: infrastructure.NewPostgres(cfg, logger),
 		client:         client,
 	}
@@ -43,13 +41,15 @@ func New(cfg *config.Data, logger log.Logger, client *grpcclient.Connection) *Pr
 func (s *Process) ResetReplicationStatus(
 	ctx context.Context,
 ) error {
+	contextLogger := log.FromContext(ctx)
+
 	conn, err := s.infrastructure.NewConn(ctx)
 	if err != nil {
 		return fmt.Errorf("while parsing DSN: %w", err)
 	}
 	defer func() {
 		if closeErr := conn.Close(ctx); closeErr != nil {
-			s.logger.Error(closeErr, "error while closing the connection")
+			contextLogger.Error(closeErr, "error while closing the connection")
 		}
 	}()
 
@@ -78,7 +78,7 @@ func (s *Process) ResetReplicationStatus(
 		return fmt.Errorf("while invoking server-side replication reset: %w", err)
 	}
 
-	s.logger.Info(
+	contextLogger.Info(
 		"Reset server-side replication status",
 		"walName", result)
 
@@ -92,7 +92,7 @@ func (s *Process) ResetReplicationStatus(
 		return fmt.Errorf("while dropping replication slot: %w", err)
 	}
 
-	s.logger.Info(
+	contextLogger.Info(
 		"Dropped replication slot",
 		"name", slotName)
 
@@ -101,13 +101,15 @@ func (s *Process) ResetReplicationStatus(
 
 // Start the WAL receiver.
 func (s *Process) Start(ctx context.Context) error {
+	contextLogger := log.FromContext(ctx)
+
 	conn, err := s.infrastructure.NewConn(ctx)
 	if err != nil {
 		return fmt.Errorf("while parsing DSN: %w", err)
 	}
 	defer func() {
 		if closeErr := conn.Close(ctx); closeErr != nil {
-			s.logger.Error(closeErr, "Error while closing the connection")
+			contextLogger.Error(closeErr, "Error while closing the connection")
 		}
 	}()
 
@@ -121,7 +123,7 @@ func (s *Process) Start(ctx context.Context) error {
 		return fmt.Errorf("while executing identify_system: %w", err)
 	}
 
-	s.logger.Info(
+	contextLogger.Info(
 		"Current system identification data",
 		"xlogFlushPosition", identifyData.XLogPos,
 		"timeline", identifyData.Timeline,
@@ -150,6 +152,8 @@ func (s *Process) getReplicationStartPointFromClient(
 	xlogFlushPos pglogrepl.LSN,
 	segmentSize uint64,
 ) (pglogrepl.LSN, error) {
+	contextLogger := log.FromContext(ctx)
+
 	// Find the latest replication point reading the replication slot
 	slotResult, err := ReadReplicationSlot(ctx, conn, s.config.Source.Slot)
 	if err != nil {
@@ -157,7 +161,7 @@ func (s *Process) getReplicationStartPointFromClient(
 	}
 	if slotResult.RestartLSN != 0 {
 		startPoint := pglogrepl.LSN(uint64(slotResult.RestartLSN) & ^(segmentSize - 1))
-		s.logger.Debug(
+		contextLogger.Debug(
 			"Read replication slot",
 			"lsn", startPoint)
 
@@ -170,7 +174,7 @@ func (s *Process) getReplicationStartPointFromClient(
 	//
 	// This usually happens when we are running against this
 	// PostgreSQL instance for the first time.
-	s.logger.Debug(
+	contextLogger.Debug(
 		"Current flush LSN",
 		"xlogFlushPos", xlogFlushPos,
 		"segmentSize", segmentSize,
@@ -185,6 +189,8 @@ func (s *Process) getReplicationStartPoint(
 	data pglogrepl.IdentifySystemResult,
 	segmentSize uint64,
 ) (pglogrepl.LSN, error) {
+	contextLogger := log.FromContext(ctx)
+
 	clientStartLSN, err := s.getReplicationStartPointFromClient(ctx, conn, data.XLogPos, segmentSize)
 	if err != nil {
 		return 0, err
@@ -211,7 +217,7 @@ func (s *Process) getReplicationStartPoint(
 		return 0, err
 	}
 
-	s.logger.Info(
+	contextLogger.Info(
 		"Negotiated replication start with the server",
 		"lsn", lsn)
 
@@ -230,6 +236,8 @@ func (s *Process) ensureReplicationSlotExists(
 	ctx context.Context,
 	conn *pgconn.PgConn,
 ) error {
+	contextLogger := log.FromContext(ctx)
+
 	slotResult, err := ReadReplicationSlot(ctx, conn, s.config.Source.Slot)
 	if err != nil {
 		return fmt.Errorf("while reading replication slot: %w", err)
@@ -255,7 +263,7 @@ func (s *Process) ensureReplicationSlotExists(
 		return fmt.Errorf("while creating temporary replication slot: %w", err)
 	}
 
-	s.logger.Info(
+	contextLogger.Info(
 		"Created replication slot",
 		"consistentPoint", replicationSlotResult.ConsistentPoint,
 		"name", replicationSlotResult.SlotName)
@@ -305,6 +313,8 @@ func (s *Process) startReplication(
 	timeline int32,
 	walSegmentSize uint64,
 ) error {
+	contextLogger := log.FromContext(ctx)
+
 	// To find the replication start position, we go back to the start of the WAL file
 	startWalLSNString, err := types.Int64ToLSN(uint64(startXlog)).WALFileStart(walSegmentSize)
 	if err != nil {
@@ -316,13 +326,13 @@ func (s *Process) startReplication(
 		return fmt.Errorf("while computing the LSN of the WAL start - parse: %w", err)
 	}
 
-	clientXLogPos := pglogrepl.LSN(startWalLSN)
+	startXLogPos := pglogrepl.LSN(startWalLSN)
 
 	err = pglogrepl.StartReplication(
 		ctx,
 		conn,
 		s.config.Source.Slot,
-		clientXLogPos,
+		startXLogPos,
 		pglogrepl.StartReplicationOptions{
 			Timeline: timeline,
 			Mode:     pglogrepl.PhysicalReplication,
@@ -331,29 +341,26 @@ func (s *Process) startReplication(
 		return fmt.Errorf("while running start_replication: %w", err)
 	}
 
-	s.logger.Info(
+	contextLogger.Info(
 		"Physical replication started",
-		"slotName",
-		s.config.Source.Slot,
-		"startWalLSN",
-		startWalLSN,
+		"slotName", s.config.Source.Slot,
+		"startWalLSN", startWalLSN,
 	)
 
 	klioHandler := buffer.NewKlioClientHandler(
-		s.logger,
 		int(timeline),
 		walSegmentSize,
 		s.client,
 	)
 
-	buffer := buffer.New(
-		s.logger,
+	walBuffer := buffer.New(
 		int(timeline),
 		walSegmentSize,
 		klioHandler,
+		s.config.Source.BufferSize,
 	)
 
-	if err := s.manageWALStream(ctx, conn, clientXLogPos, buffer); err != nil {
+	if err := s.manageWALStream(ctx, conn, walBuffer); err != nil {
 		return err
 	}
 
@@ -377,30 +384,42 @@ func (s *Process) startReplication(
 func (s *Process) manageWALStream(
 	ctx context.Context,
 	conn *pgconn.PgConn,
-	clientXLogPos pglogrepl.LSN,
 	buffer *buffer.Data,
 ) error {
-	standbyMessageTimeout := s.config.Source.StandbyMessageTimeout()
-	nextStandbyMessageDeadline := time.Now().Add(standbyMessageTimeout)
+	contextLogger := log.FromContext(ctx)
+
+	flushDeadline := s.config.Source.FlushTimeout()
+	nextFlushDeadline := time.Now().Add(flushDeadline)
+
+	feedbackDeadline := s.config.Source.StandbyMessageTimeout()
+	nextFeedbackDeadline := time.Now().Add(feedbackDeadline)
 
 	for {
-		if time.Now().After(nextStandbyMessageDeadline) {
-			err := pglogrepl.SendStandbyStatusUpdate(
-				ctx,
-				conn,
-				pglogrepl.StandbyStatusUpdate{
-					WALWritePosition: clientXLogPos,
-				},
-			)
-			if err != nil {
-				s.logger.Error(err, "Failed to send standby status update, skipping")
-			} else {
-				s.logger.Debug("Sent Standby status message", "xlogPos", clientXLogPos)
+		if time.Now().After(nextFlushDeadline) {
+			flushedLSN := buffer.FlushLSN()
+			if err := buffer.Flush(ctx); err != nil {
+				contextLogger.Error(err, "Failed flush WAL data")
+				return fmt.Errorf("while flushing WAL data: %w", err)
 			}
-			nextStandbyMessageDeadline = time.Now().Add(standbyMessageTimeout)
+
+			// TODO: explain why it can differ
+			if flushedLSN != buffer.FlushLSN() {
+				nextFeedbackDeadline = time.Time{}
+			}
+
+			nextFlushDeadline = time.Now().Add(flushDeadline)
 		}
 
-		standbyMessageDeadlineContext, cancel := context.WithDeadline(ctx, nextStandbyMessageDeadline)
+		if time.Now().After(nextFeedbackDeadline) {
+			// We communicate back to PostgreSQL the feedback when:
+			//
+			// 1. the feedback deadline exceeded
+			// 2. we received something from streaming replication
+			s.sendFeedback(ctx, conn, buffer)
+			nextFeedbackDeadline = time.Now().Add(feedbackDeadline)
+		}
+
+		standbyMessageDeadlineContext, cancel := context.WithDeadline(ctx, nextFlushDeadline)
 		msg, err := conn.ReceiveMessage(standbyMessageDeadlineContext)
 		cancel()
 
@@ -411,7 +430,7 @@ func (s *Process) manageWALStream(
 			if errors.Is(err, context.Canceled) {
 				break
 			}
-			s.logger.Error(err, "receive message failed")
+			contextLogger.Error(err, "receive message failed")
 
 			break
 		}
@@ -422,10 +441,10 @@ func (s *Process) manageWALStream(
 			case pglogrepl.PrimaryKeepaliveMessageByteID:
 				pkm, err := pglogrepl.ParsePrimaryKeepaliveMessage(msg.Data[1:])
 				if err != nil {
-					s.logger.Error(err, "parsePrimaryKeepaliveMessage failed")
+					contextLogger.Error(err, "parsePrimaryKeepaliveMessage failed")
 					continue
 				}
-				s.logger.Debug(
+				contextLogger.Debug(
 					"Primary Keepalive Message",
 					"ServerWALEnd", pkm.ServerWALEnd,
 					"ServerTime", pkm.ServerTime,
@@ -433,34 +452,36 @@ func (s *Process) manageWALStream(
 				)
 
 				if pkm.ReplyRequested {
-					nextStandbyMessageDeadline = time.Time{}
+					s.sendFeedback(ctx, conn, buffer)
 				}
 
 			case pglogrepl.XLogDataByteID:
 				xld, err := pglogrepl.ParseXLogData(msg.Data[1:])
 				if err != nil {
-					s.logger.Error(err, "ParseXLogData failed")
+					contextLogger.Error(err, "ParseXLogData failed")
 					continue
 				}
 
 				if err = buffer.ProcessWALData(ctx, xld.WALData, types.LSN(xld.WALStart.String())); err != nil {
-					s.logger.Error(err, "Error while processing WAL data", "lsn", xld.WALStart)
+					contextLogger.Error(err, "Error while processing WAL data", "lsn", xld.WALStart)
 					return fmt.Errorf("could not process WAL data at %s: %w", xld.WALStart, err)
 				}
 
-				clientXLogPos = xld.WALStart + pglogrepl.LSN(len(xld.WALData))
+				// Force the code to communicate back to PostgreSQL the current status without waiting for
+				// a flush
+				nextFeedbackDeadline = time.Time{}
 
 			default:
-				s.logger.Info("Received unexpected copydata message", "msg", msg)
+				contextLogger.Info("Received unexpected copydata message", "msg", msg)
 				return NewUnexpectedCopydataMessageError(msg.Data)
 			}
 
 		case *pgproto3.CommandComplete:
-			s.logger.Info("Streaming replication terminated by the backend with success")
+			contextLogger.Info("Streaming replication terminated by the backend with success")
 			return nil
 
 		default:
-			s.logger.Info("Received unexpected message", "msg", msg)
+			contextLogger.Info("Received unexpected message", "msg", msg)
 			return NewUnexpectedMessageError(msg)
 		}
 	}
@@ -470,11 +491,33 @@ func (s *Process) manageWALStream(
 		return fmt.Errorf("failed to send CopyDone message: %w", err)
 	}
 
-	s.logger.Info(
+	contextLogger.Info(
 		"Physical replication finished",
 		"timeline", copyDoneResult.Timeline,
 		"lsn", copyDoneResult.LSN,
 	)
 
 	return nil
+}
+
+func (s *Process) sendFeedback(ctx context.Context, conn *pgconn.PgConn, buffer *buffer.Data) {
+	contextLogger := log.FromContext(ctx)
+
+	err := pglogrepl.SendStandbyStatusUpdate(
+		ctx,
+		conn,
+		pglogrepl.StandbyStatusUpdate{
+			WALWritePosition: pglogrepl.LSN(buffer.WriteLSN()),
+			WALFlushPosition: pglogrepl.LSN(buffer.FlushLSN()),
+			WALApplyPosition: pglogrepl.LSN(buffer.FlushLSN()),
+		},
+	)
+	if err != nil {
+		contextLogger.Error(err, "Failed to send standby status update, skipping")
+	} else {
+		contextLogger.Debug(
+			"Sent Standby status message",
+			"write_lsn", types.Int64ToLSN(buffer.WriteLSN()),
+			"flush_lsn", types.Int64ToLSN(buffer.FlushLSN()))
+	}
 }

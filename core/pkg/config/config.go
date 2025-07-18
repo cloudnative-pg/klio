@@ -78,6 +78,14 @@ type SourceConfig struct {
 	// StandbyMessageTimeoutSeconds is the timeout after which the WAL
 	// receiver will send a status update
 	StandbyMessageTimeoutSeconds int `mapstructure:"standby_message_timeout_seconds" validate:"min=1"`
+
+	// FlushTimeoutMilliseconds is the timeout in milliseconds after which buffered
+	// WAL data is automatically flushed to the Klio server
+	FlushTimeoutMilliseconds int `mapstructure:"flush_timeout_ms" validate:"min=1"`
+
+	// BufferSize is the maximum size in bytes of the in-memory WAL buffer before
+	// triggering an automatic flush
+	BufferSize int `mapstructure:"buffer_size" validate:"min=1"`
 }
 
 // ClientConfig is the configuration of the Klio server.
@@ -155,10 +163,18 @@ type WalServerConfig struct {
 // SetDefaults sets the default values of the configuration.
 func (s *SourceConfig) SetDefaults() {
 	s.StandbyMessageTimeoutSeconds = 10
+	s.FlushTimeoutMilliseconds = 200
+	s.BufferSize = 2 * 1024 * 1024 // 2 MB
 }
 
 // StandbyMessageTimeout returns the stanby message timeout in a
 // time.Duration.
 func (s *SourceConfig) StandbyMessageTimeout() time.Duration {
 	return time.Second * time.Duration(s.StandbyMessageTimeoutSeconds)
+}
+
+// FlushTimeout returns the timeout after which the WALs are
+// flushed.
+func (s *SourceConfig) FlushTimeout() time.Duration {
+	return time.Millisecond * time.Duration(s.FlushTimeoutMilliseconds)
 }
