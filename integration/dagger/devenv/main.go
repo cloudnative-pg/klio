@@ -51,7 +51,7 @@ func (m *Devenv) Kubernetes(
 // +default="rancher/k3s:v1.31.4-k3s1"
 	k3sImage string,
 // renovate image: datasource=docker depName=alpine/k8s versioning=docker
-// +default="alpine/k8s:1.33.2"
+// +default="alpine/k8s:1.33.3"
 	alpineK8S string,
 ) (*dagger.Container, error) {
 	klioImage := source.
