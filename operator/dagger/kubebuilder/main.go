@@ -14,7 +14,7 @@ type Kubebuilder struct {
 func New(
 	// Golang image to use.
 	// renovate image: datasource=docker depName=golang versioning=docker
-	// +default="golang:1.24.4-alpine"
+	// +default="golang:1.24.5-alpine"
 	// +optional
 	Image string,
 	// renovate: datasource=git-refs depName=kubebuilder lookupName=https://github.com/kubernetes-sigs/kubebuilder versioning=semver

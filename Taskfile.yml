@@ -113,7 +113,7 @@ tasks:
       - core:protoc-gen-go-grpc
     env:
       # renovate: datasource=docker depName=golang versioning=semver
-      GOLANG_IMAGE_VERSION: 1.24.4
+      GOLANG_IMAGE_VERSION: 1.24.5
       # renovate: datasource=git-refs depName=kubernetes packageName=https://github.com/kubernetes/kubernetes versioning=semver
       K8S_VERSION: 1.31.0
       # renovate: datasource=git-refs depName=controller-runtime packageName=https://github.com/kubernetes-sigs/controller-runtime versioning=semver
