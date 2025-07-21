@@ -2,7 +2,7 @@ module github.com/cloudnative-pg/klio/operator
 
 go 1.24.1
 
-toolchain go1.24.4
+toolchain go1.24.5
 
 require (
 	github.com/cloudnative-pg/cloudnative-pg v1.26.0
