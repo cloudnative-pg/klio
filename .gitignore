@@ -3,3 +3,7 @@
 
 # Test registry certificates
 certs/
+
+# Ignore OLM generated files
+bundle.Dockerfile
+bundle/
