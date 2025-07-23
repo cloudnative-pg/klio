@@ -15,14 +15,14 @@ require (
 	github.com/kopia/kopia v0.21.1
 	github.com/minio/sio v0.4.1
 	github.com/onsi/ginkgo/v2 v2.23.4
-	github.com/onsi/gomega v1.37.0
+	github.com/onsi/gomega v1.38.0
 	github.com/spf13/cobra v1.9.1
 	github.com/spf13/viper v1.20.1
 	github.com/stretchr/testify v1.10.0
 	github.com/tg123/go-htpasswd v1.2.4
 	go.uber.org/multierr v1.11.0
 	golang.org/x/crypto v0.40.0
-	google.golang.org/grpc v1.73.0
+	google.golang.org/grpc v1.74.2
 	google.golang.org/protobuf v1.36.6
 	gopkg.in/validator.v2 v2.0.1
 	k8s.io/api v0.33.3
