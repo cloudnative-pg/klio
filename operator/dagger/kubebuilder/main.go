@@ -18,7 +18,7 @@ func New(
 	// +optional
 	Image string,
 	// renovate: datasource=git-refs depName=kubebuilder lookupName=https://github.com/kubernetes-sigs/kubebuilder versioning=semver
-	// +default="v4.7.0"
+	// +default="v4.7.1"
 	// +optional
 	kubebuilderVersion string,
 ) *Kubebuilder {
