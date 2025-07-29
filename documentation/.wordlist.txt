@@ -108,6 +108,7 @@ env
 filesystem
 github
 goreleaser
+gzip
 htpasswd
 http
 https

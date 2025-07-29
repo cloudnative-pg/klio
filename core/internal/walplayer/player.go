@@ -2,10 +2,13 @@ package walplayer
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"os"
 	"path"
+	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 
@@ -188,6 +191,7 @@ func (p *Player) runWorker(
 	}
 }
 
+//nolint:cyclop
 func (p *Player) sendWAL(ctx context.Context, c *grpcclient.Connection, fileName string) *WALUploadReport {
 	contextLogger := log.FromContext(ctx)
 
@@ -203,48 +207,53 @@ func (p *Player) sendWAL(ctx context.Context, c *grpcclient.Connection, fileName
 			"fileName", fileName, "elapsedTime", result.ElapsedTime)
 	}()
 
-	fileInfo, err := os.Stat(fileName)
+	var f ReaderSizerCloser
+	var err error
+
+	if strings.HasSuffix(fileName, ".gz") {
+		f, err = NewGZIPReaderSizer(fileName)
+		fileName = strings.TrimSuffix(fileName, filepath.Ext(fileName))
+	} else {
+		f, err = NewUncompressedFileReader(fileName)
+	}
 	if err != nil {
-		result.Error = fmt.Sprintf("while getting file size: %v", err)
+		result.Error = err.Error()
 		return result
 	}
 
-	f, err := os.Open(fileName) //nolint:gosec
-	if err != nil {
-		result.Error = fmt.Sprintf("while opening file: %v", err)
-		return result
-	}
 	defer func() {
 		if err := f.Close(); err != nil {
 			contextLogger.Error(err, "Got error while closing file, skipping.")
 		}
 	}()
 
-	stream, err := c.StoreWALStreaming(ctx, path.Base(fileName), uint64(fileInfo.Size())) //nolint:gosec
+	stream, err := c.StoreWALStreaming(ctx, path.Base(fileName), uint64(f.Size())) //nolint:gosec
 	if err != nil {
 		result.Error = fmt.Sprintf("while starting WAL file streaming: %v", err)
 		return result
 	}
 
 	block := make([]byte, p.BlockSize)
+l:
 	for {
-		n, err := f.Read(block)
-		if err == io.EOF {
-			break
-		}
-		if err != nil {
+		n, err := io.ReadFull(f, block)
+		switch {
+		case errors.Is(err, io.EOF):
+			break l
+
+		case err != nil && !errors.Is(err, io.ErrUnexpectedEOF):
 			result.Error = fmt.Sprintf("while reading WAL file: %v", err)
-			return result
+			break l
 		}
 
 		if err := stream.SendBlock(ctx, block[:n]); err != nil {
 			result.Error = fmt.Sprintf("while sending WAL file block: %v", err)
-			return result
+			break l
 		}
 	}
 
 	if err := stream.Close(ctx); err != nil {
-		result.Error = fmt.Sprintf("while closing WAL file: %v", err)
+		result.Error = fmt.Sprintf("while closing WAL stream: %v", err)
 		return result
 	}
 

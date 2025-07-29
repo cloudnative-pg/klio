@@ -1,4 +1,9 @@
-# WAL Player - Performance Benchmarking Tool
+---
+title: WAL Player
+sidebar_position: 80
+---
+
+# WAL Player
 
 The WAL Player is a command-line tool designed to benchmark the performance of
 your Klio servers by simulating PostgreSQL Write-Ahead Log (WAL) file streaming
@@ -70,7 +75,10 @@ klio wal-player play [directory] [flags]
 
 #### Parameters
 
-- `directory` - Directory containing WAL files to send (required)
+- `directory` - Directory containing WAL files to send (required). This
+  directory should contain PostgreSQL WAL files in the standard format (e.g.,
+  `000000010000000000000001`). It also supports files compressed with gzip,
+  provided they have the `.gz` extension.
 
 #### Flags
 
