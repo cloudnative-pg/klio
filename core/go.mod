@@ -6,7 +6,7 @@ toolchain go1.24.5
 
 require (
 	github.com/cloudnative-pg/cloudnative-pg v1.26.1
-	github.com/cloudnative-pg/cnpg-i v0.2.1
+	github.com/cloudnative-pg/cnpg-i v0.2.2-0.20250723093238-963c368523c2
 	github.com/cloudnative-pg/cnpg-i-machinery v0.4.0
 	github.com/cloudnative-pg/machinery v0.3.0
 	github.com/jackc/pglogrepl v0.0.0-20250509230407-a9884f6bd75a
