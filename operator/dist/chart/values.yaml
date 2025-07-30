@@ -1,36 +1,36 @@
-# -- Override the Chart name
-nameOverride: "klio-operator"
-# [MANAGER]: Manager Deployment Configurations
+# -- Override the name of the Helm Chart.
+nameOverride: klio
+# -- Override the fully qualified name of the Helm Chart.
+fullnameOverride: ""
+
 controllerManager:
-  # -- The number of replicas for the controller manager deployment.
-  replicas: 1
-  container:
-    image:
-      # -- The image to use for the controller manager.
-      repository: controller
-      # -- The tag to use for the controller manager image.
-      tag: latest
-    # -- The image pull policy for the controller manager.
-    imagePullPolicy: Always
-    # -- The arguments to pass to the controller manager.
+  manager:
+    # -- List of command line arguments to pass to the controller manager.
     args:
-      - "--leader-elect"
       - "--metrics-bind-address=:8443"
+      - "--leader-elect"
       - "--health-probe-bind-address=:8081"
       - "--plugin-server-cert=/pluginServer/tls.crt"
       - "--plugin-server-key=/pluginServer/tls.key"
       - "--plugin-client-cert=/pluginClient/tls.crt"
       - "--plugin-server-address=:9090"
-    # -- The environment variables to set for the controller manager container.
+    # -- The security context for the controller manager container.
+    containerSecurityContext:
+      allowPrivilegeEscalation: false
+      capabilities:
+        drop:
+          - ALL
+    image:
+      # -- The image to use for the controller manager container.
+      repository: controller
+      # -- The tag to use for the controller manager container image.
+      tag: latest
+      # -- The controller manager container imagePullPolicy.
+      pullPolicy: Always
+      # -- The list of imagePullSecrets.
+      pullSecrets: []
+    # -- The environment variables to set in the controller manager container.
     env: {}
-    # -- The resources to allocate for the controller manager container.
-    resources:
-      limits:
-        cpu: 500m
-        memory: 128Mi
-      requests:
-        cpu: 10m
-        memory: 64Mi
     # -- Liveness probe configuration.
     livenessProbe:
       initialDelaySeconds: 15
@@ -45,21 +45,49 @@ controllerManager:
       httpGet:
         path: /readyz
         port: 8081
-    # -- The security context for the controller manager container.
-    securityContext:
-      allowPrivilegeEscalation: false
-      capabilities:
-        drop:
-          - "ALL"
+    # -- The resources to allocate.
+    resources:
+      limits:
+        cpu: 500m
+        memory: 128Mi
+      requests:
+        cpu: 10m
+        memory: 64Mi
+  # -- Affinity rules for the operator deployment.
+  affinity: {}
   # -- The security context for the controller manager pod.
-  securityContext:
+  podSecurityContext:
     runAsNonRoot: true
     seccompProfile:
       type: RuntimeDefault
-  # -- The termination grace period for the controller manager pod.
-  terminationGracePeriodSeconds: 10
-  # -- The service account name for the controller manager pod.
-  serviceAccountName: operator-controller-manager
+  serviceAccount:
+    # -- The annotations to add to the service account.
+    annotations: {}
+  # -- NodeSelector for the operator deployment.
+  nodeSelector: {}
+  # -- Priority class name for the controller manager pod.
+  priorityClassName: ""
+  # -- Tolerations for the operator deployment.
+  tolerations: []
+  # -- Topology Spread Constraints for the operator deployment.
+  topologySpreadConstraints: []
+
+# -- The domain for the Kubernetes cluster.
+kubernetesClusterDomain: cluster.local
+
+metricsService:
+  # -- Enable the metrics service for the controller manager.
+  enable: true
+  # -- The port the metrics service will listen on.
+  ports:
+  - name: https
+    port: 8443
+    protocol: TCP
+    targetPort: 8443
+  # -- Service type for the metrics service.
+  type: ClusterIP
+  # -- The name of the secret containing the TLS certificate for the metrics service.
+  metricsServiceSecret: klio-metrics-server-cert
 
 plugin:
   # -- The name the plugin will use to register itself with the CNPG Operator.
@@ -68,36 +96,23 @@ plugin:
   serverSecret: klio-plugin-server-tls
   # -- The Client TLS certificate.
   clientSecret: klio-plugin-client-tls
-  # -- The port the plugin will listen on.
+  # -- The port the plugin will listen on. It must match the "--plugin-server-address" argument.
   port: 9090
-
-rbac:
-  # -- Enable RBAC (Permissions) configurations
-  enable: true
-
-metrics:
-  # -- Set to true to generate manifests for exporting metrics.
-  # To disable metrics export set false, and ensure that the
-  # ControllerManager argument "--metrics-bind-address=:8443" is removed.
-  enable: true
 
 prometheus:
   # -- To enable a ServiceMonitor to export metrics to Prometheus set true.
-  enable: false
+  enable: true
 
 certmanager:
-  # -- Enable cert-manager injection to webhook and certificate creation.
+  # -- Enable cert-manager integration for certificate creation.
   enable: true
-  # -- The domain name of the Kubernetes cluster.
-  clusterDomain: cluster.local
-
-networkPolicy:
-  # -- Enable NetworkPolicies
-  enable: false
-
-# TODO(fcanovai): this exists only to make the certificate.yaml template work. That template is automatically
-# generated and cannot be modified. It should be removed once the template is fixed, since it is not related to the
-# CRDs at all.
-crd:
-  # -- Workaround for the certificate.yaml template. Do not edit.
-  enable: false
+  # -- Create certificates for the plugin client.
+  createPluginClientCertificate: true
+  # -- Create certificates for the plugin server.
+  createPluginServerCertificate: true
+  # -- Create certificates for the metrics service.
+  createMetricsCertificate: true
+  # -- The duration of the certificates.
+  duration: 2160h
+  # -- The renew before time for the certificates.
+  renewBefore: 360h

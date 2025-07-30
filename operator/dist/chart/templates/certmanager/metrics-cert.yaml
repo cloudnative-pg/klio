@@ -1,0 +1,20 @@
+{{- if and .Values.certmanager.enable .Values.certmanager.createMetricsCertificate }}
+# Certificate for the metrics
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  labels:
+    {{- include "chart.labels" . | nindent 4 }}
+  name: {{ include "chart.fullname" . }}-metrics-certs
+  namespace: {{ .Release.Namespace }}
+spec:
+  dnsNames:
+    - {{ include "chart.fullname" . }}-controller-manager-metrics-service.{{ .Release.Namespace }}.svc
+    - {{ include "chart.fullname" . }}-controller-manager-metrics-service.{{ .Release.Namespace }}.svc.{{ .Values.kubernetesClusterDomain }}
+  issuerRef:
+    kind: Issuer
+    name: {{ include "chart.fullname" . }}-selfsigned-issuer
+  secretName: {{ .Values.metricsService.metricsServiceSecret }}
+  duration: {{ .Values.certmanager.duration }}
+  renewBefore: {{ .Values.certmanager.renewBefore }}
+{{- end }}

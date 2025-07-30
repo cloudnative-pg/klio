@@ -5,9 +5,7 @@ kind: ServiceMonitor
 metadata:
   labels:
     {{- include "chart.labels" . | nindent 4 }}
-    control-plane: controller-manager
-  name: operator-controller-manager-metrics-monitor
-  namespace: {{ .Release.Namespace }}
+  name: {{ include "chart.fullname" . }}-manager-metrics-monitor
 spec:
   endpoints:
     - path: /metrics
@@ -16,19 +14,19 @@ spec:
       bearerTokenFile: /var/run/secrets/kubernetes.io/serviceaccount/token
       tlsConfig:
         {{- if .Values.certmanager.enable }}
-        serverName: operator-controller-manager-metrics-service.{{ .Release.Namespace }}.svc
+        serverName: {{ include "chart.fullname" . }}-controller-manager-metrics-service.{{ .Release.Namespace }}.svc
         # Apply secure TLS configuration with cert-manager
         insecureSkipVerify: false
         ca:
           secret:
-            name: metrics-server-cert
+            name: {{ .Values.metricsService.metricsServiceSecret }}
             key: ca.crt
         cert:
           secret:
-            name: metrics-server-cert
+            name: {{ .Values.metricsService.metricsServiceSecret }}
             key: tls.crt
         keySecret:
-          name: metrics-server-cert
+          name: {{ .Values.metricsService.metricsServiceSecret }}
           key: tls.key
         {{- else }}
         # Development/Test mode (insecure configuration)
@@ -36,5 +34,6 @@ spec:
         {{- end }}
   selector:
     matchLabels:
+      {{- include "chart.selectorLabels" . | nindent 6 }}
       control-plane: controller-manager
 {{- end }}

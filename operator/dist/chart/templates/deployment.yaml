@@ -1,0 +1,89 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "chart.fullname" . }}-controller-manager
+  labels:
+    control-plane: controller-manager
+  {{- include "chart.labels" . | nindent 4 }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      control-plane: controller-manager
+    {{- include "chart.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        control-plane: controller-manager
+      {{- include "chart.selectorLabels" . | nindent 8 }}
+      annotations:
+        kubectl.kubernetes.io/default-container: manager
+    spec:
+      containers:
+      - args: {{- toYaml .Values.controllerManager.manager.args | nindent 8 }}
+        command:
+        - /manager
+        env:
+          {{- range $key, $value := .Values.controllerManager.manager.env }}
+          - name: {{ $key }}
+            value: {{ $value }}
+          {{- end }}
+        image: {{ .Values.controllerManager.manager.image.repository }}:{{ .Values.controllerManager.manager.image.tag
+          | default .Chart.AppVersion }}
+        imagePullPolicy: {{ .Values.controllerManager.manager.image.pullPolicy }}
+        livenessProbe: {{- toYaml .Values.controllerManager.manager.livenessProbe | nindent 10
+          }}
+        readinessProbe: {{- toYaml .Values.controllerManager.manager.readinessProbe | nindent 10
+          }}
+        name: manager
+        resources: {{- toYaml .Values.controllerManager.manager.resources | nindent 10
+          }}
+        securityContext: {{- toYaml .Values.controllerManager.manager.containerSecurityContext
+          | nindent 10 }}
+        volumeMounts:
+          {{- if and .Values.metricsService.enable }}
+          - name: metrics-certs
+            mountPath: /tmp/k8s-metrics-server/metrics-certs
+            readOnly: true
+          {{- end }}
+          - mountPath: /pluginServer
+            name: plugin-server
+            readOnly: true
+          - mountPath: /pluginClient
+            name: plugin-client
+            readOnly: true
+      imagePullSecrets: {{- toYaml .Values.controllerManager.manager.image.pullSecrets | nindent 8 }}
+      securityContext: {{- toYaml .Values.controllerManager.podSecurityContext | nindent 8 }}
+      serviceAccountName: {{ include "chart.fullname" . }}-controller-manager
+      terminationGracePeriodSeconds: 10
+      volumes:
+        {{- if .Values.metricsService.enable }}
+        - name: metrics-certs
+          secret:
+            secretName: {{ .Values.metricsService.metricsServiceSecret }}
+        {{- end }}
+        - name: plugin-server
+          secret:
+            secretName: {{ .Values.plugin.serverSecret }}
+        - name: plugin-client
+          secret:
+            secretName: {{ .Values.plugin.clientSecret }}
+      {{- if .Values.priorityClassName }}
+      priorityClassName: {{ .Values.priorityClassName }}
+      {{- end }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.topologySpreadConstraints }}
+      topologySpreadConstraints:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}

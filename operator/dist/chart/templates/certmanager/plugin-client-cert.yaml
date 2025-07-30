@@ -1,0 +1,20 @@
+{{- if and .Values.certmanager.enable .Values.certmanager.createPluginClientCertificate }}
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: {{ include "chart.fullname" . }}-plugin-client
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "chart.labels" . | nindent 4 }}
+spec:
+  secretName: {{ .Values.plugin.clientSecret }}
+  commonName: {{ include "chart.fullname" . }}-plugin-client
+  usages:
+    - client auth
+  issuerRef:
+    name: {{ include "chart.fullname" . }}-selfsigned-issuer
+    kind: Issuer
+    group: cert-manager.io
+  duration: {{ .Values.certmanager.duration }}
+  renewBefore: {{ .Values.certmanager.renewBefore }}
+{{- end }}

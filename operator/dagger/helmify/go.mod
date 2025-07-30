@@ -1,4 +1,4 @@
-module dagger/kubebuilder
+module dagger/helmify
 
 go 1.23.8
 

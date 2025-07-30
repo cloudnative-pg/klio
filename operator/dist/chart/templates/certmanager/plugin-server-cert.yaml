@@ -1,0 +1,24 @@
+{{- if and .Values.certmanager.enable .Values.certmanager.createPluginServerCertificate }}
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: {{ include "chart.fullname" . }}-plugin-server
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "chart.labels" . | nindent 4 }}
+spec:
+  secretName: {{ .Values.plugin.serverSecret }}
+  dnsNames:
+    - {{ include "chart.fullname" . }}-plugin
+    - {{ include "chart.fullname" . }}-plugin.{{ .Release.Namespace }}
+    - {{ include "chart.fullname" . }}-plugin.{{ .Release.Namespace }}.svc
+    - {{ include "chart.fullname" . }}-plugin.{{ .Release.Namespace }}.svc.{{ .Values.certmanager.clusterDomain }}
+  usages:
+    - server auth
+  issuerRef:
+    name: {{ include "chart.fullname" . }}-selfsigned-issuer
+    kind: Issuer
+    group: cert-manager.io
+  duration: {{ .Values.certmanager.duration }}
+  renewBefore: {{ .Values.certmanager.renewBefore }}
+{{- end }}

@@ -469,18 +469,20 @@ tasks:
       # Kubebuilder wants to generate the CRDs in the chart/templates/crd directory, but we want to
       # generate them in the chart/crds directory, as the Helm convention is that CRDs should not be templates.
       # We build the CRDs in a second step with kustomize.
-      # Additionally, kubebuilder follows only the changes in the rbac. Any name change in the CRDs will not
-      # be ported over to the Helm chart automatically.
+      # We filter out the templates that are managed manually, so we don't override them.
       - >
-        GITHUB_REF= dagger -s call -m dagger/kubebuilder
-        helm --source .
-        without-directory --path chart/templates/crd
-        export --path dist
-      - >
-        GITHUB_REF= dagger -s call -m github.com/sagikazarmark/daggerverse/kustomize@${DAGGER_KUSTOMIZE_SHA}
-        --version ${KUSTOMIZE_IMAGE_VERSION}
-        build --source config/crd
-        export --path dist/chart/crds/klio.yaml
+        GITHUB_REF= dagger -s call -m dagger/helmify
+        run --source ./config
+        filter
+        --exclude templates/certmanager
+        --exclude templates/deployment.yaml
+        --exclude templates/service.yaml
+        --exclude templates/metrics-service.yaml
+        --exclude templates/prometheus.yaml
+        --exclude .helmignore
+        --exclude Chart.yaml
+        --exclude values.yaml
+        export --path dist/chart
     sources:
       - config/**/*
     generates:
@@ -785,4 +787,4 @@ tasks:
         with-exec --args "sh" --args "-c" --args "helm uninstall --wait --ignore-not-found cert-manager -n cert-manager || true"
         with-exec --args "sh" --args "-c" --args "helm upgrade -i --wait --create-namespace --namespace cert-manager --version {{ .CERT_MANAGER_VERSION }} --set crds.enabled=true cert-manager jetstack/cert-manager"
         with-exec --args "sh" --args "-c" --args "helm uninstall --wait --ignore-not-found klio -n cnpg-system || true"
-        with-exec --args "sh" --args "-c" --args "helm upgrade -i --wait --create-namespace --namespace cnpg-system --set controllerManager.container.image.repository={{ .OPERATOR_IMAGE_REPOSITORY }} --set controllerManager.container.image.tag={{ .OPERATOR_IMAGE_TAG }} klio /chart"
+        with-exec --args "sh" --args "-c" --args "helm upgrade -i --wait --create-namespace --namespace cnpg-system --set controllerManager.manager.image.repository={{ .OPERATOR_IMAGE_REPOSITORY }} --set controllerManager.manager.image.tag={{ .OPERATOR_IMAGE_TAG }} klio /chart"
