@@ -50,6 +50,11 @@ var playCmd = &cobra.Command{
 			return fmt.Errorf("configuration validation error: %w", errs)
 		}
 
+		const maxBlockSizeKB = 8192
+		if blockSize > maxBlockSizeKB {
+			return fmt.Errorf("block size too large: %d KB (max allowed is %d KB)", blockSize, maxBlockSizeKB)
+		}
+
 		cfg := walplayer.NewPlayer(workers, targetDirectory, blockSize*1024, &configuration.Client.Wal)
 
 		results := cfg.Play(cmd.Context())
