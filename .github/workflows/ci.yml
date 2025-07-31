@@ -152,6 +152,53 @@ jobs:
         run: |
           task operator:ci
 
+  integration-tests:
+    name: Integration Tests
+    needs:
+      - change-triage
+    if: needs.change-triage.outputs.core-changed == 'true' || needs.change-triage.outputs.operator-changed == 'true'
+    runs-on: ["edb", "2xlarge"]
+    steps:
+      - name: Checkout Klio
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+        with:
+          path: klio
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+
+      - name: Checkout CloudNativePG
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+        with:
+          repository: cloudnative-pg/cloudnative-pg
+          path: cloudnativepg
+          fetch-depth: 0
+
+      - name: Cleanup disk
+        uses: ./klio/.github/actions/cleanup-disk
+
+      - name: Setup dagger
+        uses: ./klio/.github/actions/setup-dagger
+
+      - name: Setup Go
+        uses: actions/setup-go@d35c59abb061a4a6fb18e82ac0862c26744d6ab5 # v5
+        with:
+          go-version-file: 'cloudnativepg/go.mod'
+
+      - name: Start Kind cluster
+        id: kind-cluster
+        working-directory: cloudnativepg
+        run: |
+          hack/setup-cluster.sh create load deploy
+          CLUSTERS=$(kind get clusters)
+          echo "clusters=$CLUSTERS" >> $GITHUB_OUTPUT
+
+      - name: Run integration tests
+        working-directory: klio
+        env:
+          KIND_CLUSTER_NAME: ${{ steps.kind-cluster.outputs.clusters }}
+        run: |
+          task integration:e2e
+
   renovate:
     name: Renovate Linter
     needs:

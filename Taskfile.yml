@@ -190,15 +190,14 @@ tasks:
     vars:
       GITHUB_REF_NAME: '{{ .GITHUB_REF_NAME | default "dev" }}'
       IMAGE_VERSION: '{{ regexReplaceAll "[/_]" .GITHUB_REF_NAME "-" }}'
-      TAG: '{{regexReplaceAll "(\\d+)/merge" .IMAGE_VERSION "pr-${1}"}}'
+      TAG: '{{ .TAG | default (regexReplaceAll "(\\d+)/merge" .IMAGE_VERSION "pr-${1}")}}'
+      GITHUB_ACTIONS: '{{ .GITHUB_ACTIONS }}'
     cmds:
       - task: internal:containerize
         vars:
           ENVIRONMENT: "testing"
-          INSECURE:
-            sh: '[ -n "$GITHUB_ACTIONS" ] && echo "false" || echo "true"'
-          REGISTRY:
-            sh: '[ -n "$GITHUB_ACTIONS" ] && echo "ghcr.io/enterprisedb" || echo "{{ .REGISTRY_NAME }}:{{ .REGISTRY_PORT }}"'
+          INSECURE: '{{ if .GITHUB_ACTIONS }}false{{ else }}true{{ end }}'
+          REGISTRY: '{{ if .GITHUB_ACTIONS }}ghcr.io/enterprisedb{{ else }}{{ .REGISTRY_NAME }}:{{ .REGISTRY_PORT }}{{ end }}'
           VERSION: "{{ .TAG }}"
           LATEST: "false"
           WORKDIR: "core"
@@ -295,6 +294,8 @@ tasks:
     run: once
     cmds:
       - docker network connect {{ .REGISTRY_NETWORK }} {{ .REGISTRY_NAME }} || true
+    status:
+      - docker network inspect {{ .REGISTRY_NETWORK }} -f '{{ range .Containers }}{{ .Name }} {{ end }}' | grep "{{ .REGISTRY_NAME }}"
 
   internal:create-builder:
     desc: Create a buildx builder
@@ -390,15 +391,14 @@ tasks:
     vars:
       GITHUB_REF_NAME: '{{ .GITHUB_REF_NAME | default "dev" }}'
       IMAGE_VERSION: '{{ regexReplaceAll "[/_]" .GITHUB_REF_NAME "-" }}'
-      TAG: '{{regexReplaceAll "(\\d+)/merge" .IMAGE_VERSION "pr-${1}"}}'
+      TAG: '{{ .TAG | default (regexReplaceAll "(\\d+)/merge" .IMAGE_VERSION "pr-${1}")}}'
+      GITHUB_ACTIONS: '{{ .GITHUB_ACTIONS }}'
     cmds:
       - task: internal:containerize
         vars:
           ENVIRONMENT: "testing"
-          INSECURE:
-            sh: '[ -n "$GITHUB_ACTIONS" ] && echo "false" || echo "true"'
-          REGISTRY:
-            sh: '[ -n "$GITHUB_ACTIONS" ] && echo "ghcr.io/enterprisedb" || echo "{{ .REGISTRY_NAME }}:{{ .REGISTRY_PORT }}"'
+          INSECURE: '{{ if .GITHUB_ACTIONS }}false{{ else }}true{{ end }}'
+          REGISTRY: '{{ if .GITHUB_ACTIONS }}ghcr.io/enterprisedb{{ else }}{{ .REGISTRY_NAME }}:{{ .REGISTRY_PORT }}{{ end }}'
           VERSION: "{{ .TAG }}"
           LATEST: "false"
           WORKDIR: "operator"
@@ -732,6 +732,15 @@ tasks:
   ## INTEGRATION
   ########################################
 
+  integration:machinery-lint:
+    desc: Run golangci-lint on machinery
+    cmds:
+      - task: internal:lint
+        vars:
+          WORKDIR: "integration/tests/machinery"
+    sources:
+      - integration/tests/machinery/**/*.go
+
   integration:devenv:
     desc: Create and connect to an ephemeral development environment
     interactive: true
@@ -753,8 +762,14 @@ tasks:
 
       KIND_CLUSTER_NAME=pg-operator-e2e-v1-33-1 task integration:deploy-to-kind
     deps:
-      - core:containerize-snapshot
-      - operator:containerize-snapshot
+      - task: core:containerize-snapshot
+        vars:
+          GITHUB_ACTIONS: ''
+          TAG: 'dev'
+      - task: operator:containerize-snapshot
+        vars:
+          GITHUB_ACTIONS: ''
+          TAG: 'dev'
       - operator:helm-chart
     run: once
     requires:
@@ -784,7 +799,37 @@ tasks:
         with-service-binding --alias localhost --service tcp://127.0.0.1:{{ .KIND_HOSTPORT }}
         with-exec --args "sh" --args "-c" --args "kubectl config set-cluster kind-{{ .KIND_CLUSTER_NAME }} --server=https://localhost:{{ .KIND_HOSTPORT }}"
         with-exec --args "sh" --args "-c" --args "helm repo add jetstack https://charts.jetstack.io --force-update"
-        with-exec --args "sh" --args "-c" --args "helm uninstall --wait --ignore-not-found cert-manager -n cert-manager || true"
         with-exec --args "sh" --args "-c" --args "helm upgrade -i --wait --create-namespace --namespace cert-manager --version {{ .CERT_MANAGER_VERSION }} --set crds.enabled=true cert-manager jetstack/cert-manager"
         with-exec --args "sh" --args "-c" --args "helm uninstall --wait --ignore-not-found klio -n cnpg-system || true"
         with-exec --args "sh" --args "-c" --args "helm upgrade -i --wait --create-namespace --namespace cnpg-system --set controllerManager.manager.image.repository={{ .OPERATOR_IMAGE_REPOSITORY }} --set controllerManager.manager.image.tag={{ .OPERATOR_IMAGE_TAG }} klio /chart"
+
+  integration:e2e:
+    desc: Run the e2e tests
+    deps:
+      - integration:deploy-to-kind
+    run: once
+    requires:
+      vars:
+        - KIND_CLUSTER_NAME
+    vars:
+      KIND_HOSTPORT:
+        # This command extracts the host port for the control plane of the Kind cluster.
+        # Redundant curly braces are used to escape the template syntax in Taskfile.
+        sh: docker inspect --format '{{"{{"}} (index (index .HostConfig.PortBindings "6443/tcp") 0).HostPort {{"}}"}}' {{ .KIND_CLUSTER_NAME }}-control-plane
+      KUBECONFIG_PATH:
+        sh: mktemp -t kubeconfig-XXXXX
+      # renovate: datasource=docker depName=golang versioning=docker
+      GOLANG_IMAGE_VERSION: 1.24.5-alpine
+    cmds:
+        - kind get kubeconfig --name {{ .KIND_CLUSTER_NAME }} > {{ .KUBECONFIG_PATH }}
+        - >
+          dagger core container
+          from --address golang:{{ .GOLANG_IMAGE_VERSION }}
+          with-mounted-file --path /kube/.config --source {{ .KUBECONFIG_PATH }}
+          with-directory --path /src/operator --directory operator
+          with-workdir --path /src/operator/test/e2e
+          with-env-variable --name KUBECONFIG --value /kube/.config
+          with-service-binding --alias localhost --service tcp://127.0.0.1:{{ .KIND_HOSTPORT }}
+          with-exec --args "sh" --args "-c" --args "apk add kubectl"
+          with-exec --args "sh" --args "-c" --args "kubectl config set-cluster kind-{{ .KIND_CLUSTER_NAME }} --server=https://localhost:{{ .KIND_HOSTPORT }}"
+          with-exec --args "sh" --args "-c" --args "go test -v ./..."
