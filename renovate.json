@@ -54,6 +54,15 @@
       ]
     }
   ],
+  "customDatasources": {
+    "envtest": {
+      "format": "yaml",
+      "defaultRegistryUrlTemplate": "https://raw.githubusercontent.com/kubernetes-sigs/controller-tools/master/envtest-releases.yaml",
+      "transformTemplates": [
+        "{\"releases\": $sort($keys(releases)[$ ~> /^v\\d+\\.\\d+\\.\\d+$/]).{\"version\": $}}"
+      ]
+    }
+  },
   "packageRules": [
     {
       "matchDatasources": [
