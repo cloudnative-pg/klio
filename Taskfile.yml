@@ -115,7 +115,7 @@ tasks:
       # renovate: datasource=docker depName=golang versioning=semver
       GOLANG_IMAGE_VERSION: 1.24.5
       # renovate: datasource=custom.envtest depName=kubernetes packageName=https://github.com/kubernetes/kubernetes versioning=semver
-      K8S_VERSION: 1.31.0
+      K8S_VERSION: 1.33.0
       # renovate: datasource=git-refs depName=controller-runtime packageName=https://github.com/kubernetes-sigs/controller-runtime versioning=semver
       SETUP_ENVTEST_VERSION: 0.21.0
     cmds:
