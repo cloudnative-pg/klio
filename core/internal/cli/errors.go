@@ -1,4 +1,4 @@
-package clierrors
+package cli
 
 import "errors"
 

@@ -8,7 +8,7 @@ import (
 	"github.com/spf13/viper"
 	"gopkg.in/validator.v2"
 
-	"github.com/cloudnative-pg/klio/core/cmd/clierrors"
+	"github.com/cloudnative-pg/klio/core/internal/cli"
 	"github.com/cloudnative-pg/klio/core/internal/walplayer"
 	"github.com/cloudnative-pg/klio/core/pkg/config"
 )
@@ -39,11 +39,11 @@ var playCmd = &cobra.Command{
 		configuration.SetDefaults()
 
 		if configuration.Client == (config.ClientConfig{}) {
-			return clierrors.ErrClientSectionIsRequired
+			return cli.ErrClientSectionIsRequired
 		}
 
 		if configuration.Client.Wal == (config.WalRepositoryClientConfig{}) {
-			return clierrors.ErrKlioClientSectionIsRequired
+			return cli.ErrKlioClientSectionIsRequired
 		}
 
 		if errs := validator.Validate(&configuration.Client.Wal); errs != nil {

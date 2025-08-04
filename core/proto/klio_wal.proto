@@ -109,4 +109,3 @@ message StartWALFile {
   uint64 klio_version = 1;
   uint64 file_length = 2;
 }
-

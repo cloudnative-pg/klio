@@ -6,8 +6,10 @@ import (
 	"os"
 	"path/filepath"
 
-	// +kubebuilder:scaffold:imports
+	cnpgv1 "github.com/cloudnative-pg/cloudnative-pg/api/v1"
+	"github.com/cloudnative-pg/machinery/pkg/log"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -16,6 +18,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	"sigs.k8s.io/controller-runtime/pkg/metrics/filters"
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
+	"sigs.k8s.io/controller-runtime/pkg/scheme"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 
 	kliov1alpha1 "github.com/cloudnative-pg/klio/operator/api/v1alpha1"
@@ -27,18 +30,7 @@ import (
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 )
 
-var (
-	scheme   = runtime.NewScheme()        //nolint:gochecknoglobals
-	setupLog = ctrl.Log.WithName("setup") //nolint:gochecknoglobals
-)
-
-//nolint:gochecknoinits
-func init() {
-	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
-
-	utilruntime.Must(kliov1alpha1.AddToScheme(scheme))
-	// +kubebuilder:scaffold:scheme
-}
+var setupLog = ctrl.Log.WithName("setup") //nolint:gochecknoglobals
 
 //nolint:cyclop
 func main() {
@@ -56,6 +48,10 @@ func main() {
 	var pluginServerKey string
 	var pluginClientCert string
 	var pluginServerAddress string
+
+	// cnpg scheme generation
+	var cnpgGroup string
+	var cnpgVersion string
 
 	flag.StringVar(&metricsAddr, "metrics-bind-address", "0", "The address the metrics endpoint binds to. "+
 		"Use :8443 for HTTPS or :8080 for HTTP, or leave as 0 to disable the metrics service.")
@@ -80,6 +76,10 @@ func main() {
 	flag.StringVar(&pluginServerKey, "plugin-server-key", "", "Path to the plugin server key")
 	flag.StringVar(&pluginClientCert, "plugin-client-cert", "", "Path to the plugin client certificate")
 	flag.StringVar(&pluginServerAddress, "plugin-server-address", ":9090", "Address of the plugin server")
+
+	// cnpg scheme generation
+	flag.StringVar(&cnpgGroup, "custom-cnpg-group", "", "defaults to postgresql.cnpg.io")
+	flag.StringVar(&cnpgVersion, "custom-cnpg-version", "", "defaults to v1")
 
 	opts := zap.Options{
 		Development: true,
@@ -183,7 +183,7 @@ func main() {
 	}
 
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
-		Scheme:                 scheme,
+		Scheme:                 generateScheme(cnpgGroup, cnpgVersion),
 		Metrics:                metricsServerOptions,
 		WebhookServer:          webhookServer,
 		HealthProbeBindAddress: probeAddr,
@@ -256,4 +256,33 @@ func main() {
 		setupLog.Error(err, "problem running manager")
 		os.Exit(1)
 	}
+}
+
+// generateScheme creates a runtime.Scheme object with all the
+// definition needed to support the sidecar. This allows
+// the plugin to be used in every CNPG-based operator.
+func generateScheme(cnpgGroup, cnpgVersion string) *runtime.Scheme {
+	result := runtime.NewScheme()
+
+	// +kubebuilder:scaffold:scheme
+	utilruntime.Must(clientgoscheme.AddToScheme(result))
+	utilruntime.Must(kliov1alpha1.AddToScheme(result))
+
+	if len(cnpgGroup) == 0 {
+		cnpgGroup = cnpgv1.SchemeGroupVersion.Group
+	}
+	if len(cnpgVersion) == 0 {
+		cnpgVersion = cnpgv1.SchemeGroupVersion.Version
+	}
+
+	schemeGroupVersion := schema.GroupVersion{Group: cnpgGroup, Version: cnpgVersion}
+	schemeBuilder := &scheme.Builder{GroupVersion: schemeGroupVersion}
+	schemeBuilder.Register(&cnpgv1.Cluster{}, &cnpgv1.ClusterList{})
+	schemeBuilder.Register(&cnpgv1.Backup{}, &cnpgv1.BackupList{})
+	schemeBuilder.Register(&cnpgv1.ScheduledBackup{}, &cnpgv1.ScheduledBackupList{})
+	utilruntime.Must(schemeBuilder.AddToScheme(result))
+
+	log.Info("Custom CNPG types registration", "schemeGroupVersion", schemeGroupVersion)
+
+	return result
 }

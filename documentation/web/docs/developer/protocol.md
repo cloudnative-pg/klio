@@ -3,7 +3,7 @@
 
 ## Table of Contents
 
-- [wal.proto](#wal-proto)
+- [klio_wal.proto](#klio_wal-proto)
     - [ClusterMetadata](#klio-wal-v1-ClusterMetadata)
     - [GetMetadataRequest](#klio-wal-v1-GetMetadataRequest)
     - [GetRequest](#klio-wal-v1-GetRequest)
@@ -23,10 +23,10 @@
 
 
 
-<a name="wal-proto"></a>
+<a name="klio_wal-proto"></a>
 <p align="right"><a href="#top">Top</a></p>
 
-## wal.proto
+## klio_wal.proto
 
 
 

@@ -8,16 +8,21 @@ import (
 	cnpgv1 "github.com/cloudnative-pg/cloudnative-pg/api/v1"
 )
 
+var (
+	errPluginNotFound   = errors.New("plugin not found")
+	errPluginNotEnabled = errors.New("plugin found but is not enabled")
+)
+
 type pluginConfiguration struct {
 	ServerAddress    string
 	ClientSecretName string
 	ServerSecretName string
+	BackupName       string
 	Enabled          bool
 	EnablePPROF      bool
 }
 
 func newConfigFromCluster(cluster *cnpgv1.Cluster) (*pluginConfiguration, error) {
-	var conf pluginConfiguration
 	var rawConf *cnpgv1.PluginConfiguration
 	for _, plugin := range cluster.Spec.Plugins {
 		if plugin.Name != data.GetName() {
@@ -29,14 +34,19 @@ func newConfigFromCluster(cluster *cnpgv1.Cluster) (*pluginConfiguration, error)
 		break
 	}
 
+	return parsePluginConfiguration(rawConf)
+}
+
+func parsePluginConfiguration(rawConf *cnpgv1.PluginConfiguration) (*pluginConfiguration, error) {
 	if rawConf == nil {
-		return nil, errors.New("plugin not found")
+		return nil, errPluginNotFound
 	}
 
 	if !rawConf.IsEnabled() {
-		return nil, errors.New("plugin found but is not enabled")
+		return nil, errPluginNotEnabled
 	}
 
+	var conf pluginConfiguration
 	var err error
 
 	conf.ServerAddress, err = getParameter(rawConf, "serverAddress")
@@ -58,6 +68,9 @@ func newConfigFromCluster(cluster *cnpgv1.Cluster) (*pluginConfiguration, error)
 	if err != nil {
 		return nil, err
 	}
+
+	// not mandatory, so we don't return an error if it's missing
+	conf.BackupName, _ = getParameter(rawConf, "backupName")
 
 	return &conf, nil
 }

@@ -10,6 +10,7 @@ import (
 	"github.com/spf13/viper"
 
 	"github.com/cloudnative-pg/klio/core/cmd/backup"
+	"github.com/cloudnative-pg/klio/core/cmd/cnpgi"
 	"github.com/cloudnative-pg/klio/core/cmd/server"
 	"github.com/cloudnative-pg/klio/core/cmd/walplayer"
 
@@ -87,6 +88,7 @@ func init() {
 	rootCmd.AddCommand(server.ServerCmd)
 	rootCmd.AddCommand(backup.BackupCmd)
 	rootCmd.AddCommand(walplayer.WalPlayerCmd)
+	rootCmd.AddCommand(cnpgi.CnpgiCmd)
 }
 
 // initConfig reads in config file and ENV variables if set.

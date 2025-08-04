@@ -9,7 +9,7 @@ import (
 	"github.com/spf13/viper"
 	"gopkg.in/validator.v2"
 
-	"github.com/cloudnative-pg/klio/core/cmd/clierrors"
+	"github.com/cloudnative-pg/klio/core/internal/cli"
 	"github.com/cloudnative-pg/klio/core/internal/client/klioclient/common"
 	"github.com/cloudnative-pg/klio/core/internal/client/klioclient/kopia"
 	"github.com/cloudnative-pg/klio/core/internal/client/klioclient/notifier"
@@ -38,10 +38,10 @@ var restoreCmd = &cobra.Command{
 		configuration.SetDefaults()
 
 		if configuration.Client == (config.ClientConfig{}) {
-			return clierrors.ErrClientSectionIsRequired
+			return cli.ErrClientSectionIsRequired
 		}
 		if configuration.Client.Base == (config.BaseRepositoryClientConfig{}) {
-			return clierrors.ErrKopiaClientSectionIsRequired
+			return cli.ErrKopiaClientSectionIsRequired
 		}
 
 		if errs := validator.Validate(&configuration); errs != nil {

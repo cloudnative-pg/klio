@@ -1,0 +1,25 @@
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+  name: cluster-example
+spec:
+  instances: 3
+  logLevel: debug
+  imagePullPolicy: Always
+
+  bootstrap:
+    recovery:
+      source: source
+
+  externalClusters:
+    - name: source
+      plugin:
+        name: klio.cnpg.io
+        parameters:
+          backupName: backup-example
+          serverAddress: server-sample.default
+          clientSecretName: klio-client
+          serverSecretName: server-sample-tls
+
+  storage:
+    size: 1Gi

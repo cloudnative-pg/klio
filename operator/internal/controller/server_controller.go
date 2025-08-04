@@ -24,6 +24,7 @@ type ServerReconciler struct {
 // +kubebuilder:rbac:groups=klio.cnpg.io,resources=servers,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=klio.cnpg.io,resources=servers/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=klio.cnpg.io,resources=servers/finalizers,verbs=update
+// +kubebuilder:rbac:groups=postgresql.cnpg.io,resources=backups,verbs=get;list;watch
 // +kubebuilder:rbac:groups=apps,resources=statefulsets,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups="",resources=services,verbs=get;list;watch;create;update;patch;delete
 

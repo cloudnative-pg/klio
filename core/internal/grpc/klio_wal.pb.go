@@ -2,7 +2,7 @@
 // versions:
 // 	protoc-gen-go v1.36.6
 // 	protoc        v6.30.2
-// source: proto/wal.proto
+// source: proto/klio_wal.proto
 
 package grpc
 
@@ -34,7 +34,7 @@ type PutRequest struct {
 
 func (x *PutRequest) Reset() {
 	*x = PutRequest{}
-	mi := &file_proto_wal_proto_msgTypes[0]
+	mi := &file_proto_klio_wal_proto_msgTypes[0]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -46,7 +46,7 @@ func (x *PutRequest) String() string {
 func (*PutRequest) ProtoMessage() {}
 
 func (x *PutRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_wal_proto_msgTypes[0]
+	mi := &file_proto_klio_wal_proto_msgTypes[0]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -59,7 +59,7 @@ func (x *PutRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PutRequest.ProtoReflect.Descriptor instead.
 func (*PutRequest) Descriptor() ([]byte, []int) {
-	return file_proto_wal_proto_rawDescGZIP(), []int{0}
+	return file_proto_klio_wal_proto_rawDescGZIP(), []int{0}
 }
 
 func (x *PutRequest) GetClusterName() string {
@@ -99,7 +99,7 @@ type PutResult struct {
 
 func (x *PutResult) Reset() {
 	*x = PutResult{}
-	mi := &file_proto_wal_proto_msgTypes[1]
+	mi := &file_proto_klio_wal_proto_msgTypes[1]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -111,7 +111,7 @@ func (x *PutResult) String() string {
 func (*PutResult) ProtoMessage() {}
 
 func (x *PutResult) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_wal_proto_msgTypes[1]
+	mi := &file_proto_klio_wal_proto_msgTypes[1]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -124,7 +124,7 @@ func (x *PutResult) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PutResult.ProtoReflect.Descriptor instead.
 func (*PutResult) Descriptor() ([]byte, []int) {
-	return file_proto_wal_proto_rawDescGZIP(), []int{1}
+	return file_proto_klio_wal_proto_rawDescGZIP(), []int{1}
 }
 
 func (x *PutResult) GetWrittenSize() uint64 {
@@ -143,7 +143,7 @@ type GetMetadataRequest struct {
 
 func (x *GetMetadataRequest) Reset() {
 	*x = GetMetadataRequest{}
-	mi := &file_proto_wal_proto_msgTypes[2]
+	mi := &file_proto_klio_wal_proto_msgTypes[2]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -155,7 +155,7 @@ func (x *GetMetadataRequest) String() string {
 func (*GetMetadataRequest) ProtoMessage() {}
 
 func (x *GetMetadataRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_wal_proto_msgTypes[2]
+	mi := &file_proto_klio_wal_proto_msgTypes[2]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -168,7 +168,7 @@ func (x *GetMetadataRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetMetadataRequest.ProtoReflect.Descriptor instead.
 func (*GetMetadataRequest) Descriptor() ([]byte, []int) {
-	return file_proto_wal_proto_rawDescGZIP(), []int{2}
+	return file_proto_klio_wal_proto_rawDescGZIP(), []int{2}
 }
 
 func (x *GetMetadataRequest) GetClusterName() string {
@@ -188,7 +188,7 @@ type GetRequest struct {
 
 func (x *GetRequest) Reset() {
 	*x = GetRequest{}
-	mi := &file_proto_wal_proto_msgTypes[3]
+	mi := &file_proto_klio_wal_proto_msgTypes[3]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -200,7 +200,7 @@ func (x *GetRequest) String() string {
 func (*GetRequest) ProtoMessage() {}
 
 func (x *GetRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_wal_proto_msgTypes[3]
+	mi := &file_proto_klio_wal_proto_msgTypes[3]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -213,7 +213,7 @@ func (x *GetRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetRequest.ProtoReflect.Descriptor instead.
 func (*GetRequest) Descriptor() ([]byte, []int) {
-	return file_proto_wal_proto_rawDescGZIP(), []int{3}
+	return file_proto_klio_wal_proto_rawDescGZIP(), []int{3}
 }
 
 func (x *GetRequest) GetClusterName() string {
@@ -240,7 +240,7 @@ type GetResult struct {
 
 func (x *GetResult) Reset() {
 	*x = GetResult{}
-	mi := &file_proto_wal_proto_msgTypes[4]
+	mi := &file_proto_klio_wal_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -252,7 +252,7 @@ func (x *GetResult) String() string {
 func (*GetResult) ProtoMessage() {}
 
 func (x *GetResult) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_wal_proto_msgTypes[4]
+	mi := &file_proto_klio_wal_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -265,7 +265,7 @@ func (x *GetResult) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetResult.ProtoReflect.Descriptor instead.
 func (*GetResult) Descriptor() ([]byte, []int) {
-	return file_proto_wal_proto_rawDescGZIP(), []int{4}
+	return file_proto_klio_wal_proto_rawDescGZIP(), []int{4}
 }
 
 func (x *GetResult) GetWalBlock() []byte {
@@ -298,7 +298,7 @@ type RequestWALStartRequest struct {
 
 func (x *RequestWALStartRequest) Reset() {
 	*x = RequestWALStartRequest{}
-	mi := &file_proto_wal_proto_msgTypes[5]
+	mi := &file_proto_klio_wal_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -310,7 +310,7 @@ func (x *RequestWALStartRequest) String() string {
 func (*RequestWALStartRequest) ProtoMessage() {}
 
 func (x *RequestWALStartRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_wal_proto_msgTypes[5]
+	mi := &file_proto_klio_wal_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -323,7 +323,7 @@ func (x *RequestWALStartRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RequestWALStartRequest.ProtoReflect.Descriptor instead.
 func (*RequestWALStartRequest) Descriptor() ([]byte, []int) {
-	return file_proto_wal_proto_rawDescGZIP(), []int{5}
+	return file_proto_klio_wal_proto_rawDescGZIP(), []int{5}
 }
 
 func (x *RequestWALStartRequest) GetClusterName() string {
@@ -358,7 +358,7 @@ type RequestWALStartResult struct {
 
 func (x *RequestWALStartResult) Reset() {
 	*x = RequestWALStartResult{}
-	mi := &file_proto_wal_proto_msgTypes[6]
+	mi := &file_proto_klio_wal_proto_msgTypes[6]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -370,7 +370,7 @@ func (x *RequestWALStartResult) String() string {
 func (*RequestWALStartResult) ProtoMessage() {}
 
 func (x *RequestWALStartResult) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_wal_proto_msgTypes[6]
+	mi := &file_proto_klio_wal_proto_msgTypes[6]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -383,7 +383,7 @@ func (x *RequestWALStartResult) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RequestWALStartResult.ProtoReflect.Descriptor instead.
 func (*RequestWALStartResult) Descriptor() ([]byte, []int) {
-	return file_proto_wal_proto_rawDescGZIP(), []int{6}
+	return file_proto_klio_wal_proto_rawDescGZIP(), []int{6}
 }
 
 func (x *RequestWALStartResult) GetWalName() string {
@@ -409,7 +409,7 @@ type ResetWALStreamRequest struct {
 
 func (x *ResetWALStreamRequest) Reset() {
 	*x = ResetWALStreamRequest{}
-	mi := &file_proto_wal_proto_msgTypes[7]
+	mi := &file_proto_klio_wal_proto_msgTypes[7]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -421,7 +421,7 @@ func (x *ResetWALStreamRequest) String() string {
 func (*ResetWALStreamRequest) ProtoMessage() {}
 
 func (x *ResetWALStreamRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_wal_proto_msgTypes[7]
+	mi := &file_proto_klio_wal_proto_msgTypes[7]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -434,7 +434,7 @@ func (x *ResetWALStreamRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ResetWALStreamRequest.ProtoReflect.Descriptor instead.
 func (*ResetWALStreamRequest) Descriptor() ([]byte, []int) {
-	return file_proto_wal_proto_rawDescGZIP(), []int{7}
+	return file_proto_klio_wal_proto_rawDescGZIP(), []int{7}
 }
 
 func (x *ResetWALStreamRequest) GetClusterName() string {
@@ -469,7 +469,7 @@ type ResetWALStreamResult struct {
 
 func (x *ResetWALStreamResult) Reset() {
 	*x = ResetWALStreamResult{}
-	mi := &file_proto_wal_proto_msgTypes[8]
+	mi := &file_proto_klio_wal_proto_msgTypes[8]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -481,7 +481,7 @@ func (x *ResetWALStreamResult) String() string {
 func (*ResetWALStreamResult) ProtoMessage() {}
 
 func (x *ResetWALStreamResult) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_wal_proto_msgTypes[8]
+	mi := &file_proto_klio_wal_proto_msgTypes[8]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -494,7 +494,7 @@ func (x *ResetWALStreamResult) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ResetWALStreamResult.ProtoReflect.Descriptor instead.
 func (*ResetWALStreamResult) Descriptor() ([]byte, []int) {
-	return file_proto_wal_proto_rawDescGZIP(), []int{8}
+	return file_proto_klio_wal_proto_rawDescGZIP(), []int{8}
 }
 
 func (x *ResetWALStreamResult) GetWalName() string {
@@ -518,7 +518,7 @@ type ClusterMetadata struct {
 
 func (x *ClusterMetadata) Reset() {
 	*x = ClusterMetadata{}
-	mi := &file_proto_wal_proto_msgTypes[9]
+	mi := &file_proto_klio_wal_proto_msgTypes[9]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -530,7 +530,7 @@ func (x *ClusterMetadata) String() string {
 func (*ClusterMetadata) ProtoMessage() {}
 
 func (x *ClusterMetadata) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_wal_proto_msgTypes[9]
+	mi := &file_proto_klio_wal_proto_msgTypes[9]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -543,7 +543,7 @@ func (x *ClusterMetadata) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ClusterMetadata.ProtoReflect.Descriptor instead.
 func (*ClusterMetadata) Descriptor() ([]byte, []int) {
-	return file_proto_wal_proto_rawDescGZIP(), []int{9}
+	return file_proto_klio_wal_proto_rawDescGZIP(), []int{9}
 }
 
 func (x *ClusterMetadata) GetSystemId() string {
@@ -577,7 +577,7 @@ type WALGap struct {
 
 func (x *WALGap) Reset() {
 	*x = WALGap{}
-	mi := &file_proto_wal_proto_msgTypes[10]
+	mi := &file_proto_klio_wal_proto_msgTypes[10]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -589,7 +589,7 @@ func (x *WALGap) String() string {
 func (*WALGap) ProtoMessage() {}
 
 func (x *WALGap) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_wal_proto_msgTypes[10]
+	mi := &file_proto_klio_wal_proto_msgTypes[10]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -602,7 +602,7 @@ func (x *WALGap) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use WALGap.ProtoReflect.Descriptor instead.
 func (*WALGap) Descriptor() ([]byte, []int) {
-	return file_proto_wal_proto_rawDescGZIP(), []int{10}
+	return file_proto_klio_wal_proto_rawDescGZIP(), []int{10}
 }
 
 func (x *WALGap) GetTs() *timestamppb.Timestamp {
@@ -636,7 +636,7 @@ type StartWALFile struct {
 
 func (x *StartWALFile) Reset() {
 	*x = StartWALFile{}
-	mi := &file_proto_wal_proto_msgTypes[11]
+	mi := &file_proto_klio_wal_proto_msgTypes[11]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -648,7 +648,7 @@ func (x *StartWALFile) String() string {
 func (*StartWALFile) ProtoMessage() {}
 
 func (x *StartWALFile) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_wal_proto_msgTypes[11]
+	mi := &file_proto_klio_wal_proto_msgTypes[11]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -661,7 +661,7 @@ func (x *StartWALFile) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use StartWALFile.ProtoReflect.Descriptor instead.
 func (*StartWALFile) Descriptor() ([]byte, []int) {
-	return file_proto_wal_proto_rawDescGZIP(), []int{11}
+	return file_proto_klio_wal_proto_rawDescGZIP(), []int{11}
 }
 
 func (x *StartWALFile) GetKlioVersion() uint64 {
@@ -678,11 +678,11 @@ func (x *StartWALFile) GetFileLength() uint64 {
 	return 0
 }
 
-var File_proto_wal_proto protoreflect.FileDescriptor
+var File_proto_klio_wal_proto protoreflect.FileDescriptor
 
-const file_proto_wal_proto_rawDesc = "" +
+const file_proto_klio_wal_proto_rawDesc = "" +
 	"\n" +
-	"\x0fproto/wal.proto\x12\vklio.wal.v1\x1a\x1fgoogle/protobuf/timestamp.proto\"\x8a\x01\n" +
+	"\x14proto/klio_wal.proto\x12\vklio.wal.v1\x1a\x1fgoogle/protobuf/timestamp.proto\"\x8a\x01\n" +
 	"\n" +
 	"PutRequest\x12!\n" +
 	"\fcluster_name\x18\x01 \x01(\tR\vclusterName\x12\x19\n" +
@@ -731,19 +731,19 @@ const file_proto_wal_proto_rawDesc = "" +
 	"\x0eResetWALStream\x12\".klio.wal.v1.ResetWALStreamRequest\x1a!.klio.wal.v1.ResetWALStreamResult\"\x00B1Z/github.com/cloudnative-pg/klio/core/internal/grpcb\x06proto3"
 
 var (
-	file_proto_wal_proto_rawDescOnce sync.Once
-	file_proto_wal_proto_rawDescData []byte
+	file_proto_klio_wal_proto_rawDescOnce sync.Once
+	file_proto_klio_wal_proto_rawDescData []byte
 )
 
-func file_proto_wal_proto_rawDescGZIP() []byte {
-	file_proto_wal_proto_rawDescOnce.Do(func() {
-		file_proto_wal_proto_rawDescData = protoimpl.X.CompressGZIP(unsafe.Slice(unsafe.StringData(file_proto_wal_proto_rawDesc), len(file_proto_wal_proto_rawDesc)))
+func file_proto_klio_wal_proto_rawDescGZIP() []byte {
+	file_proto_klio_wal_proto_rawDescOnce.Do(func() {
+		file_proto_klio_wal_proto_rawDescData = protoimpl.X.CompressGZIP(unsafe.Slice(unsafe.StringData(file_proto_klio_wal_proto_rawDesc), len(file_proto_klio_wal_proto_rawDesc)))
 	})
-	return file_proto_wal_proto_rawDescData
+	return file_proto_klio_wal_proto_rawDescData
 }
 
-var file_proto_wal_proto_msgTypes = make([]protoimpl.MessageInfo, 12)
-var file_proto_wal_proto_goTypes = []any{
+var file_proto_klio_wal_proto_msgTypes = make([]protoimpl.MessageInfo, 12)
+var file_proto_klio_wal_proto_goTypes = []any{
 	(*PutRequest)(nil),             // 0: klio.wal.v1.PutRequest
 	(*PutResult)(nil),              // 1: klio.wal.v1.PutResult
 	(*GetMetadataRequest)(nil),     // 2: klio.wal.v1.GetMetadataRequest
@@ -758,7 +758,7 @@ var file_proto_wal_proto_goTypes = []any{
 	(*StartWALFile)(nil),           // 11: klio.wal.v1.StartWALFile
 	(*timestamppb.Timestamp)(nil),  // 12: google.protobuf.Timestamp
 }
-var file_proto_wal_proto_depIdxs = []int32{
+var file_proto_klio_wal_proto_depIdxs = []int32{
 	10, // 0: klio.wal.v1.ClusterMetadata.gaps:type_name -> klio.wal.v1.WALGap
 	12, // 1: klio.wal.v1.WALGap.ts:type_name -> google.protobuf.Timestamp
 	0,  // 2: klio.wal.v1.WAL.Put:input_type -> klio.wal.v1.PutRequest
@@ -778,26 +778,26 @@ var file_proto_wal_proto_depIdxs = []int32{
 	0,  // [0:2] is the sub-list for field type_name
 }
 
-func init() { file_proto_wal_proto_init() }
-func file_proto_wal_proto_init() {
-	if File_proto_wal_proto != nil {
+func init() { file_proto_klio_wal_proto_init() }
+func file_proto_klio_wal_proto_init() {
+	if File_proto_klio_wal_proto != nil {
 		return
 	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
-			RawDescriptor: unsafe.Slice(unsafe.StringData(file_proto_wal_proto_rawDesc), len(file_proto_wal_proto_rawDesc)),
+			RawDescriptor: unsafe.Slice(unsafe.StringData(file_proto_klio_wal_proto_rawDesc), len(file_proto_klio_wal_proto_rawDesc)),
 			NumEnums:      0,
 			NumMessages:   12,
 			NumExtensions: 0,
 			NumServices:   1,
 		},
-		GoTypes:           file_proto_wal_proto_goTypes,
-		DependencyIndexes: file_proto_wal_proto_depIdxs,
-		MessageInfos:      file_proto_wal_proto_msgTypes,
+		GoTypes:           file_proto_klio_wal_proto_goTypes,
+		DependencyIndexes: file_proto_klio_wal_proto_depIdxs,
+		MessageInfos:      file_proto_klio_wal_proto_msgTypes,
 	}.Build()
-	File_proto_wal_proto = out.File
-	file_proto_wal_proto_goTypes = nil
-	file_proto_wal_proto_depIdxs = nil
+	File_proto_klio_wal_proto = out.File
+	file_proto_klio_wal_proto_goTypes = nil
+	file_proto_klio_wal_proto_depIdxs = nil
 }

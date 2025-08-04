@@ -4,17 +4,16 @@ import (
 	"context"
 
 	"github.com/cloudnative-pg/cnpg-i/pkg/identity"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-// IdentityImplementation implements IdentityServer.
-type IdentityImplementation struct {
+// identityImplementation implements IdentityServer.
+type identityImplementation struct {
 	identity.UnimplementedIdentityServer
-	Client client.Client
+	capabilities []*identity.PluginCapability
 }
 
 // GetPluginMetadata implements IdentityServer.
-func (i IdentityImplementation) GetPluginMetadata(
+func (i identityImplementation) GetPluginMetadata(
 	_ context.Context,
 	_ *identity.GetPluginMetadataRequest,
 ) (*identity.GetPluginMetadataResponse, error) {
@@ -22,32 +21,15 @@ func (i IdentityImplementation) GetPluginMetadata(
 }
 
 // GetPluginCapabilities implements IdentityServer.
-func (i IdentityImplementation) GetPluginCapabilities(
+func (i identityImplementation) GetPluginCapabilities(
 	_ context.Context,
 	_ *identity.GetPluginCapabilitiesRequest,
 ) (*identity.GetPluginCapabilitiesResponse, error) {
-	return &identity.GetPluginCapabilitiesResponse{
-		Capabilities: []*identity.PluginCapability{
-			{
-				Type: &identity.PluginCapability_Service_{
-					Service: &identity.PluginCapability_Service{
-						Type: identity.PluginCapability_Service_TYPE_BACKUP_SERVICE,
-					},
-				},
-			},
-			{
-				Type: &identity.PluginCapability_Service_{
-					Service: &identity.PluginCapability_Service{
-						Type: identity.PluginCapability_Service_TYPE_METRICS,
-					},
-				},
-			},
-		},
-	}, nil
+	return &identity.GetPluginCapabilitiesResponse{Capabilities: i.capabilities}, nil
 }
 
 // Probe implements IdentityServer.
-func (i IdentityImplementation) Probe(
+func (i identityImplementation) Probe(
 	_ context.Context,
 	_ *identity.ProbeRequest,
 ) (*identity.ProbeResponse, error) {

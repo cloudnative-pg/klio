@@ -4,6 +4,8 @@ metadata:
   name: cluster-example
 spec:
   instances: 3
+  imagePullPolicy: Always
+  
   postgresql:
     pg_hba:
       - local replication all peer

@@ -13,21 +13,19 @@ import (
 	"github.com/cloudnative-pg/machinery/pkg/log"
 	pgTime "github.com/cloudnative-pg/machinery/pkg/postgres/time"
 	"github.com/cloudnative-pg/machinery/pkg/types"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/cloudnative-pg/klio/core/internal/client/klioclient/common"
 )
 
-// BackupServiceImplementation is the implementation
+// backupServiceImplementation is the implementation
 // of the Backup CNPG capability.
-type BackupServiceImplementation struct {
-	Client       client.Client
+type backupServiceImplementation struct {
 	InstanceName string
 	backup.UnimplementedBackupServer
 }
 
 // GetCapabilities implements the Backup service interface.
-func (b BackupServiceImplementation) GetCapabilities(
+func (b backupServiceImplementation) GetCapabilities(
 	_ context.Context, _ *backup.BackupCapabilitiesRequest,
 ) (*backup.BackupCapabilitiesResult, error) {
 	log.Info("receiving backup capabilities call")
@@ -45,7 +43,7 @@ func (b BackupServiceImplementation) GetCapabilities(
 }
 
 // Backup implements the Backup interface.
-func (b BackupServiceImplementation) Backup(
+func (b backupServiceImplementation) Backup(
 	ctx context.Context,
 	_ *backup.BackupRequest,
 ) (*backup.BackupResult, error) {

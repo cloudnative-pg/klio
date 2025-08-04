@@ -2,7 +2,7 @@
 // versions:
 // - protoc-gen-go-grpc v1.5.1
 // - protoc             v6.30.2
-// source: proto/wal.proto
+// source: proto/klio_wal.proto
 
 package grpc
 
@@ -266,5 +266,5 @@ var WAL_ServiceDesc = grpc.ServiceDesc{
 			ServerStreams: true,
 		},
 	},
-	Metadata: "proto/wal.proto",
+	Metadata: "proto/klio_wal.proto",
 }

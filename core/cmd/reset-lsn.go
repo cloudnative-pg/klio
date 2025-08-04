@@ -9,7 +9,7 @@ import (
 	"github.com/spf13/viper"
 	"gopkg.in/validator.v2"
 
-	"github.com/cloudnative-pg/klio/core/cmd/clierrors"
+	"github.com/cloudnative-pg/klio/core/internal/cli"
 	"github.com/cloudnative-pg/klio/core/internal/client/klioclient/grpcclient"
 	"github.com/cloudnative-pg/klio/core/internal/client/sendwal"
 	"github.com/cloudnative-pg/klio/core/pkg/config"
@@ -36,15 +36,15 @@ var resetLSNCommand = &cobra.Command{
 		configuration.SetDefaults()
 
 		if configuration.Source == (config.SourceConfig{}) {
-			return clierrors.ErrSourceSectionIsRequired
+			return cli.ErrSourceSectionIsRequired
 		}
 
 		if configuration.Client == (config.ClientConfig{}) {
-			return clierrors.ErrClientSectionIsRequired
+			return cli.ErrClientSectionIsRequired
 		}
 
 		if configuration.Client.Wal == (config.WalRepositoryClientConfig{}) {
-			return clierrors.ErrKlioClientSectionIsRequired
+			return cli.ErrKlioClientSectionIsRequired
 		}
 
 		if errs := validator.Validate(&configuration); errs != nil {
