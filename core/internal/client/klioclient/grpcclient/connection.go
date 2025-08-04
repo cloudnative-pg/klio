@@ -41,9 +41,9 @@ func (g *grpcWALStream) Close(_ context.Context) error {
 
 // Connection represents a connection to a Klio server.
 type Connection struct {
-	cfg *config.WalRepositoryClientConfig
-
 	klioGRPC.WALClient
+
+	cfg            *config.WalRepositoryClientConfig
 	grpcConnection *grpc.ClientConn
 }
 

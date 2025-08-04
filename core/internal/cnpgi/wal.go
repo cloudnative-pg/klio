@@ -12,8 +12,9 @@ import (
 )
 
 type walServiceImplementation struct {
-	enableDebug bool
 	wal.UnimplementedWALServer
+
+	enableDebug bool
 }
 
 // GetCapabilities implements the WALService interface.

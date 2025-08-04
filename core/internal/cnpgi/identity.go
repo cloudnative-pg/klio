@@ -9,6 +9,7 @@ import (
 // identityImplementation implements IdentityServer.
 type identityImplementation struct {
 	identity.UnimplementedIdentityServer
+
 	capabilities []*identity.PluginCapability
 }
 

@@ -13,6 +13,7 @@ import (
 // restoreImpl is the implementation of the restore job hooks.
 type restoreImpl struct {
 	restore.UnimplementedRestoreJobHooksServer
+
 	PgDataPath string
 	BackupName string
 }

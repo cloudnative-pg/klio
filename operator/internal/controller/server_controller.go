@@ -18,6 +18,7 @@ import (
 // ServerReconciler reconciles a Server object.
 type ServerReconciler struct {
 	client.Client
+
 	Scheme *runtime.Scheme
 }
 

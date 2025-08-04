@@ -9,11 +9,13 @@ linters:
     - paralleltest
     - testpackage
     - wsl
+    - wsl_v5
     - err113
     - wrapcheck
     - varnamelen
     - nilnil
     - godox
+    - noinlineerr
   settings:
     lll:
       line-length: 120

@@ -24,6 +24,7 @@ type ReaderSizerCloser interface {
 // UncompressedWALReader implements a file reader and sizer for uncompressed files.
 type UncompressedWALReader struct {
 	*os.File
+
 	size int64
 }
 
@@ -55,6 +56,7 @@ func (r *UncompressedWALReader) Size() int64 {
 // using the GZIP strategy.
 type GZIPReaderSizer struct {
 	*gzip.Reader
+
 	size     int64
 	fileName string
 }

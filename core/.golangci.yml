@@ -9,11 +9,13 @@ linters:
     - paralleltest
     - testpackage
     - wsl
+    - wsl_v5
     - err113
     - wrapcheck
     - varnamelen
     - nilnil
     - godox
+    - noinlineerr
   settings:
     lll:
       line-length: 120
@@ -32,6 +34,10 @@ linters:
       - linters:
           - goconst
         path: _test\.go
+      - linters:
+          - revive
+        text: avoid meaningless package names
+        path: internal/client/klioclient/common
       - linters:
           - lll
         source: //\s*\+

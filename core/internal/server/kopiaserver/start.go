@@ -72,7 +72,7 @@ func Start(ctx context.Context, cfg *config.BaseServerConfig) error {
 		args = append(args, "--htpasswd-file="+cfg.HTPasswdFile)
 	}
 
-	kopiaServer := exec.Command(kopiaBinary, args...) //nolint:gosec
+	kopiaServer := exec.CommandContext(ctx, kopiaBinary, args...) //nolint:gosec
 	kopiaServer.Env = append(kopiaServer.Env,
 		"KOPIA_CONFIG_PATH="+configFile.Name(),
 		"KOPIA_CACHE_DIRECTORY="+cfg.CacheDirectory,

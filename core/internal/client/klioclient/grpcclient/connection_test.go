@@ -12,10 +12,11 @@ import (
 )
 
 func BenchmarkLookupSnapshotsViaKlioServer(b *testing.B) {
-	createTemporaryKlioRepo := func(_ context.Context) (*TemporaryConnection, error) {
+	createTemporaryKlioRepo := func(ctx context.Context) (*TemporaryConnection, error) {
 		dirName := b.TempDir()
 
 		conn, err := ConnectTemporary(
+			ctx,
 			log.GetLogger(),
 			&config.WalRepositoryClientConfig{
 				ClusterName: "cluster-name",

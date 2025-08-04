@@ -97,7 +97,8 @@ type Server struct {
 type ServerList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
-	Items           []Server `json:"items"`
+
+	Items []Server `json:"items"`
 }
 
 //nolint:gochecknoinits

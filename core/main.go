@@ -11,5 +11,6 @@ import (
 
 func main() {
 	cobra.EnableTraverseRunHooks = true
+
 	cmd.Execute()
 }

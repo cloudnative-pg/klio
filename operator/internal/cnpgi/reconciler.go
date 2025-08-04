@@ -9,8 +9,9 @@ import (
 
 // ReconcilerImplementation implements the capabilities needed for the CNPGI reconciliation .
 type ReconcilerImplementation struct {
-	Client client.Client
 	reconciler.UnimplementedReconcilerHooksServer
+
+	Client client.Client
 }
 
 // GetCapabilities implements the Reconciler interface.

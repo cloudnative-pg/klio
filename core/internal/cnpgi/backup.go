@@ -20,8 +20,9 @@ import (
 // backupServiceImplementation is the implementation
 // of the Backup CNPG capability.
 type backupServiceImplementation struct {
-	InstanceName string
 	backup.UnimplementedBackupServer
+
+	InstanceName string
 }
 
 // GetCapabilities implements the Backup service interface.

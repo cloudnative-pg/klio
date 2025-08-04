@@ -1,6 +1,7 @@
 package grpcclient
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"math/rand/v2"
@@ -29,6 +30,7 @@ type TemporaryConnection struct {
 // ConnectTemporary creates a connection to a local Kopia repository, creating it
 // if not initialized.
 func ConnectTemporary(
+	ctx context.Context,
 	logger log.Logger,
 	cfg *config.WalRepositoryClientConfig,
 	opts repository.Options,
@@ -46,7 +48,8 @@ func ConnectTemporary(
 		return nil, fmt.Errorf("cannot open local repository: %w", err)
 	}
 
-	listener, err := net.Listen("tcp", address)
+	lc := &net.ListenConfig{}
+	listener, err := lc.Listen(ctx, "tcp", address)
 	if err != nil {
 		return nil, fmt.Errorf("cannot listen on TCP socket: %w", err)
 	}

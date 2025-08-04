@@ -14,6 +14,7 @@ import (
 // deleted after the client is closed.
 type TemporaryConnection struct {
 	Connection
+
 	options LocalRepositoryOptions
 }
 

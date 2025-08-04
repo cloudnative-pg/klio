@@ -23,6 +23,7 @@ const pgdata = "/var/lib/postgresql/data/pgdata"
 // LifecycleImplementation is the implementation of the lifecycle handler.
 type LifecycleImplementation struct {
 	lifecycle.UnimplementedOperatorLifecycleServer
+
 	Client client.Client
 }
 
