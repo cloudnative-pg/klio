@@ -49,7 +49,7 @@ func (m *Devenv) Kubernetes(
 	skopeoImage string,
 // renovate image: datasource=docker depName=k3s lookupName=rancher/k3s versioning=docker
 // +default="rancher/k3s:v1.33.3-k3s1"
-	k3sImage string,
+	k3SImage string,
 // renovate image: datasource=docker depName=alpine/k8s versioning=docker
 // +default="alpine/k8s:1.33.3"
 	alpineK8S string,
@@ -107,7 +107,7 @@ func (m *Devenv) Kubernetes(
 	}
 
 	k3s := dag.K3S("k3s-test", dagger.K3SOpts{
-		Image: k3sImage,
+		Image: k3SImage,
 	})
 	_, err = k3s.
 		With(func(k *dagger.K3S) *dagger.K3S {
