@@ -41,15 +41,19 @@ Kopia
 Kubebuilder
 Kubernetes
 Kustomize
+LVM
 Liveness
 LocalObjectReference
+Namespaces
 NetworkPolicies
 NodeSelector
 OCI
 ObjectMeta
+OpenEBS
 OpenShift
 PGData
 PITR
+PV
 PersistentVolumeClaimSpec
 PullPolicy
 PutRequest
@@ -72,6 +76,7 @@ TLSSecretName
 TODO
 Taskfile
 Tolerations
+TopoLVM
 TrueClass
 UTF
 UnDeploy
@@ -136,6 +141,7 @@ metricsService
 metricsServiceSecret
 nameOverride
 namespace
+namespaces
 networkPolicy
 nodeSelector
 pgdata

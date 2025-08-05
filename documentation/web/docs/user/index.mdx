@@ -15,7 +15,7 @@ Kubernetes. It is designed to handle:
 
 These critical backup artifacts are stored across two distinct storage tiers:
 
-- Tier 1 – **Local Volume**: A local Persistent Volume Claim (PVC) within the
+- Tier 1 – **Local Volume**: A local Persistent Volume (PV) within the
   same namespace as the associated `Cluster` resource. It offers immediate,
   high-throughput access for backup and recovery operations. Also referred to as
   the **Main Tier** or **Klio Server**.
