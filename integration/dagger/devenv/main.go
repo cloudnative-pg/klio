@@ -141,7 +141,7 @@ EOF`}).
 			"https://github.com/cert-manager/cert-manager/releases/download/v1.18.0/cert-manager.yaml"}).
 		WithExec([]string{"kubectl", "rollout", "status", "deployment", "-n", "cert-manager", "cert-manager-webhook"}).
 		WithExec([]string{"sh", "-c", "helm uninstall --wait --ignore-not-found klio -n cnpg-system || true"}).
-		WithExec([]string{"sh", "-c", "helm upgrade -i --wait --create-namespace --namespace cnpg-system --set controllerManager.container.image.repository=registry.dev:5000/klio-operator-testing --set controllerManager.container.image.tag=dev klio /operator/dist/chart"}).
+		WithExec([]string{"sh", "-c", "helm upgrade -i --wait --create-namespace --namespace cnpg-system --set controllerManager.manager.image.repository=registry.dev:5000/klio-operator-testing --set controllerManager.manager.image.tag=dev --set prometheus.enable=false klio /operator/dist/chart"}).
 		Terminal()
 
 	return kubectlCtr, nil
