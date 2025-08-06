@@ -15,6 +15,7 @@ var (
 
 type pluginConfiguration struct {
 	ServerAddress    string
+	ClusterName      string
 	ClientSecretName string
 	ServerSecretName string
 	BackupName       string
@@ -34,7 +35,15 @@ func newConfigFromCluster(cluster *cnpgv1.Cluster) (*pluginConfiguration, error)
 		break
 	}
 
-	return parsePluginConfiguration(rawConf)
+	cfg, err := parsePluginConfiguration(rawConf)
+	if err != nil {
+		return nil, fmt.Errorf("error while parsing plugin configuration: %w", err)
+	}
+	if cfg.ClusterName == "" {
+		cfg.ClusterName = cluster.Name
+	}
+
+	return cfg, nil
 }
 
 func parsePluginConfiguration(rawConf *cnpgv1.PluginConfiguration) (*pluginConfiguration, error) {
@@ -71,6 +80,9 @@ func parsePluginConfiguration(rawConf *cnpgv1.PluginConfiguration) (*pluginConfi
 
 	// not mandatory, so we don't return an error if it's missing
 	conf.BackupName, _ = getParameter(rawConf, "backupName")
+
+	// not mandatory, so we don't return an error if it's missing
+	conf.ClusterName, _ = getParameter(rawConf, "clusterName")
 
 	return &conf, nil
 }

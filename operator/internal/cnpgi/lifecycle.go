@@ -120,6 +120,12 @@ func (impl LifecycleImplementation) reconcileJob(
 		return nil, errors.New("no backupName specified")
 	}
 
+	if cfg.ClusterName == "" {
+		contextLogger.Debug("no cluster name specified in the configuration, using default cluster name", "clusterName",
+			cluster.Name)
+		cfg.ClusterName = cluster.Name
+	}
+
 	var job batchv1.Job
 	if err := decoder.DecodeObjectStrict(
 		request.GetObjectDefinition(),
@@ -320,7 +326,7 @@ func reconcilePodSpec(
 			{Name: "SOURCE_SLOT", Value: "klio"},
 			{Name: "CLIENT_BASE_URL", Value: "https://" + net.JoinHostPort(cfg.pluginConf.ServerAddress, "51515")},
 			{Name: "CLIENT_BASE_SERVER_CERT_PATH", Value: "/certs/tls.crt"},
-			{Name: "CLIENT_BASE_HOSTNAME", Value: cluster.Name},
+			{Name: "CLIENT_BASE_HOSTNAME", Value: cfg.pluginConf.ClusterName},
 			{Name: "CLIENT_BASE_USERNAME", ValueFrom: &corev1.EnvVarSource{
 				SecretKeyRef: &corev1.SecretKeySelector{
 					LocalObjectReference: corev1.LocalObjectReference{
@@ -338,7 +344,7 @@ func reconcilePodSpec(
 				},
 			}},
 			{Name: "CLIENT_WAL_ADDRESS", Value: net.JoinHostPort(cfg.pluginConf.ServerAddress, "52000")},
-			{Name: "CLIENT_WAL_CLUSTER_NAME", Value: cluster.Name},
+			{Name: "CLIENT_WAL_CLUSTER_NAME", Value: cfg.pluginConf.ClusterName},
 			{Name: "CLIENT_WAL_SERVER_CERT_PATH", Value: "/certs/tls.crt"},
 			{Name: "CLIENT_WAL_USERNAME", ValueFrom: &corev1.EnvVarSource{
 				SecretKeyRef: &corev1.SecretKeySelector{
