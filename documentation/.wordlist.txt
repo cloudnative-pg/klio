@@ -59,6 +59,8 @@ PullPolicy
 PutRequest
 PutResult
 RBAC
+RPO
+RTO
 RequestWALStart
 RequestWALStartRequest
 RequestWALStartResult
@@ -144,6 +146,7 @@ namespace
 namespaces
 networkPolicy
 nodeSelector
+observability
 pgdata
 podSecurityContext
 postgres
