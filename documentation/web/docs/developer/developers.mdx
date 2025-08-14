@@ -67,51 +67,46 @@ dagger call protoc --source . -o internal/grpc
 Given the following configuration file in `/home/klio/.klio.yaml`:
 
 ```yaml
-klio_server:
+wal:
   listen_address: 0.0.0.0:52000
-  server_cert_path: /home/ubuntu/klio_data/server.crt
-  server_key_path: /home/ubuntu/klio_data/server.key
-  wal_path: /home/ubuntu/klio_data/wals
-  password: thispassword
+  tls_cert: /home/klio/server.crt
+  tls_key: /home/klio/server.key
+  path: /home/klio/klio_data/wals
+  encryption_password: cicciopasticcio
+  htpasswd_file: /home/klio/klio_data/htpasswd
+
+base:
+  repository: /home/klio/klio_data/base
+  cache: /home/klio/klio_data/base
+  encryption_password: thispassword
+  tls_cert: /home/klio/server.crt
+  tls_key: /home/klio/server.key
+  listen_address: 0.0.0.0:52000
+  htpasswd_file: /home/klio/klio_data/htpasswd
+  admin_user: kopia
+  admin_password: cicciopasticcio
 ```
 
-A new Klio WAL repository can be bootstrapped with:
+A new Klio repository for both WAL and base backups can be bootstrapped with:
 
 ```sh
 openssl req -x509 -newkey rsa:4096 -sha256 -days 3650 \
   -nodes -keyout server.key -out server.crt -subj "/CN=klio-server" \
   -addext "subjectAltName=DNS:klio-server,IP:127.0.0.1"
 
-~/klio initialize
+~/klio server initialize
 ```
 
-To initialize the PGData repository:
+The Klio WAL server can be started with:
 
 ```sh
-~/kopia repository create filesystem --path=/home/ubuntu/klio_data/pgdata
-
-~/kopia repository connect filesystem --path=/home/ubuntu/klio_data/pgdata
-
-~/kopia policy set --global --compression=zstd
+~/klio server start-wal
 ```
 
-The WAL server can be started with:
+The Klio base server can be started with:
 
 ```sh
-~/klio serve
-```
-
-The Kopia server can be started with:
-
-```sh
-~/kopia server start \
-  --address=https://0.0.0.0:51515 \
-  --server-username=klio@cluster-example \
-  --server-password=CHANGE_ME_KOPIA_PASSWORD \
-  --server-control-username=klio \
-  --server-control-password=CHANGE_ME_KOPIA_PASSWORD \
-  --tls-cert-file=/home/ubuntu/klio_data/server.crt \
-  --tls-key-file=/home/ubuntu/klio_data/server.key
+~/klio server start-base
 ```
 
 ## How to setup manually a Klio client
@@ -120,21 +115,25 @@ Given the following configuration file in `/var/lib/postgresql/.klio.yaml`:
 
 ```yaml
 client:
-  klio:
-    address: 52.29.253.97:52000
-    cluster_name: cluster-example
-    server_cert_path: /tmp/server.crt
+  wal:
+    server_cert_path: /home/klio/server.crt
+    address: klio-server:52000
+    cluster_name: pg-dev-1
     username: klio
-    password: at2leeyomooduZu8KeR6
-  kopia:
-    base_url: https://52.29.253.97:51515
-    hostname: cluster-example
+    password: cicciopasticcio
+
+  base:
+    url: https://klio-server:52001
+    server_cert_path: /home/klio/server.crt
+    hostname: pg-dev-1
     username: klio
-    password: at2leeyomooduZu8KeR6
-    trusted_server_certificate_fingerprint: DB89F46B52E26489AE85063B434144182588722AE6FE63AE557D489E319C6A9F
+    password: cicciopasticcio
+    slot: klio
+    trusted_server_certificate_fingerprint: FF9966B2C8C96E21854C1638DD174C957A7087DA864A5254B9E94EA3CB54839B
 
 source:
-  dsn: host=/var/run/postgresql user=postgres replication=yes application_name=klio
+  dsn: "user=postgres replication=yes"
+  standard_dsn: "dbname=postgres"
   slot: klio
 ```
 
@@ -154,22 +153,37 @@ This section provides instructions to setup a testing environment for Klio using
   * 1x VM for Klio server
   * 1x VM for the original PostgreSQL server
   * 1x VM for the replica PostgreSQL server
-2. Download Klio package from [goreleaser workflow](https://github.com/EnterpriseDB/klio/actions/workflows/goreleaser.yml)
+
+2. Download the Klio package from the [latest release](https://github.com/EnterpriseDB/klio/releases/latest)
+   or build the Klio binary:
+
+   ```sh
+   task core:goreleaser-snapshot
+   ```
+
+3. Copy the Klio binary to each server:
+
+   Adjust VM names and user according to your environment.
+   ```sh
+   vms=("pg-origin" "pg-dest" "klio-server")
+   user=root
+
+   for vm in "${vms[@]}"; do scp core/dist/klio_linux_amd64_v1/klio ${user}@${vm}:/tmp; done
+   ```
 
 ### Setup VM for Klio Server
 
-1. Upload the Klio package to the Klio server VM:
+1. Upgrade and install packages on Klio Server VM:
 
-  ``` sh
-  scp klio_0.0.0~SNAPSHOT-3667ea5_amd64.deb root@klio-server:
-  ```
+  ```sh
+  # Connect to VM through SSH
+  ssh root@klio-server
 
-2. On the Klio server VM, as `root`:
-
-  ``` sh
-  # Update and install packages
+  # Update packages list and upgrade system
   apt update && apt upgrade -y
-  apt install htop vim curl gpg -y
+
+  # Install utils
+  apt install htop vim curl gpg apache2-utils -y
 
   # Install Kopia
   curl -s https://kopia.io/signing-key \
@@ -179,128 +193,121 @@ This section provides instructions to setup a testing environment for Klio using
     | tee /etc/apt/sources.list.d/kopia.list
 
   apt update && apt install kopia -y
-
-  # Install Klio from package
-  dpkg -i klio_0.0.0~SNAPSHOT-3667ea5_amd64.deb
   ```
 
-3. Setup Klio
+2. Setup Klio Server:
 
-  ``` sh
+  ```sh
   # Create klio user
   useradd -s /bin/bash -m klio
 
-  # Create directory and change owner
-  mkdir -p /var/lib/klio
-  chown klio:klio /var/lib/klio
-
-  # Become klio user
+  # Become klio
   su - klio
 
-  # Create klio configuration
-  cat <<EOF > /home/klio/.klio.yaml
-  klio_server:
-    listen_address: 0.0.0.0:52000
-    server_cert_path: /home/klio/server.crt
-    server_key_path: /home/klio/server.key
-    wal_path: /var/lib/klio/wals
-    password: pippopaperino # NOTE: authentication is currently not used, but it is required for the configuration
-  EOF
+  # Copy klio binary into klio home
+  cp /tmp/klio .
 
-  # Initialize the repository
-  klio initialize
-  ```
-
-4. Create the TLS certificate for Klio and Kopia as `klio` user
-
-  ``` sh
-  # Become klio user
-  su - klio
+  # Create Klio data directory
+  mkdir klio_data
 
   # Generate server.crt and server.key certificates
   openssl req -x509 -newkey rsa:4096 -sha256 -days 3650 \
     -nodes -keyout server.key -out server.crt -subj "/CN=klio-server" \
     -addext "subjectAltName=DNS:klio-server,IP:127.0.0.1"
+
+  # Create the Klio Server config file in klio home
+  cat <<EOF > .klio.yaml
+wal:
+  listen_address: 0.0.0.0:52000
+  tls_cert: /home/klio/server.crt
+  tls_key: /home/klio/server.key
+  path: /home/klio/klio_data/wals
+  encryption_password: cicciopasticcio
+  htpasswd_file: /home/klio/klio_data/htpasswd
+
+base:
+  repository: /home/klio/klio_data/base
+  cache: /home/klio/klio_data/base
+  encryption_password: thispassword
+  tls_cert: /home/klio/server.crt
+  tls_key: /home/klio/server.key
+  listen_address: 0.0.0.0:52001
+  htpasswd_file: /home/klio/klio_data/htpasswd
+  admin_user: kopia
+  admin_password: cicciopasticcio
+EOF
+
+  # Initialize Klio repository
+  ./klio server initialize
+
+  # Create the user:password htpasswd file
+  htpasswd -Bbn klio@pg-origin cicciopasticcio | tee klio_data/htpasswd
   ```
 
-5. Setup Kopia repository as `klio` user
+3. Start the klio servers on separate terminals:
 
-  ``` sh
-  # Become klio user
-  su - klio
+  ```sh
+  # Start kopia server
+  ./klio server start-base
 
-  # Create repository and choose a password (e.g. "cicciopasticcio")
-  kopia repository create filesystem --path=/var/lib/klio/pgdata
-  Enter password to create new repository: cicciopasticcio
-  Re-enter password for verification: cicciopasticcio
-
-  # Connect to the repository using the password created in the previous step
-  kopia repository connect filesystem --path=/var/lib/klio/pgdata
-  Enter password to open repository: cicciopasticcio
-
-  # Set policy for compression
-  kopia policy set --global --compression=zstd
+  # Start klio server for wal
+  ./klio server start-wal
   ```
+OR create the systemd services:
 
-6. Create systemd services for Kopia and Klio as `root`
-
-  ``` sh
-  # Create Kopia service for systemd
-  cat <<EOF > /etc/systemd/system/kopia.service
+  ```sh
+  # Create Klio base service for systemd
+  cat <<EOF > /etc/systemd/system/klio-base.service
   [Unit]
-  Description=Kopia Server Tier-1
+  Description=Klio Server for Backup Tier-1
 
   [Service]
-  ExecStart=/usr/bin/kopia server start \
-    --address=https://0.0.0.0:51515 \
-    --server-control-username=kopia \
-    --server-control-password=CHANGE_ME_KOPIA_PASSWORD \
-    --tls-cert-file=/home/klio/server.crt \
-    --tls-key-file=/home/klio/server.key
+  ExecStart=/home/klio/klio server start-base --debug
   User=klio
   Group=klio
   Restart=always
 
   [Install]
   WantedBy=multi-user.target
-  EOF
+EOF
 
-  # Create Klio service for systemd
-  cat <<EOF > /etc/systemd/system/klio.service
+  # Create Klio wal service for systemd
+  cat <<EOF > /etc/systemd/system/klio-wal.service
   [Unit]
-  Description=Klio Server
+  Description=Klio Server for WAL Tier-1
 
   [Service]
-  ExecStart=/usr/bin/klio serve --debug
+  ExecStart=/home/klio/klio server start-wal --debug
   User=klio
   Group=klio
   Restart=always
 
   [Install]
   WantedBy=multi-user.target
-  EOF
+EOF
 
   # Enable both services
   systemctl daemon-reload
-  systemctl enable --now kopia
-  systemctl enable --now klio
+  systemctl enable --now klio-base
+  systemctl enable --now klio-wal
   ```
 
-### Setup VM for `pg-origin` server
+4. Optional: browse kopia server at https://klio-server:52001, login using:
 
-1. Upload the Klio package and server certificate to the `pg-origin` VM
+- username: `kopia`
+- password: `cicciopasticcio`
 
-  ``` sh
-  scp klio_0.0.0~SNAPSHOT-3667ea5_amd64.deb root@pg-origin:
+### Setup VM for PostgreSQL source server called `pg-origin`
 
-  # Copy the `server.crt` certificate into pg-origin VM
-  ssh root@pg-origin "mkdir /etc/klio"
-  scp server.crt root@pg-origin:/etc/klio/
+1. Upload the Klio server certificate to the `pg-origin` VM
+
+  ```sh
+  scp server.crt root@pg-origin:/tmp/
   ```
 
-2. On the `pg-origin` VM as `root`
+2. Setup the PostgreSQL source VM as `root`:
 
-  ``` sh
+  ```sh
   # Update and install packages
   apt update && apt upgrade -y
   apt install htop vim curl gpg -y
@@ -310,128 +317,113 @@ This section provides instructions to setup a testing environment for Klio using
   /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -y
   apt update
   apt install postgresql-17 -y
-
-  # Install Klio from package
-  dpkg -i klio_0.0.0~SNAPSHOT-3667ea5_amd64.deb
   ```
 
-3. Create the Kopia user in the Klio server VM as `klio` user
+3. Setup Klio client in PostgreSQL source VM as `root`:
 
-  ``` sh
-  # Become klio
-  su - klio
+  ```sh
+  # Set klio up
+  mv /tmp/server.crt /var/lib/postgresql/
+  mv /tmp/klio /bin/klio
 
-  # Passing the password set during the repository creation,
-  # choose the password for the klio@pg-origin user
-  kopia server user add klio@pg-origin -p cicciopasticcio
-  Enter new password for user klio@pg-origin: pippopaperino
-  Re-enter password for verification: pippopaperino
-
-  # Restart the kopia service as root
-  systemctl restart kopia.service
-  ```
-
-4. Setup Klio client in `pg-origin` VM as `root`
-
-  ``` sh
   # Generate fingerprint and copy it for later
-  openssl x509 -in /etc/klio/server.crt -text -fingerprint -sha256 \
+  openssl x509 -in /var/lib/postgresql/server.crt -text -fingerprint -sha256 \
     | grep Fingerprint | awk -F'=' '{print $2}' | tr -d ':'
 
   # Save the output fingerprint for later
   82205DCAD182AF72534B0735AF13CD24333DE6931C66E156A452F78B745C31BD
 
   # Create the Klio configuration
-  cat <<EOF > /etc/klio/klio.yaml
-  client:
-    klio:
-      address: klio-server:52000
-      cluster_name: pg-origin
-      server_cert_path: /etc/klio/server.crt
-      username: klio
-      password: at2leeyomooduZu8KeR6 # NOTE: the password field is currently not being used as we are doing cert authentication
-    kopia:
-      base_url: https://klio-server:51515
-      hostname: pg-origin
-      username: klio
-      password: pippopaperino
-      trusted_server_certificate_fingerprint: 82205DCAD182AF72534B0735AF13CD24333DE6931C66E156A452F78B745C31BD
+  cat <<EOF > /var/lib/postgresql/klio.yaml
+client:
+  wal:
+    server_cert_path: /var/lib/postgresql/server.crt
+    address: klio-server:52000
+    cluster_name: pg-origin
+    username: klio
+    password: cicciopasticcio
 
-  source:
-    dsn: host=/var/run/postgresql user=postgres replication=yes application_name=klio
-    standard_dsn: host=/var/run/postgresql user=postgres application_name=klio
+  base:
+    url: https://klio-server:52001
+    server_cert_path: /var/lib/postgresql/server.crt
+    hostname: pg-origin
+    username: klio
+    password: cicciopasticcio
     slot: klio
-  EOF
+    trusted_server_certificate_fingerprint: 82205DCAD182AF72534B0735AF13CD24333DE6931C66E156A452F78B745C31BD
+
+source:
+  dsn: "user=postgres replication=yes"
+  standard_dsn: "dbname=postgres"
+  slot: klio
+EOF
+
+  # Give the right owner to the created file
+  chown postgres:postgres /var/lib/postgresql/klio.yaml
+  chown postgres:postgres /var/lib/postgresql/server.crt
 
   # Add klio server in /etc/hosts
   echo "192.168.5.89    klio-server" >> /etc/hosts
 
   # Create the systemd service for the klio send-wal
   cat <<EOF > /etc/systemd/system/klio-send-wal.service
-
   [Unit]
   Description=Klio Send WAL
 
   [Service]
-  ExecStart=/usr/bin/klio send-wal --config=/etc/klio/klio.yaml --debug
+  ExecStart=/bin/klio send-wal --config=/var/lib/postgresql/klio.yaml --debug
   User=postgres
   Group=postgres
   Restart=always
 
   [Install]
   WantedBy=multi-user.target
-  EOF
+EOF
 
   # Enable the service
   systemctl daemon-reload
   systemctl enable --now klio-send-wal.service
   ```
 
-5. Ensure PostgreSQL and Klio are working correctly
+4. Ensure PostgreSQL and Klio are working correctly
 
-  ``` sh
+  ```sh
   systemctl status postgresql@17-main.service
 
   # Send remote command to klio-server through ssh
-  ssh root@klio-server "ls -l /var/lib/klio/wals/pg-origin/"
-  total 4
-  drwxr-x--- 2 klio klio 4096 May 29 14:09 0000000100000000
+  ssh root@klio-server "ls /home/klio/klio_data/wals/pg-origin/0000000100000000/*"
+  /home/klio/klio_data/wals/pg-origin/0000000100000000/000000010000000000000001
+  /home/klio/klio_data/wals/pg-origin/0000000100000000/000000010000000000000002
+  /home/klio/klio_data/wals/pg-origin/0000000100000000/000000010000000000000003
   ```
 
-6. Take the first backup as `postgres` user and verify in the klio server
+5. Take the first backup as `postgres` user and verify in the klio server
 
-  ``` sh
+  ```sh
   # Become postgres
   su - postgres
 
   # Take the backup
-  klio backup --config /etc/klio/klio.yaml
+  klio backup run --config ./klio.yaml --name mybackup
 
-  # Connect to klio-server through ssh
-  ssh root@klio-server
-
-  # Become klio user
-  su - klio
-
-  # Exec snapshot list with kopia
-  kopia snapshot list --all
+  # Check backup metadata
+  klio backup get-metadata mybackup --config klio.yaml
   ```
+
+6. Optional: browse kopia web and verify the snapshots list: https://klio-server:52001/snapshots.
+   In the dropdown menu at the top-left corner, choose `klio@pg-origin` or select `All snapshots`.
 
 ### Setup VM for `pg-dest` server
 
-1. Upload the Klio package and server certificate to the `pg-dest` VM
+1. Upload the Klio server certificate to the PostgreSQL destination server called `pg-dest`:
 
-  ``` sh
-  scp klio_0.0.0~SNAPSHOT-3667ea5_amd64.deb root@pg-dest:
-
-  # Copy the `server.crt` certificate into pg-dest VM
-  ssh root@pg-dest "mkdir /etc/klio"
-  scp server.crt root@pg-dest:/etc/klio/
+  ```sh
+  scp server.crt root@pg-dest:/tmp/
   ```
 
-2. On the `pg-dest` VM as `root`
+2. On the PostgreSQL destination VM as `root`:
 
-  ``` sh
+  ```sh
   # Update and install packages
   apt update && apt upgrade -y
   apt install htop vim curl gpg -y
@@ -441,55 +433,67 @@ This section provides instructions to setup a testing environment for Klio using
   /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -y
   apt update
   apt install postgresql-17 -y
-
-  # Install Klio from package
-  dpkg -i klio_0.0.0~SNAPSHOT-3667ea5_amd64.deb
   ```
 
 3. Setup klio client
 
-  ``` sh
+  ```sh
+  # Set klio up
+  mv /tmp/server.crt /var/lib/postgresql/
+  mv /tmp/klio /bin/klio
+
   # Generate fingerprint and copy it for later
-  openssl x509 -in /etc/klio/server.crt -text -fingerprint -sha256 \
+  openssl x509 -in /var/lib/postgresql/server.crt -text -fingerprint -sha256 \
     | grep Fingerprint | awk -F'=' '{print $2}' | tr -d ':'
   82205DCAD182AF72534B0735AF13CD24333DE6931C66E156A452F78B745C31BD
 
   # Create klio client config file
-  cat <<EOF > /etc/klio/klio-origin.yaml
-  client:
-    klio:
-      address: klio-server:52000
-      cluster_name: pg-origin
-      server_cert_path: /etc/klio/server.crt
-      username: klio
-      password: at2leeyomooduZu8KeR6 # NOTE: the password field is currently not being used as we are doing cert authentication
-    kopia:
-      base_url: https://klio-server:51515
-      hostname: pg-origin
-      username: klio
-      password: pippopaperino
-      trusted_server_certificate_fingerprint: 82205DCAD182AF72534B0735AF13CD24333DE6931C66E156A452F78B745C31BD
-  EOF
+  cat <<EOF > /var/lib/postgresql/klio.yaml
+client:
+  wal:
+    server_cert_path: /var/lib/postgresql/server.crt
+    address: klio-server:52000
+    cluster_name: pg-origin
+    username: klio
+    password: cicciopasticcio
+
+  base:
+    url: https://klio-server:52001
+    server_cert_path: /var/lib/postgresql/server.crt
+    hostname: pg-origin
+    username: klio
+    password: cicciopasticcio
+    slot: klio
+    trusted_server_certificate_fingerprint: 82205DCAD182AF72534B0735AF13CD24333DE6931C66E156A452F78B745C31BD
+
+source:
+  dsn: "user=postgres replication=yes"
+  standard_dsn: "dbname=postgres"
+  slot: klio
+EOF
+
+  # Give the right owner to the created file
+  chown postgres:postgres /var/lib/postgresql/klio.yaml
+  chown postgres:postgres /var/lib/postgresql/server.crt
 
   # Add klio server in /etc/hosts
   echo "192.168.5.89    klio-server" >> /etc/hosts
   ```
 
-4. From the Klio server VM as `klio` user
+4. Get the backup name from the web interface: https://klio-server:52001/snapshots
 
-  ``` sh
-  # Become klio
-  su - klio
+   Click on `/var/lib/postgresql/17/main`.
+   ```
+   E.g.:
+   "Displaying 1 snapshots of klio@pg-origin:/var/lib/postgresql/17/main"
 
-  # Get the backup name using kopia binary
-  kopia manifest show $(kopia manifest list | grep pgdata | awk '{print $1}') \
-    | grep tag\": | awk -F':' '{print $2}'
-   "20250529143726"
-  ```
+   k34c6bff9edd4d4c18c1d5a5ced406754
+   {"name":"20250808184523","startLsn":10754195496,"endLsn":10754195800,"startWal":"000000010000000200000081",[...]
+   ```
 
 5. Setup PostgreSQL for replication
 
-  ``` sh
+  ```sh
   # Stop PostgreSQL server
   systemctl stop postgresql@17-main.service
 
@@ -498,13 +502,13 @@ This section provides instructions to setup a testing environment for Klio using
   rm -rf /var/lib/postgresql/17/main/*
 
   # Restore the pg-origin backup in the destination path as postgres user
-  klio restore --config=/etc/klio/klio-origin.yaml 20250529143726 /var/lib/postgresql/17/main
+  klio restore --config=/var/lib/postgresql/klio.yaml 20250808184523 /var/lib/postgresql/17/main
 
   # Create a standby.signal file (as postgres user)
   touch /var/lib/postgresql/17/main/standby.signal
 
   # Set the restore_command option in the PostgreSQL configuration
-  restore_command = '/usr/bin/klio --config /etc/klio/klio-origin.yaml get-wal %f %p --partial=true --debug'
+  restore_command = '/bin/klio --config /var/lib/postgresql/klio.yaml get-wal %f %p --partial=true'
 
   # Start the PostgreSQL server
   systemctl start postgresql@17-main.service
@@ -517,16 +521,7 @@ This section provides instructions to setup a testing environment for Klio using
   2025-05-29 15:37:47.060 CEST [4289] LOG:  consistent recovery state reached at 0/2000158
   2025-05-29 15:37:47.060 CEST [4289] LOG:  invalid record length at 0/3000168: expected at least 24, got 0
   2025-05-29 15:37:47.060 CEST [4286] LOG:  database system is ready to accept read-only connections
-  2025/05/29 15:37:47 DEBUG Using config file configFile=/etc/klio/klio-origin.yaml
-  2025/05/29 15:37:47 DEBUG Current configuration configuration="{Source:<nil> Client:0xc0002cee50 KlioServerConfig:<nil>}"
-  2025/05/29 15:37:47 DEBUG Missing WAL file, exiting with error code 1 wal_name=00000002.history
-  2025/05/29 15:37:47 DEBUG Using config file configFile=/etc/klio/klio-origin.yaml
-  2025/05/29 15:37:47 DEBUG Current configuration configuration="{Source:<nil> Client:0xc00013e570 KlioServerConfig:<nil>}"
   2025-05-29 15:37:47.332 CEST [4289] LOG:  restored log file "000000010000000000000003" from archive
   2025-05-29 15:37:47.456 CEST [4289] LOG:  invalid record length at 0/3000168: expected at least 24, got 0
-  2025/05/29 15:37:47 DEBUG Using config file configFile=/etc/klio/klio-origin.yaml
-  2025/05/29 15:37:47 DEBUG Current configuration configuration="{Source:<nil> Client:0xc0005049a0 KlioServerConfig:<nil>}"
-  2025/05/29 15:37:47 DEBUG Missing WAL file, exiting with error code 1 wal_name=00000002.history
   2025-05-29 15:37:47.579 CEST [4289] LOG:  waiting for WAL to become available at 0/3000180
-  2025/05/29 15:37:52 DEBUG Using config file configFile=/etc/klio/klio-origin.yaml
   ```

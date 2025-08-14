@@ -104,6 +104,7 @@ auth
 benchmarking
 bool
 certmanager
+cicciopasticcio
 clientSecret
 clusterDomain
 codename
@@ -116,6 +117,7 @@ createPluginClientCertificate
 createPluginServerCertificate
 customizable
 deduplication
+dropdown
 enterprisedb
 env
 filesystem
