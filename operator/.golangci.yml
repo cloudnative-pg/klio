@@ -24,6 +24,12 @@ linters:
     varnamelen:
       ignore-names:
         - g
+    tagliatelle:
+      case:
+        overrides:
+          - pkg: pkg/config
+            rules:
+              json: snake
   exclusions:
     generated: lax
     rules:

@@ -24,6 +24,12 @@ linters:
     varnamelen:
       ignore-decls:
         - g Gomega
+    tagliatelle:
+      case:
+        overrides:
+          - pkg: pkg/config
+            rules:
+              json: snake
   exclusions:
     generated: lax
     rules:

@@ -53,7 +53,9 @@ func EnsureValidAuthentication(htpasswdFile string) (grpc.UnaryServerInterceptor
 	}
 
 	//nolint:nonamedreturns
-	return func(ctx context.Context, req any, _ *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (resp any, err error) {
+	return func(ctx context.Context, req any, _ *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (resp any,
+		err error,
+	) {
 		md, hasMetadata := metadata.FromIncomingContext(ctx)
 		if !hasMetadata {
 			return nil, errMissingMetadata

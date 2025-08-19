@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"net"
 	"strings"
 
 	cnpgv1 "github.com/cloudnative-pg/cloudnative-pg/api/v1"
@@ -14,11 +13,18 @@ import (
 	"github.com/cloudnative-pg/machinery/pkg/log"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+
+	"github.com/cloudnative-pg/klio/operator/pkg/config"
 )
 
-const pgdata = "/var/lib/postgresql/data/pgdata"
+const (
+	pgdata                     = "/var/lib/postgresql/data/pgdata"
+	klioConfigSecretNameSuffix = "-klio-config" //nolint:gosec
+)
 
 // LifecycleImplementation is the implementation of the lifecycle handler.
 type LifecycleImplementation struct {
@@ -102,28 +108,34 @@ func (impl LifecycleImplementation) reconcileJob(
 	request *lifecycle.OperatorLifecycleRequest,
 ) (*lifecycle.OperatorLifecycleResponse, error) {
 	contextLogger := log.FromContext(ctx).WithName("klio-job-lifecycle")
-	pluginConfig := cluster.GetRecoverySourcePlugin()
+	klioConfigs, err := klioConfigsFromCluster(ctx, impl.Client, cluster)
+	if err != nil {
+		contextLogger.Error(err, "Failed to get klio configuration from cluster definition")
+		return nil, err
+	}
 
-	if pluginConfig == nil || pluginConfig.Name != PluginName {
-		contextLogger.Debug("cluster does not use the this plugin for recovery, skipping")
+	recoveryPluginConfig := cluster.GetRecoverySourcePlugin()
+	if recoveryPluginConfig == nil ||
+		recoveryPluginConfig.Name != PluginName ||
+		!recoveryPluginConfig.IsEnabled() {
+		// not our plugin, skip
 		return nil, nil
 	}
-
-	cfg, err := parsePluginConfiguration(pluginConfig)
+	parsedPlugin, err := parsePluginConfiguration(recoveryPluginConfig)
 	if err != nil {
-		contextLogger.Error(err, "failed to parse plugin configuration")
-		return nil, fmt.Errorf("failed to parse plugin configuration: %w", err)
+		contextLogger.Error(err, "Failed to parse recovery plugin configuration")
+		return nil, fmt.Errorf("failed to parse recovery plugin configuration: %w", err)
 	}
-
-	if cfg.BackupName == "" {
-		contextLogger.Warning("no backup name specified in the configuration, returning error", "cfg", cfg)
+	if parsedPlugin.BackupName == "" {
+		contextLogger.Warning("no backup name specified in the configuration, returning error", "pluginConfig",
+			parsedPlugin)
 		return nil, errors.New("no backupName specified")
 	}
+	backupName := parsedPlugin.BackupName
 
-	if cfg.ClusterName == "" {
-		contextLogger.Debug("no cluster name specified in the configuration, using default cluster name", "clusterName",
-			cluster.Name)
-		cfg.ClusterName = cluster.Name
+	// Reconcile the configuration secret
+	if err := impl.reconcileKlioConfigSecret(ctx, klioConfigs, cluster); err != nil {
+		return nil, err
 	}
 
 	var job batchv1.Job
@@ -150,7 +162,7 @@ func (impl LifecycleImplementation) reconcileJob(
 	var backup cnpgv1.Backup
 	if err := impl.Client.Get(
 		ctx,
-		client.ObjectKey{Name: cfg.BackupName, Namespace: cluster.Namespace},
+		client.ObjectKey{Name: backupName, Namespace: cluster.Namespace},
 		&backup,
 	); err != nil {
 		contextLogger.Error(err, "failed to get backup object")
@@ -164,12 +176,23 @@ func (impl LifecycleImplementation) reconcileJob(
 
 	mutatedJob := job.DeepCopy()
 
-	if err := reconcilePodSpec(cluster, &mutatedJob.Spec.Template.Spec, jobRole, reconcilePodSpecConfiguration{
-		pluginConf: cfg,
-		sidecarsToEnrich: []corev1.Container{
-			{Name: "klio-plugin", Args: []string{"cnpgi", "restore", backup.Status.BackupID, pgdata}},
-		},
-	}); err != nil {
+	if err := reconcilePodSpec(
+		cluster,
+		&mutatedJob.Spec.Template.Spec,
+		jobRole,
+		reconcilePodSpecConfiguration{
+			sidecarsToEnrich: []corev1.Container{
+				{
+					Name: "klio-plugin",
+					Args: []string{
+						"cnpgi",
+						"restore",
+						backup.Status.BackupID,
+						pgdata,
+					},
+				},
+			},
+		}); err != nil {
 		return nil, fmt.Errorf("while reconciling pod spec for job: %w", err)
 	}
 
@@ -228,6 +251,42 @@ func validateBackupForRestore(backup cnpgv1.Backup) error {
 	return nil
 }
 
+// reconcileKlioConfigSecret reconciles the Klio configuration secret containing all the Klio configurations
+// files for the cluster and the external clusters.
+func (impl LifecycleImplementation) reconcileKlioConfigSecret(
+	ctx context.Context,
+	klioConfigs map[string]*config.Data,
+	cluster *cnpgv1.Cluster,
+) error {
+	contextLogger := log.FromContext(ctx).WithName("klio-config-secret")
+
+	generatedSecret, err := klioConfigsToSecret(klioConfigs, cluster)
+	if err != nil {
+		contextLogger.Error(err, "Failed to generate configuration secret from cluster definition")
+		return fmt.Errorf("error generating configuration secret from cluster definition: %w", err)
+	}
+
+	originalSecret := corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      generatedSecret.Name,
+			Namespace: generatedSecret.Namespace,
+		},
+	}
+	if _, err := controllerutil.CreateOrUpdate(
+		ctx,
+		impl.Client,
+		&originalSecret,
+		func() error {
+			originalSecret.Data = generatedSecret.Data
+			return nil
+		},
+	); err != nil {
+		return fmt.Errorf("failed to update or create configuration secret: %w", err)
+	}
+
+	return nil
+}
+
 func (impl LifecycleImplementation) reconcilePod(
 	ctx context.Context,
 	cluster *cnpgv1.Cluster,
@@ -235,18 +294,15 @@ func (impl LifecycleImplementation) reconcilePod(
 ) (*lifecycle.OperatorLifecycleResponse, error) {
 	contextLogger := log.FromContext(ctx).WithName("klio-pod-lifecycle")
 
-	cfg, err := newConfigFromCluster(cluster)
-	if errors.Is(err, errPluginNotFound) {
-		contextLogger.Debug("Plugin not found in cluster definition, skipping reconciliation")
-		return nil, nil
-	}
-	if errors.Is(err, errPluginNotEnabled) {
-		contextLogger.Debug("Plugin found but not enabled in cluster definition, skipping reconciliation")
-		return nil, nil
-	}
+	klioConfigs, err := klioConfigsFromCluster(ctx, impl.Client, cluster)
 	if err != nil {
-		contextLogger.Error(err, "Failed to create config from cluster definition")
-		return nil, fmt.Errorf("error creating config from cluster definition: %w", err)
+		contextLogger.Error(err, "Failed to get klio configuration from cluster definition")
+		return nil, err
+	}
+
+	// Reconcile the configuration secret
+	if err := impl.reconcileKlioConfigSecret(ctx, klioConfigs, cluster); err != nil {
+		return nil, err
 	}
 
 	pod, err := decoder.DecodePodJSON(request.GetObjectDefinition())
@@ -258,17 +314,39 @@ func (impl LifecycleImplementation) reconcilePod(
 		WithValues("podName", pod.Name)
 
 	mutatedPod := pod.DeepCopy()
+	// Determine the sidecars to enrich based on the klioConfigs.
+	// We add the wal sender sidecar only if the klioConfigs contain the main configuration.
+	sidecarsToEnrich := []corev1.Container{
+		{Name: "klio-plugin", Args: []string{"cnpgi", "instance"}},
+	}
+	if klioConfigs[klioArchiveConfigKey] != nil {
+		args := []string{"send-wal", "--config", "/var/lib/postgresql/klio/" + klioArchiveConfigKey}
+
+		// On designated primary pods, we disable the primary flag to enable the walsender
+		isReplicaCluster := cluster.IsReplica()
+		contextLogger.Info("isReplicaCluster", "value", isReplicaCluster, "pod", mutatedPod.Name)
+		contextLogger.Info("currentPrimary", "value", cluster.Status.CurrentPrimary, "pod", mutatedPod.Name)
+		if isReplicaCluster && cluster.Status.CurrentPrimary == mutatedPod.Name {
+			contextLogger.Info("Disabling primary flag for wal sender sidecar", "pod", mutatedPod.Name)
+			args = append(args, "--primary=false")
+		} else {
+			args = append(args, "--primary=true")
+		}
+
+		sidecarsToEnrich = append(sidecarsToEnrich,
+			corev1.Container{
+				Name: "klio-wal",
+				Args: args,
+			},
+		)
+	}
 
 	if err := reconcilePodSpec(
 		cluster,
 		&mutatedPod.Spec,
 		"postgres",
 		reconcilePodSpecConfiguration{
-			pluginConf: cfg,
-			sidecarsToEnrich: []corev1.Container{
-				{Name: "klio-wal", Args: []string{"send-wal"}},
-				{Name: "klio-plugin", Args: []string{"cnpgi", "instance"}},
-			},
+			sidecarsToEnrich: sidecarsToEnrich,
 		}); err != nil {
 		contextLogger.Error(err, "Failed to reconcile pod spec")
 		return nil, fmt.Errorf("failed to reconcile pod spec: %w", err)
@@ -287,8 +365,8 @@ func (impl LifecycleImplementation) reconcilePod(
 }
 
 type reconcilePodSpecConfiguration struct {
-	pluginConf       *pluginConfiguration
 	sidecarsToEnrich []corev1.Container
+	enablePPROF      bool
 }
 
 // reconcilePodSpec reconciles the pod spec to include the klio server sidecar and its configuration.
@@ -300,14 +378,36 @@ func reconcilePodSpec(
 	mainContainerName string,
 	cfg reconcilePodSpecConfiguration,
 ) error {
+	// Add PostgreSQL data volume and mounts
+	volumeMounts := []corev1.VolumeMount{
+		{Name: "pgdata", MountPath: "/var/lib/postgresql/data"},
+		{Name: "scratch-data", MountPath: "/controller"},
+	}
+
+	// Add the Klio configuration volume and mount
 	spec.Volumes = ensureVolume(spec.Volumes, corev1.Volume{
-		Name: "klio-server-tls",
+		Name: "klio-config",
 		VolumeSource: corev1.VolumeSource{
 			Secret: &corev1.SecretVolumeSource{
-				SecretName: cfg.pluginConf.ServerSecretName,
+				SecretName: cluster.Name + klioConfigSecretNameSuffix,
 			},
 		},
 	})
+	volumeMounts = ensureVolumeMount(volumeMounts, corev1.VolumeMount{
+		Name:      "klio-config",
+		MountPath: "/var/lib/postgresql/klio",
+	})
+
+	// Add the TLS volumes and mounts for the server secrets
+	tlsVolumesAndMounts, err := getTLSVolumesAndMounts(cluster)
+	if err != nil {
+		return fmt.Errorf("failed to get TLS volumes and mounts: %w", err)
+	}
+
+	for _, v := range tlsVolumesAndMounts {
+		spec.Volumes = ensureVolume(spec.Volumes, v.Volume)
+		volumeMounts = ensureVolumeMount(volumeMounts, v.VolumeMount)
+	}
 
 	sidecarTemplate := corev1.Container{
 		Image:           "registry.dev:5000/klio-testing:dev",
@@ -321,53 +421,16 @@ func reconcilePodSpec(
 			{Name: "PGDATA", Value: pgdata},
 			{Name: "PGHOST", Value: "/controller/run"},
 			{Name: "PGPORT", Value: "5432"},
-			{Name: "SOURCE_DSN", Value: "user=postgres replication=yes application_name=klio"},
-			{Name: "SOURCE_STANDARD_DSN", Value: "user=postgres application_name=klio"},
-			{Name: "SOURCE_SLOT", Value: "klio"},
-			{Name: "CLIENT_BASE_URL", Value: "https://" + net.JoinHostPort(cfg.pluginConf.ServerAddress, "51515")},
-			{Name: "CLIENT_BASE_SERVER_CERT_PATH", Value: "/certs/tls.crt"},
-			{Name: "CLIENT_BASE_HOSTNAME", Value: cfg.pluginConf.ClusterName},
-			{Name: "CLIENT_BASE_USERNAME", ValueFrom: &corev1.EnvVarSource{
-				SecretKeyRef: &corev1.SecretKeySelector{
-					LocalObjectReference: corev1.LocalObjectReference{
-						Name: cfg.pluginConf.ClientSecretName,
+			{
+				Name: "PODNAME",
+				ValueFrom: &corev1.EnvVarSource{
+					FieldRef: &corev1.ObjectFieldSelector{
+						FieldPath: "metadata.name",
 					},
-					Key: corev1.BasicAuthUsernameKey,
 				},
-			}},
-			{Name: "CLIENT_BASE_PASSWORD", ValueFrom: &corev1.EnvVarSource{
-				SecretKeyRef: &corev1.SecretKeySelector{
-					LocalObjectReference: corev1.LocalObjectReference{
-						Name: cfg.pluginConf.ClientSecretName,
-					},
-					Key: corev1.BasicAuthPasswordKey,
-				},
-			}},
-			{Name: "CLIENT_WAL_ADDRESS", Value: net.JoinHostPort(cfg.pluginConf.ServerAddress, "52000")},
-			{Name: "CLIENT_WAL_CLUSTER_NAME", Value: cfg.pluginConf.ClusterName},
-			{Name: "CLIENT_WAL_SERVER_CERT_PATH", Value: "/certs/tls.crt"},
-			{Name: "CLIENT_WAL_USERNAME", ValueFrom: &corev1.EnvVarSource{
-				SecretKeyRef: &corev1.SecretKeySelector{
-					LocalObjectReference: corev1.LocalObjectReference{
-						Name: cfg.pluginConf.ClientSecretName,
-					},
-					Key: corev1.BasicAuthUsernameKey,
-				},
-			}},
-			{Name: "CLIENT_WAL_PASSWORD", ValueFrom: &corev1.EnvVarSource{
-				SecretKeyRef: &corev1.SecretKeySelector{
-					LocalObjectReference: corev1.LocalObjectReference{
-						Name: cfg.pluginConf.ClientSecretName,
-					},
-					Key: corev1.BasicAuthPasswordKey,
-				},
-			}},
+			},
 		},
-		VolumeMounts: []corev1.VolumeMount{
-			{Name: "klio-server-tls", MountPath: "/certs"},
-			{Name: "pgdata", MountPath: "/var/lib/postgresql/data"},
-			{Name: "scratch-data", MountPath: "/controller"},
-		},
+		VolumeMounts: volumeMounts,
 	}
 
 	var mainContainer *corev1.Container
@@ -395,11 +458,22 @@ func reconcilePodSpec(
 		}
 	}
 
+	// If any plugin configuration has the enablePPROF parameter set to true, enable PPROF in the sidecars.
+	for _, v := range getPluginConfigurations(cluster) {
+		enablePPROF, err := tryGetBooleanParameter(v, "enablePPROF")
+		if err != nil {
+			return fmt.Errorf("failed to get enablePPROF parameter: %w", err)
+		}
+		if enablePPROF {
+			cfg.enablePPROF = true
+		}
+	}
+
 	for _, baseSidecar := range cfg.sidecarsToEnrich {
 		sidecar := sidecarTemplate.DeepCopy()
 		sidecar.Name = baseSidecar.Name
 		sidecar.Args = baseSidecar.Args
-		if cfg.pluginConf.EnablePPROF {
+		if cfg.enablePPROF {
 			sidecar.Args = append(sidecar.Args, "--pprof-server=0:6060")
 		}
 		if err := injectPluginSidecarPodSpec(spec, sidecar, mainContainerName); err != nil {
@@ -408,6 +482,57 @@ func reconcilePodSpec(
 	}
 
 	return nil
+}
+
+type volumeAndMount struct {
+	Volume      corev1.Volume
+	VolumeMount corev1.VolumeMount
+}
+
+func getTLSVolumesAndMounts(cluster *cnpgv1.Cluster) ([]volumeAndMount, error) {
+	var volumesAndMounts []volumeAndMount
+
+	pluginConfigurations := getPluginConfigurations(cluster)
+
+	for hostName, pluginConfig := range pluginConfigurations {
+		// Extract server secret name from the klio pluginConfig
+		// Assuming we can get it from the WAL repository pluginConfig or base pluginConfig
+		serverSecretName, err := getParameter(pluginConfig, "serverSecretName")
+		if err != nil {
+			return nil, err
+		}
+
+		if serverSecretName != "" {
+			volume := corev1.Volume{
+				Name: getServerSecretVolumeName(hostName),
+				VolumeSource: corev1.VolumeSource{
+					Secret: &corev1.SecretVolumeSource{
+						SecretName: serverSecretName,
+					},
+				},
+			}
+
+			volumeMount := corev1.VolumeMount{
+				Name:      getServerSecretVolumeName(hostName),
+				MountPath: getServerSecretVolumeMountPath(hostName),
+			}
+
+			volumesAndMounts = append(volumesAndMounts, volumeAndMount{
+				Volume:      volume,
+				VolumeMount: volumeMount,
+			})
+		}
+	}
+
+	return volumesAndMounts, nil
+}
+
+func getServerSecretVolumeName(hostName string) string {
+	return hostName + "-certs"
+}
+
+func getServerSecretVolumeMountPath(hostName string) string {
+	return "/certs/" + hostName
 }
 
 // TODO: move to machinery once the logic is finalized

@@ -53,7 +53,15 @@ func (b backupServiceImplementation) Backup(
 	backupName := fmt.Sprintf("backup-%v", pgTime.ToCompactISO8601(time.Now()))
 
 	contextLogger.Info("Starting Klio backup", "backupName", backupName)
-	cmd := exec.CommandContext(ctx, "klio", "backup", "run", "-n", backupName) //nolint:gosec
+	//nolint:gosec
+	cmd := exec.CommandContext(ctx,
+		"klio",
+		"backup",
+		"run",
+		"--config",
+		backupRepositoryConfigPath,
+		"-n",
+		backupName)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	if err := cmd.Run(); err != nil {
@@ -61,7 +69,15 @@ func (b backupServiceImplementation) Backup(
 	}
 
 	contextLogger.Info("Backup completed, getting metadata", "backupName", backupName)
-	cmd = exec.CommandContext(ctx, "klio", "backup", "get-metadata", backupName) //nolint:gosec
+	//nolint:gosec
+	cmd = exec.CommandContext(
+		ctx,
+		"klio",
+		"backup",
+		"get-metadata",
+		"--config",
+		backupRepositoryConfigPath,
+		backupName)
 
 	var stdout bytes.Buffer
 	cmd.Stdout = &stdout

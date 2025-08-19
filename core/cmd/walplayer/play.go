@@ -9,6 +9,7 @@ import (
 	"gopkg.in/validator.v2"
 
 	"github.com/cloudnative-pg/klio/core/internal/cli"
+	"github.com/cloudnative-pg/klio/core/internal/wal"
 	"github.com/cloudnative-pg/klio/core/internal/walplayer"
 	"github.com/cloudnative-pg/klio/core/pkg/config"
 )
@@ -50,12 +51,17 @@ var playCmd = &cobra.Command{
 			return fmt.Errorf("configuration validation error: %w", errs)
 		}
 
-		const maxBlockSizeKB = 8192
+		const (
+			bytesInKB      = 1024
+			maxBlockSizeKB = wal.MaxBlockSizeBytes / bytesInKB
+		)
 		if blockSize > maxBlockSizeKB {
-			return fmt.Errorf("block size too large: %d KB (max allowed is %d KB)", blockSize, maxBlockSizeKB)
+			return fmt.Errorf("block size too large: %d KiB (max %d KiB / %d MiB)",
+				blockSize, maxBlockSizeKB, wal.MaxBlockSizeBytes/(1024*1024),
+			)
 		}
 
-		cfg := walplayer.NewPlayer(workers, targetDirectory, blockSize*1024, &configuration.Client.Wal)
+		cfg := walplayer.NewPlayer(workers, targetDirectory, blockSize*bytesInKB, &configuration.Client.Wal)
 
 		results := cfg.Play(cmd.Context())
 
@@ -73,6 +79,6 @@ var playCmd = &cobra.Command{
 //nolint:gochecknoinits
 func init() {
 	playCmd.Flags().IntP("jobs", "j", 1, "Number of parallel jobs to use when sending WALs")
-	playCmd.Flags().Int("block-size", 2048, "Block size in KB. Defaults to 2048.")
+	playCmd.Flags().Int("block-size", 2048, "Block size in KiB. Max 8192 (8 MiB). Defaults to 2048.")
 	WalPlayerCmd.AddCommand(playCmd)
 }

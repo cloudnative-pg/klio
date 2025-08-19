@@ -1,0 +1,13 @@
+package wal
+
+// MaxBlockSizeBytes is the maximum WAL block payload size (without gRPC framing) accepted by the server.
+// Client-side commands sending WAL data must keep each message <= this size.
+const MaxBlockSizeBytes = 8 * 1024 * 1024 // 8 MiB
+
+// GRPCOverheadBytes is the extra allowance we add server-side to account for gRPC framing
+// (compressed proto headers, envelopes, etc.). Empirically sized at 512 KiB to safely
+// accommodate framing for an 8 MiB payload.
+const GRPCOverheadBytes = 512 * 1024 // 512 KiB
+
+// MaxGRPCMessageSizeBytes is the maximum total message size (payload + gRPC framing) we accept/send.
+const MaxGRPCMessageSizeBytes = MaxBlockSizeBytes + GRPCOverheadBytes

@@ -12,6 +12,7 @@ import (
 	"github.com/jackc/pglogrepl"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgproto3"
+	"go.uber.org/multierr"
 
 	"github.com/cloudnative-pg/klio/core/internal/client/klioclient/grpcclient"
 	"github.com/cloudnative-pg/klio/core/internal/client/sendwal/buffer"
@@ -135,8 +136,10 @@ func (s *Process) Start(ctx context.Context) error {
 		return err
 	}
 
-	if err := s.downloadHistoryFiles(ctx, conn, identifyData.Timeline); err != nil {
-		return fmt.Errorf("while downloading history files: %w", err)
+	// We cannot guarantee to have all the history files available, so we ignore the error.
+	// The wal receiver could have been configured later in the cluster lifecycle
+	if histErr := s.downloadHistoryFiles(ctx, conn, identifyData.Timeline); histErr != nil {
+		contextLogger.Debug("Some timeline history files could not be processed", "innerErr", histErr.Error())
 	}
 
 	if err := s.ensureReplicationSlotExists(ctx, conn); err != nil {
@@ -206,6 +209,8 @@ func (s *Process) getReplicationStartPoint(
 		SystemId:       data.SystemID,
 		CurrentWalName: clientWALFileName,
 	}
+
+	contextLogger.Info("requesting server-side replication start", "opts", opts)
 
 	serverWALFileName, err := s.client.RequestWALStart(ctx, opts)
 	if err != nil {
@@ -292,18 +297,30 @@ func (s *Process) downloadHistoryFiles(
 	conn *pgconn.PgConn,
 	currentTli int32,
 ) error {
+	var errorList error
+
+	contextLogger := log.FromContext(ctx)
 	for tli := currentTli; tli > 1; tli-- {
 		result, err := pglogrepl.TimelineHistory(ctx, conn, tli)
 		if err != nil {
-			return fmt.Errorf("while downloading history for timeline %v: %w", tli, err)
+			contextLogger.Error(err, "timeline history fetching failed, skipping", "tli", tli)
+			errorList = multierr.Append(errorList, err)
+
+			continue
 		}
 
 		if err := s.client.StoreHistoryFile(ctx, result.FileName, result.Content); err != nil {
-			return fmt.Errorf("while uploading history file: %w", err)
+			errorList = multierr.Append(errorList, err)
+			contextLogger.Error(err, "timeline history upload failed",
+				"tli", tli, "file", result.FileName)
+
+			continue
 		}
+
+		contextLogger.Info("Stored history file", "timeline", tli, "fileName", result.FileName)
 	}
 
-	return nil
+	return errorList
 }
 
 func (s *Process) startReplication(

@@ -16,6 +16,7 @@ import (
 	klioGRPC "github.com/cloudnative-pg/klio/core/internal/grpc"
 	"github.com/cloudnative-pg/klio/core/internal/server/walserver"
 	"github.com/cloudnative-pg/klio/core/internal/server/walserver/repository"
+	"github.com/cloudnative-pg/klio/core/internal/wal"
 	"github.com/cloudnative-pg/klio/core/pkg/config"
 )
 
@@ -74,8 +75,8 @@ var startWALCmd = &cobra.Command{
 			grpc.InitialWindowSize(256 * 1024),
 			grpc.ReadBufferSize(256 * 1024),
 			grpc.WriteBufferSize(256 * 1024),
-			grpc.MaxRecvMsgSize(8.5 * 1024 * 1024), // add a bit of overhead for grpc
-			grpc.MaxSendMsgSize(8.5 * 1024 * 1024), // add a bit of overhead for grpc
+			grpc.MaxRecvMsgSize(wal.MaxGRPCMessageSizeBytes),
+			grpc.MaxSendMsgSize(wal.MaxGRPCMessageSizeBytes),
 		}
 
 		if configuration.Wal.HTPasswdFile != "" {

@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"errors"
 	"net/http"
 	"os"
 	"strings"
@@ -94,6 +95,7 @@ func init() {
 // initConfig reads in config file and ENV variables if set.
 func initConfig() {
 	if cfgFile != "" {
+		viper.SetConfigType("yaml")
 		// Use config file from the flag.
 		viper.SetConfigFile(cfgFile)
 	} else {
@@ -111,7 +113,12 @@ func initConfig() {
 	viper.AutomaticEnv()
 
 	// If a config file is found, read it in.
-	if err := viper.ReadInConfig(); err == nil {
-		log.Debug("Using config file", "configFile", viper.ConfigFileUsed())
+	if err := viper.ReadInConfig(); err != nil {
+		var configFileNotFoundError viper.ConfigFileNotFoundError
+		if errors.As(err, &configFileNotFoundError) {
+			log.Debug("No config file found")
+		} else {
+			log.Error(err, "Failed reading config file")
+		}
 	}
 }

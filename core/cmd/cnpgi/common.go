@@ -7,7 +7,6 @@ import (
 	cnpgv1 "github.com/cloudnative-pg/cloudnative-pg/api/v1"
 	"github.com/cloudnative-pg/machinery/pkg/log"
 	"github.com/spf13/viper"
-	"gopkg.in/validator.v2"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -17,44 +16,11 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/scheme"
 
-	"github.com/cloudnative-pg/klio/core/internal/cli"
 	"github.com/cloudnative-pg/klio/core/internal/cnpgi"
-	"github.com/cloudnative-pg/klio/core/pkg/config"
 )
 
 func runCNPGI(ctx context.Context, pluginPath string, addCapabilities func(server *cnpgi.CNPGI)) error {
 	logger := log.FromContext(ctx)
-
-	var configuration config.Data
-
-	// IMPORTANT: this requires this program to be built with "-tags viper_bind_struct"
-	// when using environment variables
-	if err := viper.Unmarshal(&configuration); err != nil {
-		return fmt.Errorf("could not unmarshal configuration: %w", err)
-	}
-
-	// Sets the defaults values, to be overridden by the user configuration
-	configuration.SetDefaults()
-
-	if configuration.Source == (config.SourceConfig{}) {
-		return cli.ErrSourceSectionIsRequired
-	}
-
-	if configuration.Client == (config.ClientConfig{}) {
-		return cli.ErrClientSectionIsRequired
-	}
-
-	if configuration.Client.Base == (config.BaseRepositoryClientConfig{}) {
-		return cli.ErrKlioClientSectionIsRequired
-	}
-
-	if configuration.Client.Wal == (config.WalRepositoryClientConfig{}) {
-		return cli.ErrKlioClientSectionIsRequired
-	}
-
-	if errs := validator.Validate(&configuration); errs != nil {
-		return fmt.Errorf("configuration validation error: %w", errs)
-	}
 
 	controllerOptions := ctrl.Options{
 		Scheme: generateScheme(),

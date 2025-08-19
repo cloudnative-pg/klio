@@ -3,9 +3,11 @@ package cnpgi
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"os/exec"
 
+	cnpgv1 "github.com/cloudnative-pg/api/pkg/api/v1"
 	"github.com/cloudnative-pg/cloudnative-pg/pkg/postgres"
 	restore "github.com/cloudnative-pg/cnpg-i/pkg/restore/job"
 )
@@ -35,12 +37,22 @@ func (impl restoreImpl) GetCapabilities(
 // Restore restores the cluster from a backup.
 func (impl restoreImpl) Restore(
 	ctx context.Context,
-	_ *restore.RestoreRequest,
+	request *restore.RestoreRequest,
 ) (*restore.RestoreResponse, error) {
+	var cluster cnpgv1.Cluster
+	if err := json.Unmarshal(request.GetClusterDefinition(), &cluster); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal cluster definition: %w", err)
+	}
+	configFile := "/var/lib/postgresql/klio/" + cluster.Spec.Bootstrap.Recovery.Source
+
 	cmd := exec.CommandContext( //nolint: gosec
 		ctx,
 		"klio",
-		"restore", impl.BackupName, impl.PgDataPath)
+		"restore",
+		"--config",
+		configFile,
+		impl.BackupName,
+		impl.PgDataPath)
 
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout
