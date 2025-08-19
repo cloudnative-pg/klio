@@ -11,6 +11,10 @@ vars:
   REGISTRY_NETWORK: klio
   REGISTRY_NAME: '{{ .REGISTRY_NAME | default "registry.dev" }}'
   REGISTRY_PORT: '{{ .REGISTRY_PORT | default 5000 }}'
+  OPERATOR_GITHUB_REF_NAME:
+    sh: git describe --tags --match 'v*' | sed -e 's/^v//; s/-g[0-9a-f]\+$$//; s/-\([0-9]\+\)$$/-dev\1/'
+  OPERATOR_IMAGE_VERSION: '{{ regexReplaceAll "[/_]" .OPERATOR_GITHUB_REF_NAME "-" }}'
+  OPERATOR_TAG: '{{ .TAG | default (regexReplaceAll "(\\d+)/merge" .OPERATOR_IMAGE_VERSION "pr-${1}")}}'
 
 tasks:
 
@@ -35,6 +39,8 @@ tasks:
       - >
         GITHUB_REF= dagger -s call -m github.com/cloudnative-pg/daggerverse/commitlint@${DAGGER_COMMITLINT_SHA}
         lint --source . --args "--from=origin/main" stdout
+
+
 
   all:publish:
     desc: Publish the release artifacts
@@ -181,6 +187,7 @@ tasks:
         release with-clean with-config --config .goreleaser.yaml
         run
 
+
   core:containerize-snapshot:
     desc: Snapshot container images
     dir: core
@@ -188,9 +195,8 @@ tasks:
       - core:goreleaser-snapshot
       - internal:start-registry
     vars:
-      GITHUB_REF_NAME: '{{ .GITHUB_REF_NAME | default "dev" }}'
-      IMAGE_VERSION: '{{ regexReplaceAll "[/_]" .GITHUB_REF_NAME "-" }}'
-      TAG: '{{ .TAG | default (regexReplaceAll "(\\d+)/merge" .IMAGE_VERSION "pr-${1}")}}'
+      IMAGE_VERSION: '{{ .OPERATOR_IMAGE_VERSION }}'
+      TAG: '{{ .OPERATOR_TAG }}'
       GITHUB_ACTIONS: '{{ .GITHUB_ACTIONS }}'
     cmds:
       - task: internal:containerize
@@ -359,6 +365,7 @@ tasks:
         GITHUB_REF= dagger -s call -m github.com/cloudnative-pg/daggerverse/uncommitted@${DAGGER_UNCOMMITTED_SHA}
         check-uncommitted --source . stdout
 
+
   ####################################
   ## OPERATOR
   ####################################
@@ -389,9 +396,9 @@ tasks:
       - internal:start-registry
       - operator:controller-gen
     vars:
-      GITHUB_REF_NAME: '{{ .GITHUB_REF_NAME | default "dev" }}'
-      IMAGE_VERSION: '{{ regexReplaceAll "[/_]" .GITHUB_REF_NAME "-" }}'
-      TAG: '{{ .TAG | default (regexReplaceAll "(\\d+)/merge" .IMAGE_VERSION "pr-${1}")}}'
+      GITHUB_REF_NAME: '{{ .OPERATOR_GITHUB_REF_NAME }}'
+      IMAGE_VERSION: '{{ .OPERATOR_IMAGE_VERSION }}'
+      TAG: '{{ .OPERATOR_TAG }}'
       GITHUB_ACTIONS: '{{ .GITHUB_ACTIONS }}'
     cmds:
       - task: internal:containerize
@@ -550,6 +557,78 @@ tasks:
       - ./**/*
 
   ####################################
+  ## OLM
+  ####################################
+
+  olm:manifest:
+    run: once
+    internal: true
+    env:
+      # renovate: datasource=git-refs depName=kustomize lookupName=https://github.com/sagikazarmark/daggerverse currentValue=main
+      DAGGER_KUSTOMIZE_SHA: ceffda4aebd349a24fc00e591b4ed9b801535b65
+    cmds:
+      - >
+        GITHUB_REF= dagger -s call -m github.com/sagikazarmark/daggerverse/kustomize@${DAGGER_KUSTOMIZE_SHA}
+        build --source .
+        --dir operator/config/manifests
+        export
+        --path operator/olm-manifests/manifest.yaml
+    sources:
+      - operator/config/**/*
+    generates:
+      - operator/olm-manifests/manifest.yaml
+
+  olm:bundle:
+    desc: Generate the OLM bundle for the operator
+    deps:
+      - olm:manifest
+    env:
+      # renovate: datasource=docker depName=quay.io/operator-framework/operator-sdk versioning=semver
+      OPERATOR_SDK_SHA: f5a33c8c2cbe9c12d30bc556b6f08270c97694b561a3d50f44b2bb9719f73d61
+    cmds:
+      - >
+        docker
+        run --rm -ti
+        -u $(id -u)
+        -v $(pwd)/operator:/operator
+        -w /operator/
+        quay.io/operator-framework/operator-sdk@sha256:${OPERATOR_SDK_SHA}
+        generate bundle
+        --input-dir olm-manifests/
+        --kustomize-dir config/manifests
+        --version {{ .OPERATOR_IMAGE_VERSION }}
+    sources:
+      - operator/olm-manifests/**
+    generates:
+      - bundle/
+
+  olm:build:
+    desc: Build the require OLM bundle image after the bundle is generated
+    deps:
+      - olm:bundle
+      - internal:create-builder
+      - internal:registry-network-connect
+    env:
+      registry: '{{ if .GITHUB_ACTIONS }}ghcr.io/enterprisedb{{ else }}{{ .REGISTRY_NAME }}:{{ .REGISTRY_PORT }}{{ end }}'
+      insecure: '{{ if .GITHUB_ACTIONS }}false{{ else }}true{{ end }}'
+      version: "{{ .OPERATOR_TAG }}"
+    cmds:
+      - >
+        dagger run docker buildx build
+        --builder {{ .BUILDER_NAME }}
+        --push
+        -t ${registry}/klio-operator:${version}-bundle
+        -f operator/bundle.Dockerfile
+        --output="type=image,registry.insecure=${insecure}"
+        operator/
+
+  olm:clean:
+    desc: Cleanup of the OLM build artifacts
+    cmds:
+      - rm -fr operator/olm-manifests
+      - rm -fr operator/bundle*
+
+  ####################################
   ## DOCUMENTATION
   ####################################
 
@@ -687,6 +766,8 @@ tasks:
         dagger call -m github.com/levlaz/daggerverse/docusaurus@${DAGGER_DOCUSAURUS_SHA}
         --src web --yarn serve-dev up
 
+
+
   documentation:uncommitted:
     desc: Check for uncommitted changes after documentation generation
     deps:
@@ -725,6 +806,7 @@ tasks:
       - clean:build-env
       - documentation:clean
       - core:clean
+      - olm:clean
     cmds:
       - rm -rf .task/
 
@@ -802,6 +884,8 @@ tasks:
         with-exec --args "sh" --args "-c" --args "helm upgrade -i --wait --create-namespace --namespace cert-manager --version {{ .CERT_MANAGER_VERSION }} --set crds.enabled=true cert-manager jetstack/cert-manager"
         with-exec --args "sh" --args "-c" --args "helm uninstall --wait --ignore-not-found klio -n cnpg-system || true"
         with-exec --args "sh" --args "-c" --args "helm upgrade -i --wait --create-namespace --namespace cnpg-system --set controllerManager.manager.image.repository={{ .OPERATOR_IMAGE_REPOSITORY }} --set controllerManager.manager.image.tag={{ .OPERATOR_IMAGE_TAG }} klio /chart"
+
+
 
   integration:e2e:
     desc: Run the e2e tests

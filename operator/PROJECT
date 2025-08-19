@@ -8,7 +8,7 @@ layout:
 - go.kubebuilder.io/v4
 plugins:
   helm.kubebuilder.io/v1-alpha: {}
-projectName: operator
+projectName: klio-operator
 repo: github.com/cloudnative-pg/klio/pkg/operator
 resources:
 - api:

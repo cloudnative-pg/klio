@@ -7,3 +7,4 @@ certs/
 # Ignore OLM generated files
 bundle.Dockerfile
 bundle/
+operator/olm-manifests/
