@@ -11,10 +11,10 @@ vars:
   REGISTRY_NETWORK: klio
   REGISTRY_NAME: '{{ .REGISTRY_NAME | default "registry.dev" }}'
   REGISTRY_PORT: '{{ .REGISTRY_PORT | default 5000 }}'
-  OPERATOR_GITHUB_REF_NAME:
+  GIT_TAG_VERSION:
     sh: git describe --tags --match 'v*' | sed -e 's/^v//; s/-g[0-9a-f]\+$$//; s/-\([0-9]\+\)$$/-dev\1/'
-  OPERATOR_IMAGE_VERSION: '{{ regexReplaceAll "[/_]" .OPERATOR_GITHUB_REF_NAME "-" }}'
-  OPERATOR_TAG: '{{ .TAG | default (regexReplaceAll "(\\d+)/merge" .OPERATOR_IMAGE_VERSION "pr-${1}")}}'
+  GITHUB_REF_NAME: '{{ .GITHUB_REF_NAME | default "dev" }}'
+  IMAGE_TAG: '{{ .IMAGE_TAG | default (regexReplaceAll "(\\d+)/merge" .GITHUB_REF_NAME "pr-${1}") }}'
 
 tasks:
 
@@ -39,8 +39,6 @@ tasks:
       - >
         GITHUB_REF= dagger -s call -m github.com/cloudnative-pg/daggerverse/commitlint@${DAGGER_COMMITLINT_SHA}
         lint --source . --args "--from=origin/main" stdout
-
-
 
   all:publish:
     desc: Publish the release artifacts
@@ -187,7 +185,6 @@ tasks:
         release with-clean with-config --config .goreleaser.yaml
         run
 
-
   core:containerize-snapshot:
     desc: Snapshot container images
     dir: core
@@ -195,8 +192,7 @@ tasks:
       - core:goreleaser-snapshot
       - internal:start-registry
     vars:
-      IMAGE_VERSION: '{{ .OPERATOR_IMAGE_VERSION }}'
-      TAG: '{{ .OPERATOR_TAG }}'
+      TAG: '{{ .TAG | default .IMAGE_TAG }}'
       GITHUB_ACTIONS: '{{ .GITHUB_ACTIONS }}'
     cmds:
       - task: internal:containerize
@@ -365,7 +361,6 @@ tasks:
         GITHUB_REF= dagger -s call -m github.com/cloudnative-pg/daggerverse/uncommitted@${DAGGER_UNCOMMITTED_SHA}
         check-uncommitted --source . stdout
 
-
   ####################################
   ## OPERATOR
   ####################################
@@ -396,9 +391,7 @@ tasks:
       - internal:start-registry
       - operator:controller-gen
     vars:
-      GITHUB_REF_NAME: '{{ .OPERATOR_GITHUB_REF_NAME }}'
-      IMAGE_VERSION: '{{ .OPERATOR_IMAGE_VERSION }}'
-      TAG: '{{ .OPERATOR_TAG }}'
+      TAG: '{{ .TAG | default .IMAGE_TAG }}'
       GITHUB_ACTIONS: '{{ .GITHUB_ACTIONS }}'
     cmds:
       - task: internal:containerize
@@ -596,7 +589,7 @@ tasks:
         generate bundle
         --input-dir olm-manifests/
         --kustomize-dir config/manifests
-        --version {{ .OPERATOR_IMAGE_VERSION }}
+        --version {{ .GIT_TAG_VERSION }}
     sources:
       - operator/olm-manifests/**
     generates:
@@ -611,13 +604,13 @@ tasks:
     env:
       registry: '{{ if .GITHUB_ACTIONS }}ghcr.io/enterprisedb{{ else }}{{ .REGISTRY_NAME }}:{{ .REGISTRY_PORT }}{{ end }}'
       insecure: '{{ if .GITHUB_ACTIONS }}false{{ else }}true{{ end }}'
-      version: "{{ .OPERATOR_TAG }}"
+      tag: '{{ .TAG | default .IMAGE_TAG }}'
     cmds:
       - >
         dagger run docker buildx build
         --builder {{ .BUILDER_NAME }}
         --push
-        -t ${registry}/klio-operator:${version}-bundle
+        -t ${registry}/klio-operator:${tag}-bundle
         -f operator/bundle.Dockerfile
         --output="type=image,registry.insecure=${insecure}"
         operator/
@@ -766,8 +759,6 @@ tasks:
         dagger call -m github.com/levlaz/daggerverse/docusaurus@${DAGGER_DOCUSAURUS_SHA}
         --src web --yarn serve-dev up
 
-
-
   documentation:uncommitted:
     desc: Check for uncommitted changes after documentation generation
     deps:
@@ -884,8 +875,6 @@ tasks:
         with-exec --args "sh" --args "-c" --args "helm upgrade -i --wait --create-namespace --namespace cert-manager --version {{ .CERT_MANAGER_VERSION }} --set crds.enabled=true cert-manager jetstack/cert-manager"
         with-exec --args "sh" --args "-c" --args "helm uninstall --wait --ignore-not-found klio -n cnpg-system || true"
         with-exec --args "sh" --args "-c" --args "helm upgrade -i --wait --create-namespace --namespace cnpg-system --set controllerManager.manager.image.repository={{ .OPERATOR_IMAGE_REPOSITORY }} --set controllerManager.manager.image.tag={{ .OPERATOR_IMAGE_TAG }} klio /chart"
-
-
 
   integration:e2e:
     desc: Run the e2e tests
