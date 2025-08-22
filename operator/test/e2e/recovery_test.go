@@ -9,6 +9,7 @@ import (
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/utils/ptr"
 	"sigs.k8s.io/e2e-framework/klient/k8s/resources"
 	"sigs.k8s.io/e2e-framework/klient/wait"
 	"sigs.k8s.io/e2e-framework/pkg/envconf"
@@ -21,10 +22,11 @@ import (
 	"github.com/cloudnative-pg/klio/operator/test/utils/templates"
 )
 
-func newBackupFeature(
-	name string, backupTarget cnpgv1.BackupTarget, instances int, namespace string,
-) *machineryFeatures.BackupFeature {
+func newRecoveryFeature(
+	name string, instances int, namespace string,
+) *machineryFeatures.RecoveryFeature {
 	const klioServerName = "test-klio-server"
+	var sourcePrimary corev1.Pod
 
 	namespaceObj := &corev1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{Name: namespace},
@@ -34,36 +36,62 @@ func newBackupFeature(
 	certificate := certificates.GetCertificateObject("test", namespace, []string{klioServerName}, issuer)
 
 	clientSecret := secrets.GetKlioClientSecret("klio-client", namespace, "klio", "testclientpassword123")
-	cnpgCluster := templates.GetCnpgClusterObject("test-cluster", namespace, instances, certificate, clientSecret)
+	cnpgCluster := templates.GetCnpgClusterObject("test-cluster-source", namespace, instances, certificate,
+		clientSecret)
 
 	userSecret := secrets.GetKlioUsersSecret("test-user", namespace, clientSecret, cnpgCluster.Name)
 	encryptionSecret := secrets.GetKlioEncryptionSecret("encryption", namespace, "testencryptionpassword123")
 	klioServer := templates.GetKlioServerObject(klioServerName, namespace, certificate.Spec.SecretName,
 		encryptionSecret, userSecret)
 
-	backup := templates.GetCnpgBackupObject("test-backup", namespace, backupTarget, cnpgCluster)
+	backup := templates.GetCnpgBackupObject("test-backup", namespace, cnpgv1.DefaultBackupTarget, cnpgCluster)
+
+	// Generate the recovery Cluster object
+	recoveryCluster := cnpgCluster.DeepCopy()
+	recoveryCluster.Name = "test-cluster-restored"
+	recoveryCluster.Spec.ExternalClusters = []cnpgv1.ExternalCluster{{
+		Name: "source-cluster",
+		PluginConfiguration: &cnpgv1.PluginConfiguration{
+			Name:    "klio.cnpg.io",
+			Enabled: ptr.To(true),
+			Parameters: map[string]string{
+				"serverAddress":    certificate.Spec.DNSNames[0],
+				"clientSecretName": clientSecret.GetName(),
+				"serverSecretName": certificate.Spec.SecretName,
+				"backupName":       backup.Name,
+				"clusterName":      cnpgCluster.Name,
+			},
+		},
+	}}
+	recoveryCluster.Spec.Bootstrap = &cnpgv1.BootstrapConfiguration{
+		Recovery: &cnpgv1.BootstrapRecovery{
+			Source: "source-cluster",
+		},
+	}
+	// TODO: we should check that WAL archiving and backups also work in the recovered Cluster
+	recoveryCluster.Spec.Plugins = []cnpgv1.PluginConfiguration{}
 
 	setupFunc := func(ctx context.Context, t *testing.T, cfg *envconf.Config) context.Context {
 		t.Helper()
-		t.Logf("Creating resources for backup feature: %s", name)
+		t.Logf("Creating resources for recovery feature: %s", name)
 		r, err := resources.New(cfg.Client().RESTConfig())
 		require.NoError(t, err, "failed to create resources client")
 		require.NoError(t, r.Create(ctx, namespaceObj), "failed to create namespace")
 		require.NoError(t, r.Create(ctx, clientSecret), "failed to create client secret")
-		require.NoError(t, r.Create(ctx, cnpgCluster), "failed to create CNPG cluster")
+		require.NoError(t, r.Create(ctx, cnpgCluster), "failed to create CNPG source Cluster")
 		require.NoError(t, r.Create(ctx, userSecret), "failed to create user secret")
 		require.NoError(t, r.Create(ctx, encryptionSecret), "failed to create encryption secret")
 		require.NoError(t, r.Create(ctx, issuer), "failed to create issuer")
 		require.NoError(t, r.Create(ctx, certificate), "failed to create certificate")
 		require.NoError(t, r.Create(ctx, klioServer), "failed to create KLIO server")
 
-		t.Logf("Waiting for resources to be ready for backup feature: %s", name)
+		t.Logf("Waiting for resources to be ready for recovery feature: %s", name)
 		err = wait.For(
 			machineryConditions.ClusterIsReady(r, cnpgCluster),
 			wait.WithTimeout(2*time.Minute),
 			wait.WithInterval(10*time.Second),
 		)
-		require.NoError(t, err, "failed to wait for CNPG cluster to be ready")
+		require.NoError(t, err, "failed to wait for CNPG source Cluster to be ready")
 
 		err = wait.For(
 			conditions.KlioServerIsReady(r, klioServer),
@@ -71,34 +99,37 @@ func newBackupFeature(
 			wait.WithInterval(10*time.Second),
 		)
 		require.NoError(t, err, "failed to wait for Klio server to be ready")
-		t.Logf("Resources created and ready for backup feature: %s", name)
+
+		require.NoError(t, r.Get(ctx, cnpgCluster.Status.CurrentPrimary, namespace, &sourcePrimary),
+			"failed to get the current primary pod")
+
+		t.Logf("Resources created and ready for recovery feature: %s", name)
 
 		return ctx
 	}
 
 	teardownFunc := func(ctx context.Context, t *testing.T, cfg *envconf.Config) context.Context {
 		t.Helper()
-		t.Logf("Tearing down resources for backup feature: %s", name)
+		t.Logf("Tearing down resources for recovery feature: %s", name)
 		r, err := resources.New(cfg.Client().RESTConfig())
 		require.NoError(t, err, "failed to create resources client")
 		require.NoError(t, r.Delete(ctx, namespaceObj), "failed to delete namespace")
-		t.Logf("Resources torn down for backup feature: %s", name)
+		t.Logf("Resources torn down for recovery feature: %s", name)
 
 		return ctx
 	}
 
-	return machineryFeatures.NewBackupFeature(machineryFeatures.BackupFeatureConfig{
-		Name:     name,
-		Setup:    setupFunc,
-		Teardown: teardownFunc,
-		Backup:   backup,
-	})
+	return machineryFeatures.NewRecoveryFeature(
+		machineryFeatures.RecoveryFeatureConfig{
+			Name:             name,
+			Setup:            setupFunc,
+			Teardown:         teardownFunc,
+			SourcePrimaryPod: &sourcePrimary,
+			Backup:           backup,
+			RecoveryCluster:  recoveryCluster,
+		})
 }
 
-func BackupFromPrimary(namespace string) *machineryFeatures.BackupFeature {
-	return newBackupFeature("BackupFromPrimary", cnpgv1.BackupTargetPrimary, 1, namespace)
-}
-
-func BackupFromStandby(namespace string) *machineryFeatures.BackupFeature {
-	return newBackupFeature("BackupFromStandby", cnpgv1.BackupTargetStandby, 2, namespace)
+func RecoverClusterFromBackup(namespace string) *machineryFeatures.RecoveryFeature {
+	return newRecoveryFeature("RecoverClusterFromBackup", 1, namespace)
 }

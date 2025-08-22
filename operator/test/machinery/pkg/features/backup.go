@@ -6,59 +6,59 @@ import (
 	"time"
 
 	cnpgv1 "github.com/cloudnative-pg/api/pkg/api/v1"
-	"github.com/stretchr/testify/assert"
-	"sigs.k8s.io/e2e-framework/klient/k8s"
+	"github.com/stretchr/testify/require"
 	"sigs.k8s.io/e2e-framework/klient/k8s/resources"
 	"sigs.k8s.io/e2e-framework/klient/wait"
-	"sigs.k8s.io/e2e-framework/klient/wait/conditions"
 	"sigs.k8s.io/e2e-framework/pkg/envconf"
 	"sigs.k8s.io/e2e-framework/pkg/types"
+
+	machineryConditions "github.com/cloudnative-pg/klio/operator/test/machinery/pkg/conditions"
 )
 
 // BackupFeature defines a feature for testing backups in the CloudNativePG operator.
 type BackupFeature struct {
-	name     string
-	setup    func(ctx context.Context, t *testing.T, cfg *envconf.Config) context.Context
-	backup   *cnpgv1.Backup
-	teardown func(ctx context.Context, t *testing.T, cfg *envconf.Config) context.Context
-	timeout  time.Duration
-	interval time.Duration
+	name                string
+	setup               types.StepFunc
+	teardown            types.StepFunc
+	backup              *cnpgv1.Backup
+	backupTimeout       time.Duration
+	backupCheckInterval time.Duration
 }
 
-// NewBackupFeature creates a new instance of BackupFeature.
-func NewBackupFeature(
-	name string,
-	setup func(ctx context.Context, t *testing.T, cfg *envconf.Config) context.Context,
-	backup *cnpgv1.Backup,
-	teardown func(ctx context.Context, t *testing.T, cfg *envconf.Config) context.Context,
-	options ...func(*BackupFeature),
-) *BackupFeature {
-	bf := &BackupFeature{
-		name:     name,
-		setup:    setup,
-		backup:   backup,
-		teardown: teardown,
-		timeout:  2 * time.Minute,  // default
-		interval: 10 * time.Second, // default
-	}
-	for _, opt := range options {
-		opt(bf)
-	}
-
-	return bf
+// BackupFeatureConfig holds the configuration for creating a backup feature test.
+type BackupFeatureConfig struct {
+	// Name of the backup feature test.
+	Name string
+	// Setup function to initialize test resources.
+	Setup types.StepFunc
+	// Teardown function to clean up test resources.
+	Teardown types.StepFunc
+	// Backup resource to be created and tested.
+	Backup *cnpgv1.Backup
+	// BackupTimeout is the timeout for backup (defaults to 1 minute).
+	BackupTimeout time.Duration
+	// BackupCheckInterval is the interval for checking backup status (defaults to 10 seconds).
+	BackupCheckInterval time.Duration
 }
 
-// WithTimeout sets the timeout for waiting on the backup to complete.
-func WithTimeout(timeout time.Duration) func(*BackupFeature) {
-	return func(bf *BackupFeature) {
-		bf.timeout = timeout
+// NewBackupFeature creates a new BackupFeature with the given configuration and default timeouts.
+func NewBackupFeature(config BackupFeatureConfig) *BackupFeature {
+	if config.BackupTimeout <= 0 {
+		// Default backupTimeout for backup operations
+		config.BackupTimeout = 1 * time.Minute
 	}
-}
+	if config.BackupCheckInterval <= 0 {
+		// Default interval for checking backup status
+		config.BackupCheckInterval = 10 * time.Second
+	}
 
-// WithInterval sets the interval for waiting on the backup to complete.
-func WithInterval(interval time.Duration) func(*BackupFeature) {
-	return func(bf *BackupFeature) {
-		bf.interval = interval
+	return &BackupFeature{
+		name:                config.Name,
+		setup:               config.Setup,
+		teardown:            config.Teardown,
+		backup:              config.Backup,
+		backupTimeout:       config.BackupTimeout,
+		backupCheckInterval: config.BackupCheckInterval,
 	}
 }
 
@@ -78,24 +78,14 @@ func (f *BackupFeature) Run() types.StepFunc {
 		t.Helper()
 		t.Log("Running backup feature test")
 		r, err := resources.New(cfg.Client().RESTConfig())
-		assert.NoError(t, err, "failed to create resources client")
-		assert.NoError(t, r.Create(ctx, f.backup), "failed to create backup")
+		require.NoError(t, err, "failed to create resources client")
+		require.NoError(t, r.Create(ctx, f.backup), "failed to create backup")
 		err = wait.For(
-			conditions.New(r).ResourceMatch(
-				f.backup,
-				func(object k8s.Object) bool {
-					b, ok := object.(*cnpgv1.Backup)
-					if !ok {
-						return false
-					}
-
-					return b.Status.Phase == cnpgv1.BackupPhaseCompleted
-				},
-			),
-			wait.WithTimeout(f.timeout),
-			wait.WithInterval(f.interval),
+			machineryConditions.BackupIsCompleted(r, f.backup),
+			wait.WithTimeout(f.backupTimeout),
+			wait.WithInterval(f.backupCheckInterval),
 		)
-		assert.NoError(t, err, "backup not completed")
+		require.NoError(t, err, "backup not completed")
 
 		return ctx
 	}
