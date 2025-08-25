@@ -1,0 +1,75 @@
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+  name: cluster-dc-b
+  namespace: dc-b
+spec:
+  instances: 3
+  imagePullPolicy: Always
+
+  bootstrap:
+    # Workaround not being able to start from a klio external server
+    pg_basebackup:
+      source: cluster-dc-a-basebackup
+
+  postgresql:
+    pg_hba:
+      - local replication all peer
+
+  plugins:
+    - name: klio.cnpg.io
+      enabled: true
+      parameters:
+        serverAddress: klioserver-dc-b.dc-b
+        clientSecretName: klio-client
+        serverSecretName: klioserver-dc-b-tls
+        pprof: 't'
+
+  storage:
+    size: 1Gi
+
+  replica:
+    self: cluster-dc-b
+    primary: cluster-dc-a
+    source: cluster-dc-a
+
+  externalClusters:
+  - name: cluster-dc-a
+    plugin:
+      name: klio.cnpg.io
+      parameters:
+        serverAddress: klioserver-dc-a.dc-a
+        clientSecretName: klio-client
+        serverSecretName: klioserver-dc-a-tls
+
+  - name: cluster-dc-b
+    plugin:
+      name: klio.cnpg.io
+      parameters:
+        serverAddress: klioserver-db-b.dc-b
+        clientSecretName: klio-client
+        serverSecretName: klioserver-dc-b-tls
+
+  - name: cluster-dc-a-basebackup
+    connectionParameters:
+      host: cluster-dc-a-rw.dc-a
+      user: streaming_replica
+      sslmode: verify-full
+    sslKey:
+      name: cluster-dc-a-replication
+      key: tls.key
+    sslCert:
+      name: cluster-dc-a-replication
+      key: tls.crt
+    sslRootCert:
+      name: cluster-dc-a-ca
+      key: ca.crt
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: klio-client
+  namespace: dc-b
+data:
+  password: ZGNicGFzc3dvcmQ=
+  username: a2xpbw==

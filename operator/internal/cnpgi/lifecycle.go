@@ -320,19 +320,14 @@ func (impl LifecycleImplementation) reconcilePod(
 		{Name: "klio-plugin", Args: []string{"cnpgi", "instance"}},
 	}
 	if klioConfigs[klioArchiveConfigKey] != nil {
-		args := []string{"send-wal", "--config", "/var/lib/postgresql/klio/" + klioArchiveConfigKey}
-
-		// On designated primary pods, we disable the primary flag to enable the walsender
-		isReplicaCluster := cluster.IsReplica()
-		contextLogger.Info("isReplicaCluster", "value", isReplicaCluster, "pod", mutatedPod.Name)
-		contextLogger.Info("currentPrimary", "value", cluster.Status.CurrentPrimary, "pod", mutatedPod.Name)
-		if isReplicaCluster && cluster.Status.CurrentPrimary == mutatedPod.Name {
-			contextLogger.Info("Disabling primary flag for wal sender sidecar", "pod", mutatedPod.Name)
-			args = append(args, "--primary=false")
-		} else {
-			args = append(args, "--primary=true")
+		args := []string{
+			"cnpgi",
+			"send-wal",
+			"--config", "/var/lib/postgresql/klio/" + klioArchiveConfigKey,
+			"--pod-name", pod.Name,
+			"--cluster-name", cluster.Name,
+			"--cluster-namespace", cluster.Namespace,
 		}
-
 		sidecarsToEnrich = append(sidecarsToEnrich,
 			corev1.Container{
 				Name: "klio-wal",
