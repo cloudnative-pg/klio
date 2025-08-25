@@ -229,6 +229,15 @@ tasks:
           LATEST: "true"
           WORKDIR: "core"
 
+  core:licenses:
+    desc: Generate core licenses
+    cmds:
+      - task: internal:licenses
+        vars:
+          WORKDIR: "core"
+    sources:
+      - ./**/*
+
   ####################################
   ## INTERNAL
   ####################################
@@ -360,6 +369,20 @@ tasks:
       - >
         GITHUB_REF= dagger -s call -m github.com/cloudnative-pg/daggerverse/uncommitted@${DAGGER_UNCOMMITTED_SHA}
         check-uncommitted --source . stdout
+
+  internal:licenses:
+    desc: Generate licenses
+    internal: true
+    dir: '{{ .WORKDIR }}'
+    env:
+      # renovate: datasource=git-refs depName=go-licenses lookupName=https://github.com/cloudnative-pg/daggerverse currentValue=main
+      DAGGER_GO_LICENSES: 6b024d94e8661e87ede84039fd2e3e256dc08fb6
+    cmds:
+      - >
+        GITHUB_REF= dagger -s call -m github.com/cloudnative-pg/daggerverse/go-licenses@${DAGGER_GO_LICENSES}
+        go-licenses --source . --args "save" --args "./..." --args "--force"
+        --args "--save_path=licenses/go-licenses" --args "--ignore=github.com/cloudnative-pg/klio"
+        directory --path licenses/ export --path licenses/
 
   ####################################
   ## OPERATOR
@@ -546,6 +569,15 @@ tasks:
       - operator:helm-chart
     cmds:
       - task: internal:uncommitted
+    sources:
+      - ./**/*
+
+  operator:licenses:
+    desc: Generate operator licenses
+    cmds:
+      - task: internal:licenses
+        vars:
+          WORKDIR: "operator"
     sources:
       - ./**/*
 

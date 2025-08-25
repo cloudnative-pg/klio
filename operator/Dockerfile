@@ -34,6 +34,7 @@ RUN --mount=type=cache,target=/go/pkg/mod \
 FROM ${BASE_IMAGE}
 WORKDIR /
 COPY --from=builder /workspace/manager .
+COPY licenses /licenses
 USER 65532:65532
 
 ENTRYPOINT ["/manager"]

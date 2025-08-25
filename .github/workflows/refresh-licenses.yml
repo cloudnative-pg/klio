@@ -1,0 +1,41 @@
+# Refresh the "licenses" directory and create a PR if there are any changes
+
+name: Refresh licenses directory
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "30 0 * * 1"
+
+permissions: read-all
+
+jobs:
+  licenses:
+    name: Refresh licenses
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5
+
+      - name: Setup dagger
+        uses: ./.github/actions/setup-dagger
+
+      - name: Generate licenses
+        run: |
+          task core:licenses operator:licenses
+
+      - name: Create Pull Request if licenses have been updated
+        uses: peter-evans/create-pull-request@271a8d0340265f705b14b6d32b9829c1cb33d45e # v7
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          title: "chore: refresh licenses directory"
+          body: "Refresh the licenses directory"
+          branch: "license-updater"
+          author: "license-updater <license-updater@users.noreply.github.com>"
+          add-paths: |
+            core/licenses/**
+            operator/licenses/**
+          commit-message: "chore: refresh licenses directory"
+          signoff: true

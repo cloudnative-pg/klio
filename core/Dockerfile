@@ -7,5 +7,6 @@ ARG TARGETARCH
 ARG TARGETOS
 COPY --from=kopia /bin/kopia /usr/bin/kopia
 COPY dist/klio_${TARGETOS}_${TARGETARCH}*/klio /usr/bin/klio
+COPY licenses /licenses
 ENTRYPOINT ["/usr/bin/klio"]
 USER 26
