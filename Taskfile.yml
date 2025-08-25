@@ -14,7 +14,8 @@ vars:
   GIT_TAG_VERSION:
     sh: git describe --tags --match 'v*' | sed -e 's/^v//; s/-g[0-9a-f]\+$$//; s/-\([0-9]\+\)$$/-dev\1/'
   GITHUB_REF_NAME: '{{ .GITHUB_REF_NAME | default "dev" }}'
-  IMAGE_TAG: '{{ .IMAGE_TAG | default (regexReplaceAll "(\\d+)/merge" .GITHUB_REF_NAME "pr-${1}") }}'
+  CLEANED_REF_NAME: '{{ regexReplaceAll "[/_]" .GITHUB_REF_NAME "-" }}'
+  IMAGE_TAG: '{{ .IMAGE_TAG | default (regexReplaceAll "(\\d+)-merge" .CLEANED_REF_NAME "pr-${1}") }}'
 
 tasks:
 
@@ -341,7 +342,7 @@ tasks:
       version: "{{ .VERSION }}"
       latest: "{{ .LATEST }}"
     cmds:
-      - dagger run docker buildx bake --builder {{ .BUILDER_NAME }} --push
+      - dagger run docker buildx bake --builder {{ .BUILDER_NAME }} --push --metadata-file metadata.json
 
   internal:lint:
     desc: Run golangci-lint

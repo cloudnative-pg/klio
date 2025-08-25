@@ -10,6 +10,9 @@ Dockerfile.cross
 # Test binary, built with `go test -c`
 *.test
 
+# Build output
+metadata.json
+
 # Output of the go coverage tool, specifically when used with LiteIDE
 *.out
 

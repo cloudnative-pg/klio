@@ -1,0 +1,32 @@
+name: Preflight Check
+description: Run preflight check on input image
+runs:
+  using: composite
+  steps:
+    - name: Install CLI tools from OpenShift Mirror
+      uses: redhat-actions/openshift-tools-installer@v1
+      id: preflight-install
+      with:
+        source: "github"
+        preflight: "latest"
+        skip_cache: "true"
+
+    - name: Run preflight container test
+      env:
+        PFLT_ARTIFACTS: "preflight_results"
+      shell: bash
+      run: |
+        operatorImage=$(cat operator/metadata.json  | jq -r '.[]."image.name"')
+        ${{ fromJSON(steps.preflight-install.outputs.installed)['preflight'].installedPath }} check container ${operatorImage} \
+          --docker-config ${HOME}/.docker/config.json
+
+    - name: Check preflight container results
+      shell: bash
+      run: |
+        for dir in `ls preflight_results`; do
+            PASS=`jq -r .passed preflight_results/${dir}/results.json`
+            if [[ "$PASS" == "false" ]]
+            then
+              exit 1
+            fi
+        done

@@ -152,6 +152,9 @@ jobs:
         run: |
           task operator:ci
 
+      - name: Operator preflight check
+        uses: ./.github/actions/preflight
+
   integration-tests:
     name: Integration Tests
     needs:
