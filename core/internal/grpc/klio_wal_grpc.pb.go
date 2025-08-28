@@ -19,11 +19,12 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	WAL_Put_FullMethodName             = "/klio.wal.v1.WAL/Put"
-	WAL_Get_FullMethodName             = "/klio.wal.v1.WAL/Get"
-	WAL_GetMetadata_FullMethodName     = "/klio.wal.v1.WAL/GetMetadata"
-	WAL_RequestWALStart_FullMethodName = "/klio.wal.v1.WAL/RequestWALStart"
-	WAL_ResetWALStream_FullMethodName  = "/klio.wal.v1.WAL/ResetWALStream"
+	WAL_Put_FullMethodName                 = "/klio.wal.v1.WAL/Put"
+	WAL_Get_FullMethodName                 = "/klio.wal.v1.WAL/Get"
+	WAL_GetMetadata_FullMethodName         = "/klio.wal.v1.WAL/GetMetadata"
+	WAL_RequestWALStart_FullMethodName     = "/klio.wal.v1.WAL/RequestWALStart"
+	WAL_ResetWALStream_FullMethodName      = "/klio.wal.v1.WAL/ResetWALStream"
+	WAL_SetFirstRequiredWAL_FullMethodName = "/klio.wal.v1.WAL/SetFirstRequiredWAL"
 )
 
 // WALClient is the client API for WAL service.
@@ -35,6 +36,7 @@ type WALClient interface {
 	GetMetadata(ctx context.Context, in *GetMetadataRequest, opts ...grpc.CallOption) (*ClusterMetadata, error)
 	RequestWALStart(ctx context.Context, in *RequestWALStartRequest, opts ...grpc.CallOption) (*RequestWALStartResult, error)
 	ResetWALStream(ctx context.Context, in *ResetWALStreamRequest, opts ...grpc.CallOption) (*ResetWALStreamResult, error)
+	SetFirstRequiredWAL(ctx context.Context, in *SetFirstRequiredWALRequest, opts ...grpc.CallOption) (*SetFirstRequiredWALResult, error)
 }
 
 type wALClient struct {
@@ -107,6 +109,16 @@ func (c *wALClient) ResetWALStream(ctx context.Context, in *ResetWALStreamReques
 	return out, nil
 }
 
+func (c *wALClient) SetFirstRequiredWAL(ctx context.Context, in *SetFirstRequiredWALRequest, opts ...grpc.CallOption) (*SetFirstRequiredWALResult, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(SetFirstRequiredWALResult)
+	err := c.cc.Invoke(ctx, WAL_SetFirstRequiredWAL_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // WALServer is the server API for WAL service.
 // All implementations must embed UnimplementedWALServer
 // for forward compatibility.
@@ -116,6 +128,7 @@ type WALServer interface {
 	GetMetadata(context.Context, *GetMetadataRequest) (*ClusterMetadata, error)
 	RequestWALStart(context.Context, *RequestWALStartRequest) (*RequestWALStartResult, error)
 	ResetWALStream(context.Context, *ResetWALStreamRequest) (*ResetWALStreamResult, error)
+	SetFirstRequiredWAL(context.Context, *SetFirstRequiredWALRequest) (*SetFirstRequiredWALResult, error)
 	mustEmbedUnimplementedWALServer()
 }
 
@@ -140,6 +153,9 @@ func (UnimplementedWALServer) RequestWALStart(context.Context, *RequestWALStartR
 }
 func (UnimplementedWALServer) ResetWALStream(context.Context, *ResetWALStreamRequest) (*ResetWALStreamResult, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ResetWALStream not implemented")
+}
+func (UnimplementedWALServer) SetFirstRequiredWAL(context.Context, *SetFirstRequiredWALRequest) (*SetFirstRequiredWALResult, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method SetFirstRequiredWAL not implemented")
 }
 func (UnimplementedWALServer) mustEmbedUnimplementedWALServer() {}
 func (UnimplementedWALServer) testEmbeddedByValue()             {}
@@ -234,6 +250,24 @@ func _WAL_ResetWALStream_Handler(srv interface{}, ctx context.Context, dec func(
 	return interceptor(ctx, in, info, handler)
 }
 
+func _WAL_SetFirstRequiredWAL_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SetFirstRequiredWALRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(WALServer).SetFirstRequiredWAL(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: WAL_SetFirstRequiredWAL_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(WALServer).SetFirstRequiredWAL(ctx, req.(*SetFirstRequiredWALRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // WAL_ServiceDesc is the grpc.ServiceDesc for WAL service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -252,6 +286,10 @@ var WAL_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "ResetWALStream",
 			Handler:    _WAL_ResetWALStream_Handler,
+		},
+		{
+			MethodName: "SetFirstRequiredWAL",
+			Handler:    _WAL_SetFirstRequiredWAL_Handler,
 		},
 	},
 	Streams: []grpc.StreamDesc{

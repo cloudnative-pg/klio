@@ -2,7 +2,6 @@ package kopia
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"math"
 
@@ -40,40 +39,6 @@ func (s *Connection) CreateRestorer(notifier notifier.Download) *RestoreImplemen
 		repository: s.repository,
 		notifier:   notifier,
 	}
-}
-
-// GetMetadata implements the RestoreExecutor interface.
-func (s *RestoreImplementation) GetMetadata(ctx context.Context, name string) (*common.BackupMetadata, error) {
-	// Look for the kopia manifest with that name
-	entries, err := s.repository.FindManifests(ctx, map[string]string{
-		backupNameTagName: name,
-	})
-	if err != nil {
-		return nil, fmt.Errorf("while looking for backup entry: %w", err)
-	}
-	if len(entries) > 1 {
-		return nil, newMultipleBackupsFoundError(name, len(entries))
-	}
-	if len(entries) == 0 {
-		return nil, newNoBackupFoundError(name)
-	}
-
-	snapshotManifest, err := snapshot.LoadSnapshot(ctx, s.repository, entries[0].ID)
-	if err != nil {
-		return nil, fmt.Errorf("while loading snapshot from manifest ID %q: %w", entries[0].ID, err)
-	}
-
-	var metadata common.BackupMetadata
-	if err := json.Unmarshal([]byte(snapshotManifest.Description), &metadata); err != nil {
-		return nil, fmt.Errorf("while unmarshalling backup description for %q: %w", name, err)
-	}
-
-	if metadata.Annotations == nil {
-		metadata.Annotations = make(map[string]string)
-	}
-	metadata.Annotations[pgDataManifestIDAnnotationName] = string(snapshotManifest.ID)
-
-	return &metadata, nil
 }
 
 // RestoreTablespace implements the RestoreExecutor interface.

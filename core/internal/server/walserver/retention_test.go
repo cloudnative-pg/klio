@@ -1,0 +1,153 @@
+package walserver
+
+import (
+	"context"
+	"path"
+	"testing"
+
+	"github.com/cloudnative-pg/machinery/pkg/log"
+	"github.com/spf13/afero"
+	"github.com/stretchr/testify/require"
+)
+
+type retentionTestEnv struct {
+	fs     afero.Fs
+	prefix string
+}
+
+func newRetentionTestEnv() *retentionTestEnv {
+	return &retentionTestEnv{
+		fs:     afero.NewMemMapFs(),
+		prefix: "/var/lib/klio/wals/cluster-example",
+	}
+}
+
+func (env *retentionTestEnv) createFile(t *testing.T, name string) {
+	t.Helper()
+	err := afero.WriteFile(env.fs, path.Join(env.prefix, name), []byte{}, 0o644)
+	require.NoError(t, err)
+}
+
+func (env *retentionTestEnv) requireExist(t *testing.T, name string) {
+	t.Helper()
+	result, err := afero.Exists(env.fs, path.Join(env.prefix, name))
+	if err != nil {
+		t.Fatalf("Exists failed: %v", err)
+	}
+	require.True(t, result, "%s exists", name)
+}
+
+func (env *retentionTestEnv) requireNotExist(t *testing.T, name string) {
+	t.Helper()
+	result, err := afero.Exists(env.fs, path.Join(env.prefix, name))
+	if err != nil {
+		t.Fatalf("Exists failed: %v", err)
+	}
+	require.False(t, result, "%s not exists", name)
+}
+
+func (env *retentionTestEnv) applyRetentionPolicy(t *testing.T, firstWal string) {
+	t.Helper()
+	w := Implementation{
+		logger: log.FromContext(context.Background()),
+	}
+
+	err := w.internalSetFirstRequiredOnCluster(
+		env.fs, env.prefix, firstWal)
+	if err != nil {
+		t.Fatalf("SetFirstRequiredOnCluster failed: %v", err)
+	}
+}
+
+func TestRetentionPolicyEnforcement(t *testing.T) {
+	env := newRetentionTestEnv()
+	env.createFile(t, "0000000100000000/000000010000000000000002")
+	env.createFile(t, "0000000100000000/000000010000000000000001")
+	env.createFile(t, "0000000100000000/000000010000000000000003")
+	env.createFile(t, "0000000100000000/000000010000000000000004")
+	env.createFile(t, "0000000100000000/000000010000000000000005")
+	env.createFile(t, "0000000100000000/000000010000000000000006")
+	env.createFile(t, "0000000100000000/000000010000000000000007")
+	env.createFile(t, "0000000100000000/000000010000000000000008")
+	env.createFile(t, "0000000100000000/000000010000000000000009")
+	env.createFile(t, "0000000100000000/00000001000000000000000A")
+	env.createFile(t, "0000000100000001/000000010000000100000001")
+	env.createFile(t, "0000000100000001/000000010000000100000002")
+	env.createFile(t, "0000000100000001/000000010000000100000003")
+	env.createFile(t, "0000000100000001/000000010000000100000004")
+	env.createFile(t, "0000000100000001/000000010000000100000005")
+	env.createFile(t, "0000000100000001/000000010000000100000006")
+	env.createFile(t, "0000000100000001/000000010000000100000007")
+	env.createFile(t, "0000000100000001/000000010000000100000008")
+	env.createFile(t, "0000000100000001/000000010000000100000009")
+	env.createFile(t, "0000000100000001/00000001000000010000000A")
+	env.createFile(t, "0000000100000001/00000001000000010000000B")
+	env.createFile(t, "0000000100000001/00000001000000010000000C")
+	env.createFile(t, "0000000100000001/00000001000000010000000D")
+	env.createFile(t, "0000000100000001/00000001000000010000000E")
+	env.createFile(t, "0000000100000001/00000001000000010000000F")
+	env.createFile(t, "0000000100000001/000000010000000100000010")
+	env.createFile(t, "0000000100000002/000000010000000200000001")
+	env.createFile(t, "0000000100000002/000000010000000200000002")
+	env.createFile(t, "0000000100000002/000000010000000200000003")
+	env.createFile(t, "0000000100000002/000000010000000200000004")
+	env.createFile(t, "0000000100000002/000000010000000200000005")
+
+	env.applyRetentionPolicy(t, "000000010000000100000007")
+
+	env.requireNotExist(t, "0000000100000000")
+	env.requireNotExist(t, "0000000100000001/000000010000000100000001")
+	env.requireNotExist(t, "0000000100000001/000000010000000100000002")
+	env.requireNotExist(t, "0000000100000001/000000010000000100000003")
+	env.requireNotExist(t, "0000000100000001/000000010000000100000004")
+	env.requireNotExist(t, "0000000100000001/000000010000000100000005")
+	env.requireNotExist(t, "0000000100000001/000000010000000100000006")
+	env.requireExist(t, "0000000100000001/000000010000000100000007")
+	env.requireExist(t, "0000000100000001/000000010000000100000008")
+	env.requireExist(t, "0000000100000001/000000010000000100000009")
+	env.requireExist(t, "0000000100000001/00000001000000010000000A")
+	env.requireExist(t, "0000000100000001/00000001000000010000000B")
+	env.requireExist(t, "0000000100000001/00000001000000010000000C")
+	env.requireExist(t, "0000000100000001/00000001000000010000000D")
+	env.requireExist(t, "0000000100000001/00000001000000010000000E")
+	env.requireExist(t, "0000000100000001/00000001000000010000000F")
+	env.requireExist(t, "0000000100000001/000000010000000100000010")
+}
+
+func TestRetentionPolicyEnforcementUnknownFiles(t *testing.T) {
+	env := newRetentionTestEnv()
+
+	env.createFile(t, "0000000100000001/000000010000000100000001")
+	env.createFile(t, "0000000100000001/000000010000000100000002")
+	env.createFile(t, "0000000100000001/000000010000000100000003")
+	env.createFile(t, "0000000100000001/000000010000000100000004.partial")
+	env.createFile(t, "0000000100000001/00000boh")
+	env.createFile(t, "0000000100000001/000000010000000100000005")
+	env.createFile(t, "0000000100000001/000000010000000100000006")
+	env.createFile(t, "0000000100000001/000000010000000100000007")
+	env.createFile(t, "0000000100000001/000000010000000100000008")
+	env.createFile(t, "0000000100000001/000000010000000100000009")
+	env.createFile(t, "0000000100000001/00000001000000010000000A")
+	env.createFile(t, "0000000100000001/00000001000000010000000B")
+	env.createFile(t, "0000000100000001/00000001000000010000000C")
+	env.createFile(t, "0000000100000001/00000001000000010000000D")
+	env.createFile(t, "0000000100000001/00000001000000010000000E")
+
+	env.applyRetentionPolicy(t, "000000010000000100000007")
+
+	env.requireNotExist(t, "0000000100000001/000000010000000100000001")
+	env.requireNotExist(t, "0000000100000001/000000010000000100000002")
+	env.requireNotExist(t, "0000000100000001/000000010000000100000003")
+	env.requireExist(t, "0000000100000001/000000010000000100000004.partial")
+	env.requireExist(t, "0000000100000001/00000boh")
+	env.requireNotExist(t, "0000000100000001/000000010000000100000005")
+	env.requireNotExist(t, "0000000100000001/000000010000000100000006")
+	env.requireExist(t, "0000000100000001/000000010000000100000007")
+	env.requireExist(t, "0000000100000001/000000010000000100000008")
+	env.requireExist(t, "0000000100000001/000000010000000100000009")
+	env.requireExist(t, "0000000100000001/00000001000000010000000A")
+	env.requireExist(t, "0000000100000001/00000001000000010000000B")
+	env.requireExist(t, "0000000100000001/00000001000000010000000C")
+	env.requireExist(t, "0000000100000001/00000001000000010000000D")
+	env.requireExist(t, "0000000100000001/00000001000000010000000E")
+}

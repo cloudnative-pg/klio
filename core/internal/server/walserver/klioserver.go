@@ -11,6 +11,7 @@ import (
 type Implementation struct {
 	grpc.UnimplementedWALServer
 
+	// TODO(leonardoce): pls remove me
 	logger log.Logger
 	conn   *repository.Connection
 }

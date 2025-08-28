@@ -72,6 +72,10 @@ SecretKeySelector
 ServerSpec
 ServerStatus
 ServiceMonitor
+SetFirstRequiredWAL
+SetFirstRequiredWALRequest
+SetFirstRequiredWALRequest
+SetFirstRequiredWALResult
 StartWALFile
 TLS
 TLSSecretName

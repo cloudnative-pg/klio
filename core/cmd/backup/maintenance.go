@@ -1,9 +1,8 @@
 package backup
 
 import (
-	"encoding/json"
 	"fmt"
-	"os"
+	"strings"
 
 	"github.com/cloudnative-pg/machinery/pkg/log"
 	"github.com/spf13/cobra"
@@ -11,22 +10,20 @@ import (
 	"gopkg.in/validator.v2"
 
 	"github.com/cloudnative-pg/klio/core/internal/cli"
+	"github.com/cloudnative-pg/klio/core/internal/client/klioclient/grpcclient"
 	"github.com/cloudnative-pg/klio/core/internal/client/klioclient/kopia"
 	"github.com/cloudnative-pg/klio/core/internal/client/klioclient/notifier"
 	"github.com/cloudnative-pg/klio/core/pkg/config"
 )
 
-// getMetadataCmd represents the klio backup get-metadata command
+// maintenanceCmd represents the klio backup maintenance command
 //
 //nolint:gochecknoglobals
-var getMetadataCmd = &cobra.Command{
-	Use:   "get-metadata [backupName]",
-	Short: "Gets the metadata of the backup with the provided name",
-	Args:  cobra.ExactArgs(1),
-	RunE: func(cmd *cobra.Command, args []string) error {
+var maintenanceCmd = &cobra.Command{
+	Use:   "maintenance",
+	Short: "Gets the metadata of all backups",
+	RunE: func(cmd *cobra.Command, _ []string) error {
 		var configuration config.Data
-		backupName := args[0]
-
 		contextLogger := log.FromContext(cmd.Context())
 
 		// IMPORTANT: this requires this program to be built with "-tags viper_bind_struct"
@@ -44,6 +41,9 @@ var getMetadataCmd = &cobra.Command{
 		if configuration.Client.Base == (config.BaseRepositoryClientConfig{}) {
 			return cli.ErrKopiaClientSectionIsRequired
 		}
+		if configuration.Client.Wal == (config.WalRepositoryClientConfig{}) {
+			return cli.ErrKlioClientSectionIsRequired
+		}
 		if configuration.Source == (config.SourceConfig{}) {
 			return cli.ErrSourceSectionIsRequired
 		}
@@ -52,7 +52,7 @@ var getMetadataCmd = &cobra.Command{
 			return fmt.Errorf("configuration validation error: %w", errs)
 		}
 
-		client, err := kopia.Connect(
+		kopiaClient, err := kopia.Connect(
 			cmd.Context(),
 			&configuration.Client.Base,
 		)
@@ -60,22 +60,47 @@ var getMetadataCmd = &cobra.Command{
 			return fmt.Errorf("while connecting to the Klio server: %w %q", err, configuration.Client.Base.URL)
 		}
 
-		restorer := client.CreateRestorer(notifier.NewDownloadLogNotifier(contextLogger))
-
-		metadata, err := restorer.GetMetadata(cmd.Context(), backupName)
-		if err != nil {
-			return fmt.Errorf("while getting metadata for backup %q: %w", backupName, err)
+		if err := kopiaClient.ApplyRetentionPolicy(cmd.Context()); err != nil {
+			return fmt.Errorf("while applying the retention policy: %w", err)
 		}
 
-		// Marshal metadata to JSON
-		jsonData, err := json.Marshal(metadata)
+		klioClient, err := grpcclient.Connect(&configuration.Client.Wal)
 		if err != nil {
-			return fmt.Errorf("failed to marshal metadata to JSON: %w", err)
+			return fmt.Errorf("while connecting to the Klio server: %w", err)
 		}
 
-		_, err = os.Stdout.Write(jsonData)
+		restorer := kopiaClient.CreateRestorer(notifier.NewDownloadLogNotifier(contextLogger))
+
+		// Step 1: list in-use backups
+		backups, err := restorer.ListBackups(cmd.Context())
 		if err != nil {
-			return fmt.Errorf("failed to write JSON output: %w", err)
+			return fmt.Errorf("while extracting backups: %w %q", err, configuration.Client.Base.URL)
+		}
+
+		// No backup has been found, we can't do anything
+		if len(backups) == 0 {
+			contextLogger.Info("No backups found")
+			return nil
+		}
+
+		// Step 2: find the oldest WAL file
+		oldestWAL := ""
+		for _, backup := range backups {
+			if oldestWAL == "" || strings.Compare(backup.StartWAL, oldestWAL) == -1 {
+				oldestWAL = backup.StartWAL
+			}
+		}
+
+		if oldestWAL == "" {
+			return nil
+		}
+
+		contextLogger.Info("Oldest in-use WAL file", "oldestWAL", oldestWAL)
+
+		// Step 3: drop all the unneeded WAL files
+		if err := klioClient.SetFirstRequiredWAL(cmd.Context(), oldestWAL); err != nil {
+			contextLogger.Error(err, "while executing server-side retention policy", "oldestWAL", oldestWAL)
+			return err
 		}
 
 		return nil
@@ -85,7 +110,6 @@ var getMetadataCmd = &cobra.Command{
 //nolint:gochecknoinits
 func init() {
 	// Here you will define your flags and configuration settings.
-	getMetadataCmd.Flags().StringP("name", "n", "", "The backup name")
 
 	// Cobra supports Persistent Flags which will work for this command
 	// and all subcommands, e.g.:
@@ -95,5 +119,5 @@ func init() {
 	// is called directly, e.g.:
 	// runCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
 
-	BackupCmd.AddCommand(getMetadataCmd)
+	BackupCmd.AddCommand(maintenanceCmd)
 }

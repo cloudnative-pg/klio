@@ -253,8 +253,8 @@ func getArchivePluginConfiguration(cluster *cnpgv1.Cluster) *cnpgv1.PluginConfig
 	return rawConf
 }
 
-// tryGetParameter attempts to retrieve a parameter from the plugin configuration, returns any error encountered or
-// false if the parameter is missing.
+// tryGetBooleanParameter attempts to retrieve a parameter from the plugin configuration, returns any error
+// encountered or false if the parameter is missing.
 func tryGetBooleanParameter(cfg *cnpgv1.PluginConfiguration, name string) (bool, error) {
 	result, err := tryGetParameter(cfg, name)
 	if err != nil || result == "" {

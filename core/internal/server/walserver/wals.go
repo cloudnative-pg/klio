@@ -6,6 +6,15 @@ import (
 	"strings"
 )
 
+// walSubdirectoryLength is the length of the prefix of the WAL file
+// name that will be used to create the directory where the WAL
+// file will be stored.
+//
+// As an example, with a prefix of 16 characters:
+//
+//	cluster-example/0000000100000000/00000001000000000000000E
+const walSubdirectoryLength = 16
+
 // expectedWalFileNameLength is the expected name of a WAL
 // file.
 const expectedWalFileNameLength = 24
@@ -31,7 +40,7 @@ var walFileRE = regexp.MustCompile(
 func getWALArchivePath(baseDir, clusterName, walName string) string {
 	walNameWithoutExtension := strings.TrimSuffix(walName, path.Ext(walName))
 	if len(walNameWithoutExtension) == expectedWalFileNameLength {
-		return path.Join(baseDir, clusterName, walName[0:16], walName)
+		return path.Join(baseDir, clusterName, walName[0:walSubdirectoryLength], walName)
 	}
 
 	return path.Join(baseDir, clusterName, walName)

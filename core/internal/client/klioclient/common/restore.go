@@ -15,6 +15,10 @@ const backupLabelFileName = "backup_label"
 // BackupRestorer is used by a restore executor to download
 // data from the backup store to the local file system.
 type BackupRestorer interface {
+	// ListBackups gets the backup metadata from the backup store given
+	// the backup name.
+	ListBackups(ctx context.Context) ([]BackupMetadata, error)
+
 	// GetMetadata gets the backup metadata from the backup store given
 	// the backup name.
 	GetMetadata(ctx context.Context, name string) (*BackupMetadata, error)

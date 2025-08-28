@@ -7,8 +7,10 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"strconv"
 	"time"
 
+	cnpgv1 "github.com/cloudnative-pg/api/pkg/api/v1"
 	"github.com/cloudnative-pg/cnpg-i/pkg/backup"
 	"github.com/cloudnative-pg/machinery/pkg/log"
 	pgTime "github.com/cloudnative-pg/machinery/pkg/postgres/time"
@@ -46,10 +48,25 @@ func (b backupServiceImplementation) GetCapabilities(
 // Backup implements the Backup interface.
 func (b backupServiceImplementation) Backup(
 	ctx context.Context,
-	_ *backup.BackupRequest,
+	request *backup.BackupRequest,
 ) (*backup.BackupResult, error) {
 	contextLogger := log.FromContext(ctx)
 
+	// Step 1: get and apply the retention policies
+	var cluster cnpgv1.Cluster
+	if err := json.Unmarshal(request.GetClusterDefinition(), &cluster); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal cluster definition: %w", err)
+	}
+
+	r := extractRetentionFromCluster(&cluster)
+	if err := b.setRetentionPolicy(ctx, r); err != nil {
+		// Yes this is intentional. If we don't set the retention policies it
+		// is not a major issue. We can continue with the backup.
+		// The eventual error will be logged into the setRetentionPolicy function
+		log.Error(err, "failed to set retention policy")
+	}
+
+	// Step 2: starting the backup
 	backupName := fmt.Sprintf("backup-%v", pgTime.ToCompactISO8601(time.Now()))
 
 	contextLogger.Info("Starting Klio backup", "backupName", backupName)
@@ -91,6 +108,16 @@ func (b backupServiceImplementation) Backup(
 		return nil, fmt.Errorf("failed to parse backup metadata: %w", err)
 	}
 
+	// Step 3: trigger maintenance
+	contextLogger.Info("Starting Klio backup maintenance")
+	cmd = exec.CommandContext(ctx, "klio", "backup", "maintenance", "--config", backupRepositoryConfigPath)
+
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	if err := cmd.Run(); err != nil {
+		contextLogger.Error(err, "failed to execute klio backup maintenance command, skipping")
+	}
+
 	return &backup.BackupResult{
 		BackupName:        backupName,
 		StartedAt:         metadata.StartedAt,
@@ -106,4 +133,56 @@ func (b backupServiceImplementation) Backup(
 		EndWal:            metadata.EndWAL,
 		Online:            true,
 	}, nil
+}
+
+func (b backupServiceImplementation) setRetentionPolicy(ctx context.Context, r *Retention) error {
+	contextLogger := log.FromContext(ctx)
+
+	if r.IsEmpty() {
+		contextLogger.Info("Skipping retention policy creation")
+		return nil
+	}
+
+	klioArgs := []string{
+		"retention", "set", "--config", backupRepositoryConfigPath,
+	}
+	if r.KeepAnnual != nil {
+		klioArgs = append(klioArgs, "--keep-annual", strconv.Itoa(*r.KeepAnnual))
+	}
+	if r.KeepDaily != nil {
+		klioArgs = append(klioArgs, "--keep-daily", strconv.Itoa(*r.KeepDaily))
+	}
+	if r.KeepHourly != nil {
+		klioArgs = append(klioArgs, "--keep-hourly", strconv.Itoa(*r.KeepHourly))
+	}
+	if r.KeepLatest != nil {
+		klioArgs = append(klioArgs, "--keep-latest", strconv.Itoa(*r.KeepLatest))
+	}
+	if r.KeepWeekly != nil {
+		klioArgs = append(klioArgs, "--keep-weekly", strconv.Itoa(*r.KeepWeekly))
+	}
+	if r.KeepMonthly != nil {
+		klioArgs = append(klioArgs, "--keep-monthly", strconv.Itoa(*r.KeepMonthly))
+	}
+
+	contextLogger.Info("Executing klio retention set", "args", klioArgs)
+	cmd := exec.CommandContext(ctx, "klio", klioArgs...)
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("failed to execute 'klio retention set' command: %w", err)
+	}
+
+	contextLogger.Info("Executing klio retention get")
+	cmd = exec.CommandContext(ctx, "klio", "retention", "get", "--config", backupRepositoryConfigPath)
+	var stdout bytes.Buffer
+	cmd.Stdout = &stdout
+	cmd.Stderr = os.Stderr
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("failed to execute 'klio retention get' command: %w", err)
+	}
+
+	contextLogger.Info("Effective retention policy", "effectivePolicy", stdout.String())
+
+	return nil
 }

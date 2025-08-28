@@ -1,33 +1,27 @@
 package backup
 
 import (
-	"encoding/json"
 	"fmt"
-	"os"
 
-	"github.com/cloudnative-pg/machinery/pkg/log"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"gopkg.in/validator.v2"
 
 	"github.com/cloudnative-pg/klio/core/internal/cli"
 	"github.com/cloudnative-pg/klio/core/internal/client/klioclient/kopia"
-	"github.com/cloudnative-pg/klio/core/internal/client/klioclient/notifier"
 	"github.com/cloudnative-pg/klio/core/pkg/config"
 )
 
-// getMetadataCmd represents the klio backup get-metadata command
+// deleteCmd represents the klio backup get-metadata command
 //
 //nolint:gochecknoglobals
-var getMetadataCmd = &cobra.Command{
-	Use:   "get-metadata [backupName]",
-	Short: "Gets the metadata of the backup with the provided name",
+var deleteCmd = &cobra.Command{
+	Use:   "delete [backupName]",
+	Short: "Deletes the metadata with the provided name",
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		var configuration config.Data
 		backupName := args[0]
-
-		contextLogger := log.FromContext(cmd.Context())
 
 		// IMPORTANT: this requires this program to be built with "-tags viper_bind_struct"
 		// when using environment variables
@@ -60,22 +54,8 @@ var getMetadataCmd = &cobra.Command{
 			return fmt.Errorf("while connecting to the Klio server: %w %q", err, configuration.Client.Base.URL)
 		}
 
-		restorer := client.CreateRestorer(notifier.NewDownloadLogNotifier(contextLogger))
-
-		metadata, err := restorer.GetMetadata(cmd.Context(), backupName)
-		if err != nil {
-			return fmt.Errorf("while getting metadata for backup %q: %w", backupName, err)
-		}
-
-		// Marshal metadata to JSON
-		jsonData, err := json.Marshal(metadata)
-		if err != nil {
-			return fmt.Errorf("failed to marshal metadata to JSON: %w", err)
-		}
-
-		_, err = os.Stdout.Write(jsonData)
-		if err != nil {
-			return fmt.Errorf("failed to write JSON output: %w", err)
+		if err := client.DeleteBackup(cmd.Context(), backupName); err != nil {
+			return fmt.Errorf("while deleting backup: %w", err)
 		}
 
 		return nil
@@ -85,7 +65,7 @@ var getMetadataCmd = &cobra.Command{
 //nolint:gochecknoinits
 func init() {
 	// Here you will define your flags and configuration settings.
-	getMetadataCmd.Flags().StringP("name", "n", "", "The backup name")
+	deleteCmd.Flags().StringP("name", "n", "", "The backup name")
 
 	// Cobra supports Persistent Flags which will work for this command
 	// and all subcommands, e.g.:
@@ -95,5 +75,5 @@ func init() {
 	// is called directly, e.g.:
 	// runCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
 
-	BackupCmd.AddCommand(getMetadataCmd)
+	BackupCmd.AddCommand(deleteCmd)
 }
