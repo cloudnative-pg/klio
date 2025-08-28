@@ -112,9 +112,8 @@ func (f *RecoveryFeature) Run() types.StepFunc {
 		_, err = postgres.ExecPostgresQuery(ctx, r, f.sourcePrimaryPod, "postgres",
 			"CREATE TABLE numbers AS SELECT generate_series(1, 1000) AS x;")
 		require.NoError(t, err, "failed to create table")
-		_, err = postgres.ExecPostgresQuery(ctx, r, f.sourcePrimaryPod, "postgres",
-			"CHECKPOINT; SELECT pg_switch_wal();")
-		require.NoError(t, err, "failed to switch WAL")
+		require.NoError(t, postgres.CheckpointAndSwitchWal(ctx, r, f.sourcePrimaryPod),
+			"failed to checkpoint and switch WAL")
 
 		// Take a backup
 		require.NoError(t, r.Create(ctx, f.backup), "failed to create backup")
@@ -135,7 +134,11 @@ func (f *RecoveryFeature) Run() types.StepFunc {
 		require.NoError(t, err, "recovery Cluster not ready")
 
 		// Verify data in the recovered Cluster
-		out, err := postgres.ExecPostgresQuery(ctx, r, f.sourcePrimaryPod, "postgres",
+		var recoveryPrimaryPod corev1.Pod
+		require.NoError(t,
+			r.Get(ctx, f.recoveryCluster.Status.CurrentPrimary, f.recoveryCluster.Namespace, &recoveryPrimaryPod),
+			"failed to get the recovery Cluster primary pod")
+		out, err := postgres.ExecPostgresQuery(ctx, r, &recoveryPrimaryPod, "postgres",
 			"SELECT COUNT(*) FROM numbers;")
 		require.NoError(t, err, "failed to verify data")
 		countedEntries, err := strconv.Atoi(out)

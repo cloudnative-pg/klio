@@ -15,6 +15,7 @@ func TestMain(m *testing.M) {
 	runner.RegisterFeature(BackupFromPrimary(envconf.RandomName("backup-from-primary", 32)))
 	runner.RegisterFeature(BackupFromStandby(envconf.RandomName("backup-from-standby", 32)))
 	runner.RegisterFeatures(RecoverClusterFromBackup(envconf.RandomName("recovery-from-backup", 32)))
+	runner.RegisterFeatures(RecoverClusterFromPitr(envconf.RandomName("recovery-from-pitr", 32)))
 	runner.RegisterSetup(
 		func(ctx context.Context, config *envconf.Config) (context.Context, error) {
 			if err := certmanagerv1.AddToScheme(config.Client().Resources().GetScheme()); err != nil {

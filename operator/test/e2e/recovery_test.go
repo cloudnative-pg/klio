@@ -22,9 +22,9 @@ import (
 	"github.com/cloudnative-pg/klio/operator/test/utils/templates"
 )
 
-func newRecoveryFeature(
+func NewRecoveryFeatureConfig(
 	name string, instances int, namespace string,
-) *machineryFeatures.RecoveryFeature {
+) machineryFeatures.RecoveryFeatureConfig {
 	const klioServerName = "test-klio-server"
 	var sourcePrimary corev1.Pod
 
@@ -119,17 +119,22 @@ func newRecoveryFeature(
 		return ctx
 	}
 
-	return machineryFeatures.NewRecoveryFeature(
-		machineryFeatures.RecoveryFeatureConfig{
-			Name:             name,
-			Setup:            setupFunc,
-			Teardown:         teardownFunc,
-			SourcePrimaryPod: &sourcePrimary,
-			Backup:           backup,
-			RecoveryCluster:  recoveryCluster,
-		})
+	return machineryFeatures.RecoveryFeatureConfig{
+		Name:             name,
+		Setup:            setupFunc,
+		Teardown:         teardownFunc,
+		SourcePrimaryPod: &sourcePrimary,
+		Backup:           backup,
+		RecoveryCluster:  recoveryCluster,
+	}
 }
 
 func RecoverClusterFromBackup(namespace string) *machineryFeatures.RecoveryFeature {
-	return newRecoveryFeature("RecoverClusterFromBackup", 1, namespace)
+	return machineryFeatures.NewRecoveryFeature(NewRecoveryFeatureConfig(
+		"RecoverClusterFromBackup", 1, namespace))
+}
+
+func RecoverClusterFromPitr(namespace string) *machineryFeatures.PitrFeature {
+	return machineryFeatures.NewPitrFeature(NewRecoveryFeatureConfig(
+		"RecoverClusterFromPitr", 1, namespace))
 }

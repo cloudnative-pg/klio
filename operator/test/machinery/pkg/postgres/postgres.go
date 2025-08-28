@@ -33,3 +33,11 @@ func ExecPostgresQuery(
 
 	return strings.TrimSpace(stdout.String()), nil
 }
+
+// CheckpointAndSwitchWal executes a checkpoint and switches WAL file in a target PostgreSQL pod.
+func CheckpointAndSwitchWal(ctx context.Context, res *resources.Resources, pod *corev1.Pod) error {
+	_, err := ExecPostgresQuery(ctx, res, pod, "postgres",
+		"CHECKPOINT; SELECT pg_switch_wal();")
+
+	return err
+}
