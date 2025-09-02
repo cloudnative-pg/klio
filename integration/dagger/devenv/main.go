@@ -48,7 +48,7 @@ func (m *Devenv) Kubernetes(
 // +default="quay.io/skopeo/stable:v1.19.0"
 	skopeoImage string,
 // renovate image: datasource=docker depName=k3s lookupName=rancher/k3s versioning=docker
-// +default="rancher/k3s:v1.33.3-k3s1"
+// +default="rancher/k3s:v1.33.4-k3s1"
 	k3SImage string,
 // renovate image: datasource=docker depName=alpine/k8s versioning=docker
 // +default="alpine/k8s:1.33.4"
