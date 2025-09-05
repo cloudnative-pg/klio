@@ -1,16 +1,19 @@
 apiVersion: v2
 name: klio-operator-chart
-description: |
-  The Klio operator manages the lifecycle of Klio components in a Kubernetes cluster.
-  Klio is a cloud-native backup solution for PostgreSQL databases, designed to work seamlessly with CloudNativePG.
+description: >
+  The Klio operator manages the lifecycle of Klio components in a Kubernetes
+  cluster.
+
+  Klio is a cloud-native backup solution for PostgreSQL databases, designed to
+  work seamlessly with CloudNativePG.
 keywords:
   - backup
   - CloudNativePG
 type: application
-version: 0.1.0
-appVersion: "0.1.0"
-home: "https://enterprisedb.com"
+version: 0.0.2
+appVersion: 0.0.2
+home: https://enterprisedb.com
 maintainers:
   - name: EDB Klio development team
 annotations:
-  "org.opencontainers.image.source": "https://github.com/cloudnative-pg/klio"
+  org.opencontainers.image.source: https://github.com/cloudnative-pg/klio

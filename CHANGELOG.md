@@ -1,5 +1,70 @@
 # Changelog
 
+## [0.0.2](https://github.com/EnterpriseDB/klio/compare/v0.0.1...v0.0.2) (2025-09-05)
+
+
+### Features
+
+* Add backup ([#90](https://github.com/EnterpriseDB/klio/issues/90)) ([390ddee](https://github.com/cloudnative-pg/klio/commit/390ddeed21a60ca4c666a81c1b3107d9c24fd1b6))
+* Add cnpgi `metrics` capabilities ([#128](https://github.com/EnterpriseDB/klio/issues/128)) ([ce95a6f](https://github.com/cloudnative-pg/klio/commit/ce95a6f7cf59549745bc7d52e62d1218c7afd587))
+* Add retention policies to Klio ([#190](https://github.com/EnterpriseDB/klio/issues/190)) ([0ceb9f7](https://github.com/cloudnative-pg/klio/commit/0ceb9f723e7ce1a3f0fa40341d5fce8443515c8d))
+* Add users configuration ([b6e2228](https://github.com/cloudnative-pg/klio/commit/b6e2228dd31c263eb377db6094141064231f1dbe))
+* Admin user and password support ([93d3574](https://github.com/cloudnative-pg/klio/commit/93d3574cd66f797075281fd37e70aebc7f12117a))
+* Cluster metadata and LSN reset ([6510348](https://github.com/cloudnative-pg/klio/commit/651034804fda6272e5016e200b1cdb5253ffa6c9))
+* Remove `ConfigPath` field ([#84](https://github.com/EnterpriseDB/klio/issues/84)) ([ab33fea](https://github.com/cloudnative-pg/klio/commit/ab33fea2b3afb2cca0c531f95459558d92f8f0fa))
+* Add persistentVolumeClaim customization ([#85](https://github.com/EnterpriseDB/klio/issues/85)) ([7e178eb](https://github.com/cloudnative-pg/klio/commit/7e178eb3e18ecf3ccdac1902e12debd9f24ed4c9))
+* Add kopia AdminUser ([#79](https://github.com/EnterpriseDB/klio/issues/79)) ([f227829](https://github.com/cloudnative-pg/klio/commit/f227829decbeac6cd54590e3ab86a72639920d5e))
+* Add imagePullSecrets ([#80](https://github.com/EnterpriseDB/klio/issues/80)) ([445b96f](https://github.com/cloudnative-pg/klio/commit/445b96fca77f4808969cb7359d13abfc9c3883da))
+* Add resources ([#81](https://github.com/EnterpriseDB/klio/issues/81)) ([731e1e0](https://github.com/cloudnative-pg/klio/commit/731e1e0727799449dc01d1fa79bc239d5c78e782))
+* Add StatefulSet ([#78](https://github.com/EnterpriseDB/klio/issues/78)) ([1296ea9](https://github.com/cloudnative-pg/klio/commit/1296ea963b05d450347b76149104e706594b102e))
+* Add CNPGI restore capability ([#121](https://github.com/EnterpriseDB/klio/issues/121)) ([3e41367](https://github.com/cloudnative-pg/klio/commit/3e41367590a0b493948080c4d337d3b5819bf1e0))
+* Cnpg-i send-wal cluster coordination ([#191](https://github.com/EnterpriseDB/klio/issues/191)) ([8342951](https://github.com/cloudnative-pg/klio/commit/8342951947d8f73574468e1b3e81b58f88a86f50))
+* Create klio core configuration ([07a7208](https://github.com/cloudnative-pg/klio/commit/07a7208a175e382fb941289ed41a69df24cdf5ee))
+* Htpasswd-based credential checking ([75ede0a](https://github.com/cloudnative-pg/klio/commit/75ede0adf5e807928d3ddb82a937a8bf14571cfe))
+* Initial replica cluster support ([#189](https://github.com/EnterpriseDB/klio/issues/189)) ([40a12a5](https://github.com/cloudnative-pg/klio/commit/40a12a573d148db1048360d9f3a5fd8b91065579))
+* Klio backup run/get-metadata ([#123](https://github.com/EnterpriseDB/klio/issues/123)) ([627244a](https://github.com/cloudnative-pg/klio/commit/627244aac219566b261a937a1b03d1eb6b5cfc5b))
+* Klio initialize ([732d779](https://github.com/cloudnative-pg/klio/commit/732d7794363ba138ae60befc4eb34e94c8902474))
+* Klio server command ([8a443f3](https://github.com/cloudnative-pg/klio/commit/8a443f3226f22e7eb62cead194d9d8f064c3dea4))
+* **logs:** Make kopia log to stdout instead of using folder ([#100](https://github.com/EnterpriseDB/klio/issues/100)) ([90ac8a9](https://github.com/cloudnative-pg/klio/commit/90ac8a9f2668e80731866a2ee27eb3b7854e3e3e))
+* Operator stub ([#76](https://github.com/EnterpriseDB/klio/issues/76)) ([70a769e](https://github.com/cloudnative-pg/klio/commit/70a769e73d345f0cb408981893fe38a3b5441f1e))
+* **operator:** Add CNPGI capabilities ([e0e1191](https://github.com/cloudnative-pg/klio/commit/e0e1191a440d019db3265e217c333a128929dfe9))
+* **perf:** Define GRPC window size and buffers ([5d7088b](https://github.com/cloudnative-pg/klio/commit/5d7088b90ba49b2c812c734f7ec0ab0fc6f51bc7))
+* **prof:** Pprof server, no protobuf in WAL file blocks ([bf4a689](https://github.com/cloudnative-pg/klio/commit/bf4a6893b1a6cdcff1e775e6fa8563b4f29b2c23))
+* Reset LSN ([1e3d150](https://github.com/cloudnative-pg/klio/commit/1e3d150607de59b4e172134cfbf573ca4a416bce))
+* **send-wal:** Use a buffer when sending WALs ([#127](https://github.com/EnterpriseDB/klio/issues/127)) ([be5573f](https://github.com/cloudnative-pg/klio/commit/be5573f20a39474a529e06d30384f6c636191c4f))
+* Support choosing cluster name in configuration ([#176](https://github.com/EnterpriseDB/klio/issues/176)) ([88949d9](https://github.com/cloudnative-pg/klio/commit/88949d96ba7b2df3ee3b1cc266a52536442717cd))
+* **wal-player:** Add WAL file generator and player commands ([#126](https://github.com/EnterpriseDB/klio/issues/126)) ([8e5bb15](https://github.com/cloudnative-pg/klio/commit/8e5bb153e691b0007c21ea7ac7a6625ca5f155e6))
+* **wal-player:** Decode GZIP WAL files ([#134](https://github.com/EnterpriseDB/klio/issues/134)) ([f69ee4f](https://github.com/cloudnative-pg/klio/commit/f69ee4fc47a85e07cd4f1a2c82c32795cfeb4d01))
+
+
+### Bug Fixes
+
+* Append cluster name to GRPC requests ([22574a4](https://github.com/cloudnative-pg/klio/commit/22574a45399a9ee29acdc1c7436ab0a7e8faf6c4))
+* Avoid returning errors on successful get-wal ([8f773ef](https://github.com/cloudnative-pg/klio/commit/8f773ef9a67113f518e31dfb347c1104ece763a0))
+* Consider grpc overhead while setting message size limit ([#167](https://github.com/EnterpriseDB/klio/issues/167)) ([6c8922e](https://github.com/cloudnative-pg/klio/commit/6c8922ec917bbc15ff4d3a7315ba027f1087a2bb))
+* **deps:** Lock file maintenance documentation dependencies ([#152](https://github.com/EnterpriseDB/klio/issues/152)) ([f13f99e](https://github.com/cloudnative-pg/klio/commit/f13f99e2c7826a7c97f3d85a17e38cbb46619743))
+* **deps:** Lock file maintenance documentation dependencies ([#164](https://github.com/EnterpriseDB/klio/issues/164)) ([95efba0](https://github.com/cloudnative-pg/klio/commit/95efba03850da2ded1e935fe3cd8e1d2f242fae3))
+* **deps:** Lock file maintenance documentation dependencies ([#222](https://github.com/EnterpriseDB/klio/issues/222)) ([b5be1aa](https://github.com/cloudnative-pg/klio/commit/b5be1aa2ccef9473712f79e13f4f7737e8a8f5ff))
+* **deps:** Update all non-major go dependencies ([#110](https://github.com/EnterpriseDB/klio/issues/110)) ([4d29c82](https://github.com/cloudnative-pg/klio/commit/4d29c8275f4657ee97d1b4140f84624bcbc99953))
+* **deps:** Update all non-major go dependencies ([#155](https://github.com/EnterpriseDB/klio/issues/155)) ([6cf8d04](https://github.com/cloudnative-pg/klio/commit/6cf8d043bdb75c8980a44ea8d07e5140cd195b4e))
+* **deps:** Update all non-major go dependencies ([#199](https://github.com/EnterpriseDB/klio/issues/199)) ([6009353](https://github.com/cloudnative-pg/klio/commit/60093532186610d55b6798ea0dfbb2a3c05d0adc))
+* **deps:** Update all non-major go dependencies ([#229](https://github.com/EnterpriseDB/klio/issues/229)) ([d788a80](https://github.com/cloudnative-pg/klio/commit/d788a80b541c221a01788bdaa656549e0c387ffb))
+* **deps:** Update all non-major go dependencies ([#43](https://github.com/EnterpriseDB/klio/issues/43)) ([3ece96c](https://github.com/cloudnative-pg/klio/commit/3ece96c7accce82ff688142b7493b57e377132f6))
+* **deps:** Update all non-major go dependencies ([#70](https://github.com/EnterpriseDB/klio/issues/70)) ([a19d987](https://github.com/cloudnative-pg/klio/commit/a19d9874b50fa6e509a5e2daf612fe580139ec0b))
+* **deps:** Update k8s.io/utils digest to 0af2bda ([#212](https://github.com/EnterpriseDB/klio/issues/212)) ([6c086e2](https://github.com/cloudnative-pg/klio/commit/6c086e2a20ab82a56ad370fc96a179ec8de97838))
+* **deps:** Update k8s.io/utils digest to 4c0f3b2 ([#103](https://github.com/EnterpriseDB/klio/issues/103)) ([9aef0a6](https://github.com/cloudnative-pg/klio/commit/9aef0a689571c4828fbe3100402508a65c994fd5))
+* **deps:** Update kubernetes packages to v0.33.2 ([#111](https://github.com/EnterpriseDB/klio/issues/111)) ([78f9b95](https://github.com/cloudnative-pg/klio/commit/78f9b9520e864406f2a682f81c5285dea55921a5))
+* **deps:** Update kubernetes packages to v0.33.3 ([#138](https://github.com/EnterpriseDB/klio/issues/138)) ([b618e8c](https://github.com/cloudnative-pg/klio/commit/b618e8c87a8fd66f734f22471f257177d21e8659))
+* **deps:** Update kubernetes packages to v0.33.4 ([#198](https://github.com/EnterpriseDB/klio/issues/198)) ([f7a3071](https://github.com/cloudnative-pg/klio/commit/f7a3071bd3b9bef7ffddf87c52c2dc725ad2a329))
+* **deps:** Update module github.com/cloudnative-pg/cloudnative-pg to v1.26.1 ([#162](https://github.com/EnterpriseDB/klio/issues/162)) ([ab8b471](https://github.com/cloudnative-pg/klio/commit/ab8b471f3c93726447fe4ece0108de3ac58f12bc))
+* **deps:** Update module github.com/kopia/kopia to v0.21.1 ([#147](https://github.com/EnterpriseDB/klio/issues/147)) ([9572e95](https://github.com/cloudnative-pg/klio/commit/9572e95bc3680a4a305b670863e6827438fe89c7))
+* **deps:** Update module golang.org/x/crypto to v0.38.0 ([#64](https://github.com/EnterpriseDB/klio/issues/64)) ([fa4e747](https://github.com/cloudnative-pg/klio/commit/fa4e747741f986d581f5cd6b06f9f7557c134bc5))
+* **deps:** Update module sigs.k8s.io/controller-runtime to v0.22.0 ([#220](https://github.com/EnterpriseDB/klio/issues/220)) ([f0743a5](https://github.com/cloudnative-pg/klio/commit/f0743a53caef4581b10b6dd4d837d6917036104c))
+* **deps:** Update module sigs.k8s.io/yaml to v1.6.0 ([#200](https://github.com/EnterpriseDB/klio/issues/200)) ([f75a840](https://github.com/cloudnative-pg/klio/commit/f75a840bcc3331cd6c8bb6ab5477a56f3bccb2f8))
+* Kopia cache configuration ([e277322](https://github.com/cloudnative-pg/klio/commit/e277322984c8a6e4f2597935daa5ac19d8911deb))
+* Prevent wordlist-ordered task to run twice ([b321d85](https://github.com/cloudnative-pg/klio/commit/b321d859d2fc40a609c730bdfaa333c0255eed19))
+* Read configuration using environment variables ([27c66d7](https://github.com/cloudnative-pg/klio/commit/27c66d700782f9d3583b1b3453a03d7ddd0d6a05))
+
 ## 0.0.1 (2025-05-29)
 
 
