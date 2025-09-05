@@ -666,6 +666,7 @@ tasks:
       - documentation:apidoc
       - documentation:helm-chart
       - documentation:docusaurus-build-test
+      - documentation:docusaurus-version-is-aligned
       - documentation:uncommitted
 
   documentation:wordlist-ordered:
@@ -767,15 +768,25 @@ tasks:
     sources:
       - ./web/**/*
 
-#  FIXME: this task expects very specific directory locations. It should be generalized and put in the daggerverse.
-#  FIXME: commented out until we can fix it.
-#  docusaurus-version-is-aligned:
-#    desc: Verify that a documentation version exists for the current version of the plugin
-#    cmds:
-#      - dagger -s call -m github.com/cloudnative-pg/plugin-barman-cloud/dagger/check-doc-version has-version-documentation --src .
-#    sources:
-#      - .release-please-manifest.json
-#      - ./web/versions.json
+  documentation:docusaurus-version-is-aligned:
+    desc: Verify that a documentation version exists for the current version of the plugin
+    # Run a jq query that combines in an array the current release-please version and the
+    # documentation versions, and checks that the release-please version is contained in the
+    # documentation versions. The command returns exit code 0 if the version is found,
+    # and exit code 1 otherwise.
+    env:
+      # renovate: datasource=docker depName=ghcr.io/jqlang/jq versioning=semver
+      JQ_IMAGE_VERSION: 1.8.1
+    cmds:
+      - >
+        dagger core container from --address ghcr.io/jqlang/jq:${JQ_IMAGE_VERSION}
+        with-file --source .release-please-manifest.json --path /release-version.json
+        with-file --source documentation/web/versions.json --path /documentation-versions.json
+        with-exec --args "/jq" --args "-es" --args '.[0][] as $val | .[1] | contains([$val])'
+        --args "/release-version.json" --args "/documentation-versions.json"
+    sources:
+      - .release-please-manifest.json
+      - ./web/versions.json
 
   # FIXME: this times out after a few seconds. It's easier to serve the documentation through a node container.
   documentation:docusaurus-dev-serve:
