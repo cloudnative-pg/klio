@@ -2,7 +2,7 @@ module github.com/cloudnative-pg/klio/core
 
 go 1.24.1
 
-toolchain go1.25.0
+toolchain go1.25.1
 
 require (
 	github.com/cloudnative-pg/api v1.27.0

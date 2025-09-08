@@ -2,7 +2,7 @@ module github.com/cloudnative-pg/klio/operator
 
 go 1.24.4
 
-toolchain go1.25.0
+toolchain go1.25.1
 
 require (
 	github.com/cert-manager/cert-manager v1.18.2
