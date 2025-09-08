@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.0.3](https://github.com/EnterpriseDB/klio/compare/v0.0.2...v0.0.3) (2025-09-08)
+
+
+### Bug Fixes
+
+* Release procedure ([#239](https://github.com/EnterpriseDB/klio/issues/239)) ([b042f4a](https://github.com/cloudnative-pg/klio/commit/b042f4a02e84edd537122d78920e701eca3e4229))
+
 ## [0.0.2](https://github.com/EnterpriseDB/klio/compare/v0.0.1...v0.0.2) (2025-09-05)
 
 

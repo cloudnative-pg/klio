@@ -2,7 +2,7 @@
 title: EDB Klio Operator Helm Chart
 sidebar_position: 90
 ---
-![Version: 0.0.2](https://img.shields.io/badge/Version-0.0.2-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: 0.0.2](https://img.shields.io/badge/AppVersion-0.0.2-informational?style=flat-square)
+![Version: 0.0.3](https://img.shields.io/badge/Version-0.0.3-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: 0.0.3](https://img.shields.io/badge/AppVersion-0.0.3-informational?style=flat-square)
 
 The EDB Klio Operator Helm chart from EDB allows you to deploy the Klio
 Operator in your Kubernetes cluster. It is distributed as an OCI image. You can
