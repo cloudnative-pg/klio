@@ -162,7 +162,6 @@ tasks:
     desc: Upload the release artifacts
     deps:
       - core:protoc-gen-go-grpc
-    dir: core
     run: once
     requires:
       # We expect this to run in a GitHub workflow, so we put a few GitHub-specific vars here
@@ -174,17 +173,25 @@ tasks:
         - GITHUB_REF_NAME
         - GITHUB_TOKEN
     env:
-      # renovate: datasource=git-refs depName=goreleaser lookupName=https://github.com/act3-ai/dagger currentValue=main
-      DAGGER_GORELEASER_SHA: 0beeb456ee366b53a0b6e15446bc7803e8f16fe5
+      # renovate: datasource=docker depName=ghcr.io/goreleaser/goreleaser versioning=semver
+      GORELEASER_IMAGE_VERSION: v2.12.0
     preconditions:
       - sh: "[[ {{.GITHUB_REF}} =~ 'refs/tags/v.*' ]]"
         msg: not a tag, failing
     cmds:
+      # Goreleaser needs the .git directory to figure out the version from the tags.
+      # Given that it is easier to have .goreleaser.yaml in the core directory, we
+      # run goreleaser from there, mounting the whole repository as /src and
+      # setting the workdir to /src/core.
+      # TODO: align with the snapshot task.
       - >
-        dagger call -m github.com/act3-ai/dagger/goreleaser@${DAGGER_GORELEASER_SHA} --source .
-        with-env-variable --name GITHUB_TOKEN --value {{.GITHUB_TOKEN}}
-        release with-clean with-config --config .goreleaser.yaml
-        run
+        dagger core container
+        from --address ghcr.io/goreleaser/goreleaser:${GORELEASER_IMAGE_VERSION}
+        with-mounted-directory --path /src --source .
+        with-workdir --path /src/core
+        with-env-variable --name GITHUB_TOKEN --value {{.GITHUB_TOKEN }}
+        with-exec --args "sh" --args "-c"
+        --args "goreleaser release --clean --config .goreleaser.yaml"
 
   core:containerize-snapshot:
     desc: Snapshot container images
@@ -808,6 +815,7 @@ tasks:
     deps:
       - documentation:wordlist-ordered
       - documentation:protoc-gen-doc
+      - documentation:apidoc
       - documentation:helm-chart
     cmds:
       - task: internal:uncommitted
