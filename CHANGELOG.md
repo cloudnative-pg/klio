@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.0.4](https://github.com/EnterpriseDB/klio/compare/v0.0.3...v0.0.4) (2025-09-08)
+
+
+### Bug Fixes
+
+* Allow building Klio images on release ([#241](https://github.com/EnterpriseDB/klio/issues/241)) ([435cfb2](https://github.com/cloudnative-pg/klio/commit/435cfb276cdd5b8cbe2811cac47db1bd24898729))
+
 ## [0.0.3](https://github.com/EnterpriseDB/klio/compare/v0.0.2...v0.0.3) (2025-09-08)
 
 
