@@ -192,6 +192,9 @@ tasks:
         with-env-variable --name GITHUB_TOKEN --value {{.GITHUB_TOKEN }}
         with-exec --args "sh" --args "-c"
         --args "goreleaser release --clean --config .goreleaser.yaml"
+        directory --path .
+        filter --include dist
+        export --path core/
 
   core:containerize-snapshot:
     desc: Snapshot container images
