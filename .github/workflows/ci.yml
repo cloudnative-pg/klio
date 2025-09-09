@@ -36,11 +36,11 @@ jobs:
               - 'Taskfile.yml'
               - '.github/**'
             core-changed:
-              - 'core/**'
+              - 'core/!(licenses)**'
               - 'Taskfile.yml'
               - '.github/**'
             operator-changed:
-              - 'operator/**'
+              - 'operator/!(licenses)**'
               - 'Taskfile.yml'
               - '.github/**'
             renovate-changed:

@@ -29,7 +29,7 @@ jobs:
       - name: Create Pull Request if licenses have been updated
         uses: peter-evans/create-pull-request@271a8d0340265f705b14b6d32b9829c1cb33d45e # v7
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
+          token: ${{ secrets.REPO_GHA_PAT }}
           title: "chore: refresh licenses directory"
           body: "Refresh the licenses directory"
           branch: "license-updater"
