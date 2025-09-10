@@ -4,9 +4,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"path"
 	"strings"
 	"time"
 
+	"github.com/cloudnative-pg/cloudnative-pg/pkg/postgres"
 	"github.com/cloudnative-pg/machinery/pkg/log"
 	"github.com/cloudnative-pg/machinery/pkg/types"
 	"github.com/jackc/pglogrepl"
@@ -131,14 +133,19 @@ func (s *Process) Start(ctx context.Context) error {
 		"systemID", identifyData.SystemID,
 	)
 
-	startingPoint, err := s.getReplicationStartPoint(ctx, conn, identifyData, walSegmentSize)
+	// Negotiate the starting point with the server
+	point, err := s.getReplicationStartPoint(ctx, conn, identifyData, walSegmentSize)
 	if err != nil {
 		return err
 	}
 
 	// We cannot guarantee to have all the history files available, so we ignore the error.
 	// The wal receiver could have been configured later in the cluster lifecycle
-	if histErr := s.downloadHistoryFiles(ctx, conn, identifyData.Timeline); histErr != nil {
+	if histErr := s.downloadHistoryFiles(
+		ctx,
+		conn,
+		max(identifyData.Timeline, point.timeline),
+	); histErr != nil {
 		contextLogger.Debug("Some timeline history files could not be processed", "innerErr", histErr.Error())
 	}
 
@@ -146,7 +153,7 @@ func (s *Process) Start(ctx context.Context) error {
 		return err
 	}
 
-	return s.startReplication(ctx, conn, startingPoint, identifyData.Timeline, walSegmentSize)
+	return s.startReplication(ctx, conn, point, walSegmentSize)
 }
 
 func (s *Process) getReplicationStartPointFromClient(
@@ -186,22 +193,27 @@ func (s *Process) getReplicationStartPointFromClient(
 	return getStartWALLSN(xlogFlushPos, segmentSize), nil
 }
 
+type walCoordinate struct {
+	timeline int32
+	lsn      pglogrepl.LSN
+}
+
 func (s *Process) getReplicationStartPoint(
 	ctx context.Context,
 	conn *pgconn.PgConn,
 	data pglogrepl.IdentifySystemResult,
 	segmentSize uint64,
-) (pglogrepl.LSN, error) {
+) (*walCoordinate, error) {
 	contextLogger := log.FromContext(ctx)
 
 	clientStartLSN, err := s.getReplicationStartPointFromClient(ctx, conn, data.XLogPos, segmentSize)
 	if err != nil {
-		return 0, err
+		return nil, err
 	}
 
 	clientWALFileName, err := types.Int64ToLSN(uint64(clientStartLSN)).WALFileName(int(data.Timeline), segmentSize)
 	if err != nil {
-		return 0, fmt.Errorf("while converting LSN to WAL file name: %q %w", clientStartLSN, err)
+		return nil, fmt.Errorf("while converting LSN to WAL file name: %q %w", clientStartLSN, err)
 	}
 
 	opts := &klioGRPC.RequestWALStartRequest{
@@ -210,23 +222,41 @@ func (s *Process) getReplicationStartPoint(
 		CurrentWalName: clientWALFileName,
 	}
 
-	contextLogger.Info("requesting server-side replication start", "opts", opts)
+	contextLogger.Debug("Requesting server-side replication start",
+		"cluster", opts.GetClusterName(),
+		"systemId", opts.GetSystemId(),
+		"currentWAL", opts.GetCurrentWalName())
 
 	serverWALFileName, err := s.client.RequestWALStart(ctx, opts)
 	if err != nil {
-		return 0, fmt.Errorf("during server-side replication point validation: %w", err)
+		return nil, fmt.Errorf("during server-side replication point validation: %w", err)
 	}
+
+	contextLogger.Debug("Received server-side replication start WAL", "name", serverWALFileName.GetWalName())
+
+	// Extract the timeline from the WAL file name. We remove the extension, as we may work on .partial files.
+	// TODO: this should probably go to machinery
+	segment, err := postgres.SegmentFromName(
+		strings.TrimSuffix(serverWALFileName.GetWalName(), path.Ext(serverWALFileName.GetWalName())))
+	if err != nil {
+		return nil, fmt.Errorf("while extracting segment from WAL file name %s: %w",
+			serverWALFileName.GetWalName(),
+			err)
+	}
+	tli := segment.Tli
 
 	lsn, err := getReplicationStartFromWALFileName(serverWALFileName.GetWalName(), segmentSize)
 	if err != nil {
-		return 0, err
+		return nil, err
 	}
 
 	contextLogger.Info(
 		"Negotiated replication start with the server",
-		"lsn", lsn)
+		"timeline", tli,
+		"lsn", lsn,
+	)
 
-	return lsn, nil
+	return &walCoordinate{timeline: tli, lsn: lsn}, nil
 }
 
 // getStartWALLSN gets the LSN position of the start of the WAL file
@@ -326,72 +356,94 @@ func (s *Process) downloadHistoryFiles(
 func (s *Process) startReplication(
 	ctx context.Context,
 	conn *pgconn.PgConn,
-	startXlog pglogrepl.LSN,
-	timeline int32,
+	coordinate *walCoordinate,
 	walSegmentSize uint64,
 ) error {
 	contextLogger := log.FromContext(ctx)
 
-	// To find the replication start position, we go back to the start of the WAL file
-	startWalLSNString, err := types.Int64ToLSN(uint64(startXlog)).WALFileStart(walSegmentSize)
-	if err != nil {
-		return fmt.Errorf("while computing the LSN of the WAL start - shift: %w", err)
-	}
+	startXlog := coordinate.lsn
+	timeline := coordinate.timeline
 
-	startWalLSN, err := startWalLSNString.Parse()
-	if err != nil {
-		return fmt.Errorf("while computing the LSN of the WAL start - parse: %w", err)
-	}
-
-	startXLogPos := pglogrepl.LSN(startWalLSN)
-
-	err = pglogrepl.StartReplication(
-		ctx,
-		conn,
-		s.config.Source.Slot,
-		startXLogPos,
-		pglogrepl.StartReplicationOptions{
-			Timeline: timeline,
-			Mode:     pglogrepl.PhysicalReplication,
-		})
-	if err != nil {
-		return fmt.Errorf("while running start_replication: %w", err)
-	}
-
-	contextLogger.Info(
-		"Physical replication started",
-		"slotName", s.config.Source.Slot,
-		"startWalLSN", startWalLSN,
-	)
-
-	klioHandler := buffer.NewKlioClientHandler(
-		int(timeline),
-		walSegmentSize,
-		s.client,
-	)
-
-	walBuffer := buffer.New(
-		int(timeline),
-		walSegmentSize,
-		klioHandler,
-		s.config.Source.BufferSize,
-	)
-
-	if err := s.manageWALStream(ctx, conn, walBuffer); err != nil {
-		return err
-	}
-
-	if klioHandler.HasWALFileOpened() {
-		// If the transmission terminated but there is still a WAL file in progress,
-		// we close it.
-		// This happens when PG is shut down.
-		if err := klioHandler.CloseWAL(ctx); err != nil {
-			return fmt.Errorf("while closing the WAL file: %w", err)
+	for {
+		// To find the replication start position, we go back to the start of the WAL file
+		startWalLSNString, err := types.Int64ToLSN(uint64(startXlog)).WALFileStart(walSegmentSize)
+		if err != nil {
+			return fmt.Errorf("while computing the LSN of the WAL start - shift: %w", err)
 		}
-	}
 
-	if err := conn.Close(ctx); err != nil {
-		return fmt.Errorf("while closing connection: %w", err)
+		startWalLSN, err := startWalLSNString.Parse()
+		if err != nil {
+			return fmt.Errorf("while computing the LSN of the WAL start - parse: %w", err)
+		}
+
+		startXLogPos := pglogrepl.LSN(startWalLSN)
+
+		err = pglogrepl.StartReplication(
+			ctx,
+			conn,
+			s.config.Source.Slot,
+			startXLogPos,
+			pglogrepl.StartReplicationOptions{
+				Timeline: timeline,
+				Mode:     pglogrepl.PhysicalReplication,
+			})
+		if err != nil {
+			return fmt.Errorf("while running start_replication: %w", err)
+		}
+
+		contextLogger.Info(
+			"Physical replication started",
+			"slotName", s.config.Source.Slot,
+			"startWalLSN", startWalLSN,
+			"timeline", timeline,
+		)
+
+		klioHandler := buffer.NewKlioClientHandler(
+			int(timeline),
+			walSegmentSize,
+			s.client,
+		)
+
+		walBuffer := buffer.New(
+			int(timeline),
+			walSegmentSize,
+			klioHandler,
+			s.config.Source.BufferSize,
+		)
+
+		copyDoneResult, err := s.manageWALStream(ctx, conn, walBuffer)
+		if err != nil {
+			return err
+		}
+
+		if klioHandler.HasWALFileOpened() {
+			// If the transmission terminated but there is still a WAL file in progress,
+			// we close it.
+			// This happens when PG is shut down.
+			if err := klioHandler.CloseWAL(ctx); err != nil {
+				return fmt.Errorf("while closing the WAL file: %w", err)
+			}
+		}
+
+		// Check if the timeline has changed and restart replication if needed
+		if copyDoneResult != nil && copyDoneResult.Timeline != timeline {
+			contextLogger.Info(
+				"Timeline changed, restarting replication",
+				"oldTimeline", timeline,
+				"newTimeline", copyDoneResult.Timeline,
+				"newStartLSN", copyDoneResult.LSN,
+			)
+
+			// Update timeline and starting position for restart
+			timeline = copyDoneResult.Timeline
+			startXlog = copyDoneResult.LSN
+
+			// Continue the loop to restart replication with the new timeline
+			continue
+		}
+
+		// If we reach here, replication completed without timeline change
+		break
 	}
 
 	return nil
@@ -402,7 +454,7 @@ func (s *Process) manageWALStream(
 	ctx context.Context,
 	conn *pgconn.PgConn,
 	buffer *buffer.Data,
-) error {
+) (*pglogrepl.CopyDoneResult, error) {
 	contextLogger := log.FromContext(ctx)
 
 	flushDeadline := s.config.Source.FlushTimeout()
@@ -411,12 +463,13 @@ func (s *Process) manageWALStream(
 	feedbackDeadline := s.config.Source.StandbyMessageTimeout()
 	nextFeedbackDeadline := time.Now().Add(feedbackDeadline)
 
+loop:
 	for {
 		if time.Now().After(nextFlushDeadline) {
 			flushedLSN := buffer.FlushLSN()
 			if err := buffer.Flush(ctx); err != nil {
 				contextLogger.Error(err, "Failed flush WAL data")
-				return fmt.Errorf("while flushing WAL data: %w", err)
+				return nil, fmt.Errorf("while flushing WAL data: %w", err)
 			}
 
 			// TODO: explain why it can differ
@@ -452,6 +505,10 @@ func (s *Process) manageWALStream(
 			break
 		}
 
+		log.FromContext(ctx).Trace(
+			"Received message",
+			"msgType", fmt.Sprintf("%T", msg))
+
 		switch msg := msg.(type) {
 		case *pgproto3.CopyData:
 			switch msg.Data[0] {
@@ -481,7 +538,7 @@ func (s *Process) manageWALStream(
 
 				if err = buffer.ProcessWALData(ctx, xld.WALData, types.LSN(xld.WALStart.String())); err != nil {
 					contextLogger.Error(err, "Error while processing WAL data", "lsn", xld.WALStart)
-					return fmt.Errorf("could not process WAL data at %s: %w", xld.WALStart, err)
+					return nil, fmt.Errorf("could not process WAL data at %s: %w", xld.WALStart, err)
 				}
 
 				// Force the code to communicate back to PostgreSQL the current status without waiting for
@@ -490,22 +547,27 @@ func (s *Process) manageWALStream(
 
 			default:
 				contextLogger.Info("Received unexpected copydata message", "msg", msg)
-				return NewUnexpectedCopydataMessageError(msg.Data)
+				return nil, NewUnexpectedCopydataMessageError(msg.Data)
 			}
 
 		case *pgproto3.CommandComplete:
 			contextLogger.Info("Streaming replication terminated by the backend with success")
-			return nil
+			return nil, nil
+
+		case *pgproto3.CopyDone:
+			contextLogger.Info("Streaming replication terminated by the backend with CopyDone")
+			break loop
 
 		default:
 			contextLogger.Info("Received unexpected message", "msg", msg)
-			return NewUnexpectedMessageError(msg)
+			return nil, NewUnexpectedMessageError(msg)
 		}
 	}
 
+	contextLogger.Info("WAL streaming loop terminated, sending CopyDone")
 	copyDoneResult, err := pglogrepl.SendStandbyCopyDone(ctx, conn)
 	if err != nil {
-		return fmt.Errorf("failed to send CopyDone message: %w", err)
+		return nil, fmt.Errorf("failed to send CopyDone message: %w", err)
 	}
 
 	contextLogger.Info(
@@ -514,7 +576,7 @@ func (s *Process) manageWALStream(
 		"lsn", copyDoneResult.LSN,
 	)
 
-	return nil
+	return copyDoneResult, nil
 }
 
 func (s *Process) sendFeedback(ctx context.Context, conn *pgconn.PgConn, buffer *buffer.Data) {

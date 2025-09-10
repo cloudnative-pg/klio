@@ -28,7 +28,7 @@ func (w *Implementation) GetMetadata(
 	var err error
 
 	if metadata, err = w.getClusterMetadata(req.GetClusterName()); err != nil {
-		if !errors.Is(err, os.ErrNotExist) {
+		if errors.Is(err, os.ErrNotExist) {
 			return nil, status.Errorf(codes.NotFound, "not found")
 		}
 
@@ -44,6 +44,12 @@ func (w *Implementation) RequestWALStart(
 	_ context.Context,
 	req *grpc.RequestWALStartRequest,
 ) (*grpc.RequestWALStartResult, error) {
+	w.logger.Info(
+		"RequestWALStart, negotiating the starting point with the client",
+		"cluster", req.GetClusterName(),
+		"systemID", req.GetSystemId(),
+		"currentWAL", req.GetCurrentWalName())
+
 	if err := validatePathComponent(req.GetClusterName()); err != nil {
 		return nil, status.Errorf(codes.InvalidArgument, "invalid cluster name: %v", err.Error())
 	}
@@ -92,6 +98,12 @@ func (w *Implementation) RequestWALStart(
 		serverSideWALFile = req.GetCurrentWalName()
 	}
 
+	w.logger.Info(
+		"Server-side WAL start",
+		"wal", serverSideWALFile,
+		"latestWALGapEnd", latestWALGapEnd,
+		"latestStoredWAL", latestStoredWAL)
+
 	return &grpc.RequestWALStartResult{
 		WalName: serverSideWALFile,
 	}, nil
@@ -138,7 +150,7 @@ func (w *Implementation) ResetWALStream(
 			latestStoredWAL)
 	}
 
-	// Step 3.3: otherwise, let's we file a GAP report
+	// Step 3.3: otherwise, we file a GAP report
 	metadata.Gaps = append(metadata.Gaps, &grpc.WALGap{
 		Ts:    timestamppb.Now(),
 		Start: latestStoredWAL,
