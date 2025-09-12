@@ -47,16 +47,13 @@ kubectl apply -f cluster-dc-a.yaml
 
 Wait for the primary cluster to be ready before proceeding.
 
-### Step 3: Copy Replication Secrets
+### Step 3: take a base backup (DC-A)
 
-We need to bootstrap the replica cluster (DC-B) using pg_basebackup from
-the primary cluster (DC-A), as we do not yet support recovery without a backup
-resource.
+```bash
+kubectl apply -f backup-dc-a.yaml
+```
 
-For this, we'll need to copy the following secrets from DC-A to DC-B:
-
-- `cluster-dc-a-ca`
-- `cluster-dc-a-replication`
+Take note of the backupID and set it in the `cluster-dc-b.yaml` file.
 
 ### Step 4: Deploy Replica Cluster (DC-B)
 

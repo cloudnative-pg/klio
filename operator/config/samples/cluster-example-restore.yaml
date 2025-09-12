@@ -16,7 +16,7 @@ spec:
       plugin:
         name: klio.cnpg.io
         parameters:
-          backupName: backup-example
+          backupRef: backup-example
           serverAddress: server-sample.default
           clientSecretName: klio-client
           serverSecretName: server-sample-tls

@@ -1,0 +1,13 @@
+apiVersion: postgresql.cnpg.io/v1
+kind: Backup
+metadata:
+  name: backup-example
+  namespace: dc-a
+spec:
+  method: plugin
+  target: primary
+  cluster:
+    name: cluster-dc-a
+
+  pluginConfiguration:
+    name: klio.cnpg.io

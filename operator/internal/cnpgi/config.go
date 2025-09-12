@@ -29,7 +29,8 @@ type pluginConfiguration struct {
 	ClusterName      string
 	ClientSecretName string
 	ServerSecretName string
-	BackupName       string
+	BackupRef        string
+	BackupID         string
 	Enabled          bool
 	EnablePPROF      bool
 }
@@ -67,7 +68,10 @@ func parsePluginConfiguration(rawConf *cnpgv1.PluginConfiguration) (*pluginConfi
 	}
 
 	// not mandatory, so we don't return an error if it's missing
-	conf.BackupName, _ = getParameter(rawConf, "backupName")
+	conf.BackupRef, _ = getParameter(rawConf, "backupRef")
+
+	// not mandatory, so we don't return an error if it's missing
+	conf.BackupID, _ = getParameter(rawConf, "backupID")
 
 	// not mandatory, so we don't return an error if it's missing
 	conf.ClusterName, _ = getParameter(rawConf, "clusterName")

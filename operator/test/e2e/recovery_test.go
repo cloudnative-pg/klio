@@ -58,7 +58,7 @@ func NewRecoveryFeatureConfig(
 				"serverAddress":    certificate.Spec.DNSNames[0],
 				"clientSecretName": clientSecret.GetName(),
 				"serverSecretName": certificate.Spec.SecretName,
-				"backupName":       backup.Name,
+				"backupRef":        backup.Name,
 				"clusterName":      cnpgCluster.Name,
 			},
 		},

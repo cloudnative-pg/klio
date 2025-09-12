@@ -126,12 +126,13 @@ func (impl LifecycleImplementation) reconcileJob(
 		contextLogger.Error(err, "Failed to parse recovery plugin configuration")
 		return nil, fmt.Errorf("failed to parse recovery plugin configuration: %w", err)
 	}
-	if parsedPlugin.BackupName == "" {
-		contextLogger.Warning("no backup name specified in the configuration, returning error", "pluginConfig",
-			parsedPlugin)
-		return nil, errors.New("no backupName specified")
+	if parsedPlugin.BackupRef == "" && parsedPlugin.BackupID == "" {
+		contextLogger.Warning("neither backupID nor backupRef specified in the configuration, returning error",
+			"pluginConfig", parsedPlugin)
+		return nil, errors.New("no backupID or backupRef specified")
 	}
-	backupName := parsedPlugin.BackupName
+	backupRef := parsedPlugin.BackupRef
+	backupID := parsedPlugin.BackupID
 
 	// Reconcile the configuration secret
 	if err := impl.reconcileKlioConfigSecret(ctx, klioConfigs, cluster); err != nil {
@@ -159,19 +160,33 @@ func (impl LifecycleImplementation) reconcileJob(
 		return nil, nil
 	}
 
-	var backup cnpgv1.Backup
-	if err := impl.Client.Get(
-		ctx,
-		client.ObjectKey{Name: backupName, Namespace: cluster.Namespace},
-		&backup,
-	); err != nil {
-		contextLogger.Error(err, "failed to get backup object")
-		return nil, fmt.Errorf("failed to get backup object: %w", err)
-	}
+	// Determine backup ID based on configuration
+	switch {
+	case backupID != "":
+		// Backup ID is already provided, use it directly
+		contextLogger.Debug("using provided backup ID", "backupID", backupID)
+	case backupRef != "":
+		// Backup reference provided, fetch the backup object to get the ID
+		var backup cnpgv1.Backup
+		if err := impl.Client.Get(
+			ctx,
+			client.ObjectKey{Name: backupRef, Namespace: cluster.Namespace},
+			&backup,
+		); err != nil {
+			contextLogger.Error(err, "failed to get backup object")
+			return nil, fmt.Errorf("failed to get backup object: %w", err)
+		}
 
-	if err := validateBackupForRestore(backup); err != nil {
-		contextLogger.Error(err, "while validating backup for restore")
-		return nil, err
+		if err := validateBackupForRestore(backup); err != nil {
+			contextLogger.Error(err, "while validating backup for restore")
+			return nil, err
+		}
+		backupID = backup.Status.BackupID
+		contextLogger.Debug("resolved backup ID from reference", "backupRef", backupRef, "backupID", backupID)
+	default:
+		// Neither backup ID nor backup reference provided (should not happen due to earlier checks)
+		contextLogger.Error(nil, "no backup ID found for recovery job, cannot proceed")
+		return nil, errors.New("no backup ID found for recovery job")
 	}
 
 	mutatedJob := job.DeepCopy()
@@ -187,7 +202,7 @@ func (impl LifecycleImplementation) reconcileJob(
 					Args: []string{
 						"cnpgi",
 						"restore",
-						backup.Status.BackupID,
+						backupID,
 						pgdata,
 					},
 				},
