@@ -14,6 +14,8 @@ import (
 	"github.com/jackc/pglogrepl"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgproto3"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/trace"
 	"go.uber.org/multierr"
 
 	"github.com/cloudnative-pg/klio/core/internal/client/klioclient/grpcclient"
@@ -329,6 +331,10 @@ func (s *Process) downloadHistoryFiles(
 ) error {
 	var errorList error
 
+	ctx, span := tracer.Start(ctx, "klio.client.download_fistory_files",
+		trace.WithAttributes(attribute.Int("currentTLI", int(currentTli))))
+	defer span.End()
+
 	contextLogger := log.FromContext(ctx)
 	for tli := currentTli; tli > 1; tli-- {
 		result, err := pglogrepl.TimelineHistory(ctx, conn, tli)
@@ -463,18 +469,44 @@ func (s *Process) manageWALStream(
 	feedbackDeadline := s.config.Source.StandbyMessageTimeout()
 	nextFeedbackDeadline := time.Now().Add(feedbackDeadline)
 
+	blockCtx, blockSpan := tracer.Start(ctx, "klio.client.block")
 loop:
 	for {
 		if time.Now().After(nextFlushDeadline) {
 			flushedLSN := buffer.FlushLSN()
-			if err := buffer.Flush(ctx); err != nil {
+
+			flushCtx, flushSpan := tracer.Start(
+				blockCtx,
+				"klio.client.block.flush",
+				trace.WithAttributes(
+					attribute.String("beforeFlushLSN", pglogrepl.LSN(flushedLSN).String())))
+			err := buffer.Flush(flushCtx)
+			flushSpan.SetAttributes(attribute.String("afterFlushLSN", pglogrepl.LSN(buffer.FlushLSN()).String()))
+			flushSpan.End()
+			if err != nil {
 				contextLogger.Error(err, "Failed flush WAL data")
+				blockSpan.End()
 				return nil, fmt.Errorf("while flushing WAL data: %w", err)
 			}
 
-			// TODO: explain why it can differ
+			// When flush really written something down to the Klio server,
+			// the FlushedLSN will be different. In that case, we want to immediately
+			// give a feedback to the PostgreSQL server. This ultimately
+			// will result in updated data in pg_stat_replication.
+			//
+			// For tracing purposes, we declare this block closed and open a new one
 			if flushedLSN != buffer.FlushLSN() {
 				nextFeedbackDeadline = time.Time{}
+
+				blockSpan.SetAttributes(
+					attribute.String("endLSN", pglogrepl.LSN(flushedLSN).String()))
+				blockSpan.End()
+
+				blockCtx, blockSpan = tracer.Start( //nolint:fatcontext
+					ctx,
+					"klio.client.block",
+					trace.WithAttributes(
+						attribute.String("startLSN", pglogrepl.LSN(flushedLSN).String())))
 			}
 
 			nextFlushDeadline = time.Now().Add(flushDeadline)
@@ -489,9 +521,20 @@ loop:
 			nextFeedbackDeadline = time.Now().Add(feedbackDeadline)
 		}
 
-		standbyMessageDeadlineContext, cancel := context.WithDeadline(ctx, nextFlushDeadline)
+		receiveCtx, span := tracer.Start(
+			blockCtx,
+			"klio.client.block.receive",
+			trace.WithAttributes(
+				attribute.String("lsn", pglogrepl.LSN(buffer.WriteLSN()).String())))
+		standbyMessageDeadlineContext, cancel := context.WithDeadline(receiveCtx, nextFlushDeadline)
 		msg, err := conn.ReceiveMessage(standbyMessageDeadlineContext)
+		if copyDataMsg, ok := msg.(*pgproto3.CopyData); ok {
+			span.SetAttributes(
+				attribute.Int("len", len(copyDataMsg.Data)))
+		}
+		span.SetAttributes()
 		cancel()
+		span.End()
 
 		if err != nil {
 			if pgconn.Timeout(err) {
@@ -536,7 +579,15 @@ loop:
 					continue
 				}
 
-				if err = buffer.ProcessWALData(ctx, xld.WALData, types.LSN(xld.WALStart.String())); err != nil {
+				writeCtx, writeSpan := tracer.Start(
+					blockCtx,
+					"klio.client.block.write",
+					trace.WithAttributes(
+						attribute.String("lsn", xld.WALStart.String()),
+						attribute.Int("size", len(xld.WALData))))
+				err = buffer.ProcessWALData(writeCtx, xld.WALData, types.LSN(xld.WALStart.String()))
+				writeSpan.End()
+				if err != nil {
 					contextLogger.Error(err, "Error while processing WAL data", "lsn", xld.WALStart)
 					return nil, fmt.Errorf("could not process WAL data at %s: %w", xld.WALStart, err)
 				}
@@ -575,6 +626,8 @@ loop:
 		"timeline", copyDoneResult.Timeline,
 		"lsn", copyDoneResult.LSN,
 	)
+
+	blockSpan.End()
 
 	return copyDoneResult, nil
 }

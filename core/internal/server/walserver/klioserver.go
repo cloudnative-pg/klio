@@ -12,8 +12,9 @@ type Implementation struct {
 	grpc.UnimplementedWALServer
 
 	// TODO(leonardoce): pls remove me
-	logger log.Logger
-	conn   *repository.Connection
+	logger  log.Logger
+	conn    *repository.Connection
+	metrics *Metrics
 }
 
 // New creates a new WAL server implementation.
@@ -22,7 +23,8 @@ func New(
 	conn *repository.Connection,
 ) *Implementation {
 	return &Implementation{
-		logger: logger,
-		conn:   conn,
+		logger:  logger,
+		conn:    conn,
+		metrics: NewMetrics(),
 	}
 }

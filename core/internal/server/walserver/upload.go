@@ -7,6 +7,9 @@ import (
 	"strconv"
 	"time"
 
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/metric"
+	"go.opentelemetry.io/otel/trace"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
@@ -93,8 +96,33 @@ func (w *Implementation) Put(req grpc.WAL_PutServer) error {
 	var writtenSize uint64
 	startTime := time.Now()
 
+	span := trace.SpanFromContext(req.Context())
+
 	for {
+		_, readSpan := tracer.Start(req.Context(), "klio.wal.put.read_block")
 		request, err := req.Recv()
+		if err == nil {
+			readSpan.SetAttributes(
+				attribute.Int("len", len(request.GetWalBlock())),
+			)
+		}
+		if request != nil && request.GetTraceId() != "" && request.GetSpanId() != "" {
+			traceID, _ := trace.TraceIDFromHex(request.GetTraceId())
+			spanID, _ := trace.SpanIDFromHex(request.GetSpanId())
+
+			readSpan.AddLink(
+				trace.Link{
+					SpanContext: trace.NewSpanContext(
+						trace.SpanContextConfig{
+							TraceID: traceID,
+							SpanID:  spanID,
+						},
+					),
+				},
+			)
+		}
+		readSpan.End()
+
 		if errors.Is(err, io.EOF) {
 			break
 		}
@@ -124,6 +152,9 @@ func (w *Implementation) Put(req grpc.WAL_PutServer) error {
 			return status.Errorf(codes.InvalidArgument, "invalid WAL name: %q", request.GetWalName())
 		}
 
+		span.SetAttributes(attribute.String("clusterName", request.GetClusterName()))
+		span.SetAttributes(attribute.String("walName", request.GetWalName()))
+
 		w.logger.Debug(
 			"Received WAL block",
 			"clusterName", request.GetClusterName(),
@@ -143,7 +174,8 @@ func (w *Implementation) Put(req grpc.WAL_PutServer) error {
 		}
 
 		if walBuffer == nil {
-			walBuffer, err = NewWriter(w.conn, blockMeta.clusterName, blockMeta.walFileName, blockMeta.segmentSize)
+			walBuffer, err = NewWriter(w.conn, blockMeta.clusterName, blockMeta.walFileName, blockMeta.segmentSize,
+				w.metrics)
 			if err != nil {
 				w.logger.Error(
 					err,
@@ -156,7 +188,10 @@ func (w *Implementation) Put(req grpc.WAL_PutServer) error {
 			}
 		}
 
-		if err := walBuffer.WriteBlock(request.GetWalBlock()); err != nil {
+		_, writeSpan := tracer.Start(req.Context(), "klio.wal.put.write_block")
+		err = walBuffer.WriteBlock(req.Context(), request.GetWalBlock())
+		writeSpan.End()
+		if err != nil {
 			w.logger.Error(
 				err,
 				"Error while writing WAL data",
@@ -167,7 +202,10 @@ func (w *Implementation) Put(req grpc.WAL_PutServer) error {
 			return status.Errorf(codes.Internal, "error while writing WAL: %v", err.Error())
 		}
 
-		if err = walBuffer.Flush(); err != nil {
+		_, flushSpan := tracer.Start(req.Context(), "klio.wal.put.flush_block")
+		err = walBuffer.Flush()
+		flushSpan.End()
+		if err != nil {
 			w.logger.Error(
 				err,
 				"Error while flushing WAL data",
@@ -229,6 +267,16 @@ func (w *Implementation) Put(req grpc.WAL_PutServer) error {
 
 			return status.Errorf(codes.Internal, "error while closing (done) WAL: %v", err.Error())
 		}
+
+		w.metrics.walWritten.Add(
+			req.Context(),
+			1,
+			metric.WithAttributeSet(
+				attribute.NewSet(
+					attribute.String("cluster_name", blockMeta.clusterName),
+				),
+			),
+		)
 
 		w.logger.Info(
 			"Received completed WAL file",

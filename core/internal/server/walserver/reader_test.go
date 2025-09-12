@@ -34,14 +34,15 @@ func TestWALReaderBlockSplit(t *testing.T) {
 	require.ErrorIs(t, err, os.ErrNotExist)
 
 	const fileLen = uint64(16 * 1024 * 1024)
-	writer, err := NewWriter(conn, "cluster-example", "0000001000000000000001FF", fileLen)
+	metrics := NewMetrics()
+	writer, err := NewWriter(conn, "cluster-example", "0000001000000000000001FF", fileLen, metrics)
 	require.NoError(t, err)
 	assert.NotNil(t, writer)
 
 	buffer := make([]byte, fileLen)
 	_, _ = rand.Read(buffer)
 
-	err = writer.WriteBlock(buffer)
+	err = writer.WriteBlock(t.Context(), buffer)
 	require.NoError(t, err)
 
 	err = writer.CloseMarkDone()
@@ -87,16 +88,17 @@ func TestReaderWriterBlocks(t *testing.T) {
 	defer conn.Close()
 
 	const fileLen = uint64(145)
-	writer, err := NewWriter(conn, "cluster-example", "0000001000000000000001F8", fileLen)
+	metrics := NewMetrics()
+	writer, err := NewWriter(conn, "cluster-example", "0000001000000000000001F8", fileLen, metrics)
 	require.NoError(t, err)
 	require.NotNil(t, writer)
 
 	block1 := []byte("this-test")
-	err = writer.WriteBlock(block1)
+	err = writer.WriteBlock(t.Context(), block1)
 	require.NoError(t, err)
 
 	block2 := []byte("toast-is-good")
-	err = writer.WriteBlock(block2)
+	err = writer.WriteBlock(t.Context(), block2)
 	require.NoError(t, err)
 
 	err = writer.Flush()
@@ -145,12 +147,13 @@ func TestReaderWriter100KBlocks(t *testing.T) {
 	_, _ = rand.Read(block1)
 
 	fileLen := uint64(128 * len(block1)) //nolint:gosec
-	writer, err := NewWriter(conn, "cluster-example", "0000001000000000000001F8", fileLen)
+	metrics := NewMetrics()
+	writer, err := NewWriter(conn, "cluster-example", "0000001000000000000001F8", fileLen, metrics)
 	require.NoError(t, err)
 	require.NotNil(t, writer)
 
 	for range 128 {
-		err = writer.WriteBlock(block1)
+		err = writer.WriteBlock(t.Context(), block1)
 		require.NoError(t, err)
 
 		err = writer.Flush()

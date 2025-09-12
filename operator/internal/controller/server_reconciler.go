@@ -3,7 +3,6 @@ package controller
 import (
 	"context"
 	"fmt"
-	"path"
 	"strconv"
 
 	appsv1 "k8s.io/api/apps/v1"
@@ -28,6 +27,7 @@ const (
 	kopiaCacheMountPath  = "/cache"
 	htpasswdFileName     = "htpasswd"
 	kopiaConfigMountPath = "/config"
+	otelConfigMountPath  = "/otel"
 )
 
 func (r *ServerReconciler) reconcile(ctx context.Context, server *kliov1alpha1.Server) error {
@@ -47,6 +47,10 @@ func (r *ServerReconciler) reconcileStatefulSet(ctx context.Context, server *kli
 	klioName := server.Name + "-klio"
 
 	pprof, _ := strconv.ParseBool(server.GetAnnotations()["klio.cnpg.io/pprof"])
+
+	// build volumes including any OTEL certificate volumes
+	volumes := r.buildVolumes(server)
+	volumeMounts := r.buildVolumeMounts(server)
 
 	expected := &appsv1.StatefulSet{
 		ObjectMeta: metav1.ObjectMeta{
@@ -115,8 +119,8 @@ func (r *ServerReconciler) reconcileStatefulSet(ctx context.Context, server *kli
 							},
 							Image:           server.Spec.Image,
 							ImagePullPolicy: server.Spec.ImagePullPolicy,
-							VolumeMounts:    getVolumeMounts(),
-							Env:             r.getServerEnv(server),
+							VolumeMounts:    volumeMounts,
+							Env:             newEnvBuilder(server).addCommonEnvs().addBaseEnv().build(),
 						},
 					},
 					Containers: []corev1.Container{
@@ -129,11 +133,11 @@ func (r *ServerReconciler) reconcileStatefulSet(ctx context.Context, server *kli
 							Image:           server.Spec.Image,
 							ImagePullPolicy: server.Spec.ImagePullPolicy,
 							Resources:       server.Spec.BaseConfiguration.Resources,
-							VolumeMounts:    getVolumeMounts(),
+							VolumeMounts:    volumeMounts,
 							Ports: []corev1.ContainerPort{
 								{Name: "base", ContainerPort: 51515, Protocol: corev1.ProtocolTCP},
 							},
-							Env: r.getServerEnv(server),
+							Env: newEnvBuilder(server).addCommonEnvs().addBaseEnv().build(),
 						},
 						{
 							Name: "wal",
@@ -147,50 +151,11 @@ func (r *ServerReconciler) reconcileStatefulSet(ctx context.Context, server *kli
 							Ports: []corev1.ContainerPort{
 								{Name: "wal", ContainerPort: 52000, Protocol: corev1.ProtocolTCP},
 							},
-							Env:          r.getServerEnv(server),
-							VolumeMounts: getVolumeMounts(),
+							Env:          newEnvBuilder(server).addCommonEnvs().addWalEnv().build(),
+							VolumeMounts: volumeMounts,
 						},
 					},
-					Volumes: []corev1.Volume{
-						{
-							Name: "tls",
-							VolumeSource: corev1.VolumeSource{
-								Secret: &corev1.SecretVolumeSource{
-									SecretName: server.Spec.TLSSecretName,
-								},
-							},
-						},
-						{
-							Name: "tmp",
-							VolumeSource: corev1.VolumeSource{
-								EmptyDir: &corev1.EmptyDirVolumeSource{},
-							},
-						},
-						{
-							Name: "config",
-							VolumeSource: corev1.VolumeSource{
-								Projected: &corev1.ProjectedVolumeSource{
-									Sources: []corev1.VolumeProjection{
-										{
-											Secret: &corev1.SecretProjection{
-												// the secret users should be used here
-												LocalObjectReference: corev1.LocalObjectReference{
-													Name: server.Spec.Users.Name,
-												},
-												Items: []corev1.KeyToPath{
-													{
-														Key:  "htpasswd",
-														Path: htpasswdFileName,
-													},
-												},
-												Optional: ptr.To(false),
-											},
-										},
-									},
-								},
-							},
-						},
-					},
+					Volumes: volumes,
 				},
 			},
 		},
@@ -319,82 +284,75 @@ func (r *ServerReconciler) reconcileService(ctx context.Context, server *kliov1a
 	return nil
 }
 
-func (r *ServerReconciler) getServerEnv(server *kliov1alpha1.Server) []corev1.EnvVar {
-	basePath := path.Join(kopiaDataMountPath, "base")
-	walPath := path.Join(kopiaDataMountPath, "wal")
-
-	result := []corev1.EnvVar{
+func (r *ServerReconciler) buildVolumes(server *kliov1alpha1.Server) []corev1.Volume {
+	volumes := []corev1.Volume{
 		{
-			Name: "BASE_ENCRYPTION_PASSWORD",
-			ValueFrom: &corev1.EnvVarSource{
-				SecretKeyRef: &corev1.SecretKeySelector{
-					LocalObjectReference: corev1.LocalObjectReference{
-						Name: server.Spec.Password.Name,
-					},
-					Key: server.Spec.Password.Key,
+			Name: "tls",
+			VolumeSource: corev1.VolumeSource{
+				Secret: &corev1.SecretVolumeSource{
+					SecretName: server.Spec.TLSSecretName,
 				},
 			},
 		},
-		{Name: "BASE_CACHE", Value: kopiaCacheMountPath},
-		{Name: "BASE_REPOSITORY", Value: basePath},
-		{Name: "BASE_TLS_CERT", Value: "/certs/tls.crt"},
-		{Name: "BASE_TLS_KEY", Value: "/certs/tls.key"},
-		{Name: "BASE_LISTEN_ADDRESS", Value: "0.0.0.0:51515"},
-		{Name: "BASE_HTPASSWD_FILE", Value: path.Join(kopiaConfigMountPath, htpasswdFileName)},
-		{Name: "WAL_LISTEN_ADDRESS", Value: "0.0.0.0:52000"},
-		{Name: "WAL_TLS_CERT", Value: "/certs/tls.crt"},
-		{Name: "WAL_TLS_KEY", Value: "/certs/tls.key"},
-		{Name: "WAL_PATH", Value: walPath},
 		{
-			Name: "WAL_ENCRYPTION_PASSWORD",
-			ValueFrom: &corev1.EnvVarSource{
-				SecretKeyRef: &corev1.SecretKeySelector{
-					LocalObjectReference: corev1.LocalObjectReference{
-						Name: server.Spec.Password.Name,
+			Name: "tmp",
+			VolumeSource: corev1.VolumeSource{
+				EmptyDir: &corev1.EmptyDirVolumeSource{},
+			},
+		},
+		{
+			Name: "config",
+			VolumeSource: corev1.VolumeSource{
+				Projected: &corev1.ProjectedVolumeSource{
+					Sources: []corev1.VolumeProjection{
+						{
+							Secret: &corev1.SecretProjection{
+								LocalObjectReference: corev1.LocalObjectReference{
+									Name: server.Spec.Users.Name,
+								},
+								Items: []corev1.KeyToPath{
+									{
+										Key:  "htpasswd",
+										Path: htpasswdFileName,
+									},
+								},
+								Optional: ptr.To(false),
+							},
+						},
 					},
-					Key: server.Spec.Password.Key,
 				},
 			},
 		},
-		{Name: "WAL_HTPASSWD_FILE", Value: path.Join(kopiaConfigMountPath, htpasswdFileName)},
 	}
 
-	if server.Spec.BaseConfiguration.AdminUser.Name != "" {
-		result = append(result,
-			corev1.EnvVar{
-				Name: "BASE_ADMIN_USER",
-				ValueFrom: &corev1.EnvVarSource{
-					SecretKeyRef: &corev1.SecretKeySelector{
-						LocalObjectReference: corev1.LocalObjectReference{
-							Name: server.Spec.BaseConfiguration.AdminUser.Name,
-						},
-						Key: corev1.BasicAuthUsernameKey,
-					},
-				},
+	if server.Spec.ShouldCreateOtelVolume() {
+		volumes = append(volumes, corev1.Volume{
+			Name: "otel",
+			VolumeSource: corev1.VolumeSource{
+				Projected: server.Spec.Observability.OpenTelemetry.ProjectedSource,
 			},
-			corev1.EnvVar{
-				Name: "BASE_ADMIN_PASSWORD",
-				ValueFrom: &corev1.EnvVarSource{
-					SecretKeyRef: &corev1.SecretKeySelector{
-						LocalObjectReference: corev1.LocalObjectReference{
-							Name: server.Spec.BaseConfiguration.AdminUser.Name,
-						},
-						Key: corev1.BasicAuthPasswordKey,
-					},
-				},
-			},
-		)
+		})
 	}
 
-	return result
+	return volumes
 }
 
-func getVolumeMounts() []corev1.VolumeMount {
-	return []corev1.VolumeMount{
+func (r *ServerReconciler) buildVolumeMounts(server *kliov1alpha1.Server) []corev1.VolumeMount {
+	volumeMounts := []corev1.VolumeMount{
 		{Name: "data", MountPath: kopiaDataMountPath},
 		{Name: "tls", MountPath: "/certs"},
 		{Name: "cache", MountPath: kopiaCacheMountPath},
 		{Name: "tmp", MountPath: "/tmp"},
 		{Name: "config", MountPath: kopiaConfigMountPath},
 	}
+
+	if server.Spec.ShouldCreateOtelVolume() {
+		volumeMounts = append(volumeMounts, corev1.VolumeMount{
+			Name:      "otel",
+			MountPath: otelConfigMountPath,
+			ReadOnly:  true,
+		})
+	}
+
+	return volumeMounts
 }

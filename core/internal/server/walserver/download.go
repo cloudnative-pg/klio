@@ -5,6 +5,8 @@ import (
 	"io"
 	"os"
 
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/trace"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
@@ -29,6 +31,16 @@ func (w *Implementation) Get(req *grpc.GetRequest, res grpc.WAL_GetServer) error
 		return status.Errorf(codes.InvalidArgument, "invalid WAL name: %q", req.GetWalName())
 	}
 
+	ctx, span := tracer.Start(
+		res.Context(),
+		"klio.wal.get",
+		trace.WithAttributes(
+			attribute.String("cluster_name", req.GetClusterName()),
+			attribute.String("wal_name", req.GetWalName()),
+		),
+	)
+	defer span.End()
+
 	walReader, err := NewReader(w.conn, req.GetClusterName(), req.GetWalName())
 	if errors.Is(err, os.ErrNotExist) {
 		return status.Errorf(codes.NotFound, "WAL not found: %v/%v", req.GetClusterName(), req.GetWalName())
@@ -38,12 +50,21 @@ func (w *Implementation) Get(req *grpc.GetRequest, res grpc.WAL_GetServer) error
 	}
 
 	for {
+		_, readSpan := tracer.Start(ctx, "klio.wal.get.read")
 		readBytes, readError := walReader.ReadBlock()
+		readSpan.SetAttributes(
+			attribute.Int("num_bytesread", len(readBytes)))
+		readSpan.End()
 		if readError != nil && !errors.Is(readError, io.EOF) {
 			return status.Errorf(codes.Internal, "error while reading WAL (reading into buffer): %v", readError.Error())
 		}
 
-		if err := res.Send(&grpc.GetResult{WalBlock: readBytes, SegmentSize: walReader.GetFileLength()}); err != nil {
+		_, writeSpan := tracer.Start(ctx, "klio.wal.get.write")
+		err := res.Send(&grpc.GetResult{WalBlock: readBytes, SegmentSize: walReader.GetFileLength()})
+		writeSpan.SetAttributes(
+			attribute.Int("num_bytesread", len(readBytes)))
+		writeSpan.End()
+		if err != nil {
 			return status.Errorf(codes.Internal, "error while reading WAL block (sending to client GRPC): %v", err.Error())
 		}
 

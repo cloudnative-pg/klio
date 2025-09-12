@@ -41,7 +41,7 @@ func (w *Implementation) GetMetadata(
 // RequestWALStart implements the corresponding GRPC call, validating the WAL
 // streaming request of a client.
 func (w *Implementation) RequestWALStart(
-	_ context.Context,
+	ctx context.Context,
 	req *grpc.RequestWALStartRequest,
 ) (*grpc.RequestWALStartResult, error) {
 	w.logger.Info(
@@ -67,7 +67,7 @@ func (w *Implementation) RequestWALStart(
 			SystemId: req.GetSystemId(),
 		}
 
-		if err := w.writeClusterMetadata(req.GetClusterName(), metadata); err != nil {
+		if err := w.writeClusterMetadata(ctx, req.GetClusterName(), metadata); err != nil {
 			return nil, status.Errorf(codes.Internal, "error while writing cluster metadata: %v", err.Error())
 		}
 	}
@@ -111,7 +111,7 @@ func (w *Implementation) RequestWALStart(
 
 // ResetWALStream implements the GRPC call.
 func (w *Implementation) ResetWALStream(
-	_ context.Context,
+	ctx context.Context,
 	req *grpc.ResetWALStreamRequest,
 ) (*grpc.ResetWALStreamResult, error) {
 	if err := validatePathComponent(req.GetClusterName()); err != nil {
@@ -157,7 +157,7 @@ func (w *Implementation) ResetWALStream(
 		End:   req.GetCurrentWalName(),
 	})
 
-	if err := w.writeClusterMetadata(req.GetClusterName(), metadata); err != nil {
+	if err := w.writeClusterMetadata(ctx, req.GetClusterName(), metadata); err != nil {
 		return nil, status.Errorf(codes.Internal, "error while writing cluster metadata: %v", err.Error())
 	}
 

@@ -2,10 +2,13 @@ package walserver
 
 import (
 	"bufio"
+	"context"
 	"fmt"
 	"os"
 	"path"
 
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/metric"
 	"google.golang.org/protobuf/encoding/protodelim"
 	"google.golang.org/protobuf/encoding/protowire"
 
@@ -18,13 +21,17 @@ type Writer struct {
 	walFilePath        string
 	walFilePartialPath string
 	conn               *repository.Connection
+	clusterName        string
+	metrics            *Metrics
 
 	file   *os.File
 	buffer *bufio.Writer
 }
 
 // NewWriter creates a new WAL file writer.
-func NewWriter(conn *repository.Connection, clusterName, walName string, segmentSize uint64) (*Writer, error) {
+func NewWriter(conn *repository.Connection, clusterName, walName string, segmentSize uint64, metrics *Metrics) (*Writer,
+	error,
+) {
 	walFilePath := getWALArchivePath(conn.BaseDir(), clusterName, walName)
 	walFilePartialPath := walFilePath + ".partial"
 
@@ -65,6 +72,8 @@ func NewWriter(conn *repository.Connection, clusterName, walName string, segment
 		file:               file,
 		conn:               conn,
 		buffer:             buffer,
+		clusterName:        clusterName,
+		metrics:            metrics,
 	}, nil
 }
 
@@ -112,7 +121,7 @@ func (w *Writer) Close() error {
 }
 
 // WriteBlock writes the WAL block to storage.
-func (w *Writer) WriteBlock(data []byte) error {
+func (w *Writer) WriteBlock(ctx context.Context, data []byte) error {
 	const walBlockSize = 1 << 20
 
 	// Process data in blocks
@@ -123,7 +132,7 @@ func (w *Writer) WriteBlock(data []byte) error {
 		}
 		block := data[start:end]
 
-		if err := w.writeBlockInternal(block); err != nil {
+		if err := w.writeBlockInternal(ctx, block); err != nil {
 			return fmt.Errorf("while writing WAL block: %w", err)
 		}
 	}
@@ -132,7 +141,7 @@ func (w *Writer) WriteBlock(data []byte) error {
 }
 
 // WriteBlock writes the WAL block to storage.
-func (w *Writer) writeBlockInternal(p []byte) error {
+func (w *Writer) writeBlockInternal(ctx context.Context, p []byte) error {
 	// Step 1: compression and encryption
 	wrappedBlock, err := w.conn.WrapBlock(p, defaultChunkSize)
 	if err != nil {
@@ -141,15 +150,30 @@ func (w *Writer) writeBlockInternal(p []byte) error {
 
 	// Step 2: writing to permanent storage
 	prefix := protowire.AppendFixed64(nil, uint64(len(wrappedBlock)))
-	_, err = w.buffer.Write(prefix)
+	nBytes, err := w.buffer.Write(prefix)
 	if err != nil {
 		return fmt.Errorf("while writing prefix: %w", err)
 	}
 
-	_, err = w.buffer.Write(wrappedBlock)
+	w.metrics.walWrittenBytes.Add(ctx, int64(nBytes),
+		metric.WithAttributeSet(
+			attribute.NewSet(
+				attribute.String("cluster_name", w.clusterName),
+			),
+		),
+	)
+
+	nBytes, err = w.buffer.Write(wrappedBlock)
 	if err != nil {
 		return fmt.Errorf("while writing WAL file block: %w", err)
 	}
+	w.metrics.walWrittenBytes.Add(ctx, int64(nBytes),
+		metric.WithAttributeSet(
+			attribute.NewSet(
+				attribute.String("cluster_name", w.clusterName),
+			),
+		),
+	)
 
 	return nil
 }

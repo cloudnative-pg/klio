@@ -22,6 +22,9 @@ message PutRequest {
   string wal_name = 2;
   bytes wal_block = 3;
   uint64 segment_size = 4;
+
+  string trace_id = 5;
+  string span_id = 6;
 }
 
 message PutResult {

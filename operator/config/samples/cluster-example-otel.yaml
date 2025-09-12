@@ -1,0 +1,88 @@
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+  name: cluster-example
+spec:
+  instances: 3
+  imagePullPolicy: Always
+
+  env:
+    - name: OTEL_TRACES_EXPORTER
+      value: "otlp"
+    - name: OTEL_EXPORTER_OTLP_TRACES_PROTOCOL
+      value: "grpc"
+    - name: OTEL_EXPORTER_OTLP_TRACES_ENDPOINT
+      value: "https://simplest-collector:4317"
+    - name: OTEL_EXPORTER_OTLP_TRACES_INSECURE
+      value: "false"
+    - name: OTEL_EXPORTER_OTLP_TRACES_TIMEOUT
+      value: "10000"
+    - name: OTEL_EXPORTER_OTLP_TRACES_COMPRESSION
+      value: "gzip"
+    - name: OTEL_EXPORTER_OTLP_TRACES_CERTIFICATE
+      value: "/projected/ca.crt"
+    - name: OTEL_EXPORTER_OTLP_TRACES_CLIENT_CERTIFICATE
+      value: "/projected/tls.crt"
+    - name: OTEL_EXPORTER_OTLP_TRACES_CLIENT_KEY
+      value: "/projected/tls.key"
+    - name: OTEL_METRIC_EXPORT_INTERVAL
+      value: "60000"
+    - name: OTEL_RESOURCE_DETECTORS
+      value: "telemetry.sdk,host,os.type,process.executable.name"
+    - name: OTEL_SERVICE_NAME
+      value: "klio-custom-service-name"
+    - name: OTEL_METRICS_EXPORTER
+      value: "otlp"
+    - name: OTEL_EXPORTER_OTLP_METRICS_ENDPOINT
+      value: "https://simplest-collector:4317"
+    - name: OTEL_EXPORTER_OTLP_METRICS_PROTOCOL
+      value: "grpc"
+    - name: OTEL_EXPORTER_OTLP_METRICS_INSECURE
+      value: "false"
+    - name: OTEL_EXPORTER_OTLP_METRICS_TIMEOUT
+      value: "60000"
+    - name: OTEL_EXPORTER_OTLP_METRICS_CERTIFICATE
+      value: "/projected/ca.crt"
+    - name: OTEL_EXPORTER_OTLP_METRICS_CLIENT_CERTIFICATE
+      value: "/projected/tls.crt"
+    - name: OTEL_EXPORTER_OTLP_METRICS_CLIENT_KEY
+      value: "/projected/tls.key"
+
+  projectedVolumeTemplate:
+    sources:
+      - secret:
+          name: simplest-collector-tls
+          items:
+            - key: ca.crt
+              path: ca.crt
+      - secret:
+          name: otel-client-cert
+          items:
+            - key: tls.crt
+              path: tls.crt
+            - key: tls.key
+              path: tls.key
+
+  postgresql:
+    pg_hba:
+      - local replication all peer
+
+  plugins:
+    - name: klio.cnpg.io
+      enabled: true
+      parameters:
+        serverAddress: server-sample.default
+        clientSecretName: klio-client
+        serverSecretName: server-sample-tls
+        pprof: 't'
+
+  storage:
+    size: 1Gi
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: klio-client
+data:
+  password: cGlwcG9waXBwbw==
+  username: a2xpbw==

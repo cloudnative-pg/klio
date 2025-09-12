@@ -28,6 +28,8 @@ type PutRequest struct {
 	WalName       string                 `protobuf:"bytes,2,opt,name=wal_name,json=walName,proto3" json:"wal_name,omitempty"`
 	WalBlock      []byte                 `protobuf:"bytes,3,opt,name=wal_block,json=walBlock,proto3" json:"wal_block,omitempty"`
 	SegmentSize   uint64                 `protobuf:"varint,4,opt,name=segment_size,json=segmentSize,proto3" json:"segment_size,omitempty"`
+	TraceId       string                 `protobuf:"bytes,5,opt,name=trace_id,json=traceId,proto3" json:"trace_id,omitempty"`
+	SpanId        string                 `protobuf:"bytes,6,opt,name=span_id,json=spanId,proto3" json:"span_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -88,6 +90,20 @@ func (x *PutRequest) GetSegmentSize() uint64 {
 		return x.SegmentSize
 	}
 	return 0
+}
+
+func (x *PutRequest) GetTraceId() string {
+	if x != nil {
+		return x.TraceId
+	}
+	return ""
+}
+
+func (x *PutRequest) GetSpanId() string {
+	if x != nil {
+		return x.SpanId
+	}
+	return ""
 }
 
 type PutResult struct {
@@ -776,13 +792,15 @@ var File_proto_klio_wal_proto protoreflect.FileDescriptor
 
 const file_proto_klio_wal_proto_rawDesc = "" +
 	"\n" +
-	"\x14proto/klio_wal.proto\x12\vklio.wal.v1\x1a\x1fgoogle/protobuf/timestamp.proto\"\x8a\x01\n" +
+	"\x14proto/klio_wal.proto\x12\vklio.wal.v1\x1a\x1fgoogle/protobuf/timestamp.proto\"\xbe\x01\n" +
 	"\n" +
 	"PutRequest\x12!\n" +
 	"\fcluster_name\x18\x01 \x01(\tR\vclusterName\x12\x19\n" +
 	"\bwal_name\x18\x02 \x01(\tR\awalName\x12\x1b\n" +
 	"\twal_block\x18\x03 \x01(\fR\bwalBlock\x12!\n" +
-	"\fsegment_size\x18\x04 \x01(\x04R\vsegmentSize\".\n" +
+	"\fsegment_size\x18\x04 \x01(\x04R\vsegmentSize\x12\x19\n" +
+	"\btrace_id\x18\x05 \x01(\tR\atraceId\x12\x17\n" +
+	"\aspan_id\x18\x06 \x01(\tR\x06spanId\".\n" +
 	"\tPutResult\x12!\n" +
 	"\fwritten_size\x18\x01 \x01(\x04R\vwrittenSize\"7\n" +
 	"\x12GetMetadataRequest\x12!\n" +

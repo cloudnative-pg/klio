@@ -23,7 +23,7 @@ func (d *Data) SetDefaults() {
 	}
 }
 
-// ServerConfig is the configuration of the server.
+// ServerConfig is the configuration of the Klio server.
 type ServerConfig struct {
 	// Base is the configuration of the Base server
 	Base BaseServerConfig `mapstructure:"base" validate:"nonzero"`
@@ -90,7 +90,7 @@ type SourceConfig struct {
 	BufferSize int `json:"buffer_size" mapstructure:"buffer_size" validate:"min=1"`
 }
 
-// ClientConfig is the configuration of the Klio server.
+// ClientConfig is the configuration of the Klio client.
 type ClientConfig struct {
 	// Base is the configuration of the target Base repository
 	Base BaseRepositoryClientConfig `json:"base" mapstructure:"base"`

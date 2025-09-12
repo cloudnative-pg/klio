@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 
+	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 
@@ -75,6 +76,7 @@ func Connect(cfg *config.WalRepositoryClientConfig) (*Connection, error) {
 		grpc.WithInitialConnWindowSize(256*1024),
 		grpc.WithReadBufferSize(256*1024),
 		grpc.WithWriteBufferSize(256*1024),
+		grpc.WithStatsHandler(otelgrpc.NewClientHandler()),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("while establishing connection to the server: %w", err)

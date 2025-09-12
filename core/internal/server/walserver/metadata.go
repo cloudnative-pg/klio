@@ -1,6 +1,7 @@
 package walserver
 
 import (
+	"context"
 	"errors"
 	"fmt"
 
@@ -40,13 +41,17 @@ func (w *Implementation) getClusterMetadata(clusterName string) (*grpc.ClusterMe
 }
 
 // writeClusterMetadata gets the cluster metadata for the cluster with the passed name.
-func (w *Implementation) writeClusterMetadata(clusterName string, metadata *grpc.ClusterMetadata) error {
+func (w *Implementation) writeClusterMetadata(
+	ctx context.Context,
+	clusterName string,
+	metadata *grpc.ClusterMetadata,
+) error {
 	data, err := proto.Marshal(metadata)
 	if err != nil {
 		return fmt.Errorf("internal error while marshalling protobuf data: %w", err)
 	}
 
-	walWriter, err := NewWriter(w.conn, clusterName, metadataFileName, uint64(len(data)))
+	walWriter, err := NewWriter(w.conn, clusterName, metadataFileName, uint64(len(data)), w.metrics)
 	if err != nil {
 		return err
 	}
@@ -57,7 +62,7 @@ func (w *Implementation) writeClusterMetadata(clusterName string, metadata *grpc
 		}
 	}()
 
-	if err := walWriter.WriteBlock(data); err != nil {
+	if err := walWriter.WriteBlock(ctx, data); err != nil {
 		return err
 	}
 

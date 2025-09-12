@@ -27,12 +27,13 @@ func TestWriter(t *testing.T) {
 	require.NoError(t, err)
 
 	const fileLen = 123
-	writer, err := NewWriter(conn, "cluster-example", "0000001000000000000001F8", fileLen)
+	metrics := NewMetrics()
+	writer, err := NewWriter(conn, "cluster-example", "0000001000000000000001F8", fileLen, metrics)
 	require.NoError(t, err)
 	require.NotNil(t, writer)
 
 	block := []byte("this-test")
-	err = writer.WriteBlock(block)
+	err = writer.WriteBlock(t.Context(), block)
 	require.NoError(t, err)
 
 	err = writer.Flush()
@@ -69,15 +70,16 @@ func BenchmarkWriter(b *testing.B) {
 
 	defer conn.Close()
 
+	metrics := NewMetrics()
 	writer, err := NewWriter(
-		conn, "cluster-example", "0000001000000000000001FF", uint64(len(block)*b.N)) //nolint:gosec
+		conn, "cluster-example", "0000001000000000000001FF", uint64(len(block)*b.N), metrics) //nolint:gosec
 	require.NoError(b, err)
 	assert.NotNil(b, writer)
 
 	b.ResetTimer()
 	b.SetBytes(int64(len(block) * b.N))
 	for range b.N {
-		err := writer.WriteBlock(block)
+		err := writer.WriteBlock(b.Context(), block)
 		require.NoError(b, err)
 
 		err = writer.Flush()

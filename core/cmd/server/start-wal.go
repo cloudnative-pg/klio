@@ -9,6 +9,7 @@ import (
 	"github.com/cloudnative-pg/machinery/pkg/log"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
+	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	"gopkg.in/validator.v2"
@@ -77,6 +78,7 @@ var startWALCmd = &cobra.Command{
 			grpc.WriteBufferSize(256 * 1024),
 			grpc.MaxRecvMsgSize(wal.MaxGRPCMessageSizeBytes),
 			grpc.MaxSendMsgSize(wal.MaxGRPCMessageSizeBytes),
+			grpc.StatsHandler(otelgrpc.NewServerHandler()),
 		}
 
 		if configuration.Wal.HTPasswdFile != "" {
