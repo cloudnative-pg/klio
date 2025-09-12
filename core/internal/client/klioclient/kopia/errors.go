@@ -19,16 +19,18 @@ func (err *multipleBackupsFoundError) Error() string {
 		"found %v backups with name %v", err.quantity, err.backupName)
 }
 
-type noBackupFoundError struct {
+// NoBackupFoundError is raised when the requested backup has not been found
+// in the Kopia manifests store.
+type NoBackupFoundError struct {
 	backupName string
 }
 
-func newNoBackupFoundError(backupName string) *noBackupFoundError {
-	return &noBackupFoundError{
+func newNoBackupFoundError(backupName string) NoBackupFoundError {
+	return NoBackupFoundError{
 		backupName: backupName,
 	}
 }
 
-func (err *noBackupFoundError) Error() string {
+func (err NoBackupFoundError) Error() string {
 	return fmt.Sprintf("backup %v not found", err.backupName)
 }

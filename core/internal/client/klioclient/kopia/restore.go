@@ -32,10 +32,10 @@ func (s *RestoreImplementation) GetDownloadNotifier() notifier.Download {
 
 // CreateRestorer creates a restore executor using the kopia
 // client.
-func (s *Connection) CreateRestorer(notifier notifier.Download) *RestoreImplementation {
+func (s *Connection) CreateRestorer(notifier notifier.Download, t Target) *RestoreImplementation {
 	return &RestoreImplementation{
-		hostname:   s.hostname,
-		username:   s.username,
+		hostname:   t.Hostname,
+		username:   t.Username,
 		repository: s.repository,
 		notifier:   notifier,
 	}
@@ -54,7 +54,7 @@ func (s *RestoreImplementation) RestoreTablespace(
 
 	restoreOptions := s.getKopiaRestoreOptions(destinationDirectory)
 
-	tablespaceManifestID := tbl.Annotations[controlDataManifestIDAnnotationName]
+	tablespaceManifestID := tbl.Annotations[tablespaceManifestIDAnnotationName]
 
 	root, err := snapshot.LoadSnapshot(ctx, s.repository, manifest.ID(tablespaceManifestID))
 	if err != nil {

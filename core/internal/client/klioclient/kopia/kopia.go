@@ -14,8 +14,6 @@ import (
 // Connection represent a connection to a Klio server.
 type Connection struct {
 	repository repo.Repository
-	hostname   string
-	username   string
 }
 
 // LocalRepositoryOptions are the options needed to create a local Kopia repository.
@@ -76,8 +74,6 @@ func Connect(
 	}
 
 	return &Connection{
-		hostname:   hostName,
-		username:   userName,
 		repository: repository,
 	}, nil
 }

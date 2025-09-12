@@ -60,7 +60,13 @@ var maintenanceCmd = &cobra.Command{
 			return fmt.Errorf("while connecting to the Klio server: %w %q", err, configuration.Client.Base.URL)
 		}
 
-		if err := kopiaClient.ApplyRetentionPolicy(cmd.Context()); err != nil {
+		if err := kopiaClient.ApplyRetentionPolicy(
+			cmd.Context(),
+			kopia.Target{
+				Hostname: configuration.Client.Base.Hostname,
+				Username: configuration.Client.Base.Username,
+			},
+		); err != nil {
 			return fmt.Errorf("while applying the retention policy: %w", err)
 		}
 
@@ -69,7 +75,13 @@ var maintenanceCmd = &cobra.Command{
 			return fmt.Errorf("while connecting to the Klio server: %w", err)
 		}
 
-		restorer := kopiaClient.CreateRestorer(notifier.NewDownloadLogNotifier(contextLogger))
+		restorer := kopiaClient.CreateRestorer(
+			notifier.NewDownloadLogNotifier(contextLogger),
+			kopia.Target{
+				Hostname: configuration.Client.Base.Hostname,
+				Username: configuration.Client.Base.Username,
+			},
+		)
 
 		// Step 1: list in-use backups
 		backups, err := restorer.ListBackups(cmd.Context())

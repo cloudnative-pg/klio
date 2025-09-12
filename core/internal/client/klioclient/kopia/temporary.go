@@ -84,8 +84,6 @@ func ConnectTemporary(
 	return &TemporaryConnection{
 		options: options,
 		Connection: Connection{
-			hostname:   options.Hostname,
-			username:   options.Username,
 			repository: repository,
 		},
 	}, nil

@@ -50,7 +50,13 @@ var getCmd = &cobra.Command{
 			return fmt.Errorf("while connecting to the Klio server: %w %q", err, configuration.Client.Base.URL)
 		}
 
-		effectivePolicy, err := client.GetRetentionPolicy(cmd.Context())
+		effectivePolicy, err := client.GetRetentionPolicy(
+			cmd.Context(),
+			kopia.Target{
+				Hostname: configuration.Client.Base.Hostname,
+				Username: configuration.Client.Base.Username,
+			},
+		)
 		if err != nil {
 			return fmt.Errorf("while getting the current retention policy: %w", err)
 		}

@@ -14,7 +14,9 @@
       "path": "operator/dist/chart/Chart.yaml",
       "type": "yaml",
       "jsonpath": "$.version"
-    }
+    },
+    "operator/internal/cnpgi/metadata.go",
+    "core/internal/k8sapi/server.go"
   ],
   "prerelease": false,
   "packages": {

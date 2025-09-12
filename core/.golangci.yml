@@ -26,6 +26,11 @@ linters:
         - g Gomega
     tagliatelle:
       case:
+        extended-rules:
+          json:
+            initialism-overrides:
+              LSN: true
+              WAL: true
         overrides:
           - pkg: pkg/config
             rules:

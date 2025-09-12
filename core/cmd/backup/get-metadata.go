@@ -60,7 +60,13 @@ var getMetadataCmd = &cobra.Command{
 			return fmt.Errorf("while connecting to the Klio server: %w %q", err, configuration.Client.Base.URL)
 		}
 
-		restorer := client.CreateRestorer(notifier.NewDownloadLogNotifier(contextLogger))
+		restorer := client.CreateRestorer(
+			notifier.NewDownloadLogNotifier(contextLogger),
+			kopia.Target{
+				Hostname: configuration.Client.Base.Hostname,
+				Username: configuration.Client.Base.Username,
+			},
+		)
 
 		metadata, err := restorer.GetMetadata(cmd.Context(), backupName)
 		if err != nil {

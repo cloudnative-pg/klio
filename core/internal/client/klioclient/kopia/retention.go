@@ -11,10 +11,10 @@ import (
 )
 
 // SetRetentionPolicy sets the retention policy for backups of this cluster.
-func (s *Connection) SetRetentionPolicy(ctx context.Context, p policy.RetentionPolicy) error {
+func (s *Connection) SetRetentionPolicy(ctx context.Context, t Target, p policy.RetentionPolicy) error {
 	contextLogger := log.FromContext(ctx)
 
-	currentPolicy, err := s.getCurrentKopiaPolicy(ctx)
+	currentPolicy, err := s.getCurrentKopiaPolicy(ctx, t)
 	if err != nil {
 		return err
 	}
@@ -25,7 +25,7 @@ func (s *Connection) SetRetentionPolicy(ctx context.Context, p policy.RetentionP
 	currentPolicy.RetentionPolicy = p
 
 	ctx, writer, err := s.repository.NewWriter(ctx, repo.WriteSessionOptions{
-		Purpose: fmt.Sprintf("setting retention policy for %q", s.hostname),
+		Purpose: fmt.Sprintf("setting retention policy for %q", t.Hostname),
 	})
 	if err != nil {
 		return fmt.Errorf("while creating repository writer session: %w", err)
@@ -37,9 +37,9 @@ func (s *Connection) SetRetentionPolicy(ctx context.Context, p policy.RetentionP
 		}
 	}()
 
-	err = policy.SetPolicy(ctx, writer, s.getPolicyTarget(), currentPolicy)
+	err = policy.SetPolicy(ctx, writer, s.getPolicyTarget(t), currentPolicy)
 	if err != nil {
-		return fmt.Errorf("while writing policy for %q to repository: %w", s.hostname, err)
+		return fmt.Errorf("while writing policy for %q to repository: %w", t.Hostname, err)
 	}
 
 	if err := writer.Flush(ctx); err != nil {
@@ -50,8 +50,8 @@ func (s *Connection) SetRetentionPolicy(ctx context.Context, p policy.RetentionP
 }
 
 // GetRetentionPolicy gets the currently applied retention policy for this cluster.
-func (s *Connection) GetRetentionPolicy(ctx context.Context) (*policy.RetentionPolicy, error) {
-	currentPolicy, err := s.getCurrentKopiaPolicy(ctx)
+func (s *Connection) GetRetentionPolicy(ctx context.Context, t Target) (*policy.RetentionPolicy, error) {
+	currentPolicy, err := s.getCurrentKopiaPolicy(ctx, t)
 	if err != nil {
 		return nil, err
 	}
@@ -63,27 +63,27 @@ func (s *Connection) GetRetentionPolicy(ctx context.Context) (*policy.RetentionP
 	return &currentPolicy.RetentionPolicy, nil
 }
 
-func (s *Connection) getCurrentKopiaPolicy(ctx context.Context) (*policy.Policy, error) {
-	tree, err := policy.TreeForSource(ctx, s.repository, s.getPolicyTarget())
+func (s *Connection) getCurrentKopiaPolicy(ctx context.Context, t Target) (*policy.Policy, error) {
+	tree, err := policy.TreeForSource(ctx, s.repository, s.getPolicyTarget(t))
 	if err != nil {
-		return nil, fmt.Errorf("error while getting the policy tree for host: %q", s.hostname)
+		return nil, fmt.Errorf("error while getting the policy tree for host %q: %w", t.Hostname, err)
 	}
 
 	return tree.EffectivePolicy(), nil
 }
 
-func (s *Connection) getPolicyTarget() snapshot.SourceInfo {
+func (s *Connection) getPolicyTarget(t Target) snapshot.SourceInfo {
 	return snapshot.SourceInfo{
-		UserName: s.username,
-		Host:     s.hostname,
+		UserName: t.Username,
+		Host:     t.Hostname,
 	}
 }
 
 // ApplyRetentionPolicy applies the retention policy for this cluster, deleting any
 // snapshots that are no longer needed.
-func (s *Connection) ApplyRetentionPolicy(ctx context.Context) error {
+func (s *Connection) ApplyRetentionPolicy(ctx context.Context, t Target) error {
 	ctx, writer, err := s.repository.NewWriter(ctx, repo.WriteSessionOptions{
-		Purpose: fmt.Sprintf("applying retention policy for %q", s.hostname),
+		Purpose: fmt.Sprintf("applying retention policy for %q", t.Hostname),
 	})
 	if err != nil {
 		return fmt.Errorf("while creating repository writer session: %w", err)
@@ -95,9 +95,9 @@ func (s *Connection) ApplyRetentionPolicy(ctx context.Context) error {
 		}
 	}()
 
-	_, err = policy.ApplyRetentionPolicy(ctx, writer, s.getPolicyTarget(), true)
+	_, err = policy.ApplyRetentionPolicy(ctx, writer, s.getPolicyTarget(t), true)
 	if err != nil {
-		return fmt.Errorf("while applying retention policy for source %v", s.getPolicyTarget())
+		return fmt.Errorf("while applying retention policy for source %v", s.getPolicyTarget(t))
 	}
 
 	if err := writer.Flush(ctx); err != nil {

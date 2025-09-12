@@ -57,7 +57,13 @@ var listCmd = &cobra.Command{
 			return fmt.Errorf("while connecting to the Klio server: %w %q", err, configuration.Client.Base.URL)
 		}
 
-		restorer := client.CreateRestorer(notifier.NewDownloadLogNotifier(contextLogger))
+		restorer := client.CreateRestorer(
+			notifier.NewDownloadLogNotifier(contextLogger),
+			kopia.Target{
+				Hostname: configuration.Client.Base.Hostname,
+				Username: configuration.Client.Base.Username,
+			},
+		)
 
 		backups, err := restorer.ListBackups(cmd.Context())
 		if err != nil {

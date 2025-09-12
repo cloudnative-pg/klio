@@ -51,7 +51,13 @@ var setCmd = &cobra.Command{
 			return fmt.Errorf("while connecting to the Klio server: %w %q", err, configuration.Client.Base.URL)
 		}
 
-		effectivePolicy, err := client.GetRetentionPolicy(cmd.Context())
+		effectivePolicy, err := client.GetRetentionPolicy(
+			cmd.Context(),
+			kopia.Target{
+				Hostname: configuration.Client.Base.Hostname,
+				Username: configuration.Client.Base.Username,
+			},
+		)
 		if err != nil {
 			return fmt.Errorf("while getting the current retention policy: %w", err)
 		}
@@ -86,7 +92,14 @@ var setCmd = &cobra.Command{
 		effectivePolicy.KeepDaily = getKeepValue("keep-daily")
 		effectivePolicy.KeepHourly = getKeepValue("keep-hourly")
 
-		if err := client.SetRetentionPolicy(cmd.Context(), *effectivePolicy); err != nil {
+		if err := client.SetRetentionPolicy(
+			cmd.Context(),
+			kopia.Target{
+				Hostname: configuration.Client.Base.Hostname,
+				Username: configuration.Client.Base.Username,
+			},
+			*effectivePolicy,
+		); err != nil {
 			return fmt.Errorf("while setting the current retention policy: %w", err)
 		}
 

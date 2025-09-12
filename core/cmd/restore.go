@@ -72,7 +72,13 @@ var restoreCmd = &cobra.Command{
 		}
 
 		executor := common.NewRestoreExecutor(
-			client.CreateRestorer(notifier.NewDownloadLogNotifier(contextLogger)),
+			client.CreateRestorer(
+				notifier.NewDownloadLogNotifier(contextLogger),
+				kopia.Target{
+					Hostname: configuration.Client.Base.Hostname,
+					Username: configuration.Client.Base.Username,
+				},
+			),
 			common.RestoreConfiguration{
 				Name:                 backupName,
 				PgDataDirectory:      destinationPath,

@@ -48,11 +48,23 @@ type BackupUploader struct {
 	controlDataManifestID manifest.ID
 }
 
-// NewUploader creates a new backup executor.
-func (s *Connection) NewUploader() *BackupUploader {
+// Target is used to point a Kopia transaction to the set of snapshots
+// having the specified Hostname and Username.
+type Target struct {
+	// Hostname is the hostname of the snapshot, as in the
+	// <username>@<hostname> snapshot indicator.
+	Hostname string
+
+	// Username is the name of the user that took the snapshot, as in the
+	// <username>@<hostname> snapshot indicator.
+	Username string
+}
+
+// NewUploaderFor creates a new backup executor.
+func (s *Connection) NewUploaderFor(t Target) *BackupUploader {
 	return &BackupUploader{
-		hostname:   s.hostname,
-		username:   s.username,
+		hostname:   t.Hostname,
+		username:   t.Username,
 		repository: s.repository,
 	}
 }

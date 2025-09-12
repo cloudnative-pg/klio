@@ -14,9 +14,13 @@ import (
 // GetMetadata implements the RestoreExecutor interface.
 func (s *RestoreImplementation) GetMetadata(ctx context.Context, name string) (*common.BackupMetadata, error) {
 	// Look for the kopia manifest with that name
-	entries, err := s.repository.FindManifests(ctx, map[string]string{
+	labelsToMatch := map[string]string{
 		backupNameTagName: name,
-	})
+	}
+	if s.hostname != "" {
+		labelsToMatch[snapshot.HostnameLabel] = s.hostname
+	}
+	entries, err := s.repository.FindManifests(ctx, labelsToMatch)
 	if err != nil {
 		return nil, fmt.Errorf("while looking for backup entry: %w", err)
 	}
@@ -47,11 +51,14 @@ func (s *RestoreImplementation) GetMetadata(ctx context.Context, name string) (*
 
 // ListBackups list all the backups in the repository.
 func (s *RestoreImplementation) ListBackups(ctx context.Context) ([]common.BackupMetadata, error) {
-	// Look for the kopia manifest with that name
-	entries, err := s.repository.FindManifests(ctx, map[string]string{
-		snapshot.HostnameLabel: s.hostname,
-		manifest.TypeLabelKey:  snapshot.ManifestType,
-	})
+	// Look for every kopia manifest, and filter for tags later
+	labelsToMatch := map[string]string{
+		manifest.TypeLabelKey: snapshot.ManifestType,
+	}
+	if s.hostname != "" {
+		labelsToMatch[snapshot.HostnameLabel] = s.hostname
+	}
+	entries, err := s.repository.FindManifests(ctx, labelsToMatch)
 	if err != nil {
 		return nil, fmt.Errorf("while looking for backup entry: %w", err)
 	}
@@ -61,7 +68,7 @@ func (s *RestoreImplementation) ListBackups(ctx context.Context) ([]common.Backu
 	for _, entry := range entries {
 		snapshotManifest, err := snapshot.LoadSnapshot(ctx, s.repository, entry.ID)
 		if err != nil {
-			return nil, fmt.Errorf("while loading snapshot from manifest ID %q: %w", entries[0].ID, err)
+			return nil, fmt.Errorf("while loading snapshot from manifest ID %q: %w", entry.ID, err)
 		}
 
 		if snapshotManifest.Tags["content"] != "pgdata" {

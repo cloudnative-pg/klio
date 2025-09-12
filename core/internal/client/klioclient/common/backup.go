@@ -34,6 +34,7 @@ type TablespaceLayout struct {
 // the upload process to the underlying implementation.
 type BackupExecutor struct {
 	name        string
+	clusterName string
 	pgData      string
 	startLSN    uint64
 	tablespaces []TablespaceLayout
@@ -50,6 +51,9 @@ type BackupExecutor struct {
 type BackupMetadata struct {
 	// Name is the backup name
 	Name string `json:"name"`
+
+	// ClusterName is the name of the cluster that was backed up
+	ClusterName string `json:"clusterName"`
 
 	// StartLSN is the LSN of the backup start
 	StartLSN uint64 `json:"startLsn"`
@@ -100,11 +104,12 @@ type BackupUploader interface {
 }
 
 // NewBackupExecutor creates a new backup executor for the passed implementation.
-func NewBackupExecutor(conn *pgx.Conn, uploader BackupUploader) *BackupExecutor {
+func NewBackupExecutor(conn *pgx.Conn, uploader BackupUploader, clusterName string) *BackupExecutor {
 	return &BackupExecutor{
 		tablespaces: nil,
 		Connection:  conn,
 		uploader:    uploader,
+		clusterName: clusterName,
 	}
 }
 
@@ -225,6 +230,7 @@ func (b *BackupExecutor) Close(ctx context.Context) (*BackupMetadata, error) {
 	//nolint:wrapcheck
 	metadata := &BackupMetadata{
 		Name:          b.name,
+		ClusterName:   b.clusterName,
 		StartedAt:     b.startedAt,
 		StoppedAt:     time.Now().Unix(),
 		StartLSN:      b.startLSN,

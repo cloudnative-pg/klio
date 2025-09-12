@@ -63,12 +63,13 @@ var runCmd = &cobra.Command{
 			_ = conn.Close(cmd.Context())
 		}()
 
-		uploader := client.NewUploader()
-		backupExecutor := common.NewBackupExecutor(conn, uploader)
-
-		if err != nil {
-			return fmt.Errorf("while creating a backup executor: %w", err)
-		}
+		uploader := client.NewUploaderFor(
+			kopia.Target{
+				Hostname: configuration.Client.Base.Hostname,
+				Username: configuration.Client.Base.Username,
+			},
+		)
+		backupExecutor := common.NewBackupExecutor(conn, uploader, configuration.Client.Base.Hostname)
 
 		var opts common.BackupOptions
 

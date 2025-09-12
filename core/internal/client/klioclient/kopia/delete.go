@@ -6,15 +6,17 @@ import (
 
 	"github.com/cloudnative-pg/machinery/pkg/log"
 	"github.com/kopia/kopia/repo"
+	"github.com/kopia/kopia/snapshot"
 )
 
 // DeleteBackup removes the backup with the provided name.
-func (s *Connection) DeleteBackup(ctx context.Context, name string) error {
+func (s *Connection) DeleteBackup(ctx context.Context, hostname string, name string) error {
 	contextLogger := log.FromContext(ctx)
 
 	// Look for the kopia manifest with that name
 	entries, err := s.repository.FindManifests(ctx, map[string]string{
-		backupNameTagName: name,
+		backupNameTagName:      name,
+		snapshot.HostnameLabel: hostname,
 	})
 	if err != nil {
 		return fmt.Errorf("while looking for backup entry: %w", err)
@@ -27,7 +29,7 @@ func (s *Connection) DeleteBackup(ctx context.Context, name string) error {
 	}
 
 	ctx, writer, err := s.repository.NewWriter(ctx, repo.WriteSessionOptions{
-		Purpose: fmt.Sprintf("deleting backup %q for hostname %q", name, s.hostname),
+		Purpose: fmt.Sprintf("deleting backup %q for hostname %q", name, hostname),
 	})
 	if err != nil {
 		return fmt.Errorf("while creating repository writer session: %w", err)
