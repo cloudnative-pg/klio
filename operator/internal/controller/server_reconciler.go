@@ -32,12 +32,12 @@ const (
 )
 
 func (r *ServerReconciler) reconcile(ctx context.Context, server *kliov1alpha1.Server) error {
-	if err := r.reconcileStatefulSet(ctx, server); err != nil {
-		return fmt.Errorf("failed to reconcile StatefulSet: %w", err)
-	}
-
 	if err := r.reconcileService(ctx, server); err != nil {
 		return fmt.Errorf("failed to reconcile Service: %w", err)
+	}
+
+	if err := r.reconcileStatefulSet(ctx, server); err != nil {
+		return fmt.Errorf("failed to reconcile StatefulSet: %w", err)
 	}
 
 	return nil
