@@ -600,16 +600,31 @@ tasks:
   olm:manifest:
     run: once
     internal: true
+    requires:
+      vars:
+        - ENVIRONMENT
     env:
+      registry: '{{ if .GITHUB_ACTIONS }}ghcr.io/enterprisedb{{ else }}{{ .REGISTRY_NAME }}:{{ .REGISTRY_PORT }}{{ end }}'
+      insecure: '{{ if .GITHUB_ACTIONS }}false{{ else }}true{{ end }}'
+      suffix: '{{ if ( ne .ENVIRONMENT "production" ) }}-testing{{end}}'
+      tag: '{{ .TAG | default .IMAGE_TAG }}'
       # renovate: datasource=git-refs depName=kustomize lookupName=https://github.com/sagikazarmark/daggerverse currentValue=main
       DAGGER_KUSTOMIZE_SHA: ceffda4aebd349a24fc00e591b4ed9b801535b65
     cmds:
       - >
         GITHUB_REF= dagger -s call -m github.com/sagikazarmark/daggerverse/kustomize@${DAGGER_KUSTOMIZE_SHA}
-        build --source .
+        edit --source .
         --dir operator/config/manifests
-        export
-        --path operator/olm-manifests/manifest.yaml
+        set image --image controller=${registry}/klio-operator${suffix}:${tag}
+        directory directory --path operator/config/manifests export --path operator/config/manifest-build
+      - |
+        GITHUB_REF= dagger -s -m github.com/sagikazarmark/daggerverse/kustomize@${DAGGER_KUSTOMIZE_SHA} << "."
+        sourceDir=$(host | directory operator/config --no-git-auto-ignore);
+        kustomize |
+        build $sourceDir --dir manifest-build |
+        export operator/olm-manifests/manifest.yaml
+        .
+
     sources:
       - operator/config/**/*
     generates:
@@ -641,6 +656,9 @@ tasks:
 
   olm:build:
     desc: Build the require OLM bundle image after the bundle is generated
+    requires:
+      vars:
+        - ENVIRONMENT
     deps:
       - olm:bundle
       - internal:create-builder
@@ -648,13 +666,14 @@ tasks:
     env:
       registry: '{{ if .GITHUB_ACTIONS }}ghcr.io/enterprisedb{{ else }}{{ .REGISTRY_NAME }}:{{ .REGISTRY_PORT }}{{ end }}'
       insecure: '{{ if .GITHUB_ACTIONS }}false{{ else }}true{{ end }}'
+      suffix: '{{ if ( ne .ENVIRONMENT "production" ) }}-testing{{end}}'
       tag: '{{ .TAG | default .IMAGE_TAG }}'
     cmds:
       - >
-        dagger run docker buildx build
+        docker buildx build
         --builder {{ .BUILDER_NAME }}
         --push
-        -t ${registry}/klio-operator:${tag}-bundle
+        -t ${registry}/klio-operator${suffix}:${tag}-bundle
         -f operator/bundle.Dockerfile
         --output="type=image,registry.insecure=${insecure}"
         operator/
@@ -664,6 +683,7 @@ tasks:
     cmds:
       - rm -fr operator/olm-manifests
       - rm -fr operator/bundle*
+      - rm -fr operator/config/manifest-build/
 
   ####################################
   ## DOCUMENTATION

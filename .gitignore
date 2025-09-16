@@ -9,3 +9,4 @@ certs/
 bundle.Dockerfile
 bundle/
 operator/olm-manifests/
+operator/config/manifest-build/
