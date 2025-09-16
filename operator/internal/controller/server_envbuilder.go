@@ -25,21 +25,9 @@ func (e *envBuilder) addCommonEnvs() *envBuilder {
 	result := e.getCoreEnvVars()
 	result = append(result, e.getKubernetesDownwardAPIEnvVars()...)
 	result = append(result, e.getAdminUserEnvVars()...)
-	result = append(result, e.server.Spec.BaseConfiguration.Envs.Common...)
 
 	e.builtEnvs = append(e.builtEnvs, result...)
 
-	return e
-}
-
-func (e *envBuilder) addWalEnv() *envBuilder {
-	e.builtEnvs = append(e.builtEnvs, e.server.Spec.BaseConfiguration.Envs.WAL...)
-
-	return e
-}
-
-func (e *envBuilder) addBaseEnv() *envBuilder {
-	e.builtEnvs = append(e.builtEnvs, e.server.Spec.BaseConfiguration.Envs.Base...)
 	return e
 }
 

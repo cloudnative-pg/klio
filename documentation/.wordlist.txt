@@ -67,6 +67,7 @@ PGData
 PITR
 PV
 PersistentVolumeClaimSpec
+PodTemplateSpec
 ProjectedVolumeSource
 PullPolicy
 PutRequest
@@ -94,6 +95,7 @@ SetFirstRequiredWALRequest
 SetFirstRequiredWALRequest
 SetFirstRequiredWALResult
 StartWALFile
+StatefulSet
 TLS
 TLSSecretName
 TODO

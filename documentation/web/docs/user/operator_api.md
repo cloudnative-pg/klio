@@ -17,7 +17,7 @@ Package v1alpha1 contains API Schema definitions for the klio v1alpha1 API group
 
 
 
-BaseConfiguration defines the configuration for the Kopia server.
+BaseConfiguration defines the configuration for the base server.
 
 
 
@@ -28,7 +28,6 @@ _Appears in:_
 | --- | --- | --- | --- | --- |
 | `resources` _[ResourceRequirements](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.32/#resourcerequirements-v1-core)_ | Resources defines the resource requirements for the Kopia server |  |  |  |
 | `adminUser` _[LocalObjectReference](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.32/#localobjectreference-v1-core)_ | AdminUser is a reference to a secret of type 'kubernetes.io/basic-auth' |  |  |  |
-| `envs` _[EnvConfiguration](#envconfiguration)_ | Envs defines the environment variables to be set in the containers |  |  |  |
 
 
 #### CacheConfiguration
@@ -60,57 +59,7 @@ _Appears in:_
 
 | Field | Description | Required | Default | Validation |
 | --- | --- | --- | --- | --- |
-| `pvcTemplate` _[PersistentVolumeClaimSpec](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.32/#persistentvolumeclaimspec-v1-core)_ | Template to be used to generate the Persistent Volume Claim needed for data folder | True |  |  |
-
-
-#### EnvConfiguration
-
-
-
-EnvConfiguration defines the environment variables configuration for the Kopia containers.
-
-
-
-_Appears in:_
-- [BaseConfiguration](#baseconfiguration)
-
-| Field | Description | Required | Default | Validation |
-| --- | --- | --- | --- | --- |
-| `common` _[EnvVar](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.32/#envvar-v1-core) array_ | Common contains environment variables common to all containers |  |  |  |
-| `base` _[EnvVar](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.32/#envvar-v1-core) array_ | Base contains environment variables specific to the base container |  |  |  |
-| `wal` _[EnvVar](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.32/#envvar-v1-core) array_ | WAL contains environment variables specific to the WAL container |  |  |  |
-
-
-#### Observability
-
-
-
-Observability defines the observability configuration for the Kopia server.
-
-
-
-_Appears in:_
-- [ServerSpec](#serverspec)
-
-| Field | Description | Required | Default | Validation |
-| --- | --- | --- | --- | --- |
-| `openTelemetry` _[OpenTelemetryConfiguration](#opentelemetryconfiguration)_ | OpenTelemetry contains configuration for OpenTelemetry autoexport |  |  |  |
-
-
-#### OpenTelemetryConfiguration
-
-
-
-OpenTelemetryConfiguration defines the configuration for OpenTelemetry.
-
-
-
-_Appears in:_
-- [Observability](#observability)
-
-| Field | Description | Required | Default | Validation |
-| --- | --- | --- | --- | --- |
-| `pvcProjectedSource` _[ProjectedVolumeSource](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.32/#projectedvolumesource-v1-core)_ | Mounts the projected volume at '/otel' directory. Common for all containers. |  |  |  |
+| `pvcTemplate` _[PersistentVolumeClaimSpec](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.32/#persistentvolumeclaimspec-v1-core)_ | Template to be used to generate the Persistent Volume Claim needed for the data folder,<br />containing base backups and WAL files. | True |  |  |
 
 
 #### Server
@@ -155,7 +104,7 @@ _Appears in:_
 | `dataConfiguration` _[DataConfiguration](#dataconfiguration)_ | DataConfiguration is the configuration of the PVC that should be used<br />for the base backups | True |  |  |
 | `password` _[SecretKeySelector](#secretkeyselector)_ | Password is a reference to a secret containing the Klio password | True |  |  |
 | `users` _[LocalObjectReference](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.32/#localobjectreference-v1-core)_ | Users is a reference to a secret containing a htpasswd file at the 'htpasswd' key. | True |  |  |
-| `observability` _[Observability](#observability)_ | Observability defines the observability configuration. | True |  |  |
+| `template` _[PodTemplateSpec](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.32/#podtemplatespec-v1-core)_ | Template to override the default StatefulSet of the Klio server.<br />WARNING: Modifying this template may break the server functionality if not done carefully.<br />This field is primarily intended for advanced configuration such as telemetry setup.<br />Use at your own risk and ensure thorough testing before applying changes. |  |  |  |
 
 
 #### ServerStatus

@@ -5,75 +5,7 @@ metadata:
   annotations:
     klio.cnpg.io/pprof: "true"
 spec:
-  # OpenTelemetry autoexport configuration
-  observability:
-    openTelemetry:
-      pvcProjectedSource:
-        sources:
-          - secret:
-              name: simplest-collector-tls
-              items:
-                - key: ca.crt
-                  path: ca.crt
-          - secret:
-              name: otel-client-cert
-              items:
-                - key: tls.crt
-                  path: tls.crt
-                - key: tls.key
-                  path: tls.key
-
   baseConfiguration:
-    envs:
-      common:
-        - name: OTEL_TRACES_EXPORTER
-          value: "otlp"
-        - name: OTEL_EXPORTER_OTLP_TRACES_PROTOCOL
-          value: "grpc"
-        - name: OTEL_EXPORTER_OTLP_TRACES_ENDPOINT
-          value: "https://simplest-collector:4317"
-        - name: OTEL_EXPORTER_OTLP_TRACES_INSECURE
-          value: "false"
-        - name: OTEL_EXPORTER_OTLP_TRACES_TIMEOUT
-          value: "10000"
-        - name: OTEL_EXPORTER_OTLP_TRACES_COMPRESSION
-          value: "gzip"
-        - name: OTEL_EXPORTER_OTLP_TRACES_CERTIFICATE
-          value: "/otel/ca.crt"
-        - name: OTEL_EXPORTER_OTLP_TRACES_CLIENT_CERTIFICATE
-          value: "/otel/tls.crt"
-        - name: OTEL_EXPORTER_OTLP_TRACES_CLIENT_KEY
-          value: "/otel/tls.key"
-        - name: OTEL_METRIC_EXPORT_INTERVAL
-          value: "60000"
-        - name: OTEL_RESOURCE_DETECTORS
-          value: "telemetry.sdk,host,os.type,process.executable.name"
-        - name: OTEL_SERVICE_NAME
-          value: "klio-custom-service-name"
-        - name: OTEL_METRICS_EXPORTER
-          value: "otlp"
-        - name: OTEL_EXPORTER_OTLP_METRICS_ENDPOINT
-          value: "https://simplest-collector:4317"
-        - name: OTEL_EXPORTER_OTLP_METRICS_PROTOCOL
-          value: "grpc"
-        - name: OTEL_EXPORTER_OTLP_METRICS_INSECURE
-          value: "false"
-        - name: OTEL_EXPORTER_OTLP_METRICS_TIMEOUT
-          value: "60000"
-        - name: OTEL_EXPORTER_OTLP_METRICS_CERTIFICATE
-          value: "/otel/ca.crt"
-        - name: OTEL_EXPORTER_OTLP_METRICS_CLIENT_CERTIFICATE
-          value: "/otel/tls.crt"
-        - name: OTEL_EXPORTER_OTLP_METRICS_CLIENT_KEY
-          value: "/otel/tls.key"
-      wal:
-        - name: CONTAINER_NAME
-          value: "wal"
-
-      base:
-        - name: CONTAINER_NAME
-          value: "base"
-
     adminUser:
       name: server-sample-adm
 
@@ -104,6 +36,116 @@ spec:
 
   image: registry.dev:5000/klio-testing:dev
   imagePullPolicy: Always
+
+  template:
+    spec:
+      containers:
+        - name: base
+          env:
+            - name: OTEL_SERVICE_NAME
+              value: "klio-base"
+            - name: OTEL_RESOURCE_DETECTORS
+              value: "telemetry.sdk,host,os.type,process.executable.name"
+            - name: OTEL_TRACES_EXPORTER
+              value: "otlp"
+            - name: OTEL_EXPORTER_OTLP_TRACES_PROTOCOL
+              value: "grpc"
+            - name: OTEL_EXPORTER_OTLP_TRACES_ENDPOINT
+              value: "https://simplest-collector:4317"
+            - name: OTEL_EXPORTER_OTLP_TRACES_COMPRESSION
+              value: "gzip"
+            - name: OTEL_EXPORTER_OTLP_TRACES_TIMEOUT
+              value: "10000"
+            - name: OTEL_EXPORTER_OTLP_TRACES_INSECURE
+              value: "false"
+            - name: OTEL_EXPORTER_OTLP_TRACES_CERTIFICATE
+              value: "/otel/ca.crt"
+            - name: OTEL_EXPORTER_OTLP_TRACES_CLIENT_CERTIFICATE
+              value: "/otel/tls.crt"
+            - name: OTEL_EXPORTER_OTLP_TRACES_CLIENT_KEY
+              value: "/otel/tls.key"
+            - name: OTEL_METRICS_EXPORTER
+              value: "otlp"
+            - name: OTEL_METRIC_EXPORT_INTERVAL
+              value: "60000"
+            - name: OTEL_EXPORTER_OTLP_METRICS_PROTOCOL
+              value: "grpc"
+            - name: OTEL_EXPORTER_OTLP_METRICS_ENDPOINT
+              value: "https://simplest-collector:4317"
+            - name: OTEL_EXPORTER_OTLP_METRICS_TIMEOUT
+              value: "60000"
+            - name: OTEL_EXPORTER_OTLP_METRICS_INSECURE
+              value: "false"
+            - name: OTEL_EXPORTER_OTLP_METRICS_CERTIFICATE
+              value: "/otel/ca.crt"
+            - name: OTEL_EXPORTER_OTLP_METRICS_CLIENT_CERTIFICATE
+              value: "/otel/tls.crt"
+            - name: OTEL_EXPORTER_OTLP_METRICS_CLIENT_KEY
+              value: "/otel/tls.key"
+          volumeMounts:
+            - mountPath: /otel
+              name: otel
+        - name: wal
+          env:
+            - name: OTEL_SERVICE_NAME
+              value: "klio-wal"
+            - name: OTEL_RESOURCE_DETECTORS
+              value: "telemetry.sdk,host,os.type,process.executable.name"
+            - name: OTEL_TRACES_EXPORTER
+              value: "otlp"
+            - name: OTEL_EXPORTER_OTLP_TRACES_PROTOCOL
+              value: "grpc"
+            - name: OTEL_EXPORTER_OTLP_TRACES_ENDPOINT
+              value: "https://simplest-collector:4317"
+            - name: OTEL_EXPORTER_OTLP_TRACES_COMPRESSION
+              value: "gzip"
+            - name: OTEL_EXPORTER_OTLP_TRACES_TIMEOUT
+              value: "10000"
+            - name: OTEL_EXPORTER_OTLP_TRACES_INSECURE
+              value: "false"
+            - name: OTEL_EXPORTER_OTLP_TRACES_CERTIFICATE
+              value: "/otel/ca.crt"
+            - name: OTEL_EXPORTER_OTLP_TRACES_CLIENT_CERTIFICATE
+              value: "/otel/tls.crt"
+            - name: OTEL_EXPORTER_OTLP_TRACES_CLIENT_KEY
+              value: "/otel/tls.key"
+            - name: OTEL_METRICS_EXPORTER
+              value: "otlp"
+            - name: OTEL_METRIC_EXPORT_INTERVAL
+              value: "60000"
+            - name: OTEL_EXPORTER_OTLP_METRICS_PROTOCOL
+              value: "grpc"
+            - name: OTEL_EXPORTER_OTLP_METRICS_ENDPOINT
+              value: "https://simplest-collector:4317"
+            - name: OTEL_EXPORTER_OTLP_METRICS_TIMEOUT
+              value: "60000"
+            - name: OTEL_EXPORTER_OTLP_METRICS_INSECURE
+              value: "false"
+            - name: OTEL_EXPORTER_OTLP_METRICS_CERTIFICATE
+              value: "/otel/ca.crt"
+            - name: OTEL_EXPORTER_OTLP_METRICS_CLIENT_CERTIFICATE
+              value: "/otel/tls.crt"
+            - name: OTEL_EXPORTER_OTLP_METRICS_CLIENT_KEY
+              value: "/otel/tls.key"
+          volumeMounts:
+            - mountPath: /otel
+              name: otel
+      volumes:
+        - name: otel
+          projected:
+            sources:
+              - secret:
+                  name: simplest-collector-tls
+                  items:
+                    - key: ca.crt
+                      path: ca.crt
+              - secret:
+                  name: otel-client-cert
+                  items:
+                    - key: tls.crt
+                      path: tls.crt
+                    - key: tls.key
+                      path: tls.key
 ---
 apiVersion: v1
 data:
@@ -239,10 +281,6 @@ spec:
       prometheus:
         endpoint: "0.0.0.0:9464"
       otlp:
-        endpoint: jaeger:4317
-        tls:
-          insecure: true
-      otlp/2:
         endpoint: jaeger:4317
         tls:
           insecure: true

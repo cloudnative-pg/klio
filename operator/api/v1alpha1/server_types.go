@@ -47,40 +47,15 @@ type ServerSpec struct {
 	// Users is a reference to a secret containing a htpasswd file at the 'htpasswd' key.
 	Users corev1.LocalObjectReference `json:"users"`
 
-	// Observability defines the observability configuration.
-	Observability Observability `json:"observability,omitempty"`
+	// Template to override the default StatefulSet of the Klio server.
+	// WARNING: Modifying this template may break the server functionality if not done carefully.
+	// This field is primarily intended for advanced configuration such as telemetry setup.
+	// Use at your own risk and ensure thorough testing before applying changes.
+	// +optional
+	Template *corev1.PodTemplateSpec `json:"template,omitempty"`
 }
 
-// Observability defines the observability configuration for the Kopia server.
-type Observability struct {
-	// OpenTelemetry contains configuration for OpenTelemetry autoexport
-	// +optional
-	OpenTelemetry *OpenTelemetryConfiguration `json:"openTelemetry,omitempty"`
-}
-
-// OpenTelemetryConfiguration defines the configuration for OpenTelemetry.
-type OpenTelemetryConfiguration struct {
-	// Mounts the projected volume at '/otel' directory. Common for all containers.
-	// +optional
-	ProjectedSource *corev1.ProjectedVolumeSource `json:"pvcProjectedSource,omitempty"`
-}
-
-// EnvConfiguration defines the environment variables configuration for the Kopia containers.
-type EnvConfiguration struct {
-	// Common contains environment variables common to all containers
-	// +optional
-	Common []corev1.EnvVar `json:"common,omitempty"`
-
-	// Base contains environment variables specific to the base container
-	// +optional
-	Base []corev1.EnvVar `json:"base,omitempty"`
-
-	// WAL contains environment variables specific to the WAL container
-	// +optional
-	WAL []corev1.EnvVar `json:"wal,omitempty"`
-}
-
-// BaseConfiguration defines the configuration for the Kopia server.
+// BaseConfiguration defines the configuration for the base server.
 type BaseConfiguration struct {
 	// Resources defines the resource requirements for the Kopia server
 	// +optional
@@ -89,15 +64,12 @@ type BaseConfiguration struct {
 	// AdminUser is a reference to a secret of type 'kubernetes.io/basic-auth'
 	// +optional
 	AdminUser corev1.LocalObjectReference `json:"adminUser,omitempty"`
-
-	// Envs defines the environment variables to be set in the containers
-	// +optional
-	Envs EnvConfiguration `json:"envs,omitempty"`
 }
 
 // DataConfiguration defines the configuration for the data directory.
 type DataConfiguration struct {
-	// Template to be used to generate the Persistent Volume Claim needed for data folder
+	// Template to be used to generate the Persistent Volume Claim needed for the data folder,
+	// containing base backups and WAL files.
 	PersistentVolumeClaimTemplate corev1.PersistentVolumeClaimSpec `json:"pvcTemplate"`
 }
 
@@ -137,17 +109,4 @@ type ServerList struct {
 //nolint:gochecknoinits
 func init() {
 	SchemeBuilder.Register(&Server{}, &ServerList{})
-}
-
-// ShouldCreateOtelVolume checks if an OpenTelemetry volume should be created.
-func (s *ServerSpec) ShouldCreateOtelVolume() bool {
-	if s.Observability.OpenTelemetry == nil {
-		return false
-	}
-
-	if s.Observability.OpenTelemetry.ProjectedSource == nil {
-		return false
-	}
-
-	return true
 }

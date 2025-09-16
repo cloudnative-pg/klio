@@ -13,6 +13,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	kliov1alpha1 "github.com/cloudnative-pg/klio/operator/api/v1alpha1"
+	"github.com/cloudnative-pg/klio/operator/internal/podtemplate"
 )
 
 const (
@@ -27,7 +28,6 @@ const (
 	kopiaCacheMountPath  = "/cache"
 	htpasswdFileName     = "htpasswd"
 	kopiaConfigMountPath = "/config"
-	otelConfigMountPath  = "/otel"
 )
 
 func (r *ServerReconciler) reconcile(ctx context.Context, server *kliov1alpha1.Server) error {
@@ -48,9 +48,8 @@ func (r *ServerReconciler) reconcileStatefulSet(ctx context.Context, server *kli
 
 	pprof, _ := strconv.ParseBool(server.GetAnnotations()["klio.cnpg.io/pprof"])
 
-	// build volumes including any OTEL certificate volumes
 	volumes := r.buildVolumes(server)
-	volumeMounts := r.buildVolumeMounts(server)
+	volumeMounts := r.buildVolumeMounts()
 
 	expected := &appsv1.StatefulSet{
 		ObjectMeta: metav1.ObjectMeta{
@@ -120,7 +119,7 @@ func (r *ServerReconciler) reconcileStatefulSet(ctx context.Context, server *kli
 							Image:           server.Spec.Image,
 							ImagePullPolicy: server.Spec.ImagePullPolicy,
 							VolumeMounts:    volumeMounts,
-							Env:             newEnvBuilder(server).addCommonEnvs().addBaseEnv().build(),
+							Env:             newEnvBuilder(server).addCommonEnvs().build(),
 						},
 					},
 					Containers: []corev1.Container{
@@ -137,7 +136,7 @@ func (r *ServerReconciler) reconcileStatefulSet(ctx context.Context, server *kli
 							Ports: []corev1.ContainerPort{
 								{Name: "base", ContainerPort: 51515, Protocol: corev1.ProtocolTCP},
 							},
-							Env: newEnvBuilder(server).addCommonEnvs().addBaseEnv().build(),
+							Env: newEnvBuilder(server).addCommonEnvs().build(),
 						},
 						{
 							Name: "wal",
@@ -151,7 +150,7 @@ func (r *ServerReconciler) reconcileStatefulSet(ctx context.Context, server *kli
 							Ports: []corev1.ContainerPort{
 								{Name: "wal", ContainerPort: 52000, Protocol: corev1.ProtocolTCP},
 							},
-							Env:          newEnvBuilder(server).addCommonEnvs().addWalEnv().build(),
+							Env:          newEnvBuilder(server).addCommonEnvs().build(),
 							VolumeMounts: volumeMounts,
 						},
 					},
@@ -162,6 +161,22 @@ func (r *ServerReconciler) reconcileStatefulSet(ctx context.Context, server *kli
 		Status: appsv1.StatefulSetStatus{},
 	}
 
+	if server.Spec.Template != nil {
+		merged, err := podtemplate.Merge(&expected.Spec.Template, server.Spec.Template)
+		if err != nil {
+			return fmt.Errorf("failed to merge pod templates: %w", err)
+		}
+		expected.Spec.Template = *merged
+
+		// Enforce required labels after merge to keep selector/template consistent
+		if expected.Spec.Template.Labels == nil {
+			expected.Spec.Template.Labels = map[string]string{}
+		}
+		expected.Spec.Template.Labels[klioServerLabel] = server.Name
+		expected.Spec.Template.Labels[typeLabel] = baseTypeLabelValue
+	}
+
+	// Append pprof args after merge so overlay replacements of Args cannot drop them
 	if pprof {
 		for i := range expected.Spec.Template.Spec.Containers {
 			expected.Spec.Template.Spec.Containers[i].Args = append(
@@ -325,33 +340,16 @@ func (r *ServerReconciler) buildVolumes(server *kliov1alpha1.Server) []corev1.Vo
 		},
 	}
 
-	if server.Spec.ShouldCreateOtelVolume() {
-		volumes = append(volumes, corev1.Volume{
-			Name: "otel",
-			VolumeSource: corev1.VolumeSource{
-				Projected: server.Spec.Observability.OpenTelemetry.ProjectedSource,
-			},
-		})
-	}
-
 	return volumes
 }
 
-func (r *ServerReconciler) buildVolumeMounts(server *kliov1alpha1.Server) []corev1.VolumeMount {
+func (r *ServerReconciler) buildVolumeMounts() []corev1.VolumeMount {
 	volumeMounts := []corev1.VolumeMount{
 		{Name: "data", MountPath: kopiaDataMountPath},
 		{Name: "tls", MountPath: "/certs"},
 		{Name: "cache", MountPath: kopiaCacheMountPath},
 		{Name: "tmp", MountPath: "/tmp"},
 		{Name: "config", MountPath: kopiaConfigMountPath},
-	}
-
-	if server.Spec.ShouldCreateOtelVolume() {
-		volumeMounts = append(volumeMounts, corev1.VolumeMount{
-			Name:      "otel",
-			MountPath: otelConfigMountPath,
-			ReadOnly:  true,
-		})
 	}
 
 	return volumeMounts
