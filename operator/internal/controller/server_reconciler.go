@@ -229,8 +229,15 @@ func (r *ServerReconciler) reconcileStatefulSet(ctx context.Context, server *kli
 	}
 
 	if current.Annotations["klio.cnpg.io/klio-server-hash"] != hash {
+		if current.Labels == nil {
+			current.Labels = map[string]string{}
+		}
 		utils.MergeMap(current.Labels, expected.Labels)
+		if current.Annotations == nil {
+			current.Annotations = map[string]string{}
+		}
 		utils.MergeMap(current.Annotations, expected.Annotations)
+
 		current.Spec.Template = expected.Spec.Template
 		current.Spec.Replicas = expected.Spec.Replicas
 
@@ -300,8 +307,16 @@ func (r *ServerReconciler) reconcileService(ctx context.Context, server *kliov1a
 		}
 	}
 
+	if current.Labels == nil {
+		current.Labels = map[string]string{}
+	}
 	utils.MergeMap(current.Labels, expected.Labels)
+
+	if current.Annotations == nil {
+		current.Annotations = map[string]string{}
+	}
 	utils.MergeMap(current.Annotations, expected.Annotations)
+
 	current.Spec.Selector = expected.Spec.Selector
 	current.Spec.Ports = expected.Spec.Ports
 
