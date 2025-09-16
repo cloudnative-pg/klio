@@ -63,7 +63,7 @@ func (r *ServerReconciler) reconcileStatefulSet(ctx context.Context, server *kli
 			Annotations: map[string]string{},
 		},
 		Spec: appsv1.StatefulSetSpec{
-			ServiceName: klioName,
+			ServiceName: server.GetServiceName(),
 			VolumeClaimTemplates: []corev1.PersistentVolumeClaim{
 				{
 					ObjectMeta: metav1.ObjectMeta{
@@ -247,7 +247,7 @@ func (r *ServerReconciler) reconcileStatefulSet(ctx context.Context, server *kli
 func (r *ServerReconciler) reconcileService(ctx context.Context, server *kliov1alpha1.Server) error {
 	expected := &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      server.Name,
+			Name:      server.GetServiceName(),
 			Namespace: server.Namespace,
 			Labels: map[string]string{
 				klioServerLabel: server.Name,
