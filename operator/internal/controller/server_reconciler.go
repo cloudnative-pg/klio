@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strconv"
 
+	"github.com/cloudnative-pg/cloudnative-pg/pkg/utils"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -59,6 +60,7 @@ func (r *ServerReconciler) reconcileStatefulSet(ctx context.Context, server *kli
 				klioServerLabel: server.Name,
 				typeLabel:       baseTypeLabelValue,
 			},
+			Annotations: map[string]string{},
 		},
 		Spec: appsv1.StatefulSetSpec{
 			ServiceName: klioName,
@@ -227,7 +229,12 @@ func (r *ServerReconciler) reconcileStatefulSet(ctx context.Context, server *kli
 	}
 
 	if current.Annotations["klio.cnpg.io/klio-server-hash"] != hash {
-		if err := r.Update(ctx, expected); err != nil {
+		utils.MergeMap(current.Labels, expected.Labels)
+		utils.MergeMap(current.Annotations, expected.Annotations)
+		current.Spec.Template = expected.Spec.Template
+		current.Spec.Replicas = expected.Spec.Replicas
+
+		if err := r.Update(ctx, &current); err != nil {
 			return fmt.Errorf("failed to update StatefulSet %s/%s: %w", expected.Namespace, expected.Name, err)
 		}
 
@@ -246,6 +253,7 @@ func (r *ServerReconciler) reconcileService(ctx context.Context, server *kliov1a
 				klioServerLabel: server.Name,
 				typeLabel:       baseTypeLabelValue,
 			},
+			Annotations: map[string]string{},
 		},
 		Spec: corev1.ServiceSpec{
 			ClusterIP: "None",
@@ -292,7 +300,12 @@ func (r *ServerReconciler) reconcileService(ctx context.Context, server *kliov1a
 		}
 	}
 
-	if err := r.Update(ctx, expected); err != nil {
+	utils.MergeMap(current.Labels, expected.Labels)
+	utils.MergeMap(current.Annotations, expected.Annotations)
+	current.Spec.Selector = expected.Spec.Selector
+	current.Spec.Ports = expected.Spec.Ports
+
+	if err := r.Update(ctx, &current); err != nil {
 		return fmt.Errorf("failed to update service %s/%s: %w", expected.Namespace, expected.Name, err)
 	}
 
