@@ -139,19 +139,21 @@ tasks:
     desc: Build snapshot packages
     deps:
       - core:protoc-gen-go-grpc
-    dir: core
     env:
-      # renovate: datasource=git-refs depName=goreleaser lookupName=https://github.com/act3-ai/dagger currentValue=main
-      DAGGER_GORELEASER_SHA: 0beeb456ee366b53a0b6e15446bc7803e8f16fe5
+      # renovate: datasource=docker depName=ghcr.io/goreleaser/goreleaser versioning=semver
+      GORELEASER_IMAGE_VERSION: v2.12.0
     run: once
     cmds:
       - >
-        dagger call -m github.com/act3-ai/dagger/goreleaser@${DAGGER_GORELEASER_SHA} --source .
-        release with-clean with-snapshot with-config --config .goreleaser.yaml
-        run --args "--skip=publish"
+        dagger core container
+        from --address ghcr.io/goreleaser/goreleaser:${GORELEASER_IMAGE_VERSION}
+        with-mounted-directory --path /src --source .
+        with-workdir --path /src/core
+        with-exec --args "sh" --args "-c"
+        --args "goreleaser release --clean --snapshot --config .goreleaser.yaml --skip=publish"
         directory --path .
         filter --include dist
-        export --path .
+        export --path core/
       # TODO: revert this workaround when https://github.com/dagger/dagger/issues/6387 is fixed.
       # "directory --path dist export --path dist" should work properly but it creates the dist/
       # directory with wrong permissions (0700).
