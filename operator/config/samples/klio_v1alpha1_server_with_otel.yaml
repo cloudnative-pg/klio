@@ -41,7 +41,7 @@ spec:
     spec:
       containers:
         - name: base
-          env:
+          env: &otel-env-vars
             - name: OTEL_SERVICE_NAME
               value: "klio-base"
             - name: OTEL_RESOURCE_DETECTORS
@@ -86,47 +86,7 @@ spec:
             - mountPath: /otel
               name: otel
         - name: wal
-          env:
-            - name: OTEL_SERVICE_NAME
-              value: "klio-wal"
-            - name: OTEL_RESOURCE_DETECTORS
-              value: "telemetry.sdk,host,os.type,process.executable.name"
-            - name: OTEL_TRACES_EXPORTER
-              value: "otlp"
-            - name: OTEL_EXPORTER_OTLP_TRACES_PROTOCOL
-              value: "grpc"
-            - name: OTEL_EXPORTER_OTLP_TRACES_ENDPOINT
-              value: "https://simplest-collector:4317"
-            - name: OTEL_EXPORTER_OTLP_TRACES_COMPRESSION
-              value: "gzip"
-            - name: OTEL_EXPORTER_OTLP_TRACES_TIMEOUT
-              value: "10000"
-            - name: OTEL_EXPORTER_OTLP_TRACES_INSECURE
-              value: "false"
-            - name: OTEL_EXPORTER_OTLP_TRACES_CERTIFICATE
-              value: "/otel/ca.crt"
-            - name: OTEL_EXPORTER_OTLP_TRACES_CLIENT_CERTIFICATE
-              value: "/otel/tls.crt"
-            - name: OTEL_EXPORTER_OTLP_TRACES_CLIENT_KEY
-              value: "/otel/tls.key"
-            - name: OTEL_METRICS_EXPORTER
-              value: "otlp"
-            - name: OTEL_METRIC_EXPORT_INTERVAL
-              value: "60000"
-            - name: OTEL_EXPORTER_OTLP_METRICS_PROTOCOL
-              value: "grpc"
-            - name: OTEL_EXPORTER_OTLP_METRICS_ENDPOINT
-              value: "https://simplest-collector:4317"
-            - name: OTEL_EXPORTER_OTLP_METRICS_TIMEOUT
-              value: "60000"
-            - name: OTEL_EXPORTER_OTLP_METRICS_INSECURE
-              value: "false"
-            - name: OTEL_EXPORTER_OTLP_METRICS_CERTIFICATE
-              value: "/otel/ca.crt"
-            - name: OTEL_EXPORTER_OTLP_METRICS_CLIENT_CERTIFICATE
-              value: "/otel/tls.crt"
-            - name: OTEL_EXPORTER_OTLP_METRICS_CLIENT_KEY
-              value: "/otel/tls.key"
+          env: *otel-env-vars
           volumeMounts:
             - mountPath: /otel
               name: otel
