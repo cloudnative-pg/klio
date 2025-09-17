@@ -621,9 +621,8 @@ tasks:
         directory directory --path operator/config/manifests export --path operator/config/manifest-build
       - |
         GITHUB_REF= dagger -s -m github.com/sagikazarmark/daggerverse/kustomize@${DAGGER_KUSTOMIZE_SHA} << "."
-        sourceDir=$(host | directory operator/config --no-git-auto-ignore);
         kustomize |
-        build $sourceDir --dir manifest-build |
+        build operator/config --dir manifest-build |
         export operator/olm-manifests/manifest.yaml
         .
 
@@ -941,8 +940,7 @@ tasks:
       - kind get kubeconfig --name {{ .KIND_CLUSTER_NAME }} > {{ .KUBECONFIG_PATH }}
       - |
         dagger << "."
-        kubeconfig=$(host | directory . --no-git-auto-ignore | file {{ .KUBECONFIG_PATH }});
-        container | from alpine/k8s:{{ .ALPINE_K8S_VERSION }} | with-mounted-file /kube/.config $kubeconfig |
+        container | from alpine/k8s:{{ .ALPINE_K8S_VERSION }} | with-mounted-file /kube/.config {{ .KUBECONFIG_PATH }} |
         with-directory /chart operator/dist/chart |
         with-env-variable KUBECONFIG /kube/.config |
         with-service-binding localhost tcp://127.0.0.1:{{ .KIND_HOSTPORT }} |
@@ -973,8 +971,7 @@ tasks:
       - kind get kubeconfig --name {{ .KIND_CLUSTER_NAME }} > {{ .KUBECONFIG_PATH }}
       - |
         dagger << "."
-        kubeconfig=$(host | directory . --no-git-auto-ignore | file {{ .KUBECONFIG_PATH }});
-        container | from golang:{{ .GOLANG_IMAGE_VERSION }} | with-mounted-file /kube/.config $kubeconfig |
+        container | from golang:{{ .GOLANG_IMAGE_VERSION }} | with-mounted-file /kube/.config {{ .KUBECONFIG_PATH }} |
         with-directory /src/operator operator |
         with-workdir /src/operator/test/e2e |
         with-env-variable KUBECONFIG /kube/.config |
