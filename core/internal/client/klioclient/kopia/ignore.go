@@ -11,7 +11,7 @@ const kopiaIgnoreContent = `
 /log/*
 
 /pg_xlog/*
-/pg_wal/*
+/pg_wal
 
 /global/pg_control
 

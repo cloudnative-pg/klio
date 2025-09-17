@@ -1,7 +1,7 @@
 apiVersion: postgresql.cnpg.io/v1
 kind: Cluster
 metadata:
-  name: cluster-example
+  name: cluster-restore
 spec:
   instances: 3
   logLevel: debug
@@ -20,6 +20,7 @@ spec:
           serverAddress: server-sample.default
           clientSecretName: klio-client
           serverSecretName: server-sample-tls
+          clusterName: cluster-example
 
   storage:
     size: 1Gi

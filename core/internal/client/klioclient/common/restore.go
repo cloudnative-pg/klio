@@ -6,6 +6,8 @@ import (
 	"os"
 	"path"
 
+	"github.com/cloudnative-pg/machinery/pkg/fileutils"
+
 	"github.com/cloudnative-pg/klio/core/internal/client/klioclient/notifier"
 )
 
@@ -103,6 +105,11 @@ func (r *RestoreExecutor) Restore(ctx context.Context, destinationPath string) e
 	backupLabel := path.Join(destinationPath, backupLabelFileName)
 	if err := os.WriteFile(backupLabel, []byte(meta.BackupLabel), 0o600); err != nil {
 		return fmt.Errorf("while writing backup label %s file: %w", backupLabel, err)
+	}
+
+	// Ensure pg_wal exists, since it is ignored by the backup.
+	if err := fileutils.EnsureDirectoryExists(path.Join(destinationPath, "pg_wal")); err != nil {
+		return fmt.Errorf("while creating pg_wal directory: %w", err)
 	}
 
 	return nil
