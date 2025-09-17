@@ -144,16 +144,21 @@ tasks:
       GORELEASER_IMAGE_VERSION: v2.12.1
     run: once
     cmds:
-      - >
-        dagger core container
-        from --address ghcr.io/goreleaser/goreleaser:${GORELEASER_IMAGE_VERSION}
-        with-mounted-directory --path /src --source .
-        with-workdir --path /src/core
-        with-exec --args "sh" --args "-c"
-        --args "goreleaser release --clean --snapshot --config .goreleaser.yaml --skip=publish"
-        directory --path .
-        filter --include dist
-        export --path core/
+      - |
+        dagger << "."
+        gomodcache=$(cache-volume "gomodcache");
+        gobuildcache=$(cache-volume "gobuildcache");
+        container |
+        from ghcr.io/goreleaser/goreleaser:${GORELEASER_IMAGE_VERSION} |
+        with-mounted-cache "/go/pkg/mod" $gomodcache |
+        with-mounted-cache "/root/.cache/go-build" $gobuildcache |
+        with-mounted-directory /src . |
+        with-workdir /src/core |
+        with-exec -- "sh" "-c" "goreleaser release --clean --snapshot --config .goreleaser.yaml --skip=publish" |
+        directory . |
+        filter --include dist |
+        export core/
+        .
       # TODO: revert this workaround when https://github.com/dagger/dagger/issues/6387 is fixed.
       # "directory --path dist export --path dist" should work properly but it creates the dist/
       # directory with wrong permissions (0700).
