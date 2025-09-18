@@ -11,7 +11,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/ptr"
 	ctrl "sigs.k8s.io/controller-runtime"
-	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
 	kliov1alpha1 "github.com/cloudnative-pg/klio/operator/api/v1alpha1"
 	"github.com/cloudnative-pg/klio/operator/internal/podtemplate"
@@ -203,125 +203,103 @@ func (r *ServerReconciler) reconcileStatefulSet(ctx context.Context, server *kli
 		"klio.cnpg.io/klio-server-hash": hash,
 	}
 
-	if err := ctrl.SetControllerReference(server, expected, r.Scheme); err != nil {
-		return fmt.Errorf("failed to set controller reference: %w", err)
+	statefulset := &appsv1.StatefulSet{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      klioName,
+			Namespace: server.Namespace,
+		},
 	}
+	op, err := ctrl.CreateOrUpdate(ctx, r.Client, statefulset, func() error {
+		if !statefulset.CreationTimestamp.IsZero() && !metav1.IsControlledBy(statefulset, server) {
+			return &statefulSetNotOwnedByServerError{
+				ServerName:      server.Name,
+				ServerNamespace: server.Namespace,
+			}
+		}
 
-	var current appsv1.StatefulSet
-	err = r.Get(ctx, client.ObjectKeyFromObject(expected), &current)
+		if statefulset.Annotations["klio.cnpg.io/klio-server-hash"] == hash {
+			return nil
+		}
+
+		if err := ctrl.SetControllerReference(server, statefulset, r.Scheme); err != nil {
+			return fmt.Errorf("failed to set controller reference: %w", err)
+		}
+
+		if statefulset.Labels == nil {
+			statefulset.Labels = map[string]string{}
+		}
+		if statefulset.Annotations == nil {
+			statefulset.Annotations = map[string]string{}
+		}
+
+		utils.MergeMap(statefulset.Labels, expected.Labels)
+		utils.MergeMap(statefulset.Annotations, expected.Annotations)
+		statefulset.Spec = expected.Spec
+
+		return nil
+	})
 	if err != nil {
-		if client.IgnoreNotFound(err) != nil {
-			return fmt.Errorf("failed to get statefulset %v/%v: %w", expected.Namespace, expected.Name, err)
-		}
-
-		if err := r.Create(ctx, expected); err != nil {
-			return fmt.Errorf("failed to create StatefulSet %s/%s: %w", expected.Namespace, expected.Name, err)
-		}
-
-		return nil
-	}
-
-	if !metav1.IsControlledBy(&current, server) {
-		return &statefulSetNotOwnedByServerError{
-			ServerName:      server.Name,
-			ServerNamespace: server.Namespace,
-		}
-	}
-
-	if current.Annotations["klio.cnpg.io/klio-server-hash"] != hash {
-		if current.Labels == nil {
-			current.Labels = map[string]string{}
-		}
-		utils.MergeMap(current.Labels, expected.Labels)
-		if current.Annotations == nil {
-			current.Annotations = map[string]string{}
-		}
-		utils.MergeMap(current.Annotations, expected.Annotations)
-
-		current.Spec.Template = expected.Spec.Template
-		current.Spec.Replicas = expected.Spec.Replicas
-
-		if err := r.Update(ctx, &current); err != nil {
-			return fmt.Errorf("failed to update StatefulSet %s/%s: %w", expected.Namespace, expected.Name, err)
-		}
-
-		return nil
+		return fmt.Errorf("failed to reconcile statefulset (%s) %s/%s: %w", op, statefulset.Namespace, statefulset.Name, err)
 	}
 
 	return nil
 }
 
 func (r *ServerReconciler) reconcileService(ctx context.Context, server *kliov1alpha1.Server) error {
-	expected := &corev1.Service{
+	service := &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      server.GetServiceName(),
 			Namespace: server.Namespace,
-			Labels: map[string]string{
-				klioServerLabel: server.Name,
-				typeLabel:       baseTypeLabelValue,
-			},
-			Annotations: map[string]string{},
-		},
-		Spec: corev1.ServiceSpec{
-			ClusterIP: "None",
-			Ports: []corev1.ServicePort{
-				{
-					Name: "base",
-					Port: 51515,
-				},
-				{
-					Name: "wal",
-					Port: 52000,
-				},
-			},
-			Selector: map[string]string{
-				klioServerLabel: server.Name,
-				typeLabel:       baseTypeLabelValue,
-			},
 		},
 	}
 
-	err := ctrl.SetControllerReference(server, expected, r.Scheme)
-	if err != nil {
-		return fmt.Errorf("failed to set controller reference: %w", err)
-	}
-
-	var current corev1.Service
-	err = r.Get(ctx, client.ObjectKeyFromObject(expected), &current)
-	if err != nil {
-		if client.IgnoreNotFound(err) != nil {
-			return fmt.Errorf("failed to get service %s/%s: %w", expected.Namespace, expected.Name, err)
+	op, err := controllerutil.CreateOrUpdate(ctx, r.Client, service, func() error {
+		if !service.CreationTimestamp.IsZero() && !metav1.IsControlledBy(service, server) {
+			return &serviceNotOwnedByServerError{
+				ServerName:      server.Name,
+				ServerNamespace: server.Namespace,
+			}
 		}
 
-		if err := r.Create(ctx, expected); err != nil {
-			return fmt.Errorf("failed to create Service %s/%s: %w", expected.Namespace, expected.Name, err)
+		if service.Labels == nil {
+			service.Labels = map[string]string{}
+		}
+		if service.Annotations == nil {
+			service.Annotations = map[string]string{}
+		}
+
+		utils.MergeMap(service.Labels, map[string]string{
+			klioServerLabel: server.Name,
+			typeLabel:       baseTypeLabelValue,
+		})
+
+		service.Spec.SessionAffinity = corev1.ServiceAffinityNone
+
+		service.Spec.Selector = map[string]string{
+			klioServerLabel: server.Name,
+			typeLabel:       baseTypeLabelValue,
+		}
+		service.Spec.Ports = []corev1.ServicePort{
+			{
+				Name: "base",
+				Port: 51515,
+			},
+			{
+				Name: "wal",
+				Port: 52000,
+			},
+		}
+		service.Spec.ClusterIP = "None"
+
+		err := ctrl.SetControllerReference(server, service, r.Scheme)
+		if err != nil {
+			return fmt.Errorf("failed to set controller reference: %w", err)
 		}
 
 		return nil
-	}
-
-	if !metav1.IsControlledBy(&current, server) {
-		return &serviceNotOwnedByServerError{
-			ServerName:      server.Name,
-			ServerNamespace: server.Namespace,
-		}
-	}
-
-	if current.Labels == nil {
-		current.Labels = map[string]string{}
-	}
-	utils.MergeMap(current.Labels, expected.Labels)
-
-	if current.Annotations == nil {
-		current.Annotations = map[string]string{}
-	}
-	utils.MergeMap(current.Annotations, expected.Annotations)
-
-	current.Spec.Selector = expected.Spec.Selector
-	current.Spec.Ports = expected.Spec.Ports
-
-	if err := r.Update(ctx, &current); err != nil {
-		return fmt.Errorf("failed to update service %s/%s: %w", expected.Namespace, expected.Name, err)
+	})
+	if err != nil {
+		return fmt.Errorf("failed to reconcile service (%s) %s/%s: %w", op, service.Namespace, service.Name, err)
 	}
 
 	return nil
