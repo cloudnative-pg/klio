@@ -3,9 +3,9 @@ package controller
 import (
 	"context"
 	"fmt"
+	"maps"
 	"strconv"
 
-	"github.com/cloudnative-pg/cloudnative-pg/pkg/utils"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -232,8 +232,8 @@ func (r *ServerReconciler) reconcileStatefulSet(ctx context.Context, server *kli
 			statefulset.Annotations = map[string]string{}
 		}
 
-		utils.MergeMap(statefulset.Labels, expected.Labels)
-		utils.MergeMap(statefulset.Annotations, expected.Annotations)
+		maps.Copy(statefulset.Labels, expected.Labels)
+		maps.Copy(statefulset.Annotations, expected.Annotations)
 		statefulset.Spec = expected.Spec
 
 		return nil
@@ -268,7 +268,7 @@ func (r *ServerReconciler) reconcileService(ctx context.Context, server *kliov1a
 			service.Annotations = map[string]string{}
 		}
 
-		utils.MergeMap(service.Labels, map[string]string{
+		maps.Copy(service.Labels, map[string]string{
 			klioServerLabel: server.Name,
 			typeLabel:       baseTypeLabelValue,
 		})
