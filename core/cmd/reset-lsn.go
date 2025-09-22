@@ -1,4 +1,3 @@
-// Package cmd is the implementation of the "klio" command
 package cmd
 
 import (
