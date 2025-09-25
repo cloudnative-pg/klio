@@ -8,7 +8,7 @@ require (
 	github.com/cloudnative-pg/api v1.27.0
 	github.com/cloudnative-pg/cloudnative-pg v1.27.0
 	github.com/cloudnative-pg/cnpg-i v0.3.0
-	github.com/cloudnative-pg/cnpg-i-machinery v0.4.0
+	github.com/cloudnative-pg/cnpg-i-machinery v0.4.1
 	github.com/cloudnative-pg/machinery v0.3.1
 	github.com/jackc/pglogrepl v0.0.0-20250509230407-a9884f6bd75a
 	github.com/jackc/pgx/v5 v5.7.6
