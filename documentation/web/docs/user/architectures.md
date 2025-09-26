@@ -115,11 +115,6 @@ different namespaces, as shown below:
 
 ### Reserving Nodes for Klio Workloads
 
-:::note
-Supporting tolerations is part of our long-term vision and will be introduced in
-a future release.
-:::
-
 For dedicated performance and resource isolation, you can reserve specific
 worker nodes for Klio pods using Kubernetes taints and tolerations.
 
@@ -131,15 +126,19 @@ worker nodes for Klio pods using Kubernetes taints and tolerations.
     ```
 
 2.  **Add Toleration to Klio Server**: Add the corresponding toleration to your
-    Klio `Server` resource. This allows it to be scheduled on the tainted node.
+    Klio `Server` resource, adding it to `.spec.template`.
+    This allows the Klio Server to be scheduled on the tainted node.
 
     ```yaml
     # In your Server resource definition
     spec:
-      tolerations:
-        - key: "node-role.kubernetes.io/klio"
-          operator: "Exists"
-          effect: "NoSchedule"
+      template:
+        spec:
+          containers: []
+          tolerations:
+          - key: "node-role.kubernetes.io/klio"
+            operator: "Exists"
+            effect: "NoSchedule"
     ```
 
 ---
