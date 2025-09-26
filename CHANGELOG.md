@@ -1,5 +1,32 @@
 # Changelog
 
+## [0.0.5](https://github.com/EnterpriseDB/klio/compare/v0.0.4...v0.0.5) (2025-09-26)
+
+
+### Features
+
+* Add opentelemetry metrics to core base and wal server ([#223](https://github.com/EnterpriseDB/klio/issues/223)) ([62acfd8](https://github.com/cloudnative-pg/klio/commit/62acfd81ff02782064a42b5081594d288541b008))
+* Allow template override ([#258](https://github.com/EnterpriseDB/klio/issues/258)) ([978623e](https://github.com/cloudnative-pg/klio/commit/978623e8b62b7ddca650e7aacb371e590462c9f4))
+* Allow using backupID to restore ([#254](https://github.com/EnterpriseDB/klio/issues/254)) ([ceeea70](https://github.com/cloudnative-pg/klio/commit/ceeea7092cf028fe31515cfce5246e323c98a290))
+* API extension for backup catalog observability  ([#201](https://github.com/EnterpriseDB/klio/issues/201)) ([7264b8d](https://github.com/cloudnative-pg/klio/commit/7264b8d06f72537b8af55e61bf4e0f12a44d2cae))
+
+
+### Bug Fixes
+
+* Cleanup pg_wal directory after restore ([#266](https://github.com/EnterpriseDB/klio/issues/266)) ([7510048](https://github.com/cloudnative-pg/klio/commit/75100480d7482c53c77597f8bb21d6273252325a))
+* Consider that the current object could have nil maps ([e4e74c3](https://github.com/cloudnative-pg/klio/commit/e4e74c31dfe902e6e71c068044f1e06da4a65632))
+* Create service before sts ([5679297](https://github.com/cloudnative-pg/klio/commit/5679297d99e35d6982f1e0a667e7b134e007bd42))
+* **deps:** Update all non-major go dependencies ([#247](https://github.com/EnterpriseDB/klio/issues/247)) ([1953052](https://github.com/cloudnative-pg/klio/commit/195305259fffcd10a3303c7106f756c6d85cce87))
+* **deps:** Update all non-major go dependencies ([#271](https://github.com/EnterpriseDB/klio/issues/271)) ([dba8bc9](https://github.com/cloudnative-pg/klio/commit/dba8bc997dfe2abdd25b277251f9cf50dec6830a))
+* **deps:** Update k8s.io/kube-openapi digest to 589584f ([#261](https://github.com/EnterpriseDB/klio/issues/261)) ([a01efbe](https://github.com/cloudnative-pg/klio/commit/a01efbeb839143149da4083993811753f2e3b83b))
+* **deps:** Update kubernetes packages to v0.34.1 ([#253](https://github.com/EnterpriseDB/klio/issues/253)) ([fc90ace](https://github.com/cloudnative-pg/klio/commit/fc90ace0308deaf05861c424d304829e3fd64a23))
+* **deps:** Update module github.com/cloudnative-pg/cnpg-i-machinery to v0.4.1 ([#292](https://github.com/EnterpriseDB/klio/issues/292)) ([6341622](https://github.com/cloudnative-pg/klio/commit/63416224f75ff62a84c0ea7243bf34f25aefa1b6))
+* **deps:** Update module sigs.k8s.io/controller-runtime to v0.22.1 ([#248](https://github.com/EnterpriseDB/klio/issues/248)) ([e9489b9](https://github.com/cloudnative-pg/klio/commit/e9489b9c3beac4ca9efd083647db902f44be2fb8))
+* Maintain the old service name or everything breaks ([73a5656](https://github.com/cloudnative-pg/klio/commit/73a565642c82471f552216b54662586d5dde6c1e))
+* **operator:** Properly update resources ([d460665](https://github.com/cloudnative-pg/klio/commit/d46066549b7ae5ed499be76daf2a4113e2dd3299))
+* Replication failure on timeline switch ([#224](https://github.com/EnterpriseDB/klio/issues/224)) ([5504fbe](https://github.com/cloudnative-pg/klio/commit/5504fbeb45453320f4d1cc87032639440b24f0e4))
+* Use the same serviceName in sts and service ([fc32410](https://github.com/cloudnative-pg/klio/commit/fc32410e71b920a5d878b047f63c36c48c8210a3))
+
 ## [0.0.4](https://github.com/EnterpriseDB/klio/compare/v0.0.3...v0.0.4) (2025-09-08)
 
 
