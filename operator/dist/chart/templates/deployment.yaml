@@ -68,22 +68,22 @@ spec:
         - name: plugin-client
           secret:
             secretName: {{ .Values.plugin.clientSecret }}
-      {{- if .Values.priorityClassName }}
-      priorityClassName: {{ .Values.priorityClassName }}
+      {{- if .Values.controllerManager.priorityClassName }}
+      priorityClassName: {{ .Values.controllerManager.priorityClassName }}
       {{- end }}
-      {{- with .Values.nodeSelector }}
+      {{- with .Values.controllerManager.nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}
       {{- end }}
-      {{- with .Values.topologySpreadConstraints }}
+      {{- with .Values.controllerManager.topologySpreadConstraints }}
       topologySpreadConstraints:
         {{- toYaml . | nindent 8 }}
       {{- end }}
-      {{- with .Values.affinity }}
+      {{- with .Values.controllerManager.affinity }}
       affinity:
         {{- toYaml . | nindent 8 }}
       {{- end }}
-      {{- with .Values.tolerations }}
+      {{- with .Values.controllerManager.tolerations }}
       tolerations:
         {{- toYaml . | nindent 8 }}
       {{- end }}
