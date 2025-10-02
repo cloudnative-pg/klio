@@ -505,6 +505,11 @@ func getTLSVolumesAndMounts(cluster *cnpgv1.Cluster) ([]volumeAndMount, error) {
 	pluginConfigurations := getPluginConfigurations(cluster)
 
 	for hostName, pluginConfig := range pluginConfigurations {
+		// consider only enabled plugin configurations to avoid errors from missing parameters
+		if pluginConfig == nil || !pluginConfig.IsEnabled() {
+			continue
+		}
+
 		// Extract server secret name from the klio pluginConfig
 		// Assuming we can get it from the WAL repository pluginConfig or base pluginConfig
 		serverSecretName, err := getParameter(pluginConfig, "serverSecretName")
