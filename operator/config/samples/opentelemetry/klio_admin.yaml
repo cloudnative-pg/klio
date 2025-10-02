@@ -1,0 +1,8 @@
+# This file is used to create a Kubernetes Secret for the admin credentials of the Kopia server run by Klio.
+apiVersion: v1
+data:
+  password: a29waWFhZG1pbg==
+  username: a29waWE=
+kind: Secret
+metadata:
+  name: klio-admin

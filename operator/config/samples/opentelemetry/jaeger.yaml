@@ -1,3 +1,5 @@
+# This is a simple Jaeger all-in-one deployment for testing purposes.
+# It is NOT recommended for production use.
 apiVersion: apps/v1
 kind: Deployment
 metadata:

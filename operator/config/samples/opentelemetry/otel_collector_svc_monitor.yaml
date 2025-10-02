@@ -1,0 +1,18 @@
+# Expose the OpenTelemetry Collector prometheys exporter to Prometheus using a ServiceMonitor.
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: otel-collector
+spec:
+  endpoints:
+    - path: /metrics
+      port: prometheus
+      scheme: http
+      interval: 30s
+      scrapeTimeout: 10s
+  selector:
+    matchLabels:
+      app.kubernetes.io/component: opentelemetry-collector
+      app.kubernetes.io/instance: default.otel
+      app.kubernetes.io/name: otel-collector
+      operator.opentelemetry.io/collector-service-type: base

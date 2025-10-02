@@ -12,7 +12,7 @@ spec:
     - name: OTEL_EXPORTER_OTLP_TRACES_PROTOCOL
       value: "grpc"
     - name: OTEL_EXPORTER_OTLP_TRACES_ENDPOINT
-      value: "https://simplest-collector:4317"
+      value: "https://otel-collector:4317"
     - name: OTEL_EXPORTER_OTLP_TRACES_INSECURE
       value: "false"
     - name: OTEL_EXPORTER_OTLP_TRACES_TIMEOUT
@@ -30,11 +30,11 @@ spec:
     - name: OTEL_RESOURCE_DETECTORS
       value: "telemetry.sdk,host,os.type,process.executable.name"
     - name: OTEL_SERVICE_NAME
-      value: "klio-custom-service-name"
+      value: "klio-walsender"
     - name: OTEL_METRICS_EXPORTER
       value: "otlp"
     - name: OTEL_EXPORTER_OTLP_METRICS_ENDPOINT
-      value: "https://simplest-collector:4317"
+      value: "https://otel-collector:4317"
     - name: OTEL_EXPORTER_OTLP_METRICS_PROTOCOL
       value: "grpc"
     - name: OTEL_EXPORTER_OTLP_METRICS_INSECURE
@@ -51,12 +51,12 @@ spec:
   projectedVolumeTemplate:
     sources:
       - secret:
-          name: simplest-collector-tls
+          name: otel-collector-tls
           items:
             - key: ca.crt
               path: ca.crt
       - secret:
-          name: otel-client-cert
+          name: klio-server-otel-client-tls
           items:
             - key: tls.crt
               path: tls.crt
@@ -71,18 +71,9 @@ spec:
     - name: klio.cnpg.io
       enabled: true
       parameters:
-        serverAddress: server-sample.default
+        serverAddress: klio.default
         clientSecretName: klio-client
-        serverSecretName: server-sample-tls
-        pprof: 't'
+        serverSecretName: klio-server-tls
 
   storage:
     size: 1Gi
----
-apiVersion: v1
-kind: Secret
-metadata:
-  name: klio-client
-data:
-  password: cGlwcG9waXBwbw==
-  username: a2xpbw==
