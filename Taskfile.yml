@@ -607,6 +607,8 @@ tasks:
   olm:manifest:
     run: once
     internal: true
+    deps:
+      - olm:clean
     requires:
       vars:
         - ENVIRONMENT
@@ -624,12 +626,10 @@ tasks:
         --dir operator/config/manifests
         set image --image controller=${registry}/klio-operator${suffix}:${tag}
         directory directory --path operator/config/manifests export --path operator/config/manifest-build
-      - |
-        GITHUB_REF= dagger -s -m github.com/sagikazarmark/daggerverse/kustomize@${DAGGER_KUSTOMIZE_SHA} << "."
-        kustomize |
-        build operator/config --dir manifest-build |
-        export operator/olm-manifests/manifest.yaml
-        .
+      - >
+        GITHUB_REF= dagger -s call -m github.com/sagikazarmark/daggerverse/kustomize@${DAGGER_KUSTOMIZE_SHA}
+        build --source operator/config --dir manifest-build
+        export --path operator/olm-manifests/manifest.yaml
 
     sources:
       - operator/config/**/*
@@ -646,7 +646,7 @@ tasks:
     cmds:
       - >
         docker
-        run --rm -ti
+        run --rm
         -u $(id -u)
         -v $(pwd)/operator:/operator
         -w /operator/
@@ -661,14 +661,14 @@ tasks:
       - bundle/
 
   olm:build:
-    desc: Build the require OLM bundle image after the bundle is generated
+    desc: Build the require OLM bundle image after generating the bundle
     requires:
       vars:
         - ENVIRONMENT
     deps:
-      - olm:bundle
       - internal:create-builder
       - internal:registry-network-connect
+      - olm:bundle
     env:
       registry: '{{ if .GITHUB_ACTIONS }}ghcr.io/enterprisedb{{ else }}{{ .REGISTRY_NAME }}:{{ .REGISTRY_PORT }}{{ end }}'
       insecure: '{{ if .GITHUB_ACTIONS }}false{{ else }}true{{ end }}'
@@ -684,12 +684,121 @@ tasks:
         --output="type=image,registry.insecure=${insecure}"
         operator/
 
+  olm:catalog-file:
+    internal: false
+    run: once
+    requires:
+      vars:
+        - ENVIRONMENT
+    env:
+      registry: '{{ if .GITHUB_ACTIONS }}ghcr.io/enterprisedb{{ else }}{{ .REGISTRY_NAME }}:{{ .REGISTRY_PORT }}{{ end }}'
+      insecure: '{{ if .GITHUB_ACTIONS }}false{{ else }}true{{ end }}'
+      suffix: '{{ if ( ne .ENVIRONMENT "production" ) }}-testing{{end}}'
+      tag: '{{ .TAG | default .IMAGE_TAG }}'
+      # renovate: datasource=docker depName=quay.io/operator-framework/opm versioning=semver
+      OPM_SHA: a557ae54b41fee9e0243261f8cf57cf392d6b2b22b82ff40fef1ab45b66683e8
+      CONTAINER_AUTH_FILE: '{{ .REGISTRY_AUTH_FILE | default (printf "%s/.docker/config.json" (env "HOME")) }}'
+    cmds:
+      - >
+        mkdir -p operator/catalog/klio-operator
+      - >
+        echo '{"default":[{"type":"insecureAcceptAnything"}]}' > /tmp/policy.json
+      - >
+        docker
+        run --rm
+        -u $(id -u)
+        -v $(pwd)/operator/:/operator/
+        -w /operator/
+        quay.io/operator-framework/opm@sha256:${OPM_SHA}
+        generate dockerfile catalog
+      - |
+        cat << EOF > operator/klio-operator-template.yaml
+        Schema: olm.semver
+        GenerateMajorChannels: true
+        GenerateMinorChannels: false
+        Stable:
+          Bundles:
+          - Image: ${registry}/klio-operator${suffix}:${tag}-bundle
+        EOF
+      - >
+        docker
+        run --rm
+        --network {{ .REGISTRY_NETWORK }}
+        -v /tmp/policy.json:/etc/containers/policy.json
+        -v ${CONTAINER_AUTH_FILE}:/.config/containers/auth.json
+        -u $(id -u)
+        -v $(pwd)/operator/:/operator/
+        -w /operator/
+        quay.io/operator-framework/opm@sha256:${OPM_SHA}
+        alpha render-template semver --skip-tls-verify -o yaml klio-operator-template.yaml > operator/catalog/klio-olm-template.yaml
+      - >
+        docker
+        run --rm
+        -u $(id -u)
+        -v $(pwd)/operator/:/operator/
+        -w /operator/
+        quay.io/operator-framework/opm@sha256:${OPM_SHA}
+        validate catalog/
+    generates:
+      - operator/catalog.Dockerfile
+      - operator/catalog
+      - operator/klio-olm-template.yaml
+
+  olm:catalog:
+    desc: Build the OLM catalog image after the bundle image is built
+    requires:
+      vars:
+        - ENVIRONMENT
+    env:
+      registry: '{{ if .GITHUB_ACTIONS }}ghcr.io/enterprisedb{{ else }}{{ .REGISTRY_NAME }}:{{ .REGISTRY_PORT }}{{ end }}'
+      insecure: '{{ if .GITHUB_ACTIONS }}false{{ else }}true{{ end }}'
+      suffix: '{{ if ( ne .ENVIRONMENT "production" ) }}-testing{{end}}'
+      tag: '{{ .TAG | default .IMAGE_TAG }}'
+    cmds:
+      - task: olm:build
+      - task: olm:catalog-file
+      - >
+        docker buildx build
+        --builder {{ .BUILDER_NAME }}
+        --push
+        -t ${registry}/klio-operator${suffix}:${tag}-catalog
+        -f operator/catalog.Dockerfile
+        --output="type=image,registry.insecure=${insecure}"
+        operator/
+
+  olm:catalog-source:
+    desc: Build the OLM CatalogSource YAML file
+    requires:
+      vars:
+        - ENVIRONMENT
+    env:
+      registry: '{{ if .GITHUB_ACTIONS }}ghcr.io/enterprisedb{{ else }}{{ .REGISTRY_NAME }}:{{ .REGISTRY_PORT }}{{ end }}'
+      insecure: '{{ if .GITHUB_ACTIONS }}false{{ else }}true{{ end }}'
+      suffix: '{{ if ( ne .ENVIRONMENT "production" ) }}-testing{{end}}'
+      tag: '{{ .TAG | default .IMAGE_TAG }}'
+    cmds:
+      - task: olm:catalog
+      - |
+        cat << EOF > operator/klio-operator-template.yaml
+        apiVersion: operators.coreos.com/v1alpha1
+        kind: CatalogSource
+        metadata:
+           name: klio-catalog
+           namespace: openshift-marketplace
+        spec:
+           sourceType: grpc
+           image: ${registry}/klio-operator${suffix}:${tag}-catalog
+           secrets:
+               - klio-pull-secret
+        EOF
+
   olm:clean:
     desc: Cleanup of the OLM build artifacts
     cmds:
       - rm -fr operator/olm-manifests
       - rm -fr operator/bundle*
       - rm -fr operator/config/manifest-build/
+      - rm -fr operator/catalog*
 
   ####################################
   ## DOCUMENTATION

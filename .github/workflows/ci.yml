@@ -214,6 +214,44 @@ jobs:
         run: |
           task integration:e2e
 
+  olm:
+    name: OLM Bundle & Catalog
+    env:
+      # The OpenShift Catalog is just for internal testing purpose until it won't.
+      ENVIRONMENT: "testing"
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.sha }}
+
+      - name: Cleanup disk
+        uses: ./.github/actions/cleanup-disk
+
+      - name: Setup dagger
+        uses: ./.github/actions/setup-dagger
+
+      - name: Login to ghcr.io using Podman
+        uses: redhat-actions/podman-login@v1
+        with:
+          registry: "ghcr.io"
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Run OLM task
+        run: |
+          task olm:catalog
+
+      - name: Upload OLM catalog
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: klio-olm
+          path: |
+            operator/klio-operator-template.yaml
+            operator/bundle
+
   renovate:
     name: Renovate Linter
     needs:
