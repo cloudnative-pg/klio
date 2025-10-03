@@ -8,11 +8,13 @@ import (
 	"path"
 
 	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/codes"
 	"go.opentelemetry.io/otel/metric"
 	"google.golang.org/protobuf/encoding/protodelim"
 	"google.golang.org/protobuf/encoding/protowire"
 
 	"github.com/cloudnative-pg/klio/core/internal/grpc"
+	"github.com/cloudnative-pg/klio/core/internal/opentelemetry"
 	"github.com/cloudnative-pg/klio/core/internal/server/walserver/repository"
 )
 
@@ -122,6 +124,8 @@ func (w *Writer) Close() error {
 
 // WriteBlock writes the WAL block to storage.
 func (w *Writer) WriteBlock(ctx context.Context, data []byte) error {
+	writeBlockSpanCtx, writeBlockSpan := tracer.Start(ctx, opentelemetry.WriteBlockSpan)
+	defer writeBlockSpan.End()
 	const walBlockSize = 1 << 20
 
 	// Process data in blocks
@@ -132,7 +136,9 @@ func (w *Writer) WriteBlock(ctx context.Context, data []byte) error {
 		}
 		block := data[start:end]
 
-		if err := w.writeBlockInternal(ctx, block); err != nil {
+		if err := w.writeBlockInternal(writeBlockSpanCtx, block); err != nil {
+			writeBlockSpan.RecordError(err)
+			writeBlockSpan.SetStatus(codes.Error, err.Error())
 			return fmt.Errorf("while writing WAL block: %w", err)
 		}
 	}
@@ -143,15 +149,44 @@ func (w *Writer) WriteBlock(ctx context.Context, data []byte) error {
 // WriteBlock writes the WAL block to storage.
 func (w *Writer) writeBlockInternal(ctx context.Context, p []byte) error {
 	// Step 1: compression and encryption
-	wrappedBlock, err := w.conn.WrapBlock(p, defaultChunkSize)
+	wrappedBlock, err := w.wrapBlock(ctx, p)
 	if err != nil {
 		return fmt.Errorf("while wrapping WAL block: %w", err)
 	}
 
 	// Step 2: writing to permanent storage
+	if err := w.writeBlockData(ctx, wrappedBlock); err != nil {
+		return fmt.Errorf("while writing WAL block data: %w", err)
+	}
+
+	return nil
+}
+
+// wrapBlock compresses and encrypts the block data.
+func (w *Writer) wrapBlock(ctx context.Context, p []byte) ([]byte, error) {
+	_, wrapSpan := tracer.Start(ctx, opentelemetry.WrapBlockSpan)
+	defer wrapSpan.End()
+
+	wrappedBlock, err := w.conn.WrapBlock(p, defaultChunkSize)
+	if err != nil {
+		wrapSpan.SetStatus(codes.Error, err.Error())
+		wrapSpan.RecordError(fmt.Errorf("error while wrapping block: %w", err))
+		return nil, fmt.Errorf("error while wrapping block: %w", err)
+	}
+
+	return wrappedBlock, nil
+}
+
+// writeBlockData writes the wrapped block data to the buffer with metrics.
+func (w *Writer) writeBlockData(ctx context.Context, wrappedBlock []byte) error {
+	_, writeSpan := tracer.Start(ctx, opentelemetry.WriteBlockDataSpan)
+	defer writeSpan.End()
+
 	prefix := protowire.AppendFixed64(nil, uint64(len(wrappedBlock)))
 	nBytes, err := w.buffer.Write(prefix)
 	if err != nil {
+		writeSpan.SetStatus(codes.Error, err.Error())
+		writeSpan.RecordError(err)
 		return fmt.Errorf("while writing prefix: %w", err)
 	}
 
@@ -165,6 +200,8 @@ func (w *Writer) writeBlockInternal(ctx context.Context, p []byte) error {
 
 	nBytes, err = w.buffer.Write(wrappedBlock)
 	if err != nil {
+		writeSpan.SetStatus(codes.Error, err.Error())
+		writeSpan.RecordError(err)
 		return fmt.Errorf("while writing WAL file block: %w", err)
 	}
 	w.metrics.walWrittenBytes.Add(ctx, int64(nBytes),

@@ -2,14 +2,17 @@ package walserver
 
 import (
 	"bufio"
+	"context"
 	"fmt"
 	"io"
 	"os"
 
+	"go.opentelemetry.io/otel/codes"
 	"google.golang.org/protobuf/encoding/protodelim"
 	"google.golang.org/protobuf/encoding/protowire"
 
 	"github.com/cloudnative-pg/klio/core/internal/grpc"
+	"github.com/cloudnative-pg/klio/core/internal/opentelemetry"
 	"github.com/cloudnative-pg/klio/core/internal/server/walserver/repository"
 )
 
@@ -68,9 +71,29 @@ func (r *Reader) Close() error {
 }
 
 // ReadBlock reads the next WAL block from the file.
-func (r *Reader) ReadBlock() ([]byte, error) {
+func (r *Reader) ReadBlock(ctx context.Context) ([]byte, error) {
+	block, err := r.readBlockData(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	return r.unwrapBlockData(ctx, block)
+}
+
+// GetFileLength gets the file length.
+func (r *Reader) GetFileLength() uint64 {
+	return r.segmentLength
+}
+
+// readBlockData reads the block length and data from the file.
+func (r *Reader) readBlockData(ctx context.Context) ([]byte, error) {
+	_, readBlockSpan := tracer.Start(ctx, opentelemetry.ReadBlockDataSpan)
+	defer readBlockSpan.End()
+
 	blockLenBytes := make([]byte, 8)
-	if _, err := io.ReadFull(r.reader, blockLenBytes); err != nil {
+	_, err := io.ReadFull(r.reader, blockLenBytes)
+	if err != nil {
+		readBlockSpan.RecordError(fmt.Errorf("error while reading block: %w", err))
 		return nil, fmt.Errorf("while reading WAL file block prefix: %w", err)
 	}
 
@@ -78,18 +101,24 @@ func (r *Reader) ReadBlock() ([]byte, error) {
 
 	block := make([]byte, blockLen)
 	if _, err := io.ReadFull(r.reader, block); err != nil {
+		readBlockSpan.RecordError(fmt.Errorf("error while reading block: %w", err))
 		return nil, fmt.Errorf("while reading WAL file block: %w", err)
 	}
 
+	return block, nil
+}
+
+// unwrapBlockData unwraps the block data using the connection.
+func (r *Reader) unwrapBlockData(ctx context.Context, block []byte) ([]byte, error) {
+	_, unwrapSpan := tracer.Start(ctx, opentelemetry.UnwrapBlockSpan)
+	defer unwrapSpan.End()
+
 	bytesRead, err := r.conn.UnwrapBlock(block)
 	if err != nil {
+		unwrapSpan.SetStatus(codes.Error, err.Error())
+		unwrapSpan.RecordError(fmt.Errorf("error while unwrapping block: %w", err))
 		return nil, fmt.Errorf("while unwrapping WAL file block: %w", err)
 	}
 
 	return bytesRead, nil
-}
-
-// GetFileLength gets the file length.
-func (r *Reader) GetFileLength() uint64 {
-	return r.segmentLength
 }

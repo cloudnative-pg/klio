@@ -8,12 +8,14 @@ import (
 	"time"
 
 	"go.opentelemetry.io/otel/attribute"
+	otelcodes "go.opentelemetry.io/otel/codes"
 	"go.opentelemetry.io/otel/metric"
 	"go.opentelemetry.io/otel/trace"
-	"google.golang.org/grpc/codes"
+	grpccodes "google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
 	"github.com/cloudnative-pg/klio/core/internal/grpc"
+	"github.com/cloudnative-pg/klio/core/internal/opentelemetry"
 )
 
 var (
@@ -89,27 +91,48 @@ func (m *walUploadBlockMetadata) handleRequest(request *grpc.PutRequest) error {
 
 // Put uploads a new WAL to the data store.
 //
-//nolint:cyclop,gocognit
+//nolint:cyclop,gocognit,maintidx
 func (w *Implementation) Put(req grpc.WAL_PutServer) error {
 	var blockMeta walUploadBlockMetadata
 	var walBuffer *Writer
 	var writtenSize uint64
 	startTime := time.Now()
 
-	span := trace.SpanFromContext(req.Context())
+	ctx, span := tracer.Start(req.Context(), "put_wal")
+	defer span.End()
 
 	for {
-		_, readSpan := tracer.Start(req.Context(), "klio.wal.put.read_block")
+		_, readSpan := tracer.Start(ctx, opentelemetry.ReceiveBlockSpan)
 		request, err := req.Recv()
-		if err == nil {
-			readSpan.SetAttributes(
-				attribute.Int("len", len(request.GetWalBlock())),
-			)
-		}
-		if request != nil && request.GetTraceId() != "" && request.GetSpanId() != "" {
-			traceID, _ := trace.TraceIDFromHex(request.GetTraceId())
-			spanID, _ := trace.SpanIDFromHex(request.GetSpanId())
+		if err != nil {
+			if !errors.Is(err, io.EOF) {
+				readSpan.SetStatus(otelcodes.Error, err.Error())
+				w.logger.Warning(
+					"Error while reading WAL block",
+					"clusterName", request.GetClusterName(),
+					"walName", request.GetWalName(),
+					"err", err,
+				)
+			}
+			readSpan.RecordError(err)
+			readSpan.End()
 
+			break
+		}
+
+		readSpan.SetAttributes(
+			attribute.Int("len", len(request.GetWalBlock())),
+		)
+
+		if request != nil && request.GetTraceId() != "" && request.GetSpanId() != "" {
+			traceID, err := trace.TraceIDFromHex(request.GetTraceId())
+			if err != nil {
+				readSpan.RecordError(err)
+			}
+			spanID, err := trace.SpanIDFromHex(request.GetSpanId())
+			if err != nil {
+				readSpan.RecordError(err)
+			}
 			readSpan.AddLink(
 				trace.Link{
 					SpanContext: trace.NewSpanContext(
@@ -126,30 +149,19 @@ func (w *Implementation) Put(req grpc.WAL_PutServer) error {
 		if errors.Is(err, io.EOF) {
 			break
 		}
-		if err != nil {
-			w.logger.Warning(
-				"Error while reading WAL block",
-				"clusterName", request.GetClusterName(),
-				"walName", request.GetWalName(),
-				"err", err,
-			)
-
-			// What we have read until now is fine, let's keep it.
-			break
-		}
 
 		if err := validatePathComponent(request.GetClusterName()); err != nil {
 			w.logger.Warning("Wrong cluster name used in WAL Put", "clusterName", request.GetClusterName())
-			return status.Errorf(codes.InvalidArgument, "invalid cluster name: %v", err.Error())
+			return status.Errorf(grpccodes.InvalidArgument, "invalid cluster name: %v", err.Error())
 		}
 
 		if err := validatePathComponent(request.GetWalName()); err != nil {
 			w.logger.Warning("Wrong WAL name used in WAL Put", "walName", request.GetWalName())
-			return status.Errorf(codes.InvalidArgument, "invalid WAL name: %v", err.Error())
+			return status.Errorf(grpccodes.InvalidArgument, "invalid WAL name: %v", err.Error())
 		}
 
 		if err := validateWalFileName(request.GetWalName()); err != nil {
-			return status.Errorf(codes.InvalidArgument, "invalid WAL name: %q", request.GetWalName())
+			return status.Errorf(grpccodes.InvalidArgument, "invalid WAL name: %q", request.GetWalName())
 		}
 
 		span.SetAttributes(attribute.String("clusterName", request.GetClusterName()))
@@ -170,7 +182,7 @@ func (w *Implementation) Put(req grpc.WAL_PutServer) error {
 				"walName", request.GetWalName(),
 			)
 
-			return status.Errorf(codes.InvalidArgument, "%s", err.Error())
+			return status.Errorf(grpccodes.InvalidArgument, "%s", err.Error())
 		}
 
 		if walBuffer == nil {
@@ -184,13 +196,11 @@ func (w *Implementation) Put(req grpc.WAL_PutServer) error {
 					"walName", request.GetWalName(),
 				)
 
-				return status.Errorf(codes.Internal, "error while opening new WAL: %v", err.Error())
+				return status.Errorf(grpccodes.Internal, "error while opening new WAL: %v", err.Error())
 			}
 		}
 
-		_, writeSpan := tracer.Start(req.Context(), "klio.wal.put.write_block")
-		err = walBuffer.WriteBlock(req.Context(), request.GetWalBlock())
-		writeSpan.End()
+		err = walBuffer.WriteBlock(ctx, request.GetWalBlock())
 		if err != nil {
 			w.logger.Error(
 				err,
@@ -199,12 +209,11 @@ func (w *Implementation) Put(req grpc.WAL_PutServer) error {
 				"walName", request.GetWalName(),
 			)
 
-			return status.Errorf(codes.Internal, "error while writing WAL: %v", err.Error())
+			return status.Errorf(grpccodes.Internal, "error while writing WAL: %v", err.Error())
 		}
 
-		_, flushSpan := tracer.Start(req.Context(), "klio.wal.put.flush_block")
+		_, flushSpan := tracer.Start(ctx, opentelemetry.FlushBlockSpan)
 		err = walBuffer.Flush()
-		flushSpan.End()
 		if err != nil {
 			w.logger.Error(
 				err,
@@ -213,8 +222,13 @@ func (w *Implementation) Put(req grpc.WAL_PutServer) error {
 				"walName", request.GetWalName(),
 			)
 
-			return status.Errorf(codes.Internal, "error while flushing WAL: %v", err.Error())
+			flushSpan.SetStatus(otelcodes.Error, err.Error())
+			flushSpan.RecordError(err)
+			flushSpan.End()
+
+			return status.Errorf(grpccodes.Internal, "error while flushing WAL: %v", err.Error())
 		}
+		flushSpan.End()
 
 		writtenSize += uint64(len(request.GetWalBlock()))
 	}
@@ -228,7 +242,7 @@ func (w *Implementation) Put(req grpc.WAL_PutServer) error {
 				"Error while closing empty WAL file",
 			)
 
-			return status.Errorf(codes.Internal, "error while closing (partial) WAL: %v", err.Error())
+			return status.Errorf(grpccodes.Internal, "error while closing (partial) WAL: %v", err.Error())
 		}
 
 		return nil
@@ -244,7 +258,7 @@ func (w *Implementation) Put(req grpc.WAL_PutServer) error {
 				"err", err,
 			)
 
-			return status.Errorf(codes.Internal, "error while closing (partial) WAL: %v", err.Error())
+			return status.Errorf(grpccodes.Internal, "error while closing (partial) WAL: %v", err.Error())
 		}
 
 		w.logger.Info(
@@ -265,7 +279,7 @@ func (w *Implementation) Put(req grpc.WAL_PutServer) error {
 				"err", err,
 			)
 
-			return status.Errorf(codes.Internal, "error while closing (done) WAL: %v", err.Error())
+			return status.Errorf(grpccodes.Internal, "error while closing (done) WAL: %v", err.Error())
 		}
 
 		w.metrics.walWritten.Add(
@@ -299,7 +313,7 @@ func (w *Implementation) Put(req grpc.WAL_PutServer) error {
 			"err", err,
 		)
 
-		return status.Errorf(codes.Internal, "error while sending response: %v", err.Error())
+		return status.Errorf(grpccodes.Internal, "error while sending response: %v", err.Error())
 	}
 
 	return nil

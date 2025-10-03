@@ -56,7 +56,7 @@ func TestWALReaderBlockSplit(t *testing.T) {
 	// Read the splitted blocks
 	var wBlocks bytes.Buffer
 	for {
-		innerBlock, err := reader.ReadBlock()
+		innerBlock, err := reader.ReadBlock(t.Context())
 		if errors.Is(err, io.EOF) {
 			break
 		}
@@ -114,12 +114,12 @@ func TestReaderWriterBlocks(t *testing.T) {
 	assert.Equal(t, fileLen, reader.GetFileLength())
 
 	// Step 2.1: read the first block
-	block1Read, err := reader.ReadBlock()
+	block1Read, err := reader.ReadBlock(t.Context())
 	require.NoError(t, err)
 	assert.Equal(t, block1, block1Read)
 
 	// Step 2.2: read the second block
-	block2Read, err := reader.ReadBlock()
+	block2Read, err := reader.ReadBlock(t.Context())
 	require.NoError(t, err)
 	assert.Equal(t, block2, block2Read)
 

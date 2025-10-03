@@ -15,6 +15,7 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgproto3"
 	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/codes"
 	"go.opentelemetry.io/otel/trace"
 	"go.uber.org/multierr"
 
@@ -22,6 +23,7 @@ import (
 	"github.com/cloudnative-pg/klio/core/internal/client/sendwal/buffer"
 	"github.com/cloudnative-pg/klio/core/internal/client/sendwal/infrastructure"
 	klioGRPC "github.com/cloudnative-pg/klio/core/internal/grpc"
+	"github.com/cloudnative-pg/klio/core/internal/opentelemetry"
 	"github.com/cloudnative-pg/klio/core/pkg/config"
 )
 
@@ -331,7 +333,7 @@ func (s *Process) downloadHistoryFiles(
 ) error {
 	var errorList error
 
-	ctx, span := tracer.Start(ctx, "klio.client.download_fistory_files",
+	ctx, span := tracer.Start(ctx, opentelemetry.DownloadHistoryFileSpan,
 		trace.WithAttributes(attribute.Int("currentTLI", int(currentTli))))
 	defer span.End()
 
@@ -339,6 +341,7 @@ func (s *Process) downloadHistoryFiles(
 	for tli := currentTli; tli > 1; tli-- {
 		result, err := pglogrepl.TimelineHistory(ctx, conn, tli)
 		if err != nil {
+			span.RecordError(err)
 			contextLogger.Error(err, "timeline history fetching failed, skipping", "tli", tli)
 			errorList = multierr.Append(errorList, err)
 
@@ -346,6 +349,7 @@ func (s *Process) downloadHistoryFiles(
 		}
 
 		if err := s.client.StoreHistoryFile(ctx, result.FileName, result.Content); err != nil {
+			span.RecordError(err)
 			errorList = multierr.Append(errorList, err)
 			contextLogger.Error(err, "timeline history upload failed",
 				"tli", tli, "file", result.FileName)
@@ -469,15 +473,13 @@ func (s *Process) manageWALStream(
 	feedbackDeadline := s.config.Source.StandbyMessageTimeout()
 	nextFeedbackDeadline := time.Now().Add(feedbackDeadline)
 
-	blockCtx, blockSpan := tracer.Start(ctx, "klio.client.block")
+	blockCtx, blockSpan := tracer.Start(ctx, opentelemetry.ManageWalStreamSpan)
 loop:
 	for {
 		if time.Now().After(nextFlushDeadline) {
 			flushedLSN := buffer.FlushLSN()
 
-			flushCtx, flushSpan := tracer.Start(
-				blockCtx,
-				"klio.client.block.flush",
+			flushCtx, flushSpan := tracer.Start(blockCtx, opentelemetry.FlushBlockSpan,
 				trace.WithAttributes(
 					attribute.String("beforeFlushLSN", pglogrepl.LSN(flushedLSN).String())))
 			err := buffer.Flush(flushCtx)
@@ -491,7 +493,7 @@ loop:
 
 			// When flush really written something down to the Klio server,
 			// the FlushedLSN will be different. In that case, we want to immediately
-			// give a feedback to the PostgreSQL server. This ultimately
+			// give feedback to the PostgreSQL server. This ultimately
 			// will result in updated data in pg_stat_replication.
 			//
 			// For tracing purposes, we declare this block closed and open a new one
@@ -504,7 +506,7 @@ loop:
 
 				blockCtx, blockSpan = tracer.Start( //nolint:fatcontext
 					ctx,
-					"klio.client.block",
+					opentelemetry.ManageWalStreamSpan,
 					trace.WithAttributes(
 						attribute.String("startLSN", pglogrepl.LSN(flushedLSN).String())))
 			}
@@ -523,7 +525,7 @@ loop:
 
 		receiveCtx, span := tracer.Start(
 			blockCtx,
-			"klio.client.block.receive",
+			opentelemetry.ReceiveBlockSpan,
 			trace.WithAttributes(
 				attribute.String("lsn", pglogrepl.LSN(buffer.WriteLSN()).String())))
 		standbyMessageDeadlineContext, cancel := context.WithDeadline(receiveCtx, nextFlushDeadline)
@@ -579,18 +581,21 @@ loop:
 					continue
 				}
 
-				writeCtx, writeSpan := tracer.Start(
-					blockCtx,
-					"klio.client.block.write",
+				writeCtx, writeSpan := tracer.Start(blockCtx, opentelemetry.WriteBlockSpan,
 					trace.WithAttributes(
 						attribute.String("lsn", xld.WALStart.String()),
 						attribute.Int("size", len(xld.WALData))))
+
 				err = buffer.ProcessWALData(writeCtx, xld.WALData, types.LSN(xld.WALStart.String()))
-				writeSpan.End()
 				if err != nil {
 					contextLogger.Error(err, "Error while processing WAL data", "lsn", xld.WALStart)
+					writeSpan.SetStatus(codes.Error, err.Error())
+					writeSpan.RecordError(err)
+					writeSpan.End()
+
 					return nil, fmt.Errorf("could not process WAL data at %s: %w", xld.WALStart, err)
 				}
+				writeSpan.End()
 
 				// Force the code to communicate back to PostgreSQL the current status without waiting for
 				// a flush

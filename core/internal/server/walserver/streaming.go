@@ -17,7 +17,7 @@ import (
 
 // GetMetadata implements the GetMetadata GRPC call.
 func (w *Implementation) GetMetadata(
-	_ context.Context,
+	ctx context.Context,
 	req *grpc.GetMetadataRequest,
 ) (*grpc.ClusterMetadata, error) {
 	if err := validatePathComponent(req.GetClusterName()); err != nil {
@@ -27,7 +27,7 @@ func (w *Implementation) GetMetadata(
 	var metadata *grpc.ClusterMetadata
 	var err error
 
-	if metadata, err = w.getClusterMetadata(req.GetClusterName()); err != nil {
+	if metadata, err = w.getClusterMetadata(ctx, req.GetClusterName()); err != nil {
 		if errors.Is(err, os.ErrNotExist) {
 			return nil, status.Errorf(codes.NotFound, "not found")
 		}
@@ -58,7 +58,7 @@ func (w *Implementation) RequestWALStart(
 	var metadata *grpc.ClusterMetadata
 	var err error
 
-	if metadata, err = w.getClusterMetadata(req.GetClusterName()); err != nil {
+	if metadata, err = w.getClusterMetadata(ctx, req.GetClusterName()); err != nil {
 		if !errors.Is(err, os.ErrNotExist) {
 			return nil, status.Errorf(codes.Internal, "error while reading cluster metadata: %v", err.Error())
 		}
@@ -122,7 +122,7 @@ func (w *Implementation) ResetWALStream(
 	var metadata *grpc.ClusterMetadata
 	var err error
 
-	if metadata, err = w.getClusterMetadata(req.GetClusterName()); err != nil {
+	if metadata, err = w.getClusterMetadata(ctx, req.GetClusterName()); err != nil {
 		return nil, status.Errorf(codes.Internal, "error while reading cluster metadata: %v", err.Error())
 	}
 

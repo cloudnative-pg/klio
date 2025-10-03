@@ -15,7 +15,7 @@ import (
 var ErrIncoherentMetadata = errors.New("incoherent cluster metadata")
 
 // getClusterMetadata gets the cluster metadata for the cluster with the passed name.
-func (w *Implementation) getClusterMetadata(clusterName string) (*grpc.ClusterMetadata, error) {
+func (w *Implementation) getClusterMetadata(ctx context.Context, clusterName string) (*grpc.ClusterMetadata, error) {
 	walReader, err := NewReader(w.conn, clusterName, metadataFileName)
 	if err != nil {
 		return nil, err
@@ -27,7 +27,7 @@ func (w *Implementation) getClusterMetadata(clusterName string) (*grpc.ClusterMe
 		}
 	}()
 
-	data, err := walReader.ReadBlock()
+	data, err := walReader.ReadBlock(ctx)
 	if err != nil {
 		return nil, err
 	}
