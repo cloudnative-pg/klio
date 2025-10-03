@@ -25,14 +25,17 @@ var (
 const klioArchiveConfigKey = "klio-archive"
 
 type pluginConfiguration struct {
-	ServerAddress    string
-	ClusterName      string
-	ClientSecretName string
-	ServerSecretName string
-	BackupRef        string
-	BackupID         string
-	Enabled          bool
-	EnablePPROF      bool
+	ServerAddress          string
+	ClusterName            string
+	ClientSecretName       string
+	ServerSecretName       string
+	BackupRef              string
+	BackupID               string
+	MetricsAddressInstance string
+	MetricsAddressRestore  string
+	MetricsAddressSendWal  string
+	Enabled                bool
+	EnablePPROF            bool
 }
 
 func parsePluginConfiguration(rawConf *cnpgv1.PluginConfiguration) (*pluginConfiguration, error) {
@@ -76,6 +79,15 @@ func parsePluginConfiguration(rawConf *cnpgv1.PluginConfiguration) (*pluginConfi
 	// not mandatory, so we don't return an error if it's missing
 	conf.ClusterName, _ = getParameter(rawConf, "clusterName")
 
+	// not mandatory, so we don't return an error if it's missing
+	conf.MetricsAddressInstance, _ = getParameter(rawConf, "metricsAddressInstance")
+
+	// not mandatory, so we don't return an error if it's missing
+	conf.MetricsAddressSendWal, _ = getParameter(rawConf, "metricsAddressSendWal")
+
+	// not mandatory, so we don't return an error if it's missing
+	conf.MetricsAddressRestore, _ = getParameter(rawConf, "metricsAddressRestore")
+
 	return &conf, nil
 }
 
@@ -85,17 +97,17 @@ func generateKlioConfigForPlugin(
 	rawConfiguration *cnpgv1.PluginConfiguration,
 	certPath string,
 	namespace string,
-) (*config.Data, error) {
+) (*config.Data, *pluginConfiguration, error) {
 	// If the plugin is not configured or not enabled, do nothing
 	if rawConfiguration == nil ||
 		rawConfiguration.Name != PluginName ||
 		!rawConfiguration.IsEnabled() {
-		return nil, nil
+		return nil, nil, nil
 	}
 
 	configuration, err := parsePluginConfiguration(rawConfiguration)
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse plugin configuration: %w", err)
+		return nil, nil, fmt.Errorf("failed to parse plugin configuration: %w", err)
 	}
 
 	clientSecret := &corev1.Secret{}
@@ -103,7 +115,7 @@ func generateKlioConfigForPlugin(
 		client.ObjectKey{Namespace: namespace, Name: configuration.ClientSecretName},
 		clientSecret)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get client secret %q: %w", configuration.ClientSecretName, err)
+		return nil, nil, fmt.Errorf("failed to get client secret %q: %w", configuration.ClientSecretName, err)
 	}
 
 	// Extract the data from the client secret
@@ -138,7 +150,7 @@ func generateKlioConfigForPlugin(
 		},
 	}
 
-	return klioConfig, nil
+	return klioConfig, configuration, nil
 }
 
 func getPluginConfigurations(cluster *cnpgv1.Cluster) map[string]*cnpgv1.PluginConfiguration {
@@ -180,33 +192,40 @@ func getPluginConfigurations(cluster *cnpgv1.Cluster) map[string]*cnpgv1.PluginC
 	return pluginConfigurations
 }
 
-// klioConfigsFromCluster creates a new Kubernetes Secret with a key for each usage configuration
-// for the plugin, including the main WAL repository and all the external clusters.
+// klioConfigsFromCluster creates configuration data for the main and external plugin usages.
+// Returns the map of Klio configs keyed by usage and the parsed cluster plugin configuration, if any.
 func klioConfigsFromCluster(
 	ctx context.Context,
 	cli client.Client,
 	cluster *cnpgv1.Cluster,
-) (map[string]*config.Data, error) {
+) (map[string]*config.Data, *pluginConfiguration, error) {
 	configs := make(map[string]*config.Data)
+	var clusterPC *pluginConfiguration
 
 	rawPluginConfiguration := getPluginConfigurations(cluster)
-	for key, pluginConfiguration := range rawPluginConfiguration {
-		klioConfig, err := generateKlioConfigForPlugin(
+	for key, pc := range rawPluginConfiguration {
+		if pc == nil || pc.Name != PluginName || !pc.IsEnabled() {
+			continue
+		}
+		klioConfig, parsedPC, err := generateKlioConfigForPlugin(
 			ctx,
 			cli,
-			pluginConfiguration,
+			pc,
 			getServerSecretVolumeMountPath(key),
 			cluster.Namespace,
 		)
 		if err != nil {
-			return nil, fmt.Errorf("failed to get plugin configuration: %w", err)
+			return nil, nil, fmt.Errorf("failed to get plugin configuration: %w", err)
 		}
 		if klioConfig != nil {
 			configs[key] = klioConfig
 		}
+		if key == klioArchiveConfigKey {
+			clusterPC = parsedPC
+		}
 	}
 
-	return configs, nil
+	return configs, clusterPC, nil
 }
 
 func klioConfigsToSecret(

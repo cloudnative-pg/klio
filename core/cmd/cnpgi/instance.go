@@ -15,14 +15,14 @@ var instanceCmd = &cobra.Command{
 	Hidden: true,
 	RunE: func(cmd *cobra.Command, _ []string) error {
 		pluginPath, _ := cmd.Flags().GetString("plugin-path")
-
+		metricsAddr, _ := cmd.Flags().GetString("metrics-bind-address")
 		capabilities := func(server *cnpgi.CNPGI) {
 			server.AddBackupCapability()
 			server.AddMetricsCapability()
 			server.AddWALCapability(true)
 		}
 
-		return runCNPGI(cmd.Context(), pluginPath, capabilities)
+		return runCNPGI(cmd.Context(), pluginPath, metricsAddr, capabilities)
 	},
 }
 
@@ -32,6 +32,11 @@ func init() {
 		"plugin-path",
 		"/plugins",
 		"The directory where the Unix domain socket should be created",
+	)
+	instanceCmd.Flags().String(
+		"metrics-bind-address",
+		":8081",
+		"The address the metric endpoint binds to.",
 	)
 
 	CnpgiCmd.AddCommand(instanceCmd)

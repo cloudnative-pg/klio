@@ -108,7 +108,7 @@ func (impl LifecycleImplementation) reconcileJob(
 	request *lifecycle.OperatorLifecycleRequest,
 ) (*lifecycle.OperatorLifecycleResponse, error) {
 	contextLogger := log.FromContext(ctx).WithName("klio-job-lifecycle")
-	klioConfigs, err := klioConfigsFromCluster(ctx, impl.Client, cluster)
+	klioConfigs, _, err := klioConfigsFromCluster(ctx, impl.Client, cluster)
 	if err != nil {
 		contextLogger.Error(err, "Failed to get klio configuration from cluster definition")
 		return nil, err
@@ -191,22 +191,29 @@ func (impl LifecycleImplementation) reconcileJob(
 
 	mutatedJob := job.DeepCopy()
 
+	sidecarsToEnrich := []corev1.Container{
+		{
+			Name: "klio-plugin",
+			Args: []string{
+				"cnpgi",
+				"restore",
+				backupID,
+				pgdata,
+			},
+		},
+	}
+
+	if parsedPlugin.MetricsAddressRestore != "" {
+		sidecarsToEnrich[0].Args = append(sidecarsToEnrich[0].Args,
+			"--metrics-bind-address", parsedPlugin.MetricsAddressRestore)
+	}
+
 	if err := reconcilePodSpec(
 		cluster,
 		&mutatedJob.Spec.Template.Spec,
 		jobRole,
 		reconcilePodSpecConfiguration{
-			sidecarsToEnrich: []corev1.Container{
-				{
-					Name: "klio-plugin",
-					Args: []string{
-						"cnpgi",
-						"restore",
-						backupID,
-						pgdata,
-					},
-				},
-			},
+			sidecarsToEnrich: sidecarsToEnrich,
 		}); err != nil {
 		return nil, fmt.Errorf("while reconciling pod spec for job: %w", err)
 	}
@@ -309,7 +316,7 @@ func (impl LifecycleImplementation) reconcilePod(
 ) (*lifecycle.OperatorLifecycleResponse, error) {
 	contextLogger := log.FromContext(ctx).WithName("klio-pod-lifecycle")
 
-	klioConfigs, err := klioConfigsFromCluster(ctx, impl.Client, cluster)
+	klioConfigs, clusterPC, err := klioConfigsFromCluster(ctx, impl.Client, cluster)
 	if err != nil {
 		contextLogger.Error(err, "Failed to get klio configuration from cluster definition")
 		return nil, err
@@ -329,26 +336,10 @@ func (impl LifecycleImplementation) reconcilePod(
 		WithValues("podName", pod.Name)
 
 	mutatedPod := pod.DeepCopy()
-	// Determine the sidecars to enrich based on the klioConfigs.
-	// We add the wal sender sidecar only if the klioConfigs contain the main configuration.
+
 	sidecarsToEnrich := []corev1.Container{
-		{Name: "klio-plugin", Args: []string{"cnpgi", "instance"}},
-	}
-	if klioConfigs[klioArchiveConfigKey] != nil {
-		args := []string{
-			"cnpgi",
-			"send-wal",
-			"--config", "/var/lib/postgresql/klio/" + klioArchiveConfigKey,
-			"--pod-name", pod.Name,
-			"--cluster-name", cluster.Name,
-			"--cluster-namespace", cluster.Namespace,
-		}
-		sidecarsToEnrich = append(sidecarsToEnrich,
-			corev1.Container{
-				Name: "klio-wal",
-				Args: args,
-			},
-		)
+		buildInstanceSidecarTemplate(clusterPC),
+		buildSendWALSidecarTemplate(pod, cluster, clusterPC),
 	}
 
 	if err := reconcilePodSpec(
@@ -372,6 +363,44 @@ func (impl LifecycleImplementation) reconcilePod(
 	return &lifecycle.OperatorLifecycleResponse{
 		JsonPatch: patch,
 	}, nil
+}
+
+func buildSendWALSidecarTemplate(
+	pod *corev1.Pod,
+	cluster *cnpgv1.Cluster,
+	clusterPC *pluginConfiguration,
+) corev1.Container {
+	if clusterPC == nil {
+		return corev1.Container{}
+	}
+
+	args := []string{
+		"cnpgi",
+		"send-wal",
+		"--config", "/var/lib/postgresql/klio/" + klioArchiveConfigKey,
+		"--pod-name", pod.Name,
+		"--cluster-name", cluster.Name,
+		"--cluster-namespace", cluster.Namespace,
+	}
+	if clusterPC.MetricsAddressSendWal != "" {
+		args = append(args, "--metrics-bind-address", clusterPC.MetricsAddressSendWal)
+	}
+
+	return corev1.Container{
+		Name: "klio-wal",
+		Args: args,
+	}
+}
+
+func buildInstanceSidecarTemplate(clusterPC *pluginConfiguration) corev1.Container {
+	instanceSidecar := corev1.Container{Name: "klio-plugin", Args: []string{"cnpgi", "instance"}}
+	if clusterPC != nil && clusterPC.MetricsAddressInstance != "" {
+		instanceSidecar.Args = append(instanceSidecar.Args,
+			"--metrics-bind-address",
+			clusterPC.MetricsAddressInstance)
+	}
+
+	return instanceSidecar
 }
 
 type reconcilePodSpecConfiguration struct {
@@ -470,6 +499,10 @@ func reconcilePodSpec(
 
 	// If any plugin configuration has the enablePPROF parameter set to true, enable PPROF in the sidecars.
 	for _, v := range getPluginConfigurations(cluster) {
+		// consider only enabled plugin configurations for PPROF
+		if v == nil || !v.IsEnabled() {
+			continue
+		}
 		enablePPROF, err := tryGetBooleanParameter(v, "enablePPROF")
 		if err != nil {
 			return fmt.Errorf("failed to get enablePPROF parameter: %w", err)
@@ -480,6 +513,10 @@ func reconcilePodSpec(
 	}
 
 	for _, baseSidecar := range cfg.sidecarsToEnrich {
+		if baseSidecar.Name == "" {
+			continue
+		}
+
 		sidecar := sidecarTemplate.DeepCopy()
 		sidecar.Name = baseSidecar.Name
 		sidecar.Args = baseSidecar.Args

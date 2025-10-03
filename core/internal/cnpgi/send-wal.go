@@ -31,6 +31,7 @@ type SendWalController struct {
 	KlioConfigFile string
 	PodName        string
 	ClusterKey     types.NamespacedName
+	MetricsAddress string
 }
 
 // ErrInstanceIsReplica is raised as a send-wal process cause when
@@ -95,7 +96,7 @@ func (m *SendWalController) Start(ctx context.Context) error {
 			},
 		},
 		Metrics: server.Options{
-			BindAddress: "0",
+			BindAddress: m.MetricsAddress,
 		},
 	}
 
@@ -125,6 +126,7 @@ func (m *SendWalController) Start(ctx context.Context) error {
 		"cluster", m.ClusterKey,
 		"podName", m.PodName,
 		"klioConfigFile", m.KlioConfigFile,
+		"metricsAddress", m.MetricsAddress,
 	)
 
 	if err := mgr.Start(ctx); err != nil {

@@ -21,6 +21,7 @@ spec:
           clientSecretName: klio-client
           serverSecretName: server-sample-tls
           clusterName: cluster-example
+          metricsAddressRestore: ":8095"
 
   storage:
     size: 1Gi

@@ -19,6 +19,7 @@ var sendWalCmd = &cobra.Command{
 		clusterName, _ := cmd.Flags().GetString("cluster-name")
 		clusterNamespace, _ := cmd.Flags().GetString("cluster-namespace")
 		podName, _ := cmd.Flags().GetString("pod-name")
+		metricsBindAddress, _ := cmd.Flags().GetString("metrics-bind-address")
 
 		ctrl := cnpgi.SendWalController{
 			Scheme:         generateScheme(),
@@ -27,7 +28,8 @@ var sendWalCmd = &cobra.Command{
 				Namespace: clusterNamespace,
 				Name:      clusterName,
 			},
-			PodName: podName,
+			PodName:        podName,
+			MetricsAddress: metricsBindAddress,
 		}
 
 		return ctrl.Start(cmd.Context())
@@ -50,6 +52,11 @@ func init() {
 		"pod-name",
 		"",
 		"The name of the current instance",
+	)
+	sendWalCmd.Flags().String(
+		"metrics-bind-address",
+		":8082",
+		"The address the metric endpoint binds to.",
 	)
 
 	CnpgiCmd.AddCommand(sendWalCmd)

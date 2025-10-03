@@ -14,12 +14,18 @@ import (
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/metrics/server"
 	"sigs.k8s.io/controller-runtime/pkg/scheme"
 
 	"github.com/cloudnative-pg/klio/core/internal/cnpgi"
 )
 
-func runCNPGI(ctx context.Context, pluginPath string, addCapabilities func(server *cnpgi.CNPGI)) error {
+func runCNPGI(
+	ctx context.Context,
+	pluginPath string,
+	metricsAddress string,
+	addCapabilities func(server *cnpgi.CNPGI),
+) error {
 	logger := log.FromContext(ctx)
 
 	controllerOptions := ctrl.Options{
@@ -32,6 +38,9 @@ func runCNPGI(ctx context.Context, pluginPath string, addCapabilities func(serve
 					&cnpgv1.Backup{},
 				},
 			},
+		},
+		Metrics: server.Options{
+			BindAddress: metricsAddress,
 		},
 	}
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), controllerOptions)

@@ -16,18 +16,20 @@ var restoreJobCmd = &cobra.Command{
 	Hidden: true,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		pluginPath, _ := cmd.Flags().GetString("plugin-path")
+		metricsAddress, _ := cmd.Flags().GetString("metrics-bind-address")
 		contextLogger := log.FromContext(cmd.Context())
 		contextLogger.Info("Starting CNPG-I job restore server",
 			"pluginPath", pluginPath,
 			"backupName", args[0],
 			"destination", args[1],
+			"metricsAddress", metricsAddress,
 		)
 		capabilities := func(server *cnpgi.CNPGI) {
 			server.AddRestoreCapability(args[0], args[1])
 			server.AddWALCapability(true)
 		}
 
-		return runCNPGI(cmd.Context(), pluginPath, capabilities)
+		return runCNPGI(cmd.Context(), pluginPath, metricsAddress, capabilities)
 	},
 }
 
@@ -38,6 +40,10 @@ func init() {
 		"/plugins",
 		"The directory where the Unix domain socket should be created",
 	)
-
+	restoreJobCmd.Flags().String(
+		"metrics-bind-address",
+		":8083",
+		"The address the metric endpoint binds to.",
+	)
 	CnpgiCmd.AddCommand(restoreJobCmd)
 }
