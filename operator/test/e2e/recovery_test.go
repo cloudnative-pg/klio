@@ -22,11 +22,19 @@ import (
 	"github.com/cloudnative-pg/klio/operator/test/utils/templates"
 )
 
+type recoveryStrategy string
+
+const (
+	recoveryFromBackupRef recoveryStrategy = "fromBackupRef"
+	recoveryFromBackupID  recoveryStrategy = "fromBackupID"
+)
+
 func NewRecoveryFeatureConfig(
-	name string, instances int, namespace string,
+	name string, instances int, namespace string, strategy recoveryStrategy,
 ) machineryFeatures.RecoveryFeatureConfig {
 	const klioServerName = "test-klio-server"
 	var sourcePrimary corev1.Pod
+	var mutators []machineryFeatures.RecoveryClusterMutateFunc
 
 	namespaceObj := &corev1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{Name: namespace},
@@ -58,7 +66,6 @@ func NewRecoveryFeatureConfig(
 				"serverAddress":    certificate.Spec.DNSNames[0],
 				"clientSecretName": clientSecret.GetName(),
 				"serverSecretName": certificate.Spec.SecretName,
-				"backupRef":        backup.Name,
 				"clusterName":      cnpgCluster.Name,
 			},
 		},
@@ -70,6 +77,19 @@ func NewRecoveryFeatureConfig(
 	}
 	// TODO: we should check that WAL archiving and backups also work in the recovered Cluster
 	recoveryCluster.Spec.Plugins = []cnpgv1.PluginConfiguration{}
+
+	switch strategy {
+	case recoveryFromBackupRef:
+		recoveryCluster.Spec.ExternalClusters[0].PluginConfiguration.Parameters["backupRef"] = backup.Name
+	case recoveryFromBackupID:
+		mutators = append(mutators, func(cluster *cnpgv1.Cluster, rc machineryFeatures.RecoveryContext) {
+			cluster.Spec.ExternalClusters[0].PluginConfiguration.Parameters["backupID"] = rc.BackupID
+			cluster.Spec.Bootstrap.Recovery.RecoveryTarget = &cnpgv1.RecoveryTarget{
+				TargetImmediate: ptr.To(true),
+				BackupID:        rc.BackupID,
+			}
+		})
+	}
 
 	setupFunc := func(ctx context.Context, t *testing.T, cfg *envconf.Config) context.Context {
 		t.Helper()
@@ -119,7 +139,7 @@ func NewRecoveryFeatureConfig(
 		return ctx
 	}
 
-	return machineryFeatures.RecoveryFeatureConfig{
+	recoveryConfig := machineryFeatures.RecoveryFeatureConfig{
 		Name:             name,
 		Setup:            setupFunc,
 		Teardown:         teardownFunc,
@@ -127,14 +147,24 @@ func NewRecoveryFeatureConfig(
 		Backup:           backup,
 		RecoveryCluster:  recoveryCluster,
 	}
+	if len(mutators) > 0 {
+		recoveryConfig.MutateRecoveryCluster = mutators
+	}
+
+	return recoveryConfig
 }
 
-func RecoverClusterFromBackup(namespace string) *machineryFeatures.RecoveryFeature {
+func RecoverClusterFromBackupRef(namespace string) *machineryFeatures.RecoveryFeature {
 	return machineryFeatures.NewRecoveryFeature(NewRecoveryFeatureConfig(
-		"RecoverClusterFromBackup", 1, namespace))
+		"RecoverClusterFromBackupRef", 1, namespace, recoveryFromBackupRef))
+}
+
+func RecoverClusterFromBackupID(namespace string) *machineryFeatures.RecoveryFeature {
+	return machineryFeatures.NewRecoveryFeature(NewRecoveryFeatureConfig(
+		"RecoverClusterFromBackupID", 1, namespace, recoveryFromBackupID))
 }
 
 func RecoverClusterFromPitr(namespace string) *machineryFeatures.PitrFeature {
 	return machineryFeatures.NewPitrFeature(NewRecoveryFeatureConfig(
-		"RecoverClusterFromPitr", 1, namespace))
+		"RecoverClusterFromPitr", 1, namespace, recoveryFromBackupRef))
 }

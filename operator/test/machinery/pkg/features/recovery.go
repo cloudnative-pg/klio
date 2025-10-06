@@ -26,11 +26,22 @@ type RecoveryFeature struct {
 	sourcePrimaryPod      *corev1.Pod
 	backup                *cnpgv1.Backup
 	recoveryCluster       *cnpgv1.Cluster
+	mutateRecoveryCluster []RecoveryClusterMutateFunc
 	backupTimeout         time.Duration
 	backupCheckInterval   time.Duration
 	recoveryTimeout       time.Duration
 	recoveryCheckInterval time.Duration
 }
+
+// RecoveryContext holds the runtime context for the
+// fields available during the recovery.
+type RecoveryContext struct {
+	// BackupID is the ID of the backup that was taken.
+	BackupID string
+}
+
+// RecoveryClusterMutateFunc is a function that mutates a recovery Cluster object.
+type RecoveryClusterMutateFunc func(recoveryCluster *cnpgv1.Cluster, ctx RecoveryContext)
 
 // RecoveryFeatureConfig holds the configuration for creating a recovery feature test.
 type RecoveryFeatureConfig struct {
@@ -47,6 +58,8 @@ type RecoveryFeatureConfig struct {
 	Backup *cnpgv1.Backup
 	// RecoveryCluster to be created from the backup.
 	RecoveryCluster *cnpgv1.Cluster
+	// MutateRecoveryCluster can be used to inject exposed runtime fields into the recovery cluster.
+	MutateRecoveryCluster []RecoveryClusterMutateFunc
 	// BackupTimeout is the timeout for backup operations (defaults to 1 minute).
 	BackupTimeout time.Duration
 	// BackupCheckInterval is the interval for checking backup status for completion (defaults to 10 seconds).
@@ -83,6 +96,7 @@ func NewRecoveryFeature(config RecoveryFeatureConfig) *RecoveryFeature {
 		sourcePrimaryPod:      config.SourcePrimaryPod,
 		backup:                config.Backup,
 		recoveryCluster:       config.RecoveryCluster,
+		mutateRecoveryCluster: config.MutateRecoveryCluster,
 		backupTimeout:         config.BackupTimeout,
 		backupCheckInterval:   config.BackupCheckInterval,
 		recoveryTimeout:       config.RecoveryTimeout,
@@ -123,6 +137,20 @@ func (f *RecoveryFeature) Run() types.StepFunc {
 			wait.WithInterval(f.backupCheckInterval),
 		)
 		require.NoError(t, err, "backup not completed")
+
+		// Optionally mutate recovery cluster
+		if len(f.mutateRecoveryCluster) > 0 {
+			// Get the backup
+			err = r.Get(ctx, f.backup.Name, f.backup.Namespace, f.backup)
+			require.NoError(t, err, "failed to get backup")
+
+			rc := RecoveryContext{
+				BackupID: f.backup.Status.BackupID,
+			}
+			for _, mutate := range f.mutateRecoveryCluster {
+				mutate(f.recoveryCluster, rc)
+			}
+		}
 
 		// Recovery
 		require.NoError(t, r.Create(ctx, f.recoveryCluster), "failed to create a recovery cluster")
