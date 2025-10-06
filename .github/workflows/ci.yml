@@ -268,5 +268,5 @@ jobs:
       - name: Validate Renovate JSON
         env:
           # renovate: datasource=npm depName=renovate versioning=semver
-          RENOVATE_VERSION: 41.132.5
+          RENOVATE_VERSION: 41.135.5
         run: npx --yes --package renovate@${RENOVATE_VERSION} -- renovate-config-validator
