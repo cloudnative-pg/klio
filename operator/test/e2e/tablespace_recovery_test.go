@@ -12,29 +12,42 @@ import (
 	"github.com/cloudnative-pg/klio/operator/test/utils/templates"
 )
 
-type recoveryStrategy string
-
-const (
-	recoveryFromBackupRef recoveryStrategy = "fromBackupRef"
-	recoveryFromBackupID  recoveryStrategy = "fromBackupID"
-)
-
-func NewRecoveryFeatureConfig(
-	name string, instances int, namespace string, strategy recoveryStrategy,
-) machineryFeatures.RecoveryFeatureConfig {
+func NewTablespaceRecoveryFeatureConfig(
+	name string, instances int, namespace string,
+) machineryFeatures.TablespaceRecoveryFeatureConfig {
 	const klioServerName = "test-klio-server"
-	var mutators []machineryFeatures.RecoveryClusterMutateFunc
 
 	namespaceObj := &corev1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{Name: namespace},
+	}
+
+	tablespaceConfig := []cnpgv1.TablespaceConfiguration{
+		{
+			Name: "tbs1",
+			Owner: cnpgv1.DatabaseRoleRef{
+				Name: "postgres",
+			},
+			Storage: cnpgv1.StorageConfiguration{
+				Size: "1G",
+			},
+		},
+		{
+			Name: "tbs2",
+			Owner: cnpgv1.DatabaseRoleRef{
+				Name: "app",
+			},
+			Storage: cnpgv1.StorageConfiguration{
+				Size: "2G",
+			},
+		},
 	}
 
 	issuer := certificates.GetSelfSignedIssuerObject("selfsigned-issuer", namespace)
 	certificate := certificates.GetCertificateObject("test", namespace, []string{klioServerName}, issuer)
 
 	clientSecret := secrets.GetKlioClientSecret("klio-client", namespace, "klio", "testclientpassword123")
-	cnpgCluster := templates.GetCnpgClusterObject("test-cluster-source", namespace, instances, certificate,
-		clientSecret)
+	cnpgCluster := templates.GetCnpgClusterWithTablespacesObject("test-cluster-source", namespace, instances, certificate,
+		clientSecret, tablespaceConfig)
 
 	userSecret := secrets.GetKlioUsersSecret("test-user", namespace, clientSecret, cnpgCluster.Name)
 	encryptionSecret := secrets.GetKlioEncryptionSecret("encryption", namespace, "testencryptionpassword123")
@@ -55,6 +68,7 @@ func NewRecoveryFeatureConfig(
 				"serverAddress":    certificate.Spec.DNSNames[0],
 				"clientSecretName": clientSecret.GetName(),
 				"serverSecretName": certificate.Spec.SecretName,
+				"backupRef":        backup.Name,
 				"clusterName":      cnpgCluster.Name,
 			},
 		},
@@ -66,19 +80,6 @@ func NewRecoveryFeatureConfig(
 	}
 	// TODO: we should check that WAL archiving and backups also work in the recovered Cluster
 	recoveryCluster.Spec.Plugins = []cnpgv1.PluginConfiguration{}
-
-	switch strategy {
-	case recoveryFromBackupRef:
-		recoveryCluster.Spec.ExternalClusters[0].PluginConfiguration.Parameters["backupRef"] = backup.Name
-	case recoveryFromBackupID:
-		mutators = append(mutators, func(cluster *cnpgv1.Cluster, rc machineryFeatures.RecoveryContext) {
-			cluster.Spec.ExternalClusters[0].PluginConfiguration.Parameters["backupID"] = rc.BackupID
-			cluster.Spec.Bootstrap.Recovery.RecoveryTarget = &cnpgv1.RecoveryTarget{
-				TargetImmediate: ptr.To(true),
-				BackupID:        rc.BackupID,
-			}
-		})
-	}
 
 	c := commonBackupRestoreScenario{
 		namespace:        namespaceObj,
@@ -93,32 +94,20 @@ func NewRecoveryFeatureConfig(
 		name: name,
 	}
 
-	recoveryConfig := machineryFeatures.RecoveryFeatureConfig{
-		Name:             name,
-		Setup:            c.Setup,
-		Teardown:         c.Teardown,
-		SourcePrimaryPod: &c.sourcePrimaryPod,
-		Backup:           backup,
-		RecoveryCluster:  recoveryCluster,
+	return machineryFeatures.TablespaceRecoveryFeatureConfig{
+		RecoveryFeatureConfig: &machineryFeatures.RecoveryFeatureConfig{
+			Name:             name,
+			Setup:            c.Setup,
+			Teardown:         c.Teardown,
+			SourcePrimaryPod: &c.sourcePrimaryPod,
+			Backup:           backup,
+			RecoveryCluster:  recoveryCluster,
+		},
+		SourceTablespaceConfig: &tablespaceConfig,
 	}
-	if len(mutators) > 0 {
-		recoveryConfig.MutateRecoveryCluster = mutators
-	}
-
-	return recoveryConfig
 }
 
-func RecoverClusterFromBackupRef(namespace string) *machineryFeatures.RecoveryFeature {
-	return machineryFeatures.NewRecoveryFeature(NewRecoveryFeatureConfig(
-		"RecoverClusterFromBackupRef", 1, namespace, recoveryFromBackupRef))
-}
-
-func RecoverClusterFromBackupID(namespace string) *machineryFeatures.RecoveryFeature {
-	return machineryFeatures.NewRecoveryFeature(NewRecoveryFeatureConfig(
-		"RecoverClusterFromBackupID", 1, namespace, recoveryFromBackupID))
-}
-
-func RecoverClusterFromPitr(namespace string) *machineryFeatures.PitrFeature {
-	return machineryFeatures.NewPitrFeature(NewRecoveryFeatureConfig(
-		"RecoverClusterFromPitr", 1, namespace, recoveryFromBackupRef))
+func RecoverClusterWithTablespaces(namespace string) *machineryFeatures.TablespaceRecoveryFeature {
+	return machineryFeatures.NewTablespaceRecoveryFeature(NewTablespaceRecoveryFeatureConfig(
+		"RecoverClusterWithTablespaces", 1, namespace))
 }

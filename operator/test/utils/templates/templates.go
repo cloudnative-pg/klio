@@ -99,6 +99,27 @@ func GetCnpgClusterObject(
 	}
 }
 
+// GetCnpgClusterWithTablespacesObject returns a CNPG Cluster Object with the passed tablespaces.
+func GetCnpgClusterWithTablespacesObject(
+	name,
+	namespace string,
+	instances int,
+	certificate *certmanagerv1.Certificate,
+	clientSecret *corev1.Secret,
+	tablespaces []cnpgv1.TablespaceConfiguration,
+) *cnpgv1.Cluster {
+	cluster := GetCnpgClusterObject(
+		name,
+		namespace,
+		instances,
+		certificate,
+		clientSecret)
+
+	cluster.Spec.Tablespaces = append(cluster.Spec.Tablespaces, tablespaces...)
+
+	return cluster
+}
+
 // GetCnpgBackupObject returns a CNPG Backup Object.
 func GetCnpgBackupObject(
 	name,
