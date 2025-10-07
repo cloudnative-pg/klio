@@ -117,6 +117,7 @@ func (r *ServerReconciler) reconcileStatefulSet(ctx context.Context, server *kli
 							Args: []string{
 								"server",
 								"initialize",
+								"--skip-if-existing",
 							},
 							Image:           server.Spec.Image,
 							ImagePullPolicy: server.Spec.ImagePullPolicy,
