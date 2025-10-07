@@ -2,6 +2,7 @@ package cnpgi
 
 import (
 	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
 	"k8s.io/apimachinery/pkg/types"
 
 	"github.com/cloudnative-pg/klio/core/internal/cnpgi"
@@ -20,6 +21,9 @@ var sendWalCmd = &cobra.Command{
 		clusterNamespace, _ := cmd.Flags().GetString("cluster-namespace")
 		podName, _ := cmd.Flags().GetString("pod-name")
 		metricsBindAddress, _ := cmd.Flags().GetString("metrics-bind-address")
+
+		_ = viper.BindEnv("custom-cnpg-group", "CUSTOM_CNPG_GROUP")
+		_ = viper.BindEnv("custom-cnpg-version", "CUSTOM_CNPG_VERSION")
 
 		ctrl := cnpgi.SendWalController{
 			Scheme:         generateScheme(),

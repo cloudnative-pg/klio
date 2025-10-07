@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
 	"strings"
 
 	cnpgv1 "github.com/cloudnative-pg/cloudnative-pg/api/v1"
@@ -449,7 +450,7 @@ func reconcilePodSpec(
 	}
 
 	sidecarTemplate := corev1.Container{
-		Image:           "registry.dev:5000/klio-testing:dev",
+		Image:           os.Getenv("SIDECAR_IMAGE"),
 		RestartPolicy:   ptr.To(corev1.ContainerRestartPolicyAlways),
 		ImagePullPolicy: cluster.Spec.ImagePullPolicy,
 		SecurityContext: &corev1.SecurityContext{
@@ -468,6 +469,14 @@ func reconcilePodSpec(
 					},
 				},
 			},
+			{
+				Name:  "CUSTOM_CNPG_GROUP",
+				Value: cluster.GetObjectKind().GroupVersionKind().Group,
+			},
+			{
+				Name:  "CUSTOM_CNPG_VERSION",
+				Value: cluster.GetObjectKind().GroupVersionKind().Version,
+			},
 		},
 		VolumeMounts: volumeMounts,
 	}
@@ -484,18 +493,7 @@ func reconcilePodSpec(
 	}
 
 	// merge the main container envs if they aren't already set
-	for _, env := range mainContainer.Env {
-		found := false
-		for _, existingEnv := range sidecarTemplate.Env {
-			if existingEnv.Name == env.Name {
-				found = true
-				break
-			}
-		}
-		if !found {
-			sidecarTemplate.Env = append(sidecarTemplate.Env, env)
-		}
-	}
+	mergeEnvironmentVariables(*mainContainer, &sidecarTemplate)
 
 	// If any plugin configuration has the enablePPROF parameter set to true, enable PPROF in the sidecars.
 	for _, v := range getPluginConfigurations(cluster) {
@@ -523,12 +521,31 @@ func reconcilePodSpec(
 		if cfg.enablePPROF {
 			sidecar.Args = append(sidecar.Args, "--pprof-server=0:6060")
 		}
+		mergeEnvironmentVariables(baseSidecar, sidecar)
 		if err := injectPluginSidecarPodSpec(spec, sidecar, mainContainerName); err != nil {
 			return fmt.Errorf("failed to inject sidecar %s: %w", sidecar.Name, err)
 		}
 	}
 
 	return nil
+}
+
+// mergeEnvironmentVariables ensures that the environment variables from the giver container
+// are added to the receiver container, without duplicating existing variables in the receiver.
+// This is useful for combining environment variables from multiple sources.
+func mergeEnvironmentVariables(giver corev1.Container, receiver *corev1.Container) {
+	for _, env := range giver.Env {
+		found := false
+		for _, existingEnv := range receiver.Env {
+			if existingEnv.Name == env.Name {
+				found = true
+				break
+			}
+		}
+		if !found {
+			receiver.Env = append(receiver.Env, env)
+		}
+	}
 }
 
 type volumeAndMount struct {

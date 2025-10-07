@@ -14,6 +14,7 @@ controllerManager:
       - "--plugin-server-key=/pluginServer/tls.key"
       - "--plugin-client-cert=/pluginClient/tls.crt"
       - "--plugin-server-address=:9090"
+      - "--custom-cnpg-group=postgresql.cnpg.io"
     # -- The security context for the controller manager container.
     containerSecurityContext:
       allowPrivilegeEscalation: false
@@ -30,7 +31,9 @@ controllerManager:
       # -- The list of imagePullSecrets.
       pullSecrets: []
     # -- The environment variables to set in the controller manager container.
-    env: {}
+    env: {
+      SIDECAR_IMAGE: "registry.dev:5000/klio-testing:dev"
+    }
     # -- Liveness probe configuration.
     livenessProbe:
       initialDelaySeconds: 15
