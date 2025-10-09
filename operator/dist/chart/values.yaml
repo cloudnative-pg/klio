@@ -119,3 +119,5 @@ certmanager:
   duration: 2160h
   # -- The renew before time for the certificates.
   renewBefore: 360h
+  # -- The DNS domain of the cluster
+  clusterDomain: cluster.local
