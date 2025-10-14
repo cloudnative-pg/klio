@@ -22,6 +22,7 @@ type ServerReconciler struct {
 	Scheme *runtime.Scheme
 }
 
+// +kubebuilder:rbac:groups=klio.cnpg.io,resources=pluginconfigurations,verbs=get;list;watch
 // +kubebuilder:rbac:groups=klio.cnpg.io,resources=servers,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=klio.cnpg.io,resources=servers/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=klio.cnpg.io,resources=servers/finalizers,verbs=update

@@ -6,116 +6,59 @@ import (
 	"fmt"
 	"net"
 	"path"
-	"strconv"
 
 	cnpgv1 "github.com/cloudnative-pg/cloudnative-pg/api/v1"
+	"github.com/cloudnative-pg/machinery/pkg/log"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/yaml"
 
+	kliov1alpha1 "github.com/cloudnative-pg/klio/operator/api/v1alpha1"
 	"github.com/cloudnative-pg/klio/operator/pkg/config"
 )
 
-var (
-	errPluginNotFound   = errors.New("plugin not found")
-	errPluginNotEnabled = errors.New("plugin found but is not enabled")
+const (
+	klioArchiveConfigKey = "klio-archive"
+	// PluginConfigurationRefParam is the name of the parameter that contains
+	// the reference to the Klio PluginConfiguration resource.
+	PluginConfigurationRefParam = "pluginConfigurationRef"
 )
 
-const klioArchiveConfigKey = "klio-archive"
-
-type pluginConfiguration struct {
-	ServerAddress          string
-	ClusterName            string
-	ClientSecretName       string
-	ServerSecretName       string
-	BackupRef              string
-	BackupID               string
-	MetricsAddressInstance string
-	MetricsAddressRestore  string
-	MetricsAddressSendWal  string
-	Enabled                bool
-	EnablePPROF            bool
-}
-
-func parsePluginConfiguration(rawConf *cnpgv1.PluginConfiguration) (*pluginConfiguration, error) {
-	if rawConf == nil {
-		return nil, errPluginNotFound
-	}
-
-	if !rawConf.IsEnabled() {
-		return nil, errPluginNotEnabled
-	}
-
-	var conf pluginConfiguration
-	var err error
-
-	conf.ServerAddress, err = getParameter(rawConf, "serverAddress")
-	if err != nil {
-		return nil, err
-	}
-
-	conf.ClientSecretName, err = getParameter(rawConf, "clientSecretName")
-	if err != nil {
-		return nil, err
-	}
-
-	conf.ServerSecretName, err = getParameter(rawConf, "serverSecretName")
-	if err != nil {
-		return nil, err
-	}
-
-	conf.EnablePPROF, err = tryGetBooleanParameter(rawConf, "pprof")
-	if err != nil {
-		return nil, err
-	}
-
-	// not mandatory, so we don't return an error if it's missing
-	conf.BackupRef, _ = getParameter(rawConf, "backupRef")
-
-	// not mandatory, so we don't return an error if it's missing
-	conf.BackupID, _ = getParameter(rawConf, "backupID")
-
-	// not mandatory, so we don't return an error if it's missing
-	conf.ClusterName, _ = getParameter(rawConf, "clusterName")
-
-	// not mandatory, so we don't return an error if it's missing
-	conf.MetricsAddressInstance, _ = getParameter(rawConf, "metricsAddressInstance")
-
-	// not mandatory, so we don't return an error if it's missing
-	conf.MetricsAddressSendWal, _ = getParameter(rawConf, "metricsAddressSendWal")
-
-	// not mandatory, so we don't return an error if it's missing
-	conf.MetricsAddressRestore, _ = getParameter(rawConf, "metricsAddressRestore")
-
-	return &conf, nil
-}
+const (
+	// KlioHTTPPort is the default port for Klio HTTP API.
+	KlioHTTPPort = "51515"
+	// KlioGRPCPort is the default port for Klio gRPC API.
+	KlioGRPCPort = "52000"
+)
 
 func generateKlioConfigForPlugin(
 	ctx context.Context,
 	cli client.Client,
-	rawConfiguration *cnpgv1.PluginConfiguration,
+	rawConfiguration *configuration,
 	certPath string,
 	namespace string,
-) (*config.Data, *pluginConfiguration, error) {
+) (*config.Data, *kliov1alpha1.PluginConfiguration, error) {
 	// If the plugin is not configured or not enabled, do nothing
-	if rawConfiguration == nil ||
-		rawConfiguration.Name != PluginName ||
-		!rawConfiguration.IsEnabled() {
+	if rawConfiguration == nil || rawConfiguration.cnpgPluginConfiguration == nil ||
+		rawConfiguration.cnpgPluginConfiguration.Name != PluginName ||
+		!rawConfiguration.cnpgPluginConfiguration.IsEnabled() {
 		return nil, nil, nil
 	}
 
-	configuration, err := parsePluginConfiguration(rawConfiguration)
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to parse plugin configuration: %w", err)
+	if rawConfiguration.klioPluginConfiguration == nil {
+		return nil, nil, errors.New("missing client parameters configuration for klio plugin")
 	}
 
+	klioPluginConfigurationSpec := rawConfiguration.klioPluginConfiguration.Spec
+
 	clientSecret := &corev1.Secret{}
-	err = cli.Get(ctx,
-		client.ObjectKey{Namespace: namespace, Name: configuration.ClientSecretName},
+	err := cli.Get(ctx,
+		client.ObjectKey{Namespace: namespace, Name: klioPluginConfigurationSpec.ClientSecretName},
 		clientSecret)
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to get client secret %q: %w", configuration.ClientSecretName, err)
+		return nil, nil,
+			fmt.Errorf("failed to get client secret %q: %w", klioPluginConfigurationSpec.ClientSecretName, err)
 	}
 
 	// Extract the data from the client secret
@@ -134,36 +77,41 @@ func generateKlioConfigForPlugin(
 		},
 		Client: config.ClientConfig{
 			Base: config.BaseRepositoryClientConfig{
-				URL:            "https://" + net.JoinHostPort(configuration.ServerAddress, "51515"),
+				URL:            "https://" + net.JoinHostPort(klioPluginConfigurationSpec.ServerAddress, KlioHTTPPort),
 				ServerCertPath: path.Join(certPath, "tls.crt"),
-				Hostname:       configuration.ClusterName,
+				Hostname:       klioPluginConfigurationSpec.ClusterName,
 				Username:       username,
 				Password:       password,
 			},
 			Wal: config.WalRepositoryClientConfig{
-				Address:        net.JoinHostPort(configuration.ServerAddress, "52000"),
-				ClusterName:    configuration.ClusterName,
+				Address:        net.JoinHostPort(klioPluginConfigurationSpec.ServerAddress, KlioGRPCPort),
+				ClusterName:    klioPluginConfigurationSpec.ClusterName,
 				ServerCertPath: path.Join(certPath, "tls.crt"),
 				Username:       username,
 				Password:       password,
 			},
 		},
+		RetentionPolicy: klioPluginConfigurationSpec.RetentionPolicy,
 	}
 
-	return klioConfig, configuration, nil
+	return klioConfig, rawConfiguration.klioPluginConfiguration, nil
 }
 
-func getPluginConfigurations(cluster *cnpgv1.Cluster) map[string]*cnpgv1.PluginConfiguration {
-	pluginConfigurations := make(map[string]*cnpgv1.PluginConfiguration)
+type configuration struct {
+	cnpgPluginConfiguration *cnpgv1.PluginConfiguration
+	klioPluginConfiguration *kliov1alpha1.PluginConfiguration
+}
 
-	archivePluginConfiguration := getArchivePluginConfiguration(cluster)
-	if archivePluginConfiguration != nil {
-		hostname, err := getParameter(archivePluginConfiguration, "clusterName")
-		if err != nil || hostname == "" {
-			// if the hostname is not set, use the cluster name as the hostname
-			archivePluginConfiguration.Parameters["clusterName"] = cluster.Name
-		}
-		pluginConfigurations[klioArchiveConfigKey] = archivePluginConfiguration
+func getConfigurations(
+	ctx context.Context,
+	cli client.Client,
+	cluster *cnpgv1.Cluster,
+) (map[string]*configuration, error) {
+	logger := log.FromContext(ctx).WithName("getConfigurations")
+
+	configurations, err := getArchivePluginConfigurations(ctx, cli, cluster, logger)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get archive plugin configurations: %w", err)
 	}
 
 	for _, externalCluster := range cluster.Spec.ExternalClusters {
@@ -181,15 +129,85 @@ func getPluginConfigurations(cluster *cnpgv1.Cluster) map[string]*cnpgv1.PluginC
 
 		serverName := externalCluster.GetServerName()
 		currentPluginConfiguration := externalCluster.PluginConfiguration.DeepCopy()
-		pluginConfigurations[serverName] = currentPluginConfiguration
+		configurations[serverName] = &configuration{
+			cnpgPluginConfiguration: currentPluginConfiguration,
+		}
 
-		if _, ok := currentPluginConfiguration.Parameters["clusterName"]; !ok {
-			// if the hostname is not set, use the server name as the cluster name
-			pluginConfigurations[serverName].Parameters["clusterName"] = serverName
+		if ref := currentPluginConfiguration.Parameters[PluginConfigurationRefParam]; ref != "" {
+			klioPluginConfiguration := &kliov1alpha1.PluginConfiguration{}
+			err := cli.Get(ctx,
+				client.ObjectKey{Namespace: cluster.Namespace, Name: ref},
+				klioPluginConfiguration)
+			if err != nil {
+				logger.Error(err, "failed to get client configuration")
+				return nil, fmt.Errorf("failed to get '%s' configuration, error: %w", ref, err)
+			}
+			if hostname := klioPluginConfiguration.Spec.ClusterName; hostname == "" {
+				// if the host name is not set, use the server name as the host name
+				klioPluginConfiguration.Spec.ClusterName = serverName
+			}
+			configurations[serverName].klioPluginConfiguration = klioPluginConfiguration
 		}
 	}
 
-	return pluginConfigurations
+	return configurations, nil
+}
+
+func getArchivePluginConfigurations(
+	ctx context.Context,
+	cli client.Client,
+	cluster *cnpgv1.Cluster,
+	logger log.Logger,
+) (map[string]*configuration, error) {
+	configurations := make(map[string]*configuration)
+
+	archivePluginConfiguration := getArchivePluginConfiguration(cluster)
+	if archivePluginConfiguration == nil {
+		return configurations, nil
+	}
+
+	configurations[klioArchiveConfigKey] = &configuration{
+		cnpgPluginConfiguration: archivePluginConfiguration,
+	}
+	ref, err := getParameter(archivePluginConfiguration, PluginConfigurationRefParam)
+	if err != nil {
+		// we use a more friendly error message for the user
+		msg := fmt.Sprintf(
+			"'ref' parameter is not specified in the '%s' plugin configuration in the cluster: %s",
+			PluginName,
+			cluster.Name,
+		)
+		logger.Error(err, msg)
+
+		return configurations, errors.New(msg)
+	}
+	if ref == "" {
+		msg := fmt.Sprintf(
+			"'ref' parameter is empty in the '%s' plugin configuration in the cluster: %s",
+			PluginName,
+			cluster.Name,
+		)
+		logger.Error(errors.New("while evaluating ref key content"), msg)
+
+		return configurations, errors.New(msg)
+	}
+
+	klioPluginConfiguration := &kliov1alpha1.PluginConfiguration{}
+	err = cli.Get(ctx,
+		client.ObjectKey{Namespace: cluster.Namespace, Name: ref},
+		klioPluginConfiguration)
+	if err != nil {
+		logger.Error(err, "failed to get client configuration")
+		return configurations, fmt.Errorf("failed to get '%s' configuration, error: %w", ref, err)
+	}
+	if hostname := klioPluginConfiguration.Spec.ClusterName; hostname == "" {
+		// if the host name is not set, use the cluster name as the host name
+		klioPluginConfiguration.Spec.ClusterName = cluster.Name
+	}
+
+	configurations[klioArchiveConfigKey].klioPluginConfiguration = klioPluginConfiguration.DeepCopy()
+
+	return configurations, nil
 }
 
 // klioConfigsFromCluster creates configuration data for the main and external plugin usages.
@@ -198,19 +216,23 @@ func klioConfigsFromCluster(
 	ctx context.Context,
 	cli client.Client,
 	cluster *cnpgv1.Cluster,
-) (map[string]*config.Data, *pluginConfiguration, error) {
+) (map[string]*config.Data, *kliov1alpha1.PluginConfiguration, error) {
 	configs := make(map[string]*config.Data)
-	var clusterPC *pluginConfiguration
+	var clusterPC *kliov1alpha1.PluginConfiguration
 
-	rawPluginConfiguration := getPluginConfigurations(cluster)
-	for key, pc := range rawPluginConfiguration {
-		if pc == nil || pc.Name != PluginName || !pc.IsEnabled() {
+	configurations, err := getConfigurations(ctx, cli, cluster)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to get plugin configurations: %w", err)
+	}
+	for key, conf := range configurations {
+		if conf.cnpgPluginConfiguration == nil || conf.cnpgPluginConfiguration.Name != PluginName ||
+			!conf.cnpgPluginConfiguration.IsEnabled() {
 			continue
 		}
-		klioConfig, parsedPC, err := generateKlioConfigForPlugin(
+		klioConfig, klioPluginConfig, err := generateKlioConfigForPlugin(
 			ctx,
 			cli,
-			pc,
+			conf,
 			getServerSecretVolumeMountPath(key),
 			cluster.Namespace,
 		)
@@ -221,7 +243,7 @@ func klioConfigsFromCluster(
 			configs[key] = klioConfig
 		}
 		if key == klioArchiveConfigKey {
-			clusterPC = parsedPC
+			clusterPC = klioPluginConfig
 		}
 	}
 
@@ -276,34 +298,10 @@ func getArchivePluginConfiguration(cluster *cnpgv1.Cluster) *cnpgv1.PluginConfig
 	return rawConf
 }
 
-// tryGetBooleanParameter attempts to retrieve a parameter from the plugin configuration, returns any error
-// encountered or false if the parameter is missing.
-func tryGetBooleanParameter(cfg *cnpgv1.PluginConfiguration, name string) (bool, error) {
-	result, err := tryGetParameter(cfg, name)
-	if err != nil || result == "" {
-		return false, err
-	}
-
-	return strconv.ParseBool(result)
-}
-
-func tryGetParameter(cfg *cnpgv1.PluginConfiguration, name string) (string, error) {
-	result, err := getParameter(cfg, name)
-
-	var parameterMissingErr *parameterMissingError
-	if errors.As(err, &parameterMissingErr) {
-		return "", nil
-	}
-
-	return result, err
-}
-
 func getParameter(cfg *cnpgv1.PluginConfiguration, name string) (string, error) {
 	result, ok := cfg.Parameters[name]
 	if !ok || len(result) == 0 {
-		return "", &parameterMissingError{
-			name: name,
-		}
+		return "", &parameterMissingError{name: name}
 	}
 
 	return result, nil

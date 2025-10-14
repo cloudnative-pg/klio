@@ -1,0 +1,138 @@
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.19.0
+  name: pluginconfigurations.klio.cnpg.io
+spec:
+  group: klio.cnpg.io
+  names:
+    kind: PluginConfiguration
+    listKind: PluginConfigurationList
+    plural: pluginconfigurations
+    singular: pluginconfiguration
+  scope: Namespaced
+  versions:
+  - name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: PluginConfiguration is the Schema for the client configuration
+          API.
+        properties:
+          apiVersion:
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            type: string
+          kind:
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: PluginConfigurationSpec defines the desired state of client
+              configuration.
+            properties:
+              backupId:
+                description: BackupID is the ID of the backup we should use for restores
+                type: string
+              backupRef:
+                description: BackupRef is the reference to the backup we should use
+                  for restores
+                type: string
+              clientSecretName:
+                description: ClientSecretName is the name of the secret containing
+                  the client credentials
+                minLength: 1
+                type: string
+              clusterName:
+                description: ClusterName is the name of the PostgreSQL cluster we
+                  are connecting to
+                type: string
+              metricsAddressInstance:
+                description: MetricsAddressInstance is the address where the metrics
+                  for the instance should be exposed
+                type: string
+              metricsAddressRestore:
+                description: MetricsAddressRestore is the address where the metrics
+                  for the restore should be exposed
+                type: string
+              metricsAddressSendWal:
+                description: MetricsAddressSendWal is the address where the metrics
+                  for the WAL sender should be exposed
+                type: string
+              pprof:
+                description: Pprof enables the pprof endpoint for performance profiling
+                type: boolean
+              retention:
+                description: RetentionPolicy defines how many backups we should keep
+                properties:
+                  keepAnnual:
+                    description: |-
+                      KeepAnnual is the number of annual backups to keep
+                      optional
+                    type: integer
+                  keepDaily:
+                    description: |-
+                      KeepDaily is the number of daily backups to keep
+                      optional
+                    type: integer
+                  keepHourly:
+                    description: |-
+                      KeepHourly is the number of hourly backups to keep
+                      optional
+                    type: integer
+                  keepLatest:
+                    description: |-
+                      KeepLatest is the number of latest backups to keep
+                      optional
+                    type: integer
+                  keepMonthly:
+                    description: |-
+                      KeepMonthly is the number of monthly backups to keep
+                      optional
+                    type: integer
+                  keepWeekly:
+                    description: |-
+                      KeepWeekly is the number of weekly backups to keep
+                      optional
+                    type: integer
+                type: object
+              serverAddress:
+                description: ServerAddress is the address of the Klio server in the
+                  format host:port or host
+                minLength: 1
+                type: string
+              serverSecretName:
+                description: ServerSecretName is the name of the secret containing
+                  the server TLS certificate
+                minLength: 1
+                type: string
+            required:
+            - clientSecretName
+            - serverAddress
+            - serverSecretName
+            type: object
+            x-kubernetes-validations:
+            - message: at most one of the fields in [backupRef backupId] may be set
+              rule: '[has(self.backupRef),has(self.backupId)].filter(x,x==true).size()
+                <= 1'
+          status:
+            description: PluginConfigurationStatus defines the observed state of ClientConfig.
+            type: object
+        required:
+        - metadata
+        - spec
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}
+

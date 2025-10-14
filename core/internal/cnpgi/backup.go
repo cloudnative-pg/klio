@@ -58,10 +58,14 @@ func (b backupServiceImplementation) Backup(
 		return nil, fmt.Errorf("failed to unmarshal cluster definition: %w", err)
 	}
 
-	r := extractRetentionFromCluster(&cluster)
-	if err := b.setRetentionPolicy(ctx, r); err != nil {
-		// Yes this is intentional. If we don't set the retention policies it
-		// is not a major issue. We can continue with the backup.
+	r, err := extractRetentionFromConfiguration()
+	if err != nil {
+		return nil, fmt.Errorf("failed to extract retention policy from configuration: %w", err)
+	}
+
+	if err = b.setRetentionPolicy(ctx, r); err != nil {
+		// Yes this is intentional. If we don't set the retention policies from
+		// the configuration file, it is not a major issue. We can continue with the backup.
 		// The eventual error will be logged into the setRetentionPolicy function
 		log.Error(err, "failed to set retention policy")
 	}

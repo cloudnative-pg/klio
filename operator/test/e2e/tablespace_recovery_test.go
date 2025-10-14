@@ -6,6 +6,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/ptr"
 
+	"github.com/cloudnative-pg/klio/operator/internal/cnpgi"
 	machineryFeatures "github.com/cloudnative-pg/klio/operator/test/machinery/pkg/features"
 	"github.com/cloudnative-pg/klio/operator/test/utils/certificates"
 	"github.com/cloudnative-pg/klio/operator/test/utils/secrets"
@@ -46,8 +47,10 @@ func NewTablespaceRecoveryFeatureConfig(
 	certificate := certificates.GetCertificateObject("test", namespace, []string{klioServerName}, issuer)
 
 	clientSecret := secrets.GetKlioClientSecret("klio-client", namespace, "klio", "testclientpassword123")
-	cnpgCluster := templates.GetCnpgClusterWithTablespacesObject("test-cluster-source", namespace, instances, certificate,
-		clientSecret, tablespaceConfig)
+	cnpgCluster := templates.GetCnpgClusterWithTablespacesObject(
+		"test-cluster-source", namespace, instances, "klio-plugin-configuration", tablespaceConfig)
+	klioPluginConfigurationSource := templates.GetKlioPluginConfigurationObject(
+		"klio-plugin-configuration", namespace, certificate, clientSecret)
 
 	userSecret := secrets.GetKlioUsersSecret("test-user", namespace, clientSecret, cnpgCluster.Name)
 	encryptionSecret := secrets.GetKlioEncryptionSecret("encryption", namespace, "testencryptionpassword123")
@@ -65,11 +68,7 @@ func NewTablespaceRecoveryFeatureConfig(
 			Name:    "klio.cnpg.io",
 			Enabled: ptr.To(true),
 			Parameters: map[string]string{
-				"serverAddress":    certificate.Spec.DNSNames[0],
-				"clientSecretName": clientSecret.GetName(),
-				"serverSecretName": certificate.Spec.SecretName,
-				"backupRef":        backup.Name,
-				"clusterName":      cnpgCluster.Name,
+				cnpgi.PluginConfigurationRefParam: "klio-plugin-configuration-recovery",
 			},
 		},
 	}}
@@ -81,17 +80,24 @@ func NewTablespaceRecoveryFeatureConfig(
 	// TODO: we should check that WAL archiving and backups also work in the recovered Cluster
 	recoveryCluster.Spec.Plugins = []cnpgv1.PluginConfiguration{}
 
-	c := commonBackupRestoreScenario{
-		namespace:        namespaceObj,
-		clientSecret:     clientSecret,
-		cnpgCluster:      cnpgCluster,
-		userSecret:       userSecret,
-		encryptionSecret: encryptionSecret,
-		issuer:           issuer,
-		certificate:      certificate,
-		klioServer:       klioServer,
+	// Generate the Klio PluginConfiguration for recovery
+	klioPluginConfigurationRecovery := klioPluginConfigurationSource.DeepCopy()
+	klioPluginConfigurationRecovery.Name = "klio-plugin-configuration-recovery"
+	klioPluginConfigurationRecovery.Spec.BackupRef = backup.Name
+	klioPluginConfigurationRecovery.Spec.ClusterName = cnpgCluster.Name
 
-		name: name,
+	c := commonBackupRestoreScenario{
+		namespace:                       namespaceObj,
+		clientSecret:                    clientSecret,
+		cnpgCluster:                     cnpgCluster,
+		userSecret:                      userSecret,
+		encryptionSecret:                encryptionSecret,
+		issuer:                          issuer,
+		certificate:                     certificate,
+		klioServer:                      klioServer,
+		klioPluginConfigurationSource:   klioPluginConfigurationSource,
+		klioPluginConfigurationRecovery: klioPluginConfigurationRecovery,
+		name:                            name,
 	}
 
 	return machineryFeatures.TablespaceRecoveryFeatureConfig{

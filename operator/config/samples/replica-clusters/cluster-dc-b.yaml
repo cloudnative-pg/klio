@@ -37,24 +37,19 @@ spec:
     plugin:
       name: klio.cnpg.io
       parameters:
-        serverAddress: klioserver-dc-a.dc-a
-        clientSecretName: klio-client-dc-a
-        serverSecretName: klioserver-dc-a-tls
+        pluginConfigurationRef: client-config-external-cluster-dc-a
 
   - name: cluster-dc-a-recovery
     plugin:
       name: klio.cnpg.io
       parameters:
-        serverAddress: klioserver-dc-a.dc-a
-        clientSecretName: klio-client-dc-a
-        serverSecretName: klioserver-dc-a-tls
-        backupID: backup-20250911113300
-        clusterName: cluster-dc-a
+        pluginConfigurationRef: client-config-external-cluster-dc-a-recovery
 
   - name: cluster-dc-b
     plugin:
       name: klio.cnpg.io
       parameters:
+        pluginConfigurationRef: client-config-external-cluster-dc-b
         serverAddress: klioserver-db-b.dc-b
         clientSecretName: klio-client
         serverSecretName: klioserver-dc-b-tls
@@ -77,3 +72,32 @@ metadata:
 data:
   password: ZGNhcGFzc3dvcmQ=
   username: a2xpbw==
+---
+apiVersion: klio.cnpg.io/v1alpha1
+kind: PluginConfiguration
+metadata:
+  name: client-config-external-cluster-dc-a
+spec:
+  serverAddress: klioserver-dc-a.dc-a
+  clientSecretName: klio-client-dc-a
+  serverSecretName: klioserver-dc-a-tls
+---
+apiVersion: klio.cnpg.io/v1alpha1
+kind: PluginConfiguration
+metadata:
+  name: client-config-external-cluster-dc-a-recovery
+spec:
+  serverAddress: klioserver-dc-a.dc-a
+  clientSecretName: klio-client-dc-a
+  serverSecretName: klioserver-dc-a-tls
+  backupId: backup-20250911113300
+  clusterName: cluster-dc-a
+---
+apiVersion: klio.cnpg.io/v1alpha1
+kind: PluginConfiguration
+metadata:
+  name: client-config-external-cluster-dc-b
+spec:
+  serverAddress: klioserver-db-b.dc-b
+  clientSecretName: klio-client
+  serverSecretName: klioserver-dc-b-tls

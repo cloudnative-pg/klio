@@ -34,7 +34,9 @@ func newBackupFeature(
 	certificate := certificates.GetCertificateObject("test", namespace, []string{klioServerName}, issuer)
 
 	clientSecret := secrets.GetKlioClientSecret("klio-client", namespace, "klio", "testclientpassword123")
-	cnpgCluster := templates.GetCnpgClusterObject("test-cluster", namespace, instances, certificate, clientSecret)
+	cnpgCluster := templates.GetCnpgClusterObject("test-cluster", namespace, instances, "klio-plugin-configuration")
+	klioPluginConfiguration := templates.GetKlioPluginConfigurationObject(
+		"klio-plugin-configuration", namespace, certificate, clientSecret)
 
 	userSecret := secrets.GetKlioUsersSecret("test-user", namespace, clientSecret, cnpgCluster.Name)
 	encryptionSecret := secrets.GetKlioEncryptionSecret("encryption", namespace, "testencryptionpassword123")
@@ -51,6 +53,7 @@ func newBackupFeature(
 		require.NoError(t, r.Create(ctx, namespaceObj), "failed to create namespace")
 		require.NoError(t, r.Create(ctx, clientSecret), "failed to create client secret")
 		require.NoError(t, r.Create(ctx, cnpgCluster), "failed to create CNPG cluster")
+		require.NoError(t, r.Create(ctx, klioPluginConfiguration), "failed to create Klio plugin configuration")
 		require.NoError(t, r.Create(ctx, userSecret), "failed to create user secret")
 		require.NoError(t, r.Create(ctx, encryptionSecret), "failed to create encryption secret")
 		require.NoError(t, r.Create(ctx, issuer), "failed to create issuer")

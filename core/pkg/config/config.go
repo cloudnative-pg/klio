@@ -9,11 +9,14 @@ import "time"
 // This struct is used to generate a secret in the Kubernetes cluster, so its serialization must be stable.
 type Data struct {
 	// Source is the configuration of the database we should collect WALs for.
-	// This is only needed fot the WAL pusher.
+	// This is only needed for the WAL pusher.
 	Source SourceConfig `json:"source" mapstructure:"source"`
 
 	// Client is the configuration of the Klio client
 	Client ClientConfig `json:"client" mapstructure:"client"`
+
+	// RetentionPolicy is the retention policy to be applied
+	RetentionPolicy *RetentionPolicy `json:"retention,omitempty" mapstructure:"retention"`
 }
 
 // SetDefaults sets the default values of the configuration.

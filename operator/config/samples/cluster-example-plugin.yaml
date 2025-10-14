@@ -14,12 +14,7 @@ spec:
     - name: klio.cnpg.io
       enabled: true
       parameters:
-        serverAddress: server-sample.default
-        clientSecretName: klio-client
-        serverSecretName: server-sample-tls
-        metricsAddressInstance: ":8085"
-        metricsAddressSendWal: ":8090"
-        pprof: 't'
+        pluginConfigurationRef: client-config-example-plugin
 
   storage:
     size: 1Gi
@@ -31,3 +26,17 @@ metadata:
 data:
   password: cGlwcG9waXBwbw==
   username: a2xpbw==
+---
+apiVersion: klio.cnpg.io/v1alpha1
+kind: PluginConfiguration
+metadata:
+  name: client-config-example-plugin
+spec:
+  serverAddress: server-sample.default
+  clientSecretName: klio-client
+  serverSecretName: server-sample-tls
+  metricsAddressInstance: ":8085"
+  metricsAddressSendWal: ":8090"
+  pprof: true
+  retention:
+    keepAnnual: 1

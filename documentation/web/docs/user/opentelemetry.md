@@ -380,7 +380,14 @@ spec:
     - name: klio.cnpg.io
       enabled: true
       parameters:
-        serverAddress: server-sample.default
-        clientSecretName: klio-client
-        serverSecretName: server-sample-tls
+        pluginConfigurationRef: client-config-cluster-example
+---
+apiVersion: klio.cnpg.io/v1alpha1
+kind: PluginConfiguration
+metadata:
+  name: client-config-cluster-example
+spec:
+  serverAddress: klio.default
+  clientSecretName: klio-client
+  serverSecretName: klio-server-tls
 ```

@@ -16,12 +16,19 @@ spec:
       plugin:
         name: klio.cnpg.io
         parameters:
-          backupRef: backup-example
-          serverAddress: server-sample.default
-          clientSecretName: klio-client
-          serverSecretName: server-sample-tls
-          clusterName: cluster-example
-          metricsAddressRestore: ":8095"
+          pluginConfigurationRef: client-config-example-restore
 
   storage:
     size: 1Gi
+---
+apiVersion: klio.cnpg.io/v1alpha1
+kind: PluginConfiguration
+metadata:
+  name: client-config-example-restore
+spec:
+  backupRef: backup-example
+  serverAddress: server-sample.default
+  clientSecretName: klio-client
+  serverSecretName: server-sample-tls
+  clusterName: cluster-example
+  metricsAddressRestore: ":8095"

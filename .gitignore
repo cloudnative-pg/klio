@@ -13,3 +13,7 @@ operator/config/manifest-build/
 operator/catalog
 operator/catalog.Dockerfile
 operator/klio-operator-template.yaml
+
+# Vendor directories
+core/vendor/
+operator/vendor/

@@ -1,18 +1,13 @@
 package cnpgi
 
 import (
-	"strconv"
+	"fmt"
 
-	cnpgv1 "github.com/cloudnative-pg/api/pkg/api/v1"
-	"github.com/cloudnative-pg/cnpg-i-machinery/pkg/pluginhelper/common"
+	"github.com/spf13/afero"
+	"sigs.k8s.io/yaml"
+
+	"github.com/cloudnative-pg/klio/core/pkg/config"
 )
-
-// PluginName is the name of the plugin from the instance manager
-// Point-of-view.
-//
-// TODO: yes I know, this is in the "operator" package too,
-// but there's no space in this ticket to untangle the dependencies.
-const PluginName = "klio.cnpg.io"
 
 // Retention contains the retention policy configuration.
 type Retention struct {
@@ -35,26 +30,32 @@ func (r *Retention) IsEmpty() bool {
 	return *r == emptyRetention
 }
 
-// extractRetentionFromCluster reads retention policy settings.
-func extractRetentionFromCluster(cluster *cnpgv1.Cluster) *Retention {
-	pluginData := common.NewPlugin(*cluster, PluginName)
-
-	conf := Retention{}
-	conf.KeepLatest = tryParseInt(pluginData.Parameters["keepLatest"])
-	conf.KeepAnnual = tryParseInt(pluginData.Parameters["keepAnnual"])
-	conf.KeepMonthly = tryParseInt(pluginData.Parameters["keepMonthly"])
-	conf.KeepWeekly = tryParseInt(pluginData.Parameters["keepWeekly"])
-	conf.KeepDaily = tryParseInt(pluginData.Parameters["keepDaily"])
-	conf.KeepHourly = tryParseInt(pluginData.Parameters["keepHourly"])
-
-	return &conf
-}
-
-func tryParseInt(value string) *int {
-	result, err := strconv.Atoi(value)
+// extractRetentionFromConfiguration reads retention policy settings.
+func extractRetentionFromConfiguration() (*Retention, error) {
+	osFS := afero.NewOsFs()
+	f, err := afero.ReadFile(osFS, backupRepositoryConfigPath)
 	if err != nil {
-		return nil
+		return nil, fmt.Errorf("failed to read backup repository config file %q: %w", backupRepositoryConfigPath, err)
 	}
 
-	return &result
+	var configData config.Data
+	err = yaml.Unmarshal(f, &configData)
+	if err != nil {
+		return nil, fmt.Errorf("failed to unmarshal backup repository config file %q: %w", backupRepositoryConfigPath, err)
+	}
+
+	conf := Retention{}
+
+	if configData.RetentionPolicy == nil {
+		return &conf, nil
+	}
+
+	conf.KeepLatest = configData.RetentionPolicy.KeepLatest
+	conf.KeepAnnual = configData.RetentionPolicy.KeepAnnual
+	conf.KeepMonthly = configData.RetentionPolicy.KeepMonthly
+	conf.KeepWeekly = configData.RetentionPolicy.KeepWeekly
+	conf.KeepDaily = configData.RetentionPolicy.KeepDaily
+	conf.KeepHourly = configData.RetentionPolicy.KeepHourly
+
+	return &conf, nil
 }

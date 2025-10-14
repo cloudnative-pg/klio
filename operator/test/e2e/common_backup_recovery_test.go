@@ -19,14 +19,16 @@ import (
 )
 
 type commonBackupRestoreScenario struct {
-	namespace        *corev1.Namespace
-	clientSecret     *corev1.Secret
-	userSecret       *corev1.Secret
-	encryptionSecret *corev1.Secret
-	cnpgCluster      *cnpgv1.Cluster
-	issuer           *certmanagerv1.Issuer
-	certificate      *certmanagerv1.Certificate
-	klioServer       *kliov1alpha1.Server
+	namespace                       *corev1.Namespace
+	clientSecret                    *corev1.Secret
+	userSecret                      *corev1.Secret
+	encryptionSecret                *corev1.Secret
+	cnpgCluster                     *cnpgv1.Cluster
+	issuer                          *certmanagerv1.Issuer
+	certificate                     *certmanagerv1.Certificate
+	klioServer                      *kliov1alpha1.Server
+	klioPluginConfigurationSource   *kliov1alpha1.PluginConfiguration
+	klioPluginConfigurationRecovery *kliov1alpha1.PluginConfiguration
 
 	name string
 
@@ -46,6 +48,10 @@ func (c *commonBackupRestoreScenario) Setup(
 	require.NoError(t, r.Create(ctx, c.namespace), "failed to create namespace")
 	require.NoError(t, r.Create(ctx, c.clientSecret), "failed to create client secret")
 	require.NoError(t, r.Create(ctx, c.cnpgCluster), "failed to create CNPG source Cluster")
+	require.NoError(t, r.Create(ctx, c.klioPluginConfigurationSource),
+		"failed to create Klio plugin configuration for source cluster")
+	require.NoError(t, r.Create(ctx, c.klioPluginConfigurationRecovery),
+		"failed to create Klio plugin configuration for recovery cluster")
 	require.NoError(t, r.Create(ctx, c.userSecret), "failed to create user secret")
 	require.NoError(t, r.Create(ctx, c.encryptionSecret), "failed to create encryption secret")
 	require.NoError(t, r.Create(ctx, c.issuer), "failed to create issuer")

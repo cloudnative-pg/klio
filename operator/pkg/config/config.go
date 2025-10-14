@@ -2,18 +2,25 @@
 // helpers
 package config
 
-import "time"
+import (
+	"time"
+
+	kliov1alpha1 "github.com/cloudnative-pg/klio/operator/api/v1alpha1"
+)
 
 // Data is the configuration.
 //
 // This struct is used to generate a secret in the Kubernetes cluster, so its serialization must be stable.
 type Data struct {
 	// Source is the configuration of the database we should collect WALs for.
-	// This is only needed fot the WAL pusher.
+	// This is only needed for the WAL pusher.
 	Source SourceConfig `json:"source" mapstructure:"source"`
 
 	// Client is the configuration of the Klio client
 	Client ClientConfig `json:"client" mapstructure:"client"`
+
+	// / RetentionPolicy defines how many backups we should keep
+	RetentionPolicy *kliov1alpha1.RetentionPolicy `json:"retention,omitempty" mapstructure:"retention"`
 }
 
 // SetDefaults sets the default values of the configuration.
@@ -23,7 +30,7 @@ func (d *Data) SetDefaults() {
 	}
 }
 
-// ServerConfig is the configuration of the server.
+// ServerConfig is the configuration of the Klio server.
 type ServerConfig struct {
 	// Base is the configuration of the Base server
 	Base BaseServerConfig `mapstructure:"base" validate:"nonzero"`
@@ -90,7 +97,7 @@ type SourceConfig struct {
 	BufferSize int `json:"buffer_size" mapstructure:"buffer_size" validate:"min=1"`
 }
 
-// ClientConfig is the configuration of the Klio server.
+// ClientConfig is the configuration of the Klio client.
 type ClientConfig struct {
 	// Base is the configuration of the target Base repository
 	Base BaseRepositoryClientConfig `json:"base" mapstructure:"base"`

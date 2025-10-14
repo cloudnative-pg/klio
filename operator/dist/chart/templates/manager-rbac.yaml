@@ -42,6 +42,14 @@ rules:
 - apiGroups:
   - klio.cnpg.io
   resources:
+  - pluginconfigurations
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - klio.cnpg.io
+  resources:
   - servers
   verbs:
   - create

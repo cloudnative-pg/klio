@@ -20,6 +20,7 @@ See the [Helm documentation](https://helm.sh/docs/) for more details on how to c
 
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
+| certmanager.clusterDomain | string | `"cluster.local"` | The DNS domain of the cluster |
 | certmanager.createMetricsCertificate | bool | `true` | Create certificates for the metrics service. |
 | certmanager.createPluginClientCertificate | bool | `true` | Create certificates for the plugin client. |
 | certmanager.createPluginServerCertificate | bool | `true` | Create certificates for the plugin server. |

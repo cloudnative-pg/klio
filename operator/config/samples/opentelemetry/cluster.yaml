@@ -71,9 +71,7 @@ spec:
     - name: klio.cnpg.io
       enabled: true
       parameters:
-        serverAddress: klio.default
-        clientSecretName: klio-client
-        serverSecretName: klio-server-tls
+        pluginConfigurationRef: client-config-cluster-example
 
   storage:
     size: 1Gi

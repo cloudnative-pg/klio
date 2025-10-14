@@ -16,3 +16,4 @@ resources:
   - otel_collector_clusterrole.yaml
   - otel_collector_clusterrolebinding.yaml
   - otel_collector_svc_monitor.yaml
+  - plugin_configuration.yaml

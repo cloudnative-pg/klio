@@ -26,8 +26,8 @@ the previous step:
 # Deploy the Klio server with the related resources
 dagger /apps $ kubectl apply -f ../operator/config/samples/klio_v1alpha1_server.yaml
 
-# Deploy the CNPG Cluster with a patch for the plugin
-dagger /apps $ kubectl apply -f ../operator/config/samples/cluster-example.yaml
+# Deploy the CNPG Cluster with a patch for the plugin and the related PluginConfiguration CR
+dagger /apps $ kubectl apply -f ../operator/config/samples/cluster-example-plugin.yaml
 ```
 
 ## How to test Klio in a kind cluster during development
@@ -43,13 +43,24 @@ its resources inside a kind cluster.
 2. To build and deploy Klio images and operator, exec the command: `KIND_CLUSTER_NAME=$(kind get clusters) task integration:deploy-to-kind`
 3. Once the operator is in `Ready` state, you can deploy the resources:
   * Klio server: `kubectl apply -f operator/config/samples/klio_v1alpha1_server.yaml`
-  * CNPG Cluster with Klio plugin: `kubectl apply -f operator/config/samples/cluster-example-plugin.yaml`
+  * CNPG Cluster with Klio plugin and related PluginConfiguration CR: `kubectl apply -f operator/config/samples/cluster-example-plugin.yaml`
+  The PluginConfiguration CR name should be equal to the value of `ref` parameter,
+  set inside the Cluster manifest `.spec.plugins` section.
+
+  ```yaml
+    plugins:
+      - name: klio.cnpg.io
+        enabled: true
+        parameters:
+          pluginConfigurationRef: client-config-example-plugin
+   ```
 
 Repeat step 2 to deploy the new changes applied to the code, and reset the operator.
 Then rollout the new binary in both server and cluster pods:
 
 1. delete the Klio Server pod: `kubectl delete pod server-sample-klio-0`
 2. delete the Cluster's pods: `kubectl delete pod -l cnpg.io/cluster=cluster-example`
+3. delete the PluginConfiguration CR: `kubectl delete pluginconfiguration client-config-example-plugin`
 
 ### How to get performance profiles with pprof
 

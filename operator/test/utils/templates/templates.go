@@ -10,6 +10,7 @@ import (
 	"k8s.io/utils/ptr"
 
 	kliov1alpha1 "github.com/cloudnative-pg/klio/operator/api/v1alpha1"
+	"github.com/cloudnative-pg/klio/operator/internal/cnpgi"
 )
 
 // GetKlioServerObject returns a Klio server Object.
@@ -68,8 +69,7 @@ func GetCnpgClusterObject(
 	name,
 	namespace string,
 	instances int,
-	certificate *certmanagerv1.Certificate,
-	clientSecret *corev1.Secret,
+	pluginConfigurationRef string,
 ) *cnpgv1.Cluster {
 	return &cnpgv1.Cluster{
 		ObjectMeta: metav1.ObjectMeta{
@@ -90,9 +90,7 @@ func GetCnpgClusterObject(
 				Enabled:       ptr.To(true),
 				IsWALArchiver: ptr.To(true),
 				Parameters: map[string]string{
-					"serverAddress":    certificate.Spec.DNSNames[0],
-					"clientSecretName": clientSecret.GetName(),
-					"serverSecretName": certificate.Spec.SecretName,
+					cnpgi.PluginConfigurationRefParam: pluginConfigurationRef,
 				},
 			}},
 		},
@@ -104,20 +102,38 @@ func GetCnpgClusterWithTablespacesObject(
 	name,
 	namespace string,
 	instances int,
-	certificate *certmanagerv1.Certificate,
-	clientSecret *corev1.Secret,
+	pluginConfigurationRef string,
 	tablespaces []cnpgv1.TablespaceConfiguration,
 ) *cnpgv1.Cluster {
 	cluster := GetCnpgClusterObject(
 		name,
 		namespace,
 		instances,
-		certificate,
-		clientSecret)
+		pluginConfigurationRef)
 
 	cluster.Spec.Tablespaces = append(cluster.Spec.Tablespaces, tablespaces...)
 
 	return cluster
+}
+
+// GetKlioPluginConfigurationObject returns a Klio PluginConfiguration Object.
+func GetKlioPluginConfigurationObject(
+	name,
+	namespace string,
+	certificate *certmanagerv1.Certificate,
+	clientSecret *corev1.Secret,
+) *kliov1alpha1.PluginConfiguration {
+	return &kliov1alpha1.PluginConfiguration{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: namespace,
+		},
+		Spec: kliov1alpha1.PluginConfigurationSpec{
+			ServerAddress:    certificate.Spec.DNSNames[0],
+			ClientSecretName: clientSecret.GetName(),
+			ServerSecretName: certificate.Spec.SecretName,
+		},
+	}
 }
 
 // GetCnpgBackupObject returns a CNPG Backup Object.

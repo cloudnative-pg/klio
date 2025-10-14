@@ -3,6 +3,7 @@
 # It should be run by config/default
 resources:
 - bases/klio.cnpg.io_servers.yaml
+- bases/klio.cnpg.io_pluginconfigurations.yaml
 # +kubebuilder:scaffold:crdkustomizeresource
 
 patches:

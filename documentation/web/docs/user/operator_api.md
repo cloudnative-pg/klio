@@ -9,6 +9,7 @@
 Package v1alpha1 contains API Schema definitions for the klio v1alpha1 API group.
 
 ### Resource Types
+- [PluginConfiguration](#pluginconfiguration)
 - [Server](#server)
 
 
@@ -60,6 +61,86 @@ _Appears in:_
 | Field | Description | Required | Default | Validation |
 | --- | --- | --- | --- | --- |
 | `pvcTemplate` _[PersistentVolumeClaimSpec](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.32/#persistentvolumeclaimspec-v1-core)_ | Template to be used to generate the Persistent Volume Claim needed for the data folder,<br />containing base backups and WAL files. | True |  |  |
+
+
+#### PluginConfiguration
+
+
+
+PluginConfiguration is the Schema for the client configuration API.
+
+
+
+
+
+| Field | Description | Required | Default | Validation |
+| --- | --- | --- | --- | --- |
+| `apiVersion` _string_ | `klio.cnpg.io/v1alpha1` | True | | |
+| `kind` _string_ | `PluginConfiguration` | True | | |
+| `metadata` _[ObjectMeta](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.32/#objectmeta-v1-meta)_ | Refer to Kubernetes API documentation for fields of `metadata`. | True |  |  |
+| `spec` _[PluginConfigurationSpec](#pluginconfigurationspec)_ |  | True |  | AtMostOneOf: [backupRef backupId] <br /> |
+| `status` _[PluginConfigurationStatus](#pluginconfigurationstatus)_ |  | True |  |  |
+
+
+#### PluginConfigurationSpec
+
+
+
+PluginConfigurationSpec defines the desired state of client configuration.
+
+_Validation:_
+- AtMostOneOf: [backupRef backupId]
+
+_Appears in:_
+- [PluginConfiguration](#pluginconfiguration)
+
+| Field | Description | Required | Default | Validation |
+| --- | --- | --- | --- | --- |
+| `serverAddress` _string_ | ServerAddress is the address of the Klio server in the format host:port or host | True |  | MinLength: 1 <br />Required: \{\} <br /> |
+| `clientSecretName` _string_ | ClientSecretName is the name of the secret containing the client credentials | True |  | MinLength: 1 <br />Required: \{\} <br /> |
+| `serverSecretName` _string_ | ServerSecretName is the name of the secret containing the server TLS certificate | True |  | MinLength: 1 <br />Required: \{\} <br /> |
+| `clusterName` _string_ | ClusterName is the name of the PostgreSQL cluster we are connecting to |  |  |  |
+| `backupRef` _string_ | BackupRef is the reference to the backup we should use for restores |  |  |  |
+| `backupId` _string_ | BackupID is the ID of the backup we should use for restores |  |  |  |
+| `pprof` _boolean_ | Pprof enables the pprof endpoint for performance profiling |  |  |  |
+| `metricsAddressInstance` _string_ | MetricsAddressInstance is the address where the metrics for the instance should be exposed |  |  |  |
+| `metricsAddressRestore` _string_ | MetricsAddressRestore is the address where the metrics for the restore should be exposed |  |  |  |
+| `metricsAddressSendWal` _string_ | MetricsAddressSendWal is the address where the metrics for the WAL sender should be exposed |  |  |  |
+| `retention` _[RetentionPolicy](#retentionpolicy)_ | RetentionPolicy defines how many backups we should keep |  |  |  |
+
+
+#### PluginConfigurationStatus
+
+
+
+PluginConfigurationStatus defines the observed state of ClientConfig.
+
+
+
+_Appears in:_
+- [PluginConfiguration](#pluginconfiguration)
+
+
+
+#### RetentionPolicy
+
+
+
+RetentionPolicy defines how many backups we should keep.
+
+
+
+_Appears in:_
+- [PluginConfigurationSpec](#pluginconfigurationspec)
+
+| Field | Description | Required | Default | Validation |
+| --- | --- | --- | --- | --- |
+| `keepLatest` _integer_ | KeepLatest is the number of latest backups to keep<br />optional | True |  |  |
+| `keepAnnual` _integer_ | KeepAnnual is the number of annual backups to keep<br />optional | True |  |  |
+| `keepMonthly` _integer_ | KeepMonthly is the number of monthly backups to keep<br />optional | True |  |  |
+| `keepWeekly` _integer_ | KeepWeekly is the number of weekly backups to keep<br />optional | True |  |  |
+| `keepDaily` _integer_ | KeepDaily is the number of daily backups to keep<br />optional | True |  |  |
+| `keepHourly` _integer_ | KeepHourly is the number of hourly backups to keep<br />optional | True |  |  |
 
 
 #### Server

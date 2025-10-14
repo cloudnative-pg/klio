@@ -19,6 +19,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
+	kliov1alpha1 "github.com/cloudnative-pg/klio/operator/api/v1alpha1"
 	"github.com/cloudnative-pg/klio/operator/pkg/config"
 )
 
@@ -122,18 +123,31 @@ func (impl LifecycleImplementation) reconcileJob(
 		// not our plugin, skip
 		return nil, nil
 	}
-	parsedPlugin, err := parsePluginConfiguration(recoveryPluginConfig)
-	if err != nil {
-		contextLogger.Error(err, "Failed to parse recovery plugin configuration")
-		return nil, fmt.Errorf("failed to parse recovery plugin configuration: %w", err)
+
+	if recoveryPluginConfig.Parameters[PluginConfigurationRefParam] == "" {
+		contextLogger.Warning("recovery plugin configuration missing 'ref' parameter")
+		return nil, errors.New("recovery plugin configuration missing 'ref' parameter")
 	}
-	if parsedPlugin.BackupRef == "" && parsedPlugin.BackupID == "" {
+
+	clusterPC := &kliov1alpha1.PluginConfiguration{}
+	err = impl.Client.Get(ctx,
+		client.ObjectKey{
+			Namespace: cluster.Namespace,
+			Name:      recoveryPluginConfig.Parameters[PluginConfigurationRefParam],
+		},
+		clusterPC)
+	if err != nil {
+		contextLogger.Error(err, "failed to get client configuration")
+		return nil, fmt.Errorf("failed to get client configuration: %w", err)
+	}
+
+	if clusterPC.Spec.BackupRef == "" && clusterPC.Spec.BackupID == "" {
 		contextLogger.Warning("neither backupID nor backupRef specified in the configuration, returning error",
-			"pluginConfig", parsedPlugin)
+			"pluginConfig", clusterPC)
 		return nil, errors.New("no backupID or backupRef specified")
 	}
-	backupRef := parsedPlugin.BackupRef
-	backupID := parsedPlugin.BackupID
+	backupRef := clusterPC.Spec.BackupRef
+	backupID := clusterPC.Spec.BackupID
 
 	// Reconcile the configuration secret
 	if err := impl.reconcileKlioConfigSecret(ctx, klioConfigs, cluster); err != nil {
@@ -204,12 +218,14 @@ func (impl LifecycleImplementation) reconcileJob(
 		},
 	}
 
-	if parsedPlugin.MetricsAddressRestore != "" {
+	if clusterPC.Spec.MetricsAddressRestore != "" {
 		sidecarsToEnrich[0].Args = append(sidecarsToEnrich[0].Args,
-			"--metrics-bind-address", parsedPlugin.MetricsAddressRestore)
+			"--metrics-bind-address", clusterPC.Spec.MetricsAddressRestore)
 	}
 
 	if err := reconcilePodSpec(
+		ctx,
+		impl.Client,
 		cluster,
 		&mutatedJob.Spec.Template.Spec,
 		jobRole,
@@ -344,6 +360,8 @@ func (impl LifecycleImplementation) reconcilePod(
 	}
 
 	if err := reconcilePodSpec(
+		ctx,
+		impl.Client,
 		cluster,
 		&mutatedPod.Spec,
 		"postgres",
@@ -369,7 +387,7 @@ func (impl LifecycleImplementation) reconcilePod(
 func buildSendWALSidecarTemplate(
 	pod *corev1.Pod,
 	cluster *cnpgv1.Cluster,
-	clusterPC *pluginConfiguration,
+	clusterPC *kliov1alpha1.PluginConfiguration,
 ) corev1.Container {
 	if clusterPC == nil {
 		return corev1.Container{}
@@ -383,8 +401,8 @@ func buildSendWALSidecarTemplate(
 		"--cluster-name", cluster.Name,
 		"--cluster-namespace", cluster.Namespace,
 	}
-	if clusterPC.MetricsAddressSendWal != "" {
-		args = append(args, "--metrics-bind-address", clusterPC.MetricsAddressSendWal)
+	if clusterPC.Spec.MetricsAddressSendWal != "" {
+		args = append(args, "--metrics-bind-address", clusterPC.Spec.MetricsAddressSendWal)
 	}
 
 	return corev1.Container{
@@ -393,12 +411,12 @@ func buildSendWALSidecarTemplate(
 	}
 }
 
-func buildInstanceSidecarTemplate(clusterPC *pluginConfiguration) corev1.Container {
+func buildInstanceSidecarTemplate(clusterPC *kliov1alpha1.PluginConfiguration) corev1.Container {
 	instanceSidecar := corev1.Container{Name: "klio-plugin", Args: []string{"cnpgi", "instance"}}
-	if clusterPC != nil && clusterPC.MetricsAddressInstance != "" {
+	if clusterPC != nil && clusterPC.Spec.MetricsAddressInstance != "" {
 		instanceSidecar.Args = append(instanceSidecar.Args,
 			"--metrics-bind-address",
-			clusterPC.MetricsAddressInstance)
+			clusterPC.Spec.MetricsAddressInstance)
 	}
 
 	return instanceSidecar
@@ -413,6 +431,8 @@ type reconcilePodSpecConfiguration struct {
 //
 //nolint:cyclop
 func reconcilePodSpec(
+	ctx context.Context,
+	cli client.Client,
 	cluster *cnpgv1.Cluster,
 	spec *corev1.PodSpec,
 	mainContainerName string,
@@ -439,11 +459,10 @@ func reconcilePodSpec(
 	})
 
 	// Add the TLS volumes and mounts for the server secrets
-	tlsVolumesAndMounts, err := getTLSVolumesAndMounts(cluster)
+	tlsVolumesAndMounts, err := getTLSVolumesAndMounts(ctx, cli, cluster)
 	if err != nil {
 		return fmt.Errorf("failed to get TLS volumes and mounts: %w", err)
 	}
-
 	for _, v := range tlsVolumesAndMounts {
 		spec.Volumes = ensureVolume(spec.Volumes, v.Volume)
 		volumeMounts = ensureVolumeMount(volumeMounts, v.VolumeMount)
@@ -496,21 +515,22 @@ func reconcilePodSpec(
 	mergeEnvironmentVariables(*mainContainer, &sidecarTemplate)
 
 	// If any plugin configuration has the enablePPROF parameter set to true, enable PPROF in the sidecars.
-	for _, v := range getPluginConfigurations(cluster) {
+	configurations, err := getConfigurations(ctx, cli, cluster)
+	if err != nil {
+		return fmt.Errorf("failed to get plugin configurations: %w", err)
+	}
+	for _, v := range configurations {
 		// consider only enabled plugin configurations for PPROF
-		if v == nil || !v.IsEnabled() {
+		if v.cnpgPluginConfiguration == nil || !v.cnpgPluginConfiguration.IsEnabled() || v.klioPluginConfiguration == nil {
 			continue
 		}
-		enablePPROF, err := tryGetBooleanParameter(v, "enablePPROF")
-		if err != nil {
-			return fmt.Errorf("failed to get enablePPROF parameter: %w", err)
-		}
-		if enablePPROF {
+
+		if v.klioPluginConfiguration.Spec.Pprof {
 			cfg.enablePPROF = true
 		}
 	}
 
-	for _, baseSidecar := range cfg.sidecarsToEnrich {
+	for idx, baseSidecar := range cfg.sidecarsToEnrich {
 		if baseSidecar.Name == "" {
 			continue
 		}
@@ -519,7 +539,7 @@ func reconcilePodSpec(
 		sidecar.Name = baseSidecar.Name
 		sidecar.Args = baseSidecar.Args
 		if cfg.enablePPROF {
-			sidecar.Args = append(sidecar.Args, "--pprof-server=0:6060")
+			sidecar.Args = append(sidecar.Args, fmt.Sprintf("--pprof-server=:609%d", idx))
 		}
 		mergeEnvironmentVariables(baseSidecar, sidecar)
 		if err := injectPluginSidecarPodSpec(spec, sidecar, mainContainerName); err != nil {
@@ -553,23 +573,27 @@ type volumeAndMount struct {
 	VolumeMount corev1.VolumeMount
 }
 
-func getTLSVolumesAndMounts(cluster *cnpgv1.Cluster) ([]volumeAndMount, error) {
+func getTLSVolumesAndMounts(
+	ctx context.Context,
+	cli client.Client,
+	cluster *cnpgv1.Cluster,
+) ([]volumeAndMount, error) {
 	var volumesAndMounts []volumeAndMount
 
-	pluginConfigurations := getPluginConfigurations(cluster)
-
-	for hostName, pluginConfig := range pluginConfigurations {
+	configurations, err := getConfigurations(ctx, cli, cluster)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get plugin configurations: %w", err)
+	}
+	for hostName, conf := range configurations {
 		// consider only enabled plugin configurations to avoid errors from missing parameters
-		if pluginConfig == nil || !pluginConfig.IsEnabled() {
+		if conf == nil || conf.cnpgPluginConfiguration == nil ||
+			!conf.cnpgPluginConfiguration.IsEnabled() || conf.klioPluginConfiguration == nil {
 			continue
 		}
 
-		// Extract server secret name from the klio pluginConfig
+		// Extract the server secret name from the klio pluginConfig
 		// Assuming we can get it from the WAL repository pluginConfig or base pluginConfig
-		serverSecretName, err := getParameter(pluginConfig, "serverSecretName")
-		if err != nil {
-			return nil, err
-		}
+		serverSecretName := conf.klioPluginConfiguration.Spec.ServerSecretName
 
 		if serverSecretName != "" {
 			volume := corev1.Volume{
