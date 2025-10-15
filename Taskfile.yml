@@ -119,7 +119,7 @@ tasks:
       - core:protoc-gen-go-grpc
     env:
       # renovate: datasource=docker depName=golang versioning=semver
-      GOLANG_IMAGE_VERSION: 1.25.1
+      GOLANG_IMAGE_VERSION: 1.25.3
       # renovate: datasource=custom.envtest depName=kubernetes packageName=https://github.com/kubernetes/kubernetes versioning=semver
       K8S_VERSION: 1.34.1
       # renovate: datasource=git-refs depName=controller-runtime packageName=https://github.com/kubernetes-sigs/controller-runtime versioning=semver
@@ -1080,7 +1080,7 @@ tasks:
         # Redundant curly braces are used to escape the template syntax in Taskfile.
         sh: docker inspect --format '{{"{{"}} (index (index .HostConfig.PortBindings "6443/tcp") 0).HostPort {{"}}"}}' {{ .KIND_CLUSTER_NAME }}-control-plane
       # renovate: datasource=docker depName=golang versioning=docker
-      GOLANG_IMAGE_VERSION: 1.25.1-alpine
+      GOLANG_IMAGE_VERSION: 1.25.3-alpine
     cmds:
       - kind get kubeconfig --name {{ .KIND_CLUSTER_NAME }} > {{ .KUBECONFIG_PATH }}
       - |
