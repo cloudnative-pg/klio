@@ -33,6 +33,7 @@ jobs:
               - 'documentation/**'
               - 'core/proto/**/*.proto'
               - 'operator/api/**/*.go'
+              - 'operator/dist/chart/values.yaml'
               - 'Taskfile.yml'
               - '.github/**'
             core-changed:
