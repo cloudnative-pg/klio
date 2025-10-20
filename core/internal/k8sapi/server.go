@@ -23,7 +23,7 @@ import (
 
 const (
 	apiServerName        = "klio-apiserver"
-	klioAPIServerVersion = "0.0.5" // x-release-please-version
+	klioAPIServerVersion = "0.0.6" // x-release-please-version
 )
 
 // Start starts an API server.

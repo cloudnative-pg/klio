@@ -9,7 +9,7 @@ const PluginName = "klio.cnpg.io"
 // data is the metadata of this plugin.
 var data = identity.GetPluginMetadataResponse{ //nolint: gochecknoglobals
 	Name:          PluginName,
-	Version:       "0.0.5", // x-release-please-version
+	Version:       "0.0.6", // x-release-please-version
 	DisplayName:   "Klio",
 	ProjectUrl:    "",
 	RepositoryUrl: "",

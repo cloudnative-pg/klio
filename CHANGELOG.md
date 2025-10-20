@@ -1,5 +1,35 @@
 # Changelog
 
+## [0.0.6](https://github.com/EnterpriseDB/klio/compare/v0.0.5...v0.0.6) (2025-10-20)
+
+
+### ⚠ BREAKING CHANGES
+
+* previous cluster configurations will not work unless a PluginConfiguration is defined and referred in the Cluster resource.
+
+### Features
+
+* Add CRD for plugin configuration parameters ([#327](https://github.com/EnterpriseDB/klio/issues/327)) ([a765541](https://github.com/cloudnative-pg/klio/commit/a765541726116ad0c4024e2c2673111089de339f))
+* Clarify server initialize for existing directories ([#287](https://github.com/EnterpriseDB/klio/issues/287)) ([74ebc81](https://github.com/cloudnative-pg/klio/commit/74ebc8116498bbbec718ddd12b45a8d1b4748383))
+* Improve tracing ([#289](https://github.com/EnterpriseDB/klio/issues/289)) ([773397a](https://github.com/cloudnative-pg/klio/commit/773397a4f7ede235619dd897c00ea9b1e88bb947))
+* Make metrics addresses configurable ([#294](https://github.com/EnterpriseDB/klio/issues/294)) ([b907732](https://github.com/cloudnative-pg/klio/commit/b9077325068e1e0b488d61c488070d75c99816b2))
+* Support custom sidecar image and custom api group ([#293](https://github.com/EnterpriseDB/klio/issues/293)) ([2622672](https://github.com/cloudnative-pg/klio/commit/262267236e726ebd97de9f1ba770a6d69061a4e0))
+
+
+### Bug Fixes
+
+* Always include cluster domain in the generated Certificates ([#335](https://github.com/EnterpriseDB/klio/issues/335)) ([a92d952](https://github.com/cloudnative-pg/klio/commit/a92d9523a6eabfd6dc5ddff1c4ced37354937e44))
+* Deployment template had incorrect references ([#290](https://github.com/EnterpriseDB/klio/issues/290)) ([01b2703](https://github.com/cloudnative-pg/klio/commit/01b27036e82b4014ad9baae3cde7f4c01573817d))
+* **deps:** Lock file maintenance documentation dependencies ([#303](https://github.com/EnterpriseDB/klio/issues/303)) ([1ccbafe](https://github.com/cloudnative-pg/klio/commit/1ccbafe015791b8a7990b77ec78f95d9e82efef8))
+* **deps:** Update all non-major go dependencies ([#326](https://github.com/EnterpriseDB/klio/issues/326)) ([542b9b6](https://github.com/cloudnative-pg/klio/commit/542b9b6d202da486aff81fcf345373e9e58a6851))
+* **deps:** Update all non-major go dependencies ([#345](https://github.com/EnterpriseDB/klio/issues/345)) ([b20eb21](https://github.com/cloudnative-pg/klio/commit/b20eb21f87e0cb9cc82d96e2df4b32f9eeca813a))
+* **deps:** Update k8s.io/utils digest to bc988d5 ([#315](https://github.com/EnterpriseDB/klio/issues/315)) ([44ac2b5](https://github.com/cloudnative-pg/klio/commit/44ac2b52319ac010470a82acea65252f5c6d5587))
+* **deps:** Update module github.com/onsi/ginkgo/v2 to v2.26.0 ([#321](https://github.com/EnterpriseDB/klio/issues/321)) ([c3b5f2c](https://github.com/cloudnative-pg/klio/commit/c3b5f2c1eeb99df423376d74bf7417cbeeed446a))
+* **deps:** Update module google.golang.org/protobuf to v1.36.10 ([#314](https://github.com/EnterpriseDB/klio/issues/314)) ([3ecc6a4](https://github.com/cloudnative-pg/klio/commit/3ecc6a4b7eebbd8ec24f31879fc3e87f4d0f6e35))
+* **deps:** Update module sigs.k8s.io/controller-runtime to v0.22.2 ([#325](https://github.com/EnterpriseDB/klio/issues/325)) ([4c08a73](https://github.com/cloudnative-pg/klio/commit/4c08a730d0dc769c08f51a23ae3807097d4adf33))
+* Do not consider disabled plugins for tls generation ([#311](https://github.com/EnterpriseDB/klio/issues/311)) ([1d8e9da](https://github.com/cloudnative-pg/klio/commit/1d8e9da82be49aa88f8e5aef7ce79c9db7ef295b))
+* Do not consider disabsled plugins for tls generation ([1d8e9da](https://github.com/cloudnative-pg/klio/commit/1d8e9da82be49aa88f8e5aef7ce79c9db7ef295b))
+
 ## [0.0.5](https://github.com/EnterpriseDB/klio/compare/v0.0.4...v0.0.5) (2025-09-26)
 
 
