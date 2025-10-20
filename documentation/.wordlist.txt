@@ -84,7 +84,9 @@ PEM
 PGData
 PITR
 PV
+PersistentVolume
 PersistentVolumeClaimSpec
+PersistentVolumeClaims
 PluginConfiguration
 PluginConfigurationList
 PluginConfigurationSpec
@@ -186,6 +188,7 @@ http
 https
 imagePullPolicy
 imagePullSecrets
+init
 io
 klio
 kopia

@@ -16,7 +16,8 @@
       "jsonpath": "$.version"
     },
     "operator/internal/cnpgi/metadata.go",
-    "core/internal/k8sapi/server.go"
+    "core/internal/k8sapi/server.go",
+    "documentation/web/docs/user/klio_server.md"
   ],
   "prerelease": false,
   "packages": {
