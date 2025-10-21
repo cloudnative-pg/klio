@@ -337,8 +337,176 @@ documentation for setting up monitoring and telemetry for the Klio server.
 
 ## Encryption
 
-TODO
+Klio implements encryption at rest for both base backups and WAL files to
+ensure data security throughout the backup lifecycle.
+
+### Base Backups Encryption
+
+Base backups are encrypted by Kopia using the encryption password provided in
+the `password` secret reference. Kopia handles encryption transparently.
+
+The encryption password is set during repository initialization and is required
+for all subsequent backup and restore operations.
+
+:::warning Critical
+Store the encryption password securely. Loss of this password means permanent
+loss of access to all backup data. There is no password recovery mechanism.
+:::
+
+### WAL Files Encryption
+
+WAL files are encrypted using a master key derivation system with authenticated
+encryption. The encryption process works as follows:
+
+1. **Master Key Generation**: A 32-byte master key is derived from the encryption
+   password using PBKDF2
+2. **Key Enveloping**: The master key itself is encrypted using AES-256-GCM with a
+   password-derived encryption key to protect the key at rest
+3. **Per-File Encryption**: Each WAL file is compressed and then encrypted using
+   the master key with authenticated encryption before being stored
+
+WAL files are first compressed using Snappy S2 compression, then encrypted to ensure both space
+efficiency and security.
+
+The same encryption password used for base backups encrypts the WAL files,
+ensuring a unified security model across all backup artifacts.
+
+### Encryption Password Rotation
+
+Currently, encryption password rotation is not supported. To change the
+encryption password, you would need to:
+
+1. Create a new Klio server with a new encryption password
+2. Perform new base backups to the new server
+3. Migrate to using the new server
+
+:::tip
+Choose a strong encryption password from the start. Use a password manager or
+key management system to generate and store a cryptographically secure password
+(recommended: 32+ random characters).
+:::
+
+### Encryption in Transit
+
+In addition to encryption at rest, Klio protects both base backups and WAL files
+during transmission using TLS (Transport Layer Security).
+
+All communication between a Klio client and the Klio server is secured
+with TLS:
+
+- **Base Backup Traffic**: Kopia client connections to the base backup server
+  are encrypted using TLS, protecting backup data as it transfers to the Klio
+  server
+- **WAL Streaming**: PostgreSQL instances streaming WAL files to the Klio server
+  use gRPC over TLS, ensuring WAL data is encrypted during transmission
+
+The TLS certificate is configured via the `.spec.tlsSecretName` field in the
+Server resource, which references a Kubernetes secret containing the TLS
+certificate and private key. This provides end-to-end encryption, ensuring that
+backup data is protected both at rest and in transit.
 
 ## Authentication
 
-TODO
+Klio uses HTTP Basic Authentication for securing access to both the base backup
+server and the WAL streaming server. Authentication is handled through htpasswd
+files, a widely-used format for storing username and password credentials.
+
+### How Authentication Works
+
+Both the `base` and `wal` containers require authentication:
+
+- **Base Container**: Authenticates Kopia client connections for backup and
+  restore operations
+- **WAL Container**: Authenticates PostgreSQL instances streaming WAL files via
+  gRPC
+
+Credentials are validated against the htpasswd file mounted from the Kubernetes
+secret specified in `.spec.users`.
+
+### User Credentials Format
+
+The authentication secret must contain an `htpasswd` key with base64-encoded
+credentials in the standard htpasswd format:
+
+```yaml
+apiVersion: v1
+kind: Secret
+metadata:
+  name: my-server-users
+  namespace: default
+type: Opaque
+data:
+  htpasswd: <base64-encoded-htpasswd-content>
+```
+
+### Managing Multiple Users
+
+You can define multiple users in the same htpasswd file. Each line represents
+one user in the format `username:hashed-password`:
+
+```bash
+# Create htpasswd file with multiple users
+htpasswd -nbB klio@cluster-1 "password1" > htpasswd-file
+htpasswd -nbB klio@cluster-2 "password2" >> htpasswd-file
+htpasswd -nbB restore-user@cluster-1 "password3" >> htpasswd-file
+
+# Base64 encode and use in secret
+cat htpasswd-file | base64 -w 0
+```
+
+Each PostgreSQL cluster or client can use different credentials, allowing for:
+
+- **Cluster isolation**: Each cluster uses its own credentials
+- **Access auditing**: Different users for different purposes (backup, restore, etc.)
+- **Credential rotation**: Individual credentials can be updated independently
+
+### Admin User (Optional)
+
+The optional admin user (`.spec.baseConfiguration.adminUser`) provides access to
+the Kopia web interface for administrative and debugging purposes. This is
+separate from the regular user authentication:
+
+```yaml
+spec:
+  baseConfiguration:
+    adminUser:
+      name: my-server-adm  # Reference to kubernetes.io/basic-auth secret
+```
+
+The admin user secret must be of type `kubernetes.io/basic-auth`:
+
+```yaml
+apiVersion: v1
+kind: Secret
+metadata:
+  name: my-server-adm
+type: kubernetes.io/basic-auth
+data:
+  username: <base64-encoded-username>
+  password: <base64-encoded-password>
+```
+
+:::info
+The admin user is primarily intended for debugging and should be used sparingly
+in production environments. Regular backup and restore operations use the
+htpasswd-based credentials.
+:::
+
+### Credential Updates
+
+To update user credentials:
+
+1. Update the htpasswd secret with new credentials
+2. Restart the Klio server pod to pick up the changes:
+
+```bash
+kubectl rollout restart statefulset my-server-klio -n default
+```
+
+:::tip Security Best Practices
+- Use strong, unique passwords for each user
+- Rotate credentials periodically
+- Use the bcrypt algorithm (`-B` flag) when generating htpasswd entries
+- Store secrets securely using your organization's secrets management solution
+- Consider using different credentials for each PostgreSQL cluster
+:::

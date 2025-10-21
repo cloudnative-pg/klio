@@ -1,3 +1,5 @@
+AEAD
+AES
 APIs
 AdminUser
 AtMostOneOf
@@ -30,6 +32,7 @@ EnvVar
 Envs
 FalseClass
 Fixnum
+GCM
 GRPC
 GetLatest
 GetLatestRequest
@@ -80,6 +83,7 @@ OpenEBS
 OpenShift
 OpenTelemetry
 OpenTelemetryConfiguration
+PBKDF
 PEM
 PGData
 PITR
@@ -109,6 +113,7 @@ ResourceAttributes
 ResourceDetectors
 ResourceRequirements
 RetentionPolicy
+SHA
 SecretKeySelector
 ServerAddress
 ServerCertificate
@@ -118,7 +123,6 @@ ServerStatus
 ServiceMonitor
 ServiceName
 SetFirstRequiredWAL
-SetFirstRequiredWALRequest
 SetFirstRequiredWALRequest
 SetFirstRequiredWALResult
 StartWALFile
@@ -155,6 +159,7 @@ autodetect
 autoexport
 backupId
 backupRef
+bcrypt
 benchmarking
 bool
 certmanager
@@ -170,6 +175,7 @@ crd
 createMetricsCertificate
 createPluginClientCertificate
 createPluginServerCertificate
+cryptographically
 customizable
 deduplication
 dev
@@ -234,6 +240,7 @@ serviceAccount
 serviceAccountName
 sfixed
 sint
+sio
 str
 systemd
 tablespaces
