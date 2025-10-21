@@ -12,7 +12,7 @@ require (
 	github.com/cloudnative-pg/machinery v0.3.1
 	github.com/jackc/pglogrepl v0.0.0-20250509230407-a9884f6bd75a
 	github.com/jackc/pgx/v5 v5.7.6
-	github.com/klauspost/compress v1.18.0
+	github.com/klauspost/compress v1.18.1
 	github.com/kopia/kopia v0.21.1
 	github.com/minio/sio v0.4.2
 	github.com/onsi/ginkgo/v2 v2.26.0
