@@ -1,0 +1,65 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: klio-api
+  name: klio-api
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: klio-api
+  strategy: {}
+  template:
+    metadata:
+      labels:
+        app: klio-api
+    spec:
+      serviceAccountName: klio-api
+      volumes:
+        - name: klio-server-tls
+          secret:
+            defaultMode: 420
+            secretName: server-sample-tls
+        - name: klio-api-tls
+          secret:
+            defaultMode: 420
+            secretName: klio-api-tls
+        - emptyDir: {}
+          name: scratch-data
+      containers:
+      - args:
+          - server
+          - api-server
+        env:
+          - name: SOURCE_SLOT
+            value: klio
+          - name: CLIENT_BASE_URL
+            value: https://server-sample.default:51515
+          - name: CLIENT_BASE_SERVER_CERT_PATH
+            value: /certs/tls.crt
+          - name: CLIENT_BASE_USERNAME
+            value: admin
+          - name: CLIENT_BASE_HOSTNAME
+            value: klio
+          - name: CLIENT_BASE_PASSWORD
+            value: "password"
+          - name: CLIENT_BASE_API_SERVER_CERTFILE
+            value: /klio-api/certs/tls.crt
+          - name: CLIENT_BASE_API_SERVER_KEYFILE
+            value: /klio-api/certs/tls.key
+          - name: TMPDIR
+            value: /tmp
+        image: registry.dev:5000/klio-testing:dev
+        imagePullPolicy: Always
+        name: api-server
+        resources: {}
+        securityContext:
+          runAsNonRoot: true
+        volumeMounts:
+          - mountPath: /certs
+            name: klio-server-tls
+          - mountPath: /klio-api/certs
+            name: klio-api-tls
+          - mountPath: /tmp
+            name: scratch-data

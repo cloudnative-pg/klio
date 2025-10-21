@@ -19,7 +19,7 @@ type Data struct {
 	// Client is the configuration of the Klio client
 	Client ClientConfig `json:"client" mapstructure:"client"`
 
-	// / RetentionPolicy defines how many backups we should keep
+	// RetentionPolicy defines how many backups we should keep
 	RetentionPolicy *kliov1alpha1.RetentionPolicy `json:"retention,omitempty" mapstructure:"retention"`
 }
 
@@ -145,6 +145,14 @@ type BaseRepositoryClientConfig struct {
 
 	// Password is the Klio server password
 	Password string `json:"password" mapstructure:"password" validate:"nonzero"`
+
+	// APIServerCertFile is a file containing a PEM-encoded certificate, and possibly the complete certificate chain
+	// This certificate will be served by the Klio API aggregation server for TLS connections
+	APIServerCertFile string `json:"api_server_certfile" mapstructure:"api_server_certfile"`
+
+	// APIServerKeyFile is a file containing a PEM-encoded private key for the certificate specified by APIServerCertFile
+	// This private key will be used by the Klio API aggregation server for TLS connections
+	APIServerKeyFile string `json:"api_server_keyfile" mapstructure:"api_server_keyfile"`
 }
 
 // WalServerConfig is the configuration of the Klio server.

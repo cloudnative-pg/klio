@@ -1,0 +1,10 @@
+resources:
+  - certificate.yaml
+  - deployment.yaml
+  - service-account.yaml
+  - role-binding.yaml
+  - role.yaml
+  - cluster-role-binding.yaml
+  - cluster-role.yaml
+  - apiservice.yaml
+  - service.yaml

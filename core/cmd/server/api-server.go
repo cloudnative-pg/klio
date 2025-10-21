@@ -51,7 +51,12 @@ var apiServerCmd = &cobra.Command{
 			return fmt.Errorf("while connecting to the Klio server: %w %q", err, configuration.Client.Base.URL)
 		}
 
-		return k8sapi.Start(cmd.Context(), connection)
+		return k8sapi.Start(
+			cmd.Context(),
+			connection,
+			configuration.Client.Base.APIServerCertFile,
+			configuration.Client.Base.APIServerKeyFile,
+		)
 	},
 }
 

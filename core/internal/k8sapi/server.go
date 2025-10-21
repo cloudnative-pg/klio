@@ -2,6 +2,7 @@ package k8sapi
 
 import (
 	"context"
+	"fmt"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apiextensions-apiserver/pkg/apiserver"
@@ -27,14 +28,31 @@ const (
 )
 
 // Start starts an API server.
-func Start(ctx context.Context, connection *kopia.Connection) error {
+func Start(
+	ctx context.Context,
+	connection *kopia.Connection,
+	certFile, keyFile string,
+) error {
 	scheme := runtime.NewScheme()
 	codecs := serializer.NewCodecFactory(scheme)
 
 	// Set up API server config
 	opts := options.NewRecommendedOptions("", nil)
+
+	// If a certificate and key are provided, use them for the API server
+	if certFile != "" || keyFile != "" {
+		if certFile == "" || keyFile == "" {
+			return fmt.Errorf("both APIServerCertFile and APIServerKeyFile must be provided together, "+
+				"got cert=%q key=%q", certFile, keyFile)
+		}
+		opts.SecureServing.ServerCert.CertKey.CertFile = certFile
+		opts.SecureServing.ServerCert.CertKey.KeyFile = keyFile
+	}
+
 	genericConfig := genericapiserver.NewRecommendedConfig(codecs)
-	_ = opts.ApplyTo(genericConfig)
+	if err := opts.ApplyTo(genericConfig); err != nil {
+		return err
+	}
 
 	_ = compatibility.DefaultComponentGlobalsRegistry.Register(
 		apiServerName,
