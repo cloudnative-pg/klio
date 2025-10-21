@@ -13,6 +13,8 @@ import (
 	cnpgv1 "github.com/cloudnative-pg/cloudnative-pg/api/v1"
 	"github.com/cloudnative-pg/cnpg-i/pkg/wal"
 	"github.com/cloudnative-pg/machinery/pkg/log"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 type walServiceImplementation struct {
@@ -40,7 +42,7 @@ func (w walServiceImplementation) GetCapabilities(
 }
 
 // Restore implements the WALService interface.
-func (w walServiceImplementation) Restore(
+func (w walServiceImplementation) Restore( //nolint:cyclop
 	ctx context.Context,
 	request *wal.WALRestoreRequest,
 ) (*wal.WALRestoreResult, error) {
@@ -91,11 +93,19 @@ func (w walServiceImplementation) Restore(
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
 
-	if err := cmd.Run(); err != nil {
-		return nil, fmt.Errorf("failed to execute klio get-wal command: %w, stderr: %s", err, stderr.String())
-	}
+	var exitError *exec.ExitError
+	err = cmd.Run()
 
-	return &wal.WALRestoreResult{}, nil
+	switch {
+	case errors.As(err, &exitError) && exitError.ExitCode() == 4:
+		return &wal.WALRestoreResult{}, status.Errorf(codes.NotFound, "WAL file not found: %q", walName)
+
+	case err != nil:
+		return nil, fmt.Errorf("failed to execute klio get-wal command: %w, stderr: %s", err, stderr.String())
+
+	default:
+		return &wal.WALRestoreResult{}, nil
+	}
 }
 
 func getWalRepositoryConfigurationPath(cluster *cnpgv1.Cluster, instanceName string) (string, error) {

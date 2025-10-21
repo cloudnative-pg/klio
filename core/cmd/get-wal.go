@@ -78,8 +78,8 @@ var getWalCmd = &cobra.Command{
 		switch {
 		case errors.Is(err, common.ErrMissingWALFile):
 			if path.Ext(walName) != "" || !downloadPartial {
-				contextLogger.Debug("Missing WAL file, exiting with error code 1", "wal_name", walName)
-				os.Exit(1)
+				contextLogger.Debug("Missing WAL file, exiting with error code 4", "wal_name", walName)
+				os.Exit(4)
 			}
 
 		case err != nil:
