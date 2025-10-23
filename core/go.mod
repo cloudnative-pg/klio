@@ -15,7 +15,7 @@ require (
 	github.com/klauspost/compress v1.18.1
 	github.com/kopia/kopia v0.21.1
 	github.com/minio/sio v0.4.2
-	github.com/onsi/ginkgo/v2 v2.26.0
+	github.com/onsi/ginkgo/v2 v2.27.1
 	github.com/onsi/gomega v1.38.2
 	github.com/spf13/afero v1.15.0
 	github.com/spf13/cobra v1.10.1
