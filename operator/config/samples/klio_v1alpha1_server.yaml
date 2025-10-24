@@ -40,8 +40,8 @@ apiVersion: v1
 data:
   htpasswd: |
     a2xpb0BjbHVzdGVyLWV4YW1wbGU6JDJ5JDEwJE5zRHl1NG1Ha1pDTE93eGkvWjdkek9aOFVPTzBB
-    QXBCY28ua3I2LlhyVFJGRERxRFpaMkFpCmFkbWluQGtsaW86JGFwcjEkYTF3TFFtQWYkUVRVcndh
-    d0xDai56b01Hdzk4Zk9qLwo=
+    QXBCY28ua3I2LlhyVFJGRERxRFpaMkFpCnNuYXBzaG90X3JlYWRlckBrbGlvOiRhcHIxJGRTN0E4
+    SUczJFE5SHgxOXlNaTVrVGNVektnNXYvRTA=
 kind: Secret
 metadata:
   name: server-sample-users

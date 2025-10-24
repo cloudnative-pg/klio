@@ -98,8 +98,14 @@ data:
 To generate `htpasswd` entries:
 
 ```bash
-# Generate password hash and base64 encode the output for the secret
-htpasswd -nbB klio@my-cluster "my-password" | base64 -w0
+# Generate password hash for your cluster user
+htpasswd -nbB klio@my-cluster "my-password" > htpasswd-file
+
+# Add the snapshot_reader user (required for API server ACL automation)
+htpasswd -nbB snapshot_reader@klio "reader-password" >> htpasswd-file
+
+# Base64 encode the file for the Kubernetes secret
+cat htpasswd-file | base64 -w0
 ```
 
 Apply the secret:
@@ -110,7 +116,9 @@ kubectl apply -f user-credentials.yaml
 
 :::note
 You can add multiple users by including additional lines in the `htpasswd` key,
-each formatted as `username:hashed-password`.
+each formatted as `username:hashed-password`. The `snapshot_reader@klio` user
+is required for the automated ACL system that enables the API server to query
+backup catalogs.
 :::
 
 :::warning
@@ -509,4 +517,133 @@ kubectl rollout restart statefulset my-server-klio -n default
 - Use the bcrypt algorithm (`-B` flag) when generating htpasswd entries
 - Store secrets securely using your organization's secrets management solution
 - Consider using different credentials for each PostgreSQL cluster
+:::
+
+## Access Control Lists (ACLs)
+
+Klio automatically configures Kopia's Access Control Lists (ACLs) during server
+startup to provide fine-grained access control to backup snapshots. This
+automation eliminates the need for manual ACL configuration.
+
+### Automatic ACL Configuration
+
+When the Klio server starts, it automatically:
+
+1. **Enables ACL support** in the Kopia repository
+2. **Creates a read-only user** (`snapshot_reader@klio`) with READ access to all snapshots
+3. **Configures the API server** to use the read-only user for backup catalog queries
+
+This automation ensures that the Klio API server (used for backup observability
+and catalog browsing) operates with minimal privileges, following the principle
+of least privilege.
+
+### How ACLs Work
+
+Kopia's ACL system controls access to repository resources based on:
+
+- **User identity**: The authenticated username
+- **Resource type**: What is being accessed (e.g., snapshots, policies)
+- **Access level**: READ, APPEND, or FULL access
+
+The automated ACL configuration creates the following rule:
+
+```
+User: snapshot_reader@klio
+Access: READ
+Target: type=snapshot (all snapshots in the repository)
+```
+
+This allows the API server to:
+
+- List all available backups
+- Read backup metadata and manifests
+- Browse backup catalogs
+- Provide observability into the backup state
+
+However, the read-only user **cannot**:
+
+- Create new snapshots
+- Modify existing snapshots
+- Delete backups
+- Change repository configuration
+- Modify ACL rules
+
+### User Configuration
+
+To use the automated ACL system, you need to add the `snapshot_reader@klio` user
+to your htpasswd credentials file:
+
+```bash
+# Generate the snapshot_reader@klio user credentials
+htpasswd -nbB snapshot_reader@klio "your-secure-password" >> htpasswd-file
+
+# Base64 encode for the Kubernetes secret
+cat htpasswd-file | base64 -w 0
+```
+
+Example htpasswd secret with both cluster credentials and the snapshot reader:
+
+```yaml
+apiVersion: v1
+kind: Secret
+metadata:
+  name: my-server-users
+  namespace: default
+type: Opaque
+data:
+  htpasswd: |
+    <base64-encoded content with entries like:>
+    klio@my-cluster:$2y$10$...
+    snapshot_reader@klio:$apr1$...
+```
+
+### API Server Integration
+
+The Klio API server deployment is automatically configured to use the
+`snapshot_reader@klio` user for all Kopia operations. This happens through
+environment variable configuration in the API server deployment:
+
+```yaml
+- name: CLIENT_BASE_USERNAME
+  value: snapshot_reader
+```
+
+No manual configuration is required - the API server will automatically use the
+restricted read-only access for all backup catalog queries.
+
+### Benefits
+
+The automated ACL configuration provides several benefits:
+
+1. **Security**: API server operates with minimal privileges
+2. **Simplicity**: No manual ACL commands required during setup
+3. **Consistency**: ACL configuration is standardized across all deployments
+4. **Separation of Concerns**: Read operations (API server) are isolated from
+   write operations (backup/restore processes)
+
+### Idempotency
+
+The ACL automation is idempotent - if ACLs are already enabled or the user
+already exists, the startup process will detect this and continue without
+error. This allows for safe server restarts and upgrades.
+
+### Troubleshooting ACLs
+
+If you encounter ACL-related issues, check the Klio server logs:
+
+```bash
+kubectl logs my-server-klio-0 -n default -c base
+```
+
+Look for log entries related to ACL enablement:
+
+- `"ACLs enabled"`: ACLs were successfully enabled
+- `"ACLs already enabled"`: ACLs were previously enabled (normal on restart)
+- `"User snapshot_reader added to ACLs"`: Read-only user was successfully configured
+- `"failed to execute ACLs enablement"`: An error occurred during ACL setup
+
+:::note
+ACL configuration happens during server startup, before the Kopia server process
+begins accepting connections. Any ACL errors will appear early in the container
+logs.
 :::

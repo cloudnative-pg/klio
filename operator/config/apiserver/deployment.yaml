@@ -35,7 +35,7 @@ spec:
           - name: CLIENT_BASE_SERVER_CERT_PATH
             value: /certs/tls.crt
           - name: CLIENT_BASE_USERNAME
-            value: admin
+            value: snapshot_reader
           - name: CLIENT_BASE_HOSTNAME
             value: klio
           - name: CLIENT_BASE_PASSWORD

@@ -61,6 +61,9 @@ func Start(ctx context.Context, cfg *config.BaseServerConfig) error {
 		return fmt.Errorf("while connecting to the repository: %w", err)
 	}
 
+	// Enable ACLs
+	enableACLs(ctx, kopiaBinary, configFile.Name(), cfg.EncryptionPassword)
+
 	// Start the Kopia server
 	args := []string{
 		"server", "start",
