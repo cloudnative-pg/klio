@@ -78,7 +78,7 @@ func schema_core_internal_k8sapi_v1alpha1_KlioBackup(ref common.ReferenceCallbac
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Description: "KlioBackup is the Schema for the servers API.",
+				Description: "KlioBackup is the Schema for a Klio Backup API.",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
 					"kind": {
@@ -126,7 +126,7 @@ func schema_core_internal_k8sapi_v1alpha1_KlioBackupList(ref common.ReferenceCal
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Description: "KlioBackupList contains a list of Server.",
+				Description: "KlioBackupList contains a list of KlioBackup.",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
 					"kind": {
@@ -175,7 +175,7 @@ func schema_core_internal_k8sapi_v1alpha1_KlioBackupSpec(ref common.ReferenceCal
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Description: "KlioBackupSpec defines the desired state of Server.",
+				Description: "KlioBackupSpec defines the desired state of a KlioBackup.",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
 					"clusterName": {
@@ -205,7 +205,7 @@ func schema_core_internal_k8sapi_v1alpha1_KlioBackupStatus(ref common.ReferenceC
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Description: "KlioBackupStatus defines the desired state of Server.",
+				Description: "KlioBackupStatus defines the observed state of a KlioBackup.",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
 					"startLSN": {

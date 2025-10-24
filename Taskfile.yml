@@ -60,8 +60,10 @@ tasks:
       - core:lint
       - core:protolint
       - core:protoc-gen-go-grpc
+      - core:openapi-gen
       - core:go-test
       - core:containerize-snapshot
+      - core:uncommitted
 
   core:lint:
     desc: Run golangci-lint on core
@@ -117,6 +119,7 @@ tasks:
     dir: core
     deps:
       - core:protoc-gen-go-grpc
+      - core:openapi-gen
     env:
       # renovate: datasource=docker depName=golang versioning=semver
       GOLANG_IMAGE_VERSION: 1.25.3
@@ -139,6 +142,8 @@ tasks:
     desc: Build snapshot packages
     deps:
       - core:protoc-gen-go-grpc
+      - core:openapi-gen
+      - core:uncommitted
     env:
       # renovate: datasource=docker depName=ghcr.io/goreleaser/goreleaser versioning=semver
       GORELEASER_IMAGE_VERSION: v2.12.6
@@ -170,6 +175,8 @@ tasks:
     desc: Upload the release artifacts
     deps:
       - core:protoc-gen-go-grpc
+      - core:openapi-gen
+      - core:uncommitted
     run: once
     requires:
       # We expect this to run in a GitHub workflow, so we put a few GitHub-specific vars here
@@ -254,6 +261,43 @@ tasks:
       - task: internal:licenses
         vars:
           WORKDIR: "core"
+    sources:
+      - ./**/*
+
+  core:openapi-gen:
+    desc: Generate OpenAPI specification
+    summary: Generate the deepcopy and the violation files for the api service API
+    run: once
+    env:
+      # renovate: datasource=docker depName=golang versioning=semver
+      GOLANG_IMAGE_VERSION: 1.25.3
+      # renovate: datasource=git-refs depName=code-generator packageName=https://github.com/kubernetes/code-generator versioning=semver
+      CODE_GENERATOR_VERSION: v0.34.1
+    cmds:
+      - >
+        dagger core container from --address golang:${GOLANG_IMAGE_VERSION}
+        with-mounted-cache --cache gomodcache --path /go/pkg/mod
+        with-mounted-cache --cache gobuildcache --path /root/.cache/go-build
+        with-mounted-directory --path /src --source .
+        with-exec --args sh --args '-c' --args "git clone https://github.com/kubernetes/code-generator -b ${CODE_GENERATOR_VERSION}"
+        with-env-variable --name update_report --value '--update-report'
+        with-env-variable --name report_filename --value /src/core/internal/k8sapi/v1alpha1/violations.list
+        with-env-variable --name CODEGEN_PKG --value /go/code-generator
+        with-workdir --path /src/core/hack
+        with-exec --args sh --args '-c' --args './codegen.sh'
+        directory --path /src/core/internal/k8sapi/v1alpha1/
+        filter --include 'zz_generated.*' --include violations.list
+        export --path core/internal/k8sapi/v1alpha1/
+    sources:
+      - core/internal/k8sapi/v1alpha1/**/*
+
+  core:uncommitted:
+    desc: Check for uncommitted changes
+    deps:
+        - core:protoc-gen-go-grpc
+        - core:openapi-gen
+    cmds:
+      - task: internal:uncommitted
     sources:
       - ./**/*
 
