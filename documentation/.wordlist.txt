@@ -187,6 +187,7 @@ fullnameOverride
 gRPC
 github
 goreleaser
+goroutines
 grpc
 gzip
 htpasswd
@@ -219,6 +220,7 @@ opentelemetry
 otel
 otlp
 pgdata
+pluginConfigurationRef
 podSecurityContext
 postgres
 postgresql
