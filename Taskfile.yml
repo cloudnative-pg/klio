@@ -146,7 +146,7 @@ tasks:
       - core:uncommitted
     env:
       # renovate: datasource=docker depName=ghcr.io/goreleaser/goreleaser versioning=semver
-      GORELEASER_IMAGE_VERSION: v2.12.6
+      GORELEASER_IMAGE_VERSION: v2.12.7
     run: once
     cmds:
       - |
@@ -189,7 +189,7 @@ tasks:
         - GITHUB_TOKEN
     env:
       # renovate: datasource=docker depName=ghcr.io/goreleaser/goreleaser versioning=semver
-      GORELEASER_IMAGE_VERSION: v2.12.6
+      GORELEASER_IMAGE_VERSION: v2.12.7
     preconditions:
       - sh: "[[ {{.GITHUB_REF}} =~ 'refs/tags/v.*' ]]"
         msg: not a tag, failing
