@@ -1,25 +1,3 @@
 {{- /* Template in documentation/helm-docs/helm_chart.md.gotmpl */ -}}
 {{- /* Original template: https://github.com/norwoodj/helm-docs/blob/master/pkg/document/template.go */ -}}
----
-title: EDB Klio Operator Helm Chart
-sidebar_position: 90
----
-{{ template "chart.badgesSection" . }}
-
-The EDB Klio Operator Helm chart from EDB allows you to deploy the Klio
-Operator in your Kubernetes cluster. It is distributed as an OCI image. You can
-install it with the following command:
-
-```sh
-helm install klio-operator oci://ghcr.io/enterprisedb/klio-operator-chart --version $VERSION
-```
-
-The chart is designed to be customizable, allowing you to configure various aspects of the Klio Operator deployment,
-passing in values through a custom `values.yaml` file or using the `--set` flag during installation.
-See the [Helm documentation](https://helm.sh/docs/) for more details on how to customize your installation.
-
 {{ template "chart.valuesSection" . }}
-
-{{- if not .SkipVersionFooter }}
-{{ template "helm-docs.versionFooter" . }}
-{{- end }}
