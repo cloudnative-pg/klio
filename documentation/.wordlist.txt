@@ -102,6 +102,7 @@ PluginConfiguration
 PluginConfigurationList
 PluginConfigurationSpec
 PluginConfigurationStatus
+PluginConfigurations
 PodTemplateSpec
 ProjectedVolumeSource
 PullPolicy

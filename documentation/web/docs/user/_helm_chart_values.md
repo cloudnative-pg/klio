@@ -1,5 +1,3 @@
-## Values
-
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
 | certmanager.clusterDomain | string | `"cluster.local"` | The DNS domain of the cluster |
