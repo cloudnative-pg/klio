@@ -20,6 +20,12 @@ matrix:
         # ```
         - open: '(?s)^(?P<open> *`{3,})'
           close: '^(?P=open)$'
+        # Ignore lines included between HTML comments
+        # <!-- spell-checker-disable -->
+        # content
+        # <!-- spell-checker-enable -->
+        - open: '(?s)<!--\s*spell-checker-disable\s*-->'
+          close: '<!--\s*spell-checker-enable\s*-->'
   - pyspelling.filters.markdown:
   - pyspelling.filters.html:
       ignores:

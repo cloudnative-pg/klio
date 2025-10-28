@@ -884,6 +884,7 @@ tasks:
         spellcheck --source . with-exec --use-entrypoint --args="" stdout
     sources:
       - ./**/*.md
+      - ./**/*.mdx
       - .spellcheck.yaml
       - .wordlist.txt
 
