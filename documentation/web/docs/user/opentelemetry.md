@@ -110,6 +110,20 @@ server using the following environment variables:
 
 ## Configuring Klio with OpenTelemetry in Kubernetes
 
+When running in a Kubernetes environment, Klio will automatically define
+`CONTAINER_NAME`, `POD_NAME` and `NAMESPACE_NAME` environment variables.
+When any of these environment variables are set, Klio will automatically add
+the corresponding resource attributes (`k8s.container.name`, `k8s.pod.name`,
+`k8s.namespace.name`) to all telemetry data. Each attribute is added
+independently - you don't need all three environment variables to be present.
+
+:::important
+If you have already defined any of these attributes in `OTEL_RESOURCE_ATTRIBUTES`,
+Klio will **not override** them. Only missing attributes will be added from the
+environment variables. This allows you to customize the values while still
+benefiting from automatic defaults for any attributes you don't explicitly set.
+:::
+
 ### Klio server with OpenTelemetry
 
 When deploying Klio `Server`, you can configure OpenTelemetry specifying the

@@ -31,6 +31,21 @@ func (e *envBuilder) addCommonEnvs() *envBuilder {
 	return e
 }
 
+func (e *envBuilder) addInitEnvs() *envBuilder {
+	e.builtEnvs = append(e.builtEnvs, corev1.EnvVar{Name: "CONTAINER_NAME", Value: "init"})
+	return e
+}
+
+func (e *envBuilder) addBaseEnvs() *envBuilder {
+	e.builtEnvs = append(e.builtEnvs, corev1.EnvVar{Name: "CONTAINER_NAME", Value: "base"})
+	return e
+}
+
+func (e *envBuilder) addWalEnvs() *envBuilder {
+	e.builtEnvs = append(e.builtEnvs, corev1.EnvVar{Name: "CONTAINER_NAME", Value: "wal"})
+	return e
+}
+
 // getKubernetesDownwardAPIEnvVars provides Kubernetes metadata through the downward API.
 func (e *envBuilder) getKubernetesDownwardAPIEnvVars() []corev1.EnvVar {
 	return []corev1.EnvVar{
@@ -39,6 +54,14 @@ func (e *envBuilder) getKubernetesDownwardAPIEnvVars() []corev1.EnvVar {
 			ValueFrom: &corev1.EnvVarSource{
 				FieldRef: &corev1.ObjectFieldSelector{
 					FieldPath: "metadata.name",
+				},
+			},
+		},
+		{
+			Name: "NAMESPACE_NAME",
+			ValueFrom: &corev1.EnvVarSource{
+				FieldRef: &corev1.ObjectFieldSelector{
+					FieldPath: "metadata.namespace",
 				},
 			},
 		},

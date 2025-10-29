@@ -67,9 +67,9 @@ func (w walServiceImplementation) Restore( //nolint:cyclop
 	if err := json.Unmarshal(request.GetClusterDefinition(), &cluster); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal cluster definition: %w", err)
 	}
-	podName, ok := os.LookupEnv("PODNAME") // Ensure PODNAME is set in the environment
+	podName, ok := os.LookupEnv("POD_NAME") // Ensure PODNAME is set in the environment
 	if !ok {
-		return nil, errors.New("PODNAME environment variable is not set")
+		return nil, errors.New("POD_NAME environment variable is not set")
 	}
 	confPath, err := getWalRepositoryConfigurationPath(&cluster, podName)
 	if err != nil {

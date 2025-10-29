@@ -122,7 +122,7 @@ func (r *ServerReconciler) reconcileStatefulSet(ctx context.Context, server *kli
 							Image:           server.Spec.Image,
 							ImagePullPolicy: server.Spec.ImagePullPolicy,
 							VolumeMounts:    volumeMounts,
-							Env:             newEnvBuilder(server).addCommonEnvs().build(),
+							Env:             newEnvBuilder(server).addCommonEnvs().addInitEnvs().build(),
 						},
 					},
 					Containers: []corev1.Container{
@@ -139,7 +139,7 @@ func (r *ServerReconciler) reconcileStatefulSet(ctx context.Context, server *kli
 							Ports: []corev1.ContainerPort{
 								{Name: "base", ContainerPort: 51515, Protocol: corev1.ProtocolTCP},
 							},
-							Env: newEnvBuilder(server).addCommonEnvs().build(),
+							Env: newEnvBuilder(server).addCommonEnvs().addBaseEnvs().build(),
 						},
 						{
 							Name: "wal",
@@ -153,7 +153,7 @@ func (r *ServerReconciler) reconcileStatefulSet(ctx context.Context, server *kli
 							Ports: []corev1.ContainerPort{
 								{Name: "wal", ContainerPort: 52000, Protocol: corev1.ProtocolTCP},
 							},
-							Env:          newEnvBuilder(server).addCommonEnvs().build(),
+							Env:          newEnvBuilder(server).addCommonEnvs().addWalEnvs().build(),
 							VolumeMounts: volumeMounts,
 						},
 					},

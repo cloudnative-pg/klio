@@ -208,12 +208,15 @@ func (impl LifecycleImplementation) reconcileJob(
 
 	sidecarsToEnrich := []corev1.Container{
 		{
-			Name: "klio-plugin",
+			Name: "klio-restore",
 			Args: []string{
 				"cnpgi",
 				"restore",
 				backupID,
 				pgdata,
+			},
+			Env: []corev1.EnvVar{
+				{Name: "CONTAINER_NAME", Value: "klio-restore"},
 			},
 		},
 	}
@@ -408,11 +411,20 @@ func buildSendWALSidecarTemplate(
 	return corev1.Container{
 		Name: "klio-wal",
 		Args: args,
+		Env: []corev1.EnvVar{
+			{Name: "CONTAINER_NAME", Value: "klio-wal"},
+		},
 	}
 }
 
 func buildInstanceSidecarTemplate(clusterPC *kliov1alpha1.PluginConfiguration) corev1.Container {
-	instanceSidecar := corev1.Container{Name: "klio-plugin", Args: []string{"cnpgi", "instance"}}
+	instanceSidecar := corev1.Container{
+		Name: "klio-plugin",
+		Args: []string{"cnpgi", "instance"},
+		Env: []corev1.EnvVar{
+			{Name: "CONTAINER_NAME", Value: "klio-plugin"},
+		},
+	}
 	if clusterPC != nil && clusterPC.Spec.MetricsAddressInstance != "" {
 		instanceSidecar.Args = append(instanceSidecar.Args,
 			"--metrics-bind-address",
@@ -481,10 +493,18 @@ func reconcilePodSpec(
 			{Name: "PGHOST", Value: "/controller/run"},
 			{Name: "PGPORT", Value: "5432"},
 			{
-				Name: "PODNAME",
+				Name: "POD_NAME",
 				ValueFrom: &corev1.EnvVarSource{
 					FieldRef: &corev1.ObjectFieldSelector{
 						FieldPath: "metadata.name",
+					},
+				},
+			},
+			{
+				Name: "NAMESPACE_NAME",
+				ValueFrom: &corev1.EnvVarSource{
+					FieldRef: &corev1.ObjectFieldSelector{
+						FieldPath: "metadata.namespace",
 					},
 				},
 			},
