@@ -23,16 +23,16 @@ controllerManager:
           - ALL
     image:
       # -- The image to use for the controller manager container.
-      repository: controller
+      repository: ghcr.io/enterprisedb/klio-operator
       # -- The tag to use for the controller manager container image.
-      tag: latest
+      tag: v0.0.6
       # -- The controller manager container imagePullPolicy.
       pullPolicy: Always
       # -- The list of imagePullSecrets.
       pullSecrets: []
     # -- The environment variables to set in the controller manager container.
     env: {
-      SIDECAR_IMAGE: "registry.dev:5000/klio-testing:dev"
+      SIDECAR_IMAGE: "ghcr.io/enterprisedb/klio:v0.0.6"
     }
     # -- Liveness probe configuration.
     livenessProbe:
