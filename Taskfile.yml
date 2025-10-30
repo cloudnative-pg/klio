@@ -686,7 +686,7 @@ tasks:
       - olm:manifest
     env:
       # renovate: datasource=docker depName=quay.io/operator-framework/operator-sdk versioning=semver
-      OPERATOR_SDK_SHA: f5a33c8c2cbe9c12d30bc556b6f08270c97694b561a3d50f44b2bb9719f73d61
+      OPERATOR_SDK_IMAGE_VERSION: v1.41.1
     cmds:
       - >
         docker
@@ -694,7 +694,7 @@ tasks:
         -u $(id -u)
         -v $(pwd)/operator:/operator
         -w /operator/
-        quay.io/operator-framework/operator-sdk@sha256:${OPERATOR_SDK_SHA}
+        quay.io/operator-framework/operator-sdk:${OPERATOR_SDK_IMAGE_VERSION}
         generate bundle
         --input-dir olm-manifests/
         --kustomize-dir config/manifests
@@ -740,7 +740,7 @@ tasks:
       suffix: '{{ if ( ne .ENVIRONMENT "production" ) }}-testing{{end}}'
       tag: '{{ .TAG | default .IMAGE_TAG }}'
       # renovate: datasource=docker depName=quay.io/operator-framework/opm versioning=semver
-      OPM_SHA: a557ae54b41fee9e0243261f8cf57cf392d6b2b22b82ff40fef1ab45b66683e8
+      OPM_IMAGE_VERSION: v1.60.0
       CONTAINER_AUTH_FILE: '{{ .REGISTRY_AUTH_FILE | default (printf "%s/.docker/config.json" (env "HOME")) }}'
     cmds:
       - >
@@ -753,7 +753,7 @@ tasks:
         -u $(id -u)
         -v $(pwd)/operator/:/operator/
         -w /operator/
-        quay.io/operator-framework/opm@sha256:${OPM_SHA}
+        quay.io/operator-framework/opm:${OPM_IMAGE_VERSION}
         generate dockerfile catalog
       - |
         cat << EOF > operator/klio-operator-template.yaml
@@ -773,7 +773,7 @@ tasks:
         -u $(id -u)
         -v $(pwd)/operator/:/operator/
         -w /operator/
-        quay.io/operator-framework/opm@sha256:${OPM_SHA}
+        quay.io/operator-framework/opm:${OPM_IMAGE_VERSION}
         alpha render-template semver --skip-tls-verify -o yaml klio-operator-template.yaml > operator/catalog/klio-olm-template.yaml
       - >
         docker
@@ -781,7 +781,7 @@ tasks:
         -u $(id -u)
         -v $(pwd)/operator/:/operator/
         -w /operator/
-        quay.io/operator-framework/opm@sha256:${OPM_SHA}
+        quay.io/operator-framework/opm:${OPM_IMAGE_VERSION}
         validate catalog/
     generates:
       - operator/catalog.Dockerfile
