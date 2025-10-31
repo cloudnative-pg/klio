@@ -21,6 +21,7 @@ ClientConfig
 ClientKey
 ClientSecretName
 CloudNativePG
+CloudNativePG's
 ClusterMetadata
 ClusterName
 ControllerManager
