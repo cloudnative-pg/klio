@@ -19,10 +19,7 @@ spec:
     - name: klio.cnpg.io
       enabled: true
       parameters:
-        serverAddress: klioserver-dc-b.dc-b
-        clientSecretName: klio-client-dc-b
-        serverSecretName: klioserver-dc-b-tls
-        pprof: 't'
+        pluginConfigurationRef: client-config-cluster-dc-b
 
   storage:
     size: 1Gi
@@ -49,10 +46,7 @@ spec:
     plugin:
       name: klio.cnpg.io
       parameters:
-        pluginConfigurationRef: client-config-external-cluster-dc-b
-        serverAddress: klioserver-db-b.dc-b
-        clientSecretName: klio-client
-        serverSecretName: klioserver-dc-b-tls
+        pluginConfigurationRef: client-config-cluster-dc-b
 
 ---
 apiVersion: v1
@@ -77,6 +71,7 @@ apiVersion: klio.cnpg.io/v1alpha1
 kind: PluginConfiguration
 metadata:
   name: client-config-external-cluster-dc-a
+  namespace: dc-b
 spec:
   serverAddress: klioserver-dc-a.dc-a
   clientSecretName: klio-client-dc-a
@@ -86,18 +81,21 @@ apiVersion: klio.cnpg.io/v1alpha1
 kind: PluginConfiguration
 metadata:
   name: client-config-external-cluster-dc-a-recovery
+  namespace: dc-b
 spec:
   serverAddress: klioserver-dc-a.dc-a
   clientSecretName: klio-client-dc-a
   serverSecretName: klioserver-dc-a-tls
-  backupId: backup-20250911113300
+  backupId: backup-20251029102351
   clusterName: cluster-dc-a
 ---
 apiVersion: klio.cnpg.io/v1alpha1
 kind: PluginConfiguration
 metadata:
-  name: client-config-external-cluster-dc-b
+  name: client-config-cluster-dc-b
+  namespace: dc-b
 spec:
-  serverAddress: klioserver-db-b.dc-b
-  clientSecretName: klio-client
+  serverAddress: klioserver-dc-b.dc-b
+  clientSecretName: klio-client-dc-b
   serverSecretName: klioserver-dc-b-tls
+  pprof: true
