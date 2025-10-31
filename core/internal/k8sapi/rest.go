@@ -179,7 +179,7 @@ func (r *REST) ConvertToTable(
 
 	for i := range items {
 		row := metav1.TableRow{
-			Cells: []interface{}{
+			Cells: []any{
 				items[i].Name,
 				items[i].Spec.ClusterName,
 				items[i].Status.StartedAt.String(),

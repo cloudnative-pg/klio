@@ -10,7 +10,7 @@ import (
 type ServerSpec struct {
 	// BaseConfiguration is the configuration of the Kopia server
 	// +optional
-	BaseConfiguration BaseConfiguration `json:"baseConfiguration,omitempty"`
+	BaseConfiguration BaseConfiguration `json:"baseConfiguration,omitzero"`
 
 	// Image is the image to be used for the Klio server
 	Image string `json:"image"`
@@ -31,7 +31,7 @@ type ServerSpec struct {
 
 	// Resources defines the resource requirements for the Klio server
 	// +optional
-	Resources corev1.ResourceRequirements `json:"resources,omitempty"`
+	Resources corev1.ResourceRequirements `json:"resources,omitzero"`
 
 	// CacheConfiguration is the configuration of the PVC that should be
 	// used for the cache
@@ -59,11 +59,11 @@ type ServerSpec struct {
 type BaseConfiguration struct {
 	// Resources defines the resource requirements for the Kopia server
 	// +optional
-	Resources corev1.ResourceRequirements `json:"resources,omitempty"`
+	Resources corev1.ResourceRequirements `json:"resources,omitzero"`
 
 	// AdminUser is a reference to a secret of type 'kubernetes.io/basic-auth'
 	// +optional
-	AdminUser corev1.LocalObjectReference `json:"adminUser,omitempty"`
+	AdminUser corev1.LocalObjectReference `json:"adminUser,omitzero"`
 }
 
 // DataConfiguration defines the configuration for the data directory.
@@ -92,8 +92,9 @@ type Server struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata"`
 
-	Spec   ServerSpec   `json:"spec"`
-	Status ServerStatus `json:"status,omitempty"`
+	Spec ServerSpec `json:"spec"`
+	// +optional
+	Status ServerStatus `json:"status,omitzero"`
 }
 
 // +kubebuilder:object:root=true
@@ -101,7 +102,7 @@ type Server struct {
 // ServerList contains a list of Server.
 type ServerList struct {
 	metav1.TypeMeta `json:",inline"`
-	metav1.ListMeta `json:"metadata,omitempty"`
+	metav1.ListMeta `json:"metadata,omitzero"`
 
 	Items []Server `json:"items"`
 }

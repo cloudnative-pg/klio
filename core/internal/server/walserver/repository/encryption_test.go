@@ -39,14 +39,14 @@ func TestPasswordRecovery(t *testing.T) {
 }
 
 func BenchmarkCreateRepo(b *testing.B) {
-	for range b.N {
+	for b.Loop() {
 		_, err := createNewRepositoryConfiguration("random-pwd")
 		require.NoError(b, err)
 	}
 }
 
 func BenchmarkCreateMasterKey(b *testing.B) {
-	for range b.N {
+	for b.Loop() {
 		_, err := createNewMasterKey("random-pwd")
 		require.NoError(b, err)
 	}

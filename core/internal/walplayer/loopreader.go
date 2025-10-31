@@ -28,10 +28,7 @@ func (r *LoopReader) Read(p []byte) (int, error) {
 	n := 0
 	for n < len(p) {
 		remaining := len(r.buf) - r.pos
-		toCopy := len(p) - n
-		if toCopy > remaining {
-			toCopy = remaining
-		}
+		toCopy := min(len(p)-n, remaining)
 
 		copy(p[n:n+toCopy], r.buf[r.pos:r.pos+toCopy])
 		r.pos = (r.pos + toCopy) % len(r.buf)

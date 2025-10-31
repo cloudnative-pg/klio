@@ -131,9 +131,7 @@ func (w *Writer) WriteBlock(ctx context.Context, data []byte) error {
 	// Process data in blocks
 	for start := 0; start < len(data); start += walBlockSize {
 		end := start + walBlockSize
-		if end > len(data) {
-			end = len(data) // ensure we don't go out of bounds
-		}
+		end = min(end, len(data))
 		block := data[start:end]
 
 		if err := w.writeBlockInternal(writeBlockSpanCtx, block); err != nil {

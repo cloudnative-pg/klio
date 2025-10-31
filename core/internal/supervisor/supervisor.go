@@ -34,7 +34,7 @@ type Service struct {
 
 	m                 sync.Mutex
 	processCancelFunc context.CancelCauseFunc
-	startRequests     chan interface{}
+	startRequests     chan any
 }
 
 // NewService creates a service for a process given its
@@ -43,7 +43,7 @@ func NewService(definition *Definition) *Service {
 	return &Service{
 		Definition:    *definition,
 		tickInterval:  10 * time.Second,
-		startRequests: make(chan interface{}, 1),
+		startRequests: make(chan any, 1),
 	}
 }
 

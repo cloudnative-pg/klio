@@ -68,8 +68,9 @@ type KlioBackup struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata"`
 
-	Spec   KlioBackupSpec   `json:"spec"`
-	Status KlioBackupStatus `json:"status,omitempty"`
+	Spec KlioBackupSpec `json:"spec"`
+	// +optional
+	Status KlioBackupStatus `json:"status,omitzero"`
 }
 
 // +kubebuilder:object:root=true
@@ -78,7 +79,7 @@ type KlioBackup struct {
 // KlioBackupList contains a list of KlioBackup.
 type KlioBackupList struct {
 	metav1.TypeMeta `json:",inline"`
-	metav1.ListMeta `json:"metadata,omitempty"`
+	metav1.ListMeta `json:"metadata,omitempty"` //nolint:modernize
 
 	Items []KlioBackup `json:"items"`
 }

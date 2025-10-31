@@ -129,25 +129,19 @@ func (p *Player) Play(ctx context.Context) []WALUploadReport {
 	var results []WALUploadReport
 
 	var wg sync.WaitGroup
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
+	wg.Go(func() {
 		runManager(ctx, p.DirName, queue)
-	}()
+	})
 
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
+	wg.Go(func() {
 		results = runCollector(ctx, resultChannel)
-	}()
+	})
 
 	var wgWorkers sync.WaitGroup
 	for range p.Workers {
-		wgWorkers.Add(1)
-		go func() {
-			defer wgWorkers.Done()
+		wgWorkers.Go(func() {
 			p.runWorker(ctx, queue, resultChannel)
-		}()
+		})
 	}
 	wgWorkers.Wait()
 	close(resultChannel)

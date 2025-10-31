@@ -96,8 +96,9 @@ type PluginConfiguration struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata"`
 
-	Spec   PluginConfigurationSpec   `json:"spec"`
-	Status PluginConfigurationStatus `json:"status,omitempty"`
+	Spec PluginConfigurationSpec `json:"spec"`
+	// +optional
+	Status PluginConfigurationStatus `json:"status,omitzero"`
 }
 
 // +kubebuilder:object:root=true
@@ -105,7 +106,7 @@ type PluginConfiguration struct {
 // PluginConfigurationList contains a list of PluginConfiguration.
 type PluginConfigurationList struct {
 	metav1.TypeMeta `json:",inline"`
-	metav1.ListMeta `json:"metadata,omitempty"`
+	metav1.ListMeta `json:"metadata,omitzero"`
 
 	Items []PluginConfiguration `json:"items"`
 }

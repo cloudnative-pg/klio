@@ -79,7 +79,7 @@ PluginConfiguration is the Schema for the client configuration API.
 | `kind` _string_ | `PluginConfiguration` | True | | |
 | `metadata` _[ObjectMeta](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.32/#objectmeta-v1-meta)_ | Refer to Kubernetes API documentation for fields of `metadata`. | True |  |  |
 | `spec` _[PluginConfigurationSpec](#pluginconfigurationspec)_ |  | True |  | AtMostOneOf: [backupRef backupId] <br /> |
-| `status` _[PluginConfigurationStatus](#pluginconfigurationstatus)_ |  | True |  |  |
+| `status` _[PluginConfigurationStatus](#pluginconfigurationstatus)_ |  |  |  |  |
 
 
 #### PluginConfigurationSpec
@@ -159,7 +159,7 @@ Server is the Schema for the servers API.
 | `kind` _string_ | `Server` | True | | |
 | `metadata` _[ObjectMeta](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.32/#objectmeta-v1-meta)_ | Refer to Kubernetes API documentation for fields of `metadata`. | True |  |  |
 | `spec` _[ServerSpec](#serverspec)_ |  | True |  |  |
-| `status` _[ServerStatus](#serverstatus)_ |  | True |  |  |
+| `status` _[ServerStatus](#serverstatus)_ |  |  |  |  |
 
 
 #### ServerSpec
