@@ -84,16 +84,46 @@ func (e *envBuilder) getCoreEnvVars() []corev1.EnvVar {
 				},
 			},
 		},
-		{Name: "BASE_CACHE", Value: kopiaCacheMountPath},
-		{Name: "BASE_REPOSITORY", Value: basePath},
-		{Name: "BASE_TLS_CERT", Value: "/certs/tls.crt"},
-		{Name: "BASE_TLS_KEY", Value: "/certs/tls.key"},
-		{Name: "BASE_LISTEN_ADDRESS", Value: "0.0.0.0:51515"},
-		{Name: "BASE_HTPASSWD_FILE", Value: path.Join(kopiaConfigMountPath, htpasswdFileName)},
-		{Name: "WAL_LISTEN_ADDRESS", Value: "0.0.0.0:52000"},
-		{Name: "WAL_TLS_CERT", Value: "/certs/tls.crt"},
-		{Name: "WAL_TLS_KEY", Value: "/certs/tls.key"},
-		{Name: "WAL_PATH", Value: walPath},
+		{
+			Name:  "BASE_CACHE",
+			Value: kopiaCacheMountPath,
+		},
+		{
+			Name:  "BASE_REPOSITORY",
+			Value: basePath,
+		},
+		{
+			Name:  "BASE_TLS_CERT",
+			Value: "/certs/tls.crt",
+		},
+		{
+			Name:  "BASE_TLS_KEY",
+			Value: "/certs/tls.key",
+		},
+		{
+			Name:  "BASE_LISTEN_ADDRESS",
+			Value: "0.0.0.0:51515",
+		},
+		{
+			Name:  "BASE_CLIENT_CA_CERT_FILE",
+			Value: "/client-ca/tls.crt",
+		},
+		{
+			Name:  "WAL_LISTEN_ADDRESS",
+			Value: "0.0.0.0:52000",
+		},
+		{
+			Name:  "WAL_TLS_CERT",
+			Value: "/certs/tls.crt",
+		},
+		{
+			Name:  "WAL_TLS_KEY",
+			Value: "/certs/tls.key",
+		},
+		{
+			Name:  "WAL_PATH",
+			Value: walPath,
+		},
 		{
 			Name: "WAL_ENCRYPTION_PASSWORD",
 			ValueFrom: &corev1.EnvVarSource{
@@ -105,7 +135,10 @@ func (e *envBuilder) getCoreEnvVars() []corev1.EnvVar {
 				},
 			},
 		},
-		{Name: "WAL_HTPASSWD_FILE", Value: path.Join(kopiaConfigMountPath, htpasswdFileName)},
+		{
+			Name:  "WAL_CLIENT_CA_CERT_FILE",
+			Value: "/client-ca/tls.crt",
+		},
 	}
 }
 

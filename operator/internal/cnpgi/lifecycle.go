@@ -314,6 +314,15 @@ func (impl LifecycleImplementation) reconcileKlioConfigSecret(
 			Namespace: generatedSecret.Namespace,
 		},
 	}
+
+	if err := controllerutil.SetControllerReference(cluster, &originalSecret, impl.Client.Scheme()); err != nil {
+		return fmt.Errorf(
+			"failed to update controller reference on Klio configuration secret %q: %w",
+			generatedSecret.Name,
+			err,
+		)
+	}
+
 	if _, err := controllerutil.CreateOrUpdate(
 		ctx,
 		impl.Client,
@@ -470,7 +479,7 @@ func reconcilePodSpec(
 		MountPath: "/var/lib/postgresql/klio",
 	})
 
-	// Add the TLS volumes and mounts for the server secrets
+	// Add the TLS volumes and mounts for the server and client secrets
 	tlsVolumesAndMounts, err := getTLSVolumesAndMounts(ctx, cli, cluster)
 	if err != nil {
 		return fmt.Errorf("failed to get TLS volumes and mounts: %w", err)
@@ -614,7 +623,6 @@ func getTLSVolumesAndMounts(
 		// Extract the server secret name from the klio pluginConfig
 		// Assuming we can get it from the WAL repository pluginConfig or base pluginConfig
 		serverSecretName := conf.klioPluginConfiguration.Spec.ServerSecretName
-
 		if serverSecretName != "" {
 			volume := corev1.Volume{
 				Name: getServerSecretVolumeName(hostName),
@@ -635,17 +643,47 @@ func getTLSVolumesAndMounts(
 				VolumeMount: volumeMount,
 			})
 		}
+
+		clientSecretName := conf.klioPluginConfiguration.Spec.ClientSecretName
+		if clientSecretName != "" {
+			volume := corev1.Volume{
+				Name: getClientSecretVolumeName(hostName),
+				VolumeSource: corev1.VolumeSource{
+					Secret: &corev1.SecretVolumeSource{
+						SecretName: clientSecretName,
+					},
+				},
+			}
+
+			volumeMount := corev1.VolumeMount{
+				Name:      getClientSecretVolumeName(hostName),
+				MountPath: getClientSecretVolumeMountPath(hostName),
+			}
+
+			volumesAndMounts = append(volumesAndMounts, volumeAndMount{
+				Volume:      volume,
+				VolumeMount: volumeMount,
+			})
+		}
 	}
 
 	return volumesAndMounts, nil
 }
 
 func getServerSecretVolumeName(hostName string) string {
-	return hostName + "-certs"
+	return hostName + "-server-certs"
 }
 
 func getServerSecretVolumeMountPath(hostName string) string {
-	return "/certs/" + hostName
+	return "/server-certs/" + hostName
+}
+
+func getClientSecretVolumeName(hostName string) string {
+	return hostName + "-client-certs"
+}
+
+func getClientSecretVolumeMountPath(hostName string) string {
+	return "/client-certs/" + hostName
 }
 
 // TODO: move to machinery once the logic is finalized

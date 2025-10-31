@@ -2,6 +2,7 @@ package kopia
 
 import (
 	"context"
+	"crypto/tls"
 	"fmt"
 	"os"
 	"strings"
@@ -35,9 +36,18 @@ func Connect(
 		return nil, fmt.Errorf("while writing a temporary Kopia config: %w", err)
 	}
 
-	certificateFingerprint, err := extractSHA256CertificateFingerprint(kopiaClientConfig.ServerCertPath)
+	certificateFingerprint, err := extractSHA256CertificateFingerprint(
+		kopiaClientConfig.ServerCertPath)
 	if err != nil {
 		return nil, fmt.Errorf("error while extracting fingerprint of the kopia server certificate: %w", err)
+	}
+
+	clientCertificate, err := tls.LoadX509KeyPair(
+		kopiaClientConfig.ClientCertPath,
+		kopiaClientConfig.ClientKeyPath,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("error while parsing client certificate: %w", err)
 	}
 
 	// Normalize the hostname by eventually removing
@@ -48,7 +58,7 @@ func Connect(
 	// this. Should we really do it? Should we just
 	// drop the suffix?
 	hostName := kopiaClientConfig.Hostname
-	userName := strings.TrimSuffix(kopiaClientConfig.Username, "@"+hostName)
+	userName := strings.TrimSuffix(clientCertificate.Leaf.Subject.CommonName, "@"+hostName)
 
 	if err = repo.ConnectAPIServer(
 		ctx,
@@ -56,8 +66,10 @@ func Connect(
 		&repo.APIServerInfo{
 			BaseURL:                             kopiaClientConfig.URL,
 			TrustedServerCertificateFingerprint: certificateFingerprint,
+			ClientCertificateFile:               kopiaClientConfig.ClientCertPath,
+			ClientPrivateKeyFile:                kopiaClientConfig.ClientKeyPath,
 		},
-		kopiaClientConfig.Password,
+		"",
 		&repo.ConnectOptions{
 			ClientOptions: repo.ClientOptions{
 				Hostname: hostName,
@@ -68,7 +80,7 @@ func Connect(
 		return nil, fmt.Errorf("while pinging the repository: %w", err)
 	}
 
-	repository, err := repo.Open(ctx, configFile.Name(), kopiaClientConfig.Password, &repo.Options{})
+	repository, err := repo.Open(ctx, configFile.Name(), "", &repo.Options{})
 	if err != nil {
 		return nil, fmt.Errorf("while opening the repository: %w", err)
 	}
@@ -76,6 +88,18 @@ func Connect(
 	return &Connection{
 		repository: repository,
 	}, nil
+}
+
+// GetUsername gets the username we are using for the connection.
+// This is read from the client certificate.
+func (s *Connection) GetUsername() string {
+	return s.repository.ClientOptions().Username
+}
+
+// GetHostname gets the hostname we are using for the connection.
+// This is read from the client certificate.
+func (s *Connection) GetHostname() string {
+	return s.repository.ClientOptions().Hostname
 }
 
 // Close closes the connection to the repository.

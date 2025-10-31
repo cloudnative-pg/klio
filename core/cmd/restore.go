@@ -75,8 +75,8 @@ var restoreCmd = &cobra.Command{
 			client.CreateRestorer(
 				notifier.NewDownloadLogNotifier(contextLogger),
 				kopia.Target{
-					Hostname: configuration.Client.Base.Hostname,
-					Username: configuration.Client.Base.Username,
+					Hostname: client.GetHostname(),
+					Username: client.GetUsername(),
 				},
 			),
 			common.RestoreConfiguration{

@@ -33,15 +33,24 @@ func newBackupFeature(
 	issuer := certificates.GetSelfSignedIssuerObject("selfsigned-issuer", namespace)
 	certificate := certificates.GetCertificateObject("test", namespace, []string{klioServerName}, issuer)
 
-	clientSecret := secrets.GetKlioClientSecret("klio-client", namespace, "klio", "testclientpassword123")
-	cnpgCluster := templates.GetCnpgClusterObject("test-cluster", namespace, instances, "klio-plugin-configuration")
-	klioPluginConfiguration := templates.GetKlioPluginConfigurationObject(
-		"klio-plugin-configuration", namespace, certificate, clientSecret)
+	caCertificate := certificates.GetCACertificateObject("test-ca", namespace, issuer)
+	caIssuer := certificates.GetCAIssuerObject("test-ca-issuer", namespace, caCertificate.Spec.SecretName)
 
-	userSecret := secrets.GetKlioUsersSecret("test-user", namespace, clientSecret, cnpgCluster.Name)
+	cnpgCluster := templates.GetCnpgClusterObject("test-cluster", namespace, instances, "klio-plugin-configuration")
+
+	userCertificate := certificates.GetUserCertificateObject("klio-user", namespace, "klio-user@test-cluster", caIssuer)
+	klioPluginConfiguration := templates.GetKlioPluginConfigurationObject(
+		"klio-plugin-configuration", namespace, certificate, userCertificate)
 	encryptionSecret := secrets.GetKlioEncryptionSecret("encryption", namespace, "testencryptionpassword123")
-	klioServer := templates.GetKlioServerObject(klioServerName, namespace, certificate.Spec.SecretName,
-		encryptionSecret, userSecret)
+	klioServer := templates.GetKlioServerObject(
+		klioServerName,
+		namespace,
+		templates.KlioServerTemplateOptions{
+			TLSSecretName:        certificate.Spec.SecretName,
+			ClientCASecretName:   caCertificate.Spec.SecretName,
+			EncryptionSecretName: encryptionSecret.Name,
+		},
+	)
 
 	backup := templates.GetCnpgBackupObject("test-backup", namespace, backupTarget, cnpgCluster)
 
@@ -51,13 +60,14 @@ func newBackupFeature(
 		r, err := resources.New(cfg.Client().RESTConfig())
 		require.NoError(t, err, "failed to create resources client")
 		require.NoError(t, r.Create(ctx, namespaceObj), "failed to create namespace")
-		require.NoError(t, r.Create(ctx, clientSecret), "failed to create client secret")
 		require.NoError(t, r.Create(ctx, cnpgCluster), "failed to create CNPG cluster")
 		require.NoError(t, r.Create(ctx, klioPluginConfiguration), "failed to create Klio plugin configuration")
-		require.NoError(t, r.Create(ctx, userSecret), "failed to create user secret")
 		require.NoError(t, r.Create(ctx, encryptionSecret), "failed to create encryption secret")
 		require.NoError(t, r.Create(ctx, issuer), "failed to create issuer")
+		require.NoError(t, r.Create(ctx, caCertificate), "failed to create CA certificate")
+		require.NoError(t, r.Create(ctx, caIssuer), "failed to create CA issuer")
 		require.NoError(t, r.Create(ctx, certificate), "failed to create certificate")
+		require.NoError(t, r.Create(ctx, userCertificate), "failed to create user certificate")
 		require.NoError(t, r.Create(ctx, klioServer), "failed to create KLIO server")
 
 		t.Logf("Waiting for resources to be ready for backup feature: %s", name)

@@ -60,8 +60,8 @@ var listCmd = &cobra.Command{
 		restorer := client.CreateRestorer(
 			notifier.NewDownloadLogNotifier(contextLogger),
 			kopia.Target{
-				Hostname: configuration.Client.Base.Hostname,
-				Username: configuration.Client.Base.Username,
+				Hostname: client.GetHostname(),
+				Username: client.GetUsername(),
 			},
 		)
 

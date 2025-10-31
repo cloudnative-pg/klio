@@ -1,6 +1,0 @@
-apiVersion: v1
-data:
-  htpasswd: a2xpb0BjbHVzdGVyLWV4YW1wbGU6JGFwcjEkY1NaaHJ2WUYkTjVMTVdXTWFvU3RnV29KczdUa2c2MAoK
-kind: Secret
-metadata:
-  name: klio-users

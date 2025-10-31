@@ -17,6 +17,9 @@ linters:
     - godox
     - noinlineerr
   settings:
+    gomoddirectives:
+      replace-allow-list:
+        - github.com/kopia/kopia
     lll:
       line-length: 120
     nlreturn:

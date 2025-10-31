@@ -46,16 +46,30 @@ func NewTablespaceRecoveryFeatureConfig(
 	issuer := certificates.GetSelfSignedIssuerObject("selfsigned-issuer", namespace)
 	certificate := certificates.GetCertificateObject("test", namespace, []string{klioServerName}, issuer)
 
-	clientSecret := secrets.GetKlioClientSecret("klio-client", namespace, "klio", "testclientpassword123")
+	caCertificate := certificates.GetCACertificateObject("test-ca", namespace, issuer)
+	caIssuer := certificates.GetCAIssuerObject("test-ca-issuer", namespace, caCertificate.Spec.SecretName)
+
 	cnpgCluster := templates.GetCnpgClusterWithTablespacesObject(
 		"test-cluster-source", namespace, instances, "klio-plugin-configuration", tablespaceConfig)
-	klioPluginConfigurationSource := templates.GetKlioPluginConfigurationObject(
-		"klio-plugin-configuration", namespace, certificate, clientSecret)
 
-	userSecret := secrets.GetKlioUsersSecret("test-user", namespace, clientSecret, cnpgCluster.Name)
+	userCertificate := certificates.GetUserCertificateObject(
+		"klio-user",
+		namespace,
+		"klio-user@test-cluster-source",
+		caIssuer,
+	)
+	klioPluginConfigurationSource := templates.GetKlioPluginConfigurationObject(
+		"klio-plugin-configuration", namespace, certificate, userCertificate)
 	encryptionSecret := secrets.GetKlioEncryptionSecret("encryption", namespace, "testencryptionpassword123")
-	klioServer := templates.GetKlioServerObject(klioServerName, namespace, certificate.Spec.SecretName,
-		encryptionSecret, userSecret)
+	klioServer := templates.GetKlioServerObject(
+		klioServerName,
+		namespace,
+		templates.KlioServerTemplateOptions{
+			TLSSecretName:        certificate.Spec.SecretName,
+			ClientCASecretName:   caCertificate.Spec.SecretName,
+			EncryptionSecretName: encryptionSecret.Name,
+		},
+	)
 
 	backup := templates.GetCnpgBackupObject("test-backup", namespace, cnpgv1.DefaultBackupTarget, cnpgCluster)
 
@@ -88,12 +102,13 @@ func NewTablespaceRecoveryFeatureConfig(
 
 	c := commonBackupRestoreScenario{
 		namespace:                       namespaceObj,
-		clientSecret:                    clientSecret,
 		cnpgCluster:                     cnpgCluster,
-		userSecret:                      userSecret,
+		userCertificate:                 userCertificate,
 		encryptionSecret:                encryptionSecret,
 		issuer:                          issuer,
 		certificate:                     certificate,
+		caCertificate:                   caCertificate,
+		caIssuer:                        caIssuer,
 		klioServer:                      klioServer,
 		klioPluginConfigurationSource:   klioPluginConfigurationSource,
 		klioPluginConfigurationRecovery: klioPluginConfigurationRecovery,

@@ -53,8 +53,8 @@ var getCmd = &cobra.Command{
 		effectivePolicy, err := client.GetRetentionPolicy(
 			cmd.Context(),
 			kopia.Target{
-				Hostname: configuration.Client.Base.Hostname,
-				Username: configuration.Client.Base.Username,
+				Hostname: client.GetHostname(),
+				Username: client.GetUsername(),
 			},
 		)
 		if err != nil {

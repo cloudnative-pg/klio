@@ -30,21 +30,10 @@ spec:
     key: password
 
   tlsSecretName: server-sample-tls
-  users:
-    name: server-sample-users
+  caSecretName: server-sample-ca
 
   image: registry.dev:5000/klio-testing:dev
   imagePullPolicy: Always
----
-apiVersion: v1
-data:
-  htpasswd: |
-    a2xpb0BjbHVzdGVyLWV4YW1wbGU6JDJ5JDEwJE5zRHl1NG1Ha1pDTE93eGkvWjdkek9aOFVPTzBB
-    QXBCY28ua3I2LlhyVFJGRERxRFpaMkFpCnNuYXBzaG90X3JlYWRlckBrbGlvOiRhcHIxJGRTN0E4
-    SUczJFE5SHgxOXlNaTVrVGNVektnNXYvRTA=
-kind: Secret
-metadata:
-  name: server-sample-users
 ---
 apiVersion: v1
 data:
@@ -71,7 +60,7 @@ spec:
 apiVersion: cert-manager.io/v1
 kind: Certificate
 metadata:
-  name: server-sample
+  name: server-sample-tls
 spec:
   secretName: server-sample-tls
   commonName: server-sample
@@ -91,3 +80,31 @@ spec:
     name: selfsigned-issuer
     kind: Issuer
     group: cert-manager.io
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: server-sample-ca
+spec:
+  commonName: server-sample
+  secretName: server-sample-ca
+
+  duration: 2160h # 90d
+  renewBefore: 360h # 15d
+
+  isCA: true
+  usages:
+    - cert sign
+
+  issuerRef:
+    name: selfsigned-issuer
+    kind: Issuer
+    group: cert-manager.io
+---
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  name: server-sample-ca
+spec:
+  ca:
+    secretName: server-sample-ca

@@ -25,6 +25,10 @@ spec:
           secret:
             defaultMode: 420
             secretName: klio-api-tls
+        - name: klio-client-tls
+          secret:
+            defaultMode: 420
+            secretName: client-sample-tls
         - emptyDir: {}
           name: scratch-data
       containers:
@@ -48,6 +52,10 @@ spec:
             value: /klio-api/certs/tls.crt
           - name: CLIENT_BASE_API_SERVER_KEYFILE
             value: /klio-api/certs/tls.key
+          - name: CLIENT_BASE_CLIENT_CERT_PATH
+            value: /client-certs/tls.crt
+          - name: CLIENT_BASE_CLIENT_KEY_PATH
+            value: /client-certs/tls.key
           - name: TMPDIR
             value: /tmp
         image: registry.dev:5000/klio-testing:dev
@@ -59,6 +67,8 @@ spec:
         volumeMounts:
           - mountPath: /certs
             name: klio-server-tls
+          - mountPath: /client-certs
+            name: klio-client-tls
           - mountPath: /klio-api/certs
             name: klio-api-tls
           - mountPath: /tmp

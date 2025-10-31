@@ -84,7 +84,7 @@ wal:
   tls_key: /home/klio/server.key
   path: /home/klio/klio_data/wals
   encryption_password: cicciopasticcio
-  htpasswd_file: /home/klio/klio_data/htpasswd
+  client_ca_cert_file: ca-cert.pem
 
 base:
   repository: /home/klio/klio_data/base
@@ -93,7 +93,7 @@ base:
   tls_cert: /home/klio/server.crt
   tls_key: /home/klio/server.key
   listen_address: 0.0.0.0:52000
-  htpasswd_file: /home/klio/klio_data/htpasswd
+  client_ca_cert_file: ca-cert.pem
   admin_user: kopia
   admin_password: cicciopasticcio
 ```
@@ -101,6 +101,12 @@ base:
 A new Klio repository for both WAL and base backups can be bootstrapped with:
 
 ```sh
+openssl genrsa -out ca-key.pem 2048
+
+openssl req -new -key ca-key.pem -out ca-csr.pem -subj "/CN=KlioClientsCA"
+
+openssl x509 -req -in ca-csr.pem -signkey ca-key.pem -out ca-cert.pem -days 365 -extfile <(printf "basicConstraints=CA:TRUE,pathlen:0\nkeyUsage=critical,cRLSign,keyCertSign")
+
 openssl req -x509 -newkey rsa:4096 -sha256 -days 3650 \
   -nodes -keyout server.key -out server.crt -subj "/CN=klio-server" \
   -addext "subjectAltName=DNS:klio-server,IP:127.0.0.1"
@@ -128,6 +134,8 @@ Given the following configuration file in `/var/lib/postgresql/.klio.yaml`:
 client:
   wal:
     server_cert_path: /home/klio/server.crt
+    client_cert_path: /home/klio/client-cert.pem
+    client_key_path: /home/klio/client-key.pem
     address: klio-server:52000
     cluster_name: pg-dev-1
     username: klio
@@ -136,11 +144,12 @@ client:
   base:
     url: https://klio-server:52001
     server_cert_path: /home/klio/server.crt
+    client_cert_path: /home/klio/client-cert.pem
+    client_key_path: /home/klio/client-key.pem
     hostname: pg-dev-1
     username: klio
     password: cicciopasticcio
     slot: klio
-    trusted_server_certificate_fingerprint: FF9966B2C8C96E21854C1638DD174C957A7087DA864A5254B9E94EA3CB54839B
 
 source:
   dsn: "user=postgres replication=yes"
@@ -148,10 +157,26 @@ source:
   slot: klio
 ```
 
-Important: the certificate fingerprint can be found with:
+The client certificates can be created with:
 
 ```sh
-openssl x509 -in /home/ubuntu/klio_data/server.crt -text -fingerprint -sha256
+openssl genrsa -out client-key.pem 2048
+
+openssl req -new -key client-key.pem -out client-csr.pem -subj "/CN=klio@cluster-example"
+
+cat <<EOF > client-ext.cnf
+[ req ]
+distinguished_name = req_distinguished_name
+
+[ req_distinguished_name ]
+CN = klio@cluster-example
+
+[ usr_cert ]
+keyUsage = critical, digitalSignature
+extendedKeyUsage = clientAuth
+EOF
+
+openssl x509 -req -in client-csr.pem -CA ca-cert.pem -CAkey ca-key.pem -CAcreateserial -out client-cert.pem -days 365 -extfile client-ext.cnf -extensions usr_cert
 ```
 
 ## How to setup testing environment on VMs
@@ -234,7 +259,7 @@ wal:
   tls_key: /home/klio/server.key
   path: /home/klio/klio_data/wals
   encryption_password: cicciopasticcio
-  htpasswd_file: /home/klio/klio_data/htpasswd
+  client_ca_cert_file: /home/klio/ca-cert.pem
 
 base:
   repository: /home/klio/klio_data/base
@@ -243,16 +268,24 @@ base:
   tls_cert: /home/klio/server.crt
   tls_key: /home/klio/server.key
   listen_address: 0.0.0.0:52001
-  htpasswd_file: /home/klio/klio_data/htpasswd
+  client_ca_cert_file: /home/klio/ca-cert.pem
   admin_user: kopia
   admin_password: cicciopasticcio
 EOF
 
+  # Initialize Klio Client CA
+  openssl genrsa -out ca-key.pem 2048
+
+  openssl req -new -key ca-key.pem -out ca-csr.pem -subj "/CN=KlioClientsCA"
+
+  openssl x509 -req -in ca-csr.pem -signkey ca-key.pem -out ca-cert.pem -days 365 -extfile <(printf "basicConstraints=CA:TRUE,pathlen:0\nkeyUsage=critical,cRLSign,keyCertSign")
+
+  openssl req -x509 -newkey rsa:4096 -sha256 -days 3650 \
+    -nodes -keyout server.key -out server.crt -subj "/CN=klio-server" \
+    -addext "subjectAltName=DNS:klio-server,IP:127.0.0.1"
+
   # Initialize Klio repository
   ./klio server initialize
-
-  # Create the user:password htpasswd file
-  htpasswd -Bbn klio@pg-origin cicciopasticcio | tee klio_data/htpasswd
   ```
 
 3. Start the klio servers on separate terminals:

@@ -274,7 +274,6 @@ func (in *ServerSpec) DeepCopyInto(out *ServerSpec) {
 		*out = new(api.SecretKeySelector)
 		**out = **in
 	}
-	out.Users = in.Users
 	if in.Template != nil {
 		in, out := &in.Template, &out.Template
 		*out = new(v1.PodTemplateSpec)

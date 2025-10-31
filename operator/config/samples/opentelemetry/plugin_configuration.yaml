@@ -4,5 +4,5 @@ metadata:
   name: client-config-cluster-example
 spec:
   serverAddress: klio.default
-  clientSecretName: klio-client
+  clientSecretName: cluster-example-klio-user
   serverSecretName: klio-server-tls

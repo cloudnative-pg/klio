@@ -117,6 +117,11 @@ spec:
                         type: object
                     type: object
                 type: object
+              caSecretName:
+                description: |-
+                  ClientCASecretName is the name of the Kubernetes secret containing the CA certificate
+                  to be used by the Klio server to validate the users.
+                type: string
               cacheConfiguration:
                 description: |-
                   CacheConfiguration is the configuration of the PVC that should be
@@ -9051,28 +9056,13 @@ spec:
                   TLSSecretName is the name of the Kubernetes secret containing the server-side certificate
                   to be used for the Klio server.
                 type: string
-              users:
-                description: Users is a reference to a secret containing a htpasswd
-                  file at the 'htpasswd' key.
-                properties:
-                  name:
-                    default: ""
-                    description: |-
-                      Name of the referent.
-                      This field is effectively required, but due to backwards compatibility is
-                      allowed to be empty. Instances of this type with an empty value here are
-                      almost certainly wrong.
-                      More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-                    type: string
-                type: object
-                x-kubernetes-map-type: atomic
             required:
+            - caSecretName
             - cacheConfiguration
             - dataConfiguration
             - image
             - password
             - tlsSecretName
-            - users
             type: object
           status:
             description: ServerStatus defines the observed state of Server.

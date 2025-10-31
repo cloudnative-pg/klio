@@ -20,12 +20,13 @@ import (
 
 type commonBackupRestoreScenario struct {
 	namespace                       *corev1.Namespace
-	clientSecret                    *corev1.Secret
-	userSecret                      *corev1.Secret
+	userCertificate                 *certmanagerv1.Certificate
 	encryptionSecret                *corev1.Secret
 	cnpgCluster                     *cnpgv1.Cluster
 	issuer                          *certmanagerv1.Issuer
 	certificate                     *certmanagerv1.Certificate
+	caIssuer                        *certmanagerv1.Issuer
+	caCertificate                   *certmanagerv1.Certificate
 	klioServer                      *kliov1alpha1.Server
 	klioPluginConfigurationSource   *kliov1alpha1.PluginConfiguration
 	klioPluginConfigurationRecovery *kliov1alpha1.PluginConfiguration
@@ -46,15 +47,16 @@ func (c *commonBackupRestoreScenario) Setup(
 	r, err := resources.New(cfg.Client().RESTConfig())
 	require.NoError(t, err, "failed to create resources client")
 	require.NoError(t, r.Create(ctx, c.namespace), "failed to create namespace")
-	require.NoError(t, r.Create(ctx, c.clientSecret), "failed to create client secret")
 	require.NoError(t, r.Create(ctx, c.cnpgCluster), "failed to create CNPG source Cluster")
 	require.NoError(t, r.Create(ctx, c.klioPluginConfigurationSource),
 		"failed to create Klio plugin configuration for source cluster")
 	require.NoError(t, r.Create(ctx, c.klioPluginConfigurationRecovery),
 		"failed to create Klio plugin configuration for recovery cluster")
-	require.NoError(t, r.Create(ctx, c.userSecret), "failed to create user secret")
+	require.NoError(t, r.Create(ctx, c.userCertificate), "failed to create user secret")
 	require.NoError(t, r.Create(ctx, c.encryptionSecret), "failed to create encryption secret")
 	require.NoError(t, r.Create(ctx, c.issuer), "failed to create issuer")
+	require.NoError(t, r.Create(ctx, c.caIssuer), "failed to create CA issuer")
+	require.NoError(t, r.Create(ctx, c.caCertificate), "failed to create CA certificate")
 	require.NoError(t, r.Create(ctx, c.certificate), "failed to create certificate")
 	require.NoError(t, r.Create(ctx, c.klioServer), "failed to create KLIO server")
 

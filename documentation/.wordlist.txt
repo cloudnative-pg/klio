@@ -16,6 +16,7 @@ CNPG
 CRDs
 CRs
 CacheConfiguration
+ClientCASecretName
 ClientCertificate
 ClientConfig
 ClientKey
@@ -92,6 +93,7 @@ PBKDF
 PEM
 PGData
 PITR
+PKI
 PV
 PersistentVolume
 PersistentVolumeClaimSpec

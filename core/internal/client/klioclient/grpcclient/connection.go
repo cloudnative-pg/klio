@@ -60,18 +60,22 @@ func Connect(cfg *config.WalRepositoryClientConfig) (*Connection, error) {
 		return nil, ErrInconsistentCertificate
 	}
 
+	clientCertificate, err := tls.LoadX509KeyPair(cfg.ClientCertPath, cfg.ClientKeyPath)
+	if err != nil {
+		return nil, fmt.Errorf("while parsing the client certificate: %w", err)
+	}
+
 	tlsConfig := &tls.Config{
 		RootCAs:    serverCertificatePool,
 		MinVersion: tls.VersionTLS13,
+		Certificates: []tls.Certificate{
+			clientCertificate,
+		},
 	}
 
 	conn, err := grpc.NewClient(
 		cfg.Address,
 		grpc.WithTransportCredentials(credentials.NewTLS(tlsConfig)),
-		grpc.WithPerRPCCredentials(&basicAuthCredentials{
-			username: fmt.Sprintf("%s@%s", cfg.Username, cfg.ClusterName),
-			password: cfg.Password,
-		}),
 		grpc.WithInitialWindowSize(256*1024),
 		grpc.WithInitialConnWindowSize(256*1024),
 		grpc.WithReadBufferSize(256*1024),

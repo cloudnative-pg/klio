@@ -45,7 +45,7 @@ A Klio server setup requires the following components:
 1. **Server Resource**: The main `Server` custom resource
 2. **TLS Certificate**: For secure communication
 3. **Encryption Password**: For encrypting backup data at rest
-4. **User Credentials**: For authentication via htpasswd
+4. **CA Certificate**: For client authentication via mTLS
 5. **Admin User Credentials**: Optional admin user for Kopia operations
 6. **Storage**: PersistentVolumeClaims for data and cache
 
@@ -77,53 +77,59 @@ Use a strong, randomly generated password. This password is critical for
 data security and recovery.
 :::
 
-#### 2. Create user credentials
+#### 2. Create CA Certificate
 
-Create user credentials for authentication using the `htpasswd` format.
-The secret must contain an `htpasswd` key with base64-encoded credentials:
+Using cert-manager, a CA certificate can be created by using the following
+Certificate resource:
 
 ```yaml
-apiVersion: v1
-kind: Secret
+---
+apiVersion: cert-manager.io/v1
+kind: Issuer
 metadata:
-  name: my-server-users
+  name: selfsigned-issuer
   namespace: default
-type: Opaque
-data:
-  # Format: username:hashed-password
-  # Example: klio@my-cluster with password
-  htpasswd: a2xpb0BteS1jbHVzdGVyOiQyeSQwNSRVaXpuRzhnRzhBejZIS1FnL01OS2FPb0NyQUplM2RqNmg5Y3ZhT1drL0VJZHo5OXJhczNnYQoK
+spec:
+  selfSigned: { }
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: server-sample-ca
+spec:
+  commonName: server-sample-ca
+  secretName: server-sample-ca
+
+  duration: 2160h # 90d
+  renewBefore: 360h # 15d
+
+  isCA: true
+  usages:
+    - cert sign
+
+  issuerRef:
+    name: selfsigned-issuer
+    kind: Issuer
+    group: cert-manager.io
 ```
 
-To generate `htpasswd` entries:
+Apply the CA configuration with:
 
-```bash
-# Generate password hash for your cluster user
-htpasswd -nbB klio@my-cluster "my-password" > htpasswd-file
-
-# Add the snapshot_reader user (required for API server ACL automation)
-htpasswd -nbB snapshot_reader@klio "reader-password" >> htpasswd-file
-
-# Base64 encode the file for the Kubernetes secret
-cat htpasswd-file | base64 -w0
+```
+kubectl apply -f ca-configuration.yaml
 ```
 
-Apply the secret:
+In the previous example, the CA to be used for authentication is signed by a
+self-signed issuer. This doesn't pose any security issue as this CA is only
+used internally and trust is established through configuration.
 
-```bash
-kubectl apply -f user-credentials.yaml
-```
+The primary concern is the relationship between the client and the certificates
+signed by the CA.
 
-:::note
-You can add multiple users by including additional lines in the `htpasswd` key,
-each formatted as `username:hashed-password`. The `snapshot_reader@klio` user
-is required for the automated ACL system that enables the API server to query
-backup catalogs.
-:::
-
-:::warning
-Changing the secret will require restarting the Klio server to pick up the new
-credentials.
+:::info
+The usage of a self-signed CA is not required by the Klio server. If your
+PKI infrastructure already includes a CA for this scope, that CA can be used
+for the Klio server, too.
 :::
 
 #### 3. (Optional) Create Admin User Credentials
@@ -218,14 +224,13 @@ spec:
   # TLS configuration
   tlsSecretName: my-server-tls
 
+  # Client authentication configuration
+  caSecretName: server-sample-ca
+
   # Encryption password reference
   password:
     name: my-server-encryption
     key: password
-
-  # User credentials reference
-  users:
-    name: my-server-users
 
   # Optional: Admin user for Kopia operations
   baseConfiguration:
@@ -415,58 +420,52 @@ backup data is protected both at rest and in transit.
 
 ## Authentication
 
-Klio uses HTTP Basic Authentication for securing access to both the base backup
-server and the WAL streaming server. Authentication is handled through htpasswd
-files, a widely-used format for storing username and password credentials.
+Klio uses mTLS Authentication for securing access to both the base backup server
+and the WAL streaming server. Authentication is handled by verify the client
+certificates against the CA certificate which has been created when configuring
+the Klio server.
 
-### How Authentication Works
+### Creating a client-side certificate
 
-Both the `base` and `wal` containers require authentication:
-
-- **Base Container**: Authenticates Kopia client connections for backup and
-  restore operations
-- **WAL Container**: Authenticates PostgreSQL instances streaming WAL files via
-  gRPC
-
-Credentials are validated against the htpasswd file mounted from the Kubernetes
-secret specified in `.spec.users`.
-
-### User Credentials Format
-
-The authentication secret must contain an `htpasswd` key with base64-encoded
-credentials in the standard htpasswd format:
+To create a client-side certificate, you need a issuer that will sign all the
+certificates with a CA known by the Klio server. Supposing that such a issuer is
+called `server-sample-ca` and available in the current namespace, you can create
+a client certificate with the following Certificate object:
 
 ```yaml
-apiVersion: v1
-kind: Secret
+apiVersion: cert-manager.io/v1
+kind: Certificate
 metadata:
-  name: my-server-users
-  namespace: default
-type: Opaque
-data:
-  htpasswd: <base64-encoded-htpasswd-content>
+  name: client-sample-tls
+spec:
+  secretName: client-sample-tls
+  commonName: klio@cluster-1
+
+  duration: 2160h # 90d
+  renewBefore: 360h # 15d
+
+  isCA: false
+  usages:
+    - client auth
+
+  issuerRef:
+    name: server-sample-ca
+    kind: Issuer
+    group: cert-manager.io
 ```
 
-### Managing Multiple Users
+If used the example proposed in the [server configuration documentation
+page](#2-create-ca-certificate), the issuer can be created with:
 
-You can define multiple users in the same htpasswd file. Each line represents
-one user in the format `username:hashed-password`:
-
-```bash
-# Create htpasswd file with multiple users
-htpasswd -nbB klio@cluster-1 "password1" > htpasswd-file
-htpasswd -nbB klio@cluster-2 "password2" >> htpasswd-file
-htpasswd -nbB restore-user@cluster-1 "password3" >> htpasswd-file
-
-# Base64 encode and use in secret
-cat htpasswd-file | base64 -w 0
+```yaml
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  name: server-sample-ca
+spec:
+  ca:
+    secretName: server-sample-ca
 ```
-
-Each PostgreSQL cluster or client can use different credentials, allowing for:
-
-- **Cluster isolation**: Each cluster uses its own credentials
-- **Access auditing**: Different users for different purposes (backup, restore, etc.)
-- **Credential rotation**: Individual credentials can be updated independently
 
 ### Admin User (Optional)
 
@@ -496,27 +495,8 @@ data:
 
 :::info
 The admin user is primarily intended for debugging and should be used sparingly
-in production environments. Regular backup and restore operations use the
-htpasswd-based credentials.
-:::
-
-### Credential Updates
-
-To update user credentials:
-
-1. Update the htpasswd secret with new credentials
-2. Restart the Klio server pod to pick up the changes:
-
-```bash
-kubectl rollout restart statefulset my-server-klio -n default
-```
-
-:::tip Security Best Practices
-- Use strong, unique passwords for each user
-- Rotate credentials periodically
-- Use the bcrypt algorithm (`-B` flag) when generating htpasswd entries
-- Store secrets securely using your organization's secrets management solution
-- Consider using different credentials for each PostgreSQL cluster
+in production environments. Regular backup and restore operations use mTLS
+certificates.
 :::
 
 ## Access Control Lists (ACLs)
@@ -570,31 +550,32 @@ However, the read-only user **cannot**:
 
 ### User Configuration
 
-To use the automated ACL system, you need to add the `snapshot_reader@klio` user
-to your htpasswd credentials file:
+From the authentication point-of-view, the `snapshot_reader@klio` user is not
+special, and to use it you need a corresponding Secret containing a certificate
+to be used for authentication.
 
-```bash
-# Generate the snapshot_reader@klio user credentials
-htpasswd -nbB snapshot_reader@klio "your-secure-password" >> htpasswd-file
-
-# Base64 encode for the Kubernetes secret
-cat htpasswd-file | base64 -w 0
-```
-
-Example htpasswd secret with both cluster credentials and the snapshot reader:
+Cert-manager can create such a secret with the following Certificate definition:
 
 ```yaml
-apiVersion: v1
-kind: Secret
+apiVersion: cert-manager.io/v1
+kind: Certificate
 metadata:
-  name: my-server-users
-  namespace: default
-type: Opaque
-data:
-  htpasswd: |
-    <base64-encoded content with entries like:>
-    klio@my-cluster:$2y$10$...
-    snapshot_reader@klio:$apr1$...
+  name: client-sample-tls
+spec:
+  secretName: client-sample-tls
+  commonName: snapshot_reader@klio
+
+  duration: 2160h # 90d
+  renewBefore: 360h # 15d
+
+  isCA: false
+  usages:
+    - client auth
+
+  issuerRef:
+    name: server-sample-ca
+    kind: Issuer
+    group: cert-manager.io
 ```
 
 ### API Server Integration
@@ -604,8 +585,10 @@ The Klio API server deployment is automatically configured to use the
 environment variable configuration in the API server deployment:
 
 ```yaml
-- name: CLIENT_BASE_USERNAME
-  value: snapshot_reader
+- name: CLIENT_BASE_CLIENT_CERT_PATH
+  value: /client-certs/tls.crt
+- name: CLIENT_BASE_CLIENT_KEY_PATH
+  value: /client-certs/tls.key
 ```
 
 No manual configuration is required - the API server will automatically use the

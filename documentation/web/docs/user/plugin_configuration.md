@@ -48,30 +48,17 @@ metadata:
   namespace: default
 spec:
   serverAddress: klio-server.default
-  clientSecretName: klio-client-credentials
+  clientSecretName: client-sample-tls
   serverSecretName: klio-server-tls
 ```
 
 ### Client credentials secret
 
 The client credentials must be stored in a Kubernetes Secret of type
-`kubernetes.io/basic-auth` or a generic Secret containing `username` and
-`password` keys:
+`kubernetes.io/tls`, containing a secret to be presented to the Klio server.
 
-```yaml
-apiVersion: v1
-kind: Secret
-metadata:
-  name: klio-client-credentials
-  namespace: default
-type: kubernetes.io/basic-auth
-data:
-  username: a2xpbw==       # base64-encoded username
-  password: cGFzc3dvcmQ=   # base64-encoded password
-```
-
-These credentials will be used by the Klio plugin to authenticate with the
-Klio server, and must match a user configured in the Klio server htpasswd file.
+This secret can be generated with cert-manager by following the [documentation
+in the Klio server page](klio_server.md#creating-a-client-side-certificate).
 
 ### Server Address
 

@@ -57,9 +57,9 @@ type BaseServerConfig struct {
 	// ListenAddress is the address where we should listen to
 	ListenAddress string `mapstructure:"listen_address" validate:"nonzero"`
 
-	// HTPasswdFile is the file containing the credentials of the users that are
-	// allowed to use the Kopia server
-	HTPasswdFile string `mapstructure:"htpasswd_file" validate:"nonzero"`
+	// ClientCACertFile is the file containing the CA certificate to be used
+	// to verify client certificates
+	ClientCACertFile string `mapstructure:"client_ca_cert_file" validate:"nonzero"`
 
 	// AdminUser kopia super-user name
 	AdminUser string `mapstructure:"admin_user"`
@@ -114,12 +114,11 @@ type WalRepositoryClientConfig struct {
 	// ServerCertPath is the path to the server public key
 	ServerCertPath string `json:"server_cert_path" mapstructure:"server_cert_path" validate:"nonzero"`
 
-	// Username is the Klio server username.
-	// This is used to create the full username, in the form <username>@<hostname>
-	Username string `json:"username" mapstructure:"username" validate:"nonzero"`
+	// ClientCertPath is the path to the client public key
+	ClientCertPath string `json:"client_cert_path" mapstructure:"client_cert_path" validate:"nonzero"`
 
-	// Password is the Klio server password
-	Password string `json:"password" mapstructure:"password" validate:"nonzero"`
+	// ClientKeyPath is the path to the client private key
+	ClientKeyPath string `json:"client_key_path" mapstructure:"client_key_path" validate:"nonzero"`
 }
 
 // BaseRepositoryClientConfig is the configuration of the Kopia repository
@@ -135,12 +134,11 @@ type BaseRepositoryClientConfig struct {
 	// This is used to create the full username, in the form <username>@<hostname>
 	Hostname string `json:"hostname" mapstructure:"hostname" validate:"nonzero"`
 
-	// Username is the Klio server username.
-	// This is used to create the full username, in the form <username>@<hostname>
-	Username string `json:"username" mapstructure:"username" validate:"nonzero"`
+	// ClientCertPath is the path to the client public key
+	ClientCertPath string `json:"client_cert_path" mapstructure:"client_cert_path" validate:"nonzero"`
 
-	// Password is the Klio server password
-	Password string `json:"password" mapstructure:"password" validate:"nonzero"`
+	// ClientKeyPath is the path to the client private key
+	ClientKeyPath string `json:"client_key_path" mapstructure:"client_key_path" validate:"nonzero"`
 
 	// APIServerCertFile is a file containing a PEM-encoded certificate, and possibly the complete certificate chain
 	// This certificate will be served by the Klio API aggregation server for TLS connections
@@ -168,9 +166,9 @@ type WalServerConfig struct {
 	// EncryptionPassword is the encryption password
 	EncryptionPassword string `json:"encryption_password" mapstructure:"encryption_password" validate:"nonzero"`
 
-	// HTPasswdFile is the file containing the credentials of the users that are
-	// allowed to use the Kopia server
-	HTPasswdFile string `json:"htpasswd_file" mapstructure:"htpasswd_file" validate:"nonzero"`
+	// ClientCACertFile is the file containing the CA certificate to be used
+	// to verify client certificates
+	ClientCACertFile string `mapstructure:"client_ca_cert_file" validate:"nonzero"`
 }
 
 // SetDefaults sets the default values of the configuration.

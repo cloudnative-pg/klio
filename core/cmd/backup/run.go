@@ -65,8 +65,8 @@ var runCmd = &cobra.Command{
 
 		uploader := client.NewUploaderFor(
 			kopia.Target{
-				Hostname: configuration.Client.Base.Hostname,
-				Username: configuration.Client.Base.Username,
+				Hostname: client.GetHostname(),
+				Username: client.GetUsername(),
 			},
 		)
 		backupExecutor := common.NewBackupExecutor(conn, uploader, configuration.Client.Base.Hostname)

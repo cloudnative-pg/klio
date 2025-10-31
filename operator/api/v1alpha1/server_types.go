@@ -29,6 +29,10 @@ type ServerSpec struct {
 	// to be used for the Klio server.
 	TLSSecretName string `json:"tlsSecretName"`
 
+	// ClientCASecretName is the name of the Kubernetes secret containing the CA certificate
+	// to be used by the Klio server to validate the users.
+	ClientCASecretName string `json:"caSecretName"`
+
 	// Resources defines the resource requirements for the Klio server
 	// +optional
 	Resources corev1.ResourceRequirements `json:"resources,omitzero"`
@@ -43,9 +47,6 @@ type ServerSpec struct {
 
 	// Password is a reference to a secret containing the Klio password
 	Password *machineryapi.SecretKeySelector `json:"password"`
-
-	// Users is a reference to a secret containing a htpasswd file at the 'htpasswd' key.
-	Users corev1.LocalObjectReference `json:"users"`
 
 	// Template to override the default StatefulSet of the Klio server.
 	// WARNING: Modifying this template may break the server functionality if not done carefully.

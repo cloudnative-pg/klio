@@ -13,13 +13,24 @@ import (
 	"github.com/cloudnative-pg/klio/operator/internal/cnpgi"
 )
 
+// KlioServerTemplateOptions are the options needed to create a Klio server.
+type KlioServerTemplateOptions struct {
+	// TLSSecretName is the secret to be used to expose the Klio server.
+	TLSSecretName string
+
+	// ClientCASecretName is the secret that will be used by Kopia and by
+	// the Klio WAL server to authenticate users.
+	ClientCASecretName string
+
+	// EncryptionSecretName contains the encryption key.
+	EncryptionSecretName string
+}
+
 // GetKlioServerObject returns a Klio server Object.
 func GetKlioServerObject(
 	name,
-	namespace,
-	tlsSecretName string,
-	passwordSecret,
-	usersSecret *corev1.Secret,
+	namespace string,
+	opts KlioServerTemplateOptions,
 ) *kliov1alpha1.Server {
 	return &kliov1alpha1.Server{
 		ObjectMeta: metav1.ObjectMeta{
@@ -27,10 +38,11 @@ func GetKlioServerObject(
 			Namespace: namespace,
 		},
 		Spec: kliov1alpha1.ServerSpec{
-			BaseConfiguration: kliov1alpha1.BaseConfiguration{},
-			Image:             "registry.dev:5000/klio-testing:dev",
-			ImagePullPolicy:   corev1.PullAlways,
-			TLSSecretName:     tlsSecretName,
+			BaseConfiguration:  kliov1alpha1.BaseConfiguration{},
+			Image:              "registry.dev:5000/klio-testing:dev",
+			ImagePullPolicy:    corev1.PullAlways,
+			TLSSecretName:      opts.TLSSecretName,
+			ClientCASecretName: opts.ClientCASecretName,
 			CacheConfiguration: kliov1alpha1.CacheConfiguration{
 				PersistentVolumeClaimTemplate: corev1.PersistentVolumeClaimSpec{
 					AccessModes: []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOncePod},
@@ -53,12 +65,9 @@ func GetKlioServerObject(
 			},
 			Password: &cnpgv1.SecretKeySelector{
 				LocalObjectReference: api.LocalObjectReference{
-					Name: passwordSecret.GetName(),
+					Name: opts.EncryptionSecretName,
 				},
 				Key: "password",
-			},
-			Users: corev1.LocalObjectReference{
-				Name: usersSecret.GetName(),
 			},
 		},
 	}
@@ -120,8 +129,8 @@ func GetCnpgClusterWithTablespacesObject(
 func GetKlioPluginConfigurationObject(
 	name,
 	namespace string,
-	certificate *certmanagerv1.Certificate,
-	clientSecret *corev1.Secret,
+	serverCertificate *certmanagerv1.Certificate,
+	clientCertificate *certmanagerv1.Certificate,
 ) *kliov1alpha1.PluginConfiguration {
 	return &kliov1alpha1.PluginConfiguration{
 		ObjectMeta: metav1.ObjectMeta{
@@ -129,9 +138,9 @@ func GetKlioPluginConfigurationObject(
 			Namespace: namespace,
 		},
 		Spec: kliov1alpha1.PluginConfigurationSpec{
-			ServerAddress:    certificate.Spec.DNSNames[0],
-			ClientSecretName: clientSecret.GetName(),
-			ServerSecretName: certificate.Spec.SecretName,
+			ServerAddress:    serverCertificate.Spec.DNSNames[0],
+			ClientSecretName: clientCertificate.Spec.SecretName,
+			ServerSecretName: serverCertificate.Spec.SecretName,
 		},
 	}
 }

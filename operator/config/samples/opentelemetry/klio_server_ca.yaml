@@ -1,19 +1,19 @@
 apiVersion: cert-manager.io/v1
 kind: Certificate
 metadata:
-  name: cluster-example-klio-user
+  name: klio-server-ca
 spec:
-  commonName: klio@cluster-example
-  secretName: cluster-example-klio-user
+  commonName: klio-server
+  secretName: klio-server-ca
 
   duration: 2160h # 90d
   renewBefore: 360h # 15d
 
-  isCA: false
+  isCA: true
   usages:
-    - client auth
+    - cert sign
 
   issuerRef:
-    name: klio-server-ca
+    name: selfsigned-issuer
     kind: Issuer
     group: cert-manager.io

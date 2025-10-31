@@ -25,10 +25,8 @@ const (
 )
 
 const (
-	kopiaDataMountPath   = "/data"
-	kopiaCacheMountPath  = "/cache"
-	htpasswdFileName     = "htpasswd"
-	kopiaConfigMountPath = "/config"
+	kopiaDataMountPath  = "/data"
+	kopiaCacheMountPath = "/cache"
 )
 
 func (r *ServerReconciler) reconcile(ctx context.Context, server *kliov1alpha1.Server) error {
@@ -240,7 +238,11 @@ func (r *ServerReconciler) reconcileStatefulSet(ctx context.Context, server *kli
 		return nil
 	})
 	if err != nil {
-		return fmt.Errorf("failed to reconcile statefulset (%s) %s/%s: %w", op, statefulset.Namespace, statefulset.Name, err)
+		return fmt.Errorf("failed to reconcile statefulset (%s) %s/%s: %w",
+			op,
+			statefulset.Namespace,
+			statefulset.Name,
+			err)
 	}
 
 	return nil
@@ -317,32 +319,17 @@ func (r *ServerReconciler) buildVolumes(server *kliov1alpha1.Server) []corev1.Vo
 			},
 		},
 		{
-			Name: "tmp",
+			Name: "client-ca",
 			VolumeSource: corev1.VolumeSource{
-				EmptyDir: &corev1.EmptyDirVolumeSource{},
+				Secret: &corev1.SecretVolumeSource{
+					SecretName: server.Spec.ClientCASecretName,
+				},
 			},
 		},
 		{
-			Name: "config",
+			Name: "tmp",
 			VolumeSource: corev1.VolumeSource{
-				Projected: &corev1.ProjectedVolumeSource{
-					Sources: []corev1.VolumeProjection{
-						{
-							Secret: &corev1.SecretProjection{
-								LocalObjectReference: corev1.LocalObjectReference{
-									Name: server.Spec.Users.Name,
-								},
-								Items: []corev1.KeyToPath{
-									{
-										Key:  "htpasswd",
-										Path: htpasswdFileName,
-									},
-								},
-								Optional: ptr.To(false),
-							},
-						},
-					},
-				},
+				EmptyDir: &corev1.EmptyDirVolumeSource{},
 			},
 		},
 	}
@@ -352,11 +339,26 @@ func (r *ServerReconciler) buildVolumes(server *kliov1alpha1.Server) []corev1.Vo
 
 func (r *ServerReconciler) buildVolumeMounts() []corev1.VolumeMount {
 	volumeMounts := []corev1.VolumeMount{
-		{Name: "data", MountPath: kopiaDataMountPath},
-		{Name: "tls", MountPath: "/certs"},
-		{Name: "cache", MountPath: kopiaCacheMountPath},
-		{Name: "tmp", MountPath: "/tmp"},
-		{Name: "config", MountPath: kopiaConfigMountPath},
+		{
+			Name:      "data",
+			MountPath: kopiaDataMountPath,
+		},
+		{
+			Name:      "tls",
+			MountPath: "/certs",
+		},
+		{
+			Name:      "client-ca",
+			MountPath: "/client-ca",
+		},
+		{
+			Name:      "cache",
+			MountPath: kopiaCacheMountPath,
+		},
+		{
+			Name:      "tmp",
+			MountPath: "/tmp",
+		},
 	}
 
 	return volumeMounts

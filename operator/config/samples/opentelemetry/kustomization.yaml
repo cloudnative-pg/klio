@@ -6,10 +6,11 @@ resources:
   - klio_admin.yaml
   - klio_encryption.yaml
   - klio_server.yaml
+  - klio_server_ca.yaml
+  - klio_server_ca_issuer.yaml
   - klio_server_certificate.yaml
   - klio_server_otel_config.yaml
   - klio_server_otel_client_certificate.yaml
-  - klio_users.yaml
   - otel_collector.yaml
   - otel_collector_certificate.yaml
   - otel_collector_sa.yaml

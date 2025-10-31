@@ -27,9 +27,8 @@ spec:
     name: klio-encryption
     key: password
 
+  caSecretName: klio-server-ca
   tlsSecretName: klio-server-tls
-  users:
-    name: klio-users
 
   image: registry.dev:5000/klio-testing:dev
   imagePullPolicy: Always

@@ -33,11 +33,9 @@ const (
 )
 
 func generateKlioConfigForPlugin(
-	ctx context.Context,
-	cli client.Client,
 	rawConfiguration *configuration,
-	certPath string,
-	namespace string,
+	serverCertPath string,
+	clientCertPath string,
 ) (*config.Data, *kliov1alpha1.PluginConfiguration, error) {
 	// If the plugin is not configured or not enabled, do nothing
 	if rawConfiguration == nil || rawConfiguration.cnpgPluginConfiguration == nil ||
@@ -52,19 +50,6 @@ func generateKlioConfigForPlugin(
 
 	klioPluginConfigurationSpec := rawConfiguration.klioPluginConfiguration.Spec
 
-	clientSecret := &corev1.Secret{}
-	err := cli.Get(ctx,
-		client.ObjectKey{Namespace: namespace, Name: klioPluginConfigurationSpec.ClientSecretName},
-		clientSecret)
-	if err != nil {
-		return nil, nil,
-			fmt.Errorf("failed to get client secret %q: %w", klioPluginConfigurationSpec.ClientSecretName, err)
-	}
-
-	// Extract the data from the client secret
-	username := string(clientSecret.Data[corev1.BasicAuthUsernameKey])
-	password := string(clientSecret.Data[corev1.BasicAuthPasswordKey])
-
 	klioConfig := &config.Data{
 		Source: config.SourceConfig{
 			DSN:         "user=postgres replication=yes application_name=klio",
@@ -78,17 +63,17 @@ func generateKlioConfigForPlugin(
 		Client: config.ClientConfig{
 			Base: config.BaseRepositoryClientConfig{
 				URL:            "https://" + net.JoinHostPort(klioPluginConfigurationSpec.ServerAddress, KlioHTTPPort),
-				ServerCertPath: path.Join(certPath, "tls.crt"),
+				ServerCertPath: path.Join(serverCertPath, "tls.crt"),
 				Hostname:       klioPluginConfigurationSpec.ClusterName,
-				Username:       username,
-				Password:       password,
+				ClientCertPath: path.Join(clientCertPath, "tls.crt"),
+				ClientKeyPath:  path.Join(clientCertPath, "tls.key"),
 			},
 			Wal: config.WalRepositoryClientConfig{
 				Address:        net.JoinHostPort(klioPluginConfigurationSpec.ServerAddress, KlioGRPCPort),
 				ClusterName:    klioPluginConfigurationSpec.ClusterName,
-				ServerCertPath: path.Join(certPath, "tls.crt"),
-				Username:       username,
-				Password:       password,
+				ServerCertPath: path.Join(serverCertPath, "tls.crt"),
+				ClientCertPath: path.Join(clientCertPath, "tls.crt"),
+				ClientKeyPath:  path.Join(clientCertPath, "tls.key"),
 			},
 		},
 		RetentionPolicy: klioPluginConfigurationSpec.RetentionPolicy,
@@ -230,11 +215,9 @@ func klioConfigsFromCluster(
 			continue
 		}
 		klioConfig, klioPluginConfig, err := generateKlioConfigForPlugin(
-			ctx,
-			cli,
 			conf,
 			getServerSecretVolumeMountPath(key),
-			cluster.Namespace,
+			getClientSecretVolumeMountPath(key),
 		)
 		if err != nil {
 			return nil, nil, fmt.Errorf("failed to get plugin configuration: %w", err)

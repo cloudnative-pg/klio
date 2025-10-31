@@ -2,9 +2,11 @@ package server
 
 import (
 	"crypto/tls"
+	"crypto/x509"
 	"errors"
 	"fmt"
 	"net"
+	"os"
 
 	"github.com/cloudnative-pg/machinery/pkg/log"
 	"github.com/spf13/cobra"
@@ -20,6 +22,10 @@ import (
 	"github.com/cloudnative-pg/klio/core/internal/wal"
 	"github.com/cloudnative-pg/klio/core/pkg/config"
 )
+
+// ErrParsingClientCACertificate is raised when we couldn't parse
+// the client CA certificate file.
+var ErrParsingClientCACertificate = errors.New("parsing client CA certificate file failed")
 
 // startWALCmd represents the start command
 //
@@ -46,7 +52,16 @@ var startWALCmd = &cobra.Command{
 			return fmt.Errorf("cannot listen on TCP socket: %w", err)
 		}
 
-		// Load TLS certificates
+		// Connects to the Klio repository
+		repoConnection, err := repository.Open(repository.Options{
+			Path:     configuration.Wal.WALPath,
+			Password: configuration.Wal.EncryptionPassword,
+		})
+		if err != nil {
+			return fmt.Errorf("failed to connect to local repository: %w", err)
+		}
+
+		// Configure TLS
 		cert, err := tls.LoadX509KeyPair(
 			configuration.Wal.TLSCert,
 			configuration.Wal.TLSKey,
@@ -55,18 +70,22 @@ var startWALCmd = &cobra.Command{
 			return fmt.Errorf("failed to load server key pair: %w", err)
 		}
 
+		clientCAPem, err := os.ReadFile(configuration.Wal.ClientCACertFile)
+		if err != nil {
+			return fmt.Errorf("while reading Client CA certificate file: %w", err)
+		}
+
+		clientCAPool := x509.NewCertPool()
+		if !clientCAPool.AppendCertsFromPEM(clientCAPem) {
+			return ErrParsingClientCACertificate
+		}
+
+		// Create TLS configuration
 		tlsConfig := &tls.Config{
 			Certificates: []tls.Certificate{cert},
 			MinVersion:   tls.VersionTLS13,
-		}
-
-		// Connects to the Klio repository
-		repoConnection, err := repository.Open(repository.Options{
-			Path:     configuration.Wal.WALPath,
-			Password: configuration.Wal.EncryptionPassword,
-		})
-		if err != nil {
-			return fmt.Errorf("failed to connect to local repository: %w", err)
+			ClientAuth:   tls.RequireAndVerifyClientCert,
+			ClientCAs:    clientCAPool,
 		}
 
 		// Starts the WAL server
@@ -79,20 +98,6 @@ var startWALCmd = &cobra.Command{
 			grpc.MaxRecvMsgSize(wal.MaxGRPCMessageSizeBytes),
 			grpc.MaxSendMsgSize(wal.MaxGRPCMessageSizeBytes),
 			grpc.StatsHandler(otelgrpc.NewServerHandler()),
-		}
-
-		if configuration.Wal.HTPasswdFile != "" {
-			decorator, err := walserver.EnsureValidAuthentication(
-				configuration.Wal.HTPasswdFile,
-			)
-			if err != nil {
-				return fmt.Errorf("while initializing htpasswd file parser: %w", err)
-			}
-
-			opts = append(
-				opts,
-				grpc.UnaryInterceptor(decorator),
-			)
 		}
 
 		server := grpc.NewServer(opts...)

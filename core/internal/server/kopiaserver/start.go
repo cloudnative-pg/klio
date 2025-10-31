@@ -69,14 +69,10 @@ func Start(ctx context.Context, cfg *config.BaseServerConfig) error {
 		"server", "start",
 		"--tls-key-file=" + cfg.TLSKey,
 		"--tls-cert-file=" + cfg.TLSCert,
+		"--tls-ca-file=" + cfg.ClientCACertFile,
 		"--address=" + cfg.ListenAddress,
 		"--disable-file-logging",
 		"--json-log-console",
-	}
-
-	// If present, add the option to use an htpasswd file for authentication
-	if cfg.HTPasswdFile != "" {
-		args = append(args, "--htpasswd-file="+cfg.HTPasswdFile)
 	}
 
 	kopiaServer := exec.CommandContext(ctx, kopiaBinary, args...) //nolint:gosec
