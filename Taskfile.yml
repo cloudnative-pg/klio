@@ -143,7 +143,6 @@ tasks:
     deps:
       - core:protoc-gen-go-grpc
       - core:openapi-gen
-      - core:uncommitted
     env:
       # renovate: datasource=docker depName=ghcr.io/goreleaser/goreleaser versioning=semver
       GORELEASER_IMAGE_VERSION: v2.12.7

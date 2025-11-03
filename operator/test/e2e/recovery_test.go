@@ -23,7 +23,11 @@ const (
 func NewRecoveryFeatureConfig(
 	name string, instances int, namespace string, strategy recoveryStrategy,
 ) machineryFeatures.RecoveryFeatureConfig {
-	const klioServerName = "test-klio-server"
+	const (
+		externalClusterName     = "source-cluster"
+		cnpgSourceClusterName   = "test-cluster-source"
+		cnpgRestoredClusterName = "test-cluster-restore"
+	)
 	var mutators []machineryFeatures.RecoveryClusterMutateFunc
 
 	namespaceObj := &corev1.Namespace{
@@ -36,15 +40,10 @@ func NewRecoveryFeatureConfig(
 	caCertificate := certificates.GetCACertificateObject("test-ca", namespace, issuer)
 	caIssuer := certificates.GetCAIssuerObject("test-ca-issuer", namespace, caCertificate.Spec.SecretName)
 
-	cnpgCluster := templates.GetCnpgClusterObject("test-cluster-source", namespace, instances,
-		"klio-plugin-configuration")
+	cnpgCluster := templates.GetCnpgClusterObject(cnpgSourceClusterName, namespace, instances, "klio-plugin-configuration")
 
-	userCertificate := certificates.GetUserCertificateObject(
-		"klio-user",
-		namespace,
-		"klio-user@test-cluster-source",
-		caIssuer,
-	)
+	userCertificate := certificates.GetUserCertificateObject("klio-user", namespace,
+		"klio-user@"+cnpgSourceClusterName, caIssuer)
 	klioPluginConfigurationSource := templates.GetKlioPluginConfigurationObject(
 		"klio-plugin-configuration", namespace, certificate, userCertificate)
 	encryptionSecret := secrets.GetKlioEncryptionSecret("encryption", namespace, "testencryptionpassword123")
@@ -62,9 +61,9 @@ func NewRecoveryFeatureConfig(
 
 	// Generate the recovery Cluster object
 	recoveryCluster := cnpgCluster.DeepCopy()
-	recoveryCluster.Name = "test-cluster-restored"
+	recoveryCluster.Name = cnpgRestoredClusterName
 	recoveryCluster.Spec.ExternalClusters = []cnpgv1.ExternalCluster{{
-		Name: "source-cluster",
+		Name: externalClusterName,
 		PluginConfiguration: &cnpgv1.PluginConfiguration{
 			Name:    "klio.cnpg.io",
 			Enabled: ptr.To(true),
@@ -75,7 +74,7 @@ func NewRecoveryFeatureConfig(
 	}}
 	recoveryCluster.Spec.Bootstrap = &cnpgv1.BootstrapConfiguration{
 		Recovery: &cnpgv1.BootstrapRecovery{
-			Source: "source-cluster",
+			Source: externalClusterName,
 		},
 	}
 	// TODO: we should check that WAL archiving and backups also work in the recovered Cluster
@@ -143,4 +142,9 @@ func RecoverClusterFromBackupID(namespace string) *machineryFeatures.RecoveryFea
 func RecoverClusterFromPitr(namespace string) *machineryFeatures.PitrFeature {
 	return machineryFeatures.NewPitrFeature(NewRecoveryFeatureConfig(
 		"RecoverClusterFromPitr", 1, namespace, recoveryFromBackupRef))
+}
+
+func RecoverReplicaCluster(namespace string) *machineryFeatures.ReplicaClusterFeature {
+	return machineryFeatures.NewReplicaClusterFeature(NewRecoveryFeatureConfig(
+		"RecoverReplicaCluster", 1, namespace, recoveryFromBackupRef))
 }

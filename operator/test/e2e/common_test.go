@@ -18,6 +18,10 @@ import (
 	"github.com/cloudnative-pg/klio/operator/test/utils/conditions"
 )
 
+const (
+	klioServerName = "test-klio-server"
+)
+
 type commonBackupRestoreScenario struct {
 	namespace                       *corev1.Namespace
 	userCertificate                 *certmanagerv1.Certificate

@@ -16,8 +16,6 @@ import (
 func NewTablespaceRecoveryFeatureConfig(
 	name string, instances int, namespace string,
 ) machineryFeatures.TablespaceRecoveryFeatureConfig {
-	const klioServerName = "test-klio-server"
-
 	namespaceObj := &corev1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{Name: namespace},
 	}

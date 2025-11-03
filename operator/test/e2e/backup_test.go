@@ -24,8 +24,6 @@ import (
 func newBackupFeature(
 	name string, backupTarget cnpgv1.BackupTarget, instances int, namespace string,
 ) *machineryFeatures.BackupFeature {
-	const klioServerName = "test-klio-server"
-
 	namespaceObj := &corev1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{Name: namespace},
 	}
