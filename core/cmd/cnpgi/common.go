@@ -23,7 +23,6 @@ import (
 func runCNPGI(
 	ctx context.Context,
 	pluginPath string,
-	metricsAddress string,
 	addCapabilities func(server *cnpgi.CNPGI),
 ) error {
 	logger := log.FromContext(ctx)
@@ -40,7 +39,8 @@ func runCNPGI(
 			},
 		},
 		Metrics: server.Options{
-			BindAddress: metricsAddress,
+			// Disable the metrics endpoint since we're using OTEL bridge
+			BindAddress: "0",
 		},
 	}
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), controllerOptions)

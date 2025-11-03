@@ -221,11 +221,6 @@ func (impl LifecycleImplementation) reconcileJob(
 		},
 	}
 
-	if clusterPC.Spec.MetricsAddressRestore != "" {
-		sidecarsToEnrich[0].Args = append(sidecarsToEnrich[0].Args,
-			"--metrics-bind-address", clusterPC.Spec.MetricsAddressRestore)
-	}
-
 	if err := reconcilePodSpec(
 		ctx,
 		impl.Client,
@@ -367,7 +362,7 @@ func (impl LifecycleImplementation) reconcilePod(
 	mutatedPod := pod.DeepCopy()
 
 	sidecarsToEnrich := []corev1.Container{
-		buildInstanceSidecarTemplate(clusterPC),
+		buildInstanceSidecarTemplate(),
 		buildSendWALSidecarTemplate(pod, cluster, clusterPC),
 	}
 
@@ -413,9 +408,6 @@ func buildSendWALSidecarTemplate(
 		"--cluster-name", cluster.Name,
 		"--cluster-namespace", cluster.Namespace,
 	}
-	if clusterPC.Spec.MetricsAddressSendWal != "" {
-		args = append(args, "--metrics-bind-address", clusterPC.Spec.MetricsAddressSendWal)
-	}
 
 	return corev1.Container{
 		Name: "klio-wal",
@@ -426,21 +418,14 @@ func buildSendWALSidecarTemplate(
 	}
 }
 
-func buildInstanceSidecarTemplate(clusterPC *kliov1alpha1.PluginConfiguration) corev1.Container {
-	instanceSidecar := corev1.Container{
+func buildInstanceSidecarTemplate() corev1.Container {
+	return corev1.Container{
 		Name: "klio-plugin",
 		Args: []string{"cnpgi", "instance"},
 		Env: []corev1.EnvVar{
 			{Name: "CONTAINER_NAME", Value: "klio-plugin"},
 		},
 	}
-	if clusterPC != nil && clusterPC.Spec.MetricsAddressInstance != "" {
-		instanceSidecar.Args = append(instanceSidecar.Args,
-			"--metrics-bind-address",
-			clusterPC.Spec.MetricsAddressInstance)
-	}
-
-	return instanceSidecar
 }
 
 type reconcilePodSpecConfiguration struct {

@@ -103,9 +103,6 @@ _Appears in:_
 | `backupRef` _string_ | BackupRef is the reference to the backup we should use for restores |  |  |  |
 | `backupId` _string_ | BackupID is the ID of the backup we should use for restores |  |  |  |
 | `pprof` _boolean_ | Pprof enables the pprof endpoint for performance profiling |  |  |  |
-| `metricsAddressInstance` _string_ | MetricsAddressInstance is the address where the metrics for the instance should be exposed |  |  |  |
-| `metricsAddressRestore` _string_ | MetricsAddressRestore is the address where the metrics for the restore should be exposed |  |  |  |
-| `metricsAddressSendWal` _string_ | MetricsAddressSendWal is the address where the metrics for the WAL sender should be exposed |  |  |  |
 | `retention` _[RetentionPolicy](#retentionpolicy)_ | RetentionPolicy defines how many backups we should keep |  |  |  |
 
 

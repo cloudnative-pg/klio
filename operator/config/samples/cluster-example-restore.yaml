@@ -51,4 +51,3 @@ spec:
   clientSecretName: cluster-example-klio-user
   serverSecretName: server-sample-tls
   clusterName: cluster-example
-  metricsAddressRestore: ":8095"

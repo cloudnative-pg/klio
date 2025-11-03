@@ -30,13 +30,15 @@ Klio automatically collects the following:
       - [GRPC metrics](https://opentelemetry.io/docs/specs/semconv/rpc/rpc-metrics/)
       - [Go runtime statistics](https://pkg.go.dev/go.opentelemetry.io/contrib/instrumentation/runtime)
       - [Host metrics](https://pkg.go.dev/go.opentelemetry.io/contrib/instrumentation/host)
+      - [Controller runtime metrics](https://book.kubebuilder.io/reference/metrics-reference)
+  - Client
+      - [GRPC metrics](https://opentelemetry.io/docs/specs/semconv/rpc/rpc-metrics/)
+      - [Go runtime statistics](https://pkg.go.dev/go.opentelemetry.io/contrib/instrumentation/runtime)
+      - [Host metrics](https://pkg.go.dev/go.opentelemetry.io/contrib/instrumentation/host)
+      - [Controller runtime metrics](https://book.kubebuilder.io/reference/metrics-reference)
 
 :::note
 Log exporters are not currently supported.
-:::
-
-:::note
-Client metrics are currently not supported.
 :::
 
 ## Configuration

@@ -56,18 +56,6 @@ spec:
                 description: ClusterName is the name of the PostgreSQL cluster we
                   are connecting to
                 type: string
-              metricsAddressInstance:
-                description: MetricsAddressInstance is the address where the metrics
-                  for the instance should be exposed
-                type: string
-              metricsAddressRestore:
-                description: MetricsAddressRestore is the address where the metrics
-                  for the restore should be exposed
-                type: string
-              metricsAddressSendWal:
-                description: MetricsAddressSendWal is the address where the metrics
-                  for the WAL sender should be exposed
-                type: string
               pprof:
                 description: Pprof enables the pprof endpoint for performance profiling
                 type: boolean

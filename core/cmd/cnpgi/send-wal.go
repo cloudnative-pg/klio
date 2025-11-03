@@ -20,7 +20,6 @@ var sendWalCmd = &cobra.Command{
 		clusterName, _ := cmd.Flags().GetString("cluster-name")
 		clusterNamespace, _ := cmd.Flags().GetString("cluster-namespace")
 		podName, _ := cmd.Flags().GetString("pod-name")
-		metricsBindAddress, _ := cmd.Flags().GetString("metrics-bind-address")
 
 		_ = viper.BindEnv("custom-cnpg-group", "CUSTOM_CNPG_GROUP")
 		_ = viper.BindEnv("custom-cnpg-version", "CUSTOM_CNPG_VERSION")
@@ -32,8 +31,7 @@ var sendWalCmd = &cobra.Command{
 				Namespace: clusterNamespace,
 				Name:      clusterName,
 			},
-			PodName:        podName,
-			MetricsAddress: metricsBindAddress,
+			PodName: podName,
 		}
 
 		return ctrl.Start(cmd.Context())
@@ -56,11 +54,6 @@ func init() {
 		"pod-name",
 		"",
 		"The name of the current instance",
-	)
-	sendWalCmd.Flags().String(
-		"metrics-bind-address",
-		":8082",
-		"The address the metric endpoint binds to.",
 	)
 
 	CnpgiCmd.AddCommand(sendWalCmd)

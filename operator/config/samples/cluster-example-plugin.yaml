@@ -47,8 +47,6 @@ spec:
   serverAddress: server-sample.default
   clientSecretName: cluster-example-klio-user
   serverSecretName: server-sample-tls
-  metricsAddressInstance: ":8085"
-  metricsAddressSendWal: ":8090"
   pprof: true
   retention:
     keepAnnual: 1

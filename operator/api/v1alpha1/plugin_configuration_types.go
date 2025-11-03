@@ -38,18 +38,6 @@ type PluginConfigurationSpec struct {
 	// +optional
 	Pprof bool `json:"pprof,omitempty"`
 
-	// MetricsAddressInstance is the address where the metrics for the instance should be exposed
-	// +optional
-	MetricsAddressInstance string `json:"metricsAddressInstance,omitempty"`
-
-	// MetricsAddressRestore is the address where the metrics for the restore should be exposed
-	// +optional
-	MetricsAddressRestore string `json:"metricsAddressRestore,omitempty"`
-
-	// MetricsAddressSendWal is the address where the metrics for the WAL sender should be exposed
-	// +optional
-	MetricsAddressSendWal string `json:"metricsAddressSendWal,omitempty"`
-
 	// RetentionPolicy defines how many backups we should keep
 	// +optional
 	RetentionPolicy *RetentionPolicy `json:"retention,omitempty" mapstructure:"retention"`
