@@ -2,11 +2,10 @@ package walserver
 
 import (
 	"crypto/rand"
-	"os"
 	"path"
 	"testing"
 
-	"github.com/cloudnative-pg/machinery/pkg/fileutils"
+	"github.com/spf13/afero"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -15,7 +14,7 @@ import (
 
 func TestWriter(t *testing.T) {
 	opts := repository.Options{
-		Path:     t.TempDir(),
+		FS:       afero.NewMemMapFs(),
 		Password: "this-password",
 	}
 
@@ -42,12 +41,12 @@ func TestWriter(t *testing.T) {
 	err = writer.CloseMarkDone()
 	require.NoError(t, err)
 
-	expectedPath := path.Join(opts.Path, "cluster-example", "0000001000000000", "0000001000000000000001F8")
-	exists, err := fileutils.FileExists(expectedPath)
+	expectedPath := path.Join("cluster-example", "0000001000000000", "0000001000000000000001F8")
+	exists, err := repository.FileExists(opts.FS, expectedPath)
 	require.NoError(t, err)
 	assert.True(t, exists)
 
-	data, err := os.Stat(expectedPath)
+	data, err := opts.FS.Stat(expectedPath)
 	require.NoError(t, err)
 	assert.Greater(t, data.Size(), int64(len(block)))
 }
@@ -57,7 +56,7 @@ func BenchmarkWriter(b *testing.B) {
 	_, _ = rand.Read(block)
 
 	opts := repository.Options{
-		Path:     b.TempDir(),
+		FS:       afero.NewMemMapFs(),
 		Password: "this-password",
 	}
 

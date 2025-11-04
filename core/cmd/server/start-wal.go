@@ -9,6 +9,7 @@ import (
 	"os"
 
 	"github.com/cloudnative-pg/machinery/pkg/log"
+	"github.com/spf13/afero"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
@@ -53,8 +54,9 @@ var startWALCmd = &cobra.Command{
 		}
 
 		// Connects to the Klio repository
+		walFS := afero.NewBasePathFs(afero.NewOsFs(), configuration.Wal.WALPath)
 		repoConnection, err := repository.Open(repository.Options{
-			Path:     configuration.Wal.WALPath,
+			FS:       walFS,
 			Password: configuration.Wal.EncryptionPassword,
 		})
 		if err != nil {

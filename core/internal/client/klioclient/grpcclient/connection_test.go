@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/cloudnative-pg/machinery/pkg/log"
+	"github.com/spf13/afero"
 
 	"github.com/cloudnative-pg/klio/core/internal/server/walserver/repository"
 	"github.com/cloudnative-pg/klio/core/pkg/config"
@@ -13,8 +14,6 @@ import (
 
 func BenchmarkLookupSnapshotsViaKlioServer(b *testing.B) {
 	createTemporaryKlioRepo := func(ctx context.Context) (*TemporaryConnection, error) {
-		dirName := b.TempDir()
-
 		conn, err := ConnectTemporary(
 			ctx,
 			log.GetLogger(),
@@ -22,12 +21,12 @@ func BenchmarkLookupSnapshotsViaKlioServer(b *testing.B) {
 				ClusterName: "cluster-name",
 			},
 			repository.Options{
-				Path:     dirName,
+				FS:       afero.NewMemMapFs(),
 				Password: "random-string",
 			},
 		)
 		if err != nil {
-			return nil, fmt.Errorf("error while creating local kopia repository at %v: %w", dirName, err)
+			return nil, fmt.Errorf("error while creating local kopia repository: %w", err)
 		}
 
 		return conn, nil

@@ -1,24 +1,23 @@
 package repository
 
 import (
-	"path"
 	"testing"
 
-	"github.com/cloudnative-pg/machinery/pkg/fileutils"
+	"github.com/spf13/afero"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
 func TestInitialize(t *testing.T) {
-	tempDir := t.TempDir()
+	fs := afero.NewMemMapFs()
 
 	err := Initialize(Options{
-		Path:     tempDir,
+		FS:       fs,
 		Password: "testpassword",
 	})
 	require.NoError(t, err)
 
-	exists, err := fileutils.FileExists(path.Join(tempDir, repositoryConfigFileName))
+	exists, err := FileExists(fs, repositoryConfigFileName)
 	require.NoError(t, err)
 	assert.True(t, exists)
 }

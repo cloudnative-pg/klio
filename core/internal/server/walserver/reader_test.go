@@ -8,6 +8,7 @@ import (
 	"os"
 	"testing"
 
+	"github.com/spf13/afero"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -16,7 +17,7 @@ import (
 
 func TestWALReaderBlockSplit(t *testing.T) {
 	opts := repository.Options{
-		Path:     t.TempDir(),
+		FS:       afero.NewMemMapFs(),
 		Password: "this-password",
 	}
 
@@ -74,7 +75,7 @@ func TestWALReaderBlockSplit(t *testing.T) {
 func TestReaderWriterBlocks(t *testing.T) {
 	// Step 1: write two blocks to the file
 	opts := repository.Options{
-		Path:     t.TempDir(),
+		FS:       afero.NewMemMapFs(),
 		Password: "this-password",
 	}
 
@@ -130,7 +131,7 @@ func TestReaderWriterBlocks(t *testing.T) {
 func TestReaderWriter100KBlocks(t *testing.T) {
 	// Step 1: write two blocks to the file
 	opts := repository.Options{
-		Path:     t.TempDir(),
+		FS:       afero.NewMemMapFs(),
 		Password: "this-password",
 	}
 

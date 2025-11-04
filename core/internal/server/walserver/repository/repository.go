@@ -4,14 +4,15 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
-	"path"
+
+	"github.com/spf13/afero"
 )
 
 // Connection represent a local connection to a Klio repository.
 type Connection struct {
 	config *KlioRepositoryConfig
 
-	baseDir string
+	FS afero.Fs
 
 	//nolint:godox
 	// TODO(leonardoce)
@@ -26,11 +27,9 @@ type Connection struct {
 
 // Open opens a connection to a repository.
 func Open(options Options) (*Connection, error) {
-	configFilePath := path.Join(options.Path, repositoryConfigFileName)
-
-	configFile, err := os.OpenFile(configFilePath, os.O_RDONLY, 0) //nolint:gosec
+	configFile, err := options.FS.OpenFile(repositoryConfigFileName, os.O_RDONLY, 0)
 	if err != nil {
-		return nil, fmt.Errorf("while opening configuration file %s: %w", configFilePath, err)
+		return nil, fmt.Errorf("while opening configuration file %s: %w", repositoryConfigFileName, err)
 	}
 	defer func() {
 		_ = configFile.Close()
@@ -38,7 +37,7 @@ func Open(options Options) (*Connection, error) {
 
 	var config KlioRepositoryConfig
 	if err := json.NewDecoder(configFile).Decode(&config); err != nil {
-		return nil, fmt.Errorf("while decoding JSON from configuration file %s: %w", configFilePath, err)
+		return nil, fmt.Errorf("while decoding JSON from configuration file %s: %w", repositoryConfigFileName, err)
 	}
 
 	masterKey, err := config.RecoverMasterKey(options.Password)
@@ -49,14 +48,9 @@ func Open(options Options) (*Connection, error) {
 	return &Connection{
 		config:    &config,
 		masterKey: masterKey,
-		baseDir:   options.Path,
+		FS:        options.FS,
 	}, nil
 }
 
 // Close closes the connection to the repository.
 func (*Connection) Close() {}
-
-// BaseDir returns the base directory of this repository.
-func (c *Connection) BaseDir() string {
-	return c.baseDir
-}

@@ -7,6 +7,7 @@ import (
 	"os"
 	"path"
 
+	"github.com/spf13/afero"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/codes"
 	"go.opentelemetry.io/otel/metric"
@@ -26,7 +27,7 @@ type Writer struct {
 	clusterName        string
 	metrics            *Metrics
 
-	file   *os.File
+	file   afero.File
 	buffer *bufio.Writer
 }
 
@@ -34,11 +35,11 @@ type Writer struct {
 func NewWriter(conn *repository.Connection, clusterName, walName string, segmentSize uint64, metrics *Metrics) (*Writer,
 	error,
 ) {
-	walFilePath := getWALArchivePath(conn.BaseDir(), clusterName, walName)
+	walFilePath := getWALArchivePath(clusterName, walName)
 	walFilePartialPath := walFilePath + ".partial"
 
 	// Step 1: ensure the parent path exists
-	err := os.MkdirAll(path.Dir(walFilePath), 0o750)
+	err := conn.FS.MkdirAll(path.Dir(walFilePath), 0o750)
 	if err != nil {
 		return nil, fmt.Errorf(
 			"error while creating directory %s: %w",
@@ -48,8 +49,7 @@ func NewWriter(conn *repository.Connection, clusterName, walName string, segment
 	}
 
 	// Step 2: open the file
-	//nolint:gosec
-	file, err := os.OpenFile(walFilePartialPath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o600)
+	file, err := conn.FS.OpenFile(walFilePartialPath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o600)
 	if err != nil {
 		return nil, fmt.Errorf(
 			"error while opening file %s: %w",
@@ -89,7 +89,7 @@ func (w *Writer) CloseMarkDone() error {
 		return fmt.Errorf("while closing partial file: %w", err)
 	}
 
-	if err := os.Rename(w.walFilePartialPath, w.walFilePath); err != nil {
+	if err := w.conn.FS.Rename(w.walFilePartialPath, w.walFilePath); err != nil {
 		return fmt.Errorf("while renaming partial file: %w", err)
 	}
 

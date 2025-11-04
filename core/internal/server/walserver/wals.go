@@ -37,13 +37,13 @@ var walFileRE = regexp.MustCompile(
 
 // getWALArchivePath gets the name of the file where
 // the passed WAL file will be archived.
-func getWALArchivePath(baseDir, clusterName, walName string) string {
+func getWALArchivePath(clusterName, walName string) string {
 	walNameWithoutExtension := strings.TrimSuffix(walName, path.Ext(walName))
 	if len(walNameWithoutExtension) == expectedWalFileNameLength {
-		return path.Join(baseDir, clusterName, walName[0:walSubdirectoryLength], walName)
+		return path.Join(clusterName, walName[0:walSubdirectoryLength], walName)
 	}
 
-	return path.Join(baseDir, clusterName, walName)
+	return path.Join(clusterName, walName)
 }
 
 // validateWalFileName checks if the passed file name belongs to

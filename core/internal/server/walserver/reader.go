@@ -7,6 +7,7 @@ import (
 	"io"
 	"os"
 
+	"github.com/spf13/afero"
 	"go.opentelemetry.io/otel/codes"
 	"google.golang.org/protobuf/encoding/protodelim"
 	"google.golang.org/protobuf/encoding/protowire"
@@ -19,7 +20,7 @@ import (
 // Reader is the WAL file writer.
 type Reader struct {
 	conn        *repository.Connection
-	file        *os.File
+	file        afero.File
 	reader      *bufio.Reader
 	walFilePath string
 
@@ -32,10 +33,9 @@ func NewReader(
 	clusterName,
 	walName string,
 ) (*Reader, error) {
-	walFilePath := getWALArchivePath(conn.BaseDir(), clusterName, walName)
+	walFilePath := getWALArchivePath(clusterName, walName)
 
-	//nolint:gosec
-	walFileReader, err := os.OpenFile(walFilePath, os.O_RDONLY, 0o600)
+	walFileReader, err := conn.FS.OpenFile(walFilePath, os.O_RDONLY, 0o600)
 	if err != nil {
 		return nil, fmt.Errorf(
 			"error while opening file %s: %w",

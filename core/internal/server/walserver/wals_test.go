@@ -7,7 +7,6 @@ import (
 )
 
 func TestGetArchivedWALFileName(t *testing.T) {
-	base := "/var/lib/klio/wals"
 	clusterName := "cluster-example"
 
 	tests := []struct {
@@ -16,25 +15,25 @@ func TestGetArchivedWALFileName(t *testing.T) {
 	}{
 		{
 			walName:      "00000001000000760000007B",
-			archivedName: "/var/lib/klio/wals/cluster-example/0000000100000076/00000001000000760000007B",
+			archivedName: "cluster-example/0000000100000076/00000001000000760000007B",
 		},
 		{
 			walName:      "00000001000000760000007B.partial",
-			archivedName: "/var/lib/klio/wals/cluster-example/0000000100000076/00000001000000760000007B.partial",
+			archivedName: "cluster-example/0000000100000076/00000001000000760000007B.partial",
 		},
 		{
 			walName:      "00000002.history",
-			archivedName: "/var/lib/klio/wals/cluster-example/00000002.history",
+			archivedName: "cluster-example/00000002.history",
 		},
 		{
 			walName:      "0000000100001234000055CD.007C9330.backup",
-			archivedName: "/var/lib/klio/wals/cluster-example/0000000100001234000055CD.007C9330.backup",
+			archivedName: "cluster-example/0000000100001234000055CD.007C9330.backup",
 		},
 	}
 
 	for _, c := range tests {
 		t.Run(c.walName, func(t *testing.T) {
-			assert.Equal(t, c.archivedName, getWALArchivePath(base, clusterName, c.walName))
+			assert.Equal(t, c.archivedName, getWALArchivePath(clusterName, c.walName))
 		})
 	}
 }

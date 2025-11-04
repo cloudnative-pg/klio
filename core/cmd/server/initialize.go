@@ -57,8 +57,9 @@ var initializeCmd = &cobra.Command{
 
 		switch {
 		case walDirectoryIsOk && kopiaDirectoryIsOk:
+			walFS := afero.NewBasePathFs(afero.NewOsFs(), configuration.Wal.WALPath)
 			if err := repository.Initialize(repository.Options{
-				Path:     configuration.Wal.WALPath,
+				FS:       walFS,
 				Password: configuration.Wal.EncryptionPassword,
 			}); err != nil {
 				return fmt.Errorf("while initializing the Klio WAL directory %q, %w", walDirectory, err)

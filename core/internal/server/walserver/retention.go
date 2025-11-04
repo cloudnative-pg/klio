@@ -29,11 +29,9 @@ func (w *Implementation) SetFirstRequiredWAL(
 		return nil, status.Errorf(codes.InvalidArgument, "invalid WAL name: %q", request.GetFirstRequiredWal())
 	}
 
-	clusterDirectory := path.Join(w.conn.BaseDir(), request.GetClusterName())
-
 	if err := w.internalSetFirstRequiredOnCluster(
-		afero.NewOsFs(),
-		clusterDirectory,
+		w.conn.FS,
+		request.GetClusterName(),
 		request.GetFirstRequiredWal(),
 	); err != nil {
 		return nil, status.Errorf(

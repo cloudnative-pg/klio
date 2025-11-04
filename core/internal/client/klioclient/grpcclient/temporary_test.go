@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"math/rand/v2"
 	"net"
-	"os"
 
 	"github.com/cloudnative-pg/machinery/pkg/log"
 	"google.golang.org/grpc"
@@ -23,7 +22,6 @@ import (
 type TemporaryConnection struct {
 	Connection
 
-	dirName  string
 	listener net.Listener
 }
 
@@ -83,7 +81,6 @@ func ConnectTemporary(
 			grpcConnection: conn,
 		},
 		listener: listener,
-		dirName:  opts.Path,
 	}, nil
 }
 
@@ -95,10 +92,6 @@ func (s *TemporaryConnection) Close() error {
 
 	if err := s.grpcConnection.Close(); err != nil {
 		return fmt.Errorf("while closing connection: %w", err)
-	}
-
-	if err := os.RemoveAll(s.dirName); err != nil {
-		return fmt.Errorf("while cleaning up directory %s: %w", s.dirName, err)
 	}
 
 	return nil

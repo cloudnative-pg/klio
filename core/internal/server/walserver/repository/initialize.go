@@ -4,10 +4,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
-	"path"
 
-	"github.com/cloudnative-pg/machinery/pkg/fileutils"
 	"github.com/cloudnative-pg/machinery/pkg/log"
+	"github.com/spf13/afero"
 )
 
 const repositoryConfigFileName = "repository.config"
@@ -15,23 +14,35 @@ const repositoryConfigFileName = "repository.config"
 // Options are the initialization options for a
 // Klio repository.
 type Options struct {
-	Path     string
+	FS       afero.Fs
 	Password string
+}
+
+// FileExists checks if a file exists in a Afero-based FS.
+func FileExists(fs afero.Fs, fileName string) (bool, error) {
+	if _, err := fs.Stat(fileName); err != nil {
+		if os.IsNotExist(err) {
+			return false, nil
+		}
+
+		return false, err
+	}
+
+	return true, nil
 }
 
 // Initialize initializes a new Klio repository.
 func Initialize(options Options) error {
-	if err := os.MkdirAll(options.Path, 0o750); err != nil {
-		return fmt.Errorf("while ensuring that %s is a directory: %w", options.Path, err)
+	if err := options.FS.MkdirAll(".", 0o750); err != nil {
+		return fmt.Errorf("while ensuring that the repository directory exists: %w", err)
 	}
 
-	configFilePath := path.Join(options.Path, repositoryConfigFileName)
-	configExisting, err := fileutils.FileExists(configFilePath)
+	configExisting, err := FileExists(options.FS, repositoryConfigFileName)
 	if err != nil {
-		return fmt.Errorf("while checking config file %s existence: %w", configFilePath, err)
+		return fmt.Errorf("while checking config file %s existence: %w", repositoryConfigFileName, err)
 	}
 	if configExisting {
-		log.Debug("stopping the repository initialization, configuration already exists", "path", options.Path)
+		log.Debug("stopping the repository initialization, configuration already exists")
 		return nil
 	}
 
@@ -40,9 +51,9 @@ func Initialize(options Options) error {
 		return fmt.Errorf("while creating repository configuration: %w", err)
 	}
 
-	file, err := os.OpenFile(configFilePath, os.O_WRONLY|os.O_CREATE, 0o600) //nolint:gosec
+	file, err := options.FS.OpenFile(repositoryConfigFileName, os.O_WRONLY|os.O_CREATE, 0o600)
 	if err != nil {
-		return fmt.Errorf("while creating config file %s: %w", configFilePath, err)
+		return fmt.Errorf("while creating config file %s: %w", repositoryConfigFileName, err)
 	}
 	defer func() {
 		_ = file.Close()

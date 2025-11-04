@@ -8,6 +8,7 @@ import (
 	"path"
 	"strings"
 
+	"github.com/spf13/afero"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/timestamppb"
@@ -172,8 +173,7 @@ func (w *Implementation) ResetWALStream(
 func (w *Implementation) getLatestWALFileForCluster(
 	clusterName string,
 ) (string, error) {
-	clusterPath := path.Join(w.conn.BaseDir(), clusterName)
-	readClusterDir, err := os.ReadDir(clusterPath)
+	readClusterDir, err := afero.ReadDir(w.conn.FS, clusterName)
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
 			return "", nil
@@ -182,7 +182,7 @@ func (w *Implementation) getLatestWALFileForCluster(
 		w.logger.Error(
 			err,
 			"while reading cluster directory",
-			"clusterPath", clusterPath,
+			"clusterName", clusterName,
 		)
 
 		return "", fmt.Errorf("while reading cluster directory: %w", err)
@@ -203,7 +203,7 @@ func (w *Implementation) getLatestWALFileForCluster(
 		return "", nil
 	}
 
-	latestWalDirectoryName = path.Join(clusterPath, latestWalDirectoryName)
+	latestWalDirectoryName = path.Join(clusterName, latestWalDirectoryName)
 	readWalDirectory, err := os.ReadDir(latestWalDirectoryName)
 	if err != nil {
 		w.logger.Error(err, "while reading directory", "latestWalDirectoryName", latestWalDirectoryName)
