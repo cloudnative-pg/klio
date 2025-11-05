@@ -1,4 +1,4 @@
-package walserver
+package repository
 
 import (
 	"bufio"
@@ -9,33 +9,35 @@ import (
 
 	"github.com/spf13/afero"
 	"go.opentelemetry.io/otel/codes"
+	"go.opentelemetry.io/otel/trace"
 	"google.golang.org/protobuf/encoding/protodelim"
 	"google.golang.org/protobuf/encoding/protowire"
 
 	"github.com/cloudnative-pg/klio/core/internal/grpc"
 	"github.com/cloudnative-pg/klio/core/internal/opentelemetry"
-	"github.com/cloudnative-pg/klio/core/internal/server/walserver/repository"
 )
 
 // Reader is the WAL file writer.
 type Reader struct {
-	conn        *repository.Connection
+	conn        *Connection
 	file        afero.File
 	reader      *bufio.Reader
 	walFilePath string
+	tracer      trace.Tracer
 
 	segmentLength uint64
 }
 
 // NewReader creates a new WAL file writer.
 func NewReader(
-	conn *repository.Connection,
+	conn *Connection,
 	clusterName,
 	walName string,
+	tracer trace.Tracer,
 ) (*Reader, error) {
 	walFilePath := getWALArchivePath(clusterName, walName)
 
-	walFileReader, err := conn.FS.OpenFile(walFilePath, os.O_RDONLY, 0o600)
+	walFileReader, err := conn.fs.OpenFile(walFilePath, os.O_RDONLY, 0o600)
 	if err != nil {
 		return nil, fmt.Errorf(
 			"error while opening file %s: %w",
@@ -57,6 +59,7 @@ func NewReader(
 		file:          walFileReader,
 		reader:        reader,
 		segmentLength: header.GetFileLength(),
+		tracer:        tracer,
 	}, nil
 }
 
@@ -87,7 +90,7 @@ func (r *Reader) GetFileLength() uint64 {
 
 // readBlockData reads the block length and data from the file.
 func (r *Reader) readBlockData(ctx context.Context) ([]byte, error) {
-	_, readBlockSpan := tracer.Start(ctx, opentelemetry.ReadBlockDataSpan)
+	_, readBlockSpan := r.tracer.Start(ctx, opentelemetry.ReadBlockDataSpan)
 	defer readBlockSpan.End()
 
 	blockLenBytes := make([]byte, 8)
@@ -110,7 +113,7 @@ func (r *Reader) readBlockData(ctx context.Context) ([]byte, error) {
 
 // unwrapBlockData unwraps the block data using the connection.
 func (r *Reader) unwrapBlockData(ctx context.Context, block []byte) ([]byte, error) {
-	_, unwrapSpan := tracer.Start(ctx, opentelemetry.UnwrapBlockSpan)
+	_, unwrapSpan := r.tracer.Start(ctx, opentelemetry.UnwrapBlockSpan)
 	defer unwrapSpan.End()
 
 	bytesRead, err := r.conn.UnwrapBlock(block)

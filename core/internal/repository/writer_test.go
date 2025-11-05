@@ -1,4 +1,4 @@
-package walserver
+package repository
 
 import (
 	"crypto/rand"
@@ -8,26 +8,24 @@ import (
 	"github.com/spf13/afero"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-
-	"github.com/cloudnative-pg/klio/core/internal/server/walserver/repository"
 )
 
 func TestWriter(t *testing.T) {
-	opts := repository.Options{
+	opts := Options{
 		FS:       afero.NewMemMapFs(),
 		Password: "this-password",
 	}
 
-	err := repository.Initialize(opts)
+	err := Initialize(opts)
 	require.NoError(t, err)
 
-	conn, err := repository.Open(opts)
+	conn, err := Open(opts)
 	assert.NotNil(t, conn)
 	require.NoError(t, err)
 
 	const fileLen = 123
-	metrics := NewMetrics()
-	writer, err := NewWriter(conn, "cluster-example", "0000001000000000000001F8", fileLen, metrics)
+	metrics := NewDummyMetrics()
+	writer, err := conn.NewWriter("cluster-example", "0000001000000000000001F8", fileLen, metrics, dummyTracer)
 	require.NoError(t, err)
 	require.NotNil(t, writer)
 
@@ -42,7 +40,7 @@ func TestWriter(t *testing.T) {
 	require.NoError(t, err)
 
 	expectedPath := path.Join("cluster-example", "0000001000000000", "0000001000000000000001F8")
-	exists, err := repository.FileExists(opts.FS, expectedPath)
+	exists, err := FileExists(opts.FS, expectedPath)
 	require.NoError(t, err)
 	assert.True(t, exists)
 
@@ -55,23 +53,23 @@ func BenchmarkWriter(b *testing.B) {
 	block := make([]byte, 100*1024)
 	_, _ = rand.Read(block)
 
-	opts := repository.Options{
+	opts := Options{
 		FS:       afero.NewMemMapFs(),
 		Password: "this-password",
 	}
 
-	err := repository.Initialize(opts)
+	err := Initialize(opts)
 	require.NoError(b, err)
 
-	conn, err := repository.Open(opts)
+	conn, err := Open(opts)
 	assert.NotNil(b, conn)
 	require.NoError(b, err)
 
 	defer conn.Close()
 
-	metrics := NewMetrics()
-	writer, err := NewWriter(
-		conn, "cluster-example", "0000001000000000000001FF", uint64(len(block)*b.N), metrics) //nolint:gosec
+	metrics := NewDummyMetrics()
+	writer, err := conn.NewWriter(
+		"cluster-example", "0000001000000000000001FF", uint64(len(block)*b.N), metrics, dummyTracer) //nolint:gosec
 	require.NoError(b, err)
 	assert.NotNil(b, writer)
 

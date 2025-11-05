@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/cloudnative-pg/machinery/pkg/log"
 	"go.opentelemetry.io/otel/attribute"
 	otelcodes "go.opentelemetry.io/otel/codes"
 	"go.opentelemetry.io/otel/metric"
@@ -16,6 +17,7 @@ import (
 
 	"github.com/cloudnative-pg/klio/core/internal/grpc"
 	"github.com/cloudnative-pg/klio/core/internal/opentelemetry"
+	"github.com/cloudnative-pg/klio/core/internal/repository"
 )
 
 var (
@@ -94,9 +96,11 @@ func (m *walUploadBlockMetadata) handleRequest(request *grpc.PutRequest) error {
 //nolint:cyclop,gocognit,maintidx
 func (w *Implementation) Put(req grpc.WAL_PutServer) error {
 	var blockMeta walUploadBlockMetadata
-	var walBuffer *Writer
+	var walBuffer *repository.Writer
 	var writtenSize uint64
 	startTime := time.Now()
+
+	logger := log.FromContext(req.Context())
 
 	ctx, span := tracer.Start(req.Context(), "put_wal")
 	defer span.End()
@@ -107,7 +111,7 @@ func (w *Implementation) Put(req grpc.WAL_PutServer) error {
 		if err != nil {
 			if !errors.Is(err, io.EOF) {
 				readSpan.SetStatus(otelcodes.Error, err.Error())
-				w.logger.Warning(
+				logger.Warning(
 					"Error while reading WAL block",
 					"clusterName", request.GetClusterName(),
 					"walName", request.GetWalName(),
@@ -150,24 +154,24 @@ func (w *Implementation) Put(req grpc.WAL_PutServer) error {
 			break
 		}
 
-		if err := validatePathComponent(request.GetClusterName()); err != nil {
-			w.logger.Warning("Wrong cluster name used in WAL Put", "clusterName", request.GetClusterName())
+		if err := repository.ValidatePathComponent(request.GetClusterName()); err != nil {
+			logger.Warning("Wrong cluster name used in WAL Put", "clusterName", request.GetClusterName())
 			return status.Errorf(grpccodes.InvalidArgument, "invalid cluster name: %v", err.Error())
 		}
 
-		if err := validatePathComponent(request.GetWalName()); err != nil {
-			w.logger.Warning("Wrong WAL name used in WAL Put", "walName", request.GetWalName())
+		if err := repository.ValidatePathComponent(request.GetWalName()); err != nil {
+			logger.Warning("Wrong WAL name used in WAL Put", "walName", request.GetWalName())
 			return status.Errorf(grpccodes.InvalidArgument, "invalid WAL name: %v", err.Error())
 		}
 
-		if err := validateWalFileName(request.GetWalName()); err != nil {
+		if err := repository.ValidateWalFileName(request.GetWalName()); err != nil {
 			return status.Errorf(grpccodes.InvalidArgument, "invalid WAL name: %q", request.GetWalName())
 		}
 
 		span.SetAttributes(attribute.String("clusterName", request.GetClusterName()))
 		span.SetAttributes(attribute.String("walName", request.GetWalName()))
 
-		w.logger.Debug(
+		logger.Debug(
 			"Received WAL block",
 			"clusterName", request.GetClusterName(),
 			"walName", request.GetWalName(),
@@ -175,7 +179,7 @@ func (w *Implementation) Put(req grpc.WAL_PutServer) error {
 		)
 
 		if err := blockMeta.handleRequest(request); err != nil {
-			w.logger.Error(
+			logger.Error(
 				err,
 				"Incoherent WAL Block received",
 				"clusterName", request.GetClusterName(),
@@ -186,10 +190,10 @@ func (w *Implementation) Put(req grpc.WAL_PutServer) error {
 		}
 
 		if walBuffer == nil {
-			walBuffer, err = NewWriter(w.conn, blockMeta.clusterName, blockMeta.walFileName, blockMeta.segmentSize,
-				w.metrics)
+			walBuffer, err = w.conn.NewWriter(blockMeta.clusterName, blockMeta.walFileName, blockMeta.segmentSize,
+				w.metrics, tracer)
 			if err != nil {
-				w.logger.Error(
+				logger.Error(
 					err,
 					"Cannot open new WAL file",
 					"clusterName", request.GetClusterName(),
@@ -202,7 +206,7 @@ func (w *Implementation) Put(req grpc.WAL_PutServer) error {
 
 		err = walBuffer.WriteBlock(ctx, request.GetWalBlock())
 		if err != nil {
-			w.logger.Error(
+			logger.Error(
 				err,
 				"Error while writing WAL data",
 				"clusterName", request.GetClusterName(),
@@ -215,7 +219,7 @@ func (w *Implementation) Put(req grpc.WAL_PutServer) error {
 		_, flushSpan := tracer.Start(ctx, opentelemetry.FlushBlockSpan)
 		err = walBuffer.Flush()
 		if err != nil {
-			w.logger.Error(
+			logger.Error(
 				err,
 				"Error while flushing WAL data",
 				"clusterName", request.GetClusterName(),
@@ -237,7 +241,7 @@ func (w *Implementation) Put(req grpc.WAL_PutServer) error {
 		if err := req.SendAndClose(&grpc.PutResult{
 			WrittenSize: 0,
 		}); err != nil {
-			w.logger.Error(
+			logger.Error(
 				err,
 				"Error while closing empty WAL file",
 			)
@@ -250,7 +254,7 @@ func (w *Implementation) Put(req grpc.WAL_PutServer) error {
 
 	if writtenSize != blockMeta.segmentSize || writtenSize == 0 {
 		if err := walBuffer.Close(); err != nil {
-			w.logger.Warning(
+			logger.Warning(
 				"Error while closing partial WAL file",
 				"writtenSize", writtenSize,
 				"walFileName", blockMeta.walFileName,
@@ -261,7 +265,7 @@ func (w *Implementation) Put(req grpc.WAL_PutServer) error {
 			return status.Errorf(grpccodes.Internal, "error while closing (partial) WAL: %v", err.Error())
 		}
 
-		w.logger.Info(
+		logger.Info(
 			"Received partial WAL file",
 			"writtenSize", writtenSize,
 			"segmentSize", blockMeta.segmentSize,
@@ -271,7 +275,7 @@ func (w *Implementation) Put(req grpc.WAL_PutServer) error {
 		)
 	} else {
 		if err := walBuffer.CloseMarkDone(); err != nil {
-			w.logger.Warning(
+			logger.Warning(
 				"Error while closing completed WAL file",
 				"writtenSize", writtenSize,
 				"walFileName", blockMeta.walFileName,
@@ -282,7 +286,7 @@ func (w *Implementation) Put(req grpc.WAL_PutServer) error {
 			return status.Errorf(grpccodes.Internal, "error while closing (done) WAL: %v", err.Error())
 		}
 
-		w.metrics.walWritten.Add(
+		w.metrics.WalWritten.Add(
 			req.Context(),
 			1,
 			metric.WithAttributeSet(
@@ -292,7 +296,7 @@ func (w *Implementation) Put(req grpc.WAL_PutServer) error {
 			),
 		)
 
-		w.logger.Info(
+		logger.Info(
 			"Received completed WAL file",
 			"writtenSize", writtenSize,
 			"segmentSize", blockMeta.segmentSize,
@@ -305,7 +309,7 @@ func (w *Implementation) Put(req grpc.WAL_PutServer) error {
 	if err := req.SendAndClose(&grpc.PutResult{
 		WrittenSize: writtenSize,
 	}); err != nil {
-		w.logger.Warning(
+		logger.Warning(
 			"Error while sending WAL Put response",
 			"writtenSize", writtenSize,
 			"walFileName", blockMeta.walFileName,

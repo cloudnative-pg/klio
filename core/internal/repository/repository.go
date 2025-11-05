@@ -12,7 +12,7 @@ import (
 type Connection struct {
 	config *KlioRepositoryConfig
 
-	FS afero.Fs
+	fs afero.Fs
 
 	//nolint:godox
 	// TODO(leonardoce)
@@ -48,7 +48,7 @@ func Open(options Options) (*Connection, error) {
 	return &Connection{
 		config:    &config,
 		masterKey: masterKey,
-		FS:        options.FS,
+		fs:        options.FS,
 	}, nil
 }
 

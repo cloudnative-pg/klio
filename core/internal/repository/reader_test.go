@@ -1,4 +1,4 @@
-package walserver
+package repository
 
 import (
 	"bytes"
@@ -11,32 +11,57 @@ import (
 	"github.com/spf13/afero"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/metric"
 
-	"github.com/cloudnative-pg/klio/core/internal/server/walserver/repository"
+	"github.com/cloudnative-pg/klio/core/internal/opentelemetry"
 )
 
+// NewDummyMetrics creates a dummy metrics instance for testing purposes.
+func NewDummyMetrics() *Metrics {
+	meter := otel.Meter(opentelemetry.Meter)
+
+	walWrittenBytes, _ := meter.Int64Counter(
+		"dummy.wal.written_size",
+		metric.WithDescription("Number of bytes written to disk for the WAL files"),
+		metric.WithUnit("By"),
+	)
+	walWritten, _ := meter.Int64Counter(
+		"dummy.wal.written",
+		metric.WithDescription("Number of WAL files written"),
+		metric.WithUnit("{wals}"),
+	)
+
+	return &Metrics{
+		WalWrittenBytes: walWrittenBytes,
+		WalWritten:      walWritten,
+	}
+}
+
+var dummyTracer = otel.Tracer("dummy") //nolint:gochecknoglobals
+
 func TestWALReaderBlockSplit(t *testing.T) {
-	opts := repository.Options{
+	opts := Options{
 		FS:       afero.NewMemMapFs(),
 		Password: "this-password",
 	}
 
-	err := repository.Initialize(opts)
+	err := Initialize(opts)
 	require.NoError(t, err)
 
-	conn, err := repository.Open(opts)
+	conn, err := Open(opts)
 	assert.NotNil(t, conn)
 	require.NoError(t, err)
 
 	defer conn.Close()
 
-	readerNonExisting, err := NewReader(conn, "cluster-example", "0000001000000000000001FF")
+	readerNonExisting, err := NewReader(conn, "cluster-example", "0000001000000000000001FF", dummyTracer)
 	assert.Nil(t, readerNonExisting)
 	require.ErrorIs(t, err, os.ErrNotExist)
 
 	const fileLen = uint64(16 * 1024 * 1024)
-	metrics := NewMetrics()
-	writer, err := NewWriter(conn, "cluster-example", "0000001000000000000001FF", fileLen, metrics)
+	metrics := NewDummyMetrics()
+	writer, err := conn.NewWriter("cluster-example", "0000001000000000000001FF", fileLen, metrics, dummyTracer)
 	require.NoError(t, err)
 	assert.NotNil(t, writer)
 
@@ -49,7 +74,7 @@ func TestWALReaderBlockSplit(t *testing.T) {
 	err = writer.CloseMarkDone()
 	require.NoError(t, err)
 
-	reader, err := NewReader(conn, "cluster-example", "0000001000000000000001FF")
+	reader, err := NewReader(conn, "cluster-example", "0000001000000000000001FF", dummyTracer)
 	require.NoError(t, err)
 	assert.NotNil(t, reader)
 	assert.Equal(t, fileLen, reader.GetFileLength())
@@ -74,23 +99,23 @@ func TestWALReaderBlockSplit(t *testing.T) {
 
 func TestReaderWriterBlocks(t *testing.T) {
 	// Step 1: write two blocks to the file
-	opts := repository.Options{
+	opts := Options{
 		FS:       afero.NewMemMapFs(),
 		Password: "this-password",
 	}
 
-	err := repository.Initialize(opts)
+	err := Initialize(opts)
 	require.NoError(t, err)
 
-	conn, err := repository.Open(opts)
+	conn, err := Open(opts)
 	assert.NotNil(t, conn)
 	require.NoError(t, err)
 
 	defer conn.Close()
 
 	const fileLen = uint64(145)
-	metrics := NewMetrics()
-	writer, err := NewWriter(conn, "cluster-example", "0000001000000000000001F8", fileLen, metrics)
+	metrics := NewDummyMetrics()
+	writer, err := conn.NewWriter("cluster-example", "0000001000000000000001F8", fileLen, metrics, dummyTracer)
 	require.NoError(t, err)
 	require.NotNil(t, writer)
 
@@ -109,7 +134,7 @@ func TestReaderWriterBlocks(t *testing.T) {
 	require.NoError(t, err)
 
 	// Step 2: open the compressed file
-	reader, err := NewReader(conn, "cluster-example", "0000001000000000000001F8")
+	reader, err := NewReader(conn, "cluster-example", "0000001000000000000001F8", dummyTracer)
 	require.NoError(t, err)
 	assert.NotNil(t, reader)
 	assert.Equal(t, fileLen, reader.GetFileLength())
@@ -130,15 +155,15 @@ func TestReaderWriterBlocks(t *testing.T) {
 
 func TestReaderWriter100KBlocks(t *testing.T) {
 	// Step 1: write two blocks to the file
-	opts := repository.Options{
+	opts := Options{
 		FS:       afero.NewMemMapFs(),
 		Password: "this-password",
 	}
 
-	err := repository.Initialize(opts)
+	err := Initialize(opts)
 	require.NoError(t, err)
 
-	conn, err := repository.Open(opts)
+	conn, err := Open(opts)
 	assert.NotNil(t, conn)
 	require.NoError(t, err)
 
@@ -148,8 +173,8 @@ func TestReaderWriter100KBlocks(t *testing.T) {
 	_, _ = rand.Read(block1)
 
 	fileLen := uint64(128 * len(block1)) //nolint:gosec
-	metrics := NewMetrics()
-	writer, err := NewWriter(conn, "cluster-example", "0000001000000000000001F8", fileLen, metrics)
+	metrics := NewDummyMetrics()
+	writer, err := conn.NewWriter("cluster-example", "0000001000000000000001F8", fileLen, metrics, dummyTracer)
 	require.NoError(t, err)
 	require.NotNil(t, writer)
 

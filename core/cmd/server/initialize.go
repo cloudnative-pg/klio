@@ -10,8 +10,8 @@ import (
 	"github.com/spf13/viper"
 	"gopkg.in/validator.v2"
 
+	"github.com/cloudnative-pg/klio/core/internal/repository"
 	"github.com/cloudnative-pg/klio/core/internal/server/kopiaserver"
-	"github.com/cloudnative-pg/klio/core/internal/server/walserver/repository"
 	"github.com/cloudnative-pg/klio/core/pkg/config"
 )
 

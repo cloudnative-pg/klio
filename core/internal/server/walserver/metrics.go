@@ -5,16 +5,11 @@ import (
 	"go.opentelemetry.io/otel/metric"
 
 	"github.com/cloudnative-pg/klio/core/internal/opentelemetry"
+	"github.com/cloudnative-pg/klio/core/internal/repository"
 )
 
-// Metrics holds OpenTelemetry metrics for the WAL server.
-type Metrics struct {
-	walWrittenBytes metric.Int64Counter
-	walWritten      metric.Int64Counter
-}
-
 // NewMetrics creates a new Metrics instance with initialized counters.
-func NewMetrics() *Metrics {
+func NewMetrics() *repository.Metrics {
 	meter := otel.Meter(opentelemetry.Meter)
 
 	walWrittenBytes, _ := meter.Int64Counter(
@@ -28,8 +23,8 @@ func NewMetrics() *Metrics {
 		metric.WithUnit("{wals}"),
 	)
 
-	return &Metrics{
-		walWrittenBytes: walWrittenBytes,
-		walWritten:      walWritten,
+	return &repository.Metrics{
+		WalWrittenBytes: walWrittenBytes,
+		WalWritten:      walWritten,
 	}
 }

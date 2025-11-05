@@ -12,8 +12,8 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 
 	klioGRPC "github.com/cloudnative-pg/klio/core/internal/grpc"
+	"github.com/cloudnative-pg/klio/core/internal/repository"
 	"github.com/cloudnative-pg/klio/core/internal/server/walserver"
-	"github.com/cloudnative-pg/klio/core/internal/server/walserver/repository"
 	"github.com/cloudnative-pg/klio/core/pkg/config"
 )
 
@@ -55,7 +55,7 @@ func ConnectTemporary(
 	server := grpc.NewServer(grpc.Creds(insecure.NewCredentials()))
 	klioGRPC.RegisterWALServer(
 		server,
-		walserver.New(logger, repoConnection),
+		walserver.New(repoConnection),
 	)
 
 	go func() {

@@ -3,17 +3,15 @@ package walserver
 import (
 	"context"
 	"errors"
-	"fmt"
 	"os"
-	"path"
-	"strings"
 
-	"github.com/spf13/afero"
+	"github.com/cloudnative-pg/machinery/pkg/log"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/cloudnative-pg/klio/core/internal/grpc"
+	"github.com/cloudnative-pg/klio/core/internal/repository"
 )
 
 // GetMetadata implements the GetMetadata GRPC call.
@@ -21,7 +19,7 @@ func (w *Implementation) GetMetadata(
 	ctx context.Context,
 	req *grpc.GetMetadataRequest,
 ) (*grpc.ClusterMetadata, error) {
-	if err := validatePathComponent(req.GetClusterName()); err != nil {
+	if err := repository.ValidatePathComponent(req.GetClusterName()); err != nil {
 		return nil, status.Errorf(codes.InvalidArgument, "invalid cluster name: %v", err.Error())
 	}
 
@@ -45,13 +43,15 @@ func (w *Implementation) RequestWALStart(
 	ctx context.Context,
 	req *grpc.RequestWALStartRequest,
 ) (*grpc.RequestWALStartResult, error) {
-	w.logger.Info(
+	logger := log.FromContext(ctx)
+
+	logger.Info(
 		"RequestWALStart, negotiating the starting point with the client",
 		"cluster", req.GetClusterName(),
 		"systemID", req.GetSystemId(),
 		"currentWAL", req.GetCurrentWalName())
 
-	if err := validatePathComponent(req.GetClusterName()); err != nil {
+	if err := repository.ValidatePathComponent(req.GetClusterName()); err != nil {
 		return nil, status.Errorf(codes.InvalidArgument, "invalid cluster name: %v", err.Error())
 	}
 
@@ -79,7 +79,7 @@ func (w *Implementation) RequestWALStart(
 	}
 
 	// Step 3.1: recover the latest archived WAL file in the server
-	latestStoredWAL, err := w.getLatestWALFileForCluster(req.GetClusterName())
+	latestStoredWAL, err := w.conn.GetLatestWALFileForCluster(ctx, req.GetClusterName())
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "error while reading WAL directory")
 	}
@@ -99,7 +99,7 @@ func (w *Implementation) RequestWALStart(
 		serverSideWALFile = req.GetCurrentWalName()
 	}
 
-	w.logger.Info(
+	logger.Info(
 		"Server-side WAL start",
 		"wal", serverSideWALFile,
 		"latestWALGapEnd", latestWALGapEnd,
@@ -115,7 +115,7 @@ func (w *Implementation) ResetWALStream(
 	ctx context.Context,
 	req *grpc.ResetWALStreamRequest,
 ) (*grpc.ResetWALStreamResult, error) {
-	if err := validatePathComponent(req.GetClusterName()); err != nil {
+	if err := repository.ValidatePathComponent(req.GetClusterName()); err != nil {
 		return nil, status.Errorf(codes.InvalidArgument, "invalid cluster name: %v", err.Error())
 	}
 
@@ -133,7 +133,7 @@ func (w *Implementation) ResetWALStream(
 	}
 
 	// Step 3.1: recover the latest archived WAL file in the server
-	latestStoredWAL, err := w.getLatestWALFileForCluster(req.GetClusterName())
+	latestStoredWAL, err := w.conn.GetLatestWALFileForCluster(ctx, req.GetClusterName())
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "error while reading WAL directory")
 	}
@@ -165,65 +165,4 @@ func (w *Implementation) ResetWALStream(
 	return &grpc.ResetWALStreamResult{
 		WalName: req.GetCurrentWalName(),
 	}, nil
-}
-
-// getLatestWALFileForCluster gets the latest archived WAL for a certain cluster
-//
-//nolint:cyclop
-func (w *Implementation) getLatestWALFileForCluster(
-	clusterName string,
-) (string, error) {
-	readClusterDir, err := afero.ReadDir(w.conn.FS, clusterName)
-	if err != nil {
-		if errors.Is(err, os.ErrNotExist) {
-			return "", nil
-		}
-
-		w.logger.Error(
-			err,
-			"while reading cluster directory",
-			"clusterName", clusterName,
-		)
-
-		return "", fmt.Errorf("while reading cluster directory: %w", err)
-	}
-
-	var latestWalDirectoryName string
-	for _, entry := range readClusterDir {
-		if !entry.IsDir() {
-			continue
-		}
-
-		if strings.Compare(latestWalDirectoryName, entry.Name()) == -1 {
-			latestWalDirectoryName = entry.Name()
-		}
-	}
-
-	if latestWalDirectoryName == "" {
-		return "", nil
-	}
-
-	latestWalDirectoryName = path.Join(clusterName, latestWalDirectoryName)
-	readWalDirectory, err := os.ReadDir(latestWalDirectoryName)
-	if err != nil {
-		w.logger.Error(err, "while reading directory", "latestWalDirectoryName", latestWalDirectoryName)
-		return "", fmt.Errorf("while reading WAL directory: %w", err)
-	}
-
-	var lastWal string
-	for _, entry := range readWalDirectory {
-		if entry.IsDir() {
-			continue
-		}
-
-		if strings.Compare(lastWal, entry.Name()) == -1 {
-			lastWal = entry.Name()
-		}
-	}
-
-	if lastWal == "" {
-		return "", nil
-	}
-
-	return lastWal, nil
 }

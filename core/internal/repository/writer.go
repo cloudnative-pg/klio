@@ -1,4 +1,4 @@
-package walserver
+package repository
 
 import (
 	"bufio"
@@ -11,35 +11,37 @@ import (
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/codes"
 	"go.opentelemetry.io/otel/metric"
+	"go.opentelemetry.io/otel/trace"
 	"google.golang.org/protobuf/encoding/protodelim"
 	"google.golang.org/protobuf/encoding/protowire"
 
 	"github.com/cloudnative-pg/klio/core/internal/grpc"
 	"github.com/cloudnative-pg/klio/core/internal/opentelemetry"
-	"github.com/cloudnative-pg/klio/core/internal/server/walserver/repository"
 )
 
 // Writer is the repository file writer.
 type Writer struct {
 	walFilePath        string
 	walFilePartialPath string
-	conn               *repository.Connection
+	conn               *Connection
 	clusterName        string
 	metrics            *Metrics
+	tracer             trace.Tracer
 
 	file   afero.File
 	buffer *bufio.Writer
 }
 
 // NewWriter creates a new WAL file writer.
-func NewWriter(conn *repository.Connection, clusterName, walName string, segmentSize uint64, metrics *Metrics) (*Writer,
-	error,
-) {
+func (c *Connection) NewWriter(
+	clusterName, walName string,
+	segmentSize uint64, metrics *Metrics, tracer trace.Tracer,
+) (*Writer, error) {
 	walFilePath := getWALArchivePath(clusterName, walName)
 	walFilePartialPath := walFilePath + ".partial"
 
 	// Step 1: ensure the parent path exists
-	err := conn.FS.MkdirAll(path.Dir(walFilePath), 0o750)
+	err := c.fs.MkdirAll(path.Dir(walFilePath), 0o750)
 	if err != nil {
 		return nil, fmt.Errorf(
 			"error while creating directory %s: %w",
@@ -49,7 +51,7 @@ func NewWriter(conn *repository.Connection, clusterName, walName string, segment
 	}
 
 	// Step 2: open the file
-	file, err := conn.FS.OpenFile(walFilePartialPath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o600)
+	file, err := c.fs.OpenFile(walFilePartialPath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o600)
 	if err != nil {
 		return nil, fmt.Errorf(
 			"error while opening file %s: %w",
@@ -72,10 +74,11 @@ func NewWriter(conn *repository.Connection, clusterName, walName string, segment
 		walFilePath:        walFilePath,
 		walFilePartialPath: walFilePartialPath,
 		file:               file,
-		conn:               conn,
+		conn:               c,
 		buffer:             buffer,
 		clusterName:        clusterName,
 		metrics:            metrics,
+		tracer:             tracer,
 	}, nil
 }
 
@@ -89,7 +92,7 @@ func (w *Writer) CloseMarkDone() error {
 		return fmt.Errorf("while closing partial file: %w", err)
 	}
 
-	if err := w.conn.FS.Rename(w.walFilePartialPath, w.walFilePath); err != nil {
+	if err := w.conn.fs.Rename(w.walFilePartialPath, w.walFilePath); err != nil {
 		return fmt.Errorf("while renaming partial file: %w", err)
 	}
 
@@ -124,7 +127,7 @@ func (w *Writer) Close() error {
 
 // WriteBlock writes the WAL block to storage.
 func (w *Writer) WriteBlock(ctx context.Context, data []byte) error {
-	writeBlockSpanCtx, writeBlockSpan := tracer.Start(ctx, opentelemetry.WriteBlockSpan)
+	writeBlockSpanCtx, writeBlockSpan := w.tracer.Start(ctx, opentelemetry.WriteBlockSpan)
 	defer writeBlockSpan.End()
 	const walBlockSize = 1 << 20
 
@@ -162,7 +165,7 @@ func (w *Writer) writeBlockInternal(ctx context.Context, p []byte) error {
 
 // wrapBlock compresses and encrypts the block data.
 func (w *Writer) wrapBlock(ctx context.Context, p []byte) ([]byte, error) {
-	_, wrapSpan := tracer.Start(ctx, opentelemetry.WrapBlockSpan)
+	_, wrapSpan := w.tracer.Start(ctx, opentelemetry.WrapBlockSpan)
 	defer wrapSpan.End()
 
 	wrappedBlock, err := w.conn.WrapBlock(p, defaultChunkSize)
@@ -177,7 +180,7 @@ func (w *Writer) wrapBlock(ctx context.Context, p []byte) ([]byte, error) {
 
 // writeBlockData writes the wrapped block data to the buffer with metrics.
 func (w *Writer) writeBlockData(ctx context.Context, wrappedBlock []byte) error {
-	_, writeSpan := tracer.Start(ctx, opentelemetry.WriteBlockDataSpan)
+	_, writeSpan := w.tracer.Start(ctx, opentelemetry.WriteBlockDataSpan)
 	defer writeSpan.End()
 
 	prefix := protowire.AppendFixed64(nil, uint64(len(wrappedBlock)))
@@ -188,7 +191,7 @@ func (w *Writer) writeBlockData(ctx context.Context, wrappedBlock []byte) error 
 		return fmt.Errorf("while writing prefix: %w", err)
 	}
 
-	w.metrics.walWrittenBytes.Add(ctx, int64(nBytes),
+	w.metrics.WalWrittenBytes.Add(ctx, int64(nBytes),
 		metric.WithAttributeSet(
 			attribute.NewSet(
 				attribute.String("cluster_name", w.clusterName),
@@ -202,7 +205,7 @@ func (w *Writer) writeBlockData(ctx context.Context, wrappedBlock []byte) error 
 		writeSpan.RecordError(err)
 		return fmt.Errorf("while writing WAL file block: %w", err)
 	}
-	w.metrics.walWrittenBytes.Add(ctx, int64(nBytes),
+	w.metrics.WalWrittenBytes.Add(ctx, int64(nBytes),
 		metric.WithAttributeSet(
 			attribute.NewSet(
 				attribute.String("cluster_name", w.clusterName),

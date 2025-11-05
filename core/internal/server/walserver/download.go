@@ -6,6 +6,7 @@ import (
 	"io"
 	"os"
 
+	"github.com/cloudnative-pg/machinery/pkg/log"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
 	"google.golang.org/grpc/codes"
@@ -13,6 +14,7 @@ import (
 
 	"github.com/cloudnative-pg/klio/core/internal/grpc"
 	"github.com/cloudnative-pg/klio/core/internal/opentelemetry"
+	"github.com/cloudnative-pg/klio/core/internal/repository"
 )
 
 // metadataFileName is the name of the file containing the
@@ -21,15 +23,16 @@ const metadataFileName = "metadata"
 
 // Get implements the relative GRPC call.
 func (w *Implementation) Get(req *grpc.GetRequest, res grpc.WAL_GetServer) error { //nolint:cyclop
-	if err := validatePathComponent(req.GetClusterName()); err != nil {
+	logger := log.FromContext(res.Context())
+	if err := repository.ValidatePathComponent(req.GetClusterName()); err != nil {
 		return status.Errorf(codes.InvalidArgument, "invalid cluster name: %v", err.Error())
 	}
 
-	if err := validatePathComponent(req.GetWalName()); err != nil {
+	if err := repository.ValidatePathComponent(req.GetWalName()); err != nil {
 		return status.Errorf(codes.InvalidArgument, "invalid WAL name: %v", err.Error())
 	}
 
-	if err := validateWalFileName(req.GetWalName()); err != nil {
+	if err := repository.ValidateWalFileName(req.GetWalName()); err != nil {
 		return status.Errorf(codes.InvalidArgument, "invalid WAL name: %q", req.GetWalName())
 	}
 
@@ -43,7 +46,7 @@ func (w *Implementation) Get(req *grpc.GetRequest, res grpc.WAL_GetServer) error
 	)
 	defer span.End()
 
-	walReader, err := NewReader(w.conn, req.GetClusterName(), req.GetWalName())
+	walReader, err := repository.NewReader(w.conn, req.GetClusterName(), req.GetWalName(), tracer)
 	if errors.Is(err, os.ErrNotExist) {
 		span.RecordError(fmt.Errorf("WAL not found: %v/%v", req.GetClusterName(), req.GetWalName()))
 		return status.Errorf(codes.NotFound, "WAL not found: %v/%v", req.GetClusterName(), req.GetWalName())
@@ -73,7 +76,7 @@ func (w *Implementation) Get(req *grpc.GetRequest, res grpc.WAL_GetServer) error
 		}
 
 		if errors.Is(readError, io.EOF) {
-			w.logger.Debug("WAL read completed", "name", req.GetWalName(), "cluster", req.GetClusterName())
+			logger.Debug("WAL read completed", "name", req.GetWalName(), "cluster", req.GetClusterName())
 			break
 		}
 	}

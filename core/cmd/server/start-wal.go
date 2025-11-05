@@ -8,7 +8,6 @@ import (
 	"net"
 	"os"
 
-	"github.com/cloudnative-pg/machinery/pkg/log"
 	"github.com/spf13/afero"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -18,8 +17,8 @@ import (
 	"gopkg.in/validator.v2"
 
 	klioGRPC "github.com/cloudnative-pg/klio/core/internal/grpc"
+	"github.com/cloudnative-pg/klio/core/internal/repository"
 	"github.com/cloudnative-pg/klio/core/internal/server/walserver"
-	"github.com/cloudnative-pg/klio/core/internal/server/walserver/repository"
 	"github.com/cloudnative-pg/klio/core/internal/wal"
 	"github.com/cloudnative-pg/klio/core/pkg/config"
 )
@@ -34,7 +33,7 @@ var ErrParsingClientCACertificate = errors.New("parsing client CA certificate fi
 var startWALCmd = &cobra.Command{
 	Use:   "start-wal",
 	Short: "Starts a Klio WAL server",
-	RunE: func(cmd *cobra.Command, _ []string) error {
+	RunE: func(_ *cobra.Command, _ []string) error {
 		var configuration config.ServerConfig
 
 		// IMPORTANT: this requires this program to be built with "-tags viper_bind_struct"
@@ -105,7 +104,7 @@ var startWALCmd = &cobra.Command{
 		server := grpc.NewServer(opts...)
 		klioGRPC.RegisterWALServer(
 			server,
-			walserver.New(log.FromContext(cmd.Context()), repoConnection),
+			walserver.New(repoConnection),
 		)
 		if err := server.Serve(listener); !errors.Is(err, net.ErrClosed) {
 			return fmt.Errorf("error while running server: %w", err)

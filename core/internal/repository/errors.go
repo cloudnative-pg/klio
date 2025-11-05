@@ -1,4 +1,4 @@
-package walserver
+package repository
 
 // IncorrectWALNameError is raised when a WAL file name is not correct.
 type IncorrectWALNameError struct {

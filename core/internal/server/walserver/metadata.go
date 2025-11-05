@@ -5,9 +5,11 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/cloudnative-pg/machinery/pkg/log"
 	"google.golang.org/protobuf/proto"
 
 	"github.com/cloudnative-pg/klio/core/internal/grpc"
+	"github.com/cloudnative-pg/klio/core/internal/repository"
 )
 
 // ErrIncoherentMetadata happens when the cluster metadata is incoherent
@@ -16,14 +18,16 @@ var ErrIncoherentMetadata = errors.New("incoherent cluster metadata")
 
 // getClusterMetadata gets the cluster metadata for the cluster with the passed name.
 func (w *Implementation) getClusterMetadata(ctx context.Context, clusterName string) (*grpc.ClusterMetadata, error) {
-	walReader, err := NewReader(w.conn, clusterName, metadataFileName)
+	logger := log.FromContext(ctx)
+
+	walReader, err := repository.NewReader(w.conn, clusterName, metadataFileName, tracer)
 	if err != nil {
 		return nil, err
 	}
 
 	defer func() {
 		if err := walReader.Close(); err != nil {
-			w.logger.Error(err, "Error while closing metadata file for read", "clusterName", clusterName)
+			logger.Error(err, "Error while closing metadata file for read", "clusterName", clusterName)
 		}
 	}()
 
@@ -46,19 +50,20 @@ func (w *Implementation) writeClusterMetadata(
 	clusterName string,
 	metadata *grpc.ClusterMetadata,
 ) error {
+	logger := log.FromContext(ctx)
 	data, err := proto.Marshal(metadata)
 	if err != nil {
 		return fmt.Errorf("internal error while marshalling protobuf data: %w", err)
 	}
 
-	walWriter, err := NewWriter(w.conn, clusterName, metadataFileName, uint64(len(data)), w.metrics)
+	walWriter, err := w.conn.NewWriter(clusterName, metadataFileName, uint64(len(data)), w.metrics, tracer)
 	if err != nil {
 		return err
 	}
 
 	defer func() {
 		if err := walWriter.CloseMarkDone(); err != nil {
-			w.logger.Error(err, "Error while closing metadata file for read", "clusterName", clusterName)
+			logger.Error(err, "Error while closing metadata file for read", "clusterName", clusterName)
 		}
 	}()
 

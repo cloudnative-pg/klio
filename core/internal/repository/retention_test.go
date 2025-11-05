@@ -1,11 +1,10 @@
-package walserver
+package repository
 
 import (
 	"context"
 	"path"
 	"testing"
 
-	"github.com/cloudnative-pg/machinery/pkg/log"
 	"github.com/spf13/afero"
 	"github.com/stretchr/testify/require"
 )
@@ -48,12 +47,13 @@ func (env *retentionTestEnv) requireNotExist(t *testing.T, name string) {
 
 func (env *retentionTestEnv) applyRetentionPolicy(t *testing.T, firstWal string) {
 	t.Helper()
-	w := Implementation{
-		logger: log.FromContext(context.Background()),
-	}
 
-	err := w.internalSetFirstRequiredOnCluster(
-		env.fs, env.prefix, firstWal)
+	conn := &Connection{
+		fs: env.fs,
+	}
+	err := conn.SetFirstRequiredOnCluster(
+		context.Background(),
+		env.prefix, firstWal)
 	if err != nil {
 		t.Fatalf("SetFirstRequiredOnCluster failed: %v", err)
 	}
