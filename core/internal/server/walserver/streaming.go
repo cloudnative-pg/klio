@@ -39,10 +39,14 @@ func (w *Implementation) GetMetadata(
 
 // RequestWALStart implements the corresponding GRPC call, validating the WAL
 // streaming request of a client.
-func (w *Implementation) RequestWALStart(
+func (w *Implementation) RequestWALStart( //nolint: cyclop
 	ctx context.Context,
 	req *grpc.RequestWALStartRequest,
 ) (*grpc.RequestWALStartResult, error) {
+	if w.isReadOnly {
+		return nil, status.Error(codes.FailedPrecondition, errReadOnly.Error())
+	}
+
 	logger := log.FromContext(ctx)
 
 	logger.Info(
@@ -115,6 +119,10 @@ func (w *Implementation) ResetWALStream(
 	ctx context.Context,
 	req *grpc.ResetWALStreamRequest,
 ) (*grpc.ResetWALStreamResult, error) {
+	if w.isReadOnly {
+		return nil, status.Error(codes.FailedPrecondition, errReadOnly.Error())
+	}
+
 	if err := repository.ValidatePathComponent(req.GetClusterName()); err != nil {
 		return nil, status.Errorf(codes.InvalidArgument, "invalid cluster name: %v", err.Error())
 	}

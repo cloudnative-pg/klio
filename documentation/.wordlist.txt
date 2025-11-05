@@ -34,6 +34,7 @@ Enum
 EnvConfiguration
 EnvVar
 Envs
+FailedPrecondition
 FalseClass
 Fixnum
 GCM

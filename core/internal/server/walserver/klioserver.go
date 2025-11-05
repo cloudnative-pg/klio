@@ -9,16 +9,25 @@ import (
 type Implementation struct {
 	grpc.UnimplementedWALServer
 
-	conn    *repository.Connection
-	metrics *repository.Metrics
+	conn       *repository.Connection
+	metrics    *repository.Metrics
+	isReadOnly bool
+}
+
+// Options is the structure describing the behavior of
+// a WAL server.
+type Options struct {
+	Connection *repository.Connection
+	ReadOnly   bool
 }
 
 // New creates a new WAL server implementation.
 func New(
-	conn *repository.Connection,
+	opts Options,
 ) *Implementation {
 	return &Implementation{
-		conn:    conn,
-		metrics: NewMetrics(),
+		conn:       opts.Connection,
+		isReadOnly: opts.ReadOnly,
+		metrics:    NewMetrics(),
 	}
 }

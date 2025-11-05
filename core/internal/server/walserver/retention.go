@@ -17,6 +17,10 @@ func (w *Implementation) SetFirstRequiredWAL(
 	ctx context.Context,
 	request *grpc.SetFirstRequiredWALRequest,
 ) (*grpc.SetFirstRequiredWALResult, error) {
+	if w.isReadOnly {
+		return nil, status.Error(codes.FailedPrecondition, errReadOnly.Error())
+	}
+
 	logger := log.FromContext(ctx)
 
 	if err := repository.ValidatePathComponent(request.GetClusterName()); err != nil {

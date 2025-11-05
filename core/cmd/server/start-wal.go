@@ -104,7 +104,12 @@ var startWALCmd = &cobra.Command{
 		server := grpc.NewServer(opts...)
 		klioGRPC.RegisterWALServer(
 			server,
-			walserver.New(repoConnection),
+			walserver.New(
+				walserver.Options{
+					Connection: repoConnection,
+					ReadOnly:   false,
+				},
+			),
 		)
 		if err := server.Serve(listener); !errors.Is(err, net.ErrClosed) {
 			return fmt.Errorf("error while running server: %w", err)

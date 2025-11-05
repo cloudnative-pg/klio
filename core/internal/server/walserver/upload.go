@@ -20,12 +20,6 @@ import (
 	"github.com/cloudnative-pg/klio/core/internal/repository"
 )
 
-var (
-	errEmptyClusterName = errors.New("empty cluster name")
-	errEmptyWALName     = errors.New("empty WAL name")
-	errEmptySegmentSize = errors.New("empty segment size")
-)
-
 type incoherentRequestError struct {
 	expectedValue string
 	foundValue    string
@@ -98,6 +92,11 @@ func (w *Implementation) Put(req grpc.WAL_PutServer) error {
 	var blockMeta walUploadBlockMetadata
 	var walBuffer *repository.Writer
 	var writtenSize uint64
+
+	if w.isReadOnly {
+		return status.Error(grpccodes.FailedPrecondition, errReadOnly.Error())
+	}
+
 	startTime := time.Now()
 
 	logger := log.FromContext(req.Context())

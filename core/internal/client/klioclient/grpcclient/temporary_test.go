@@ -55,7 +55,12 @@ func ConnectTemporary(
 	server := grpc.NewServer(grpc.Creds(insecure.NewCredentials()))
 	klioGRPC.RegisterWALServer(
 		server,
-		walserver.New(repoConnection),
+		walserver.New(
+			walserver.Options{
+				Connection: repoConnection,
+				ReadOnly:   false,
+			},
+		),
 	)
 
 	go func() {

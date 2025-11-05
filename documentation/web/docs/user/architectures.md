@@ -167,6 +167,22 @@ CloudNativePG topology, this allows a Klio server at a secondary site to use
 the shared Tier 2 storage to bootstrap a new cluster, enhancing DR
 capabilities.
 
+### Read-Only WAL Server Mode (currently unavailable)
+
+The Klio WAL server supports a **read-only mode** that allows it to serve WAL
+files for download without accepting any write operations. This mode is useful
+when implementing Tier 2 functionality, enabling clients to read WAL files from
+object storage without the risk of accidental modifications.
+
+When a WAL server is started in read-only mode:
+
+- All **read operations** (e.g., `Get`, `GetMetadata`) continue to function normally
+- All **write operations** (e.g., `Put`, `SetFirstRequiredWAL`, `RequestWALStart`, `ResetWALStream`) are rejected with a `FailedPrecondition` gRPC error
+- The server will return error code `3` (FailedPrecondition) for any write attempt
+
+This ensures data integrity in distributed backup scenarios where secondary sites
+only need read access to the WAL archive for recovery purposes.
+
 ---
 
 ## Planning Your Backup Strategy
