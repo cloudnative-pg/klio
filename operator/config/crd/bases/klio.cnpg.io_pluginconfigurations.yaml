@@ -44,10 +44,6 @@ spec:
               backupId:
                 description: BackupID is the ID of the backup we should use for restores
                 type: string
-              backupRef:
-                description: BackupRef is the reference to the backup we should use
-                  for restores
-                type: string
               clientSecretName:
                 description: ClientSecretName is the name of the secret containing
                   the client credentials
@@ -109,10 +105,6 @@ spec:
             - serverAddress
             - serverSecretName
             type: object
-            x-kubernetes-validations:
-            - message: at most one of the fields in [backupRef backupId] may be set
-              rule: '[has(self.backupRef),has(self.backupId)].filter(x,x==true).size()
-                <= 1'
           status:
             description: PluginConfigurationStatus defines the observed state of ClientConfig.
             type: object

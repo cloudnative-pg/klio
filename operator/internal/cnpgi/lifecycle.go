@@ -141,12 +141,10 @@ func (impl LifecycleImplementation) reconcileJob(
 		return nil, fmt.Errorf("failed to get client configuration: %w", err)
 	}
 
-	if clusterPC.Spec.BackupRef == "" && clusterPC.Spec.BackupID == "" {
-		contextLogger.Warning("neither backupID nor backupRef specified in the configuration, returning error",
-			"pluginConfig", clusterPC)
-		return nil, errors.New("no backupID or backupRef specified")
+	if clusterPC.Spec.BackupID == "" {
+		contextLogger.Error(errors.New("no backupID specified"), "cannot find backupID")
+		return nil, errors.New("no backupID specified")
 	}
-	backupRef := clusterPC.Spec.BackupRef
 	backupID := clusterPC.Spec.BackupID
 
 	// Reconcile the configuration secret
@@ -173,35 +171,6 @@ func (impl LifecycleImplementation) reconcileJob(
 		jobRole != "snapshot-recovery" {
 		contextLogger.Debug("job is not a recovery job, skipping")
 		return nil, nil
-	}
-
-	// Determine backup ID based on configuration
-	switch {
-	case backupID != "":
-		// Backup ID is already provided, use it directly
-		contextLogger.Debug("using provided backup ID", "backupID", backupID)
-	case backupRef != "":
-		// Backup reference provided, fetch the backup object to get the ID
-		var backup cnpgv1.Backup
-		if err := impl.Client.Get(
-			ctx,
-			client.ObjectKey{Name: backupRef, Namespace: cluster.Namespace},
-			&backup,
-		); err != nil {
-			contextLogger.Error(err, "failed to get backup object")
-			return nil, fmt.Errorf("failed to get backup object: %w", err)
-		}
-
-		if err := validateBackupForRestore(backup); err != nil {
-			contextLogger.Error(err, "while validating backup for restore")
-			return nil, err
-		}
-		backupID = backup.Status.BackupID
-		contextLogger.Debug("resolved backup ID from reference", "backupRef", backupRef, "backupID", backupID)
-	default:
-		// Neither backup ID nor backup reference provided (should not happen due to earlier checks)
-		contextLogger.Error(nil, "no backup ID found for recovery job, cannot proceed")
-		return nil, errors.New("no backup ID found for recovery job")
 	}
 
 	mutatedJob := job.DeepCopy()
@@ -243,49 +212,6 @@ func (impl LifecycleImplementation) reconcileJob(
 	return &lifecycle.OperatorLifecycleResponse{
 		JsonPatch: patch,
 	}, nil
-}
-
-func validateBackupForRestore(backup cnpgv1.Backup) error {
-	if backup.Spec.Method != cnpgv1.BackupMethodPlugin {
-		return fmt.Errorf(
-			"trying to restore from a backup that is not using the plugin method. '%s' has method: %s",
-			backup.Name,
-			backup.Spec.Method,
-		)
-	}
-
-	if backup.Spec.PluginConfiguration == nil {
-		return fmt.Errorf(
-			"trying to restore from a backup that has no plugin configuration. '%s' has no plugin configuration",
-			backup.Name,
-		)
-	}
-
-	if backup.Spec.PluginConfiguration.Name != PluginName {
-		return fmt.Errorf(
-			"trying to restore from a backup that is not using the plugin configuration. '%s' has plugin: %v, expected: %s",
-			backup.Name,
-			backup.Spec.PluginConfiguration.Name,
-			PluginName,
-		)
-	}
-
-	if backup.Status.Phase != cnpgv1.BackupPhaseCompleted {
-		return fmt.Errorf(
-			"trying to restore form an uncompleted backup. '%s' is not completed, phase: %s",
-			backup.Name,
-			backup.Status.Phase,
-		)
-	}
-
-	if backup.Status.BackupID == "" {
-		return fmt.Errorf(
-			"trying to restore from a backup that has no backup ID. '%s' has no backup ID",
-			backup.Name,
-		)
-	}
-
-	return nil
 }
 
 // reconcileKlioConfigSecret reconciles the Klio configuration secret containing all the Klio configurations

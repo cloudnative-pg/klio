@@ -197,20 +197,11 @@ When performing a restore, you can specify which backup to use:
 
 ```yaml
 spec:
-  backupRef: backup-resource-name
-```
-
-Alternatively, you can specify a backup by its internal ID:
-
-```yaml
-spec:
   backupId: backup-YYYYMMDDHHMMSS
 ```
 
-:::note
-The `backupRef` and `backupId` fields are mutually exclusive. You can only
-specify one of them.
-:::
+You can find the backup ID in the `Backup` resources status, or through the
+Klio API server.
 
 ### Observability
 

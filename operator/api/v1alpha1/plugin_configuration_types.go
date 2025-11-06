@@ -5,7 +5,6 @@ import (
 )
 
 // PluginConfigurationSpec defines the desired state of client configuration.
-// +kubebuilder:validation:AtMostOneOf=backupRef;backupId
 type PluginConfigurationSpec struct {
 	// ServerAddress is the address of the Klio server in the format host:port or host
 	// +kubebuilder:validation:Required
@@ -25,10 +24,6 @@ type PluginConfigurationSpec struct {
 	// ClusterName is the name of the PostgreSQL cluster we are connecting to
 	// +optional
 	ClusterName string `json:"clusterName,omitempty"`
-
-	// BackupRef is the reference to the backup we should use for restores
-	// +optional
-	BackupRef string `json:"backupRef,omitempty"`
 
 	// BackupID is the ID of the backup we should use for restores
 	// +optional

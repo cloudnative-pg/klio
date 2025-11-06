@@ -59,6 +59,12 @@ func (f *ReplicaClusterFeature) Run() types.StepFunc {
 			Source:  f.recoveryCluster.Spec.Bootstrap.Recovery.Source,
 			Enabled: ptr.To(true),
 		}
+
+		// Mutate recovery cluster
+		for _, mutate := range f.mutateRecoveryCluster {
+			require.NoError(t, mutate(ctx, f.recoveryCluster, r), "failed to mutate recovery cluster")
+		}
+
 		require.NoError(t, r.Create(ctx, f.recoveryCluster), "failed to create a recovery cluster")
 		err = wait.For(
 			machineryConditions.ClusterIsReady(r, f.recoveryCluster),

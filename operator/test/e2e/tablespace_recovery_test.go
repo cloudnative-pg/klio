@@ -9,6 +9,7 @@ import (
 	"github.com/cloudnative-pg/klio/operator/internal/cnpgi"
 	machineryFeatures "github.com/cloudnative-pg/klio/operator/test/machinery/pkg/features"
 	"github.com/cloudnative-pg/klio/operator/test/utils/certificates"
+	"github.com/cloudnative-pg/klio/operator/test/utils/mutators"
 	"github.com/cloudnative-pg/klio/operator/test/utils/secrets"
 	"github.com/cloudnative-pg/klio/operator/test/utils/templates"
 )
@@ -96,7 +97,6 @@ func NewTablespaceRecoveryFeatureConfig(
 	// Generate the Klio PluginConfiguration for recovery
 	klioPluginConfigurationRecovery := klioPluginConfigurationSource.DeepCopy()
 	klioPluginConfigurationRecovery.Name = "klio-plugin-configuration-recovery"
-	klioPluginConfigurationRecovery.Spec.BackupRef = backup.Name
 	klioPluginConfigurationRecovery.Spec.ClusterName = cnpgCluster.Name
 
 	c := commonBackupRestoreScenario{
@@ -114,14 +114,20 @@ func NewTablespaceRecoveryFeatureConfig(
 		name:                            name,
 	}
 
+	mutatorFuncs := []machineryFeatures.RecoveryClusterMutateFunc{
+		mutators.CreateBackupIDMutator(backup, klioPluginConfigurationRecovery.Name,
+			klioPluginConfigurationRecovery.Namespace),
+	}
+
 	return machineryFeatures.TablespaceRecoveryFeatureConfig{
 		RecoveryFeatureConfig: &machineryFeatures.RecoveryFeatureConfig{
-			Name:             name,
-			Setup:            c.Setup,
-			Teardown:         c.Teardown,
-			SourcePrimaryPod: &c.sourcePrimaryPod,
-			Backup:           backup,
-			RecoveryCluster:  recoveryCluster,
+			Name:                  name,
+			Setup:                 c.Setup,
+			Teardown:              c.Teardown,
+			SourcePrimaryPod:      &c.sourcePrimaryPod,
+			Backup:                backup,
+			RecoveryCluster:       recoveryCluster,
+			MutateRecoveryCluster: mutatorFuncs,
 		},
 		SourceTablespaceConfig: &tablespaceConfig,
 	}

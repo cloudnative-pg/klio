@@ -78,7 +78,7 @@ PluginConfiguration is the Schema for the client configuration API.
 | `apiVersion` _string_ | `klio.cnpg.io/v1alpha1` | True | | |
 | `kind` _string_ | `PluginConfiguration` | True | | |
 | `metadata` _[ObjectMeta](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.32/#objectmeta-v1-meta)_ | Refer to Kubernetes API documentation for fields of `metadata`. | True |  |  |
-| `spec` _[PluginConfigurationSpec](#pluginconfigurationspec)_ |  | True |  | AtMostOneOf: [backupRef backupId] <br /> |
+| `spec` _[PluginConfigurationSpec](#pluginconfigurationspec)_ |  | True |  |  |
 | `status` _[PluginConfigurationStatus](#pluginconfigurationstatus)_ |  |  |  |  |
 
 
@@ -88,8 +88,7 @@ PluginConfiguration is the Schema for the client configuration API.
 
 PluginConfigurationSpec defines the desired state of client configuration.
 
-_Validation:_
-- AtMostOneOf: [backupRef backupId]
+
 
 _Appears in:_
 - [PluginConfiguration](#pluginconfiguration)
@@ -100,7 +99,6 @@ _Appears in:_
 | `clientSecretName` _string_ | ClientSecretName is the name of the secret containing the client credentials | True |  | MinLength: 1 <br />Required: \{\} <br /> |
 | `serverSecretName` _string_ | ServerSecretName is the name of the secret containing the server TLS certificate | True |  | MinLength: 1 <br />Required: \{\} <br /> |
 | `clusterName` _string_ | ClusterName is the name of the PostgreSQL cluster we are connecting to |  |  |  |
-| `backupRef` _string_ | BackupRef is the reference to the backup we should use for restores |  |  |  |
 | `backupId` _string_ | BackupID is the ID of the backup we should use for restores |  |  |  |
 | `pprof` _boolean_ | Pprof enables the pprof endpoint for performance profiling |  |  |  |
 | `retention` _[RetentionPolicy](#retentionpolicy)_ | RetentionPolicy defines how many backups we should keep |  |  |  |

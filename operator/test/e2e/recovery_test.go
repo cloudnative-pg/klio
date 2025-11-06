@@ -9,26 +9,19 @@ import (
 	"github.com/cloudnative-pg/klio/operator/internal/cnpgi"
 	machineryFeatures "github.com/cloudnative-pg/klio/operator/test/machinery/pkg/features"
 	"github.com/cloudnative-pg/klio/operator/test/utils/certificates"
+	"github.com/cloudnative-pg/klio/operator/test/utils/mutators"
 	"github.com/cloudnative-pg/klio/operator/test/utils/secrets"
 	"github.com/cloudnative-pg/klio/operator/test/utils/templates"
 )
 
-type recoveryStrategy string
-
-const (
-	recoveryFromBackupRef recoveryStrategy = "fromBackupRef"
-	recoveryFromBackupID  recoveryStrategy = "fromBackupID"
-)
-
 func NewRecoveryFeatureConfig(
-	name string, instances int, namespace string, strategy recoveryStrategy,
+	name string, instances int, namespace string,
 ) machineryFeatures.RecoveryFeatureConfig {
 	const (
 		externalClusterName     = "source-cluster"
 		cnpgSourceClusterName   = "test-cluster-source"
 		cnpgRestoredClusterName = "test-cluster-restore"
 	)
-	var mutators []machineryFeatures.RecoveryClusterMutateFunc
 
 	namespaceObj := &corev1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{Name: namespace},
@@ -40,7 +33,8 @@ func NewRecoveryFeatureConfig(
 	caCertificate := certificates.GetCACertificateObject("test-ca", namespace, issuer)
 	caIssuer := certificates.GetCAIssuerObject("test-ca-issuer", namespace, caCertificate.Spec.SecretName)
 
-	cnpgCluster := templates.GetCnpgClusterObject(cnpgSourceClusterName, namespace, instances, "klio-plugin-configuration")
+	cnpgCluster := templates.GetCnpgClusterObject(cnpgSourceClusterName, namespace, instances,
+		"klio-plugin-configuration")
 
 	userCertificate := certificates.GetUserCertificateObject("klio-user", namespace,
 		"klio-user@"+cnpgSourceClusterName, caIssuer)
@@ -83,21 +77,7 @@ func NewRecoveryFeatureConfig(
 	// Generate the Klio PluginConfiguration for recovery
 	klioPluginConfigurationRecovery := klioPluginConfigurationSource.DeepCopy()
 	klioPluginConfigurationRecovery.Name = "klio-plugin-configuration-recovery"
-	klioPluginConfigurationRecovery.Spec.BackupRef = backup.Name
 	klioPluginConfigurationRecovery.Spec.ClusterName = cnpgCluster.Name
-
-	switch strategy {
-	case recoveryFromBackupRef:
-		klioPluginConfigurationRecovery.Spec.BackupRef = backup.Name
-	case recoveryFromBackupID:
-		mutators = append(mutators, func(cluster *cnpgv1.Cluster, rc machineryFeatures.RecoveryContext) {
-			klioPluginConfigurationRecovery.Spec.BackupID = rc.BackupID
-			cluster.Spec.Bootstrap.Recovery.RecoveryTarget = &cnpgv1.RecoveryTarget{
-				TargetImmediate: ptr.To(true),
-				BackupID:        rc.BackupID,
-			}
-		})
-	}
 
 	c := commonBackupRestoreScenario{
 		namespace:                       namespaceObj,
@@ -114,37 +94,35 @@ func NewRecoveryFeatureConfig(
 		name:                            name,
 	}
 
-	recoveryConfig := machineryFeatures.RecoveryFeatureConfig{
-		Name:             name,
-		Setup:            c.Setup,
-		Teardown:         c.Teardown,
-		SourcePrimaryPod: &c.sourcePrimaryPod,
-		Backup:           backup,
-		RecoveryCluster:  recoveryCluster,
+	mutatorsFuncs := []machineryFeatures.RecoveryClusterMutateFunc{
+		mutators.CreateBackupIDMutator(backup, klioPluginConfigurationRecovery.Name,
+			klioPluginConfigurationRecovery.Namespace),
 	}
-	if len(mutators) > 0 {
-		recoveryConfig.MutateRecoveryCluster = mutators
+
+	recoveryConfig := machineryFeatures.RecoveryFeatureConfig{
+		Name:                  name,
+		Setup:                 c.Setup,
+		Teardown:              c.Teardown,
+		SourcePrimaryPod:      &c.sourcePrimaryPod,
+		Backup:                backup,
+		RecoveryCluster:       recoveryCluster,
+		MutateRecoveryCluster: mutatorsFuncs,
 	}
 
 	return recoveryConfig
 }
 
-func RecoverClusterFromBackupRef(namespace string) *machineryFeatures.RecoveryFeature {
-	return machineryFeatures.NewRecoveryFeature(NewRecoveryFeatureConfig(
-		"RecoverClusterFromBackupRef", 1, namespace, recoveryFromBackupRef))
-}
-
 func RecoverClusterFromBackupID(namespace string) *machineryFeatures.RecoveryFeature {
 	return machineryFeatures.NewRecoveryFeature(NewRecoveryFeatureConfig(
-		"RecoverClusterFromBackupID", 1, namespace, recoveryFromBackupID))
+		"RecoverClusterFromBackupID", 1, namespace))
 }
 
 func RecoverClusterFromPitr(namespace string) *machineryFeatures.PitrFeature {
 	return machineryFeatures.NewPitrFeature(NewRecoveryFeatureConfig(
-		"RecoverClusterFromPitr", 1, namespace, recoveryFromBackupRef))
+		"RecoverClusterFromPitr", 1, namespace))
 }
 
 func RecoverReplicaCluster(namespace string) *machineryFeatures.ReplicaClusterFeature {
 	return machineryFeatures.NewReplicaClusterFeature(NewRecoveryFeatureConfig(
-		"RecoverReplicaCluster", 1, namespace, recoveryFromBackupRef))
+		"RecoverReplicaCluster", 1, namespace))
 }

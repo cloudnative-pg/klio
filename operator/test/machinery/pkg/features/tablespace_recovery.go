@@ -86,6 +86,11 @@ func (f *TablespaceRecoveryFeature) Run() types.StepFunc {
 		)
 		require.NoError(t, err, "backup not completed")
 
+		// Mutate recovery cluster
+		for _, mutate := range f.mutateRecoveryCluster {
+			require.NoError(t, mutate(ctx, f.recoveryCluster, r), "failed to mutate recovery cluster")
+		}
+
 		// Recovery
 		require.NoError(t, r.Create(ctx, f.recoveryCluster), "failed to create a recovery cluster")
 		err = wait.For(
@@ -114,7 +119,8 @@ func (f *TablespaceRecoveryFeature) Run() types.StepFunc {
 				tablespaceQuery)
 			require.NoError(t, err, "failed to get tablespace from database for tablespace %s", tablespace.Name)
 			tablespaceSlice := strings.Split(out, "|")
-			require.Len(t, tablespaceSlice, 2, "expected 2 fields from tablespace query for tablespace %s", tablespace.Name)
+			require.Len(t, tablespaceSlice, 2, "expected 2 fields from tablespace query for tablespace %s",
+				tablespace.Name)
 			tablespaceName := strings.TrimSpace(tablespaceSlice[0])
 			tablespaceOwner := strings.TrimSpace(tablespaceSlice[1])
 

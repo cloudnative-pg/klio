@@ -33,15 +33,8 @@ type RecoveryFeature struct {
 	recoveryCheckInterval time.Duration
 }
 
-// RecoveryContext holds the runtime context for the
-// fields available during the recovery.
-type RecoveryContext struct {
-	// BackupID is the ID of the backup that was taken.
-	BackupID string
-}
-
 // RecoveryClusterMutateFunc is a function that mutates a recovery Cluster object.
-type RecoveryClusterMutateFunc func(recoveryCluster *cnpgv1.Cluster, ctx RecoveryContext)
+type RecoveryClusterMutateFunc func(ctx context.Context, recoveryCluster *cnpgv1.Cluster, r *resources.Resources) error
 
 // RecoveryFeatureConfig holds the configuration for creating a recovery feature test.
 type RecoveryFeatureConfig struct {
@@ -138,18 +131,9 @@ func (f *RecoveryFeature) Run() types.StepFunc {
 		)
 		require.NoError(t, err, "backup not completed")
 
-		// Optionally mutate recovery cluster
-		if len(f.mutateRecoveryCluster) > 0 {
-			// Get the backup
-			err = r.Get(ctx, f.backup.Name, f.backup.Namespace, f.backup)
-			require.NoError(t, err, "failed to get backup")
-
-			rc := RecoveryContext{
-				BackupID: f.backup.Status.BackupID,
-			}
-			for _, mutate := range f.mutateRecoveryCluster {
-				mutate(f.recoveryCluster, rc)
-			}
+		// Mutate recovery cluster
+		for _, mutate := range f.mutateRecoveryCluster {
+			require.NoError(t, mutate(ctx, f.recoveryCluster, r), "failed to mutate recovery cluster")
 		}
 
 		// Recovery

@@ -64,6 +64,11 @@ func (f *PitrFeature) Run() types.StepFunc {
 		require.NoError(t, postgres.CheckpointAndSwitchWal(ctx, r, f.sourcePrimaryPod),
 			"failed to checkpoint and switch WAL")
 
+		// Mutate recovery cluster
+		for _, mutate := range f.mutateRecoveryCluster {
+			require.NoError(t, mutate(ctx, f.recoveryCluster, r), "failed to mutate recovery cluster")
+		}
+
 		// Recovery
 		f.recoveryCluster.Spec.Bootstrap.Recovery.RecoveryTarget = &cnpgv1.RecoveryTarget{
 			TargetTime: targetTimestamp,
