@@ -5,7 +5,6 @@ import (
 	"strconv"
 	"strings"
 	"testing"
-	"time"
 
 	cnpgv1 "github.com/cloudnative-pg/api/pkg/api/v1"
 	"github.com/stretchr/testify/require"
@@ -40,38 +39,8 @@ type TablespaceRecoveryFeatureConfig struct {
 func NewTablespaceRecoveryFeature(
 	config TablespaceRecoveryFeatureConfig,
 ) *TablespaceRecoveryFeature {
-	if config.BackupTimeout <= 0 {
-		// Default timeout for backup operations
-		config.BackupTimeout = 1 * time.Minute
-	}
-	if config.BackupCheckInterval <= 0 {
-		// Default interval for checking backup status
-		config.BackupCheckInterval = 10 * time.Second
-	}
-	if config.RecoveryTimeout <= 0 {
-		// Default timeout for recovery operations
-		config.RecoveryTimeout = 2 * time.Minute
-	}
-	if config.RecoveryCheckInterval <= 0 {
-		// Default interval for checking recovery status
-		config.RecoveryCheckInterval = 10 * time.Second
-	}
-
-	recoveryConfig := &RecoveryFeatureConfig{
-		Name:                  config.Name,
-		Setup:                 config.Setup,
-		Teardown:              config.Teardown,
-		SourcePrimaryPod:      config.SourcePrimaryPod,
-		Backup:                config.Backup,
-		RecoveryCluster:       config.RecoveryCluster,
-		BackupTimeout:         config.BackupTimeout,
-		BackupCheckInterval:   config.BackupCheckInterval,
-		RecoveryTimeout:       config.RecoveryTimeout,
-		RecoveryCheckInterval: config.RecoveryCheckInterval,
-	}
-
 	return &TablespaceRecoveryFeature{
-		RecoveryFeature:        NewRecoveryFeature(*recoveryConfig),
+		RecoveryFeature:        NewRecoveryFeature(*config.RecoveryFeatureConfig),
 		sourceTablespaceConfig: config.SourceTablespaceConfig,
 	}
 }

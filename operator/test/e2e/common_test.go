@@ -54,8 +54,6 @@ func (c *commonBackupRestoreScenario) Setup(
 	require.NoError(t, r.Create(ctx, c.cnpgCluster), "failed to create CNPG source Cluster")
 	require.NoError(t, r.Create(ctx, c.klioPluginConfigurationSource),
 		"failed to create Klio plugin configuration for source cluster")
-	require.NoError(t, r.Create(ctx, c.klioPluginConfigurationRecovery),
-		"failed to create Klio plugin configuration for recovery cluster")
 	require.NoError(t, r.Create(ctx, c.userCertificate), "failed to create user secret")
 	require.NoError(t, r.Create(ctx, c.encryptionSecret), "failed to create encryption secret")
 	require.NoError(t, r.Create(ctx, c.issuer), "failed to create issuer")
@@ -63,6 +61,12 @@ func (c *commonBackupRestoreScenario) Setup(
 	require.NoError(t, r.Create(ctx, c.caCertificate), "failed to create CA certificate")
 	require.NoError(t, r.Create(ctx, c.certificate), "failed to create certificate")
 	require.NoError(t, r.Create(ctx, c.klioServer), "failed to create KLIO server")
+
+	// Not all tests require a recovery cluster, so we allow for it to be nil.
+	if c.klioPluginConfigurationRecovery != nil {
+		require.NoError(t, r.Create(ctx, c.klioPluginConfigurationRecovery),
+			"failed to create Klio plugin configuration for recovery cluster")
+	}
 
 	t.Logf("Waiting for resources to be ready for recovery feature: %s", c.name)
 	err = wait.For(
