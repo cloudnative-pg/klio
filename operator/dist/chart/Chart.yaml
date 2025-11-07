@@ -10,8 +10,8 @@ keywords:
   - backup
   - CloudNativePG
 type: application
-version: 0.0.6
-appVersion: 0.0.6
+version: 0.0.7
+appVersion: 0.0.7
 home: https://enterprisedb.com
 maintainers:
   - name: EDB Klio development team

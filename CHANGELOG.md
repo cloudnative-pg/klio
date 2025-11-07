@@ -1,5 +1,39 @@
 # Changelog
 
+## [0.0.7](https://github.com/EnterpriseDB/klio/compare/v0.0.6...v0.0.7) (2025-11-07)
+
+
+### ⚠ BREAKING CHANGES
+
+* **recovery:** backupRef is removed from the PluginConfiguration API.
+* **metrics,cnpgi:** Removed metrics-bind-address configuration options
+* **auth:** previous configuration using htpasswd are no longer supported.
+
+### Features
+
+* Add TLS support in API service ([#339](https://github.com/EnterpriseDB/klio/issues/339)) ([902cd3f](https://github.com/cloudnative-pg/klio/commit/902cd3fcf74b1987b41cbc8c0ea182c39dceabbb))
+* **auth:** Use mTLS and client-side certificate for authentication ([#366](https://github.com/EnterpriseDB/klio/issues/366)) ([deb57af](https://github.com/cloudnative-pg/klio/commit/deb57afc154d66f82e0265e999d38a322792e8ca))
+* Change default images in Helm chart ([#382](https://github.com/EnterpriseDB/klio/issues/382)) ([3e64e71](https://github.com/cloudnative-pg/klio/commit/3e64e715c297ed0d3b5f9b0af974d6a5cc926423))
+* **crd:** Add container customization to PluginConfiguration ([#388](https://github.com/EnterpriseDB/klio/issues/388)) ([603ada9](https://github.com/cloudnative-pg/klio/commit/603ada9826b3ea3674005f8c99c6123d3e5cc162))
+* Enable ACLs ([#353](https://github.com/EnterpriseDB/klio/issues/353)) ([08dd43c](https://github.com/cloudnative-pg/klio/commit/08dd43c57c61ca3957544be8536e5d86ac4e4559))
+* **metrics,cnpgi:** Route cnpgi controller-runtime metrics through OTEL ([#357](https://github.com/EnterpriseDB/klio/issues/357)) ([0cd1202](https://github.com/cloudnative-pg/klio/commit/0cd12023c3c9923955f97f226a73bf4c38481151))
+* **recovery:** Drop backupRef support ([#409](https://github.com/EnterpriseDB/klio/issues/409)) ([d0c1fe5](https://github.com/cloudnative-pg/klio/commit/d0c1fe5e495311796de1e9289afee9addaf38ec8))
+* Return 404 for missing WAL files ([#288](https://github.com/EnterpriseDB/klio/issues/288)) ([15ba9e4](https://github.com/cloudnative-pg/klio/commit/15ba9e4e19aff1cb78156736fc4e3f30493143c5))
+* Set default k8s.* labels in containers ([#372](https://github.com/EnterpriseDB/klio/issues/372)) ([3ad634d](https://github.com/cloudnative-pg/klio/commit/3ad634db28bbc0d2af057b5a013128cd8cf19dd3))
+* WAL server read-only mode ([#402](https://github.com/EnterpriseDB/klio/issues/402)) ([c7e9048](https://github.com/cloudnative-pg/klio/commit/c7e904820705fae6f18c7d51b067e5a5327d1dbf))
+
+
+### Bug Fixes
+
+* **deps:** Lock file maintenance documentation dependencies ([#361](https://github.com/EnterpriseDB/klio/issues/361)) ([3156410](https://github.com/cloudnative-pg/klio/commit/315641019832ff698bed47dba60e127cc5be9bfb))
+* **deps:** Update module github.com/cloudnative-pg/cloudnative-pg to v1.27.1 ([#368](https://github.com/EnterpriseDB/klio/issues/368)) ([833aff1](https://github.com/cloudnative-pg/klio/commit/833aff1d4cf68c1ec347ef24c628530694e050e6))
+* **deps:** Update module github.com/klauspost/compress to v1.18.1 ([#351](https://github.com/EnterpriseDB/klio/issues/351)) ([24a1def](https://github.com/cloudnative-pg/klio/commit/24a1defee40da97fdde83a58342e49a393c68c67))
+* **deps:** Update module github.com/onsi/ginkgo/v2 to v2.27.1 ([#365](https://github.com/EnterpriseDB/klio/issues/365)) ([0962346](https://github.com/cloudnative-pg/klio/commit/0962346abb2dd7a53da17f8da22c09b8626a91ac))
+* **deps:** Update module github.com/onsi/ginkgo/v2 to v2.27.2 ([#378](https://github.com/EnterpriseDB/klio/issues/378)) ([1ebbaeb](https://github.com/cloudnative-pg/klio/commit/1ebbaeba1b31030228809f36153a755d68e9c395))
+* **deps:** Update module sigs.k8s.io/controller-runtime to v0.22.3 ([#358](https://github.com/EnterpriseDB/klio/issues/358)) ([57e545a](https://github.com/cloudnative-pg/klio/commit/57e545a827e5c31d8ec2860313ccaa4cbdae4974))
+* **deps:** Update module sigs.k8s.io/controller-runtime to v0.22.4 ([#399](https://github.com/EnterpriseDB/klio/issues/399)) ([ad192b4](https://github.com/cloudnative-pg/klio/commit/ad192b4b8dfc971e530439fe8f9f50410cf175d9))
+* Names and namespaces in replica clusters samples ([#385](https://github.com/EnterpriseDB/klio/issues/385)) ([214e6c6](https://github.com/cloudnative-pg/klio/commit/214e6c6f4c6a2a00ef792c0d5c3fd0f0f71f5e9a))
+
 ## [0.0.6](https://github.com/EnterpriseDB/klio/compare/v0.0.5...v0.0.6) (2025-10-20)
 
 
