@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.0.8](https://github.com/EnterpriseDB/klio/compare/v0.0.7...v0.0.8) (2025-11-07)
+
+
+### Miscellaneous Chores
+
+* Release 0.0.8 ([#428](https://github.com/EnterpriseDB/klio/issues/428)) ([e7c2214](https://github.com/EnterpriseDB/klio/commit/e7c2214bce6e751a47336a7fd2a812bd931df0be))
+
 ## [0.0.7](https://github.com/EnterpriseDB/klio/compare/v0.0.6...v0.0.7) (2025-11-07)
 
 

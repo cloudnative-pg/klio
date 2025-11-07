@@ -217,7 +217,7 @@ metadata:
   namespace: default
 spec:
   # Container image for the Klio server
-  image: ghcr.io/enterprisedb/klio:v0.0.7
+  image: ghcr.io/enterprisedb/klio:v0.0.8
   imagePullPolicy: IfNotPresent
   imagePullSecrets: []  # Add image pull secrets if needed
 
