@@ -1,6 +1,7 @@
 package v1alpha1
 
 import (
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -36,6 +37,24 @@ type PluginConfigurationSpec struct {
 	// RetentionPolicy defines how many backups we should keep
 	// +optional
 	RetentionPolicy *RetentionPolicy `json:"retention,omitempty" mapstructure:"retention"`
+
+	// Containers allows defining a list of containers that will be merged with the Klio sidecar containers.
+	// This enables users to customize the sidecars with additional environment variables, volume mounts,
+	// resource limits, and other container settings without polluting the PostgreSQL container environment.
+	//
+	// Merge behavior:
+	// - Containers are matched by name (klio-plugin, klio-wal, klio-restore)
+	// - User customizations serve as the base
+	// - Klio required values (name, args, CONTAINER_NAME env var) always override user values
+	// - User-defined environment variables and volume mounts are preserved
+	// - Template defaults are applied only for fields not set by the user or Klio
+	//
+	// +optional
+	// +kubebuilder:validation:MaxItems=3
+	// +listType=map
+	// +listMapKey=name
+	// +kubebuilder:validation:XValidation:rule="self.all(c, c.name in ['klio-plugin', 'klio-wal', 'klio-restore'])",message="container name must be one of: klio-plugin, klio-wal, klio-restore"
+	Containers []corev1.Container `json:"containers,omitempty"`
 }
 
 // RetentionPolicy defines how many backups we should keep.

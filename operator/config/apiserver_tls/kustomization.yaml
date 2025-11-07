@@ -8,3 +8,4 @@ resources:
   - cluster-role.yaml
   - apiservice.yaml
   - service.yaml
+  - snapshot-reader-certificate.yaml

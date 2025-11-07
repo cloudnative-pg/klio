@@ -175,20 +175,23 @@ func (impl LifecycleImplementation) reconcileJob(
 
 	mutatedJob := job.DeepCopy()
 
-	sidecarsToEnrich := []corev1.Container{
-		{
-			Name: "klio-restore",
-			Args: []string{
-				"cnpgi",
-				"restore",
-				backupID,
-				pgdata,
-			},
-			Env: []corev1.EnvVar{
-				{Name: "CONTAINER_NAME", Value: "klio-restore"},
-			},
-		},
+	// Build the restore sidecar with merge strategy:
+	// 1. Start from user customization if present (as the base)
+	// 2. Apply Klio required values (name, args, essential env vars)
+	// 3. Template defaults will be merged later in reconcilePodSpec
+	restoreSidecar := findUserContainer("klio-restore", clusterPC.Spec.Containers)
+	restoreSidecar.Args = []string{
+		"cnpgi",
+		"restore",
+		backupID,
+		pgdata,
 	}
+	restoreSidecar.Env = ensureEnvVar(restoreSidecar.Env, corev1.EnvVar{
+		Name:  "CONTAINER_NAME",
+		Value: "klio-restore",
+	})
+
+	sidecarsToEnrich := []corev1.Container{restoreSidecar}
 
 	if err := reconcilePodSpec(
 		ctx,
@@ -288,7 +291,7 @@ func (impl LifecycleImplementation) reconcilePod(
 	mutatedPod := pod.DeepCopy()
 
 	sidecarsToEnrich := []corev1.Container{
-		buildInstanceSidecarTemplate(),
+		buildInstanceSidecarTemplate(clusterPC),
 		buildSendWALSidecarTemplate(pod, cluster, clusterPC),
 	}
 
@@ -322,8 +325,14 @@ func buildSendWALSidecarTemplate(
 	cluster *cnpgv1.Cluster,
 	clusterPC *kliov1alpha1.PluginConfiguration,
 ) corev1.Container {
-	if clusterPC == nil {
-		return corev1.Container{}
+	// Merge strategy:
+	// 1. Start from user customization if present (as the base)
+	// 2. Apply Klio required values (name, args, essential env vars)
+	// 3. Template defaults will be merged later in reconcilePodSpec
+	sidecar := corev1.Container{Name: "klio-wal"}
+
+	if clusterPC != nil {
+		sidecar = findUserContainer("klio-wal", clusterPC.Spec.Containers)
 	}
 
 	args := []string{
@@ -335,23 +344,35 @@ func buildSendWALSidecarTemplate(
 		"--cluster-namespace", cluster.Namespace,
 	}
 
-	return corev1.Container{
-		Name: "klio-wal",
-		Args: args,
-		Env: []corev1.EnvVar{
-			{Name: "CONTAINER_NAME", Value: "klio-wal"},
-		},
-	}
+	sidecar.Args = args
+	sidecar.Env = ensureEnvVar(sidecar.Env, corev1.EnvVar{
+		Name:  "CONTAINER_NAME",
+		Value: "klio-wal",
+	})
+
+	return sidecar
 }
 
-func buildInstanceSidecarTemplate() corev1.Container {
-	return corev1.Container{
-		Name: "klio-plugin",
-		Args: []string{"cnpgi", "instance"},
-		Env: []corev1.EnvVar{
-			{Name: "CONTAINER_NAME", Value: "klio-plugin"},
-		},
+func buildInstanceSidecarTemplate(clusterPC *kliov1alpha1.PluginConfiguration) corev1.Container {
+	// Merge strategy:
+	// 1. Start from user customization if present (as the base)
+	// 2. Apply Klio required values (name, args, essential env vars)
+	// 3. Template defaults will be merged later in reconcilePodSpec
+	sidecar := corev1.Container{Name: "klio-plugin"}
+
+	if clusterPC != nil {
+		sidecar = findUserContainer("klio-plugin", clusterPC.Spec.Containers)
 	}
+
+	args := []string{"cnpgi", "instance"}
+
+	sidecar.Args = args
+	sidecar.Env = ensureEnvVar(sidecar.Env, corev1.EnvVar{
+		Name:  "CONTAINER_NAME",
+		Value: "klio-plugin",
+	})
+
+	return sidecar
 }
 
 type reconcilePodSpecConfiguration struct {
@@ -475,13 +496,32 @@ func reconcilePodSpec(
 			continue
 		}
 
-		sidecar := sidecarTemplate.DeepCopy()
-		sidecar.Name = baseSidecar.Name
-		sidecar.Args = baseSidecar.Args
+		// Start from baseSidecar which already has user customizations + Klio requirements
+		sidecar := baseSidecar.DeepCopy()
+
+		// Apply PPROF if enabled
 		if cfg.enablePPROF {
 			sidecar.Args = append(sidecar.Args, fmt.Sprintf("--pprof-server=:609%d", idx))
 		}
-		mergeEnvironmentVariables(baseSidecar, sidecar)
+
+		// Apply sidecarTemplate defaults only if not already set by user
+		if sidecar.Image == "" {
+			sidecar.Image = sidecarTemplate.Image
+		}
+		if sidecar.ImagePullPolicy == "" {
+			sidecar.ImagePullPolicy = sidecarTemplate.ImagePullPolicy
+		}
+		if sidecar.RestartPolicy == nil {
+			sidecar.RestartPolicy = sidecarTemplate.RestartPolicy
+		}
+		if sidecar.SecurityContext == nil {
+			sidecar.SecurityContext = sidecarTemplate.SecurityContext.DeepCopy()
+		}
+
+		// Merge environment variables and volume mounts from sidecarTemplate (only add if not present)
+		mergeEnvironmentVariables(sidecarTemplate, sidecar)
+		mergeVolumeMounts(sidecarTemplate, sidecar)
+
 		if err := injectPluginSidecarPodSpec(spec, sidecar, mainContainerName); err != nil {
 			return fmt.Errorf("failed to inject sidecar %s: %w", sidecar.Name, err)
 		}
@@ -490,9 +530,9 @@ func reconcilePodSpec(
 	return nil
 }
 
-// mergeEnvironmentVariables ensures that the environment variables from the giver container
-// are added to the receiver container, without duplicating existing variables in the receiver.
-// This is useful for combining environment variables from multiple sources.
+// mergeEnvironmentVariables merges environment variables from the giver container into the receiver container.
+// Variables already present in the receiver are preserved (receiver takes precedence).
+// New variables from the giver are appended with deep copy to prevent aliasing.
 func mergeEnvironmentVariables(giver corev1.Container, receiver *corev1.Container) {
 	for _, env := range giver.Env {
 		found := false
@@ -503,9 +543,53 @@ func mergeEnvironmentVariables(giver corev1.Container, receiver *corev1.Containe
 			}
 		}
 		if !found {
-			receiver.Env = append(receiver.Env, env)
+			receiver.Env = append(receiver.Env, *env.DeepCopy())
 		}
 	}
+}
+
+// mergeVolumeMounts merges volume mounts from the giver container into the receiver container.
+// Mounts already present in the receiver (by name) are preserved (receiver takes precedence).
+// New mounts from the giver are appended with deep copy to prevent aliasing.
+func mergeVolumeMounts(giver corev1.Container, receiver *corev1.Container) {
+	for _, mount := range giver.VolumeMounts {
+		found := false
+		for _, existingMount := range receiver.VolumeMounts {
+			if existingMount.Name == mount.Name {
+				found = true
+				break
+			}
+		}
+		if !found {
+			receiver.VolumeMounts = append(receiver.VolumeMounts, *mount.DeepCopy())
+		}
+	}
+}
+
+// findUserContainer finds a container with the given name in the user-defined containers list.
+// If found, returns a deep copy of that container to prevent unintended mutations.
+// Otherwise, returns an empty container.
+func findUserContainer(name string, customContainers []corev1.Container) corev1.Container {
+	for i := range customContainers {
+		if customContainers[i].Name == name {
+			return *customContainers[i].DeepCopy()
+		}
+	}
+
+	return corev1.Container{Name: name}
+}
+
+// ensureEnvVar ensures that an environment variable is present in the list.
+// If it exists, it's replaced. If not, it's added.
+func ensureEnvVar(envVars []corev1.EnvVar, envVar corev1.EnvVar) []corev1.EnvVar {
+	for i := range envVars {
+		if envVars[i].Name == envVar.Name {
+			envVars[i] = envVar
+			return envVars
+		}
+	}
+
+	return append(envVars, envVar)
 }
 
 type volumeAndMount struct {

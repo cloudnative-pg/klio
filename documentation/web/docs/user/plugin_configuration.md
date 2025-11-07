@@ -259,3 +259,107 @@ Only enable pprof in development or testing environments, or when actively
 troubleshooting performance issues. It should not be enabled in production
 unless necessary.
 :::
+
+## Container customization
+
+The `PluginConfiguration` resource allows you to customize the Klio sidecar
+containers by providing base container specifications that are used as the
+foundation for the sidecars. This feature enables you to add custom environment
+variables, volume mounts, resource limits, and other container settings without
+modifying the PostgreSQL container environment.
+
+### Basic example
+
+```yaml
+apiVersion: klio.cnpg.io/v1alpha1
+kind: PluginConfiguration
+metadata:
+  name: klio-plugin-config
+spec:
+  serverAddress: klio-server.default
+  clientSecretName: klio-client-credentials
+  serverSecretName: klio-server-tls
+  containers:
+    - name: klio-plugin
+      env:
+        - name: CUSTOM_ENV_VAR
+          value: "my-value"
+        - name: DEBUG_LEVEL
+          value: "info"
+    - name: klio-wal
+      env:
+        - name: WAL_BUFFER_SIZE
+          value: "8192"
+```
+
+### How container merging works
+
+The containers you define serve as the base for the Klio sidecars, with the
+following merge behavior:
+
+1. **Your container is the base**: When you define a container (e.g., `klio-plugin`),
+   your specification serves as the starting point
+2. **Klio enforces required values**: Klio sets its essential configuration:
+   - Container `name` (klio-plugin, klio-wal, or klio-restore)
+   - Container `args` (the command arguments needed for operation)
+   - `CONTAINER_NAME` environment variable
+3. **Your customizations are preserved**: All other fields you define remain intact
+4. **Template defaults fill gaps**: For fields you don't specify, Klio applies
+   sensible defaults (image, security context, standard volume mounts, etc.)
+
+**Important**: Klio's required values (name, args, CONTAINER_NAME env var) will
+always override any conflicting values you set. All other customizations are
+respected.
+
+### Available sidecar containers
+
+The following containers can be customized:
+
+- **`klio-plugin`**: Handles backup creation and management in PostgreSQL pods
+- **`klio-wal`**: Streams WAL files to the Klio server in PostgreSQL pods
+- **`klio-restore`**: Restores backups during recovery jobs
+
+### Example: Resource limits and environment variables
+
+```yaml
+apiVersion: klio.cnpg.io/v1alpha1
+kind: PluginConfiguration
+metadata:
+  name: klio-plugin-config
+spec:
+  serverAddress: klio-server.default
+  clientSecretName: klio-client-credentials
+  serverSecretName: klio-server-tls
+  containers:
+    - name: klio-plugin
+      env:
+        - name: LOG_LEVEL
+          value: "debug"
+        - name: OTEL_EXPORTER_OTLP_ENDPOINT
+          value: "http://otel-collector:4317"
+      resources:
+        limits:
+          memory: "512Mi"
+          cpu: "1"
+        requests:
+          memory: "256Mi"
+          cpu: "500m"
+    - name: klio-wal
+      env:
+        - name: WAL_STREAM_TIMEOUT
+          value: "30s"
+      resources:
+        limits:
+          memory: "256Mi"
+          cpu: "500m"
+        requests:
+          memory: "128Mi"
+          cpu: "250m"
+```
+
+:::warning
+Be careful when customizing containers. While your customizations serve as the
+base, Klio will override certain critical values (name, args, CONTAINER_NAME env var)
+that are required for proper operation. Avoid setting these fields as they will be
+replaced. Always test changes in a non-production environment first.
+:::

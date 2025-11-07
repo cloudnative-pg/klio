@@ -64,6 +64,7 @@ KeepLatest
 KeepMonthly
 KeepWeekly
 Klio
+Klio's
 Kopia
 Kopia's
 Kubebuilder
@@ -73,6 +74,7 @@ LVM
 ListMeta
 Liveness
 LocalObjectReference
+MaxItems
 MetricsAddressInstance
 MetricsAddressRestore
 MetricsAddressSendWal
@@ -184,6 +186,7 @@ createPluginClientCertificate
 createPluginServerCertificate
 cryptographically
 customizable
+customizations
 deduplication
 dev
 dropdown

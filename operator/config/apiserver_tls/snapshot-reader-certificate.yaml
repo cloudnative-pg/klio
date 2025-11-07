@@ -1,0 +1,19 @@
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: client-sample-tls
+spec:
+  secretName: client-sample-tls
+  commonName: snapshot_reader@klio
+
+  duration: 2160h # 90d
+  renewBefore: 360h # 15d
+
+  isCA: false
+  usages:
+    - client auth
+
+  issuerRef:
+    name: server-sample-ca
+    kind: Issuer
+    group: cert-manager.io

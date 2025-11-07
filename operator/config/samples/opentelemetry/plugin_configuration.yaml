@@ -6,3 +6,19 @@ spec:
   serverAddress: klio.default
   clientSecretName: cluster-example-klio-user
   serverSecretName: klio-server-tls
+  containers:
+    - name: klio-plugin
+      envFrom:
+        # Use a common config map for all shared OTEL settings
+        - configMapRef:
+            name: cluster-klio-otel-config
+    - name: klio-wal
+      envFrom:
+        # Use a common config map for all shared OTEL settings
+        - configMapRef:
+            name: cluster-klio-otel-config
+    - name: klio-restore
+      envFrom:
+        # Use a common config map for all shared OTEL settings
+        - configMapRef:
+            name: cluster-klio-otel-config
