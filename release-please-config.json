@@ -15,16 +15,7 @@
       "type": "yaml",
       "jsonpath": "$.version"
     },
-    {
-      "path": "operator/dist/chart/values.yaml",
-      "type": "yaml",
-      "jsonpath": "$.controllerManager.manager.image.tag"
-    },
-    {
-      "path": "operator/dist/chart/values.yaml",
-      "type": "yaml",
-      "jsonpath": "$.controllerManager.manager.env.SIDECAR_IMAGE"
-    },
+    "operator/dist/chart/values.yaml",
     "operator/internal/cnpgi/metadata.go",
     "core/internal/k8sapi/server.go",
     "documentation/web/docs/user/klio_server.md"
