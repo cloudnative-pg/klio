@@ -1,6 +1,6 @@
 ARG BASE_IMAGE=registry.access.redhat.com/ubi10/ubi-micro:10.0-1754556444@sha256:2a820c70ceee2588618f4b1b6116eaa38952b455e1f9fd3a91f7d8afb21c0873
 
-FROM golang:1.25.3 AS builder
+FROM golang:1.25.4@sha256:5d73b7b83dd6e0258ff62832c93b6ea208fbb7727985d265fb49f75f81fc3d1f AS builder
 RUN cd / && \
     git clone https://github.com/leonardoce/kopia && \
     cd kopia && \
