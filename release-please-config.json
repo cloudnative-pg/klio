@@ -25,7 +25,7 @@
     ".": {}
   },
   "plugins": [ "sentence-case" ],
-  "release-as": "0.0.8",
+  "release-as": "0.0.9",
   "signoff": "CNP Autobot <cnp.autobot@enterprisedb.com>",
   "$schema": "https://raw.githubusercontent.com/googleapis/release-please/main/schemas/config.json"
 }
