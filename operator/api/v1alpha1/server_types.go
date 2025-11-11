@@ -45,6 +45,10 @@ type ServerSpec struct {
 	// for the base backups
 	DataConfiguration DataConfiguration `json:"dataConfiguration"`
 
+	// QueueConfiguration is the configuration of the PVC that should host
+	// the task queue.
+	QueueConfiguration QueueConfiguration `json:"queueConfiguration"`
+
 	// Password is a reference to a secret containing the Klio password
 	Password *machineryapi.SecretKeySelector `json:"password"`
 
@@ -77,6 +81,21 @@ type DataConfiguration struct {
 // CacheConfiguration defines the configuration for the cache directory.
 type CacheConfiguration struct {
 	PersistentVolumeClaimTemplate corev1.PersistentVolumeClaimSpec `json:"pvcTemplate"`
+}
+
+// QueueConfiguration defines the configuration for the directory hosting the
+// task queue.
+type QueueConfiguration struct {
+	// QueueResources defines the resource requirements for the NATS server
+	// +optional
+	QueueResources corev1.ResourceRequirements `json:"resources,omitzero"`
+
+	// PersistentVolumeClaimTemplate is used to generate the configuration for
+	// the PVC hosting the work queue.
+	PersistentVolumeClaimTemplate corev1.PersistentVolumeClaimSpec `json:"pvcTemplate"`
+
+	// Image is the NATS image that will be used for the work queue
+	Image string `json:"image"`
 }
 
 // ServerStatus defines the observed state of Server.

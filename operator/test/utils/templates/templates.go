@@ -63,6 +63,17 @@ func GetKlioServerObject(
 					},
 				},
 			},
+			QueueConfiguration: kliov1alpha1.QueueConfiguration{
+				Image: "nats:2",
+				PersistentVolumeClaimTemplate: corev1.PersistentVolumeClaimSpec{
+					AccessModes: []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOncePod},
+					Resources: corev1.VolumeResourceRequirements{
+						Requests: corev1.ResourceList{
+							corev1.ResourceStorage: resource.MustParse("10Mi"),
+						},
+					},
+				},
+			},
 			Password: &cnpgv1.SecretKeySelector{
 				LocalObjectReference: api.LocalObjectReference{
 					Name: opts.EncryptionSecretName,

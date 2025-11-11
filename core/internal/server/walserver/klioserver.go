@@ -2,6 +2,7 @@ package walserver
 
 import (
 	"github.com/cloudnative-pg/klio/core/internal/grpc"
+	"github.com/cloudnative-pg/klio/core/internal/queue"
 	"github.com/cloudnative-pg/klio/core/internal/repository"
 )
 
@@ -12,13 +13,20 @@ type Implementation struct {
 	conn       *repository.Connection
 	metrics    *repository.Metrics
 	isReadOnly bool
+	queue      *queue.Conn
 }
 
 // Options is the structure describing the behavior of
 // a WAL server.
 type Options struct {
+	// Connection is the repository to be used with this WAL server
 	Connection *repository.Connection
-	ReadOnly   bool
+
+	// ReadOnly is true when the repository should deny any write attempt
+	ReadOnly bool
+
+	// Queue is the connection to the Queue
+	Queue *queue.Conn
 }
 
 // New creates a new WAL server implementation.
@@ -29,5 +37,6 @@ func New(
 		conn:       opts.Connection,
 		isReadOnly: opts.ReadOnly,
 		metrics:    NewMetrics(),
+		queue:      opts.Queue,
 	}
 }

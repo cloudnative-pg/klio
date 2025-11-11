@@ -83,6 +83,16 @@ func (r *ServerReconciler) reconcileStatefulSet(ctx context.Context, server *kli
 					},
 					Spec: server.Spec.CacheConfiguration.PersistentVolumeClaimTemplate,
 				},
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "queue",
+						Labels: map[string]string{
+							klioServerLabel: server.Name,
+							pvcTypeLabel:    "queue",
+						},
+					},
+					Spec: server.Spec.QueueConfiguration.PersistentVolumeClaimTemplate,
+				},
 			},
 			Replicas: ptr.To(int32(1)),
 			Selector: &metav1.LabelSelector{
@@ -154,6 +164,26 @@ func (r *ServerReconciler) reconcileStatefulSet(ctx context.Context, server *kli
 							Env:          newEnvBuilder(server).addCommonEnvs().addWalEnvs().build(),
 							VolumeMounts: volumeMounts,
 						},
+						{
+							Name:  "nats",
+							Image: server.Spec.QueueConfiguration.Image,
+							Args: []string{
+								"-a",
+								"127.0.0.1",
+								"-p",
+								"4222",
+								"-js",
+								"-sd",
+								"/queue",
+							},
+							Resources: server.Spec.QueueConfiguration.QueueResources,
+							VolumeMounts: []corev1.VolumeMount{
+								{
+									Name:      "queue",
+									MountPath: "/queue",
+								},
+							},
+						},
 					},
 					Volumes: volumes,
 				},
@@ -179,11 +209,7 @@ func (r *ServerReconciler) reconcileStatefulSet(ctx context.Context, server *kli
 
 	// Append pprof args after merge so overlay replacements of Args cannot drop them
 	if pprof {
-		for i := range expected.Spec.Template.Spec.Containers {
-			expected.Spec.Template.Spec.Containers[i].Args = append(
-				expected.Spec.Template.Spec.Containers[i].Args,
-				"--pprof-server=:606"+strconv.Itoa(i))
-		}
+		enablePProf(expected.Spec.Template.Spec.Containers)
 	}
 
 	//nolint:godox
@@ -246,6 +272,19 @@ func (r *ServerReconciler) reconcileStatefulSet(ctx context.Context, server *kli
 	}
 
 	return nil
+}
+
+func enablePProf(containers []corev1.Container) {
+	for i := range containers {
+		// No pprof on NATS, there's no such option
+		if containers[i].Name == "nats" {
+			continue
+		}
+
+		containers[i].Args = append(
+			containers[i].Args,
+			"--pprof-server=:606"+strconv.Itoa(i))
+	}
 }
 
 func (r *ServerReconciler) reconcileService(ctx context.Context, server *kliov1alpha1.Server) error {
@@ -358,6 +397,10 @@ func (r *ServerReconciler) buildVolumeMounts() []corev1.VolumeMount {
 		{
 			Name:      "tmp",
 			MountPath: "/tmp",
+		},
+		{
+			Name:      "queue",
+			MountPath: "/queue",
 		},
 	}
 

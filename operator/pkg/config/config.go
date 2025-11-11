@@ -173,6 +173,9 @@ type WalServerConfig struct {
 	// ClientCACertFile is the file containing the CA certificate to be used
 	// to verify client certificates
 	ClientCACertFile string `mapstructure:"client_ca_cert_file" validate:"nonzero"`
+
+	// NATSAddress is the address where the NATS server can be reached.
+	NATSAddress string `mapstructure:"nats_address"`
 }
 
 // SetDefaults sets the default values of the configuration.

@@ -56,6 +56,7 @@ IfNotPresent
 ImagePullPolicy
 ImagePullSecrets
 JSON
+JetStream
 Kasten
 KeepAnnual
 KeepDaily
@@ -80,6 +81,7 @@ MetricsAddressRestore
 MetricsAddressSendWal
 MetricsConfiguration
 MinLength
+NATS
 Namespaces
 NetworkPolicies
 NodeSelector
@@ -98,7 +100,9 @@ PITR
 PKI
 PV
 PersistentVolume
+PersistentVolumeClaim
 PersistentVolumeClaimSpec
+PersistentVolumeClaimTemplate
 PersistentVolumeClaims
 PluginConfiguration
 PluginConfigurationList
@@ -110,6 +114,8 @@ ProjectedVolumeSource
 PullPolicy
 PutRequest
 PutResult
+QueueConfiguration
+QueueResources
 RBAC
 RPO
 RTO
@@ -164,6 +170,7 @@ WALs
 YAML
 args
 aspirational
+async
 auth
 autodetect
 autoexport

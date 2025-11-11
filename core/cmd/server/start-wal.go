@@ -7,7 +7,10 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"time"
 
+	"github.com/cloudnative-pg/machinery/pkg/log"
+	"github.com/nats-io/nats.go"
 	"github.com/spf13/afero"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -17,6 +20,7 @@ import (
 	"gopkg.in/validator.v2"
 
 	klioGRPC "github.com/cloudnative-pg/klio/core/internal/grpc"
+	"github.com/cloudnative-pg/klio/core/internal/queue"
 	"github.com/cloudnative-pg/klio/core/internal/repository"
 	"github.com/cloudnative-pg/klio/core/internal/server/walserver"
 	"github.com/cloudnative-pg/klio/core/internal/wal"
@@ -33,8 +37,10 @@ var ErrParsingClientCACertificate = errors.New("parsing client CA certificate fi
 var startWALCmd = &cobra.Command{
 	Use:   "start-wal",
 	Short: "Starts a Klio WAL server",
-	RunE: func(_ *cobra.Command, _ []string) error {
+	RunE: func(cmd *cobra.Command, _ []string) error {
 		var configuration config.ServerConfig
+
+		logger := log.FromContext(cmd.Context())
 
 		// IMPORTANT: this requires this program to be built with "-tags viper_bind_struct"
 		// when using environment variables
@@ -101,6 +107,25 @@ var startWALCmd = &cobra.Command{
 			grpc.StatsHandler(otelgrpc.NewServerHandler()),
 		}
 
+		var queueConnection *queue.Conn
+		if configuration.Wal.NATSAddress != "" {
+			natsConnection, err := nats.Connect(
+				configuration.Wal.NATSAddress,
+				nats.RetryOnFailedConnect(true),
+				nats.ReconnectWait(1*time.Second),
+			)
+			if err != nil {
+				return fmt.Errorf("error while connecting to the NATS server: %w", err)
+			}
+
+			queueConnection = queue.New(natsConnection)
+			if err := queueConnection.EnsureSetup(cmd.Context()); err != nil {
+				return fmt.Errorf("error while setting up the queue: %w", err)
+			}
+
+			logger.Info("NATS server available", "address", configuration.Wal.NATSAddress)
+		}
+
 		server := grpc.NewServer(opts...)
 		klioGRPC.RegisterWALServer(
 			server,
@@ -108,6 +133,7 @@ var startWALCmd = &cobra.Command{
 				walserver.Options{
 					Connection: repoConnection,
 					ReadOnly:   false,
+					Queue:      queueConnection,
 				},
 			),
 		)

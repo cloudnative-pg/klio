@@ -17,6 +17,7 @@ import (
 
 	"github.com/cloudnative-pg/klio/core/internal/grpc"
 	"github.com/cloudnative-pg/klio/core/internal/opentelemetry"
+	"github.com/cloudnative-pg/klio/core/internal/queue"
 	"github.com/cloudnative-pg/klio/core/internal/repository"
 )
 
@@ -317,6 +318,19 @@ func (w *Implementation) Put(req grpc.WAL_PutServer) error {
 		)
 
 		return status.Errorf(grpccodes.Internal, "error while sending response: %v", err.Error())
+	}
+
+	if w.queue != nil {
+		if err := w.queue.NotifyWALReceived(ctx, &queue.WALTask{
+			ClusterName: blockMeta.clusterName,
+			WALName:     blockMeta.walFileName,
+		}); err != nil {
+			return status.Errorf(
+				grpccodes.Internal,
+				"error while putting WAL message into the queue, please retry: %v",
+				err.Error(),
+			)
+		}
 	}
 
 	return nil

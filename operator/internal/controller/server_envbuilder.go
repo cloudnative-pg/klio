@@ -139,6 +139,10 @@ func (e *envBuilder) getCoreEnvVars() []corev1.EnvVar {
 			Name:  "WAL_CLIENT_CA_CERT_FILE",
 			Value: "/client-ca/tls.crt",
 		},
+		{
+			Name:  "WAL_NATS_ADDRESS",
+			Value: "127.0.0.1:4222",
+		},
 	}
 }
 

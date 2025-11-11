@@ -8,10 +8,11 @@ The Klio server is a central component of the Klio backup solution. It is
 defined as the `Server` custom resource in Kubernetes, which creates a
 StatefulSet running the Klio server application.
 
-The Klio server is composed of two main containers:
+The Klio server is composed of three main containers:
 
 - `base`: Manages full and incremental backups using Kopia.
 - `wal`: Receives the stream of PostgreSQL Write-Ahead Logs (WAL).
+- `nats`: Provides a work queue using NATS JetStream for async WAL processing.
 
 An additional init container, `init`, is responsible for initializing the
 Kopia repository and setting up the necessary configuration.
@@ -22,6 +23,10 @@ to the Klio server pod in the `/data/base` and `/data/wal` directories, respecti
 An additional cache defined by a PersistentVolume is used for the Kopia cache. This cache allows Kopia to
 quickly browse repository contents without having to download from the storage
 location.
+
+The work queue is backed by NATS JetStream with file storage on a separate PersistentVolume mounted at `/queue`.
+When a WAL file is received, the server publishes a notification to the queue, enabling asynchronous processing
+of WAL files by consumers.
 
 ## Setting up a new Klio server
 
@@ -37,6 +42,7 @@ Before setting up a Klio server, ensure you have:
 - [cert-manager](https://cert-manager.io/) installed for certificate
   management (recommended)
 - Enough storage resources for the data and cache PersistentVolumeClaims
+- Enough storage resources for the queue PersistentVolumeClaim
 
 ### Required Components
 
@@ -47,7 +53,7 @@ A Klio server setup requires the following components:
 3. **Encryption Password**: For encrypting backup data at rest
 4. **CA Certificate**: For client authentication via mTLS
 5. **Admin User Credentials**: Optional admin user for Kopia operations
-6. **Storage**: PersistentVolumeClaims for data and cache
+6. **Storage**: PersistentVolumeClaims for data, cache, and queue
 
 ### Step-by-step setup
 
@@ -256,6 +262,17 @@ spec:
       resources:
         requests:
           storage: 100Gi  # Adjust based on your backup needs
+
+  # Queue storage configuration (for NATS work queue)
+  queueConfiguration:
+    image: nats:2  # NATS server image
+    pvcTemplate:
+      storageClassName: standard  # Adjust to your storage class
+      accessModes:
+        - ReadWriteOnce
+      resources:
+        requests:
+          storage: 10Gi  # Adjust based on queue volume needs
 
   # Optional: Resource requirements
   resources:
