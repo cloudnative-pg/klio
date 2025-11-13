@@ -548,7 +548,7 @@ tasks:
       # renovate: datasource=git-refs depName=kustomize lookupName=https://github.com/sagikazarmark/daggerverse currentValue=main
       DAGGER_KUSTOMIZE_SHA: 6133ad18e131b891d4723b8e25d69f5de077b472
       # renovate: datasource=docker depName=registry.k8s.io/kustomize/kustomize versioning=semver
-      KUSTOMIZE_IMAGE_VERSION: v5.7.1
+      KUSTOMIZE_IMAGE_VERSION: v5.8.0
     cmds:
       # Generate the Helm chart for the operator.
       # Kubebuilder wants to generate the CRDs in the chart/templates/crd directory, but we want to
