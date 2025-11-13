@@ -15,7 +15,7 @@ import (
 )
 
 func NewRecoveryFeatureConfig(
-	name string, instances int, namespace string,
+	name string, instances int, namespace string, useBackupID bool,
 ) machineryFeatures.RecoveryFeatureConfig {
 	const (
 		externalClusterName     = "source-cluster"
@@ -94,9 +94,9 @@ func NewRecoveryFeatureConfig(
 		name:                            name,
 	}
 
-	mutatorsFuncs := []machineryFeatures.RecoveryClusterMutateFunc{
-		mutators.CreateBackupIDMutator(backup, klioPluginConfigurationRecovery.Name,
-			klioPluginConfigurationRecovery.Namespace),
+	var mutatorsFuncs []machineryFeatures.RecoveryClusterMutateFunc
+	if useBackupID {
+		mutatorsFuncs = append(mutatorsFuncs, mutators.CreateBackupIDMutator(backup))
 	}
 
 	recoveryConfig := machineryFeatures.RecoveryFeatureConfig{
@@ -114,15 +114,20 @@ func NewRecoveryFeatureConfig(
 
 func RecoverClusterFromBackupID(namespace string) *machineryFeatures.RecoveryFeature {
 	return machineryFeatures.NewRecoveryFeature(NewRecoveryFeatureConfig(
-		"RecoverClusterFromBackupID", 1, namespace))
+		"RecoverClusterFromBackupID", 1, namespace, true))
+}
+
+func RecoverClusterFromLatestBackup(namespace string) *machineryFeatures.RecoveryFeature {
+	return machineryFeatures.NewRecoveryFeature(NewRecoveryFeatureConfig(
+		"RecoverClusterFromLatestBackup", 1, namespace, false))
 }
 
 func RecoverClusterFromPitr(namespace string) *machineryFeatures.PitrFeature {
 	return machineryFeatures.NewPitrFeature(NewRecoveryFeatureConfig(
-		"RecoverClusterFromPitr", 1, namespace))
+		"RecoverClusterFromPitr", 1, namespace, false))
 }
 
 func RecoverReplicaCluster(namespace string) *machineryFeatures.ReplicaClusterFeature {
 	return machineryFeatures.NewReplicaClusterFeature(NewRecoveryFeatureConfig(
-		"RecoverReplicaCluster", 1, namespace))
+		"RecoverReplicaCluster", 1, namespace, false))
 }

@@ -46,7 +46,6 @@ kind: PluginConfiguration
 metadata:
   name: client-config-example-restore
 spec:
-  backupId: backup-YYYYMMDDHHMMSS
   serverAddress: server-sample.default
   clientSecretName: cluster-example-klio-user
   serverSecretName: server-sample-tls

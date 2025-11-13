@@ -41,9 +41,6 @@ spec:
             description: PluginConfigurationSpec defines the desired state of client
               configuration.
             properties:
-              backupId:
-                description: BackupID is the ID of the backup we should use for restores
-                type: string
               clientSecretName:
                 description: ClientSecretName is the name of the secret containing
                   the client credentials

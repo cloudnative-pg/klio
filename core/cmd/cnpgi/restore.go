@@ -11,19 +11,21 @@ import (
 //
 //nolint:gochecknoglobals
 var restoreJobCmd = &cobra.Command{
-	Use:    "restore [backup-name] [destination]",
+	Use:    "restore [destination]",
 	Short:  "Start the instance CNPG-I job restore server",
 	Hidden: true,
+	Args:   cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		pluginPath, _ := cmd.Flags().GetString("plugin-path")
+		destination := args[0]
+
 		contextLogger := log.FromContext(cmd.Context())
 		contextLogger.Info("Starting CNPG-I job restore server",
 			"pluginPath", pluginPath,
-			"backupName", args[0],
-			"destination", args[1],
+			"destination", args[0],
 		)
 		capabilities := func(server *cnpgi.CNPGI) {
-			server.AddRestoreCapability(args[0], args[1])
+			server.AddRestoreCapability(destination)
 			server.AddWALCapability(true)
 		}
 

@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"os"
 	"path"
+	"sort"
+	"time"
 
 	"github.com/cloudnative-pg/machinery/pkg/fileutils"
 
@@ -19,7 +21,7 @@ const backupLabelFileName = "backup_label"
 type BackupRestorer interface {
 	// ListBackups gets the backup metadata from the backup store given
 	// the backup name.
-	ListBackups(ctx context.Context) ([]BackupMetadata, error)
+	ListBackups(ctx context.Context) (BackupList, error)
 
 	// GetMetadata gets the backup metadata from the backup store given
 	// the backup name.
@@ -126,6 +128,46 @@ func (r *RestoreExecutor) restoreTablespace(ctx context.Context, tbl TablespaceL
 		return fmt.Errorf("while restoring tablespace %s to %s: %w", tbl.Name, tablespaceDestinationPath, err)
 	}
 	defer r.restorer.GetDownloadNotifier().NotifyFinish(tablespaceDestinationPath)
+
+	return nil
+}
+
+// SortByAscendingTime sorts the backup list so that the oldest backup
+// is the first on the list and the most recent one is the last on the list.
+func (l BackupList) SortByAscendingTime() {
+	if len(l) == 0 {
+		return
+	}
+
+	sort.Slice(l, func(i, j int) bool {
+		return l[i].StartedAt < l[j].StartedAt
+	})
+}
+
+// GetLatestBackup gets the latest backup.
+func (l BackupList) GetLatestBackup() *BackupMetadata {
+	if len(l) == 0 {
+		return nil
+	}
+
+	l.SortByAscendingTime()
+
+	return &l[len(l)-1]
+}
+
+// FindClosestBackup finds the most recent backup that was taken before
+// the chosen point in time.
+func (l BackupList) FindClosestBackup(t time.Time) *BackupMetadata {
+	if len(l) == 0 {
+		return nil
+	}
+
+	l.SortByAscendingTime()
+	for i := len(l) - 1; i >= 0; i-- {
+		if l[i].StoppedAt <= t.Unix() {
+			return &l[i]
+		}
+	}
 
 	return nil
 }

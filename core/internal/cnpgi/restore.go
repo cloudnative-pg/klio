@@ -1,10 +1,10 @@
 package cnpgi
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
+	"os"
 	"os/exec"
 
 	cnpgv1 "github.com/cloudnative-pg/api/pkg/api/v1"
@@ -17,7 +17,6 @@ type restoreImpl struct {
 	restore.UnimplementedRestoreJobHooksServer
 
 	PgDataPath string
-	BackupName string
 }
 
 // GetCapabilities returns the capabilities of the restore job hooks.
@@ -45,21 +44,37 @@ func (impl restoreImpl) Restore(
 	}
 	configFile := "/var/lib/postgresql/klio/" + cluster.Spec.Bootstrap.Recovery.Source
 
-	cmd := exec.CommandContext( //nolint: gosec
-		ctx,
-		"klio",
+	var backupID string
+	var targetTime string
+
+	if cluster.Spec.Bootstrap != nil && cluster.Spec.Bootstrap.Recovery != nil {
+		recoveryConfiguration := cluster.Spec.Bootstrap.Recovery
+		recoveryTarget := recoveryConfiguration.RecoveryTarget
+		if recoveryTarget != nil {
+			backupID = recoveryTarget.BackupID
+			targetTime = recoveryTarget.TargetTime
+		}
+	}
+
+	args := []string{
 		"restore",
 		"--config",
 		configFile,
-		impl.BackupName,
-		impl.PgDataPath)
+	}
+	if backupID != "" {
+		args = append(args, "--backup-id", backupID)
+	}
+	if targetTime != "" {
+		args = append(args, "--target-time", targetTime)
+	}
+	args = append(args, impl.PgDataPath)
 
-	var stdout, stderr bytes.Buffer
-	cmd.Stdout = &stdout
-	cmd.Stderr = &stderr
+	cmd := exec.CommandContext(ctx, "klio", args...) //nolint:gosec
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
 
 	if err := cmd.Run(); err != nil {
-		return nil, fmt.Errorf("failed to execute klio restore command: %w, stderr: %s", err, stderr.String())
+		return nil, fmt.Errorf("failed to execute klio restore command: %w", err)
 	}
 
 	config := getRestoreWalConfig()

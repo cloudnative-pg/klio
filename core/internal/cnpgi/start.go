@@ -24,11 +24,11 @@ type CNPGI struct {
 }
 
 // AddRestoreCapability adds the restore capability to the CNPGI service.
-func (c *CNPGI) AddRestoreCapability(backupName string, pgDataPath string) {
+func (c *CNPGI) AddRestoreCapability(pgDataPath string) {
 	enricher := func(server *grpc.Server) error {
 		restore.RegisterRestoreJobHooksServer(
 			server,
-			restoreImpl{PgDataPath: pgDataPath, BackupName: backupName},
+			restoreImpl{PgDataPath: pgDataPath},
 		)
 
 		return nil

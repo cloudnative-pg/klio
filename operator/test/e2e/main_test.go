@@ -15,6 +15,7 @@ func TestMain(m *testing.M) {
 	runner.RegisterFeature(BackupFromPrimary(envconf.RandomName("backup-from-primary", 32)))
 	runner.RegisterFeature(BackupFromStandby(envconf.RandomName("backup-from-standby", 32)))
 	runner.RegisterFeatures(RecoverClusterFromBackupID(envconf.RandomName("recovery-from-backup-id", 32)))
+	runner.RegisterFeatures(RecoverClusterFromLatestBackup(envconf.RandomName("recovery-from-latest-backup", 32)))
 	runner.RegisterFeatures(RecoverReplicaCluster(envconf.RandomName("recovery-replica-cluster", 32)))
 	runner.RegisterFeatures(RecoverClusterWithTablespaces(envconf.RandomName("recovery-tablespace", 32)))
 	runner.RegisterFeatures(RecoverClusterFromPitr(envconf.RandomName("recovery-from-pitr", 32)))

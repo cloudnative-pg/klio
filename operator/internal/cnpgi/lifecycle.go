@@ -141,12 +141,6 @@ func (impl LifecycleImplementation) reconcileJob(
 		return nil, fmt.Errorf("failed to get client configuration: %w", err)
 	}
 
-	if clusterPC.Spec.BackupID == "" {
-		contextLogger.Error(errors.New("no backupID specified"), "cannot find backupID")
-		return nil, errors.New("no backupID specified")
-	}
-	backupID := clusterPC.Spec.BackupID
-
 	// Reconcile the configuration secret
 	if err := impl.reconcileKlioConfigSecret(ctx, klioConfigs, cluster); err != nil {
 		return nil, err
@@ -183,7 +177,6 @@ func (impl LifecycleImplementation) reconcileJob(
 	restoreSidecar.Args = []string{
 		"cnpgi",
 		"restore",
-		backupID,
 		pgdata,
 	}
 	restoreSidecar.Env = ensureEnvVar(restoreSidecar.Env, corev1.EnvVar{

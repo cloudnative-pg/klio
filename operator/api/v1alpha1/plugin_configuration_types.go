@@ -26,10 +26,6 @@ type PluginConfigurationSpec struct {
 	// +optional
 	ClusterName string `json:"clusterName,omitempty"`
 
-	// BackupID is the ID of the backup we should use for restores
-	// +optional
-	BackupID string `json:"backupId,omitempty"`
-
 	// Pprof enables the pprof endpoint for performance profiling
 	// +optional
 	Pprof bool `json:"pprof,omitempty"`

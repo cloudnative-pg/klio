@@ -50,7 +50,7 @@ func (s *RestoreImplementation) GetMetadata(ctx context.Context, name string) (*
 }
 
 // ListBackups list all the backups in the repository.
-func (s *RestoreImplementation) ListBackups(ctx context.Context) ([]common.BackupMetadata, error) {
+func (s *RestoreImplementation) ListBackups(ctx context.Context) (common.BackupList, error) {
 	// Look for every kopia manifest, and filter for tags later
 	labelsToMatch := map[string]string{
 		manifest.TypeLabelKey: snapshot.ManifestType,
