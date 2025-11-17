@@ -36,18 +36,12 @@ spec:
           - server
           - api-server
         env:
-          - name: SOURCE_SLOT
+          - name: CLIENT_BASE_HOSTNAME
             value: klio
           - name: CLIENT_BASE_URL
             value: https://server-sample.default:51515
           - name: CLIENT_BASE_SERVER_CERT_PATH
             value: /certs/tls.crt
-          - name: CLIENT_BASE_USERNAME
-            value: snapshot_reader
-          - name: CLIENT_BASE_HOSTNAME
-            value: klio
-          - name: CLIENT_BASE_PASSWORD
-            value: "password"
           - name: CLIENT_BASE_API_SERVER_CERTFILE
             value: /klio-api/certs/tls.crt
           - name: CLIENT_BASE_API_SERVER_KEYFILE

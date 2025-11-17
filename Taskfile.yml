@@ -917,9 +917,19 @@ tasks:
         --renderer markdown
         --templates-dir documentation/crd-gen-refs/markdown
         file --path out.md
-        export --path documentation/web/docs/user/operator_api.md
+        export --path documentation/web/docs/user/api/_klio_api.md
+      - >
+        GITHUB_REF= dagger -s call -m github.com/cloudnative-pg/daggerverse/crd-ref-docs@${DAGGER_CRDGENREF_SHA} generate
+        --src .
+        --source-path core/internal/k8sapi/v1alpha1
+        --config-file documentation/crd-gen-refs/config.yaml
+        --renderer markdown
+        --templates-dir documentation/crd-gen-refs/markdown
+        file --path out.md
+        export --path documentation/web/docs/user/api/_klio_catalog_api.md
     sources:
       - operator/api/v1alpha1/**/*
+      - core/internal/k8sapi/v1alpha1/**/*
       - documentation/crd-gen-refs/**/*
 
   documentation:helm-chart:

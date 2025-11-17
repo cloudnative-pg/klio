@@ -1,8 +1,6 @@
 {{- define "gvList" -}}
 {{- $groupVersions := . -}}
 
-# API Reference
-
 ## Packages
 {{- range $groupVersions }}
 - {{ markdownRenderGVLink . }}

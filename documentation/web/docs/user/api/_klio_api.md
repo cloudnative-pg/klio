@@ -1,5 +1,3 @@
-# API Reference
-
 ## Packages
 - [klio.cnpg.io/v1alpha1](#kliocnpgiov1alpha1)
 

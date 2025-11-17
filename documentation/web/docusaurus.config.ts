@@ -32,6 +32,9 @@ const config: Config = {
     locales: ['en'],
   },
 
+  markdown: {
+    mermaid: true
+  },
 
   presets: [
     [
@@ -70,6 +73,7 @@ const config: Config = {
         indexPages: false,
       }),
     ],
+    '@docusaurus/theme-mermaid',
   ],
   themeConfig: {
     navbar: {

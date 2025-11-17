@@ -2,6 +2,7 @@ ACL
 ACLs
 AEAD
 AES
+APIService
 APIs
 AdminUser
 AtMostOneOf
@@ -24,11 +25,14 @@ CloudNativePG
 CloudNativePG's
 ClusterMetadata
 ClusterName
+ClusterRole
 ControllerManager
 DNS
 DataConfiguration
 Docusaurus
 EDB
+EndLSN
+EndWAL
 Enum
 EnvConfiguration
 EnvVar
@@ -66,6 +70,12 @@ KeepMonthly
 KeepWeekly
 Klio
 Klio's
+KlioAPI
+KlioBackup
+KlioBackupList
+KlioBackupSpec
+KlioBackupStatus
+KlioCatalogAPI
 Kopia
 Kopia's
 Kubebuilder
@@ -86,9 +96,11 @@ Namespaces
 NetworkPolicies
 NodeSelector
 OCI
+OID
 OTEL
 OTLP
 ObjectMeta
+Oid
 OpenEBS
 OpenShift
 OpenTelemetry
@@ -141,11 +153,18 @@ ServiceName
 SetFirstRequiredWAL
 SetFirstRequiredWALRequest
 SetFirstRequiredWALResult
+StartLSN
+StartWAL
 StartWALFile
+StartedAt
 StatefulSet
+StoppedAt
 TLS
 TLSSecretName
 TODO
+TablespaceLayout
+TablespaceLayoutList
+TablespaceLayoutList
 Taskfile
 Tolerations
 TopoLVM
@@ -168,6 +187,7 @@ WALFileBlock
 WALGap
 WALs
 YAML
+api
 args
 aspirational
 async
@@ -175,6 +195,7 @@ auth
 autodetect
 autoexport
 automount
+backend
 backupID
 backupId
 bcrypt
@@ -218,6 +239,7 @@ imagePullSecrets
 init
 io
 klio
+kliocatalog
 kopia
 kubectl
 kubernetes
@@ -228,6 +250,7 @@ localhost
 lsn
 mTLS
 makefile
+md
 metricsService
 metricsServiceSecret
 nameOverride
@@ -265,6 +288,7 @@ sint
 sio
 str
 systemd
+tablespace
 tablespaces
 terminationGracePeriodSeconds
 tolerations
