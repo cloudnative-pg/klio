@@ -36,3 +36,7 @@
 | plugin.port | int | `9090` | The port the plugin will listen on. It must match the "--plugin-server-address" argument. |
 | plugin.serverSecret | string | `"klio-plugin-server-tls"` | The Server TLS certificate. |
 | prometheus.enable | bool | `true` | To enable a ServiceMonitor to export metrics to Prometheus set true. |
+| serviceAccount.annotations | object | `{}` | The annotations to add to the service account. |
+| serviceAccount.automount | bool | `true` | Automount service account token. |
+| serviceAccount.create | bool | `true` | Specifies whether a service account should be created. |
+| serviceAccount.name | string | `""` | The name of the service account |

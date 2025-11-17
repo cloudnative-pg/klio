@@ -574,7 +574,7 @@ tasks:
       - dist/**
 
   operator:helm-lint:
-    desc: Generate the Helm chart for the operator
+    desc: Lint the Helm chart for the operator
     dir: operator
     run: once
     deps:

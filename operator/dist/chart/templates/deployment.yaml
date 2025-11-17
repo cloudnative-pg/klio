@@ -54,7 +54,7 @@ spec:
             readOnly: true
       imagePullSecrets: {{- toYaml .Values.controllerManager.manager.image.pullSecrets | nindent 8 }}
       securityContext: {{- toYaml .Values.controllerManager.podSecurityContext | nindent 8 }}
-      serviceAccountName: {{ include "chart.fullname" . }}-controller-manager
+      serviceAccountName: {{ include "chart.serviceAccountName" . }}
       terminationGracePeriodSeconds: 10
       volumes:
         {{- if .Values.metricsService.enable }}

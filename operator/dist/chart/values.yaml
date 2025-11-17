@@ -121,3 +121,13 @@ certmanager:
   renewBefore: 360h
   # -- The DNS domain of the cluster
   clusterDomain: cluster.local
+
+serviceAccount:
+  # -- The annotations to add to the service account.
+  annotations: {}
+  # -- Specifies whether a service account should be created.
+  create: true
+  # -- The name of the service account
+  name: ""
+  # -- Automount service account token.
+  automount: true
