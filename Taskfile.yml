@@ -271,7 +271,7 @@ tasks:
       # renovate: datasource=docker depName=golang versioning=semver
       GOLANG_IMAGE_VERSION: 1.25.4
       # renovate: datasource=git-refs depName=code-generator packageName=https://github.com/kubernetes/code-generator versioning=semver
-      CODE_GENERATOR_VERSION: v0.34.1
+      CODE_GENERATOR_VERSION: v0.34.2
     cmds:
       - >
         dagger core container from --address golang:${GOLANG_IMAGE_VERSION}
