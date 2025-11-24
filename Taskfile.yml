@@ -685,7 +685,7 @@ tasks:
       - olm:manifest
     env:
       # renovate: datasource=docker depName=quay.io/operator-framework/operator-sdk versioning=semver
-      OPERATOR_SDK_IMAGE_VERSION: v1.41.1
+      OPERATOR_SDK_IMAGE_VERSION: v1.42.0
     cmds:
       - >
         docker
