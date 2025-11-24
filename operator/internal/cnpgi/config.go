@@ -64,7 +64,6 @@ func generateKlioConfigForPlugin(
 			Base: config.BaseRepositoryClientConfig{
 				URL:            "https://" + net.JoinHostPort(klioPluginConfigurationSpec.ServerAddress, KlioHTTPPort),
 				ServerCertPath: path.Join(serverCertPath, "tls.crt"),
-				Hostname:       klioPluginConfigurationSpec.ClusterName,
 				ClientCertPath: path.Join(clientCertPath, "tls.crt"),
 				ClientKeyPath:  path.Join(clientCertPath, "tls.key"),
 			},

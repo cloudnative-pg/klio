@@ -134,10 +134,6 @@ type BaseRepositoryClientConfig struct {
 	// ServerCertPath is the path to the server public key
 	ServerCertPath string `json:"server_cert_path" mapstructure:"server_cert_path" validate:"nonzero"`
 
-	// Hostname is the Klio server hostname.
-	// This is used to create the full username, in the form <username>@<hostname>
-	Hostname string `json:"hostname" mapstructure:"hostname" validate:"nonzero"`
-
 	// ClientCertPath is the path to the client public key
 	ClientCertPath string `json:"client_cert_path" mapstructure:"client_cert_path" validate:"nonzero"`
 

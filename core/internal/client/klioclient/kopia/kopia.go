@@ -50,6 +50,10 @@ func Connect(
 		return nil, fmt.Errorf("error while parsing client certificate: %w", err)
 	}
 
+	if clientCertificate.Leaf == nil {
+		return nil, fmt.Errorf("error: no leaf found in client certificate %+v", clientCertificate)
+	}
+
 	// Normalize the hostname by eventually removing
 	// the '@<hostname>' suffix, which is already been
 	// appended by Kopia.
@@ -57,8 +61,10 @@ func Connect(
 	// We should have a debate about
 	// this. Should we really do it? Should we just
 	// drop the suffix?
-	hostName := kopiaClientConfig.Hostname
-	userName := strings.TrimSuffix(clientCertificate.Leaf.Subject.CommonName, "@"+hostName)
+	userName, hostName, err := extractUserNameAndHostName(clientCertificate.Leaf.Subject.CommonName)
+	if err != nil {
+		return nil, fmt.Errorf("error while extracting userName and HostName from client certificate: %w", err)
+	}
 
 	if err = repo.ConnectAPIServer(
 		ctx,
@@ -110,4 +116,23 @@ func (s *Connection) Close(ctx context.Context) error {
 	}
 
 	return nil
+}
+
+// extractUserNameAndHostName from the common name in the client certificate.
+// The common name must be in the form userName@hostName.
+func extractUserNameAndHostName(commonName string) (string, string, error) {
+	commonNameSplit := strings.Split(commonName, "@")
+	if len(commonNameSplit) != 2 {
+		return "", "", fmt.Errorf(`commonName must be in the form userName@hostName, got %q`, commonName)
+	}
+
+	if commonNameSplit[0] == "" {
+		return "", "", fmt.Errorf(`userName part in commonName cannot be empty, got %q`, commonName)
+	}
+
+	if commonNameSplit[1] == "" {
+		return "", "", fmt.Errorf(`hostName part in commonName cannot be empty, got %q`, commonName)
+	}
+
+	return commonNameSplit[0], commonNameSplit[1], nil
 }

@@ -69,7 +69,7 @@ var runCmd = &cobra.Command{
 				Username: client.GetUsername(),
 			},
 		)
-		backupExecutor := common.NewBackupExecutor(conn, uploader, configuration.Client.Base.Hostname)
+		backupExecutor := common.NewBackupExecutor(conn, uploader, client.GetHostname())
 
 		var opts common.BackupOptions
 
