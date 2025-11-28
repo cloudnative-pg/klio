@@ -1,5 +1,27 @@
 # Changelog
 
+## [0.0.9](https://github.com/EnterpriseDB/klio/compare/v0.0.8...v0.0.9) (2025-11-28)
+
+
+### ⚠ BREAKING CHANGES
+
+* hostname parameter dropped from Klio file configuration. No change for the operator.
+* the `backupID` field in the `PluginConfiguration` object has been removed in favour of the `cluster.spec.bootstrap.recovery.recoveryTarget.backupID` field.
+
+### Features
+
+* Drop hostname from Klio configuration ([#445](https://github.com/EnterpriseDB/klio/issues/445)) ([bc3bd7b](https://github.com/cloudnative-pg/klio/commit/bc3bd7b1c39f742a3467574719ec2d730ae33f57))
+* Remove support for backupID from plugin configuration ([#425](https://github.com/EnterpriseDB/klio/issues/425)) ([dff3ace](https://github.com/cloudnative-pg/klio/commit/dff3ace08918fe13b3ac6197ee1275437662c354))
+* Send WAL uploaded events to NATS ([#403](https://github.com/EnterpriseDB/klio/issues/403)) ([7580871](https://github.com/cloudnative-pg/klio/commit/75808717925be0a47bbcac0792c1561b44393a0d))
+
+
+### Bug Fixes
+
+* **deps:** Update k8s.io/kube-openapi digest to 4e65d59 ([#470](https://github.com/EnterpriseDB/klio/issues/470)) ([203fb2e](https://github.com/cloudnative-pg/klio/commit/203fb2e94c51379ccd0d78953e21c0fcfe58b039))
+* **deps:** Update k8s.io/kube-openapi digest to b6aabc6 ([#466](https://github.com/EnterpriseDB/klio/issues/466)) ([074e3a8](https://github.com/cloudnative-pg/klio/commit/074e3a81ea3a653fe2375bf571191005a97caae2))
+* **deps:** Update kubernetes packages to v0.34.2 ([#455](https://github.com/EnterpriseDB/klio/issues/455)) ([8fb769f](https://github.com/cloudnative-pg/klio/commit/8fb769f38c5a4e15ed567e1197633eeede30961c))
+* **deps:** Update module golang.org/x/crypto to v0.45.0 [security] ([#456](https://github.com/EnterpriseDB/klio/issues/456)) ([84dd26a](https://github.com/cloudnative-pg/klio/commit/84dd26abd3388077350b0bce30b4bd4e42d62024))
+
 ## [0.0.8](https://github.com/EnterpriseDB/klio/compare/v0.0.7...v0.0.8) (2025-11-07)
 
 
