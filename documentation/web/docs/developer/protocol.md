@@ -4,6 +4,8 @@
 ## Table of Contents
 
 - [klio_wal.proto](#klio_wal-proto)
+    - [CloseBackupRequest](#klio-wal-v1-CloseBackupRequest)
+    - [CloseBackupResult](#klio-wal-v1-CloseBackupResult)
     - [ClusterMetadata](#klio-wal-v1-ClusterMetadata)
     - [GetMetadataRequest](#klio-wal-v1-GetMetadataRequest)
     - [GetRequest](#klio-wal-v1-GetRequest)
@@ -29,6 +31,45 @@
 <p align="right"><a href="#top">Top</a></p>
 
 ## klio_wal.proto
+
+
+
+<a name="klio-wal-v1-CloseBackupRequest"></a>
+
+### CloseBackupRequest
+This is sent to the WAL server every time a backup has
+been completed.
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| cluster_name | [string](#string) |  | The name of the cluster. |
+| kopia_source_names | [string](#string) | repeated | The name of the Kopia sources, as in &lt;user-name&gt;@&lt;cluster-name&gt;:&lt;path&gt;. |
+| backup_name | [string](#string) |  | The name of the backup. |
+| timeline | [int32](#int32) |  | The backup timeline |
+| start_wal | [string](#string) |  | the first WAL required to restore this backup. |
+| end_wal | [string](#string) |  | The last WAL required to restore this backup. |
+| segment_size | [uint64](#uint64) |  | The size of a WAL segment. Needed to generate the sequence of WAL files between the start and the end. |
+
+
+
+
+
+
+<a name="klio-wal-v1-CloseBackupResult"></a>
+
+### CloseBackupResult
+This is sent by the WAL server in response to a CloseBackupRequest
+message.
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| tier2_schedule | [bool](#bool) |  | True when the backup has been scheduled to be synchronized to tier2 storage |
+| missing_wal_files | [string](#string) | repeated | List of WAL files needed by this backup but still not uploaded to tier1 |
+
+
+
 
 
 
@@ -276,6 +317,7 @@ feature.
 | RequestWALStart | [RequestWALStartRequest](#klio-wal-v1-RequestWALStartRequest) | [RequestWALStartResult](#klio-wal-v1-RequestWALStartResult) |  |
 | ResetWALStream | [ResetWALStreamRequest](#klio-wal-v1-ResetWALStreamRequest) | [ResetWALStreamResult](#klio-wal-v1-ResetWALStreamResult) |  |
 | SetFirstRequiredWAL | [SetFirstRequiredWALRequest](#klio-wal-v1-SetFirstRequiredWALRequest) | [SetFirstRequiredWALResult](#klio-wal-v1-SetFirstRequiredWALResult) |  |
+| CloseBackup | [CloseBackupRequest](#klio-wal-v1-CloseBackupRequest) | [CloseBackupResult](#klio-wal-v1-CloseBackupResult) |  |
 
  
 

@@ -1,6 +1,7 @@
 package kopiaserver
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -109,7 +110,6 @@ func newSnapshotMetrics() (*SnapshotMetrics, error) {
 type SnapshotMetricsCollector struct {
 	metrics    *SnapshotMetrics
 	configPath string
-	cacheDir   string
 	password   string
 	interval   time.Duration
 	logger     log.Logger
@@ -118,7 +118,7 @@ type SnapshotMetricsCollector struct {
 
 // newSnapshotMetricsCollector creates a new snapshot metrics collector.
 func newSnapshotMetricsCollector(
-	configPath, cacheDir, password string, interval time.Duration, logger log.Logger,
+	configPath, password string, interval time.Duration, logger log.Logger,
 ) (*SnapshotMetricsCollector, error) {
 	metrics, err := newSnapshotMetrics()
 	if err != nil {
@@ -128,7 +128,6 @@ func newSnapshotMetricsCollector(
 	return &SnapshotMetricsCollector{
 		metrics:    metrics,
 		configPath: configPath,
-		cacheDir:   cacheDir,
 		password:   password,
 		interval:   interval,
 		logger:     logger,
@@ -176,25 +175,44 @@ func (c *SnapshotMetricsCollector) collectMetrics(ctx context.Context) {
 
 // getSnapshots executes kopia snapshot list --all --json and parses the output.
 func (c *SnapshotMetricsCollector) getSnapshots(ctx context.Context) ([]snapshot.Manifest, error) {
+	contextLogger := log.FromContext(ctx)
+
 	kopiaBinary, err := exec.LookPath(kopiaCommand)
 	if err != nil {
 		return nil, fmt.Errorf("kopia binary not found: %w", err)
 	}
 
-	cmd := exec.CommandContext(ctx, kopiaBinary, "snapshot", "list", "--all", "--json") //nolint:gosec
+	args := []string{
+		"snapshot",
+		"list",
+		"--all",
+		"--json",
+		"--config-file=" + c.configPath,
+		"--disable-file-logging",
+		"--json-log-console",
+	}
+
+	contextLogger.Info("Collecting Kopia snapshot information", "args", args)
+	cmd := exec.CommandContext(ctx, kopiaBinary, args...) //nolint:gosec
 	cmd.Env = []string{
-		"KOPIA_CONFIG_PATH=" + c.configPath,
-		"KOPIA_CACHE_DIRECTORY=" + c.cacheDir,
 		"KOPIA_PASSWORD=" + c.password,
 	}
 
-	output, err := cmd.Output()
+	var outputBuffer, errorBuffer bytes.Buffer
+	cmd.Stdout = &outputBuffer
+	cmd.Stderr = &errorBuffer
+
+	err = cmd.Run()
 	if err != nil {
-		return nil, fmt.Errorf("failed to execute kopia snapshot list: %w", err)
+		return nil, fmt.Errorf("failed to execute kopia snapshot list: %w [stdout\n%s\n\nstderr\n%s]",
+			err,
+			outputBuffer.String(),
+			errorBuffer.String(),
+		)
 	}
 
 	var snapshots []snapshot.Manifest
-	if err := json.Unmarshal(output, &snapshots); err != nil {
+	if err := json.Unmarshal(outputBuffer.Bytes(), &snapshots); err != nil {
 		return nil, fmt.Errorf("failed to parse kopia snapshot JSON: %w", err)
 	}
 

@@ -52,6 +52,9 @@ type ServerSpec struct {
 	// Password is a reference to a secret containing the Klio password
 	Password *machineryapi.SecretKeySelector `json:"password"`
 
+	// Tier2 is the Tier 2 configuration
+	Tier2 *Tier2Configuration `json:"tier2,omitempty"`
+
 	// Template to override the default StatefulSet of the Klio server.
 	// WARNING: Modifying this template may break the server functionality if not done carefully.
 	// This field is primarily intended for advanced configuration such as telemetry setup.
@@ -96,6 +99,49 @@ type QueueConfiguration struct {
 
 	// Image is the NATS image that will be used for the work queue
 	Image string `json:"image"`
+}
+
+// Tier2Configuration is the tier 2 configuration.
+type Tier2Configuration struct {
+	// S3 contains the configuration parameters for an S3-based tier 2
+	S3 *S3Configuration `json:"s3"`
+}
+
+// S3Configuration is the configuration to a S3 defined tier 2.
+type S3Configuration struct {
+	// BucketName is the name of the bucket
+	BucketName string `json:"bucketName"`
+
+	// Prefix is the prefix to be used for the stored files
+	// +optional
+	Prefix string `json:"prefix,omitempty"`
+
+	// Endpoint is the endpoint to be used
+	// +optional
+	Endpoint string `json:"endpoint,omitempty"`
+
+	// Region is the region to be used
+	// +optional
+	Region string `json:"region,omitempty"`
+
+	// WALEncryptionPassword is a pointer to the key in a secret containing the encryption password.
+	WALEncryptionPassword *machineryapi.SecretKeySelector `json:"walEncryptionPassword"`
+
+	// The S3 access key ID
+	// +optional
+	AccessKeyID *machineryapi.SecretKeySelector `json:"accessKeyId,omitempty"`
+
+	// The S3 access key
+	// +optional
+	SecretAccessKey *machineryapi.SecretKeySelector `json:"secretAccessKey,omitempty"`
+
+	// The S3 session token
+	// +optional
+	SessionToken *machineryapi.SecretKeySelector `json:"sessionToken,omitempty"`
+
+	// A pointer to a custom CA bundle
+	// +optional
+	CustomCABundle *machineryapi.SecretKeySelector `json:"customCaBundle,omitempty"`
 }
 
 // ServerStatus defines the observed state of Server.

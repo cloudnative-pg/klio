@@ -20,10 +20,17 @@ linters:
     gomoddirectives:
       replace-allow-list:
         - github.com/kopia/kopia
+        - github.com/fclairamb/afero-s3
     lll:
       line-length: 120
     nlreturn:
       block-size: 3
+    ireturn:
+      allow:
+        - afero.Fs
+        - blob.Storage
+        - error
+        - stdlib
     varnamelen:
       ignore-decls:
         - g Gomega

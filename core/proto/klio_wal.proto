@@ -15,6 +15,7 @@ service WAL {
   rpc ResetWALStream(ResetWALStreamRequest) returns (ResetWALStreamResult) {}
 
   rpc SetFirstRequiredWAL(SetFirstRequiredWALRequest) returns (SetFirstRequiredWALResult) {}
+  rpc CloseBackup(CloseBackupRequest) returns (CloseBackupResult) {}
 }
 
 message PutRequest {
@@ -126,4 +127,42 @@ message WALGap {
 message StartWALFile {
   uint64 klio_version = 1;
   uint64 file_length = 2;
+}
+
+// This is sent to the WAL server every time a backup has
+// been completed.
+message CloseBackupRequest {
+  // The name of the cluster.
+  string cluster_name = 1;
+
+  // The name of the Kopia sources, as in <user-name>@<cluster-name>:<path>.
+  repeated string kopia_source_names = 2;
+
+  // The name of the backup.
+  string backup_name = 3;
+
+  // The backup timeline
+  int32 timeline = 4;
+
+  // the first WAL required to restore this backup.
+  string start_wal = 5;
+
+  // The last WAL required to restore this backup.
+  string end_wal = 6;
+
+  // The size of a WAL segment. Needed to generate
+  // the sequence of WAL files between the start and the end.
+  uint64 segment_size = 7;
+}
+
+// This is sent by the WAL server in response to a CloseBackupRequest
+// message.
+message CloseBackupResult {
+  // True when the backup has been scheduled to be synchronized
+  // to tier2 storage
+  bool tier2_schedule = 1;
+
+  // List of WAL files needed by this backup but still not
+  // uploaded to tier1
+  repeated string missing_wal_files = 2;
 }

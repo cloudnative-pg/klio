@@ -58,6 +58,11 @@ func (b backupServiceImplementation) Backup(
 		return nil, fmt.Errorf("failed to unmarshal cluster definition: %w", err)
 	}
 
+	var cnpgBackup cnpgv1.Backup
+	if err := json.Unmarshal(request.GetBackupDefinition(), &cnpgBackup); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal backup definition: %w", err)
+	}
+
 	r, err := extractRetentionFromConfiguration()
 	if err != nil {
 		return nil, fmt.Errorf("failed to extract retention policy from configuration: %w", err)
@@ -73,6 +78,11 @@ func (b backupServiceImplementation) Backup(
 	// Step 2: starting the backup
 	backupName := fmt.Sprintf("backup-%v", pgTime.ToCompactISO8601(time.Now()))
 
+	waitForWals := "--wait-for-wals=true"
+	if cnpgBackup.Spec.Target == cnpgv1.BackupTargetStandby {
+		waitForWals = "--wait-for-wals=false"
+	}
+
 	contextLogger.Info("Starting Klio backup", "backupName", backupName)
 	//nolint:gosec
 	cmd := exec.CommandContext(ctx,
@@ -81,6 +91,7 @@ func (b backupServiceImplementation) Backup(
 		"run",
 		"--config",
 		backupRepositoryConfigPath,
+		waitForWals,
 		"-n",
 		backupName)
 	cmd.Stdout = os.Stdout

@@ -788,6 +788,166 @@ func (x *StartWALFile) GetFileLength() uint64 {
 	return 0
 }
 
+// This is sent to the WAL server every time a backup has
+// been completed.
+type CloseBackupRequest struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// The name of the cluster.
+	ClusterName string `protobuf:"bytes,1,opt,name=cluster_name,json=clusterName,proto3" json:"cluster_name,omitempty"`
+	// The name of the Kopia sources, as in <user-name>@<cluster-name>:<path>.
+	KopiaSourceNames []string `protobuf:"bytes,2,rep,name=kopia_source_names,json=kopiaSourceNames,proto3" json:"kopia_source_names,omitempty"`
+	// The name of the backup.
+	BackupName string `protobuf:"bytes,3,opt,name=backup_name,json=backupName,proto3" json:"backup_name,omitempty"`
+	// The backup timeline
+	Timeline int32 `protobuf:"varint,4,opt,name=timeline,proto3" json:"timeline,omitempty"`
+	// the first WAL required to restore this backup.
+	StartWal string `protobuf:"bytes,5,opt,name=start_wal,json=startWal,proto3" json:"start_wal,omitempty"`
+	// The last WAL required to restore this backup.
+	EndWal string `protobuf:"bytes,6,opt,name=end_wal,json=endWal,proto3" json:"end_wal,omitempty"`
+	// The size of a WAL segment. Needed to generate
+	// the sequence of WAL files between the start and the end.
+	SegmentSize   uint64 `protobuf:"varint,7,opt,name=segment_size,json=segmentSize,proto3" json:"segment_size,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CloseBackupRequest) Reset() {
+	*x = CloseBackupRequest{}
+	mi := &file_proto_klio_wal_proto_msgTypes[14]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CloseBackupRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CloseBackupRequest) ProtoMessage() {}
+
+func (x *CloseBackupRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_klio_wal_proto_msgTypes[14]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CloseBackupRequest.ProtoReflect.Descriptor instead.
+func (*CloseBackupRequest) Descriptor() ([]byte, []int) {
+	return file_proto_klio_wal_proto_rawDescGZIP(), []int{14}
+}
+
+func (x *CloseBackupRequest) GetClusterName() string {
+	if x != nil {
+		return x.ClusterName
+	}
+	return ""
+}
+
+func (x *CloseBackupRequest) GetKopiaSourceNames() []string {
+	if x != nil {
+		return x.KopiaSourceNames
+	}
+	return nil
+}
+
+func (x *CloseBackupRequest) GetBackupName() string {
+	if x != nil {
+		return x.BackupName
+	}
+	return ""
+}
+
+func (x *CloseBackupRequest) GetTimeline() int32 {
+	if x != nil {
+		return x.Timeline
+	}
+	return 0
+}
+
+func (x *CloseBackupRequest) GetStartWal() string {
+	if x != nil {
+		return x.StartWal
+	}
+	return ""
+}
+
+func (x *CloseBackupRequest) GetEndWal() string {
+	if x != nil {
+		return x.EndWal
+	}
+	return ""
+}
+
+func (x *CloseBackupRequest) GetSegmentSize() uint64 {
+	if x != nil {
+		return x.SegmentSize
+	}
+	return 0
+}
+
+// This is sent by the WAL server in response to a CloseBackupRequest
+// message.
+type CloseBackupResult struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// True when the backup has been scheduled to be synchronized
+	// to tier2 storage
+	Tier2Schedule bool `protobuf:"varint,1,opt,name=tier2_schedule,json=tier2Schedule,proto3" json:"tier2_schedule,omitempty"`
+	// List of WAL files needed by this backup but still not
+	// uploaded to tier1
+	MissingWalFiles []string `protobuf:"bytes,2,rep,name=missing_wal_files,json=missingWalFiles,proto3" json:"missing_wal_files,omitempty"`
+	unknownFields   protoimpl.UnknownFields
+	sizeCache       protoimpl.SizeCache
+}
+
+func (x *CloseBackupResult) Reset() {
+	*x = CloseBackupResult{}
+	mi := &file_proto_klio_wal_proto_msgTypes[15]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CloseBackupResult) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CloseBackupResult) ProtoMessage() {}
+
+func (x *CloseBackupResult) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_klio_wal_proto_msgTypes[15]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CloseBackupResult.ProtoReflect.Descriptor instead.
+func (*CloseBackupResult) Descriptor() ([]byte, []int) {
+	return file_proto_klio_wal_proto_rawDescGZIP(), []int{15}
+}
+
+func (x *CloseBackupResult) GetTier2Schedule() bool {
+	if x != nil {
+		return x.Tier2Schedule
+	}
+	return false
+}
+
+func (x *CloseBackupResult) GetMissingWalFiles() []string {
+	if x != nil {
+		return x.MissingWalFiles
+	}
+	return nil
+}
+
 var File_proto_klio_wal_proto protoreflect.FileDescriptor
 
 const file_proto_klio_wal_proto_rawDesc = "" +
@@ -838,14 +998,27 @@ const file_proto_klio_wal_proto_rawDesc = "" +
 	"\fStartWALFile\x12!\n" +
 	"\fklio_version\x18\x01 \x01(\x04R\vklioVersion\x12\x1f\n" +
 	"\vfile_length\x18\x02 \x01(\x04R\n" +
-	"fileLength2\xf0\x03\n" +
+	"fileLength\"\xfb\x01\n" +
+	"\x12CloseBackupRequest\x12!\n" +
+	"\fcluster_name\x18\x01 \x01(\tR\vclusterName\x12,\n" +
+	"\x12kopia_source_names\x18\x02 \x03(\tR\x10kopiaSourceNames\x12\x1f\n" +
+	"\vbackup_name\x18\x03 \x01(\tR\n" +
+	"backupName\x12\x1a\n" +
+	"\btimeline\x18\x04 \x01(\x05R\btimeline\x12\x1b\n" +
+	"\tstart_wal\x18\x05 \x01(\tR\bstartWal\x12\x17\n" +
+	"\aend_wal\x18\x06 \x01(\tR\x06endWal\x12!\n" +
+	"\fsegment_size\x18\a \x01(\x04R\vsegmentSize\"f\n" +
+	"\x11CloseBackupResult\x12%\n" +
+	"\x0etier2_schedule\x18\x01 \x01(\bR\rtier2Schedule\x12*\n" +
+	"\x11missing_wal_files\x18\x02 \x03(\tR\x0fmissingWalFiles2\xc2\x04\n" +
 	"\x03WAL\x12:\n" +
 	"\x03Put\x12\x17.klio.wal.v1.PutRequest\x1a\x16.klio.wal.v1.PutResult\"\x00(\x01\x12:\n" +
 	"\x03Get\x12\x17.klio.wal.v1.GetRequest\x1a\x16.klio.wal.v1.GetResult\"\x000\x01\x12N\n" +
 	"\vGetMetadata\x12\x1f.klio.wal.v1.GetMetadataRequest\x1a\x1c.klio.wal.v1.ClusterMetadata\"\x00\x12\\\n" +
 	"\x0fRequestWALStart\x12#.klio.wal.v1.RequestWALStartRequest\x1a\".klio.wal.v1.RequestWALStartResult\"\x00\x12Y\n" +
 	"\x0eResetWALStream\x12\".klio.wal.v1.ResetWALStreamRequest\x1a!.klio.wal.v1.ResetWALStreamResult\"\x00\x12h\n" +
-	"\x13SetFirstRequiredWAL\x12'.klio.wal.v1.SetFirstRequiredWALRequest\x1a&.klio.wal.v1.SetFirstRequiredWALResult\"\x00B1Z/github.com/cloudnative-pg/klio/core/internal/grpcb\x06proto3"
+	"\x13SetFirstRequiredWAL\x12'.klio.wal.v1.SetFirstRequiredWALRequest\x1a&.klio.wal.v1.SetFirstRequiredWALResult\"\x00\x12P\n" +
+	"\vCloseBackup\x12\x1f.klio.wal.v1.CloseBackupRequest\x1a\x1e.klio.wal.v1.CloseBackupResult\"\x00B1Z/github.com/cloudnative-pg/klio/core/internal/grpcb\x06proto3"
 
 var (
 	file_proto_klio_wal_proto_rawDescOnce sync.Once
@@ -859,7 +1032,7 @@ func file_proto_klio_wal_proto_rawDescGZIP() []byte {
 	return file_proto_klio_wal_proto_rawDescData
 }
 
-var file_proto_klio_wal_proto_msgTypes = make([]protoimpl.MessageInfo, 14)
+var file_proto_klio_wal_proto_msgTypes = make([]protoimpl.MessageInfo, 16)
 var file_proto_klio_wal_proto_goTypes = []any{
 	(*PutRequest)(nil),                 // 0: klio.wal.v1.PutRequest
 	(*PutResult)(nil),                  // 1: klio.wal.v1.PutResult
@@ -875,25 +1048,29 @@ var file_proto_klio_wal_proto_goTypes = []any{
 	(*ClusterMetadata)(nil),            // 11: klio.wal.v1.ClusterMetadata
 	(*WALGap)(nil),                     // 12: klio.wal.v1.WALGap
 	(*StartWALFile)(nil),               // 13: klio.wal.v1.StartWALFile
-	(*timestamppb.Timestamp)(nil),      // 14: google.protobuf.Timestamp
+	(*CloseBackupRequest)(nil),         // 14: klio.wal.v1.CloseBackupRequest
+	(*CloseBackupResult)(nil),          // 15: klio.wal.v1.CloseBackupResult
+	(*timestamppb.Timestamp)(nil),      // 16: google.protobuf.Timestamp
 }
 var file_proto_klio_wal_proto_depIdxs = []int32{
 	12, // 0: klio.wal.v1.ClusterMetadata.gaps:type_name -> klio.wal.v1.WALGap
-	14, // 1: klio.wal.v1.WALGap.ts:type_name -> google.protobuf.Timestamp
+	16, // 1: klio.wal.v1.WALGap.ts:type_name -> google.protobuf.Timestamp
 	0,  // 2: klio.wal.v1.WAL.Put:input_type -> klio.wal.v1.PutRequest
 	3,  // 3: klio.wal.v1.WAL.Get:input_type -> klio.wal.v1.GetRequest
 	2,  // 4: klio.wal.v1.WAL.GetMetadata:input_type -> klio.wal.v1.GetMetadataRequest
 	5,  // 5: klio.wal.v1.WAL.RequestWALStart:input_type -> klio.wal.v1.RequestWALStartRequest
 	7,  // 6: klio.wal.v1.WAL.ResetWALStream:input_type -> klio.wal.v1.ResetWALStreamRequest
 	9,  // 7: klio.wal.v1.WAL.SetFirstRequiredWAL:input_type -> klio.wal.v1.SetFirstRequiredWALRequest
-	1,  // 8: klio.wal.v1.WAL.Put:output_type -> klio.wal.v1.PutResult
-	4,  // 9: klio.wal.v1.WAL.Get:output_type -> klio.wal.v1.GetResult
-	11, // 10: klio.wal.v1.WAL.GetMetadata:output_type -> klio.wal.v1.ClusterMetadata
-	6,  // 11: klio.wal.v1.WAL.RequestWALStart:output_type -> klio.wal.v1.RequestWALStartResult
-	8,  // 12: klio.wal.v1.WAL.ResetWALStream:output_type -> klio.wal.v1.ResetWALStreamResult
-	10, // 13: klio.wal.v1.WAL.SetFirstRequiredWAL:output_type -> klio.wal.v1.SetFirstRequiredWALResult
-	8,  // [8:14] is the sub-list for method output_type
-	2,  // [2:8] is the sub-list for method input_type
+	14, // 8: klio.wal.v1.WAL.CloseBackup:input_type -> klio.wal.v1.CloseBackupRequest
+	1,  // 9: klio.wal.v1.WAL.Put:output_type -> klio.wal.v1.PutResult
+	4,  // 10: klio.wal.v1.WAL.Get:output_type -> klio.wal.v1.GetResult
+	11, // 11: klio.wal.v1.WAL.GetMetadata:output_type -> klio.wal.v1.ClusterMetadata
+	6,  // 12: klio.wal.v1.WAL.RequestWALStart:output_type -> klio.wal.v1.RequestWALStartResult
+	8,  // 13: klio.wal.v1.WAL.ResetWALStream:output_type -> klio.wal.v1.ResetWALStreamResult
+	10, // 14: klio.wal.v1.WAL.SetFirstRequiredWAL:output_type -> klio.wal.v1.SetFirstRequiredWALResult
+	15, // 15: klio.wal.v1.WAL.CloseBackup:output_type -> klio.wal.v1.CloseBackupResult
+	9,  // [9:16] is the sub-list for method output_type
+	2,  // [2:9] is the sub-list for method input_type
 	2,  // [2:2] is the sub-list for extension type_name
 	2,  // [2:2] is the sub-list for extension extendee
 	0,  // [0:2] is the sub-list for field type_name
@@ -910,7 +1087,7 @@ func file_proto_klio_wal_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_proto_klio_wal_proto_rawDesc), len(file_proto_klio_wal_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   14,
+			NumMessages:   16,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

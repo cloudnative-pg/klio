@@ -3,6 +3,7 @@ package controller
 import (
 	"path"
 
+	machineryapi "github.com/cloudnative-pg/machinery/pkg/api"
 	corev1 "k8s.io/api/core/v1"
 
 	kliov1alpha1 "github.com/cloudnative-pg/klio/operator/api/v1alpha1"
@@ -25,6 +26,7 @@ func (e *envBuilder) addCommonEnvs() *envBuilder {
 	result := e.getCoreEnvVars()
 	result = append(result, e.getKubernetesDownwardAPIEnvVars()...)
 	result = append(result, e.getAdminUserEnvVars()...)
+	result = append(result, e.getTier2EnvVars()...)
 
 	e.builtEnvs = append(e.builtEnvs, result...)
 
@@ -43,6 +45,31 @@ func (e *envBuilder) addBaseEnvs() *envBuilder {
 
 func (e *envBuilder) addWalEnvs() *envBuilder {
 	e.builtEnvs = append(e.builtEnvs, corev1.EnvVar{Name: "CONTAINER_NAME", Value: "wal"})
+	return e
+}
+
+func (e *envBuilder) addTier2InitEnvs() *envBuilder {
+	e.builtEnvs = append(e.builtEnvs, corev1.EnvVar{Name: "CONTAINER_NAME", Value: "tier2-init"})
+	return e
+}
+
+func (e *envBuilder) addTier2WalConsumerEnvs() *envBuilder {
+	e.builtEnvs = append(e.builtEnvs, corev1.EnvVar{Name: "CONTAINER_NAME", Value: "tier2-wal-consumer"})
+	return e
+}
+
+func (e *envBuilder) addTier2BackupConsumerEnvs() *envBuilder {
+	e.builtEnvs = append(e.builtEnvs, corev1.EnvVar{Name: "CONTAINER_NAME", Value: "tier2-backup-consumer"})
+	return e
+}
+
+func (e *envBuilder) addTier2BaseEnvs() *envBuilder {
+	e.builtEnvs = append(e.builtEnvs, corev1.EnvVar{Name: "CONTAINER_NAME", Value: "tier2-base"})
+	return e
+}
+
+func (e *envBuilder) addTier2WalEnvs() *envBuilder {
+	e.builtEnvs = append(e.builtEnvs, corev1.EnvVar{Name: "CONTAINER_NAME", Value: "tier2-wal"})
 	return e
 }
 
@@ -69,6 +96,10 @@ func (e *envBuilder) getKubernetesDownwardAPIEnvVars() []corev1.EnvVar {
 }
 
 func (e *envBuilder) getCoreEnvVars() []corev1.EnvVar {
+	if e.server == nil {
+		return nil
+	}
+
 	basePath := path.Join(kopiaDataMountPath, "base")
 	walPath := path.Join(kopiaDataMountPath, "wal")
 
@@ -125,15 +156,8 @@ func (e *envBuilder) getCoreEnvVars() []corev1.EnvVar {
 			Value: walPath,
 		},
 		{
-			Name: "WAL_ENCRYPTION_PASSWORD",
-			ValueFrom: &corev1.EnvVarSource{
-				SecretKeyRef: &corev1.SecretKeySelector{
-					LocalObjectReference: corev1.LocalObjectReference{
-						Name: e.server.Spec.Password.Name,
-					},
-					Key: e.server.Spec.Password.Key,
-				},
-			},
+			Name:      "WAL_ENCRYPTION_PASSWORD",
+			ValueFrom: secretKeySelectorToEnvVarSource(e.server.Spec.Password),
 		},
 		{
 			Name:  "WAL_CLIENT_CA_CERT_FILE",
@@ -146,8 +170,102 @@ func (e *envBuilder) getCoreEnvVars() []corev1.EnvVar {
 	}
 }
 
+func (e *envBuilder) getTier2EnvVars() []corev1.EnvVar {
+	if e.server == nil {
+		return nil
+	}
+
+	if e.server.Spec.Tier2 == nil {
+		return nil
+	}
+	if e.server.Spec.Tier2.S3 == nil {
+		return nil
+	}
+
+	result := []corev1.EnvVar{
+		{
+			Name:  "TIER2_S3_ENABLED",
+			Value: "true",
+		},
+		{
+			Name:  "TIER2_S3_BUCKET_NAME",
+			Value: e.server.Spec.Tier2.S3.BucketName,
+		},
+		{
+			Name:  "TIER2_S3_ENDPOINT",
+			Value: e.server.Spec.Tier2.S3.Endpoint,
+		},
+		{
+			Name:  "TIER2_S3_PREFIX",
+			Value: e.server.Spec.Tier2.S3.Prefix,
+		},
+		{
+			Name:      "TIER2_S3_ENCRYPTION_PASSWORD",
+			ValueFrom: secretKeySelectorToEnvVarSource(e.server.Spec.Tier2.S3.WALEncryptionPassword),
+		},
+		{
+			Name:  "TIER2_S3_REGION",
+			Value: e.server.Spec.Tier2.S3.Region,
+		},
+		{
+			Name:  "TIER2_S3_CACHE",
+			Value: kopiaCacheMountPath,
+		},
+		{
+			Name:  "TIER2_BASE_LISTEN_ADDRESS",
+			Value: "0.0.0.0:51516",
+		},
+		{
+			Name:  "TIER2_WAL_LISTEN_ADDRESS",
+			Value: "0.0.0.0:52001",
+		},
+	}
+
+	if e.server.Spec.Tier2.S3.AccessKeyID != nil {
+		result = append(result, corev1.EnvVar{
+			Name:      "TIER2_S3_ACCESS_KEY_ID",
+			ValueFrom: secretKeySelectorToEnvVarSource(e.server.Spec.Tier2.S3.AccessKeyID),
+		})
+	}
+	if e.server.Spec.Tier2.S3.SecretAccessKey != nil {
+		result = append(result, corev1.EnvVar{
+			Name:      "TIER2_S3_SECRET_ACCESS_KEY",
+			ValueFrom: secretKeySelectorToEnvVarSource(e.server.Spec.Tier2.S3.SecretAccessKey),
+		})
+	}
+	if e.server.Spec.Tier2.S3.SessionToken != nil {
+		result = append(result, corev1.EnvVar{
+			Name:      "TIER2_S3_SESSION_TOKEN",
+			ValueFrom: secretKeySelectorToEnvVarSource(e.server.Spec.Tier2.S3.SessionToken),
+		})
+	}
+	if e.server.Spec.Tier2.S3.CustomCABundle != nil {
+		result = append(result, corev1.EnvVar{
+			Name:  "TIER2_S3_CUSTOM_CA_BUNDLE_FILE",
+			Value: "/tier2/custom_ca_bundle.pem",
+		})
+	}
+
+	return result
+}
+
+func secretKeySelectorToEnvVarSource(src *machineryapi.SecretKeySelector) *corev1.EnvVarSource {
+	if src == nil {
+		return nil
+	}
+
+	return &corev1.EnvVarSource{
+		SecretKeyRef: &corev1.SecretKeySelector{
+			LocalObjectReference: corev1.LocalObjectReference{
+				Name: src.Name,
+			},
+			Key: src.Key,
+		},
+	}
+}
+
 func (e *envBuilder) getAdminUserEnvVars() []corev1.EnvVar {
-	if e.server.Spec.BaseConfiguration.AdminUser.Name == "" {
+	if e.server == nil || e.server.Spec.BaseConfiguration.AdminUser.Name == "" {
 		return nil
 	}
 

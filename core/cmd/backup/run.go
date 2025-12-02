@@ -3,7 +3,10 @@ package backup
 import (
 	"encoding/json"
 	"fmt"
+	"os"
+	"time"
 
+	"github.com/cloudnative-pg/machinery/pkg/log"
 	"github.com/jackc/pgx/v5"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -11,11 +14,13 @@ import (
 
 	"github.com/cloudnative-pg/klio/core/internal/cli"
 	"github.com/cloudnative-pg/klio/core/internal/client/klioclient/common"
+	"github.com/cloudnative-pg/klio/core/internal/client/klioclient/grpcclient"
 	"github.com/cloudnative-pg/klio/core/internal/client/klioclient/kopia"
+	"github.com/cloudnative-pg/klio/core/internal/grpc"
 	"github.com/cloudnative-pg/klio/core/pkg/config"
 )
 
-// runCmd represents the run command
+// runCmd represents the `backup run` command
 //
 //nolint:gochecknoglobals
 var runCmd = &cobra.Command{
@@ -24,13 +29,15 @@ var runCmd = &cobra.Command{
 	RunE: func(cmd *cobra.Command, _ []string) error {
 		var configuration config.Data
 
+		contextLogger := log.FromContext(cmd.Context())
+
 		// IMPORTANT: this requires this program to be built with "-tags viper_bind_struct"
 		// when using environment variables
 		if err := viper.Unmarshal(&configuration); err != nil {
 			return fmt.Errorf("could not unmarshal configuration: %w", err)
 		}
 
-		// Sets the defaults values, to be overridden by the user configuration
+		// Sets the default values, to be overridden by the user configuration
 		configuration.SetDefaults()
 
 		if configuration.Client == (config.ClientConfig{}) {
@@ -39,15 +46,20 @@ var runCmd = &cobra.Command{
 		if configuration.Client.Base == (config.BaseRepositoryClientConfig{}) {
 			return cli.ErrKopiaClientSectionIsRequired
 		}
+		if configuration.Client.Wal == (config.WalRepositoryClientConfig{}) {
+			return cli.ErrKlioClientSectionIsRequired
+		}
 		if configuration.Source == (config.SourceConfig{}) {
 			return cli.ErrSourceSectionIsRequired
 		}
+
+		waitWALs, _ := cmd.Flags().GetBool("wait-for-wals")
 
 		if errs := validator.Validate(&configuration); errs != nil {
 			return fmt.Errorf("configuration validation error: %w", errs)
 		}
 
-		client, err := kopia.Connect(
+		kopiaClient, err := kopia.Connect(
 			cmd.Context(),
 			&configuration.Client.Base,
 		)
@@ -63,13 +75,13 @@ var runCmd = &cobra.Command{
 			_ = conn.Close(cmd.Context())
 		}()
 
-		uploader := client.NewUploaderFor(
+		uploader := kopiaClient.NewUploaderFor(
 			kopia.Target{
-				Hostname: client.GetHostname(),
-				Username: client.GetUsername(),
+				Hostname: kopiaClient.GetHostname(),
+				Username: kopiaClient.GetUsername(),
 			},
 		)
-		backupExecutor := common.NewBackupExecutor(conn, uploader, client.GetHostname())
+		backupExecutor := common.NewBackupExecutor(conn, uploader, kopiaClient.GetHostname())
 
 		var opts common.BackupOptions
 
@@ -89,15 +101,46 @@ var runCmd = &cobra.Command{
 			return fmt.Errorf("while closing the backup: %w", err)
 		}
 
-		// Marshal metadata to JSON
-		jsonData, err := json.Marshal(metadata)
+		grpcClient, err := grpcclient.Connect(&configuration.Client.Wal)
 		if err != nil {
-			return fmt.Errorf("failed to marshal metadata to JSON: %w", err)
+			return fmt.Errorf("while connecting to the Klio server: %w", err)
 		}
 
-		fmt.Println() //nolint:forbidigo
+		for {
+			result, err := grpcClient.CloseBackup(cmd.Context(), &grpc.CloseBackupRequest{
+				ClusterName:      kopiaClient.GetHostname(),
+				KopiaSourceNames: metadata.Sources,
+				BackupName:       metadata.Name,
+				Timeline:         int32(metadata.Timeline),
+				StartWal:         metadata.StartWAL,
+				EndWal:           metadata.EndWAL,
+				SegmentSize:      metadata.SegmentSize,
+			})
+			if err != nil {
+				return fmt.Errorf("while closing the backup: %w", err)
+			}
 
-		fmt.Print(string(jsonData)) //nolint:forbidigo
+			if waitWALs && len(result.GetMissingWalFiles()) > 0 {
+				contextLogger.Info(
+					"Detected missing WAL files, waiting for 5 seconds",
+					"missingWALFiles", result.GetMissingWalFiles(),
+				)
+				time.Sleep(5 * time.Second)
+
+				continue
+			}
+
+			if result.GetTier2Schedule() {
+				contextLogger.Info("Backup completed, triggered synchronization to tier2 if available")
+			}
+
+			break
+		}
+
+		// Marshal metadata to JSON
+		if err := json.NewEncoder(os.Stdout).Encode(metadata); err != nil {
+			return fmt.Errorf("failed to marshal metadata to JSON: %w", err)
+		}
 
 		return nil
 	},
@@ -107,6 +150,12 @@ var runCmd = &cobra.Command{
 func init() {
 	// Here you will define your flags and configuration settings.
 	runCmd.Flags().StringP("name", "n", "", "The backup name")
+
+	runCmd.Flags().Bool(
+		"wait-for-wals",
+		true,
+		"When enabled, wait until all the required WAL files have "+
+			"been archived in tier1 before declaring the backup completed.")
 
 	// Cobra supports Persistent Flags which will work for this command
 	// and all subcommands, e.g.:

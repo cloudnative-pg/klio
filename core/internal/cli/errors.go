@@ -15,5 +15,5 @@ var (
 	ErrClientSectionIsRequired = errors.New("'client' configuration section is required")
 
 	// ErrKlioClientSectionIsRequired is raised when the Klio client configuration is missing.
-	ErrKlioClientSectionIsRequired = errors.New("'client.klio' configuration section is required")
+	ErrKlioClientSectionIsRequired = errors.New("'client.wal' configuration section is required")
 )

@@ -28,7 +28,7 @@ type Reader struct {
 	segmentLength uint64
 }
 
-// NewReader creates a new WAL file writer.
+// NewReader creates a new WAL file reader.
 func NewReader(
 	conn *Connection,
 	clusterName,

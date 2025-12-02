@@ -2,15 +2,13 @@ package server
 
 import (
 	"fmt"
-	"os"
 
-	"github.com/cloudnative-pg/machinery/pkg/log"
 	"github.com/spf13/afero"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"gopkg.in/validator.v2"
 
-	"github.com/cloudnative-pg/klio/core/internal/repository"
+	"github.com/cloudnative-pg/klio/core/cmd/initialize"
 	"github.com/cloudnative-pg/klio/core/internal/server/kopiaserver"
 	"github.com/cloudnative-pg/klio/core/pkg/config"
 )
@@ -22,9 +20,8 @@ var initializeCmd = &cobra.Command{
 	Use:   "initialize",
 	Short: "Initialize a new Klio repository on the configured folder",
 	RunE: func(cmd *cobra.Command, _ []string) error {
+		ctx := cmd.Context()
 		var configuration config.ServerConfig
-
-		contextLogger := log.FromContext(cmd.Context())
 
 		// IMPORTANT: this requires this program to be built with "-tags viper_bind_struct"
 		// when using environment variables
@@ -40,68 +37,21 @@ var initializeCmd = &cobra.Command{
 		walDirectory := configuration.Wal.WALPath
 		kopiaDirectory := configuration.Base.RepositoryDirectory
 
-		osFS := afero.NewOsFs()
+		opts := initialize.Options{
+			WalFS:                 afero.NewBasePathFs(afero.NewOsFs(), walDirectory),
+			WalEncryptionPassword: configuration.Wal.EncryptionPassword,
 
-		var walDirectoryIsOk, kopiaDirectoryIsOk bool
-		var err error
+			KopiaFS:                 afero.NewBasePathFs(afero.NewOsFs(), kopiaDirectory),
+			KopiaEncryptionPassword: configuration.Base.EncryptionPassword,
+			KopiaInitializeRepo: func() error {
+				return kopiaserver.InitializeTier1(ctx, &configuration.Base)
+			},
 
-		walDirectoryIsOk, err = canInitRepoDirectory(osFS, walDirectory)
-		if err != nil {
-			return fmt.Errorf("while checking if the Klio WAL directory %q is safe to use: %w", walDirectory, err)
+			SkipIfExisting: skipIfExisting,
 		}
 
-		kopiaDirectoryIsOk, err = canInitRepoDirectory(osFS, kopiaDirectory)
-		if err != nil {
-			return fmt.Errorf("while checking if the Kopia repository %q is safe to use: %w", kopiaDirectory, err)
-		}
-
-		switch {
-		case walDirectoryIsOk && kopiaDirectoryIsOk:
-			walFS := afero.NewBasePathFs(afero.NewOsFs(), configuration.Wal.WALPath)
-			if err := repository.Initialize(repository.Options{
-				FS:       walFS,
-				Password: configuration.Wal.EncryptionPassword,
-			}); err != nil {
-				return fmt.Errorf("while initializing the Klio WAL directory %q, %w", walDirectory, err)
-			}
-
-			if err := kopiaserver.Initialize(cmd.Context(), kopiaserver.InitOptions{
-				Path:     configuration.Base.RepositoryDirectory,
-				Password: configuration.Base.EncryptionPassword,
-			}); err != nil {
-				return fmt.Errorf("while initializing the Kopia repository directory %q, %w", walDirectory, err)
-			}
-
-		case skipIfExisting:
-			contextLogger.Info(
-				"skipping initialization of Klio repository directories",
-				"walDirectory", walDirectory,
-				"kopiaDirectory", kopiaDirectory,
-			)
-
-		case !walDirectoryIsOk:
-			return fmt.Errorf("cannot initialize %q as Klio WAL directory because it is not empty", walDirectory)
-
-		case !kopiaDirectoryIsOk:
-			return fmt.Errorf("cannot initialize %q as Kopia repository because it is not empty", kopiaDirectory)
-		}
-
-		return nil
+		return initialize.Run(ctx, opts)
 	},
-}
-
-// canInitRepoDirectory checks whether a directory does not exist or is empty
-// and can be used to create a new repository.
-func canInitRepoDirectory(fs afero.Fs, name string) (bool, error) {
-	entries, err := afero.ReadDir(fs, name)
-	if os.IsNotExist(err) {
-		return true, nil
-	}
-	if err != nil {
-		return false, err
-	}
-
-	return len(entries) == 0, nil
 }
 
 //nolint:gochecknoinits

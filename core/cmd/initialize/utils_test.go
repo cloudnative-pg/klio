@@ -1,4 +1,4 @@
-package server
+package initialize
 
 import (
 	"testing"
@@ -9,24 +9,24 @@ import (
 )
 
 func TestCanInitRepoDirectory(t *testing.T) {
-	fs := afero.NewMemMapFs()
-	_ = afero.WriteFile(fs, "/nonEmptyDirectory/test.txt", []byte("test"), 0o600)
-	_ = fs.Mkdir("/emptyDirectory", 0o777)
+	memFs := afero.NewMemMapFs()
+	_ = afero.WriteFile(memFs, "/nonEmptyDirectory/test.txt", []byte("test"), 0o600)
+	_ = memFs.Mkdir("/emptyDirectory", 0o777)
 
-	v, err := canInitRepoDirectory(fs, "/nonEmptyDirectory")
+	v, err := canInitRepoDirectory(afero.NewBasePathFs(memFs, "/nonEmptyDirectory"))
 	require.NoError(t, err)
 	assert.False(t, v, "should not be able to init existing non-empty directory")
 
-	v, err = canInitRepoDirectory(fs, "/emptyDirectory")
+	v, err = canInitRepoDirectory(afero.NewBasePathFs(memFs, "/emptyDirectory"))
 	require.NoError(t, err)
 	assert.True(t, v, "should be able to init existing empty directory")
 
-	v, err = canInitRepoDirectory(fs, "/nonExistingDirectory")
+	v, err = canInitRepoDirectory(afero.NewBasePathFs(memFs, "/nonExistingDirectory"))
 	require.NoError(t, err)
 	assert.True(t, v, "should be able to init non existing directory")
 
 	// error should be returned because the path is not a directory
-	v, err = canInitRepoDirectory(fs, "/nonEmptyDirectory/test.txt")
+	v, err = canInitRepoDirectory(afero.NewBasePathFs(memFs, "/nonEmptyDirectory/test.txt"))
 	require.Error(t, err)
 	assert.False(t, v, "should not be able to init when cannot read directory contents")
 }

@@ -28,6 +28,9 @@ type BackupUploader interface {
 
 	// UploadBackupMetadata is called to mark a backup successfully done.
 	UploadBackupMetadata(ctx context.Context, metadata *BackupMetadata) error
+
+	// Sources is a list of the snapshots that have been uploaded
+	Sources() []string
 }
 
 // NewBackupExecutor creates a new backup executor for the passed implementation.
@@ -164,6 +167,9 @@ func (b *BackupExecutor) Close(ctx context.Context) (*BackupMetadata, error) {
 		EndLSN:        endLSN,
 		BackupLabel:   string(labelFile),
 		TablespaceMap: string(spcmapFile),
+		Timeline:      tli,
+		SegmentSize:   segmentSize,
+		Sources:       b.uploader.Sources(),
 	}
 
 	if tli > 0 && segmentSize > 0 {

@@ -71,7 +71,7 @@ func (w *Implementation) Get(req *grpc.GetRequest, res grpc.WAL_GetServer) error
 			attribute.Int("num_bytesread", len(readBytes)))
 		writeSpan.End()
 		if err != nil {
-			return status.Errorf(codes.Internal, "error while reading WAL block (sending to client GRPC): %v",
+			return status.Errorf(codes.Internal, "error while writing WAL block (sending to client GRPC): %v",
 				err.Error())
 		}
 

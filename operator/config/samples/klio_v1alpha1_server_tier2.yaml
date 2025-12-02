@@ -1,0 +1,146 @@
+---
+# Apply these steps to set up MinIO for Tier 2 testing
+# kubectl apply -k operator/config/samples/minio
+# kubectl wait --for=condition=available deployment/minio --timeout=300s
+# kubectl apply -f operator/config/samples/minio/minio-job-create-bucket.yaml
+#
+# Then apply the Klio Server with Tier 2 sample
+apiVersion: klio.cnpg.io/v1alpha1
+kind: Server
+metadata:
+  name: server-sample
+  annotations:
+    klio.cnpg.io/pprof: "true"
+spec:
+  baseConfiguration:
+    adminUser:
+      name: server-sample-adm
+
+  cacheConfiguration:
+    pvcTemplate:
+      resources:
+        requests:
+          storage: 1Gi
+      accessModes:
+      - ReadWriteOnce
+
+  dataConfiguration:
+    pvcTemplate:
+      resources:
+        requests:
+          storage: 1Gi
+      accessModes:
+      - ReadWriteOnce
+
+  queueConfiguration:
+    image: nats:2
+    pvcTemplate:
+      resources:
+        requests:
+          storage: 100Mi
+      accessModes:
+      - ReadWriteOnce
+
+  password:
+    name: server-sample-encryption
+    key: password
+
+  tlsSecretName: server-sample-tls
+  caSecretName: server-sample-ca
+
+  tier2:
+    s3:
+      prefix: klio
+      bucketName: klio-bucket
+      endpoint: https://minio:9000
+      region: us-east-1
+      accessKeyId:
+        name: minio
+        key: ACCESS_KEY_ID
+      secretAccessKey:
+        name: minio
+        key: ACCESS_SECRET_KEY
+      customCaBundle:
+        name: minio-server-tls
+        key: tls.crt
+      walEncryptionPassword:
+        name: server-sample-encryption
+        key: password
+      
+
+  image: registry.dev:5000/klio-testing:dev
+  imagePullPolicy: Always
+---
+apiVersion: v1
+data:
+  password: cGlwcG9waXBwbw==
+  username: a29waWE=
+kind: Secret
+metadata:
+  name: server-sample-adm
+---
+apiVersion: v1
+data:
+  password: dGhpc3Bhc3N3b3Jk
+kind: Secret
+metadata:
+  name: server-sample-encryption
+---
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  name: selfsigned-issuer
+spec:
+  selfSigned: {}
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: server-sample-tls
+spec:
+  secretName: server-sample-tls
+  commonName: server-sample
+  dnsNames:
+    - server-sample
+    - server-sample.default
+    - server-sample.default.svc
+
+  duration: 2160h # 90d
+  renewBefore: 360h # 15d
+
+  isCA: false
+  usages:
+    - server auth
+
+  issuerRef:
+    name: selfsigned-issuer
+    kind: Issuer
+    group: cert-manager.io
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: server-sample-ca
+spec:
+  commonName: server-sample
+  secretName: server-sample-ca
+
+  duration: 2160h # 90d
+  renewBefore: 360h # 15d
+
+  isCA: true
+  usages:
+    - cert sign
+
+  issuerRef:
+    name: selfsigned-issuer
+    kind: Issuer
+    group: cert-manager.io
+---
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  name: server-sample-ca
+spec:
+  ca:
+    secretName: server-sample-ca

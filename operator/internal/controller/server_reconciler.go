@@ -48,7 +48,7 @@ func (r *ServerReconciler) reconcileStatefulSet(ctx context.Context, server *kli
 	pprof, _ := strconv.ParseBool(server.GetAnnotations()["klio.cnpg.io/pprof"])
 
 	volumes := r.buildVolumes(server)
-	volumeMounts := r.buildVolumeMounts()
+	volumeMounts := r.buildVolumeMounts(server)
 
 	expected := &appsv1.StatefulSet{
 		ObjectMeta: metav1.ObjectMeta{
@@ -192,6 +192,11 @@ func (r *ServerReconciler) reconcileStatefulSet(ctx context.Context, server *kli
 		Status: appsv1.StatefulSetStatus{},
 	}
 
+	// Add Tier2 containers if the server has Tier 2 configuration
+	if server.Spec.Tier2 != nil {
+		injectTier2Containers(expected, server, volumeMounts)
+	}
+
 	if server.Spec.Template != nil {
 		merged, err := podtemplate.Merge(&expected.Spec.Template, server.Spec.Template)
 		if err != nil {
@@ -287,6 +292,94 @@ func enablePProf(containers []corev1.Container) {
 	}
 }
 
+func injectTier2Containers(
+	ss *appsv1.StatefulSet,
+	server *kliov1alpha1.Server,
+	volumeMounts []corev1.VolumeMount,
+) {
+	ss.Spec.Template.Spec.InitContainers = append(
+		ss.Spec.Template.Spec.InitContainers,
+		corev1.Container{
+			Name: "tier2-init",
+			Args: []string{
+				"tier2",
+				"initialize",
+				"--skip-if-existing",
+			},
+			Image:           server.Spec.Image,
+			ImagePullPolicy: server.Spec.ImagePullPolicy,
+			Env:             newEnvBuilder(server).addCommonEnvs().addTier2InitEnvs().build(),
+			VolumeMounts:    volumeMounts,
+		},
+	)
+
+	ss.Spec.Template.Spec.Containers = append(
+		ss.Spec.Template.Spec.Containers,
+		corev1.Container{
+			Name: "tier2-wal-consumer",
+			Args: []string{
+				"tier2",
+				"wal-consumer",
+			},
+			Image:           server.Spec.Image,
+			ImagePullPolicy: server.Spec.ImagePullPolicy,
+			Env:             newEnvBuilder(server).addCommonEnvs().addTier2WalConsumerEnvs().build(),
+			VolumeMounts:    volumeMounts,
+		},
+	)
+
+	ss.Spec.Template.Spec.Containers = append(
+		ss.Spec.Template.Spec.Containers,
+		corev1.Container{
+			Name: "tier2-backup-consumer",
+			Args: []string{
+				"tier2",
+				"backup-consumer",
+			},
+			Image:           server.Spec.Image,
+			ImagePullPolicy: server.Spec.ImagePullPolicy,
+			Env:             newEnvBuilder(server).addCommonEnvs().addTier2BackupConsumerEnvs().build(),
+			Ports: []corev1.ContainerPort{
+				{Name: "tier2-base", ContainerPort: 51516, Protocol: corev1.ProtocolTCP},
+			},
+			VolumeMounts: volumeMounts,
+		},
+	)
+
+	ss.Spec.Template.Spec.Containers = append(
+		ss.Spec.Template.Spec.Containers,
+		corev1.Container{
+			Name: "tier2-base",
+			Args: []string{
+				"tier2",
+				"start-base",
+			},
+			Image:           server.Spec.Image,
+			ImagePullPolicy: server.Spec.ImagePullPolicy,
+			Env:             newEnvBuilder(server).addCommonEnvs().addTier2BaseEnvs().build(),
+			Ports: []corev1.ContainerPort{
+				{Name: "tier2-wal", ContainerPort: 52001, Protocol: corev1.ProtocolTCP},
+			},
+			VolumeMounts: volumeMounts,
+		},
+	)
+
+	ss.Spec.Template.Spec.Containers = append(
+		ss.Spec.Template.Spec.Containers,
+		corev1.Container{
+			Name: "tier2-wal",
+			Args: []string{
+				"tier2",
+				"start-wal",
+			},
+			Image:           server.Spec.Image,
+			ImagePullPolicy: server.Spec.ImagePullPolicy,
+			Env:             newEnvBuilder(server).addCommonEnvs().addTier2WalEnvs().build(),
+			VolumeMounts:    volumeMounts,
+		},
+	)
+}
+
 func (r *ServerReconciler) reconcileService(ctx context.Context, server *kliov1alpha1.Server) error {
 	service := &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
@@ -331,6 +424,18 @@ func (r *ServerReconciler) reconcileService(ctx context.Context, server *kliov1a
 				Port: 52000,
 			},
 		}
+		if server.Spec.Tier2 != nil {
+			service.Spec.Ports = append(service.Spec.Ports,
+				corev1.ServicePort{
+					Name: "tier2-base",
+					Port: 51516,
+				},
+				corev1.ServicePort{
+					Name: "tier2-wal",
+					Port: 52001,
+				},
+			)
+		}
 		service.Spec.ClusterIP = "None"
 
 		err := ctrl.SetControllerReference(server, service, r.Scheme)
@@ -373,10 +478,42 @@ func (r *ServerReconciler) buildVolumes(server *kliov1alpha1.Server) []corev1.Vo
 		},
 	}
 
+	if server.Spec.Tier2 != nil {
+		var sources []corev1.VolumeProjection
+
+		if server.Spec.Tier2.S3 != nil && server.Spec.Tier2.S3.CustomCABundle != nil {
+			sources = append(sources, corev1.VolumeProjection{
+				Secret: &corev1.SecretProjection{
+					LocalObjectReference: corev1.LocalObjectReference{
+						Name: server.Spec.Tier2.S3.CustomCABundle.Name,
+					},
+					Items: []corev1.KeyToPath{
+						{
+							Path: "custom_ca_bundle.pem",
+							Key:  server.Spec.Tier2.S3.CustomCABundle.Key,
+						},
+					},
+				},
+			})
+		}
+
+		volumes = append(
+			volumes,
+			corev1.Volume{
+				Name: "tier2",
+				VolumeSource: corev1.VolumeSource{
+					Projected: &corev1.ProjectedVolumeSource{
+						Sources: sources,
+					},
+				},
+			},
+		)
+	}
+
 	return volumes
 }
 
-func (r *ServerReconciler) buildVolumeMounts() []corev1.VolumeMount {
+func (r *ServerReconciler) buildVolumeMounts(server *kliov1alpha1.Server) []corev1.VolumeMount {
 	volumeMounts := []corev1.VolumeMount{
 		{
 			Name:      "data",
@@ -402,6 +539,16 @@ func (r *ServerReconciler) buildVolumeMounts() []corev1.VolumeMount {
 			Name:      "queue",
 			MountPath: "/queue",
 		},
+	}
+
+	if server.Spec.Tier2 != nil {
+		volumeMounts = append(
+			volumeMounts,
+			corev1.VolumeMount{
+				Name:      "tier2",
+				MountPath: "/tier2",
+			},
+		)
 	}
 
 	return volumeMounts

@@ -5,11 +5,13 @@ go 1.25.0
 toolchain go1.25.4
 
 require (
+	github.com/aws/aws-sdk-go v1.55.8
 	github.com/cloudnative-pg/api v1.27.0
 	github.com/cloudnative-pg/cloudnative-pg v1.27.1
 	github.com/cloudnative-pg/cnpg-i v0.3.0
 	github.com/cloudnative-pg/cnpg-i-machinery v0.4.1
 	github.com/cloudnative-pg/machinery v0.3.1
+	github.com/fclairamb/afero-s3 v0.3.1
 	github.com/jackc/pglogrepl v0.0.0-20250509230407-a9884f6bd75a
 	github.com/jackc/pgx/v5 v5.7.6
 	github.com/klauspost/compress v1.18.1
@@ -132,6 +134,7 @@ require (
 	github.com/jackc/pgio v1.0.0 // indirect
 	github.com/jackc/pgpassfile v1.0.0 // indirect
 	github.com/jackc/pgservicefile v0.0.0-20240606120523-5a60cdf6a761 // indirect
+	github.com/jmespath/go-jmespath v0.4.0 // indirect
 	github.com/josharian/intern v1.0.0 // indirect
 	github.com/json-iterator/go v1.1.12 // indirect
 	github.com/klauspost/cpuid/v2 v2.2.11 // indirect
@@ -231,3 +234,5 @@ require (
 )
 
 replace github.com/kopia/kopia => github.com/leonardoce/kopia v0.0.0-20251030090917-b431b8266095
+
+replace github.com/fclairamb/afero-s3 => github.com/leonardoce/afero-s3 v0.0.0-20251106141136-dba2dbe22312

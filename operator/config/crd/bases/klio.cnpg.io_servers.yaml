@@ -9321,6 +9321,99 @@ spec:
                     - containers
                     type: object
                 type: object
+              tier2:
+                description: Tier2 is the Tier 2 configuration
+                properties:
+                  s3:
+                    description: S3 contains the configuration parameters for an S3-based
+                      tier 2
+                    properties:
+                      accessKeyId:
+                        description: The S3 access key ID
+                        properties:
+                          key:
+                            description: The key to select
+                            type: string
+                          name:
+                            description: Name of the referent.
+                            type: string
+                        required:
+                        - key
+                        - name
+                        type: object
+                      bucketName:
+                        description: BucketName is the name of the bucket
+                        type: string
+                      customCaBundle:
+                        description: A pointer to a custom CA bundle
+                        properties:
+                          key:
+                            description: The key to select
+                            type: string
+                          name:
+                            description: Name of the referent.
+                            type: string
+                        required:
+                        - key
+                        - name
+                        type: object
+                      endpoint:
+                        description: Endpoint is the endpoint to be used
+                        type: string
+                      prefix:
+                        description: Prefix is the prefix to be used for the stored
+                          files
+                        type: string
+                      region:
+                        description: Region is the region to be used
+                        type: string
+                      secretAccessKey:
+                        description: The S3 access key
+                        properties:
+                          key:
+                            description: The key to select
+                            type: string
+                          name:
+                            description: Name of the referent.
+                            type: string
+                        required:
+                        - key
+                        - name
+                        type: object
+                      sessionToken:
+                        description: The S3 session token
+                        properties:
+                          key:
+                            description: The key to select
+                            type: string
+                          name:
+                            description: Name of the referent.
+                            type: string
+                        required:
+                        - key
+                        - name
+                        type: object
+                      walEncryptionPassword:
+                        description: WALEncryptionPassword is a pointer to the key
+                          in a secret containing the encryption password.
+                        properties:
+                          key:
+                            description: The key to select
+                            type: string
+                          name:
+                            description: Name of the referent.
+                            type: string
+                        required:
+                        - key
+                        - name
+                        type: object
+                    required:
+                    - bucketName
+                    - walEncryptionPassword
+                    type: object
+                required:
+                - s3
+                type: object
               tlsSecretName:
                 description: |-
                   TLSSecretName is the name of the Kubernetes secret containing the server-side certificate

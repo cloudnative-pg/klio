@@ -46,6 +46,8 @@ type BackupUploader struct {
 	pgDataManifest        *snapshot.Manifest
 	tablespaces           []common.TablespaceLayout
 	controlDataManifestID manifest.ID
+
+	sources []string
 }
 
 // Target is used to point a Kopia transaction to the set of snapshots
@@ -58,6 +60,9 @@ type Target struct {
 	// Username is the name of the user that took the snapshot, as in the
 	// <username>@<hostname> snapshot indicator.
 	Username string
+
+	// Sources are the list of Kopia sources that have been uploaded
+	Sources []string
 }
 
 // NewUploaderFor creates a new backup executor.
@@ -278,6 +283,11 @@ func (impl *BackupUploader) UploadBackupMetadata(ctx context.Context, data *comm
 	return nil
 }
 
+// Sources implements the backup uploader interface.
+func (impl *BackupUploader) Sources() []string {
+	return impl.sources
+}
+
 func (impl *BackupUploader) uploadPath(
 	ctx context.Context,
 	filePath string,
@@ -329,6 +339,8 @@ func (impl *BackupUploader) uploadPath(
 	if err != nil {
 		return nil, fmt.Errorf("while uploading to archive: %w", err)
 	}
+
+	impl.sources = append(impl.sources, sourceInfo.String())
 
 	return manifest, nil
 }

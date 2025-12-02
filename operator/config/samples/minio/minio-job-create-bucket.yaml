@@ -1,0 +1,19 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: create-bucket
+spec:
+  template:
+    spec:
+      containers:
+        - name: minio-mc-client
+          image: minio/mc
+          command: ["/bin/sh", "-c"]
+          args:
+            - |
+              mc mb minio/klio-bucket --insecure
+          env:
+          - name: MC_HOST_minio
+            value: https://chooJeiroroo2noquomei2uuceisheth:ongeiqueitohL0queeLohkiur2quaing@minio:9000
+      restartPolicy: OnFailure
+  backoffLimit: 4

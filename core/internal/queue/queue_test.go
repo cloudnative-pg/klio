@@ -41,27 +41,9 @@ func TestNew(t *testing.T) {
 	require.NoError(t, err)
 	defer nc.Close()
 
-	conn := New(nc)
-	assert.NotNil(t, conn)
-}
-
-func TestEnsureSetup(t *testing.T) {
-	ns, url := startNATSServer(t)
-	defer ns.Shutdown()
-
-	nc, err := nats.Connect(url)
+	conn, err := New(context.Background(), nc)
 	require.NoError(t, err)
-	defer nc.Close()
-
-	conn := New(nc)
-	ctx := context.Background()
-
-	err = conn.EnsureSetup(ctx)
-	require.NoError(t, err, "EnsureSetup should succeed")
-
-	// Call again to test idempotency
-	err = conn.EnsureSetup(ctx)
-	require.NoError(t, err, "EnsureSetup should be idempotent")
+	assert.NotNil(t, conn)
 }
 
 func TestNotifyWALReceived(t *testing.T) {
@@ -72,11 +54,8 @@ func TestNotifyWALReceived(t *testing.T) {
 	require.NoError(t, err)
 	defer nc.Close()
 
-	conn := New(nc)
 	ctx := context.Background()
-
-	// Setup the stream first
-	err = conn.EnsureSetup(ctx)
+	conn, err := New(ctx, nc)
 	require.NoError(t, err)
 
 	// Test sending a notification
@@ -97,8 +76,9 @@ func TestNotifyWALReceived_WithoutSetup(t *testing.T) {
 	require.NoError(t, err)
 	defer nc.Close()
 
-	conn := New(nc)
 	ctx := context.Background()
+	conn, err := New(ctx, nc)
+	require.NoError(t, err)
 
 	// NATS JetStream will auto-create the stream, so this actually works
 	// This test verifies that behavior
@@ -119,10 +99,8 @@ func TestWALTask_Serialization(t *testing.T) {
 	require.NoError(t, err)
 	defer nc.Close()
 
-	conn := New(nc)
 	ctx := context.Background()
-
-	err = conn.EnsureSetup(ctx)
+	conn, err := New(ctx, nc)
 	require.NoError(t, err)
 
 	// Subscribe to the subject

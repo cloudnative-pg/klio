@@ -55,6 +55,12 @@ type BackupMetadata struct {
 	// EndWAL is the current WAL when the backup ends
 	EndWAL string `json:"endWal"`
 
+	// Timeline is the backup timeline
+	Timeline int `json:"tli"`
+
+	// SegmentSize is the segment size of the WALs during the backup.
+	SegmentSize uint64 `json:"segmentSize"`
+
 	// BackupLabel is the backup label content
 	BackupLabel string `json:"backupLabel"`
 
@@ -73,6 +79,9 @@ type BackupMetadata struct {
 
 	// StoppedAt is the current time when the backup ended.
 	StoppedAt int64 `json:"stoppedAt"`
+
+	// Sources is the list of sources that have been uploaded by this backup.
+	Sources []string `json:"sources"`
 }
 
 // BackupList is a list of backups.

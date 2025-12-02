@@ -5,61 +5,82 @@ import (
 	"encoding/json"
 	"fmt"
 
+	"github.com/cloudnative-pg/machinery/pkg/log"
 	"github.com/nats-io/nats.go"
 	"github.com/nats-io/nats.go/jetstream"
 )
 
-// WALTask is the structure that is sent on NATS Stream when
-// a new WAL has been received.
-type WALTask struct {
-	// ClusterName is the name of the cluster
-	ClusterName string `json:"clusterName"`
-
-	// WALName is the name of the WAL
-	WALName string `json:"walName"`
-}
-
 // Conn is a work queue as used by Klio.
 type Conn struct {
-	conn *nats.Conn
+	conn       *nats.Conn
+	klioStream jetstream.Stream
+
+	walConsumer    jetstream.Consumer
+	backupConsumer jetstream.Consumer
 }
 
 // New creates a new queue client.
-func New(natsConnection *nats.Conn) *Conn {
-	return &Conn{
+func New(ctx context.Context, natsConnection *nats.Conn) (*Conn, error) {
+	result := &Conn{
 		conn: natsConnection,
 	}
-}
 
-// EnsureSetup ensures that the NATS stream is correctly configured.
-func (q *Conn) EnsureSetup(ctx context.Context) error {
-	js, err := jetstream.New(q.conn)
+	js, err := jetstream.New(natsConnection)
 	if err != nil {
-		return fmt.Errorf("while creating JetStream instance: %w", err)
+		return nil, fmt.Errorf("while creating JetStream instance: %w", err)
 	}
 
-	streamConfig := jetstream.StreamConfig{
-		Name:        "KLIO",
-		Retention:   jetstream.InterestPolicy,
-		Description: "Klio stream",
-		Subjects: []string{
-			"klio.*.wal",
-			"klio.*.backup",
+	result.klioStream, err = js.CreateOrUpdateStream(
+		ctx,
+		jetstream.StreamConfig{
+			Name:        "KLIO",
+			Retention:   jetstream.InterestPolicy,
+			Description: "Klio stream",
+			Subjects: []string{
+				"klio.*.wal",
+				"klio.*.backup",
+			},
+			Storage: jetstream.FileStorage,
 		},
-		Storage: jetstream.FileStorage,
-	}
-
-	_, err = js.CreateOrUpdateStream(ctx, streamConfig)
+	)
 	if err != nil {
-		return fmt.Errorf("while creating or updating JetStream stream: %w", err)
+		return nil, fmt.Errorf("while creating or updating JetStream stream: %w", err)
 	}
 
-	return nil
+	result.walConsumer, err = js.CreateOrUpdateConsumer(
+		ctx,
+		"KLIO",
+		jetstream.ConsumerConfig{
+			Name:          "klio-wal",
+			AckPolicy:     jetstream.AckExplicitPolicy,
+			FilterSubject: "klio.*.wal",
+		},
+	)
+	if err != nil {
+		return nil, fmt.Errorf("while creating or updating JetStream WAL consumer: %w", err)
+	}
+
+	result.backupConsumer, err = js.CreateOrUpdateConsumer(
+		ctx,
+		"KLIO",
+		jetstream.ConsumerConfig{
+			Name:          "klio-backup",
+			AckPolicy:     jetstream.AckExplicitPolicy,
+			FilterSubject: "klio.*.backup",
+		},
+	)
+	if err != nil {
+		return nil, fmt.Errorf("while creating or updating JetStream Base consumer: %w", err)
+	}
+
+	return result, nil
 }
 
-// NotifyWALReceived is called to notify the consumers that a new WAL
-// is available in the Klio repository.
-func (q *Conn) NotifyWALReceived(ctx context.Context, task *WALTask) error {
+// notifyMessage is called to send a message on the queue.
+func (q *Conn) notifyMessage(ctx context.Context, subject string, task any) error {
+	contextLogger := log.FromContext(ctx)
+	contextLogger.Info("Sending message", "subject", subject, "task", task)
+
 	js, err := jetstream.New(q.conn)
 	if err != nil {
 		return fmt.Errorf("while creating JetStream instance: %w", err)
@@ -70,10 +91,57 @@ func (q *Conn) NotifyWALReceived(ctx context.Context, task *WALTask) error {
 		return fmt.Errorf("while marshalling task to JSON: %w", err)
 	}
 
-	_, err = js.Publish(ctx, fmt.Sprintf("klio.%s.wal", task.ClusterName), rawContent)
+	_, err = js.Publish(ctx, subject, rawContent)
 	if err != nil {
 		return fmt.Errorf("while pushing message to the queue: %w", err)
 	}
+
+	return nil
+}
+
+// internalConsumeMessages starts consuming messages and ends
+// when the context is canceled.
+func internalConsumeMessages[T any](
+	ctx context.Context,
+	handler func(ctx context.Context, t *T) error,
+	consumer jetstream.Consumer,
+) error {
+	logger := log.FromContext(ctx)
+
+	internalConsumer := func(msg jetstream.Msg) {
+		var task T
+
+		if err := json.Unmarshal(msg.Data(), &task); err != nil {
+			logger := logger.WithValues("bytes", msg.Data())
+			logger.Error(err, "Detected invalid queue message, skipping and removing it from the queue")
+			if ackError := msg.Ack(); ackError != nil {
+				logger.Error(err, "Error while acking an invalid queue message, this wrong message will be retried")
+			}
+
+			return
+		}
+
+		if err := handler(ctx, &task); err != nil {
+			logger.Error(err, "Error while handling queue message, retrying", "task", &task)
+
+			// no ack here, this message should be retried
+			return
+		}
+
+		if err := msg.Ack(); err != nil {
+			logger.Error(err, "Error while acking queue message, this message will be retried", "task", &task)
+		}
+	}
+
+	consumerContext, consumerError := consumer.Consume(internalConsumer)
+	if consumerError != nil {
+		logger.Error(consumerError, "Generic error while consuming messages")
+
+		return nil
+	}
+
+	<-ctx.Done()
+	consumerContext.Stop()
 
 	return nil
 }

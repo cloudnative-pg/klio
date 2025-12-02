@@ -36,6 +36,20 @@ func getWALArchivePath(clusterName, walName string) string {
 	return path.Join(clusterName, walName)
 }
 
+// IsWALFileExisting checks if a WAL file exists in the repository.
+func (c *Connection) IsWALFileExisting(clusterName string, walName string) (bool, error) {
+	walFilePath := getWALArchivePath(clusterName, walName)
+
+	_, err := c.fs.Stat(walFilePath)
+	if os.IsNotExist(err) {
+		return false, nil
+	} else if err != nil {
+		return false, err
+	}
+
+	return true, nil
+}
+
 // GetLatestWALFileForCluster gets the latest archived WAL for a certain cluster
 //
 //nolint:cyclop

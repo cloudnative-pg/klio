@@ -37,6 +37,9 @@ type ServerConfig struct {
 
 	// Wal is the configuration of the Wal server
 	Wal WalServerConfig `mapstructure:"wal" validate:"nonzero"`
+
+	// Tier2Config is the Tier 2 configuration
+	Tier2 Tier2Config `mapstructure:"tier2"`
 }
 
 // BaseServerConfig is the configuration that will be used for
@@ -172,6 +175,54 @@ type WalServerConfig struct {
 
 	// NATSAddress is the address where the NATS server can be reached.
 	NATSAddress string `mapstructure:"nats_address"`
+}
+
+// Tier2Config is the tier 2 configuration.
+type Tier2Config struct {
+	// S3 contains the configuration parameters for an S3-based tier 2
+	S3 S3Configuration `json:"s3" mapstructure:"s3"`
+
+	// BaseListenAddress is the address where the tier2 base server will listen
+	BaseListenAddress string `mapstructure:"base_listen_address"`
+
+	// WALListenAddress is the address where the tier2 base server will listen
+	WALListenAddress string `mapstructure:"wal_listen_address"`
+}
+
+// S3Configuration is the configuration to a S3 defined tier 2.
+type S3Configuration struct {
+	// Enabled is true when S3 is enabled
+	Enabled bool `json:"enabled" mapstructure:"enabled"`
+
+	// BucketName is the name of the bucket
+	BucketName string `json:"bucket_name" mapstructure:"bucket_name"`
+
+	// Endpoint is the AWS endpoint to be used
+	Endpoint string `json:"endpoint" mapstructure:"endpoint"`
+
+	// Region is the AWS region to be used.
+	Region string `json:"region" mapstructure:"region"`
+
+	// Prefix is the prefix to be used for the stored files
+	Prefix string `json:"prefix" mapstructure:"prefix"`
+
+	// AccessKeyID is the access key ID
+	AccessKeyID string `json:"access_key_id" mapstructure:"access_key_id"`
+
+	// SecretAccessKey is the secret access key
+	SecretAccessKey string `json:"secret_access_key" mapstructure:"secret_access_key"`
+
+	// SessionToken is the session token
+	SessionToken string `json:"session_token" mapstructure:"session_token"`
+
+	// CustomCABundleFile is the file where we should read the custom CA bundle
+	CustomCABundleFile string `json:"custom_ca_bundle_file" mapstructure:"custom_ca_bundle_file"`
+
+	// EncryptionPassword is the encryption password
+	EncryptionPassword string `json:"encryption_password" mapstructure:"encryption_password"`
+
+	// CacheDirectory is the directory of the Kopia cache
+	CacheDirectory string `mapstructure:"cache"`
 }
 
 // SetDefaults sets the default values of the configuration.

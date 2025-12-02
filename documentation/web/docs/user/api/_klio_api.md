@@ -155,6 +155,30 @@ _Appears in:_
 | `keepHourly` _integer_ | KeepHourly is the number of hourly backups to keep<br />optional | True |  |  |
 
 
+#### S3Configuration
+
+
+
+S3Configuration is the configuration to a S3 defined tier 2.
+
+
+
+_Appears in:_
+- [Tier2Configuration](#tier2configuration)
+
+| Field | Description | Required | Default | Validation |
+| --- | --- | --- | --- | --- |
+| `bucketName` _string_ | BucketName is the name of the bucket | True |  |  |
+| `prefix` _string_ | Prefix is the prefix to be used for the stored files |  |  |  |
+| `endpoint` _string_ | Endpoint is the endpoint to be used |  |  |  |
+| `region` _string_ | Region is the region to be used |  |  |  |
+| `walEncryptionPassword` _[SecretKeySelector](#secretkeyselector)_ | WALEncryptionPassword is a pointer to the key in a secret containing the encryption password. | True |  |  |
+| `accessKeyId` _[SecretKeySelector](#secretkeyselector)_ | The S3 access key ID |  |  |  |
+| `secretAccessKey` _[SecretKeySelector](#secretkeyselector)_ | The S3 access key |  |  |  |
+| `sessionToken` _[SecretKeySelector](#secretkeyselector)_ | The S3 session token |  |  |  |
+| `customCaBundle` _[SecretKeySelector](#secretkeyselector)_ | A pointer to a custom CA bundle |  |  |  |
+
+
 #### Server
 
 
@@ -198,6 +222,7 @@ _Appears in:_
 | `dataConfiguration` _[DataConfiguration](#dataconfiguration)_ | DataConfiguration is the configuration of the PVC that should be used<br />for the base backups | True |  |  |
 | `queueConfiguration` _[QueueConfiguration](#queueconfiguration)_ | QueueConfiguration is the configuration of the PVC that should host<br />the task queue. | True |  |  |
 | `password` _[SecretKeySelector](#secretkeyselector)_ | Password is a reference to a secret containing the Klio password | True |  |  |
+| `tier2` _[Tier2Configuration](#tier2configuration)_ | Tier2 is the Tier 2 configuration | True |  |  |
 | `template` _[PodTemplateSpec](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.32/#podtemplatespec-v1-core)_ | Template to override the default StatefulSet of the Klio server.<br />WARNING: Modifying this template may break the server functionality if not done carefully.<br />This field is primarily intended for advanced configuration such as telemetry setup.<br />Use at your own risk and ensure thorough testing before applying changes. |  |  |  |
 
 
@@ -212,5 +237,21 @@ ServerStatus defines the observed state of Server.
 _Appears in:_
 - [Server](#server)
 
+
+
+#### Tier2Configuration
+
+
+
+Tier2Configuration is the tier 2 configuration.
+
+
+
+_Appears in:_
+- [ServerSpec](#serverspec)
+
+| Field | Description | Required | Default | Validation |
+| --- | --- | --- | --- | --- |
+| `s3` _[S3Configuration](#s3configuration)_ | S3 contains the configuration parameters for an S3-based tier 2 | True |  |  |
 
 
