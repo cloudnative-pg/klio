@@ -2,7 +2,7 @@ module github.com/cloudnative-pg/klio/core
 
 go 1.25.0
 
-toolchain go1.25.4
+toolchain go1.25.5
 
 require (
 	github.com/aws/aws-sdk-go v1.55.8
