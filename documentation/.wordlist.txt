@@ -90,9 +90,6 @@ ListMeta
 Liveness
 LocalObjectReference
 MaxItems
-MetricsAddressInstance
-MetricsAddressRestore
-MetricsAddressSendWal
 MetricsConfiguration
 MinLength
 NATS

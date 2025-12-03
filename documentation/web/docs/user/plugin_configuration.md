@@ -208,39 +208,6 @@ Klio API server.
 See the [OpenTelemetry observability](./opentelemetry.md) section for more
 details on how to monitor the Klio plugin using OpenTelemetry.
 
-#### Metrics Endpoints
-
-Klio exposes Prometheus-compatible metrics for monitoring. You can configure
-separate metric endpoints for different components:
-
-```yaml
-apiVersion: klio.cnpg.io/v1alpha1
-kind: PluginConfiguration
-metadata:
-  name: klio-plugin-config
-spec:
-  serverAddress: klio-server.default
-  clientSecretName: klio-client-credentials
-  serverSecretName: klio-server-tls
-  metricsAddressInstance: ":8085"
-  metricsAddressSendWal: ":8090"
-  metricsAddressRestore: ":8091"
-```
-
-The available metrics endpoints are:
-
-- `metricsAddressInstance`: Metrics from the `klio-plugin` container
-- `metricsAddressSendWal`: Metrics from the `klio-wal` container
-- `metricsAddressRestore`: Metrics from the restore container
-
-Each address should specify a port in the format `:PORT`. These endpoints can
-be scraped by Prometheus or other monitoring systems.
-
-:::warning
-These metrics endpoints could be removed in future Klio releases, in favor
-of OpenTelemetry-based metrics.
-:::
-
 ### Performance profiling
 
 Enable the pprof HTTP endpoint for performance profiling and troubleshooting:
