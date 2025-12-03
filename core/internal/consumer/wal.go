@@ -49,7 +49,8 @@ func (d *WAL) Run(ctx context.Context) error {
 	return d.opts.Queue.ConsumeWALReceivedMessages(consumerCtx, d.walHandler)
 }
 
-func (d *WAL) walHandler(ctx context.Context, task *queue.WALTask) error {
+//nolint:cyclop
+func (d *WAL) walHandler(ctx context.Context, task *queue.WALTask) (returnErr error) {
 	logger := log.FromContext(ctx).WithValues("task", task)
 	logger.Info("Archiving WAL file")
 
@@ -77,8 +78,11 @@ func (d *WAL) walHandler(ctx context.Context, task *queue.WALTask) error {
 		return fmt.Errorf("while creating a new WAL writer for Tier 2: %w", err)
 	}
 	defer func() {
-		if err := writer.CloseMarkDone(); err != nil {
-			logger.Error(err, "Error while closing the WAL file from Tier 2")
+		if closeErr := writer.CloseMarkDone(); closeErr != nil {
+			logger.Error(closeErr, "Error while closing the WAL file from Tier 2")
+			if returnErr == nil {
+				returnErr = fmt.Errorf("while closing Tier 2 WAL: %w", closeErr)
+			}
 		}
 	}()
 
