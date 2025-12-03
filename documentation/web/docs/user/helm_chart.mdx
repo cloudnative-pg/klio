@@ -66,7 +66,7 @@ helm install klio-operator oci://ghcr.io/enterprisedb/klio-operator-chart \
   --namespace <NAMESPACE> \
   --set controllerManager.manager.image.pullSecrets[0].name=klio-registry-secret
 ```
-<!-- x-release-please-end-version -->
+<!-- x-release-please-end -->
 
 ### Step 4: Verify Installation
 
@@ -110,7 +110,7 @@ review the default values, and understand what resources it will create:
 ```sh
 helm pull oci://ghcr.io/enterprisedb/klio-operator-chart --version 0.0.6
 ```
-<!-- x-release-please-end-version -->
+<!-- x-release-please-end -->
 
 This downloads the chart as a `.tgz` file. Extract it to examine the templates,
 default `values.yaml`, and other chart files:
@@ -121,7 +121,7 @@ tar -xzf klio-operator-chart-0.0.6.tgz
 cd klio-operator-chart
 cat values.yaml
 ```
-<!-- x-release-please-end-version -->
+<!-- x-release-please-end -->
 
 ### Configuration Reference
 

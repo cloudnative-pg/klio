@@ -293,7 +293,7 @@ spec:
             - mountPath: /tmp
               name: scratch-data
 ```
-<!-- x-release-please-end-version -->
+<!-- x-release-please-end -->
 
 :::warning
 `CLIENT_BASE_HOSTNAME` will be removed in a future Klio release.
