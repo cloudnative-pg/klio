@@ -69,6 +69,17 @@
         "go"
       ],
       "matchPackageNames": [
+        "github.com/leonardoce/kopia",
+        "github.com/leonardoce/afero-s3"
+      ],
+      "enabled": false,
+      "description": "These packages are replaced with forks - updates are ignored"
+    },
+    {
+      "matchDatasources": [
+        "go"
+      ],
+      "matchPackageNames": [
         "!/k8s.io/"
       ],
       "matchUpdateTypes": [
