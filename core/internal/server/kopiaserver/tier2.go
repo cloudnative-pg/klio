@@ -43,9 +43,14 @@ func StartTier2(
 
 	// A tier-2 Kopia server is configured exactly like a tier-1 server, but with
 	// a different kopia target repository and different listen address.
+	tier2CacheDir, err := getTier2CacheDirectory(&tier2Config.S3)
+	if err != nil {
+		return err
+	}
+
 	tier2ServerCfg := *baseServerCfg
 	tier2ServerCfg.ListenAddress = tier2Config.BaseListenAddress
-	tier2ServerCfg.CacheDirectory = path.Join(baseServerCfg.CacheDirectory, "tier2")
+	tier2ServerCfg.CacheDirectory = tier2CacheDir
 
 	return start(ctx, configFile.Name(), &tier2ServerCfg)
 }
@@ -53,6 +58,10 @@ func StartTier2(
 // InitializeTier2 initializes a new Kopia Tier2 Repository.
 func InitializeTier2(ctx context.Context, cfg *config.S3Configuration) error {
 	contextLogger := log.FromContext(ctx)
+
+	if err := cleanupTier2Cache(cfg); err != nil {
+		return err
+	}
 
 	kopiaBinary, err := exec.LookPath(kopiaCommand)
 	if err != nil {
@@ -122,6 +131,19 @@ func CreateTier2KopiaConfigFile(ctx context.Context, fileName string, cfg *confi
 	return nil
 }
 
+func getTier2CacheDirectory(cfg *config.S3Configuration) (string, error) {
+	return cacheDirectory(cfg.CacheDirectory, "tier2")
+}
+
+func cleanupTier2Cache(cfg *config.S3Configuration) error {
+	cacheDir, err := getTier2CacheDirectory(cfg)
+	if err != nil {
+		return err
+	}
+
+	return cleanupCache(cacheDir)
+}
+
 func getCommonTier2Args(cfg *config.S3Configuration) ([]string, error) {
 	doNotUseTLS := false
 	shortenedEndpoint := ""
@@ -136,9 +158,14 @@ func getCommonTier2Args(cfg *config.S3Configuration) ([]string, error) {
 		shortenedEndpoint = endpointURL.Host
 	}
 
+	cacheDir, err := getTier2CacheDirectory(cfg)
+	if err != nil {
+		return nil, err
+	}
+
 	args := []string{
 		"--bucket=" + cfg.BucketName,
-		"--cache-directory=" + cfg.CacheDirectory + "/tier2",
+		"--cache-directory=" + cacheDir,
 		"--prefix=" + path.Join(cfg.Prefix, "base") + "/",
 		"--disable-file-logging",
 		"--json-log-console",

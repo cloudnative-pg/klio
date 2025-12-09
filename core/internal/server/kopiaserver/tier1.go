@@ -5,14 +5,13 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
-	"path"
 
 	"github.com/cloudnative-pg/machinery/pkg/log"
 
 	"github.com/cloudnative-pg/klio/core/pkg/config"
 )
 
-// StartTier1 runs a Tier 1 Kopia server..
+// StartTier1 runs a Tier 1 Kopia server.
 func StartTier1(ctx context.Context, cfg *config.BaseServerConfig) error {
 	contextLogger := log.FromContext(ctx)
 
@@ -35,15 +34,51 @@ func StartTier1(ctx context.Context, cfg *config.BaseServerConfig) error {
 		return err
 	}
 
+	cacheDir, err := getTier1CacheDirectory(cfg)
+	if err != nil {
+		return err
+	}
+
 	tier1Config := *cfg
-	tier1Config.CacheDirectory = path.Join(cfg.CacheDirectory, "tier1")
+	tier1Config.CacheDirectory = cacheDir
 
 	return start(ctx, configFile.Name(), &tier1Config)
+}
+
+func getTier1CacheDirectory(cfg *config.BaseServerConfig) (string, error) {
+	return cacheDirectory(cfg.CacheDirectory, "tier1")
+}
+
+func cleanupTier1Cache(cfg *config.BaseServerConfig) error {
+	cacheDir, err := getTier1CacheDirectory(cfg)
+	if err != nil {
+		return err
+	}
+
+	return cleanupCache(cacheDir)
+}
+
+func getCommonTier1Args(cfg *config.BaseServerConfig) ([]string, error) {
+	cacheDir, err := getTier1CacheDirectory(cfg)
+	if err != nil {
+		return nil, err
+	}
+
+	return []string{
+		"--path=" + cfg.RepositoryDirectory,
+		"--disable-file-logging",
+		"--json-log-console",
+		"--cache-directory=" + cacheDir,
+	}, nil
 }
 
 // InitializeTier1 initializes a new Kopia Tier1 Repository.
 func InitializeTier1(ctx context.Context, cfg *config.BaseServerConfig) error {
 	contextLogger := log.FromContext(ctx)
+
+	if err := cleanupTier1Cache(cfg); err != nil {
+		return err
+	}
 
 	kopiaBinary, err := exec.LookPath(kopiaCommand)
 	if err != nil {
@@ -53,11 +88,12 @@ func InitializeTier1(ctx context.Context, cfg *config.BaseServerConfig) error {
 	args := []string{
 		"repository", "create", "filesystem",
 		"--create-only",
-		"--path=" + cfg.RepositoryDirectory,
-		"--disable-file-logging",
-		"--json-log-console",
-		"--cache-directory=" + cfg.CacheDirectory + "/tier1",
 	}
+	commonArgs, err := getCommonTier1Args(cfg)
+	if err != nil {
+		return err
+	}
+	args = append(args, commonArgs...)
 
 	kopiaRepositoryInitialize := exec.CommandContext(ctx, kopiaBinary, args...) //nolint:gosec
 	kopiaRepositoryInitialize.Env = append(kopiaRepositoryInitialize.Env,
@@ -86,15 +122,16 @@ func CreateTier1KopiaConfigFile(ctx context.Context, fileName string, cfg *confi
 
 	args := []string{
 		"repository", "connect", "filesystem",
-		"--path=" + cfg.RepositoryDirectory,
 		"--config-file=" + fileName,
 		"--persist-credentials",
-		"--cache-directory=" + cfg.CacheDirectory + "/tier1",
 		"--override-username=klio",
 		"--override-hostname=klio",
-		"--disable-file-logging",
-		"--json-log-console",
 	}
+	commonArgs, err := getCommonTier1Args(cfg)
+	if err != nil {
+		return err
+	}
+	args = append(args, commonArgs...)
 
 	kopiaRepositoryConnect := exec.CommandContext(ctx, kopiaBinary, args...) //nolint:gosec
 	kopiaRepositoryConnect.Env = append(kopiaRepositoryConnect.Env,
