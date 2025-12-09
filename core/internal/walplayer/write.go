@@ -22,7 +22,7 @@ type WALWriter struct {
 func NewWALWriter(sizeMB int) *WALWriter {
 	return &WALWriter{
 		reader:      NewLoopReader(buffer),
-		segmentSize: uint64(sizeMB) * 1024 * 1024, //nolint:gosec
+		segmentSize: uint64(sizeMB) * 1024 * 1024,
 		position:    0,
 	}
 }
@@ -63,7 +63,7 @@ func (w *WALWriter) writeWAL(ctx context.Context, fileName string) error {
 		}
 	}()
 
-	if _, err := io.CopyN(f, w.reader, int64(w.segmentSize)); err != nil { //nolint:gosec
+	if _, err := io.CopyN(f, w.reader, int64(w.segmentSize)); err != nil {
 		return fmt.Errorf("error writing to file %q: %w", fileName, err)
 	}
 

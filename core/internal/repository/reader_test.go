@@ -172,7 +172,7 @@ func TestReaderWriter100KBlocks(t *testing.T) {
 	block1 := make([]byte, 131072)
 	_, _ = rand.Read(block1)
 
-	fileLen := uint64(128 * len(block1)) //nolint:gosec
+	fileLen := uint64(128 * len(block1))
 	metrics := NewDummyMetrics()
 	writer, err := conn.NewWriter("cluster-example", "0000001000000000000001F8", fileLen, metrics, dummyTracer)
 	require.NoError(t, err)

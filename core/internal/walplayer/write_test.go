@@ -23,7 +23,7 @@ func TestWALWriter_WriteWAL_CreatesFileWithCorrectSize(t *testing.T) {
 	if err != nil {
 		t.Fatalf("file not created: %v", err)
 	}
-	if info.Size() != int64(writer.segmentSize) { //nolint: gosec
+	if info.Size() != int64(writer.segmentSize) {
 		t.Errorf("expected file size %d, got %d", writer.segmentSize, info.Size())
 	}
 }

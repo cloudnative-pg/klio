@@ -221,7 +221,7 @@ func (p *Player) sendWAL(ctx context.Context, c *grpcclient.Connection, fileName
 		}
 	}()
 
-	stream, err := c.StoreWALStreaming(ctx, path.Base(fileName), uint64(f.Size())) //nolint:gosec
+	stream, err := c.StoreWALStreaming(ctx, path.Base(fileName), uint64(f.Size()))
 	if err != nil {
 		result.Error = fmt.Sprintf("while starting WAL file streaming: %v", err)
 		return result

@@ -70,7 +70,7 @@ func (c *Connection) GetWALStreaming(ctx context.Context, walName string, out io
 		}
 
 		if expectedSize == 0 {
-			expectedSize = int(result.GetSegmentSize()) //nolint:gosec
+			expectedSize = int(result.GetSegmentSize())
 		}
 
 		b, err := out.Write(result.GetWalBlock())

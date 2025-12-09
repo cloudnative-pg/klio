@@ -69,7 +69,7 @@ func BenchmarkWriter(b *testing.B) {
 
 	metrics := NewDummyMetrics()
 	writer, err := conn.NewWriter(
-		"cluster-example", "0000001000000000000001FF", uint64(len(block)*b.N), metrics, dummyTracer) //nolint:gosec
+		"cluster-example", "0000001000000000000001FF", uint64(len(block)*b.N), metrics, dummyTracer)
 	require.NoError(b, err)
 	assert.NotNil(b, writer)
 
