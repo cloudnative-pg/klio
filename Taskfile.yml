@@ -1107,7 +1107,7 @@ tasks:
       # renovate: datasource=docker depName=alpine/k8s versioning=docker
       ALPINE_K8S_VERSION: '1.34.1'
       # renovate: datasource=github-tags depName=cert-manager/cert-manager versioning=semver
-      CERT_MANAGER_VERSION: 'v1.19.1'
+      CERT_MANAGER_VERSION: 'v1.19.2'
     cmds:
       - kind get kubeconfig --name {{ .KIND_CLUSTER_NAME }} > {{ .KUBECONFIG_PATH }}
       - |
