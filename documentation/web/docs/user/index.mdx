@@ -51,6 +51,12 @@ development.
 - Extension of base backup retention policy enforcement to WAL files
 - Asynchronous WAL relay to Tier 2 object storage
 
+:::important
+Klio's WAL management utilizes the `READ_REPLICATION_SLOT` streaming
+replication command, which was introduced in PostgreSQL 15.
+Therefore, Klio requires PostgreSQL version 15 or greater to function properly.
+:::
+
 ### Base Backup Catalog
 
 - Physical online base backups from the primary node to Tier 1, with support
