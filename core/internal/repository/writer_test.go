@@ -5,6 +5,7 @@ import (
 	"path"
 	"testing"
 
+	"github.com/ccoveille/go-safecast/v2"
 	"github.com/spf13/afero"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -68,8 +69,11 @@ func BenchmarkWriter(b *testing.B) {
 	defer conn.Close()
 
 	metrics := NewDummyMetrics()
+	segmentSize, err := safecast.Convert[uint64](len(block) * b.N)
+	require.NoError(b, err)
+
 	writer, err := conn.NewWriter(
-		"cluster-example", "0000001000000000000001FF", uint64(len(block)*b.N), metrics, dummyTracer)
+		"cluster-example", "0000001000000000000001FF", segmentSize, metrics, dummyTracer)
 	require.NoError(b, err)
 	assert.NotNil(b, writer)
 
