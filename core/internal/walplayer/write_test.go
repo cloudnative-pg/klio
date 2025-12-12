@@ -5,6 +5,8 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+
+	"github.com/ccoveille/go-safecast/v2"
 )
 
 func TestWALWriter_WriteWAL_CreatesFileWithCorrectSize(t *testing.T) {
@@ -23,7 +25,13 @@ func TestWALWriter_WriteWAL_CreatesFileWithCorrectSize(t *testing.T) {
 	if err != nil {
 		t.Fatalf("file not created: %v", err)
 	}
-	if info.Size() != int64(writer.segmentSize) {
+
+	segmentSize, err := safecast.Convert[int64](writer.segmentSize)
+	if err != nil {
+		t.Fatalf("while converting segment size to int64: %v", err)
+	}
+
+	if info.Size() != segmentSize {
 		t.Errorf("expected file size %d, got %d", writer.segmentSize, info.Size())
 	}
 }

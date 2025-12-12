@@ -7,6 +7,7 @@ import (
 	"os"
 	"path"
 
+	"github.com/ccoveille/go-safecast/v2"
 	"github.com/cloudnative-pg/machinery/pkg/log"
 	"github.com/cloudnative-pg/machinery/pkg/types"
 )
@@ -19,12 +20,17 @@ type WALWriter struct {
 }
 
 // NewWALWriter creates a WALWriter.
-func NewWALWriter(sizeMB int) *WALWriter {
+func NewWALWriter(sizeMB int) (*WALWriter, error) {
+	uint64SizeMB, err := safecast.Convert[uint64](sizeMB)
+	if err != nil {
+		return nil, fmt.Errorf("while converting size to uint64: %w", err)
+	}
+
 	return &WALWriter{
 		reader:      NewLoopReader(buffer),
-		segmentSize: uint64(sizeMB) * 1024 * 1024,
+		segmentSize: uint64SizeMB * 1024 * 1024,
 		position:    0,
-	}
+	}, nil
 }
 
 // ToDirectory writes a set of WAL files into the target directory, each one
@@ -63,7 +69,12 @@ func (w *WALWriter) writeWAL(ctx context.Context, fileName string) error {
 		}
 	}()
 
-	if _, err := io.CopyN(f, w.reader, int64(w.segmentSize)); err != nil {
+	int64SegmentSize, err := safecast.Convert[int64](w.segmentSize)
+	if err != nil {
+		return fmt.Errorf("while converting segment size to int64: %w", err)
+	}
+
+	if _, err := io.CopyN(f, w.reader, int64SegmentSize); err != nil {
 		return fmt.Errorf("error writing to file %q: %w", fileName, err)
 	}
 

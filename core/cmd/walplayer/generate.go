@@ -24,7 +24,11 @@ var generateCmd = &cobra.Command{
 		walSizeMB, _ := cmd.Flags().GetInt("wal-size")
 		length, _ := cmd.Flags().GetInt("length")
 
-		w := walplayer.NewWALWriter(walSizeMB)
+		w, err := walplayer.NewWALWriter(walSizeMB)
+		if err != nil {
+			return fmt.Errorf("while creating WAL writer: %w", err)
+		}
+
 		if err := w.ToDirectory(cmd.Context(), targetDirectory, length); err != nil {
 			return fmt.Errorf("writing to %q: %w", targetDirectory, err)
 		}

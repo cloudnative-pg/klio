@@ -18,16 +18,16 @@ const controlDataPath = "global/pg_control"
 type BackupUploader interface {
 	// UploadTablespace uploads the tablespace with the passed layout to
 	// the backup store.
-	UploadTablespace(ctx context.Context, tbl TablespaceLayout) error
+	UploadTablespace(ctx context.Context, backupName string, tbl TablespaceLayout) error
 
 	// UploadPgData uploads the PGData to the backup store.
-	UploadPgData(ctx context.Context, pgData string) error
+	UploadPgData(ctx context.Context, backupName string, pgData string) error
 
 	// UploadControlFile uploads the control file to the backup store.
-	UploadControlFile(ctx context.Context, controlDataFileName string) error
+	UploadControlFile(ctx context.Context, backupName string, controlDataFileName string) error
 
-	// UploadBackupMetadata is called to mark a backup successfully done.
-	UploadBackupMetadata(ctx context.Context, metadata *BackupMetadata) error
+	// UploadBackupMetadata is called to upload the control file and to mark a backup successfully done.
+	UploadBackupMetadata(ctx context.Context, backupName string, metadata *BackupMetadata) error
 
 	// Sources is a list of the snapshots that have been uploaded
 	Sources() []string
@@ -111,17 +111,17 @@ func (b *BackupExecutor) Start(ctx context.Context, opts BackupOptions) error {
 // Upload starts the uploading process.
 func (b *BackupExecutor) Upload(ctx context.Context) error {
 	for _, tbl := range b.tablespaces {
-		if err := b.uploader.UploadTablespace(ctx, tbl); err != nil {
+		if err := b.uploader.UploadTablespace(ctx, b.name, tbl); err != nil {
 			return err //nolint:wrapcheck
 		}
 	}
 
-	if err := b.uploader.UploadPgData(ctx, b.pgData); err != nil {
+	if err := b.uploader.UploadPgData(ctx, b.name, b.pgData); err != nil {
 		return err //nolint:wrapcheck
 	}
 
 	controlDataFileName := path.Join(b.pgData, controlDataPath)
-	if err := b.uploader.UploadControlFile(ctx, controlDataFileName); err != nil {
+	if err := b.uploader.UploadControlFile(ctx, b.name, controlDataFileName); err != nil {
 		return err //nolint:wrapcheck
 	}
 
@@ -170,6 +170,7 @@ func (b *BackupExecutor) Close(ctx context.Context) (*BackupMetadata, error) {
 		Timeline:      tli,
 		SegmentSize:   segmentSize,
 		Sources:       b.uploader.Sources(),
+		PgData:        b.pgData,
 	}
 
 	if tli > 0 && segmentSize > 0 {
@@ -188,7 +189,7 @@ func (b *BackupExecutor) Close(ctx context.Context) (*BackupMetadata, error) {
 		}
 	}
 
-	if err := b.uploader.UploadBackupMetadata(ctx, metadata); err != nil {
+	if err := b.uploader.UploadBackupMetadata(ctx, b.name, metadata); err != nil {
 		return nil, fmt.Errorf("while uploading backup metadata: %w", err)
 	}
 

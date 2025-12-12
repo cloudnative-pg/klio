@@ -41,7 +41,7 @@ func BenchLookupSnapshots(b *testing.B, creator repositoryCreatorFunction) {
 	for repoIdx, combination := range combinations {
 		client, err := creator(ctx)
 		if err != nil {
-			b.Fatalf("Error while creating repositories: %v", err)
+			b.Fatalf("error while creating repositories: %v", err)
 		}
 
 		err = addFakeWals(ctx, client, 0, combination)

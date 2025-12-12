@@ -5,14 +5,12 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/cloudnative-pg/machinery/pkg/log"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"gopkg.in/validator.v2"
 
 	"github.com/cloudnative-pg/klio/core/internal/cli"
 	"github.com/cloudnative-pg/klio/core/internal/client/klioclient/kopia"
-	"github.com/cloudnative-pg/klio/core/internal/client/klioclient/notifier"
 	"github.com/cloudnative-pg/klio/core/pkg/config"
 )
 
@@ -26,8 +24,6 @@ var getMetadataCmd = &cobra.Command{
 	RunE: func(cmd *cobra.Command, args []string) error {
 		var configuration config.Data
 		backupName := args[0]
-
-		contextLogger := log.FromContext(cmd.Context())
 
 		// IMPORTANT: this requires this program to be built with "-tags viper_bind_struct"
 		// when using environment variables
@@ -61,7 +57,6 @@ var getMetadataCmd = &cobra.Command{
 		}
 
 		restorer := client.CreateRestorer(
-			notifier.NewDownloadLogNotifier(contextLogger),
 			kopia.Target{
 				Hostname: client.GetHostname(),
 				Username: client.GetUsername(),

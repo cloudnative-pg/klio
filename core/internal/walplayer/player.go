@@ -12,6 +12,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/ccoveille/go-safecast/v2"
 	"github.com/cloudnative-pg/machinery/pkg/log"
 
 	"github.com/cloudnative-pg/klio/core/internal/client/klioclient/grpcclient"
@@ -221,7 +222,13 @@ func (p *Player) sendWAL(ctx context.Context, c *grpcclient.Connection, fileName
 		}
 	}()
 
-	stream, err := c.StoreWALStreaming(ctx, path.Base(fileName), uint64(f.Size()))
+	size, err := safecast.Convert[uint64](f.Size())
+	if err != nil {
+		result.Error = fmt.Sprintf("while converting file size: %v", err)
+		return result
+	}
+
+	stream, err := c.StoreWALStreaming(ctx, path.Base(fileName), size)
 	if err != nil {
 		result.Error = fmt.Sprintf("while starting WAL file streaming: %v", err)
 		return result

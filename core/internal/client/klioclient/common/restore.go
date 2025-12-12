@@ -9,8 +9,6 @@ import (
 	"time"
 
 	"github.com/cloudnative-pg/machinery/pkg/fileutils"
-
-	"github.com/cloudnative-pg/klio/core/internal/client/klioclient/notifier"
 )
 
 // backupLabelFileName is the file name where the backup label should be stored.
@@ -27,13 +25,14 @@ type BackupRestorer interface {
 	// the backup name.
 	GetMetadata(ctx context.Context, name string) (*BackupMetadata, error)
 
-	// GetDownloadNotifier returns the notifier that will be used to notify the user about the downloading process of the
-	// data used by the restore process.
-	GetDownloadNotifier() notifier.Download
-
 	// RestoreTablespace restores the passed tablespace in the specified
 	// folder.
-	RestoreTablespace(ctx context.Context, tbl TablespaceLayout, destinationDirectory string) error
+	RestoreTablespace(
+		ctx context.Context,
+		metadata *BackupMetadata,
+		tbl TablespaceLayout,
+		destinationDirectory string,
+	) error
 
 	// RestorePgData restores the passed pgdata in the specified
 	// directory.
@@ -83,25 +82,21 @@ func (r *RestoreExecutor) Restore(ctx context.Context, destinationPath string) e
 
 	// Restore the tablespaces
 	for _, tbl := range meta.Tablespaces {
-		if err := r.restoreTablespace(ctx, tbl); err != nil {
+		if err := r.restoreTablespace(ctx, meta, tbl); err != nil {
 			return fmt.Errorf("while restoring tablespace %s: %w", tbl.Name, err)
 		}
 	}
 
 	// Restore PGDATA
-	r.restorer.GetDownloadNotifier().NotifyStart(destinationPath)
 	if err := r.restorer.RestorePgData(ctx, meta, destinationPath); err != nil {
 		return fmt.Errorf("while restoring pgdata to %s: %w", destinationPath, err)
 	}
-	r.restorer.GetDownloadNotifier().NotifyFinish(destinationPath)
 
 	// Restore control data file
 	controlDataFileName := path.Join(destinationPath, controlDataPath)
-	r.restorer.GetDownloadNotifier().NotifyStart(controlDataFileName)
 	if err := r.restorer.RestoreControlData(ctx, meta, controlDataFileName); err != nil {
 		return fmt.Errorf("while restoring control data file to %s: %w", controlDataFileName, err)
 	}
-	r.restorer.GetDownloadNotifier().NotifyFinish(controlDataFileName)
 
 	// Restore backup label
 	backupLabel := path.Join(destinationPath, backupLabelFileName)
@@ -117,17 +112,15 @@ func (r *RestoreExecutor) Restore(ctx context.Context, destinationPath string) e
 	return nil
 }
 
-func (r *RestoreExecutor) restoreTablespace(ctx context.Context, tbl TablespaceLayout) error {
+func (r *RestoreExecutor) restoreTablespace(ctx context.Context, meta *BackupMetadata, tbl TablespaceLayout) error {
 	tablespaceDestinationPath := tbl.Path
 	if v, ok := r.configuration.TablespacesDirectory[tbl.Name]; ok {
 		tablespaceDestinationPath = v
 	}
 
-	r.restorer.GetDownloadNotifier().NotifyStart(tablespaceDestinationPath)
-	if err := r.restorer.RestoreTablespace(ctx, tbl, tablespaceDestinationPath); err != nil {
+	if err := r.restorer.RestoreTablespace(ctx, meta, tbl, tablespaceDestinationPath); err != nil {
 		return fmt.Errorf("while restoring tablespace %s to %s: %w", tbl.Name, tablespaceDestinationPath, err)
 	}
-	defer r.restorer.GetDownloadNotifier().NotifyFinish(tablespaceDestinationPath)
 
 	return nil
 }

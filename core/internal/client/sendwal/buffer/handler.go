@@ -16,7 +16,7 @@ type Handler interface {
 	CloseWAL(ctx context.Context) error
 
 	// CurrentOffset returns the current offset in the WAL file
-	CurrentOffset() uint64
+	CurrentOffset() (uint64, error)
 
 	// Write writes data in the current WAL file
 	Write(ctx context.Context, p []byte) (n int, err error)

@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/ccoveille/go-safecast/v2"
 	"github.com/cloudnative-pg/machinery/pkg/log"
 	"github.com/cloudnative-pg/machinery/pkg/types"
 )
@@ -71,8 +72,8 @@ func (wal *MemBufferHandler) CloseWAL(_ context.Context) error {
 }
 
 // CurrentOffset implements the Handler interface.
-func (wal *MemBufferHandler) CurrentOffset() uint64 {
-	return uint64(wal.buffer.Len())
+func (wal *MemBufferHandler) CurrentOffset() (uint64, error) {
+	return safecast.Convert[uint64](wal.buffer.Len())
 }
 
 // Write implements the Handler interface.

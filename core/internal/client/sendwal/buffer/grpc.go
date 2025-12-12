@@ -80,8 +80,8 @@ func (wal *KlioClientStreamingHandler) CloseWAL(ctx context.Context) error {
 }
 
 // CurrentOffset implements the Handler interface.
-func (wal *KlioClientStreamingHandler) CurrentOffset() uint64 {
-	return wal.offset
+func (wal *KlioClientStreamingHandler) CurrentOffset() (uint64, error) {
+	return wal.offset, nil
 }
 
 // Write implements the Handler interface.

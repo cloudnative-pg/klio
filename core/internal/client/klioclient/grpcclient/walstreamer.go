@@ -7,6 +7,7 @@ import (
 	"io"
 	"strings"
 
+	"github.com/ccoveille/go-safecast/v2"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
@@ -70,7 +71,10 @@ func (c *Connection) GetWALStreaming(ctx context.Context, walName string, out io
 		}
 
 		if expectedSize == 0 {
-			expectedSize = int(result.GetSegmentSize())
+			expectedSize, err = safecast.Convert[int](result.GetSegmentSize())
+			if err != nil {
+				return fmt.Errorf("while converting segment size: %w", err)
+			}
 		}
 
 		b, err := out.Write(result.GetWalBlock())

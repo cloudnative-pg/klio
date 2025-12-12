@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"strconv"
 
-	"github.com/kopia/kopia/snapshot/policy"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"gopkg.in/validator.v2"
@@ -61,7 +60,7 @@ var setCmd = &cobra.Command{
 			return fmt.Errorf("while getting the current retention policy: %w", err)
 		}
 
-		getKeepValue := func(name string) *policy.OptionalInt {
+		getKeepValue := func(name string) *int {
 			f := cmd.Flags().Lookup(name)
 			if f == nil {
 				return nil
@@ -76,13 +75,11 @@ var setCmd = &cobra.Command{
 				return nil
 			}
 
-			result := policy.OptionalInt(value)
-
-			return &result
+			return &value
 		}
 
 		if effectivePolicy == nil {
-			effectivePolicy = &policy.RetentionPolicy{}
+			effectivePolicy = &kopia.RetentionPolicy{}
 		}
 		effectivePolicy.KeepLatest = getKeepValue("keep-latest")
 		effectivePolicy.KeepAnnual = getKeepValue("keep-annual")

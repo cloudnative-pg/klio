@@ -12,7 +12,6 @@ import (
 	"github.com/cloudnative-pg/klio/core/internal/cli"
 	"github.com/cloudnative-pg/klio/core/internal/client/klioclient/grpcclient"
 	"github.com/cloudnative-pg/klio/core/internal/client/klioclient/kopia"
-	"github.com/cloudnative-pg/klio/core/internal/client/klioclient/notifier"
 	"github.com/cloudnative-pg/klio/core/pkg/config"
 )
 
@@ -74,7 +73,7 @@ var maintenanceCmd = &cobra.Command{
 			return fmt.Errorf("while connecting to the Klio server: %w", err)
 		}
 
-		restorer := kopiaClient.CreateRestorer(notifier.NewDownloadLogNotifier(contextLogger), target)
+		restorer := kopiaClient.CreateRestorer(target)
 
 		// Step 1: list in-use backups
 		backups, err := restorer.ListBackups(cmd.Context())

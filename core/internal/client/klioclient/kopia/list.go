@@ -1,93 +1,161 @@
 package kopia
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
+	"os"
+	"os/exec"
+	"path/filepath"
 
-	"github.com/kopia/kopia/repo/manifest"
-	"github.com/kopia/kopia/snapshot"
+	"github.com/cloudnative-pg/machinery/pkg/log"
 
 	"github.com/cloudnative-pg/klio/core/internal/client/klioclient/common"
 )
 
 // GetMetadata implements the RestoreExecutor interface.
 func (s *RestoreImplementation) GetMetadata(ctx context.Context, name string) (*common.BackupMetadata, error) {
-	// Look for the kopia manifest with that name
-	labelsToMatch := map[string]string{
-		backupNameTagName: name,
-	}
-	if s.hostname != "" {
-		labelsToMatch[snapshot.HostnameLabel] = s.hostname
-	}
-	entries, err := s.repository.FindManifests(ctx, labelsToMatch)
-	if err != nil {
-		return nil, fmt.Errorf("while looking for backup entry: %w", err)
-	}
-	if len(entries) > 1 {
-		return nil, newMultipleBackupsFoundError(name, len(entries))
-	}
-	if len(entries) == 0 {
-		return nil, newNoBackupFoundError(name)
+	contextLogger := log.FromContext(ctx)
+
+	args := []string{
+		"snapshot",
+		"list",
+		"--disable-file-logging",
+		"--all",
+		"--json",
+		"--password=mtls",
+		"--config-file=" + s.configFile,
+		"--tags=" + backupNameTagName + ":" + name,
+		"--tags=klio.io/content:metadata",
 	}
 
-	snapshotManifest, err := snapshot.LoadSnapshot(ctx, s.repository, entries[0].ID)
-	if err != nil {
-		return nil, fmt.Errorf("while loading snapshot from manifest ID %q: %w", entries[0].ID, err)
+	var stdout bytes.Buffer
+	snapshotList := exec.CommandContext(ctx, s.kopiaBinary, args...) //nolint:gosec
+	snapshotList.Stdout = &stdout
+	snapshotList.Stderr = os.Stderr
+
+	contextLogger.Info("Looking for Kopia backup", "args", snapshotList.Args)
+	if err := snapshotList.Run(); err != nil {
+		return nil, fmt.Errorf("while executing Kopia command: %w", err)
 	}
 
-	var metadata common.BackupMetadata
-	if err := json.Unmarshal([]byte(snapshotManifest.Description), &metadata); err != nil {
-		return nil, fmt.Errorf("while unmarshalling backup description for %q: %w", name, err)
+	var entries []Manifest
+	if err := json.Unmarshal(stdout.Bytes(), &entries); err != nil {
+		return nil, fmt.Errorf("while unmarshalling kopia command output %q: %w", stdout.String(), err)
 	}
 
-	if metadata.Annotations == nil {
-		metadata.Annotations = make(map[string]string)
-	}
-	metadata.Annotations[pgDataManifestIDAnnotationName] = string(snapshotManifest.ID)
+	for _, entry := range entries {
+		if entry.Source.Host == s.hostname {
+			metadata, err := s.restoreMetadata(ctx, entry.ID)
+			if err != nil {
+				return nil, err
+			}
 
-	return &metadata, nil
+			return metadata, nil
+		}
+	}
+
+	return nil, newNoBackupFoundError(name)
 }
 
 // ListBackups list all the backups in the repository.
 func (s *RestoreImplementation) ListBackups(ctx context.Context) (common.BackupList, error) {
-	// Look for every kopia manifest, and filter for tags later
-	labelsToMatch := map[string]string{
-		manifest.TypeLabelKey: snapshot.ManifestType,
+	contextLogger := log.FromContext(ctx)
+
+	args := []string{
+		"snapshot",
+		"list",
+		"--disable-file-logging",
+		"--all",
+		"--json",
+		"--password=mtls",
+		"--config-file=" + s.configFile,
+		"--tags=klio.io/content:metadata",
 	}
-	if s.hostname != "" {
-		labelsToMatch[snapshot.HostnameLabel] = s.hostname
+
+	var stdout bytes.Buffer
+	snapshotList := exec.CommandContext(ctx, s.kopiaBinary, args...) //nolint:gosec
+	snapshotList.Stdout = &stdout
+	snapshotList.Stderr = os.Stderr
+
+	contextLogger.Info("Looking for Kopia backup", "args", snapshotList.Args)
+	if err := snapshotList.Run(); err != nil {
+		return nil, fmt.Errorf("while executing Kopia command: %w", err)
 	}
-	entries, err := s.repository.FindManifests(ctx, labelsToMatch)
-	if err != nil {
-		return nil, fmt.Errorf("while looking for backup entry: %w", err)
+
+	var entries []Manifest
+	if err := json.Unmarshal(stdout.Bytes(), &entries); err != nil {
+		return nil, fmt.Errorf("while unmarshalling kopia command output %q: %w", stdout.String(), err)
 	}
 
 	result := make([]common.BackupMetadata, 0, len(entries))
-
 	for _, entry := range entries {
-		snapshotManifest, err := snapshot.LoadSnapshot(ctx, s.repository, entry.ID)
-		if err != nil {
-			return nil, fmt.Errorf("while loading snapshot from manifest ID %q: %w", entry.ID, err)
-		}
-
-		if snapshotManifest.Tags["content"] != "pgdata" {
-			// SKIPPING
+		if s.hostname != "" && entry.Source.Host != s.hostname {
 			continue
 		}
 
-		var metadata common.BackupMetadata
-		if err := json.Unmarshal([]byte(snapshotManifest.Description), &metadata); err != nil {
-			return nil, fmt.Errorf("while unmarshalling backup description for %q: %w", entry.ID, err)
+		metadata, err := s.restoreMetadata(ctx, entry.ID)
+		if err != nil {
+			contextLogger.Error(err, "Error while decoding backup metadata, skipping", "id", entry.ID)
+		} else {
+			result = append(result, *metadata)
 		}
-
-		if metadata.Annotations == nil {
-			metadata.Annotations = make(map[string]string)
-		}
-
-		metadata.Annotations[pgDataManifestIDAnnotationName] = string(snapshotManifest.ID)
-		result = append(result, metadata)
 	}
 
 	return result, nil
+}
+
+// restoreMetadata restores the metadata stored in a snapshot with the
+// given ID.
+func (s *RestoreImplementation) restoreMetadata(
+	ctx context.Context,
+	snapshotID string,
+) (*common.BackupMetadata, error) {
+	contextLogger := log.FromContext(ctx)
+
+	dirName, err := os.MkdirTemp("", "kopia_snapshot_*")
+	if err != nil {
+		return nil, fmt.Errorf("allocating temporary directory to restore backup metadata: %w", err)
+	}
+
+	defer func() {
+		err := os.RemoveAll(dirName)
+		if err != nil {
+			contextLogger.Error(err, "Error while cleaning up temporary directory, skipping", "dirName", dirName)
+		}
+	}()
+
+	args := []string{
+		"restore",
+		"--config-file=" + s.configFile,
+		"--disable-file-logging",
+		"--json-log-console",
+		"--password=mtls",
+		snapshotID,
+		dirName,
+	}
+
+	contextLogger.Info("Restoring Kopia snapshot (metadata)", "args", args)
+
+	restoreCmd := exec.CommandContext(ctx, s.kopiaBinary, args...) //nolint:gosec
+	restoreCmd.Stdout = os.Stdout
+	restoreCmd.Stderr = os.Stderr
+
+	if err := restoreCmd.Run(); err != nil {
+		return nil, fmt.Errorf("while restoring Kopia snapshot: %w", err)
+	}
+
+	metadataPath := filepath.Join(dirName, "metadata.json")
+	f, err := os.Open(metadataPath) //nolint:gosec
+	if err != nil {
+		return nil, fmt.Errorf("while opening backup metadata: %w", err)
+	}
+
+	var result common.BackupMetadata
+	if err := json.NewDecoder(f).Decode(&result); err != nil {
+		return nil, fmt.Errorf("cannot decode JSON backup metadata: %w", err)
+	}
+
+	return &result, nil
 }

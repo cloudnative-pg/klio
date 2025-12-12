@@ -5,16 +5,21 @@ import (
 	"crypto/tls"
 	"fmt"
 	"os"
+	"os/exec"
+	"path/filepath"
 	"strings"
 
-	"github.com/kopia/kopia/repo"
+	"github.com/cloudnative-pg/machinery/pkg/log"
 
 	"github.com/cloudnative-pg/klio/core/pkg/config"
 )
 
 // Connection represent a connection to a Klio server.
 type Connection struct {
-	repository repo.Repository
+	configFile  string
+	kopiaBinary string
+	hostName    string
+	userName    string
 }
 
 // LocalRepositoryOptions are the options needed to create a local Kopia repository.
@@ -31,6 +36,8 @@ func Connect(
 	ctx context.Context,
 	kopiaClientConfig *config.BaseRepositoryClientConfig,
 ) (*Connection, error) {
+	contextLogger := log.FromContext(ctx)
+
 	configFile, err := os.CreateTemp("", "kopiaconfig_*")
 	if err != nil {
 		return nil, fmt.Errorf("while writing a temporary Kopia config: %w", err)
@@ -66,53 +73,70 @@ func Connect(
 		return nil, fmt.Errorf("error while extracting userName and HostName from client certificate: %w", err)
 	}
 
-	if err = repo.ConnectAPIServer(
-		ctx,
-		configFile.Name(),
-		&repo.APIServerInfo{
-			BaseURL:                             kopiaClientConfig.URL,
-			TrustedServerCertificateFingerprint: certificateFingerprint,
-			ClientCertificateFile:               kopiaClientConfig.ClientCertPath,
-			ClientPrivateKeyFile:                kopiaClientConfig.ClientKeyPath,
-		},
-		"",
-		&repo.ConnectOptions{
-			ClientOptions: repo.ClientOptions{
-				Hostname: hostName,
-				Username: userName,
-			},
-		},
-	); err != nil {
-		return nil, fmt.Errorf("while pinging the repository: %w", err)
+	kopiaBinary, err := exec.LookPath(kopiaCommand)
+	if err != nil {
+		return nil, fmt.Errorf("kopia binary not found (%q): %w", kopiaCommand, err)
 	}
 
-	repository, err := repo.Open(ctx, configFile.Name(), "", &repo.Options{})
-	if err != nil {
-		return nil, fmt.Errorf("while opening the repository: %w", err)
+	// This is a cache directory to speed up backup uploads.
+	// We should have a debate about it. Should we really allocate it here?
+	// Should we allocate a emptyDir volume just for it and use that?
+	cacheDirectory := filepath.Join(os.TempDir(), "kopia-cache")
+
+	args := []string{
+		"repository",
+		"connect",
+		"server",
+		"--disable-file-logging",
+		"--cache-directory=" + cacheDirectory,
+		"--json-log-console",
+		"--config-file=" + configFile.Name(),
+		"--url=" + kopiaClientConfig.URL,
+		"--client-certificate=" + kopiaClientConfig.ClientCertPath,
+		"--client-key=" + kopiaClientConfig.ClientKeyPath,
+		"--server-cert-fingerprint=" + certificateFingerprint,
+		"--override-username=" + userName,
+		"--override-hostname=" + hostName,
+	}
+
+	repositoryConnectCmd := exec.CommandContext(ctx, kopiaBinary, args...) //nolint:gosec
+	repositoryConnectCmd.Stdout = os.Stdout
+	repositoryConnectCmd.Stderr = os.Stderr
+
+	contextLogger.Info("Connecting to Kopia repository", "args", args)
+	if err := repositoryConnectCmd.Run(); err != nil {
+		return nil, fmt.Errorf("while executing Kopia command: %w", err)
 	}
 
 	return &Connection{
-		repository: repository,
+		kopiaBinary: kopiaBinary,
+		configFile:  configFile.Name(),
+		userName:    userName,
+		hostName:    hostName,
 	}, nil
 }
 
 // GetUsername gets the username we are using for the connection.
 // This is read from the client certificate.
 func (s *Connection) GetUsername() string {
-	return s.repository.ClientOptions().Username
+	return s.userName
 }
 
 // GetHostname gets the hostname we are using for the connection.
 // This is read from the client certificate.
 func (s *Connection) GetHostname() string {
-	return s.repository.ClientOptions().Hostname
+	return s.hostName
 }
 
 // Close closes the connection to the repository.
 func (s *Connection) Close(ctx context.Context) error {
-	err := s.repository.Close(ctx)
-	if err != nil {
-		return fmt.Errorf("while closing connection to Klio server: %w", err)
+	contextLogger := log.FromContext(ctx)
+
+	if err := os.Remove(s.configFile); err != nil {
+		contextLogger.Error(
+			err,
+			"error while removing temporary Kopia configuration file, skipping",
+			"configFile", s.configFile)
 	}
 
 	return nil

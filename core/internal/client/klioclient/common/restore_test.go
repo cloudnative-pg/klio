@@ -9,8 +9,6 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-
-	"github.com/cloudnative-pg/klio/core/internal/client/klioclient/notifier"
 )
 
 // getTestBackups returns a set of test backups.
@@ -183,21 +181,6 @@ func TestFindClosestBackup(t *testing.T) {
 }
 
 // Mock Notifier.
-type mockDownloadNotifier struct {
-	starts   []string
-	finishes []string
-}
-
-func (m *mockDownloadNotifier) NotifyStatus(_ string, _ notifier.DownloadStats) {
-}
-
-func (m *mockDownloadNotifier) NotifyStart(path string) {
-	m.starts = append(m.starts, path)
-}
-
-func (m *mockDownloadNotifier) NotifyFinish(path string) {
-	m.finishes = append(m.finishes, path)
-}
 
 type tablespaceCall struct {
 	layout      TablespaceLayout
@@ -209,8 +192,6 @@ type mockBackupRestorer struct {
 	metadataToReturn *BackupMetadata
 	listToReturn     BackupList
 	errorToReturn    error
-
-	mockNotifier *mockDownloadNotifier
 
 	getMetadataCalledWith string
 	restorePgDataCalled   bool
@@ -228,17 +209,9 @@ func (m *mockBackupRestorer) GetMetadata(_ context.Context, name string) (*Backu
 	return m.metadataToReturn, m.errorToReturn
 }
 
-//nolint:ireturn
-func (m *mockBackupRestorer) GetDownloadNotifier() notifier.Download {
-	if m.mockNotifier == nil {
-		m.mockNotifier = &mockDownloadNotifier{}
-	}
-
-	return m.mockNotifier
-}
-
 func (m *mockBackupRestorer) RestoreTablespace(
 	_ context.Context,
+	_ *BackupMetadata,
 	tbl TablespaceLayout,
 	destinationDirectory string,
 ) error {
@@ -258,9 +231,7 @@ func (m *mockBackupRestorer) RestoreControlData(_ context.Context, _ *BackupMeta
 
 // Helper to create a new mock.
 func newMockRestorer() *mockBackupRestorer {
-	return &mockBackupRestorer{
-		mockNotifier: &mockDownloadNotifier{},
-	}
+	return &mockBackupRestorer{}
 }
 
 func TestNewRestoreExecutor(t *testing.T) {
@@ -315,22 +286,6 @@ func TestRestoreExecutor_Restore(t *testing.T) {
 	assert.Equal(t, tablespaceOne.Path, mock.tablespacesRestored[0].destination) // Default path
 	assert.Equal(t, tablespaceTwo, mock.tablespacesRestored[1].layout)
 	assert.Equal(t, "/custom/path/tablespaceTwo", mock.tablespacesRestored[1].destination) // Custom path
-
-	// Check notifier calls
-	expectedStarts := []string{
-		tablespaceOne.Path,
-		"/custom/path/tablespaceTwo",
-		tempDir,
-		path.Join(tempDir, controlDataPath),
-	}
-	expectedFinishes := []string{
-		tablespaceOne.Path,
-		"/custom/path/tablespaceTwo",
-		tempDir,
-		path.Join(tempDir, controlDataPath),
-	}
-	assert.Equal(t, expectedStarts, mock.mockNotifier.starts)
-	assert.Equal(t, expectedFinishes, mock.mockNotifier.finishes)
 
 	// Check filesystem
 	// backup_label

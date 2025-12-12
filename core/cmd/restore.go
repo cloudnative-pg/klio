@@ -14,7 +14,6 @@ import (
 	"github.com/cloudnative-pg/klio/core/internal/cli"
 	"github.com/cloudnative-pg/klio/core/internal/client/klioclient/common"
 	"github.com/cloudnative-pg/klio/core/internal/client/klioclient/kopia"
-	"github.com/cloudnative-pg/klio/core/internal/client/klioclient/notifier"
 	"github.com/cloudnative-pg/klio/core/pkg/config"
 )
 
@@ -86,7 +85,6 @@ var restoreCmd = &cobra.Command{
 		}
 
 		restorer := client.CreateRestorer(
-			notifier.NewDownloadLogNotifier(contextLogger),
 			kopia.Target{
 				Hostname: client.GetHostname(),
 				Username: client.GetUsername(),

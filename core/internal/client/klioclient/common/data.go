@@ -67,6 +67,9 @@ type BackupMetadata struct {
 	// TablespaceMap is the tablespace map content
 	TablespaceMap string `json:"tablespaceMap"`
 
+	// PgData is the data directory location
+	PgData string `json:"pgData"`
+
 	// Tablespaces are the metadata of the tablespaces
 	Tablespaces []TablespaceLayout `json:"tablespaces,omitempty"`
 

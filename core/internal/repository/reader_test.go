@@ -8,6 +8,7 @@ import (
 	"os"
 	"testing"
 
+	"github.com/ccoveille/go-safecast/v2"
 	"github.com/spf13/afero"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -172,7 +173,9 @@ func TestReaderWriter100KBlocks(t *testing.T) {
 	block1 := make([]byte, 131072)
 	_, _ = rand.Read(block1)
 
-	fileLen := uint64(128 * len(block1))
+	fileLen, err := safecast.Convert[uint64](128 * len(block1))
+	require.NoError(t, err)
+
 	metrics := NewDummyMetrics()
 	writer, err := conn.NewWriter("cluster-example", "0000001000000000000001F8", fileLen, metrics, dummyTracer)
 	require.NoError(t, err)

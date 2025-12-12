@@ -16,7 +16,6 @@ import (
 
 	"github.com/cloudnative-pg/klio/core/internal/client/klioclient/common"
 	"github.com/cloudnative-pg/klio/core/internal/client/klioclient/kopia"
-	"github.com/cloudnative-pg/klio/core/internal/client/klioclient/notifier"
 	"github.com/cloudnative-pg/klio/core/internal/k8sapi/v1alpha1"
 )
 
@@ -79,7 +78,7 @@ func (r *REST) Get(ctx context.Context, name string, _ *metav1.GetOptions) (runt
 	clusterName := splittedName[0]
 	backupName := splittedName[1]
 
-	restorer := r.connection.CreateRestorer(notifier.NullDownloadLogger{}, kopia.Target{
+	restorer := r.connection.CreateRestorer(kopia.Target{
 		Hostname: clusterName,
 		Username: "",
 	})
@@ -115,7 +114,7 @@ func (r *REST) NewList() runtime.Object { //nolint:ireturn
 func (r *REST) List(ctx context.Context, _ *internalversion.ListOptions) (runtime.Object, error) { //nolint:ireturn
 	contextLogger := log.FromContext(ctx)
 
-	restorer := r.connection.CreateRestorer(notifier.NullDownloadLogger{}, kopia.Target{
+	restorer := r.connection.CreateRestorer(kopia.Target{
 		Hostname: "",
 		Username: "",
 	})
