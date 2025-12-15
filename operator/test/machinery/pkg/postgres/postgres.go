@@ -2,10 +2,10 @@ package postgres
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"strings"
 
-	"golang.org/x/net/context"
 	corev1 "k8s.io/api/core/v1"
 	"sigs.k8s.io/e2e-framework/klient/k8s/resources"
 )

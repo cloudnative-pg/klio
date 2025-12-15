@@ -1,6 +1,7 @@
 package features
 
 import (
+	"context"
 	"fmt"
 	"strconv"
 	"testing"
@@ -9,7 +10,6 @@ import (
 	cnpgv1 "github.com/cloudnative-pg/api/pkg/api/v1"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"golang.org/x/net/context"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/utils/ptr"
 	"sigs.k8s.io/e2e-framework/klient/k8s/resources"
