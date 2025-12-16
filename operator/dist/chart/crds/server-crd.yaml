@@ -9424,9 +9424,11 @@ spec:
             - dataConfiguration
             - image
             - password
-            - queueConfiguration
             - tlsSecretName
             type: object
+            x-kubernetes-validations:
+            - message: queueConfiguration is required when tier2 is defined
+              rule: '!has(self.tier2) || has(self.queueConfiguration)'
           status:
             description: ServerStatus defines the observed state of Server.
             type: object

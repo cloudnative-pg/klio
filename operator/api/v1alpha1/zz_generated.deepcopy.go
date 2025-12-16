@@ -333,7 +333,11 @@ func (in *ServerSpec) DeepCopyInto(out *ServerSpec) {
 	in.Resources.DeepCopyInto(&out.Resources)
 	in.CacheConfiguration.DeepCopyInto(&out.CacheConfiguration)
 	in.DataConfiguration.DeepCopyInto(&out.DataConfiguration)
-	in.QueueConfiguration.DeepCopyInto(&out.QueueConfiguration)
+	if in.QueueConfiguration != nil {
+		in, out := &in.QueueConfiguration, &out.QueueConfiguration
+		*out = new(QueueConfiguration)
+		(*in).DeepCopyInto(*out)
+	}
 	if in.Password != nil {
 		in, out := &in.Password, &out.Password
 		*out = new(api.SecretKeySelector)

@@ -25,15 +25,6 @@ spec:
       accessModes:
       - ReadWriteOnce
 
-  queueConfiguration:
-    image: nats:2
-    pvcTemplate:
-      resources:
-        requests:
-          storage: 100Mi
-      accessModes:
-      - ReadWriteOnce
-
   password:
     name: server-sample-encryption
     key: password

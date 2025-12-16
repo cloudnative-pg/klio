@@ -30,16 +30,17 @@ func (w *Implementation) CloseBackup(
 		}, nil
 	}
 
-	// Step 2: notify the queue of the completed backup
-	if err := w.queue.NotifyBackupReceived(ctx, &queue.BackupTask{
-		ClusterName: request.GetClusterName(),
-		Sources:     request.GetKopiaSourceNames(),
-	}); err != nil {
-		return nil, fmt.Errorf("while sending task to queue: %w", err)
+	if w.queue != nil {
+		if err := w.queue.NotifyBackupReceived(ctx, &queue.BackupTask{
+			ClusterName: request.GetClusterName(),
+			Sources:     request.GetKopiaSourceNames(),
+		}); err != nil {
+			return nil, fmt.Errorf("while sending task to queue: %w", err)
+		}
 	}
 
 	return &grpc.CloseBackupResult{
-		Tier2Schedule:   true,
+		Tier2Schedule:   w.queue != nil,
 		MissingWalFiles: missingWALFiles,
 	}, nil
 }

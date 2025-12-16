@@ -83,16 +83,6 @@ func (r *ServerReconciler) reconcileStatefulSet(ctx context.Context, server *kli
 					},
 					Spec: server.Spec.CacheConfiguration.PersistentVolumeClaimTemplate,
 				},
-				{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: "queue",
-						Labels: map[string]string{
-							klioServerLabel: server.Name,
-							pvcTypeLabel:    "queue",
-						},
-					},
-					Spec: server.Spec.QueueConfiguration.PersistentVolumeClaimTemplate,
-				},
 			},
 			Replicas: ptr.To(int32(1)),
 			Selector: &metav1.LabelSelector{
@@ -164,32 +154,16 @@ func (r *ServerReconciler) reconcileStatefulSet(ctx context.Context, server *kli
 							Env:          newEnvBuilder(server).addCommonEnvs().addWalEnvs().build(),
 							VolumeMounts: volumeMounts,
 						},
-						{
-							Name:  "nats",
-							Image: server.Spec.QueueConfiguration.Image,
-							Args: []string{
-								"-a",
-								"127.0.0.1",
-								"-p",
-								"4222",
-								"-js",
-								"-sd",
-								"/queue",
-							},
-							Resources: server.Spec.QueueConfiguration.QueueResources,
-							VolumeMounts: []corev1.VolumeMount{
-								{
-									Name:      "queue",
-									MountPath: "/queue",
-								},
-							},
-						},
 					},
 					Volumes: volumes,
 				},
 			},
 		},
 		Status: appsv1.StatefulSetStatus{},
+	}
+
+	if server.Spec.QueueConfiguration != nil {
+		injectQueueConfiguration(server, expected)
 	}
 
 	// Add Tier2 containers if the server has Tier 2 configuration
@@ -277,6 +251,42 @@ func (r *ServerReconciler) reconcileStatefulSet(ctx context.Context, server *kli
 	}
 
 	return nil
+}
+
+func injectQueueConfiguration(server *kliov1alpha1.Server, expected *appsv1.StatefulSet) {
+	expected.Spec.VolumeClaimTemplates = append(expected.Spec.VolumeClaimTemplates, corev1.PersistentVolumeClaim{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "queue",
+			Labels: map[string]string{
+				klioServerLabel: server.Name,
+				pvcTypeLabel:    "queue",
+			},
+		},
+		Spec: server.Spec.QueueConfiguration.PersistentVolumeClaimTemplate,
+	})
+
+	expected.Spec.Template.Spec.Containers = append(expected.Spec.Template.Spec.Containers,
+		corev1.Container{
+			Name:  "nats",
+			Image: server.Spec.QueueConfiguration.Image,
+			Args: []string{
+				"-a",
+				"127.0.0.1",
+				"-p",
+				"4222",
+				"-js",
+				"-sd",
+				"/queue",
+			},
+			Resources: server.Spec.QueueConfiguration.QueueResources,
+			VolumeMounts: []corev1.VolumeMount{
+				{
+					Name:      "queue",
+					MountPath: "/queue",
+				},
+			},
+		},
+	)
 }
 
 func enablePProf(containers []corev1.Container) {
@@ -535,10 +545,16 @@ func (r *ServerReconciler) buildVolumeMounts(server *kliov1alpha1.Server) []core
 			Name:      "tmp",
 			MountPath: "/tmp",
 		},
-		{
-			Name:      "queue",
-			MountPath: "/queue",
-		},
+	}
+
+	if server.Spec.QueueConfiguration != nil {
+		volumeMounts = append(
+			volumeMounts,
+			corev1.VolumeMount{
+				Name:      "queue",
+				MountPath: "/queue",
+			},
+		)
 	}
 
 	if server.Spec.Tier2 != nil {

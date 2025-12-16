@@ -7,6 +7,7 @@ import (
 )
 
 // ServerSpec defines the desired state of Server.
+// +kubebuilder:validation:XValidation:rule="!has(self.tier2) || has(self.queueConfiguration)",message="queueConfiguration is required when tier2 is defined"
 type ServerSpec struct {
 	// BaseConfiguration is the configuration of the Kopia server
 	// +optional
@@ -47,7 +48,8 @@ type ServerSpec struct {
 
 	// QueueConfiguration is the configuration of the PVC that should host
 	// the task queue.
-	QueueConfiguration QueueConfiguration `json:"queueConfiguration"`
+	// +optional
+	QueueConfiguration *QueueConfiguration `json:"queueConfiguration,omitempty"`
 
 	// Password is a reference to a secret containing the Klio password
 	Password *machineryapi.SecretKeySelector `json:"password"`
