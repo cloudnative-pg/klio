@@ -6,7 +6,7 @@ toolchain go1.25.5
 
 require (
 	github.com/cert-manager/cert-manager v1.19.2
-	github.com/cloudnative-pg/api v1.27.0
+	github.com/cloudnative-pg/api v1.28.0
 	github.com/cloudnative-pg/cloudnative-pg v1.28.0
 	github.com/cloudnative-pg/cnpg-i v0.3.0
 	github.com/cloudnative-pg/cnpg-i-machinery v0.4.1
@@ -15,7 +15,6 @@ require (
 	github.com/onsi/ginkgo/v2 v2.27.3
 	github.com/onsi/gomega v1.38.3
 	github.com/stretchr/testify v1.11.1
-	golang.org/x/net v0.48.0
 	google.golang.org/grpc v1.77.0
 	k8s.io/api v0.34.3
 	k8s.io/apimachinery v0.34.3
@@ -113,6 +112,7 @@ require (
 	go.yaml.in/yaml/v3 v3.0.4 // indirect
 	golang.org/x/exp v0.0.0-20250718183923-645b1fa84792 // indirect
 	golang.org/x/mod v0.30.0 // indirect
+	golang.org/x/net v0.48.0 // indirect
 	golang.org/x/oauth2 v0.32.0 // indirect
 	golang.org/x/sync v0.19.0 // indirect
 	golang.org/x/sys v0.39.0 // indirect

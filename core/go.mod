@@ -7,7 +7,7 @@ toolchain go1.25.5
 require (
 	github.com/aws/aws-sdk-go v1.55.8
 	github.com/ccoveille/go-safecast/v2 v2.0.0
-	github.com/cloudnative-pg/api v1.27.0
+	github.com/cloudnative-pg/api v1.28.0
 	github.com/cloudnative-pg/cloudnative-pg v1.28.0
 	github.com/cloudnative-pg/cnpg-i v0.3.0
 	github.com/cloudnative-pg/cnpg-i-machinery v0.4.1
