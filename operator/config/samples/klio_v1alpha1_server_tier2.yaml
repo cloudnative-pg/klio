@@ -33,7 +33,6 @@ spec:
       - ReadWriteOnce
 
   queueConfiguration:
-    image: nats:2
     pvcTemplate:
       resources:
         requests:

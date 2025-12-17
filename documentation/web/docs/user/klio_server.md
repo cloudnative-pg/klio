@@ -265,7 +265,6 @@ spec:
 
   # Queue storage configuration (for NATS work queue)
   queueConfiguration:
-    image: nats:2  # NATS server image
     pvcTemplate:
       storageClassName: standard  # Adjust to your storage class
       accessModes:

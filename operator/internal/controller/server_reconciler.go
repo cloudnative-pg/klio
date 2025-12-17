@@ -268,7 +268,10 @@ func injectQueueConfiguration(server *kliov1alpha1.Server, expected *appsv1.Stat
 	expected.Spec.Template.Spec.Containers = append(expected.Spec.Template.Spec.Containers,
 		corev1.Container{
 			Name:  "nats",
-			Image: server.Spec.QueueConfiguration.Image,
+			Image: server.Spec.Image,
+			Command: []string{
+				"/usr/bin/nats-server",
+			},
 			Args: []string{
 				"-a",
 				"127.0.0.1",

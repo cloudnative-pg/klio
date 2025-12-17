@@ -98,9 +98,6 @@ type QueueConfiguration struct {
 	// PersistentVolumeClaimTemplate is used to generate the configuration for
 	// the PVC hosting the work queue.
 	PersistentVolumeClaimTemplate corev1.PersistentVolumeClaimSpec `json:"pvcTemplate"`
-
-	// Image is the NATS image that will be used for the work queue
-	Image string `json:"image"`
 }
 
 // Tier2Configuration is the tier 2 configuration.

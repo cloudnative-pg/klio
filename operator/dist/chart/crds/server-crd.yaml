@@ -578,10 +578,6 @@ spec:
                   QueueConfiguration is the configuration of the PVC that should host
                   the task queue.
                 properties:
-                  image:
-                    description: Image is the NATS image that will be used for the
-                      work queue
-                    type: string
                   pvcTemplate:
                     description: |-
                       PersistentVolumeClaimTemplate is used to generate the configuration for
@@ -840,7 +836,6 @@ spec:
                         type: object
                     type: object
                 required:
-                - image
                 - pvcTemplate
                 type: object
               resources:

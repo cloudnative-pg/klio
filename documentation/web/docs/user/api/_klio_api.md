@@ -131,7 +131,6 @@ _Appears in:_
 | --- | --- | --- | --- | --- |
 | `resources` _[ResourceRequirements](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.32/#resourcerequirements-v1-core)_ | QueueResources defines the resource requirements for the NATS server |  |  |  |
 | `pvcTemplate` _[PersistentVolumeClaimSpec](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.32/#persistentvolumeclaimspec-v1-core)_ | PersistentVolumeClaimTemplate is used to generate the configuration for<br />the PVC hosting the work queue. | True |  |  |
-| `image` _string_ | Image is the NATS image that will be used for the work queue | True |  |  |
 
 
 #### RetentionPolicy

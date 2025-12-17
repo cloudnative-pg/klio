@@ -7,10 +7,13 @@ RUN cd / && \
     git checkout mtls && \
     go build -o kopia main.go
 
+FROM nats:2.12.2-scratch AS nats_extractor
+
 FROM ${BASE_IMAGE} AS base
 ARG TARGETARCH
 ARG TARGETOS
 COPY --from=builder /kopia/kopia /usr/bin/kopia
+COPY --from=nats_extractor /nats-server /usr/bin/nats-server
 COPY dist/klio_${TARGETOS}_${TARGETARCH}*/klio /usr/bin/klio
 COPY licenses /licenses
 ENTRYPOINT ["/usr/bin/klio"]
