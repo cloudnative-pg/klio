@@ -7,7 +7,7 @@ RUN cd / && \
     git checkout mtls && \
     go build -o kopia main.go
 
-FROM nats:2.12.2-scratch AS nats_extractor
+FROM nats:2.12.3-scratch@sha256:30c913e575318c477aa3a81da3f71a00a518e7091d6219d75c8b157e5844f92c AS nats_extractor
 
 FROM ${BASE_IMAGE} AS base
 ARG TARGETARCH
