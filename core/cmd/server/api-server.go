@@ -43,7 +43,7 @@ var apiServerCmd = &cobra.Command{
 			return fmt.Errorf("configuration validation error: %w", errs)
 		}
 
-		connection, err := kopia.Connect(
+		connection, err := kopia.MultiConnect(
 			cmd.Context(),
 			&configuration.Client.Base,
 		)

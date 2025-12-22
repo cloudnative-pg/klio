@@ -1,4 +1,4 @@
-package common
+package klioclient
 
 import (
 	"context"
@@ -14,27 +14,25 @@ import (
 // controlDataPath is the name of the pg_controldata file.
 const controlDataPath = "global/pg_control"
 
-// BackupUploader is used by a backup executor to upload several backup data.
-type BackupUploader interface {
-	// UploadTablespace uploads the tablespace with the passed layout to
-	// the backup store.
-	UploadTablespace(ctx context.Context, backupName string, tbl TablespaceLayout) error
+// BackupExecutor guides the execution of a PostgreSQL backup, delegating
+// the upload process to the underlying implementation.
+type BackupExecutor struct {
+	name        string
+	clusterName string
+	pgData      string
+	startLSN    uint64
+	tablespaces []TablespaceLayout
 
-	// UploadPgData uploads the PGData to the backup store.
-	UploadPgData(ctx context.Context, backupName string, pgData string) error
+	// A connection to the target database
+	Connection *pgx.Conn
 
-	// UploadControlFile uploads the control file to the backup store.
-	UploadControlFile(ctx context.Context, backupName string, controlDataFileName string) error
+	uploader Client
 
-	// UploadBackupMetadata is called to upload the control file and to mark a backup successfully done.
-	UploadBackupMetadata(ctx context.Context, backupName string, metadata *BackupMetadata) error
-
-	// Sources is a list of the snapshots that have been uploaded
-	Sources() []string
+	startedAt int64
 }
 
 // NewBackupExecutor creates a new backup executor for the passed implementation.
-func NewBackupExecutor(conn *pgx.Conn, uploader BackupUploader, clusterName string) *BackupExecutor {
+func NewBackupExecutor(conn *pgx.Conn, uploader Client, clusterName string) *BackupExecutor {
 	return &BackupExecutor{
 		tablespaces: nil,
 		Connection:  conn,
@@ -167,9 +165,9 @@ func (b *BackupExecutor) Close(ctx context.Context) (*BackupMetadata, error) {
 		EndLSN:        endLSN,
 		BackupLabel:   string(labelFile),
 		TablespaceMap: string(spcmapFile),
+		Tablespaces:   b.tablespaces,
 		Timeline:      tli,
 		SegmentSize:   segmentSize,
-		Sources:       b.uploader.Sources(),
 		PgData:        b.pgData,
 	}
 

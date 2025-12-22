@@ -4,7 +4,7 @@ FROM golang:1.25.5@sha256:36b4f45d2874905b9e8573b783292629bcb346d0a70d8d7150b6df
 RUN cd / && \
     git clone https://github.com/leonardoce/kopia && \
     cd kopia && \
-    git checkout mtls && \
+    git checkout klio && \
     go build -o kopia main.go
 
 FROM nats:2.12.3-scratch@sha256:30c913e575318c477aa3a81da3f71a00a518e7091d6219d75c8b157e5844f92c AS nats_extractor

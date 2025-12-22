@@ -7,10 +7,13 @@ import (
 
 // PluginConfigurationSpec defines the desired state of client configuration.
 type PluginConfigurationSpec struct {
-	// ServerAddress is the address of the Klio server in the format host:port or host
+	// ServerAddress is the address of the Klio server
 	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:MinLength=1
 	ServerAddress string `json:"serverAddress"`
+
+	// Tier2 enables backup lookup in tier 2.
+	Tier2 bool `json:"tier2,omitempty"`
 
 	// ClientSecretName is the name of the secret containing the client credentials
 	// +kubebuilder:validation:Required

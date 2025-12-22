@@ -11,7 +11,7 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
-	"github.com/cloudnative-pg/klio/core/internal/client/klioclient/common"
+	"github.com/cloudnative-pg/klio/core/internal/client/klioclient"
 	klioGRPC "github.com/cloudnative-pg/klio/core/internal/grpc"
 )
 
@@ -20,13 +20,13 @@ func (c *Connection) StoreWALStreaming(
 	ctx context.Context,
 	name string,
 	segmentSize uint64,
-) (*common.WALUploader, error) {
+) (*klioclient.WALUploader, error) {
 	stream, err := c.Put(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("while starting uploading a WAL file: %w", err)
 	}
 
-	return common.NewWALUploader(&grpcWALStream{
+	return klioclient.NewWALUploader(&grpcWALStream{
 		innerStream: stream,
 		segmentSize: segmentSize,
 		clusterName: c.cfg.ClusterName,
@@ -42,7 +42,7 @@ func (c *Connection) GetWALStreaming(ctx context.Context, walName string, out io
 	})
 	if err != nil {
 		if status.Code(err) == codes.NotFound {
-			return common.ErrMissingWALFile
+			return klioclient.ErrMissingWALFile
 		}
 
 		return fmt.Errorf("while starting downloading a WAL file: %w", err)
@@ -57,11 +57,11 @@ func (c *Connection) GetWALStreaming(ctx context.Context, walName string, out io
 
 		if err != nil {
 			if status.Code(err) == codes.NotFound {
-				return common.ErrMissingWALFile
+				return klioclient.ErrMissingWALFile
 			}
 
 			if writtenBytes > 0 {
-				return common.IncompleteTransmissionError{
+				return klioclient.IncompleteTransmissionError{
 					Inner:        err,
 					WrittenBytes: writtenBytes,
 				}

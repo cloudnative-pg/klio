@@ -93,7 +93,8 @@ _Appears in:_
 
 | Field | Description | Required | Default | Validation |
 | --- | --- | --- | --- | --- |
-| `serverAddress` _string_ | ServerAddress is the address of the Klio server in the format host:port or host | True |  | MinLength: 1 <br />Required: \{\} <br /> |
+| `serverAddress` _string_ | ServerAddress is the address of the Klio server | True |  | MinLength: 1 <br />Required: \{\} <br /> |
+| `tier2` _boolean_ | Tier2 enables backup lookup in tier 2. | True |  |  |
 | `clientSecretName` _string_ | ClientSecretName is the name of the secret containing the client credentials | True |  | MinLength: 1 <br />Required: \{\} <br /> |
 | `serverSecretName` _string_ | ServerSecretName is the name of the secret containing the server TLS certificate | True |  | MinLength: 1 <br />Required: \{\} <br /> |
 | `clusterName` _string_ | ClusterName is the name of the PostgreSQL cluster we are connecting to |  |  |  |

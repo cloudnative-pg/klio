@@ -1,23 +1,26 @@
 package consumer
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"os"
 	"os/exec"
 	"os/signal"
 
 	"github.com/cloudnative-pg/machinery/pkg/log"
+	"github.com/cloudnative-pg/machinery/pkg/stringset"
 
+	"github.com/cloudnative-pg/klio/core/internal/client/klioclient"
 	"github.com/cloudnative-pg/klio/core/internal/queue"
 )
-
-// kopiaCommand is the name of the kopia binary.
-const kopiaCommand = "kopia"
 
 // Backup represents a Backup consumer.
 type Backup struct {
 	opts *BackupOptions
+
+	kopiaBinary string
 }
 
 // BackupOptions are the configuration of the WAL consumer.
@@ -39,10 +42,16 @@ type BackupOptions struct {
 }
 
 // NewBackup creates a new WAL consumer.
-func NewBackup(opts *BackupOptions) *Backup {
-	return &Backup{
-		opts: opts,
+func NewBackup(opts *BackupOptions) (*Backup, error) {
+	kopiaBinary, err := exec.LookPath(klioclient.KopiaCommand)
+	if err != nil {
+		return nil, fmt.Errorf("kopia binary not found (%q): %w", klioclient.KopiaCommand, err)
 	}
+
+	return &Backup{
+		opts:        opts,
+		kopiaBinary: kopiaBinary,
+	}, nil
 }
 
 // Run starts the consumer until the context is canceled or the
@@ -59,29 +68,28 @@ func (d *Backup) backupHandler(ctx context.Context, task *queue.BackupTask) erro
 
 	log.Info("Synchronizing backup", "task", task)
 
-	kopiaBinary, err := exec.LookPath(kopiaCommand)
+	sources, err := d.sourcesForCluster(ctx, task.ClusterName)
 	if err != nil {
-		return fmt.Errorf("kopia binary not found (%q): %w", kopiaCommand, err)
+		return err
 	}
 
-	// Start the Kopia server
+	// Migrate the Kopia Snapshots
 	args := []string{
 		"snapshot", "migrate",
 		"--source-config=" + d.opts.Tier1KopiaConfig,
 		"--config-file=" + d.opts.Tier2KopiaConfig,
 		"--disable-file-logging",
 		"--json-log-console",
+		"--tags=tag:" + klioclient.TablespaceNameTagName,
+		"--tags=tag:" + klioclient.BackupContentTagName,
+		"--tags=tag:" + klioclient.BackupNameTagName,
 	}
 
-	for _, source := range task.Sources {
+	for _, source := range sources {
 		args = append(args, "--sources="+source)
 	}
 
-	kopiaMigrate := exec.CommandContext(ctx, kopiaBinary, args...) //nolint:gosec
-	kopiaMigrate.Env = append(kopiaMigrate.Env,
-		"KOPIA_LOG_DIR="+d.opts.CacheDirectory,
-	)
-
+	kopiaMigrate := exec.CommandContext(ctx, d.kopiaBinary, args...) //nolint:gosec
 	kopiaMigrate.Stdout = os.Stdout
 	kopiaMigrate.Stderr = os.Stderr
 
@@ -96,4 +104,44 @@ func (d *Backup) backupHandler(ctx context.Context, task *queue.BackupTask) erro
 	}
 
 	return nil
+}
+
+// ListBackups list all Kopia sources for a specified cluster.
+func (d *Backup) sourcesForCluster(ctx context.Context, cluster string) ([]string, error) {
+	contextLogger := log.FromContext(ctx)
+
+	args := []string{
+		"snapshot",
+		"list",
+		"--disable-file-logging",
+		"--all",
+		"--json",
+		"--config-file=" + d.opts.Tier1KopiaConfig,
+	}
+
+	var stdout bytes.Buffer
+	snapshotList := exec.CommandContext(ctx, d.kopiaBinary, args...) //nolint:gosec
+	snapshotList.Stdout = &stdout
+	snapshotList.Stderr = os.Stderr
+
+	contextLogger.Info("Looking for Kopia sources for cluster", "args", snapshotList.Args, "cluster", cluster)
+	if err := snapshotList.Run(); err != nil {
+		return nil, fmt.Errorf("while executing Kopia command: %w", err)
+	}
+
+	var entries []klioclient.Manifest
+	if err := json.Unmarshal(stdout.Bytes(), &entries); err != nil {
+		return nil, fmt.Errorf("while unmarshalling kopia command output %q: %w", stdout.String(), err)
+	}
+
+	result := stringset.New()
+	for _, entry := range entries {
+		if entry.Source.Host != cluster {
+			continue
+		}
+
+		result.Put(entry.Source.String())
+	}
+
+	return result.ToSortedList(), nil
 }

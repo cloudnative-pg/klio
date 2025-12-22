@@ -50,7 +50,7 @@ var resetLSNCommand = &cobra.Command{
 			return fmt.Errorf("configuration validation error: %w", errs)
 		}
 
-		client, err := grpcclient.Connect(&configuration.Client.Wal)
+		client, err := grpcclient.Connect(&configuration.Client.Wal, configuration.Client.Wal.Address)
 		if err != nil {
 			return fmt.Errorf("while connecting to the Klio server: %w", err)
 		}

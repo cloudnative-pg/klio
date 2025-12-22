@@ -64,13 +64,19 @@ func (c *CNPGI) AddBackupCapability() {
 	})
 }
 
+// WALCapabilityOptions are the options to configure the WAL service.
+type WALCapabilityOptions struct {
+	Debug        bool
+	IncludeTier2 bool
+}
+
 // AddWALCapability adds the WAL restore capabilities to the CNPGI service.
-func (c *CNPGI) AddWALCapability(enableDebug bool) {
+func (c *CNPGI) AddWALCapability(opts WALCapabilityOptions) {
 	enricher := func(server *grpc.Server) error {
 		walService := walServiceImplementation{
-			enableDebug: enableDebug,
+			opts: opts,
 		}
-		wal.RegisterWALServer(server, walService)
+		wal.RegisterWALServer(server, &walService)
 
 		return nil
 	}

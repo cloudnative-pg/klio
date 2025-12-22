@@ -179,6 +179,9 @@ func (impl LifecycleImplementation) reconcileJob(
 		"restore",
 		pgdata,
 	}
+	if clusterPC.Spec.Tier2 {
+		restoreSidecar.Args = append(restoreSidecar.Args, "--include-tier2")
+	}
 	restoreSidecar.Env = ensureEnvVar(restoreSidecar.Env, corev1.EnvVar{
 		Name:  "CONTAINER_NAME",
 		Value: "klio-restore",

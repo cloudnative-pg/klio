@@ -30,10 +30,10 @@ func (w *Implementation) CloseBackup(
 		}, nil
 	}
 
+	// Step 2: notify the queue of the completed backup
 	if w.queue != nil {
 		if err := w.queue.NotifyBackupReceived(ctx, &queue.BackupTask{
 			ClusterName: request.GetClusterName(),
-			Sources:     request.GetKopiaSourceNames(),
 		}); err != nil {
 			return nil, fmt.Errorf("while sending task to queue: %w", err)
 		}
@@ -58,7 +58,7 @@ func (w *Implementation) checkWALFiles(request *grpc.CloseBackupRequest) ([]stri
 
 	endLSN, err := types.LSNStartFromWALName(request.GetEndWal(), request.GetSegmentSize())
 	if err != nil {
-		return nil, status.Errorf(codes.InvalidArgument, "Invalid end_wal: %q", request.GetEndWal())
+		return nil, status.Errorf(codes.InvalidArgument, "Invalid LSN start from end_wal: %q", request.GetEndWal())
 	}
 
 	endPos, err := endLSN.Parse()

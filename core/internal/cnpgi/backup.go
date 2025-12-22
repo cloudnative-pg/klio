@@ -16,7 +16,7 @@ import (
 	pgTime "github.com/cloudnative-pg/machinery/pkg/postgres/time"
 	"github.com/cloudnative-pg/machinery/pkg/types"
 
-	"github.com/cloudnative-pg/klio/core/internal/client/klioclient/common"
+	"github.com/cloudnative-pg/klio/core/internal/client/klioclient"
 )
 
 // backupServiceImplementation is the implementation
@@ -118,7 +118,7 @@ func (b backupServiceImplementation) Backup(
 		return nil, fmt.Errorf("failed to execute klio backup get-metadata command: %w", err)
 	}
 
-	var metadata common.BackupMetadata
+	var metadata klioclient.BackupMetadata
 	if err := json.Unmarshal(stdout.Bytes(), &metadata); err != nil {
 		return nil, fmt.Errorf("failed to parse backup metadata: %w", err)
 	}

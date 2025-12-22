@@ -1,4 +1,4 @@
-package common
+package klioclient
 
 import (
 	"context"
@@ -200,11 +200,11 @@ type mockBackupRestorer struct {
 }
 
 // Implement the interface.
-func (m *mockBackupRestorer) ListBackups(_ context.Context) (BackupList, error) {
+func (m *mockBackupRestorer) ListBackups(_ context.Context, _ string) (BackupList, error) {
 	return m.listToReturn, m.errorToReturn
 }
 
-func (m *mockBackupRestorer) GetMetadata(_ context.Context, name string) (*BackupMetadata, error) {
+func (m *mockBackupRestorer) GetMetadata(_ context.Context, _ string, name string) (*BackupMetadata, error) {
 	m.getMetadataCalledWith = name
 	return m.metadataToReturn, m.errorToReturn
 }
@@ -271,7 +271,7 @@ func TestRestoreExecutor_Restore(t *testing.T) {
 	executor := NewRestoreExecutor(mock, conf)
 
 	// Call restore
-	err := executor.Restore(ctx, tempDir)
+	err := executor.Restore(ctx, "", tempDir)
 
 	require.NoError(t, err)
 

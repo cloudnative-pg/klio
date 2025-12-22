@@ -9,6 +9,7 @@ import (
 	"gopkg.in/validator.v2"
 
 	"github.com/cloudnative-pg/klio/core/internal/cli"
+	"github.com/cloudnative-pg/klio/core/internal/client/klioclient"
 	"github.com/cloudnative-pg/klio/core/internal/client/klioclient/kopia"
 	"github.com/cloudnative-pg/klio/core/pkg/config"
 )
@@ -42,7 +43,7 @@ var setCmd = &cobra.Command{
 			return fmt.Errorf("configuration validation error: %w", errs)
 		}
 
-		client, err := kopia.Connect(
+		client, err := kopia.MultiConnect(
 			cmd.Context(),
 			&configuration.Client.Base,
 		)
@@ -50,7 +51,7 @@ var setCmd = &cobra.Command{
 			return fmt.Errorf("while connecting to the Klio server: %w %q", err, configuration.Client.Base.URL)
 		}
 
-		target := kopia.Target{
+		target := klioclient.Target{
 			Hostname: client.GetHostname(),
 			Username: client.GetUsername(),
 		}
@@ -79,7 +80,7 @@ var setCmd = &cobra.Command{
 		}
 
 		if effectivePolicy == nil {
-			effectivePolicy = &kopia.RetentionPolicy{}
+			effectivePolicy = &klioclient.RetentionPolicy{}
 		}
 		effectivePolicy.KeepLatest = getKeepValue("keep-latest")
 		effectivePolicy.KeepAnnual = getKeepValue("keep-annual")

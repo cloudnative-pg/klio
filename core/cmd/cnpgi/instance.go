@@ -18,7 +18,10 @@ var instanceCmd = &cobra.Command{
 		capabilities := func(server *cnpgi.CNPGI) {
 			server.AddBackupCapability()
 			server.AddMetricsCapability()
-			server.AddWALCapability(true)
+			server.AddWALCapability(cnpgi.WALCapabilityOptions{
+				Debug:        true,
+				IncludeTier2: false,
+			})
 		}
 
 		return runCNPGI(cmd.Context(), pluginPath, capabilities)

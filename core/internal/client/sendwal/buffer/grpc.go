@@ -7,7 +7,7 @@ import (
 	"github.com/cloudnative-pg/machinery/pkg/log"
 	"github.com/cloudnative-pg/machinery/pkg/types"
 
-	"github.com/cloudnative-pg/klio/core/internal/client/klioclient/common"
+	"github.com/cloudnative-pg/klio/core/internal/client/klioclient"
 	"github.com/cloudnative-pg/klio/core/internal/client/klioclient/grpcclient"
 )
 
@@ -16,7 +16,7 @@ import (
 type KlioClientStreamingHandler struct {
 	conn *grpcclient.Connection
 
-	stream common.WALUploaderImpl
+	stream klioclient.WALUploaderImpl
 	offset uint64
 
 	tli            int

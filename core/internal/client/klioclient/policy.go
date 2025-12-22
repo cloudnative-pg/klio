@@ -1,4 +1,4 @@
-package kopia
+package klioclient
 
 // Policy describes snapshot policy for a single source.
 type Policy struct {

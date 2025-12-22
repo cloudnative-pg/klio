@@ -13,7 +13,7 @@ import (
 	"gopkg.in/validator.v2"
 
 	"github.com/cloudnative-pg/klio/core/internal/cli"
-	"github.com/cloudnative-pg/klio/core/internal/client/klioclient/common"
+	"github.com/cloudnative-pg/klio/core/internal/client/klioclient"
 	"github.com/cloudnative-pg/klio/core/internal/client/klioclient/grpcclient"
 	"github.com/cloudnative-pg/klio/core/internal/client/klioclient/kopia"
 	"github.com/cloudnative-pg/klio/core/internal/grpc"
@@ -59,7 +59,7 @@ var runCmd = &cobra.Command{
 			return fmt.Errorf("configuration validation error: %w", errs)
 		}
 
-		kopiaClient, err := kopia.Connect(
+		kopiaClient, err := kopia.MultiConnect(
 			cmd.Context(),
 			&configuration.Client.Base,
 		)
@@ -75,15 +75,9 @@ var runCmd = &cobra.Command{
 			_ = conn.Close(cmd.Context())
 		}()
 
-		uploader := kopiaClient.NewUploaderFor(
-			kopia.Target{
-				Hostname: kopiaClient.GetHostname(),
-				Username: kopiaClient.GetUsername(),
-			},
-		)
-		backupExecutor := common.NewBackupExecutor(conn, uploader, kopiaClient.GetHostname())
+		backupExecutor := klioclient.NewBackupExecutor(conn, kopiaClient, kopiaClient.GetHostname())
 
-		var opts common.BackupOptions
+		var opts klioclient.BackupOptions
 
 		backupName, _ := cmd.Flags().GetString("name")
 		opts.Name = backupName
@@ -101,20 +95,19 @@ var runCmd = &cobra.Command{
 			return fmt.Errorf("while closing the backup: %w", err)
 		}
 
-		grpcClient, err := grpcclient.Connect(&configuration.Client.Wal)
+		grpcClient, err := grpcclient.Connect(&configuration.Client.Wal, configuration.Client.Wal.Address)
 		if err != nil {
 			return fmt.Errorf("while connecting to the Klio server: %w", err)
 		}
 
 		for {
 			result, err := grpcClient.CloseBackup(cmd.Context(), &grpc.CloseBackupRequest{
-				ClusterName:      kopiaClient.GetHostname(),
-				KopiaSourceNames: metadata.Sources,
-				BackupName:       metadata.Name,
-				Timeline:         int32(metadata.Timeline),
-				StartWal:         metadata.StartWAL,
-				EndWal:           metadata.EndWAL,
-				SegmentSize:      metadata.SegmentSize,
+				ClusterName: kopiaClient.GetHostname(),
+				BackupName:  metadata.Name,
+				Timeline:    int32(metadata.Timeline),
+				StartWal:    metadata.StartWAL,
+				EndWal:      metadata.EndWAL,
+				SegmentSize: metadata.SegmentSize,
 			})
 			if err != nil {
 				return fmt.Errorf("while closing the backup: %w", err)

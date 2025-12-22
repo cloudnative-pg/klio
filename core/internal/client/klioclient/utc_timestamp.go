@@ -1,4 +1,4 @@
-package kopia
+package klioclient
 
 import (
 	"encoding/json"

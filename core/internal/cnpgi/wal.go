@@ -17,14 +17,18 @@ import (
 	"google.golang.org/grpc/status"
 )
 
+var errWALNotFound = errors.New("wal not found")
+
 type walServiceImplementation struct {
 	wal.UnimplementedWALServer
 
-	enableDebug bool
+	opts WALCapabilityOptions
+
+	lastWALTier2 bool
 }
 
 // GetCapabilities implements the WALService interface.
-func (w walServiceImplementation) GetCapabilities(
+func (w *walServiceImplementation) GetCapabilities(
 	_ context.Context,
 	_ *wal.WALCapabilitiesRequest,
 ) (*wal.WALCapabilitiesResult, error) {
@@ -42,7 +46,7 @@ func (w walServiceImplementation) GetCapabilities(
 }
 
 // Restore implements the WALService interface.
-func (w walServiceImplementation) Restore( //nolint:cyclop
+func (w *walServiceImplementation) Restore(
 	ctx context.Context,
 	request *wal.WALRestoreRequest,
 ) (*wal.WALRestoreResult, error) {
@@ -50,16 +54,9 @@ func (w walServiceImplementation) Restore( //nolint:cyclop
 	walName := request.GetSourceWalName()
 	destinationPath := request.GetDestinationFileName()
 
-	contextLogger.Info("WAL restore operation started", "walName", walName, "destinationPath", destinationPath)
-
 	if walName == "" || destinationPath == "" {
 		contextLogger.Warning("WAL restore operation failed. WAL name and destination file name must be specified")
 		return nil, errors.New("source WAL name and destination file name must be provided")
-	}
-
-	args := []string{"get-wal", walName, destinationPath, "--partial=true"}
-	if w.enableDebug {
-		args = append(args, "--debug")
 	}
 
 	// We need to find out the WAL repository to use
@@ -80,9 +77,86 @@ func (w walServiceImplementation) Restore( //nolint:cyclop
 		return nil, errors.New("no WAL repository found for the cluster")
 	}
 
-	contextLogger.Info("selected WAL repository configuration", "repositoryConfigPath", confPath)
+	if w.opts.IncludeTier2 {
+		err = w.restoreIncludingTier2(ctx, walName, destinationPath, confPath)
+	} else {
+		err = w.restoreFromTier1(ctx, walName, destinationPath, confPath)
+	}
+	if errors.Is(err, errWALNotFound) {
+		return &wal.WALRestoreResult{}, status.Errorf(codes.NotFound, "WAL file not found: %q", walName)
+	}
+	if err != nil {
+		return nil, err
+	}
 
-	args = append(args, "--config", confPath)
+	return &wal.WALRestoreResult{}, nil
+}
+
+func (w *walServiceImplementation) restoreFromTier1(
+	ctx context.Context,
+	walName, destinationPath string,
+	configPath string,
+) error {
+	err := internalRestoreWAL(ctx, restoreWALOptions{
+		walName:         walName,
+		destinationPath: destinationPath,
+		configFile:      configPath,
+		debug:           w.opts.Debug,
+		tier2:           false,
+	})
+
+	return err
+}
+
+func (w *walServiceImplementation) restoreIncludingTier2(
+	ctx context.Context,
+	walName, destinationPath string,
+	configPath string,
+) error {
+	err := internalRestoreWAL(ctx, restoreWALOptions{
+		walName:         walName,
+		destinationPath: destinationPath,
+		configFile:      configPath,
+		debug:           w.opts.Debug,
+		tier2:           w.lastWALTier2,
+	})
+	if errors.Is(err, errWALNotFound) {
+		// We didn't find the WAL in the current tier, let's
+		// switch to the other one and test it.
+		w.lastWALTier2 = !w.lastWALTier2
+
+		err = internalRestoreWAL(ctx, restoreWALOptions{
+			walName:         walName,
+			destinationPath: destinationPath,
+			configFile:      configPath,
+			debug:           w.opts.Debug,
+			tier2:           w.lastWALTier2,
+		})
+	}
+
+	return err
+}
+
+type restoreWALOptions struct {
+	walName         string
+	destinationPath string
+	configFile      string
+
+	debug bool
+	tier2 bool
+}
+
+func internalRestoreWAL(ctx context.Context, opts restoreWALOptions) error {
+	args := []string{"get-wal", opts.walName, opts.destinationPath, "--partial=true"}
+	if opts.debug {
+		args = append(args, "--debug")
+	}
+	if opts.tier2 {
+		args = append(args, "--tier2")
+	}
+
+	// We need to find out the WAL repository to use
+	args = append(args, "--config", opts.configFile)
 
 	cmd := exec.CommandContext( //nolint: gosec
 		ctx,
@@ -93,18 +167,25 @@ func (w walServiceImplementation) Restore( //nolint:cyclop
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
 
-	var exitError *exec.ExitError
-	err = cmd.Run()
+	contextLogger := log.FromContext(ctx).WithName("wal_restore")
+	contextLogger.Info("Starting get-wal", "args", args, "opts", opts)
 
+	var exitError *exec.ExitError
+	err := cmd.Run()
 	switch {
 	case errors.As(err, &exitError) && exitError.ExitCode() == 4:
-		return &wal.WALRestoreResult{}, status.Errorf(codes.NotFound, "WAL file not found: %q", walName)
+		return errWALNotFound
 
 	case err != nil:
-		return nil, fmt.Errorf("failed to execute klio get-wal command: %w, stderr: %s", err, stderr.String())
+		return fmt.Errorf(
+			"failed to execute klio get-wal command: %w, stdout: %q, stderr: %q",
+			err,
+			stdout.String(),
+			stderr.String(),
+		)
 
 	default:
-		return &wal.WALRestoreResult{}, nil
+		return nil
 	}
 }
 

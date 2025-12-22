@@ -46,7 +46,7 @@ var listCmd = &cobra.Command{
 			return fmt.Errorf("configuration validation error: %w", errs)
 		}
 
-		client, err := kopia.Connect(
+		client, err := kopia.MultiConnect(
 			cmd.Context(),
 			&configuration.Client.Base,
 		)
@@ -54,14 +54,7 @@ var listCmd = &cobra.Command{
 			return fmt.Errorf("while connecting to the Klio server: %w %q", err, configuration.Client.Base.URL)
 		}
 
-		restorer := client.CreateRestorer(
-			kopia.Target{
-				Hostname: client.GetHostname(),
-				Username: client.GetUsername(),
-			},
-		)
-
-		backups, err := restorer.ListBackups(cmd.Context())
+		backups, err := client.ListBackups(cmd.Context(), client.GetHostname())
 		if err != nil {
 			return fmt.Errorf("while extracting backups: %w %q", err, configuration.Client.Base.URL)
 		}

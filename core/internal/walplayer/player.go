@@ -161,7 +161,7 @@ func (p *Player) runWorker(
 ) {
 	contextLogger := log.FromContext(ctx)
 
-	client, err := grpcclient.Connect(p.Config)
+	client, err := grpcclient.Connect(p.Config, p.Config.Address)
 	if err != nil {
 		contextLogger.Error(err, "While connecting to Klio")
 		return

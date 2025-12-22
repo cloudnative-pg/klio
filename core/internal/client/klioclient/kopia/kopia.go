@@ -11,6 +11,7 @@ import (
 
 	"github.com/cloudnative-pg/machinery/pkg/log"
 
+	"github.com/cloudnative-pg/klio/core/internal/client/klioclient"
 	"github.com/cloudnative-pg/klio/core/pkg/config"
 )
 
@@ -22,19 +23,26 @@ type Connection struct {
 	userName    string
 }
 
-// LocalRepositoryOptions are the options needed to create a local Kopia repository.
-type LocalRepositoryOptions struct {
-	Path       string
-	Password   string
-	Hostname   string
-	Username   string
-	Initialize bool
-}
-
-// Connect creates a new Kopia client and opens a connection to it.
-func Connect(
+// ConnectTier1 creates a new Kopia client to the tier1 kopia repository and opens a connection to it.
+func ConnectTier1(
 	ctx context.Context,
 	kopiaClientConfig *config.BaseRepositoryClientConfig,
+) (*Connection, error) {
+	return internalConnect(ctx, kopiaClientConfig, kopiaClientConfig.URL)
+}
+
+// ConnectTier2 creates a new Kopia client and opens a connection to it.
+func ConnectTier2(
+	ctx context.Context,
+	kopiaClientConfig *config.BaseRepositoryClientConfig,
+) (*Connection, error) {
+	return internalConnect(ctx, kopiaClientConfig, kopiaClientConfig.Tier2URL)
+}
+
+func internalConnect(
+	ctx context.Context,
+	kopiaClientConfig *config.BaseRepositoryClientConfig,
+	kopiaURL string,
 ) (*Connection, error) {
 	contextLogger := log.FromContext(ctx)
 
@@ -73,9 +81,9 @@ func Connect(
 		return nil, fmt.Errorf("error while extracting userName and HostName from client certificate: %w", err)
 	}
 
-	kopiaBinary, err := exec.LookPath(kopiaCommand)
+	kopiaBinary, err := exec.LookPath(klioclient.KopiaCommand)
 	if err != nil {
-		return nil, fmt.Errorf("kopia binary not found (%q): %w", kopiaCommand, err)
+		return nil, fmt.Errorf("kopia binary not found (%q): %w", klioclient.KopiaCommand, err)
 	}
 
 	// This is a cache directory to speed up backup uploads.
@@ -91,7 +99,7 @@ func Connect(
 		"--cache-directory=" + cacheDirectory,
 		"--json-log-console",
 		"--config-file=" + configFile.Name(),
-		"--url=" + kopiaClientConfig.URL,
+		"--url=" + kopiaURL,
 		"--client-certificate=" + kopiaClientConfig.ClientCertPath,
 		"--client-key=" + kopiaClientConfig.ClientKeyPath,
 		"--server-cert-fingerprint=" + certificateFingerprint,

@@ -9,6 +9,7 @@ import (
 	"gopkg.in/validator.v2"
 
 	"github.com/cloudnative-pg/klio/core/internal/cli"
+	"github.com/cloudnative-pg/klio/core/internal/client/klioclient"
 	"github.com/cloudnative-pg/klio/core/internal/client/klioclient/kopia"
 	"github.com/cloudnative-pg/klio/core/pkg/config"
 )
@@ -42,7 +43,7 @@ var getCmd = &cobra.Command{
 			return fmt.Errorf("configuration validation error: %w", errs)
 		}
 
-		client, err := kopia.Connect(
+		client, err := kopia.MultiConnect(
 			cmd.Context(),
 			&configuration.Client.Base,
 		)
@@ -52,7 +53,7 @@ var getCmd = &cobra.Command{
 
 		effectivePolicy, err := client.GetRetentionPolicy(
 			cmd.Context(),
-			kopia.Target{
+			klioclient.Target{
 				Hostname: client.GetHostname(),
 				Username: client.GetUsername(),
 			},

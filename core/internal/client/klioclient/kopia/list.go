@@ -11,11 +11,15 @@ import (
 
 	"github.com/cloudnative-pg/machinery/pkg/log"
 
-	"github.com/cloudnative-pg/klio/core/internal/client/klioclient/common"
+	"github.com/cloudnative-pg/klio/core/internal/client/klioclient"
 )
 
 // GetMetadata implements the RestoreExecutor interface.
-func (s *RestoreImplementation) GetMetadata(ctx context.Context, name string) (*common.BackupMetadata, error) {
+func (s *Connection) GetMetadata(
+	ctx context.Context,
+	hostname string,
+	name string,
+) (*klioclient.BackupMetadata, error) {
 	contextLogger := log.FromContext(ctx)
 
 	args := []string{
@@ -26,8 +30,8 @@ func (s *RestoreImplementation) GetMetadata(ctx context.Context, name string) (*
 		"--json",
 		"--password=mtls",
 		"--config-file=" + s.configFile,
-		"--tags=" + backupNameTagName + ":" + name,
-		"--tags=klio.io/content:metadata",
+		"--tags=" + klioclient.BackupNameTagName + ":" + name,
+		"--tags=" + klioclient.BackupContentTagName + ":metadata",
 	}
 
 	var stdout bytes.Buffer
@@ -40,27 +44,22 @@ func (s *RestoreImplementation) GetMetadata(ctx context.Context, name string) (*
 		return nil, fmt.Errorf("while executing Kopia command: %w", err)
 	}
 
-	var entries []Manifest
+	var entries []klioclient.Manifest
 	if err := json.Unmarshal(stdout.Bytes(), &entries); err != nil {
 		return nil, fmt.Errorf("while unmarshalling kopia command output %q: %w", stdout.String(), err)
 	}
 
 	for _, entry := range entries {
-		if entry.Source.Host == s.hostname {
-			metadata, err := s.restoreMetadata(ctx, entry.ID)
-			if err != nil {
-				return nil, err
-			}
-
-			return metadata, nil
+		if entry.Source.Host == hostname {
+			return s.restoreMetadata(ctx, entry.ID)
 		}
 	}
 
-	return nil, newNoBackupFoundError(name)
+	return nil, newNoBackupFoundError(hostname, name)
 }
 
 // ListBackups list all the backups in the repository.
-func (s *RestoreImplementation) ListBackups(ctx context.Context) (common.BackupList, error) {
+func (s *Connection) ListBackups(ctx context.Context, hostname string) (klioclient.BackupList, error) {
 	contextLogger := log.FromContext(ctx)
 
 	args := []string{
@@ -71,7 +70,7 @@ func (s *RestoreImplementation) ListBackups(ctx context.Context) (common.BackupL
 		"--json",
 		"--password=mtls",
 		"--config-file=" + s.configFile,
-		"--tags=klio.io/content:metadata",
+		"--tags=" + klioclient.BackupContentTagName + ":metadata",
 	}
 
 	var stdout bytes.Buffer
@@ -79,19 +78,19 @@ func (s *RestoreImplementation) ListBackups(ctx context.Context) (common.BackupL
 	snapshotList.Stdout = &stdout
 	snapshotList.Stderr = os.Stderr
 
-	contextLogger.Info("Looking for Kopia backup", "args", snapshotList.Args)
+	contextLogger.Info("Listing Kopia backups", "args", snapshotList.Args)
 	if err := snapshotList.Run(); err != nil {
 		return nil, fmt.Errorf("while executing Kopia command: %w", err)
 	}
 
-	var entries []Manifest
+	var entries []klioclient.Manifest
 	if err := json.Unmarshal(stdout.Bytes(), &entries); err != nil {
 		return nil, fmt.Errorf("while unmarshalling kopia command output %q: %w", stdout.String(), err)
 	}
 
-	result := make([]common.BackupMetadata, 0, len(entries))
+	result := make([]klioclient.BackupMetadata, 0, len(entries))
 	for _, entry := range entries {
-		if s.hostname != "" && entry.Source.Host != s.hostname {
+		if hostname != "" && entry.Source.Host != hostname {
 			continue
 		}
 
@@ -108,10 +107,10 @@ func (s *RestoreImplementation) ListBackups(ctx context.Context) (common.BackupL
 
 // restoreMetadata restores the metadata stored in a snapshot with the
 // given ID.
-func (s *RestoreImplementation) restoreMetadata(
+func (s *Connection) restoreMetadata(
 	ctx context.Context,
 	snapshotID string,
-) (*common.BackupMetadata, error) {
+) (*klioclient.BackupMetadata, error) {
 	contextLogger := log.FromContext(ctx)
 
 	dirName, err := os.MkdirTemp("", "kopia_snapshot_*")
@@ -152,7 +151,7 @@ func (s *RestoreImplementation) restoreMetadata(
 		return nil, fmt.Errorf("while opening backup metadata: %w", err)
 	}
 
-	var result common.BackupMetadata
+	var result klioclient.BackupMetadata
 	if err := json.NewDecoder(f).Decode(&result); err != nil {
 		return nil, fmt.Errorf("cannot decode JSON backup metadata: %w", err)
 	}

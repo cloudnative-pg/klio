@@ -14,14 +14,14 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apiserver/pkg/registry/rest"
 
-	"github.com/cloudnative-pg/klio/core/internal/client/klioclient/common"
+	"github.com/cloudnative-pg/klio/core/internal/client/klioclient"
 	"github.com/cloudnative-pg/klio/core/internal/client/klioclient/kopia"
 	"github.com/cloudnative-pg/klio/core/internal/k8sapi/v1alpha1"
 )
 
 // REST is the API Server implementation for the KlioBackup resource.
 type REST struct {
-	connection *kopia.Connection
+	connection klioclient.Client
 }
 
 var (
@@ -34,7 +34,7 @@ var (
 
 // NewREST creates a REST interface for the API Server Extension
 // to use.
-func NewREST(connection *kopia.Connection) *REST {
+func NewREST(connection klioclient.Client) *REST {
 	return &REST{
 		connection: connection,
 	}
@@ -78,11 +78,7 @@ func (r *REST) Get(ctx context.Context, name string, _ *metav1.GetOptions) (runt
 	clusterName := splittedName[0]
 	backupName := splittedName[1]
 
-	restorer := r.connection.CreateRestorer(kopia.Target{
-		Hostname: clusterName,
-		Username: "",
-	})
-	metadata, err := restorer.GetMetadata(ctx, backupName)
+	metadata, err := r.connection.GetMetadata(ctx, clusterName, backupName)
 
 	var nbf kopia.NoBackupFoundError
 	if errors.As(err, &nbf) || metadata == nil {
@@ -114,11 +110,7 @@ func (r *REST) NewList() runtime.Object { //nolint:ireturn
 func (r *REST) List(ctx context.Context, _ *internalversion.ListOptions) (runtime.Object, error) { //nolint:ireturn
 	contextLogger := log.FromContext(ctx)
 
-	restorer := r.connection.CreateRestorer(kopia.Target{
-		Hostname: "",
-		Username: "",
-	})
-	backupMetadataList, err := restorer.ListBackups(ctx)
+	backupMetadataList, err := r.connection.ListBackups(ctx, "")
 	if err != nil {
 		contextLogger.Error(err, "Error listing backups")
 		return nil, err
@@ -195,7 +187,7 @@ func (r *REST) ConvertToTable(
 	return result, nil
 }
 
-func backupMetadataToKlioBackup(metadata common.BackupMetadata) v1alpha1.KlioBackup {
+func backupMetadataToKlioBackup(metadata klioclient.BackupMetadata) v1alpha1.KlioBackup {
 	tablespaces := make([]v1alpha1.TablespaceLayout, len(metadata.Tablespaces))
 	for i := range metadata.Tablespaces {
 		tablespaces[i].Name = metadata.Tablespaces[i].Name

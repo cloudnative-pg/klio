@@ -26,10 +26,14 @@ const (
 )
 
 const (
-	// KlioHTTPPort is the default port for Klio HTTP API.
-	KlioHTTPPort = "51515"
-	// KlioGRPCPort is the default port for Klio gRPC API.
-	KlioGRPCPort = "52000"
+	// KlioTier1HTTPPort is the default port for Klio Tier1 HTTP API.
+	KlioTier1HTTPPort = "51515"
+	// KlioTier2HTTPPort is the default port for Klio Tier2 HTTP API.
+	KlioTier2HTTPPort = "51516"
+	// KlioTier1GRPCPort is the default port for Klio Tier1 gRPC API.
+	KlioTier1GRPCPort = "52000"
+	// KlioTier2GRPCPort is the default port for Klio Tier2 gRPC API.
+	KlioTier2GRPCPort = "52001"
 )
 
 func generateKlioConfigForPlugin(
@@ -62,13 +66,13 @@ func generateKlioConfigForPlugin(
 		},
 		Client: config.ClientConfig{
 			Base: config.BaseRepositoryClientConfig{
-				URL:            "https://" + net.JoinHostPort(klioPluginConfigurationSpec.ServerAddress, KlioHTTPPort),
+				URL:            "https://" + net.JoinHostPort(klioPluginConfigurationSpec.ServerAddress, KlioTier1HTTPPort),
 				ServerCertPath: path.Join(serverCertPath, "tls.crt"),
 				ClientCertPath: path.Join(clientCertPath, "tls.crt"),
 				ClientKeyPath:  path.Join(clientCertPath, "tls.key"),
 			},
 			Wal: config.WalRepositoryClientConfig{
-				Address:        net.JoinHostPort(klioPluginConfigurationSpec.ServerAddress, KlioGRPCPort),
+				Address:        net.JoinHostPort(klioPluginConfigurationSpec.ServerAddress, KlioTier1GRPCPort),
 				ClusterName:    klioPluginConfigurationSpec.ClusterName,
 				ServerCertPath: path.Join(serverCertPath, "tls.crt"),
 				ClientCertPath: path.Join(clientCertPath, "tls.crt"),
@@ -76,6 +80,13 @@ func generateKlioConfigForPlugin(
 			},
 		},
 		RetentionPolicy: klioPluginConfigurationSpec.RetentionPolicy,
+	}
+
+	if klioPluginConfigurationSpec.Tier2 {
+		klioConfig.Client.Base.Tier2URL = "https://" + net.JoinHostPort(
+			klioPluginConfigurationSpec.ServerAddress, KlioTier2HTTPPort)
+		klioConfig.Client.Wal.Tier2Address = net.JoinHostPort(
+			klioPluginConfigurationSpec.ServerAddress, KlioTier2GRPCPort)
 	}
 
 	return klioConfig, rawConfiguration.klioPluginConfiguration, nil

@@ -1,0 +1,53 @@
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+  name: cluster-restore
+spec:
+  instances: 3
+  logLevel: debug
+  imagePullPolicy: Always
+
+  bootstrap:
+    recovery:
+      source: cluster-example
+
+  externalClusters:
+    - name: cluster-example
+      plugin:
+        name: klio.cnpg.io
+        parameters:
+          pluginConfigurationRef: client-config-example-restore
+
+  storage:
+    size: 1Gi
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: cluster-restore-klio-user
+spec:
+  commonName: klio@cluster-example
+  secretName: cluster-restore-klio-user
+
+  duration: 2160h # 90d
+  renewBefore: 360h # 15d
+
+  isCA: false
+  usages:
+    - client auth
+
+  issuerRef:
+    name: server-sample-ca
+    kind: Issuer
+    group: cert-manager.io
+---
+apiVersion: klio.cnpg.io/v1alpha1
+kind: PluginConfiguration
+metadata:
+  name: client-config-example-restore
+spec:
+  serverAddress: server-sample.default
+  clientSecretName: cluster-restore-klio-user
+  serverSecretName: server-sample-tls
+  clusterName: cluster-example
+  tier2: true

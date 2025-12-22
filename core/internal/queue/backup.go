@@ -10,9 +10,6 @@ import (
 type BackupTask struct {
 	// The name of the cluster
 	ClusterName string `json:"clusterName"`
-
-	// The kopia source to be synchronized to tier2
-	Sources []string `json:"sources"`
 }
 
 // NotifyBackupReceived is called to notify the consumers that a new backup

@@ -1626,8 +1626,7 @@ spec:
                     type: integer
                 type: object
               serverAddress:
-                description: ServerAddress is the address of the Klio server in the
-                  format host:port or host
+                description: ServerAddress is the address of the Klio server
                 minLength: 1
                 type: string
               serverSecretName:
@@ -1635,6 +1634,9 @@ spec:
                   the server TLS certificate
                 minLength: 1
                 type: string
+              tier2:
+                description: Tier2 enables backup lookup in tier 2.
+                type: boolean
             required:
             - clientSecretName
             - serverAddress

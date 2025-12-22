@@ -17,6 +17,8 @@ var restoreJobCmd = &cobra.Command{
 	Args:   cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		pluginPath, _ := cmd.Flags().GetString("plugin-path")
+		includeTier2, _ := cmd.Flags().GetBool("include-tier2")
+		debug, _ := cmd.PersistentFlags().GetBool("debug")
 		destination := args[0]
 
 		contextLogger := log.FromContext(cmd.Context())
@@ -26,7 +28,10 @@ var restoreJobCmd = &cobra.Command{
 		)
 		capabilities := func(server *cnpgi.CNPGI) {
 			server.AddRestoreCapability(destination)
-			server.AddWALCapability(true)
+			server.AddWALCapability(cnpgi.WALCapabilityOptions{
+				Debug:        debug,
+				IncludeTier2: includeTier2,
+			})
 		}
 
 		return runCNPGI(cmd.Context(), pluginPath, capabilities)
@@ -39,6 +44,11 @@ func init() {
 		"plugin-path",
 		"/plugins",
 		"The directory where the Unix domain socket should be created",
+	)
+	restoreJobCmd.Flags().Bool(
+		"include-tier2",
+		true,
+		"If enabled, look for backup and WALs in tier2",
 	)
 	CnpgiCmd.AddCommand(restoreJobCmd)
 }

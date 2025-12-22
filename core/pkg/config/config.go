@@ -108,8 +108,11 @@ type ClientConfig struct {
 // WalRepositoryClientConfig is the configuration of the Klio repository
 // where WALs should be uploaded.
 type WalRepositoryClientConfig struct {
-	// Address of the Klio server
+	// Address of the Tier 1 Klio server
 	Address string `json:"address" mapstructure:"address" validate:"nonzero"`
+
+	// Address of the Tier 2 Klio server
+	Tier2Address string `json:"tier2_address" mapstructure:"tier2_address"`
 
 	// ClusterName is the name of the target cluster where to upload WALs
 	ClusterName string `json:"cluster_name" mapstructure:"cluster_name" validate:"nonzero"`
@@ -127,8 +130,11 @@ type WalRepositoryClientConfig struct {
 // BaseRepositoryClientConfig is the configuration of the Kopia repository
 // to be used to upload the data directory.
 type BaseRepositoryClientConfig struct {
-	// URL is the base URL where the Kopia API server should be reached
+	// URL is the base URL where the Tier 1 Kopia API server should be reached
 	URL string `json:"url" mapstructure:"url" validate:"nonzero"`
+
+	// URL is the base URL where the Tier 2 Kopia API server should be reached
+	Tier2URL string `json:"tier2_url" mapstructure:"tier2_url"`
 
 	// ServerCertPath is the path to the server public key
 	ServerCertPath string `json:"server_cert_path" mapstructure:"server_cert_path" validate:"nonzero"`

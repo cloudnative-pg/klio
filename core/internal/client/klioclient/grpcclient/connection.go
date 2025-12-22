@@ -49,7 +49,7 @@ type Connection struct {
 }
 
 // Connect opens a connection to a Klio server.
-func Connect(cfg *config.WalRepositoryClientConfig) (*Connection, error) {
+func Connect(cfg *config.WalRepositoryClientConfig, address string) (*Connection, error) {
 	certPEMBlock, err := os.ReadFile(cfg.ServerCertPath)
 	if err != nil {
 		return nil, fmt.Errorf("while reading the server certificate: %w", err)
@@ -74,7 +74,7 @@ func Connect(cfg *config.WalRepositoryClientConfig) (*Connection, error) {
 	}
 
 	conn, err := grpc.NewClient(
-		cfg.Address,
+		address,
 		grpc.WithTransportCredentials(credentials.NewTLS(tlsConfig)),
 		grpc.WithInitialWindowSize(256*1024),
 		grpc.WithInitialConnWindowSize(256*1024),

@@ -106,13 +106,16 @@ var backupConsumerCmd = &cobra.Command{
 		}
 
 		// Starts the consumer
-		c := consumer.NewBackup(&consumer.BackupOptions{
+		c, err := consumer.NewBackup(&consumer.BackupOptions{
 			Queue:                   queueConnection,
 			Tier1KopiaConfig:        tier1ConfigFile.Name(),
 			Tier2KopiaConfig:        tier2ConfigFile.Name(),
 			CacheDirectory:          configuration.Base.CacheDirectory,
 			Tier1EncryptionPassword: configuration.Base.EncryptionPassword,
 		})
+		if err != nil {
+			return fmt.Errorf("error while creating backup consumer: %w", err)
+		}
 
 		if err := c.Run(cmd.Context()); err != nil {
 			return fmt.Errorf("while consuming messages: %w", err)

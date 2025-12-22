@@ -10,6 +10,8 @@ import (
 
 	"github.com/cloudnative-pg/machinery/pkg/log"
 	"go.uber.org/multierr"
+
+	"github.com/cloudnative-pg/klio/core/internal/client/klioclient"
 )
 
 // DeleteBackup removes the backup with the provided name.
@@ -24,8 +26,8 @@ func (s *Connection) DeleteBackup(ctx context.Context, hostname string, name str
 		"--json",
 		"--password=mtls",
 		"--config-file=" + s.configFile,
-		"--tags=" + backupNameTagName + ":" + name,
-		"--tags=klio.io/content:metadata",
+		"--tags=" + klioclient.BackupNameTagName + ":" + name,
+		"--tags=" + klioclient.BackupContentTagName + ":metadata",
 	}
 
 	var stdout bytes.Buffer
@@ -38,7 +40,7 @@ func (s *Connection) DeleteBackup(ctx context.Context, hostname string, name str
 		return fmt.Errorf("while executing Kopia command: %w", err)
 	}
 
-	var entries []Manifest
+	var entries []klioclient.Manifest
 	if err := json.Unmarshal(stdout.Bytes(), &entries); err != nil {
 		return fmt.Errorf("while unmarshalling kopia command output %q: %w", stdout.String(), err)
 	}
@@ -59,6 +61,7 @@ func (s *Connection) internalDeleteSnapshot(ctx context.Context, id string) erro
 	args := []string{
 		"snapshot",
 		"delete",
+		"--delete",
 		"--config-file=" + s.configFile,
 		"--disable-file-logging",
 		"--json-log-console",

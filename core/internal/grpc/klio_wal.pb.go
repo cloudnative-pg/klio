@@ -794,8 +794,6 @@ type CloseBackupRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// The name of the cluster.
 	ClusterName string `protobuf:"bytes,1,opt,name=cluster_name,json=clusterName,proto3" json:"cluster_name,omitempty"`
-	// The name of the Kopia sources, as in <user-name>@<cluster-name>:<path>.
-	KopiaSourceNames []string `protobuf:"bytes,2,rep,name=kopia_source_names,json=kopiaSourceNames,proto3" json:"kopia_source_names,omitempty"`
 	// The name of the backup.
 	BackupName string `protobuf:"bytes,3,opt,name=backup_name,json=backupName,proto3" json:"backup_name,omitempty"`
 	// The backup timeline
@@ -846,13 +844,6 @@ func (x *CloseBackupRequest) GetClusterName() string {
 		return x.ClusterName
 	}
 	return ""
-}
-
-func (x *CloseBackupRequest) GetKopiaSourceNames() []string {
-	if x != nil {
-		return x.KopiaSourceNames
-	}
-	return nil
 }
 
 func (x *CloseBackupRequest) GetBackupName() string {
@@ -998,10 +989,9 @@ const file_proto_klio_wal_proto_rawDesc = "" +
 	"\fStartWALFile\x12!\n" +
 	"\fklio_version\x18\x01 \x01(\x04R\vklioVersion\x12\x1f\n" +
 	"\vfile_length\x18\x02 \x01(\x04R\n" +
-	"fileLength\"\xfb\x01\n" +
+	"fileLength\"\xcd\x01\n" +
 	"\x12CloseBackupRequest\x12!\n" +
-	"\fcluster_name\x18\x01 \x01(\tR\vclusterName\x12,\n" +
-	"\x12kopia_source_names\x18\x02 \x03(\tR\x10kopiaSourceNames\x12\x1f\n" +
+	"\fcluster_name\x18\x01 \x01(\tR\vclusterName\x12\x1f\n" +
 	"\vbackup_name\x18\x03 \x01(\tR\n" +
 	"backupName\x12\x1a\n" +
 	"\btimeline\x18\x04 \x01(\x05R\btimeline\x12\x1b\n" +

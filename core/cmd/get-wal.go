@@ -12,7 +12,7 @@ import (
 	"gopkg.in/validator.v2"
 
 	"github.com/cloudnative-pg/klio/core/internal/cli"
-	"github.com/cloudnative-pg/klio/core/internal/client/klioclient/common"
+	"github.com/cloudnative-pg/klio/core/internal/client/klioclient"
 	"github.com/cloudnative-pg/klio/core/internal/client/klioclient/grpcclient"
 	"github.com/cloudnative-pg/klio/core/pkg/config"
 )
@@ -56,8 +56,17 @@ var getWalCmd = &cobra.Command{
 		var downloadPartial bool
 
 		downloadPartial, _ = cmd.Flags().GetBool("partial")
+		tier2, _ := cmd.Flags().GetBool("tier2")
 
-		client, err := grpcclient.Connect(&configuration.Client.Wal)
+		address := configuration.Client.Wal.Address
+		if tier2 {
+			address = configuration.Client.Wal.Tier2Address
+		}
+		if address == "" {
+			os.Exit(4)
+		}
+
+		client, err := grpcclient.Connect(&configuration.Client.Wal, address)
 		if err != nil {
 			return fmt.Errorf("while connecting to the Klio server: %w", err)
 		}
@@ -76,7 +85,7 @@ var getWalCmd = &cobra.Command{
 		// is fine.
 		err = client.GetWALStreaming(cmd.Context(), walName, output)
 		switch {
-		case errors.Is(err, common.ErrMissingWALFile):
+		case errors.Is(err, klioclient.ErrMissingWALFile):
 			if path.Ext(walName) != "" || !downloadPartial {
 				contextLogger.Debug("Missing WAL file, exiting with error code 4", "wal_name", walName)
 				os.Exit(4)
@@ -93,15 +102,15 @@ var getWalCmd = &cobra.Command{
 		walName += ".partial"
 		err = client.GetWALStreaming(cmd.Context(), walName, output)
 
-		var incompleteError common.IncompleteTransmissionError
+		var incompleteError klioclient.IncompleteTransmissionError
 		switch {
 		case errors.As(err, &incompleteError):
-			contextLogger.Debug("Incomplete partial WAL file, exiting with error code 1", "wal_name", walName)
-			os.Exit(1)
+			contextLogger.Error(err, "Incomplete partial WAL file, exiting with error code 1", "wal_name", walName)
+			return err
 
-		case errors.Is(err, common.ErrMissingWALFile):
-			contextLogger.Debug("Missing partial WAL file, exiting with error code 1", "wal_name", walName)
-			os.Exit(1)
+		case errors.Is(err, klioclient.ErrMissingWALFile):
+			contextLogger.Debug("Missing partial WAL file, exiting with error code 4", "wal_name", walName)
+			os.Exit(4)
 
 		case err != nil:
 			return fmt.Errorf("unknown error: %w", err)
@@ -119,6 +128,12 @@ func init() {
 		"partial",
 		false,
 		"Use a partial WAL file if a the completed WAL file is not present. Defaults to false",
+	)
+
+	getWalCmd.Flags().Bool(
+		"tier2",
+		false,
+		"Look in tier2 instead of in tier1, if tier2 is available.",
 	)
 
 	// Here you will define your flags and configuration settings.

@@ -46,7 +46,7 @@ var deleteCmd = &cobra.Command{
 			return fmt.Errorf("configuration validation error: %w", errs)
 		}
 
-		client, err := kopia.Connect(
+		client, err := kopia.MultiConnect(
 			cmd.Context(),
 			&configuration.Client.Base,
 		)

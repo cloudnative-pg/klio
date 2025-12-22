@@ -5,17 +5,19 @@ import "fmt"
 // NoBackupFoundError is raised when the requested backup has not been found
 // in the Kopia manifests store.
 type NoBackupFoundError struct {
+	hostName   string
 	backupName string
 }
 
-func newNoBackupFoundError(backupName string) NoBackupFoundError {
+func newNoBackupFoundError(hostName string, backupName string) NoBackupFoundError {
 	return NoBackupFoundError{
+		hostName:   hostName,
 		backupName: backupName,
 	}
 }
 
 func (err NoBackupFoundError) Error() string {
-	return fmt.Sprintf("backup %v not found", err.backupName)
+	return fmt.Sprintf("backup %q for host %q not found", err.backupName, err.hostName)
 }
 
 // NoSnapshotFoundError is raised when the requested snapshot has not been found

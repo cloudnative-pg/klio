@@ -44,7 +44,6 @@ been completed.
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
 | cluster_name | [string](#string) |  | The name of the cluster. |
-| kopia_source_names | [string](#string) | repeated | The name of the Kopia sources, as in &lt;user-name&gt;@&lt;cluster-name&gt;:&lt;path&gt;. |
 | backup_name | [string](#string) |  | The name of the backup. |
 | timeline | [int32](#int32) |  | The backup timeline |
 | start_wal | [string](#string) |  | the first WAL required to restore this backup. |

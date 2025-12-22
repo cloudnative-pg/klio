@@ -145,11 +145,6 @@ worker nodes for Klio pods using Kubernetes taints and tolerations.
 
 ## Tier 2: Secondary Storage (Object Storage)
 
-:::note
-Tier 2 is part of our long-term vision and will be introduced in a future
-release.
-:::
-
 **Tier 2** provides durable, long-term storage for robust disaster recovery
 (DR) strategies. It's physically and logically separate from the primary
 Kubernetes cluster and typically consists of an external object storage system,
@@ -166,6 +161,32 @@ Additionally, Tier 2 can serve as a read-only fallback source. In a distributed
 CloudNativePG topology, this allows a Klio server at a secondary site to use
 the shared Tier 2 storage to bootstrap a new cluster, enhancing DR
 capabilities.
+
+### Restoring from Tier 2
+
+When a backup is requested for restore, Klio will first look for it in Tier 1.
+If the backup is not found in Tier 1, Klio will automatically check Tier 2.
+This fallback mechanism ensures that backups that have been migrated to Tier 2
+are still accessible for restore operations.
+
+To enable Tier 2 restore capabilities, set the `tier2` field to `true` in your
+`PluginConfiguration`:
+
+```yaml
+apiVersion: klio.cnpg.io/v1alpha1
+kind: PluginConfiguration
+metadata:
+  name: client-config-example-restore
+spec:
+  serverAddress: server-sample.default
+  clientSecretName: cluster-restore-klio-user
+  serverSecretName: server-sample-tls
+  clusterName: cluster-example
+  tier2: true
+```
+
+When Tier 2 is enabled and a backup exists in both tiers, Tier 1 takes
+precedence as restore from it will be faster.
 
 ### Read-Only WAL Server Mode (currently unavailable)
 

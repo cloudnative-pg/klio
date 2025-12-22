@@ -1,4 +1,4 @@
-package common
+package klioclient
 
 import (
 	"context"
@@ -14,39 +14,10 @@ import (
 // backupLabelFileName is the file name where the backup label should be stored.
 const backupLabelFileName = "backup_label"
 
-// BackupRestorer is used by a restore executor to download
-// data from the backup store to the local file system.
-type BackupRestorer interface {
-	// ListBackups gets the backup metadata from the backup store given
-	// the backup name.
-	ListBackups(ctx context.Context) (BackupList, error)
-
-	// GetMetadata gets the backup metadata from the backup store given
-	// the backup name.
-	GetMetadata(ctx context.Context, name string) (*BackupMetadata, error)
-
-	// RestoreTablespace restores the passed tablespace in the specified
-	// folder.
-	RestoreTablespace(
-		ctx context.Context,
-		metadata *BackupMetadata,
-		tbl TablespaceLayout,
-		destinationDirectory string,
-	) error
-
-	// RestorePgData restores the passed pgdata in the specified
-	// directory.
-	RestorePgData(ctx context.Context, metadata *BackupMetadata, destinationDirectory string) error
-
-	// RestoreControlData restores the pg control data file into
-	// the passed file name.
-	RestoreControlData(ctx context.Context, metadata *BackupMetadata, destinationPath string) error
-}
-
 // RestoreExecutor guides the execution of a restore process, delegating
 // the download of data to the underlying implementation.
 type RestoreExecutor struct {
-	restorer      BackupRestorer
+	restorer      BackupRestoreSupport
 	configuration RestoreConfiguration
 }
 
@@ -66,7 +37,7 @@ type RestoreConfiguration struct {
 
 // NewRestoreExecutor creates a new restore executor given
 // a certain implementation.
-func NewRestoreExecutor(restorer BackupRestorer, conf RestoreConfiguration) *RestoreExecutor {
+func NewRestoreExecutor(restorer BackupRestoreSupport, conf RestoreConfiguration) *RestoreExecutor {
 	return &RestoreExecutor{
 		restorer:      restorer,
 		configuration: conf,
@@ -74,8 +45,8 @@ func NewRestoreExecutor(restorer BackupRestorer, conf RestoreConfiguration) *Res
 }
 
 // Restore handles the restore process.
-func (r *RestoreExecutor) Restore(ctx context.Context, destinationPath string) error {
-	meta, err := r.restorer.GetMetadata(ctx, r.configuration.Name)
+func (r *RestoreExecutor) Restore(ctx context.Context, hostname string, destinationPath string) error {
+	meta, err := r.restorer.GetMetadata(ctx, hostname, r.configuration.Name)
 	if err != nil {
 		return fmt.Errorf("while getting metadata for backup %s: %w", r.configuration.Name, err)
 	}

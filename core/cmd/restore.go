@@ -12,7 +12,7 @@ import (
 	"gopkg.in/validator.v2"
 
 	"github.com/cloudnative-pg/klio/core/internal/cli"
-	"github.com/cloudnative-pg/klio/core/internal/client/klioclient/common"
+	"github.com/cloudnative-pg/klio/core/internal/client/klioclient"
 	"github.com/cloudnative-pg/klio/core/internal/client/klioclient/kopia"
 	"github.com/cloudnative-pg/klio/core/pkg/config"
 )
@@ -79,21 +79,14 @@ var restoreCmd = &cobra.Command{
 			tablespaces[splitOption[0]] = splitOption[1]
 		}
 
-		client, err := kopia.Connect(cmd.Context(), &configuration.Client.Base)
+		client, err := kopia.MultiConnect(cmd.Context(), &configuration.Client.Base)
 		if err != nil {
 			return fmt.Errorf("while connecting to the Klio server: %w", err)
 		}
 
-		restorer := client.CreateRestorer(
-			kopia.Target{
-				Hostname: client.GetHostname(),
-				Username: client.GetUsername(),
-			},
-		)
-
 		if backupName == "" {
 			contextLogger := contextLogger.WithValues("targetTime", targetTime)
-			backupList, err := restorer.ListBackups(cmd.Context())
+			backupList, err := client.ListBackups(cmd.Context(), client.GetHostname())
 			if err != nil {
 				return fmt.Errorf("while downloading the backup catalog: %w", err)
 			}
@@ -105,7 +98,7 @@ var restoreCmd = &cobra.Command{
 				"userName", client.GetUsername(),
 			)
 
-			var targetBackup *common.BackupMetadata
+			var targetBackup *klioclient.BackupMetadata
 			if !targetTime.IsZero() {
 				targetBackup = backupList.FindClosestBackup(targetTime)
 			} else {
@@ -120,16 +113,16 @@ var restoreCmd = &cobra.Command{
 			}
 		}
 
-		executor := common.NewRestoreExecutor(
-			restorer,
-			common.RestoreConfiguration{
+		executor := klioclient.NewRestoreExecutor(
+			client,
+			klioclient.RestoreConfiguration{
 				Name:                 backupName,
 				PgDataDirectory:      destinationPath,
 				TablespacesDirectory: tablespaces,
 			},
 		)
 
-		return executor.Restore(cmd.Context(), destinationPath)
+		return executor.Restore(cmd.Context(), client.GetHostname(), destinationPath)
 	},
 }
 

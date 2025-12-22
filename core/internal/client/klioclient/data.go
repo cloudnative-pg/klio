@@ -1,6 +1,4 @@
-package common
-
-import "github.com/jackc/pgx/v5"
+package klioclient
 
 // TablespaceLayout is the on-disk structure of a tablespace.
 type TablespaceLayout struct {
@@ -16,23 +14,6 @@ type TablespaceLayout struct {
 	// Annotations is a generic data store where each backend
 	// can annotate its metadata.
 	Annotations map[string]string `json:"annotations"`
-}
-
-// BackupExecutor guides the execution of a PostgreSQL backup, delegating
-// the upload process to the underlying implementation.
-type BackupExecutor struct {
-	name        string
-	clusterName string
-	pgData      string
-	startLSN    uint64
-	tablespaces []TablespaceLayout
-
-	// A connection to the target database
-	Connection *pgx.Conn
-
-	uploader BackupUploader
-
-	startedAt int64
 }
 
 // BackupMetadata is the metadata to be stored with set of backup snapshots.
@@ -82,9 +63,6 @@ type BackupMetadata struct {
 
 	// StoppedAt is the current time when the backup ended.
 	StoppedAt int64 `json:"stoppedAt"`
-
-	// Sources is the list of sources that have been uploaded by this backup.
-	Sources []string `json:"sources"`
 }
 
 // BackupList is a list of backups.

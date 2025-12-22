@@ -10,15 +10,17 @@ import (
 	"strconv"
 
 	"github.com/cloudnative-pg/machinery/pkg/log"
+
+	"github.com/cloudnative-pg/klio/core/internal/client/klioclient"
 )
 
 // SetRetentionPolicy sets the retention policy for backups of this cluster.
-func (s *Connection) SetRetentionPolicy(ctx context.Context, t Target, p RetentionPolicy) error {
+func (s *Connection) SetRetentionPolicy(ctx context.Context, t klioclient.Target, p klioclient.RetentionPolicy) error {
 	return s.internalSetKopiaPolicy(ctx, t, &p)
 }
 
 // GetRetentionPolicy gets the currently applied retention policy for this cluster.
-func (s *Connection) GetRetentionPolicy(ctx context.Context, t Target) (*RetentionPolicy, error) {
+func (s *Connection) GetRetentionPolicy(ctx context.Context, t klioclient.Target) (*klioclient.RetentionPolicy, error) {
 	currentPolicy, err := s.internalGetCurrentKopiaPolicy(ctx, t)
 	if err != nil {
 		return nil, err
@@ -33,11 +35,14 @@ func (s *Connection) GetRetentionPolicy(ctx context.Context, t Target) (*Retenti
 
 // ApplyRetentionPolicy applies the retention policy for this cluster, deleting any
 // snapshots that are no longer needed.
-func (s *Connection) ApplyRetentionPolicy(ctx context.Context, t Target) error {
+func (s *Connection) ApplyRetentionPolicy(ctx context.Context, t klioclient.Target) error {
 	return s.internalApplyKopiaPolicy(ctx, t)
 }
 
-func (s *Connection) internalGetCurrentKopiaPolicy(ctx context.Context, t Target) (*Policy, error) {
+func (s *Connection) internalGetCurrentKopiaPolicy(
+	ctx context.Context,
+	t klioclient.Target,
+) (*klioclient.Policy, error) {
 	contextLogger := log.FromContext(ctx)
 
 	args := []string{
@@ -62,7 +67,7 @@ func (s *Connection) internalGetCurrentKopiaPolicy(ctx context.Context, t Target
 		return nil, fmt.Errorf("error while getting Kopia policy: %w", err)
 	}
 
-	var result Policy
+	var result klioclient.Policy
 	if err := json.NewDecoder(&buffer).Decode(&result); err != nil {
 		return nil, fmt.Errorf("cannot decode JSON backup metadata: %w", err)
 	}
@@ -70,7 +75,11 @@ func (s *Connection) internalGetCurrentKopiaPolicy(ctx context.Context, t Target
 	return &result, nil
 }
 
-func (s *Connection) internalSetKopiaPolicy(ctx context.Context, t Target, policy *RetentionPolicy) error {
+func (s *Connection) internalSetKopiaPolicy(
+	ctx context.Context,
+	t klioclient.Target,
+	policy *klioclient.RetentionPolicy,
+) error {
 	policyToArgument := func(value *int) string {
 		if value == nil {
 			return "none"
@@ -110,7 +119,7 @@ func (s *Connection) internalSetKopiaPolicy(ctx context.Context, t Target, polic
 	return nil
 }
 
-func (s *Connection) internalApplyKopiaPolicy(ctx context.Context, t Target) error {
+func (s *Connection) internalApplyKopiaPolicy(ctx context.Context, t klioclient.Target) error {
 	contextLogger := log.FromContext(ctx)
 
 	args := []string{

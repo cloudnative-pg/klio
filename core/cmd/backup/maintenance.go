@@ -10,6 +10,7 @@ import (
 	"gopkg.in/validator.v2"
 
 	"github.com/cloudnative-pg/klio/core/internal/cli"
+	"github.com/cloudnative-pg/klio/core/internal/client/klioclient"
 	"github.com/cloudnative-pg/klio/core/internal/client/klioclient/grpcclient"
 	"github.com/cloudnative-pg/klio/core/internal/client/klioclient/kopia"
 	"github.com/cloudnative-pg/klio/core/pkg/config"
@@ -51,7 +52,7 @@ var maintenanceCmd = &cobra.Command{
 			return fmt.Errorf("configuration validation error: %w", errs)
 		}
 
-		kopiaClient, err := kopia.Connect(
+		kopiaClient, err := kopia.MultiConnect(
 			cmd.Context(),
 			&configuration.Client.Base,
 		)
@@ -59,7 +60,7 @@ var maintenanceCmd = &cobra.Command{
 			return fmt.Errorf("while connecting to the Klio server: %w %q", err, configuration.Client.Base.URL)
 		}
 
-		target := kopia.Target{
+		target := klioclient.Target{
 			Hostname: kopiaClient.GetHostname(),
 			Username: kopiaClient.GetUsername(),
 		}
@@ -68,15 +69,13 @@ var maintenanceCmd = &cobra.Command{
 			return fmt.Errorf("while applying the retention policy: %w", err)
 		}
 
-		klioClient, err := grpcclient.Connect(&configuration.Client.Wal)
+		klioClient, err := grpcclient.Connect(&configuration.Client.Wal, configuration.Client.Wal.Address)
 		if err != nil {
 			return fmt.Errorf("while connecting to the Klio server: %w", err)
 		}
 
-		restorer := kopiaClient.CreateRestorer(target)
-
 		// Step 1: list in-use backups
-		backups, err := restorer.ListBackups(cmd.Context())
+		backups, err := kopiaClient.ListBackups(cmd.Context(), kopiaClient.GetHostname())
 		if err != nil {
 			return fmt.Errorf("while extracting backups: %w %q", err, configuration.Client.Base.URL)
 		}

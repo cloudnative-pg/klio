@@ -191,6 +191,22 @@ spec:
 This can be useful working with backups from different clusters, for example
 when restoring clusters or configuring replica clusters.
 
+### Tier 2 restore
+
+To enable restore from Tier 2 storage, set the `tier2` field to `true`:
+
+```yaml
+spec:
+  tier2: true
+```
+
+When enabled, Klio will look for backups in both Tier 1 and Tier 2. If a backup
+is available in both tiers, Tier 1 takes precedence as restore from it will be
+faster.
+
+See the [Architecture documentation](./architectures.md#tier-2-secondary-storage-object-storage)
+for more details on Tier 2 storage.
+
 ### Restore configuration
 
 When performing a restore, you can specify which backup to use:

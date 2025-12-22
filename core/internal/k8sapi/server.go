@@ -18,7 +18,7 @@ import (
 	basecompatibility "k8s.io/component-base/compatibility"
 	"k8s.io/component-base/featuregate"
 
-	"github.com/cloudnative-pg/klio/core/internal/client/klioclient/kopia"
+	"github.com/cloudnative-pg/klio/core/internal/client/klioclient"
 	"github.com/cloudnative-pg/klio/core/internal/k8sapi/v1alpha1"
 )
 
@@ -30,7 +30,7 @@ const (
 // Start starts an API server.
 func Start(
 	ctx context.Context,
-	connection *kopia.Connection,
+	connection klioclient.Client,
 	certFile, keyFile string,
 ) error {
 	scheme := runtime.NewScheme()

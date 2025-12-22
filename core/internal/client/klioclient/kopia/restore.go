@@ -10,39 +10,20 @@ import (
 
 	"github.com/cloudnative-pg/machinery/pkg/log"
 
-	"github.com/cloudnative-pg/klio/core/internal/client/klioclient/common"
+	"github.com/cloudnative-pg/klio/core/internal/client/klioclient"
 )
 
-// RestoreImplementation is an implementation of common.BackupRestorer.
-type RestoreImplementation struct {
-	kopiaBinary string
-	hostname    string
-	username    string
-	configFile  string
-}
-
-// CreateRestorer creates a restore executor using the kopia
-// client.
-func (s *Connection) CreateRestorer(t Target) *RestoreImplementation {
-	return &RestoreImplementation{
-		kopiaBinary: s.kopiaBinary,
-		hostname:    t.Hostname,
-		username:    t.Username,
-		configFile:  s.configFile,
-	}
-}
-
 // RestoreTablespace implements the RestoreExecutor interface.
-func (s *RestoreImplementation) RestoreTablespace(
+func (s *Connection) RestoreTablespace(
 	ctx context.Context,
-	metadata *common.BackupMetadata,
-	tbl common.TablespaceLayout,
+	metadata *klioclient.BackupMetadata,
+	tbl klioclient.TablespaceLayout,
 	destinationDirectory string,
 ) error {
 	source, err := s.getSnapshotID(ctx, map[string]string{
-		backupContentTagName:  "tablespace",
-		tablespaceNameTagName: tbl.Name,
-		backupNameTagName:     metadata.Name,
+		klioclient.BackupContentTagName:  "tablespace",
+		klioclient.TablespaceNameTagName: tbl.Name,
+		klioclient.BackupNameTagName:     metadata.Name,
 	})
 	if err != nil {
 		return err
@@ -53,14 +34,14 @@ func (s *RestoreImplementation) RestoreTablespace(
 
 // RestorePgData restores the passed pgdata in the specified
 // directory.
-func (s *RestoreImplementation) RestorePgData(
+func (s *Connection) RestorePgData(
 	ctx context.Context,
-	metadata *common.BackupMetadata,
+	metadata *klioclient.BackupMetadata,
 	destinationDirectory string,
 ) error {
 	source, err := s.getSnapshotID(ctx, map[string]string{
-		backupContentTagName: "pgdata",
-		backupNameTagName:    metadata.Name,
+		klioclient.BackupContentTagName: "pgdata",
+		klioclient.BackupNameTagName:    metadata.Name,
 	})
 	if err != nil {
 		return err
@@ -70,14 +51,14 @@ func (s *RestoreImplementation) RestorePgData(
 }
 
 // RestoreControlData restores the control data from the backup.
-func (s *RestoreImplementation) RestoreControlData(
+func (s *Connection) RestoreControlData(
 	ctx context.Context,
-	metadata *common.BackupMetadata,
+	metadata *klioclient.BackupMetadata,
 	destinationPath string,
 ) error {
 	source, err := s.getSnapshotID(ctx, map[string]string{
-		backupContentTagName: "controldata",
-		backupNameTagName:    metadata.Name,
+		klioclient.BackupContentTagName: "controldata",
+		klioclient.BackupNameTagName:    metadata.Name,
 	})
 	if err != nil {
 		return err
@@ -86,8 +67,8 @@ func (s *RestoreImplementation) RestoreControlData(
 	return s.restoreSnapshot(ctx, source, destinationPath)
 }
 
-// GetMetadata implements the RestoreExecutor interface.
-func (s *RestoreImplementation) getSnapshotID(
+// getSnapshotID implements the RestoreExecutor interface.
+func (s *Connection) getSnapshotID(
 	ctx context.Context,
 	tags map[string]string,
 ) (string, error) {
@@ -117,23 +98,23 @@ func (s *RestoreImplementation) getSnapshotID(
 		return "", fmt.Errorf("while executing Kopia command: %w", err)
 	}
 
-	var entries []Manifest
+	var entries []klioclient.Manifest
 	if err := json.Unmarshal(stdout.Bytes(), &entries); err != nil {
 		return "", fmt.Errorf("while unmarshalling kopia command output %q: %w", stdout.String(), err)
 	}
 
 	for _, entry := range entries {
-		if s.hostname != "" && entry.Source.Host == s.hostname {
+		if s.GetHostname() != "" && entry.Source.Host == s.GetHostname() {
 			return entry.ID, nil
 		}
 	}
 
-	return "", newNoSnapshotFound(s.hostname, tags)
+	return "", newNoSnapshotFound(s.GetHostname(), tags)
 }
 
 // RestorePgData restores the passed pgdata in the specified
 // directory.
-func (s *RestoreImplementation) restoreSnapshot(
+func (s *Connection) restoreSnapshot(
 	ctx context.Context,
 	snapshotID string,
 	destinationDirectory string,

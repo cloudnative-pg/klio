@@ -13,7 +13,7 @@ import (
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/metric"
 
-	"github.com/cloudnative-pg/klio/core/internal/client/klioclient/kopia"
+	"github.com/cloudnative-pg/klio/core/internal/client/klioclient"
 	"github.com/cloudnative-pg/klio/core/internal/opentelemetry"
 )
 
@@ -173,7 +173,7 @@ func (c *SnapshotMetricsCollector) collectMetrics(ctx context.Context) {
 }
 
 // getSnapshots executes kopia snapshot list --all --json and parses the output.
-func (c *SnapshotMetricsCollector) getSnapshots(ctx context.Context) ([]kopia.Manifest, error) {
+func (c *SnapshotMetricsCollector) getSnapshots(ctx context.Context) ([]klioclient.Manifest, error) {
 	contextLogger := log.FromContext(ctx)
 
 	kopiaBinary, err := exec.LookPath(kopiaCommand)
@@ -210,7 +210,7 @@ func (c *SnapshotMetricsCollector) getSnapshots(ctx context.Context) ([]kopia.Ma
 		)
 	}
 
-	var snapshots []kopia.Manifest
+	var snapshots []klioclient.Manifest
 	if err := json.Unmarshal(outputBuffer.Bytes(), &snapshots); err != nil {
 		return nil, fmt.Errorf("failed to parse kopia snapshot JSON: %w", err)
 	}
@@ -227,7 +227,7 @@ type snapshotStats struct {
 	latestSnapshotDirCount   int64
 }
 
-func (s *snapshotStats) update(age float64, ds *kopia.DirectorySummary) {
+func (s *snapshotStats) update(age float64, ds *klioclient.DirectorySummary) {
 	defer func() {
 		s.snapshotCount++
 	}()
@@ -254,10 +254,10 @@ func (s *snapshotStats) update(age float64, ds *kopia.DirectorySummary) {
 }
 
 // updateMetrics updates OpenTelemetry metrics based on snapshot data.
-func (c *SnapshotMetricsCollector) updateMetrics(ctx context.Context, snapshots []kopia.Manifest) {
+func (c *SnapshotMetricsCollector) updateMetrics(ctx context.Context, snapshots []klioclient.Manifest) {
 	now := time.Now()
 
-	stats := make(map[kopia.SourceInfo]snapshotStats)
+	stats := make(map[klioclient.SourceInfo]snapshotStats)
 	for _, s := range snapshots {
 		snapshotLogger := log.FromContext(ctx).WithValues("snapshotID", s.ID, "source", s.Source)
 		snapshotLogger.Debug("Processing snapshot")

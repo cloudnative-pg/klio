@@ -8,95 +8,35 @@ import (
 	"os"
 	"os/exec"
 	"path"
-	"path/filepath"
 	"strings"
 
 	"github.com/cloudnative-pg/machinery/pkg/log"
 
-	"github.com/cloudnative-pg/klio/core/internal/client/klioclient/common"
+	"github.com/cloudnative-pg/klio/core/internal/client/klioclient"
 )
 
-// kopiaCommand is the name of the kopia executable to be used.
-const kopiaCommand = "kopia"
-
-// backupNameTagName is the name of the tag containing the backup
-// name.
-const backupNameTagName = "klio.io/tag"
-
-// backupContentTagName is the name of the tag containing the
-// snapshot content.
-const backupContentTagName = "klio.io/content"
-
-// tablespaceNameTagName is the name of the tag containing the
-// name of the tablespace.
-const tablespaceNameTagName = "klio.io/tablespaceName"
-
-// BackupUploader is the implementation based on a Kopia client
-// of the common.BackupUploader interface.
-type BackupUploader struct {
-	hostname string
-	username string
-
-	configFile  string
-	kopiaBinary string
-
-	tablespaces []common.TablespaceLayout
-
-	sources []string
-}
-
-// Target is used to point a Kopia transaction to the set of snapshots
-// having the specified Hostname and Username.
-type Target struct {
-	// Hostname is the hostname of the snapshot, as in the
-	// <username>@<hostname> snapshot indicator.
-	Hostname string
-
-	// Username is the name of the user that took the snapshot, as in the
-	// <username>@<hostname> snapshot indicator.
-	Username string
-}
-
-// String formats this target as the string that the Kopia CLI
-// would expect.
-func (t Target) String() string {
-	return fmt.Sprintf("%s@%s", t.Username, t.Hostname)
-}
-
-// NewUploaderFor creates a new backup executor.
-func (s *Connection) NewUploaderFor(t Target) *BackupUploader {
-	return &BackupUploader{
-		hostname:    t.Hostname,
-		username:    t.Username,
-		configFile:  s.configFile,
-		kopiaBinary: s.kopiaBinary,
-	}
-}
-
 // UploadTablespace implements common.BackupUploader.
-func (impl *BackupUploader) UploadTablespace(
+func (s *Connection) UploadTablespace(
 	ctx context.Context,
 	backupName string,
-	tbl common.TablespaceLayout,
+	tbl klioclient.TablespaceLayout,
 ) error {
 	tags := map[string]string{
-		backupContentTagName:  "tablespace",
-		tablespaceNameTagName: path.Base(tbl.Name),
-		backupNameTagName:     backupName,
+		klioclient.BackupContentTagName:  "tablespace",
+		klioclient.TablespaceNameTagName: path.Base(tbl.Name),
+		klioclient.BackupNameTagName:     backupName,
 	}
 
-	err := impl.uploadPath(ctx, tbl.Path, tags, fmt.Sprintf("tablespace %s (%v)", tbl.Name, tbl.Oid))
+	err := s.uploadPath(ctx, tbl.Path, tags, fmt.Sprintf("tablespace %s (%v)", tbl.Name, tbl.Oid))
 	if err != nil {
 		return err
 	}
-
-	impl.tablespaces = append(impl.tablespaces, tbl)
 
 	return nil
 }
 
 // UploadPgData implements common.BackupUploader.
-func (impl *BackupUploader) UploadPgData(ctx context.Context, backupName, pgData string) error {
+func (s *Connection) UploadPgData(ctx context.Context, backupName, pgData string) error {
 	contextLogger := log.FromContext(ctx)
 
 	// Step 1: add a .kopiaignore file to avoid backing up
@@ -112,11 +52,11 @@ func (impl *BackupUploader) UploadPgData(ctx context.Context, backupName, pgData
 
 	// Step 2: upload PGDATA to the target Kopia server
 	tags := map[string]string{
-		backupContentTagName: "pgdata",
-		backupNameTagName:    backupName,
+		klioclient.BackupContentTagName: "pgdata",
+		klioclient.BackupNameTagName:    backupName,
 	}
 
-	err := impl.uploadPath(ctx, pgData, tags, "pgdata")
+	err := s.uploadPath(ctx, pgData, tags, "pgdata")
 	if err != nil {
 		return err
 	}
@@ -130,30 +70,29 @@ func (impl *BackupUploader) UploadPgData(ctx context.Context, backupName, pgData
 }
 
 // UploadControlFile implements common.BackupUploader.
-func (impl *BackupUploader) UploadControlFile(ctx context.Context, backupName, controlDataFileName string) error {
+func (s *Connection) UploadControlFile(ctx context.Context, backupName, controlDataFileName string) error {
 	tags := map[string]string{
-		backupNameTagName:    backupName,
-		backupContentTagName: "controldata",
+		klioclient.BackupNameTagName:    backupName,
+		klioclient.BackupContentTagName: "controldata",
 	}
 
-	return impl.uploadPath(ctx, controlDataFileName, tags, "control data file")
+	return s.uploadPath(ctx, controlDataFileName, tags, "control data file")
 }
 
 // UploadBackupMetadata implements common.BackupUploader.
-func (impl *BackupUploader) UploadBackupMetadata(
+func (s *Connection) UploadBackupMetadata(
 	ctx context.Context,
 	backupName string,
-	data *common.BackupMetadata,
+	data *klioclient.BackupMetadata,
 ) error {
-	data.Tablespaces = impl.tablespaces
 	metadataContent, err := json.Marshal(data)
 	if err != nil {
 		return fmt.Errorf("while marshalling metadata: %w", err)
 	}
 
 	tags := map[string]string{
-		backupNameTagName:    backupName,
-		backupContentTagName: "metadata",
+		klioclient.BackupNameTagName:    backupName,
+		klioclient.BackupContentTagName: "metadata",
 	}
 
 	fakeMetadataDirectory := strings.TrimSuffix(data.PgData, "/") + "_meta"
@@ -164,15 +103,10 @@ func (impl *BackupUploader) UploadBackupMetadata(
 		directoryName: fakeMetadataDirectory,
 	}
 
-	return impl.uploadFile(ctx, content, tags, "metadata for "+backupName)
+	return s.uploadFile(ctx, content, tags, "metadata for "+backupName)
 }
 
-// Sources implements the backup uploader interface.
-func (impl *BackupUploader) Sources() []string {
-	return impl.sources
-}
-
-func (impl *BackupUploader) uploadPath(
+func (s *Connection) uploadPath(
 	ctx context.Context,
 	filePath string,
 	tags map[string]string,
@@ -186,7 +120,7 @@ func (impl *BackupUploader) uploadPath(
 		"--disable-file-logging",
 		"--json-log-console",
 		"--password=mtls",
-		"--config-file=" + impl.configFile,
+		"--config-file=" + s.configFile,
 	}
 
 	for k, v := range tags {
@@ -199,7 +133,7 @@ func (impl *BackupUploader) uploadPath(
 
 	args = append(args, filePath)
 
-	snapshotCreateCommand := exec.CommandContext(ctx, impl.kopiaBinary, args...) //nolint:gosec
+	snapshotCreateCommand := exec.CommandContext(ctx, s.kopiaBinary, args...) //nolint:gosec
 	snapshotCreateCommand.Stdout = os.Stdout
 	snapshotCreateCommand.Stderr = os.Stderr
 
@@ -207,10 +141,6 @@ func (impl *BackupUploader) uploadPath(
 	if err := snapshotCreateCommand.Run(); err != nil {
 		return fmt.Errorf("while executing Kopia command: %w", err)
 	}
-
-	impl.sources = append(
-		impl.sources,
-		fmt.Sprintf("%v@%v:%v", impl.username, impl.hostname, filepath.Clean(filePath)))
 
 	return nil
 }
@@ -221,7 +151,7 @@ type uploadFile struct {
 	content       []byte
 }
 
-func (impl *BackupUploader) uploadFile(
+func (s *Connection) uploadFile(
 	ctx context.Context,
 	content uploadFile,
 	tags map[string]string,
@@ -235,7 +165,7 @@ func (impl *BackupUploader) uploadFile(
 		"--disable-file-logging",
 		"--json-log-console",
 		"--password=mtls",
-		"--config-file=" + impl.configFile,
+		"--config-file=" + s.configFile,
 		"--stdin-file=" + content.fileName,
 		content.directoryName,
 	}
@@ -250,7 +180,7 @@ func (impl *BackupUploader) uploadFile(
 
 	buffer := bytes.NewBuffer(content.content)
 
-	snapshotCreateCommand := exec.CommandContext(ctx, impl.kopiaBinary, args...) //nolint:gosec
+	snapshotCreateCommand := exec.CommandContext(ctx, s.kopiaBinary, args...) //nolint:gosec
 	snapshotCreateCommand.Stdin = buffer
 	snapshotCreateCommand.Stdout = os.Stdout
 	snapshotCreateCommand.Stderr = os.Stderr
@@ -259,10 +189,6 @@ func (impl *BackupUploader) uploadFile(
 	if err := snapshotCreateCommand.Run(); err != nil {
 		return fmt.Errorf("while executing Kopia command: %w", err)
 	}
-
-	impl.sources = append(
-		impl.sources,
-		fmt.Sprintf("%v@%v:%v", impl.username, impl.hostname, filepath.Clean(content.directoryName)))
 
 	return nil
 }
