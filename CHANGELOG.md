@@ -1,5 +1,34 @@
 # Changelog
 
+## [0.0.10](https://github.com/EnterpriseDB/klio/compare/v0.0.9...v0.0.10) (2025-12-24)
+
+
+### ⚠ BREAKING CHANGES
+
+* Removed spec.queueConfiguration.image from Server resource. The nats binary is now included in the Klio image.
+
+### Features
+
+* Implement tier2 storage support with backup and WAL synchronization ([#412](https://github.com/EnterpriseDB/klio/issues/412)) ([ada0e34](https://github.com/cloudnative-pg/klio/commit/ada0e34fc0396ca0e260622499d4e0b3ed9c7ea9))
+* Remove nats image key from Klio server api ([#510](https://github.com/EnterpriseDB/klio/issues/510)) ([6a2de67](https://github.com/cloudnative-pg/klio/commit/6a2de6767090918428038dd377908db3af3e31bf))
+* **tier2:** Restore ([#503](https://github.com/EnterpriseDB/klio/issues/503)) ([5aba140](https://github.com/cloudnative-pg/klio/commit/5aba1405eb390e82b127b185dc90ba12d89aa7bd))
+
+
+### Bug Fixes
+
+* Avoid using snapshot IDs in backup metadata ([#492](https://github.com/EnterpriseDB/klio/issues/492)) ([4e3d07d](https://github.com/cloudnative-pg/klio/commit/4e3d07d1a3ab902d14efa696efd06160295716b4))
+* Clean up cache when initializing a new Kopia repository ([#483](https://github.com/EnterpriseDB/klio/issues/483)) ([cd55559](https://github.com/cloudnative-pg/klio/commit/cd5555941f074a85fb5b333a02330f69822bee79))
+* **deps:** Update all non-major go dependencies ([#391](https://github.com/EnterpriseDB/klio/issues/391)) ([6560aa6](https://github.com/cloudnative-pg/klio/commit/6560aa6b58259c55f8bce78d3f6eb2c4874e661e))
+* **deps:** Update all non-major go dependencies ([#524](https://github.com/EnterpriseDB/klio/issues/524)) ([ee22c03](https://github.com/cloudnative-pg/klio/commit/ee22c030176ba3341d9cc626c1bff4db753b43f2))
+* **deps:** Update k8s.io/utils digest to 718f0e5 ([#532](https://github.com/EnterpriseDB/klio/issues/532)) ([8968b6a](https://github.com/cloudnative-pg/klio/commit/8968b6ac29338717050baf95769b05357a984cef))
+* **deps:** Update k8s.io/utils digest to 9d40a56 ([#527](https://github.com/EnterpriseDB/klio/issues/527)) ([90e12b7](https://github.com/cloudnative-pg/klio/commit/90e12b74f3774628bc169a8fdbbb58ec59ba7b8c))
+* **deps:** Update kubernetes packages to v0.34.3 ([#509](https://github.com/EnterpriseDB/klio/issues/509)) ([a32f810](https://github.com/cloudnative-pg/klio/commit/a32f8105461b089932b511f7509fe872c4429509))
+* **deps:** Update kubernetes packages to v0.35.0 ([#535](https://github.com/EnterpriseDB/klio/issues/535)) ([4597160](https://github.com/cloudnative-pg/klio/commit/4597160e2e93d624accb1aa22267935628829f9a))
+* **deps:** Update module github.com/cloudnative-pg/api to v1.28.0 ([#520](https://github.com/EnterpriseDB/klio/issues/520)) ([83eb2c9](https://github.com/cloudnative-pg/klio/commit/83eb2c9459d23b25d21623552fdf49f0d30f55d8))
+* **deps:** Update module google.golang.org/grpc to v1.78.0 ([#536](https://github.com/EnterpriseDB/klio/issues/536)) ([8a9cc92](https://github.com/cloudnative-pg/klio/commit/8a9cc9213799d8a569d66172189da202c4a44aca))
+* Make QueueConfiguration optional ([#493](https://github.com/EnterpriseDB/klio/issues/493)) ([f755a61](https://github.com/cloudnative-pg/klio/commit/f755a6138adc4a2f3e3f55dd4ccad8a705770884))
+* Returning an error if closeMarkDone errors ([#482](https://github.com/EnterpriseDB/klio/issues/482)) ([06e3bf5](https://github.com/cloudnative-pg/klio/commit/06e3bf5489af73e80dd13c48c85b27afd50c7029))
+
 ## [0.0.9](https://github.com/EnterpriseDB/klio/compare/v0.0.8...v0.0.9) (2025-11-28)
 
 

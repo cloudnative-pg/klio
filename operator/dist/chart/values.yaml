@@ -25,14 +25,14 @@ controllerManager:
       # -- The image to use for the controller manager container.
       repository: ghcr.io/enterprisedb/klio-operator
       # -- The tag to use for the controller manager container image.
-      tag: v0.0.9 # x-release-please-version
+      tag: v0.0.10 # x-release-please-version
       # -- The controller manager container imagePullPolicy.
       pullPolicy: Always
       # -- The list of imagePullSecrets.
       pullSecrets: []
     # -- The environment variables to set in the controller manager container.
     env: {
-      SIDECAR_IMAGE: "ghcr.io/enterprisedb/klio:v0.0.9" # x-release-please-version
+      SIDECAR_IMAGE: "ghcr.io/enterprisedb/klio:v0.0.10" # x-release-please-version
     }
     # -- Liveness probe configuration.
     livenessProbe:
