@@ -50,6 +50,7 @@ rules:
 - apiGroups:
   - klio.cnpg.io
   resources:
+  - recoverysources
   - servers
   verbs:
   - create
@@ -62,16 +63,17 @@ rules:
 - apiGroups:
   - klio.cnpg.io
   resources:
-  - servers/finalizers
-  verbs:
-  - update
-- apiGroups:
-  - klio.cnpg.io
-  resources:
+  - recoverysources/status
   - servers/status
   verbs:
   - get
   - patch
+  - update
+- apiGroups:
+  - klio.cnpg.io
+  resources:
+  - servers/finalizers
+  verbs:
   - update
 ---
 apiVersion: rbac.authorization.k8s.io/v1

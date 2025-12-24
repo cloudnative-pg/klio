@@ -1,0 +1,115 @@
+---
+apiVersion: klio.cnpg.io/v1alpha1
+kind: RecoverySource
+metadata:
+  name: rs-sample
+  annotations:
+    klio.cnpg.io/pprof: "true"
+spec:
+  storage:
+    cache:
+      pvcTemplate:
+        resources:
+          requests:
+            storage: 1Gi
+        accessModes:
+        - ReadWriteOnce
+
+  tlsSecretName: rs-sample-tls
+  caSecretName: rs-sample-ca
+
+  tier2:
+    encryptionPassword:
+      name: rs-sample-encryption
+      key: password
+    s3:
+      prefix: klio
+      bucketName: klio-bucket
+      endpoint: https://minio:9000
+      region: us-east-1
+      accessKeyId:
+        name: minio
+        key: ACCESS_KEY_ID
+      secretAccessKey:
+        name: minio
+        key: ACCESS_SECRET_KEY
+      customCaBundle:
+        name: minio-server-tls
+        key: tls.crt
+      
+  image: registry.dev:5000/klio-testing:dev
+  imagePullPolicy: Always
+---
+apiVersion: v1
+data:
+  password: cGlwcG9waXBwbw==
+  username: a29waWE=
+kind: Secret
+metadata:
+  name: rs-sample-adm
+---
+apiVersion: v1
+data:
+  password: dGhpc3Bhc3N3b3Jk
+kind: Secret
+metadata:
+  name: rs-sample-encryption
+---
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  name: selfsigned-issuer
+spec:
+  selfSigned: {}
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: rs-sample-tls
+spec:
+  secretName: rs-sample-tls
+  commonName: rs-sample
+  dnsNames:
+    - rs-sample
+    - rs-sample.default
+    - rs-sample.default.svc
+
+  duration: 2160h # 90d
+  renewBefore: 360h # 15d
+
+  isCA: false
+  usages:
+    - server auth
+
+  issuerRef:
+    name: selfsigned-issuer
+    kind: Issuer
+    group: cert-manager.io
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: rs-sample-ca
+spec:
+  commonName: rs-sample
+  secretName: rs-sample-ca
+
+  duration: 2160h # 90d
+  renewBefore: 360h # 15d
+
+  isCA: true
+  usages:
+    - cert sign
+
+  issuerRef:
+    name: selfsigned-issuer
+    kind: Issuer
+    group: cert-manager.io
+---
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  name: rs-sample-ca
+spec:
+  ca:
+    secretName: rs-sample-ca

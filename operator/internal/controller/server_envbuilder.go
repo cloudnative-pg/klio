@@ -11,11 +11,25 @@ import (
 
 type envBuilder struct {
 	builtEnvs []corev1.EnvVar
-	server    *kliov1alpha1.Server
+
+	// TODO(leonardoce): replace this with the structure
+	// representing the tier1 configuration
+	tier1 *kliov1alpha1.ServerSpec
+	tier2 *kliov1alpha1.Tier2Configuration
 }
 
-func newEnvBuilder(server *kliov1alpha1.Server) *envBuilder {
-	return &envBuilder{server: server}
+func newServerEnvBuilder(server *kliov1alpha1.Server) *envBuilder {
+	return &envBuilder{
+		tier1: &server.Spec,
+		tier2: server.Spec.Tier2,
+	}
+}
+
+func newRecoverySourceEnvBuilder(recoverySource *kliov1alpha1.RecoverySource) *envBuilder {
+	return &envBuilder{
+		tier1: nil,
+		tier2: &recoverySource.Spec.Tier2,
+	}
 }
 
 func (e *envBuilder) build() []corev1.EnvVar {
@@ -95,22 +109,10 @@ func (e *envBuilder) getKubernetesDownwardAPIEnvVars() []corev1.EnvVar {
 }
 
 func (e *envBuilder) getCoreEnvVars() []corev1.EnvVar {
-	if e.server == nil {
-		return nil
-	}
-
 	basePath := path.Join(kopiaDataMountPath, "base")
 	walPath := path.Join(kopiaDataMountPath, "wal")
 
-	return []corev1.EnvVar{
-		{
-			Name:  "TIER1_BASE_CACHE",
-			Value: kopiaCacheMountPath,
-		},
-		{
-			Name:  "TIER1_BASE_REPOSITORY",
-			Value: basePath,
-		},
+	result := []corev1.EnvVar{
 		{
 			Name:  "TLS_CERT",
 			Value: "/certs/tls.crt",
@@ -123,34 +125,46 @@ func (e *envBuilder) getCoreEnvVars() []corev1.EnvVar {
 			Name:  "TLS_CLIENT_CA_CERT",
 			Value: "/client-ca/tls.crt",
 		},
-		{
-			Name:  "TIER1_BASE_LISTEN_ADDRESS",
-			Value: "0.0.0.0:51515",
-		},
-		{
-			Name:  "TIER1_WAL_LISTEN_ADDRESS",
-			Value: "0.0.0.0:52000",
-		},
-		{
-			Name:  "TIER1_WAL_PATH",
-			Value: walPath,
-		},
-		{
-			Name:      "TIER1_ENCRYPTION_PASSWORD",
-			ValueFrom: secretKeySelectorToEnvVarSource(e.server.Spec.Password),
-		},
 	}
+
+	if e.tier1 != nil {
+		tier1Envs := []corev1.EnvVar{
+			{
+				Name:  "TIER1_BASE_CACHE",
+				Value: kopiaCacheMountPath,
+			},
+			{
+				Name:  "TIER1_BASE_REPOSITORY",
+				Value: basePath,
+			},
+			{
+				Name:  "TIER1_BASE_LISTEN_ADDRESS",
+				Value: "0.0.0.0:51515",
+			},
+			{
+				Name:  "TIER1_WAL_LISTEN_ADDRESS",
+				Value: "0.0.0.0:52000",
+			},
+			{
+				Name:  "TIER1_WAL_PATH",
+				Value: walPath,
+			},
+			{
+				Name:      "TIER1_ENCRYPTION_PASSWORD",
+				ValueFrom: secretKeySelectorToEnvVarSource(e.tier1.Password),
+			},
+		}
+		result = append(result, tier1Envs...)
+	}
+
+	return result
 }
 
 func (e *envBuilder) getTier2EnvVars() []corev1.EnvVar {
-	if e.server == nil {
+	if e.tier2 == nil {
 		return nil
 	}
-
-	if e.server.Spec.Tier2 == nil {
-		return nil
-	}
-	if e.server.Spec.Tier2.S3 == nil {
+	if e.tier2.S3 == nil {
 		return nil
 	}
 
@@ -161,23 +175,23 @@ func (e *envBuilder) getTier2EnvVars() []corev1.EnvVar {
 		},
 		{
 			Name:  "TIER2_S3_BUCKET_NAME",
-			Value: e.server.Spec.Tier2.S3.BucketName,
+			Value: e.tier2.S3.BucketName,
 		},
 		{
 			Name:  "TIER2_S3_ENDPOINT",
-			Value: e.server.Spec.Tier2.S3.Endpoint,
+			Value: e.tier2.S3.Endpoint,
 		},
 		{
 			Name:  "TIER2_S3_PREFIX",
-			Value: e.server.Spec.Tier2.S3.Prefix,
+			Value: e.tier2.S3.Prefix,
 		},
 		{
 			Name:      "TIER2_ENCRYPTION_PASSWORD",
-			ValueFrom: secretKeySelectorToEnvVarSource(e.server.Spec.Tier2.EncryptionPassword),
+			ValueFrom: secretKeySelectorToEnvVarSource(e.tier2.EncryptionPassword),
 		},
 		{
 			Name:  "TIER2_S3_REGION",
-			Value: e.server.Spec.Tier2.S3.Region,
+			Value: e.tier2.S3.Region,
 		},
 		{
 			Name:  "TIER2_CACHE",
@@ -191,31 +205,34 @@ func (e *envBuilder) getTier2EnvVars() []corev1.EnvVar {
 			Name:  "TIER2_WAL_LISTEN_ADDRESS",
 			Value: "0.0.0.0:52001",
 		},
-		{
-			Name:  "TIER1_WAL_NATS_ADDRESS",
-			Value: "127.0.0.1:4222",
-		},
 	}
 
-	if e.server.Spec.Tier2.S3.AccessKeyID != nil {
+	if e.tier1 != nil {
+		result = append(result, corev1.EnvVar{
+			Name:  "TIER1_WAL_NATS_ADDRESS",
+			Value: "127.0.0.1:4222",
+		})
+	}
+
+	if e.tier2.S3.AccessKeyID != nil {
 		result = append(result, corev1.EnvVar{
 			Name:      "TIER2_S3_ACCESS_KEY_ID",
-			ValueFrom: secretKeySelectorToEnvVarSource(e.server.Spec.Tier2.S3.AccessKeyID),
+			ValueFrom: secretKeySelectorToEnvVarSource(e.tier2.S3.AccessKeyID),
 		})
 	}
-	if e.server.Spec.Tier2.S3.SecretAccessKey != nil {
+	if e.tier2.S3.SecretAccessKey != nil {
 		result = append(result, corev1.EnvVar{
 			Name:      "TIER2_S3_SECRET_ACCESS_KEY",
-			ValueFrom: secretKeySelectorToEnvVarSource(e.server.Spec.Tier2.S3.SecretAccessKey),
+			ValueFrom: secretKeySelectorToEnvVarSource(e.tier2.S3.SecretAccessKey),
 		})
 	}
-	if e.server.Spec.Tier2.S3.SessionToken != nil {
+	if e.tier2.S3.SessionToken != nil {
 		result = append(result, corev1.EnvVar{
 			Name:      "TIER2_S3_SESSION_TOKEN",
-			ValueFrom: secretKeySelectorToEnvVarSource(e.server.Spec.Tier2.S3.SessionToken),
+			ValueFrom: secretKeySelectorToEnvVarSource(e.tier2.S3.SessionToken),
 		})
 	}
-	if e.server.Spec.Tier2.S3.CustomCABundle != nil {
+	if e.tier2.S3.CustomCABundle != nil {
 		result = append(result, corev1.EnvVar{
 			Name:  "TIER2_S3_CUSTOM_CA_BUNDLE_FILE",
 			Value: "/tier2/custom_ca_bundle.pem",

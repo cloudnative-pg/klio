@@ -29,7 +29,7 @@ _Appears in:_
 | `kind` _string_ | `KlioBackup` | True | | |
 | `metadata` _[ObjectMeta](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#objectmeta-v1-meta)_ | Refer to Kubernetes API documentation for fields of `metadata`. | True |  |  |
 | `spec` _[KlioBackupSpec](#kliobackupspec)_ |  | True |  |  |
-| `status` _[KlioBackupStatus](#kliobackupstatus)_ |  |  |  |  |
+| `status` _[KlioBackupStatus](#kliobackupstatus)_ |  |  |  | Optional: \{\} <br /> |
 
 
 #### KlioBackupList

@@ -4,6 +4,7 @@
 resources:
 - bases/klio.cnpg.io_servers.yaml
 - bases/klio.cnpg.io_pluginconfigurations.yaml
+- bases/klio.cnpg.io_recoverysources.yaml
 # +kubebuilder:scaffold:crdkustomizeresource
 
 patches:

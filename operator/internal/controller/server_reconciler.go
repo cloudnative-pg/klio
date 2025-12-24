@@ -120,7 +120,7 @@ func (r *ServerReconciler) reconcileStatefulSet(ctx context.Context, server *kli
 							Image:           server.Spec.Image,
 							ImagePullPolicy: server.Spec.ImagePullPolicy,
 							VolumeMounts:    volumeMounts,
-							Env:             newEnvBuilder(server).addCommonEnvs().addInitEnvs().build(),
+							Env:             newServerEnvBuilder(server).addCommonEnvs().addInitEnvs().build(),
 						},
 					},
 					Containers: []corev1.Container{
@@ -136,7 +136,7 @@ func (r *ServerReconciler) reconcileStatefulSet(ctx context.Context, server *kli
 							Ports: []corev1.ContainerPort{
 								{Name: "base", ContainerPort: 51515, Protocol: corev1.ProtocolTCP},
 							},
-							Env: newEnvBuilder(server).addCommonEnvs().addBaseEnvs().build(),
+							Env: newServerEnvBuilder(server).addCommonEnvs().addBaseEnvs().build(),
 						},
 						{
 							Name: "wal",
@@ -149,7 +149,7 @@ func (r *ServerReconciler) reconcileStatefulSet(ctx context.Context, server *kli
 							Ports: []corev1.ContainerPort{
 								{Name: "wal", ContainerPort: 52000, Protocol: corev1.ProtocolTCP},
 							},
-							Env:          newEnvBuilder(server).addCommonEnvs().addWalEnvs().build(),
+							Env:          newServerEnvBuilder(server).addCommonEnvs().addWalEnvs().build(),
 							VolumeMounts: volumeMounts,
 						},
 					},
@@ -213,10 +213,7 @@ func (r *ServerReconciler) reconcileStatefulSet(ctx context.Context, server *kli
 	}
 	op, err := ctrl.CreateOrUpdate(ctx, r.Client, statefulset, func() error {
 		if !statefulset.CreationTimestamp.IsZero() && !metav1.IsControlledBy(statefulset, server) {
-			return &statefulSetNotOwnedByServerError{
-				ServerName:      server.Name,
-				ServerNamespace: server.Namespace,
-			}
+			return newIncorrectOwnershipError(statefulset, server)
 		}
 
 		if statefulset.Annotations["klio.cnpg.io/klio-server-hash"] == hash {
@@ -318,7 +315,7 @@ func injectTier2Containers(
 			},
 			Image:           server.Spec.Image,
 			ImagePullPolicy: server.Spec.ImagePullPolicy,
-			Env:             newEnvBuilder(server).addCommonEnvs().addTier2InitEnvs().build(),
+			Env:             newServerEnvBuilder(server).addCommonEnvs().addTier2InitEnvs().build(),
 			VolumeMounts:    volumeMounts,
 		},
 	)
@@ -333,7 +330,7 @@ func injectTier2Containers(
 			},
 			Image:           server.Spec.Image,
 			ImagePullPolicy: server.Spec.ImagePullPolicy,
-			Env:             newEnvBuilder(server).addCommonEnvs().addTier2WalConsumerEnvs().build(),
+			Env:             newServerEnvBuilder(server).addCommonEnvs().addTier2WalConsumerEnvs().build(),
 			VolumeMounts:    volumeMounts,
 		},
 	)
@@ -348,7 +345,7 @@ func injectTier2Containers(
 			},
 			Image:           server.Spec.Image,
 			ImagePullPolicy: server.Spec.ImagePullPolicy,
-			Env:             newEnvBuilder(server).addCommonEnvs().addTier2BackupConsumerEnvs().build(),
+			Env:             newServerEnvBuilder(server).addCommonEnvs().addTier2BackupConsumerEnvs().build(),
 			Ports: []corev1.ContainerPort{
 				{Name: "tier2-base", ContainerPort: 51516, Protocol: corev1.ProtocolTCP},
 			},
@@ -366,9 +363,9 @@ func injectTier2Containers(
 			},
 			Image:           server.Spec.Image,
 			ImagePullPolicy: server.Spec.ImagePullPolicy,
-			Env:             newEnvBuilder(server).addCommonEnvs().addTier2BaseEnvs().build(),
+			Env:             newServerEnvBuilder(server).addCommonEnvs().addTier2BaseEnvs().build(),
 			Ports: []corev1.ContainerPort{
-				{Name: "tier2-wal", ContainerPort: 52001, Protocol: corev1.ProtocolTCP},
+				{Name: "tier2-base", ContainerPort: 51516, Protocol: corev1.ProtocolTCP},
 			},
 			VolumeMounts: volumeMounts,
 		},
@@ -384,8 +381,11 @@ func injectTier2Containers(
 			},
 			Image:           server.Spec.Image,
 			ImagePullPolicy: server.Spec.ImagePullPolicy,
-			Env:             newEnvBuilder(server).addCommonEnvs().addTier2WalEnvs().build(),
+			Env:             newServerEnvBuilder(server).addCommonEnvs().addTier2WalEnvs().build(),
 			VolumeMounts:    volumeMounts,
+			Ports: []corev1.ContainerPort{
+				{Name: "tier2-wal", ContainerPort: 52001, Protocol: corev1.ProtocolTCP},
+			},
 		},
 	)
 }
@@ -400,17 +400,11 @@ func (r *ServerReconciler) reconcileService(ctx context.Context, server *kliov1a
 
 	op, err := controllerutil.CreateOrUpdate(ctx, r.Client, service, func() error {
 		if !service.CreationTimestamp.IsZero() && !metav1.IsControlledBy(service, server) {
-			return &serviceNotOwnedByServerError{
-				ServerName:      server.Name,
-				ServerNamespace: server.Namespace,
-			}
+			return newIncorrectOwnershipError(service, server)
 		}
 
 		if service.Labels == nil {
 			service.Labels = map[string]string{}
-		}
-		if service.Annotations == nil {
-			service.Annotations = map[string]string{}
 		}
 
 		maps.Copy(service.Labels, map[string]string{

@@ -6,7 +6,6 @@ import (
 	"github.com/spf13/afero"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
-	"gopkg.in/validator.v2"
 
 	"github.com/cloudnative-pg/klio/core/internal/repository"
 	"github.com/cloudnative-pg/klio/core/internal/server/walserver"
@@ -28,8 +27,8 @@ var startWALCmd = &cobra.Command{
 			return fmt.Errorf("could not unmarshal configuration: %w", err)
 		}
 
-		if errs := validator.Validate(&configuration); errs != nil {
-			return fmt.Errorf("configuration validation error: %w", errs)
+		if err := configuration.RequireTier1(); err != nil {
+			return fmt.Errorf("configuration validation error: %w", err)
 		}
 
 		// Connects to the Klio repository

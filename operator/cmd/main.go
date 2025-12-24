@@ -32,7 +32,7 @@ import (
 
 var setupLog = ctrl.Log.WithName("setup") //nolint:gochecknoglobals
 
-//nolint:cyclop
+//nolint:cyclop,maintidx
 func main() {
 	var metricsAddr string
 	var metricsCertPath, metricsCertName, metricsCertKey string
@@ -224,6 +224,15 @@ func main() {
 		setupLog.Error(err, "unable to create controller", "controller", "Server")
 		os.Exit(1)
 	}
+
+	if err := (&controller.RecoverySourceReconciler{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "RecoverySource")
+		os.Exit(1)
+	}
+
 	// +kubebuilder:scaffold:builder
 
 	if metricsCertWatcher != nil {

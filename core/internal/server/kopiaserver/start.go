@@ -30,6 +30,10 @@ type Config struct {
 	// ListenAddress is the <host>:<port> specification that is
 	// used to create the listening socket.
 	ListenAddress string
+
+	// ReadOnly is true when the server should deny write access,
+	// avoiding accidental changes.
+	ReadOnly bool
 }
 
 // start runs a Kopia server with the passed configuration.
@@ -55,6 +59,10 @@ func start(ctx context.Context, configFile string, cfg *Config, tls *config.TLSC
 		"--address=" + cfg.ListenAddress,
 		"--disable-file-logging",
 		"--json-log-console",
+	}
+
+	if cfg.ReadOnly {
+		args = append(args, "--readonly")
 	}
 
 	kopiaServer := exec.CommandContext(ctx, kopiaBinary, args...) //nolint:gosec

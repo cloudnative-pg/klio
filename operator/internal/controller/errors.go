@@ -1,19 +1,62 @@
 package controller
 
-type statefulSetNotOwnedByServerError struct {
-	ServerName      string
-	ServerNamespace string
+import (
+	"fmt"
+
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+)
+
+type incorrectOwnershipError struct {
+	ActualController   corev1.TypedObjectReference
+	ExpectedController corev1.TypedObjectReference
+	Object             corev1.TypedObjectReference
 }
 
-func (e *statefulSetNotOwnedByServerError) Error() string {
-	return "statefulset is not owned by the server " + e.ServerName + "/" + e.ServerName
+func newIncorrectOwnershipError(
+	object client.Object,
+	expectedOwner client.Object,
+) *incorrectOwnershipError {
+	objectToReference := func(o client.Object) corev1.TypedObjectReference {
+		namespace := o.GetNamespace()
+		group := o.GetObjectKind().GroupVersionKind().Group
+
+		return corev1.TypedObjectReference{
+			Name:      o.GetName(),
+			Namespace: &namespace,
+			Kind:      o.GetObjectKind().GroupVersionKind().Kind,
+			APIGroup:  &group,
+		}
+	}
+
+	ownerToReference := func(o *metav1.OwnerReference) corev1.TypedObjectReference {
+		namespace := object.GetNamespace()
+
+		if o == nil {
+			return corev1.TypedObjectReference{}
+		}
+
+		return corev1.TypedObjectReference{
+			Name:      o.Name,
+			Namespace: &namespace,
+			Kind:      o.Kind,
+			APIGroup:  &o.APIVersion,
+		}
+	}
+
+	return &incorrectOwnershipError{
+		Object:             objectToReference(object),
+		ActualController:   ownerToReference(metav1.GetControllerOf(object)),
+		ExpectedController: objectToReference(expectedOwner),
+	}
 }
 
-type serviceNotOwnedByServerError struct {
-	ServerName      string
-	ServerNamespace string
-}
-
-func (e *serviceNotOwnedByServerError) Error() string {
-	return "service is not owned by the server " + e.ServerName + "/" + e.ServerName
+func (e *incorrectOwnershipError) Error() string {
+	return fmt.Sprintf(
+		"expected %s to be owned by %s and not by %s",
+		e.Object.String(),
+		e.ExpectedController.String(),
+		e.ActualController.String(),
+	)
 }

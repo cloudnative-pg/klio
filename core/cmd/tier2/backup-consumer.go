@@ -9,7 +9,6 @@ import (
 	"github.com/nats-io/nats.go"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
-	"gopkg.in/validator.v2"
 
 	"github.com/cloudnative-pg/klio/core/internal/consumer"
 	"github.com/cloudnative-pg/klio/core/internal/queue"
@@ -34,8 +33,12 @@ var backupConsumerCmd = &cobra.Command{
 			return fmt.Errorf("could not unmarshal configuration: %w", err)
 		}
 
-		if errs := validator.Validate(&configuration); errs != nil {
-			return fmt.Errorf("configuration validation error: %w", errs)
+		if err := configuration.RequireTier1(); err != nil {
+			return fmt.Errorf("tier 1 configuration validation error: %w", err)
+		}
+
+		if err := configuration.RequireTier2(); err != nil {
+			return fmt.Errorf("tier 2 configuration validation error: %w", err)
 		}
 
 		if !configuration.Tier2.S3.Enabled {

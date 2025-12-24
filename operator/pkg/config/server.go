@@ -42,16 +42,16 @@ type Tier1Config struct {
 // Tier2Config is the configuration of tier 2.
 type Tier2Config struct {
 	// EncryptionPassword is the encryption password
-	EncryptionPassword string `json:"encryption_password" mapstructure:"encryption_password"`
+	EncryptionPassword string `json:"encryption_password" mapstructure:"encryption_password" validate:"nonzero"`
 
 	// BaseListenAddress is the address where the tier2 base server will listen
-	BaseListenAddress string `mapstructure:"base_listen_address"`
+	BaseListenAddress string `mapstructure:"base_listen_address" validate:"nonzero"`
 
 	// WALListenAddress is the address where the tier2 wal server will listen
-	WALListenAddress string `mapstructure:"wal_listen_address"`
+	WALListenAddress string `mapstructure:"wal_listen_address" validate:"nonzero"`
 
 	// CacheDirectory is the directory of the Kopia cache
-	CacheDirectory string `mapstructure:"cache"`
+	CacheDirectory string `mapstructure:"cache" validate:"nonzero"`
 
 	// S3 contains the configuration parameters for an S3-based tier 2
 	S3 S3Configuration `json:"s3" mapstructure:"s3"`

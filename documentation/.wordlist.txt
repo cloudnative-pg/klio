@@ -134,6 +134,12 @@ QueueResources
 RBAC
 RPO
 RTO
+RecoverySource
+RecoverySourceList
+RecoverySourceSpec
+RecoverySourceStatus
+RecoverySourceStorageConfiguration
+RecoverySources
 RequestWALStart
 RequestWALStartRequest
 RequestWALStartResult
