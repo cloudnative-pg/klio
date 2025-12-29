@@ -38,10 +38,14 @@ func GetKlioServerObject(
 			Namespace: namespace,
 		},
 		Spec: kliov1alpha1.ServerSpec{
-			Image:              "registry.dev:5000/klio-testing:dev",
-			ImagePullPolicy:    corev1.PullAlways,
-			TLSSecretName:      opts.TLSSecretName,
-			ClientCASecretName: opts.ClientCASecretName,
+			ImageConfiguration: kliov1alpha1.ImageConfiguration{
+				Image:           "registry.dev:5000/klio-testing:dev",
+				ImagePullPolicy: corev1.PullAlways,
+			},
+			TLSConfiguration: kliov1alpha1.TLSConfiguration{
+				TLSSecretName:      opts.TLSSecretName,
+				ClientCASecretName: opts.ClientCASecretName,
+			},
 			CacheConfiguration: kliov1alpha1.CacheConfiguration{
 				PersistentVolumeClaimTemplate: corev1.PersistentVolumeClaimSpec{
 					AccessModes: []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOncePod},

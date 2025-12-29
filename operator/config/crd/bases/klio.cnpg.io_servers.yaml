@@ -9180,6 +9180,20 @@ spec:
               tier2:
                 description: Tier2 is the Tier 2 configuration
                 properties:
+                  encryptionPassword:
+                    description: EncryptionPassword is a pointer to the key in a secret
+                      containing the encryption password.
+                    properties:
+                      key:
+                        description: The key to select
+                        type: string
+                      name:
+                        description: Name of the referent.
+                        type: string
+                    required:
+                    - key
+                    - name
+                    type: object
                   s3:
                     description: S3 contains the configuration parameters for an S3-based
                       tier 2
@@ -9249,25 +9263,11 @@ spec:
                         - key
                         - name
                         type: object
-                      walEncryptionPassword:
-                        description: WALEncryptionPassword is a pointer to the key
-                          in a secret containing the encryption password.
-                        properties:
-                          key:
-                            description: The key to select
-                            type: string
-                          name:
-                            description: Name of the referent.
-                            type: string
-                        required:
-                        - key
-                        - name
-                        type: object
                     required:
                     - bucketName
-                    - walEncryptionPassword
                     type: object
                 required:
+                - encryptionPassword
                 - s3
                 type: object
               tlsSecretName:

@@ -44,6 +44,9 @@ spec:
   caSecretName: server-sample-ca
 
   tier2:
+    encryptionPassword:
+      name: server-sample-encryption
+      key: password
     s3:
       prefix: klio
       bucketName: klio-bucket
@@ -58,9 +61,6 @@ spec:
       customCaBundle:
         name: minio-server-tls
         key: tls.crt
-      walEncryptionPassword:
-        name: server-sample-encryption
-        key: password
       
 
   image: registry.dev:5000/klio-testing:dev

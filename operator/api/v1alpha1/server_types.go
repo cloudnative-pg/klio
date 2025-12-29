@@ -9,26 +9,13 @@ import (
 // ServerSpec defines the desired state of Server.
 // +kubebuilder:validation:XValidation:rule="!has(self.tier2) || has(self.queueConfiguration)",message="queueConfiguration is required when tier2 is defined"
 type ServerSpec struct {
-	// Image is the image to be used for the Klio server
-	Image string `json:"image"`
+	// ImageConfiguration tells how to download the Klio
+	// image.
+	ImageConfiguration `json:",inline"`
 
-	// ImagePullPolicy defines the policy for pulling the image
-	// +optional
-	// +kubebuilder:default=IfNotPresent
-	ImagePullPolicy corev1.PullPolicy `json:"imagePullPolicy,omitempty"`
-
-	// ImagePullSecrets is an optional list of references to secrets in the same namespace to use for pulling any of the
-	// images
-	// +optional
-	ImagePullSecrets []corev1.LocalObjectReference `json:"imagePullSecrets,omitempty"`
-
-	// TLSSecretName is the name of the Kubernetes secret containing the server-side certificate
-	// to be used for the Klio server.
-	TLSSecretName string `json:"tlsSecretName"`
-
-	// ClientCASecretName is the name of the Kubernetes secret containing the CA certificate
-	// to be used by the Klio server to validate the users.
-	ClientCASecretName string `json:"caSecretName"`
+	// TLSConfiguration is used for the server-side
+	// certificate.
+	TLSConfiguration `json:",inline"`
 
 	// CacheConfiguration is the configuration of the PVC that should be
 	// used for the cache
@@ -57,6 +44,35 @@ type ServerSpec struct {
 	Template *corev1.PodTemplateSpec `json:"template,omitempty"`
 }
 
+// ImageConfiguration contains the information needed to download
+// the Klio image.
+type ImageConfiguration struct {
+	// Image is the image to be used for the Klio server
+	Image string `json:"image"`
+
+	// ImagePullPolicy defines the policy for pulling the image
+	// +optional
+	// +kubebuilder:default=IfNotPresent
+	ImagePullPolicy corev1.PullPolicy `json:"imagePullPolicy,omitempty"`
+
+	// ImagePullSecrets is an optional list of references to secrets in the same namespace to use for pulling any of the
+	// images
+	// +optional
+	ImagePullSecrets []corev1.LocalObjectReference `json:"imagePullSecrets,omitempty"`
+}
+
+// TLSConfiguration contains the information needed to configure
+// the PKI infrastructure of the Klio server.
+type TLSConfiguration struct {
+	// TLSSecretName is the name of the Kubernetes secret containing the server-side certificate
+	// to be used for the Klio server.
+	TLSSecretName string `json:"tlsSecretName"`
+
+	// ClientCASecretName is the name of the Kubernetes secret containing the CA certificate
+	// to be used by the Klio server to validate the users.
+	ClientCASecretName string `json:"caSecretName"`
+}
+
 // DataConfiguration defines the configuration for the data directory.
 type DataConfiguration struct {
 	// Template to be used to generate the Persistent Volume Claim needed for the data folder,
@@ -81,6 +97,9 @@ type QueueConfiguration struct {
 type Tier2Configuration struct {
 	// S3 contains the configuration parameters for an S3-based tier 2
 	S3 *S3Configuration `json:"s3"`
+
+	// EncryptionPassword is a pointer to the key in a secret containing the encryption password.
+	EncryptionPassword *machineryapi.SecretKeySelector `json:"encryptionPassword"`
 }
 
 // S3Configuration is the configuration to a S3 defined tier 2.
@@ -99,9 +118,6 @@ type S3Configuration struct {
 	// Region is the region to be used
 	// +optional
 	Region string `json:"region,omitempty"`
-
-	// WALEncryptionPassword is a pointer to the key in a secret containing the encryption password.
-	WALEncryptionPassword *machineryapi.SecretKeySelector `json:"walEncryptionPassword"`
 
 	// The S3 access key ID
 	// +optional

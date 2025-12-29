@@ -44,6 +44,25 @@ _Appears in:_
 | `pvcTemplate` _[PersistentVolumeClaimSpec](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#persistentvolumeclaimspec-v1-core)_ | Template to be used to generate the Persistent Volume Claim needed for the data folder,<br />containing base backups and WAL files. | True |  |  |
 
 
+#### ImageConfiguration
+
+
+
+ImageConfiguration contains the information needed to download
+the Klio image.
+
+
+
+_Appears in:_
+- [ServerSpec](#serverspec)
+
+| Field | Description | Required | Default | Validation |
+| --- | --- | --- | --- | --- |
+| `image` _string_ | Image is the image to be used for the Klio server | True |  |  |
+| `imagePullPolicy` _[PullPolicy](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#pullpolicy-v1-core)_ | ImagePullPolicy defines the policy for pulling the image |  | IfNotPresent |  |
+| `imagePullSecrets` _[LocalObjectReference](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#localobjectreference-v1-core) array_ | ImagePullSecrets is an optional list of references to secrets in the same namespace to use for pulling any of the<br />images |  |  |  |
+
+
 #### PluginConfiguration
 
 
@@ -154,7 +173,6 @@ _Appears in:_
 | `prefix` _string_ | Prefix is the prefix to be used for the stored files |  |  |  |
 | `endpoint` _string_ | Endpoint is the endpoint to be used |  |  |  |
 | `region` _string_ | Region is the region to be used |  |  |  |
-| `walEncryptionPassword` _[SecretKeySelector](#secretkeyselector)_ | WALEncryptionPassword is a pointer to the key in a secret containing the encryption password. | True |  |  |
 | `accessKeyId` _[SecretKeySelector](#secretkeyselector)_ | The S3 access key ID |  |  |  |
 | `secretAccessKey` _[SecretKeySelector](#secretkeyselector)_ | The S3 access key |  |  |  |
 | `sessionToken` _[SecretKeySelector](#secretkeyselector)_ | The S3 session token |  |  |  |
@@ -219,6 +237,24 @@ _Appears in:_
 
 
 
+#### TLSConfiguration
+
+
+
+TLSConfiguration contains the information needed to configure
+the PKI infrastructure of the Klio server.
+
+
+
+_Appears in:_
+- [ServerSpec](#serverspec)
+
+| Field | Description | Required | Default | Validation |
+| --- | --- | --- | --- | --- |
+| `tlsSecretName` _string_ | TLSSecretName is the name of the Kubernetes secret containing the server-side certificate<br />to be used for the Klio server. | True |  |  |
+| `caSecretName` _string_ | ClientCASecretName is the name of the Kubernetes secret containing the CA certificate<br />to be used by the Klio server to validate the users. | True |  |  |
+
+
 #### Tier2Configuration
 
 
@@ -233,5 +269,6 @@ _Appears in:_
 | Field | Description | Required | Default | Validation |
 | --- | --- | --- | --- | --- |
 | `s3` _[S3Configuration](#s3configuration)_ | S3 contains the configuration parameters for an S3-based tier 2 | True |  |  |
+| `encryptionPassword` _[SecretKeySelector](#secretkeyselector)_ | EncryptionPassword is a pointer to the key in a secret containing the encryption password. | True |  |  |
 
 

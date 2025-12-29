@@ -196,7 +196,7 @@ func (e *envBuilder) getTier2EnvVars() []corev1.EnvVar {
 		},
 		{
 			Name:      "TIER2_S3_ENCRYPTION_PASSWORD",
-			ValueFrom: secretKeySelectorToEnvVarSource(e.server.Spec.Tier2.S3.WALEncryptionPassword),
+			ValueFrom: secretKeySelectorToEnvVarSource(e.server.Spec.Tier2.EncryptionPassword),
 		},
 		{
 			Name:  "TIER2_S3_REGION",
