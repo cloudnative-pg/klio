@@ -27,7 +27,7 @@ _Appears in:_
 | --- | --- | --- | --- | --- |
 | `apiVersion` _string_ | `kliocatalog.cnpg.io/v1alpha1` | True | | |
 | `kind` _string_ | `KlioBackup` | True | | |
-| `metadata` _[ObjectMeta](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.32/#objectmeta-v1-meta)_ | Refer to Kubernetes API documentation for fields of `metadata`. | True |  |  |
+| `metadata` _[ObjectMeta](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#objectmeta-v1-meta)_ | Refer to Kubernetes API documentation for fields of `metadata`. | True |  |  |
 | `spec` _[KlioBackupSpec](#kliobackupspec)_ |  | True |  |  |
 | `status` _[KlioBackupStatus](#kliobackupstatus)_ |  |  |  |  |
 
@@ -46,7 +46,7 @@ KlioBackupList contains a list of KlioBackup.
 | --- | --- | --- | --- | --- |
 | `apiVersion` _string_ | `kliocatalog.cnpg.io/v1alpha1` | True | | |
 | `kind` _string_ | `KlioBackupList` | True | | |
-| `metadata` _[ListMeta](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.32/#listmeta-v1-meta)_ | Refer to Kubernetes API documentation for fields of `metadata`. | True |  |  |
+| `metadata` _[ListMeta](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#listmeta-v1-meta)_ | Refer to Kubernetes API documentation for fields of `metadata`. | True |  |  |
 | `items` _[KlioBackup](#kliobackup) array_ |  | True |  |  |
 
 
@@ -86,8 +86,8 @@ _Appears in:_
 | `endWAL` _string_ | EndWAL is the current WAL when the backup ends | True |  |  |
 | `tablespaces` _[TablespaceLayoutList](#tablespacelayoutlist)_ | Tablespaces are the metadata of the tablespaces | True |  |  |
 | `annotations` _object (keys:string, values:string)_ | Annotations is a generic data store where each<br />backend can put its metadata. | True |  |  |
-| `startedAt` _[Time](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.32/#time-v1-meta)_ | StartedAt is the current time when the backup started. | True |  |  |
-| `stoppedAt` _[Time](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.32/#time-v1-meta)_ | StoppedAt is the current time when the backup ended. | True |  |  |
+| `startedAt` _[Time](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#time-v1-meta)_ | StartedAt is the current time when the backup started. | True |  |  |
+| `stoppedAt` _[Time](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#time-v1-meta)_ | StoppedAt is the current time when the backup ended. | True |  |  |
 
 
 #### TablespaceLayout
