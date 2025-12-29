@@ -53,6 +53,17 @@ func generateKlioConfigForPlugin(
 	}
 
 	klioPluginConfigurationSpec := rawConfiguration.klioPluginConfiguration.Spec
+	var klioRetentionPolicy *config.RetentionPolicy
+	if klioPluginConfigurationSpec.RetentionPolicy != nil {
+		klioRetentionPolicy = &config.RetentionPolicy{
+			KeepLatest:  klioPluginConfigurationSpec.RetentionPolicy.KeepLatest,
+			KeepAnnual:  klioPluginConfigurationSpec.RetentionPolicy.KeepAnnual,
+			KeepMonthly: klioPluginConfigurationSpec.RetentionPolicy.KeepMonthly,
+			KeepWeekly:  klioPluginConfigurationSpec.RetentionPolicy.KeepWeekly,
+			KeepDaily:   klioPluginConfigurationSpec.RetentionPolicy.KeepDaily,
+			KeepHourly:  klioPluginConfigurationSpec.RetentionPolicy.KeepHourly,
+		}
+	}
 
 	klioConfig := &config.Data{
 		Source: config.SourceConfig{
@@ -79,7 +90,7 @@ func generateKlioConfigForPlugin(
 				ClientKeyPath:  path.Join(clientCertPath, "tls.key"),
 			},
 		},
-		RetentionPolicy: klioPluginConfigurationSpec.RetentionPolicy,
+		RetentionPolicy: klioRetentionPolicy,
 	}
 
 	if klioPluginConfigurationSpec.Tier2 {
