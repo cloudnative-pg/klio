@@ -38,7 +38,6 @@ func GetKlioServerObject(
 			Namespace: namespace,
 		},
 		Spec: kliov1alpha1.ServerSpec{
-			BaseConfiguration:  kliov1alpha1.BaseConfiguration{},
 			Image:              "registry.dev:5000/klio-testing:dev",
 			ImagePullPolicy:    corev1.PullAlways,
 			TLSSecretName:      opts.TLSSecretName,

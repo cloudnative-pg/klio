@@ -243,15 +243,6 @@ spec:
       resources:
         requests:
           storage: 10Gi  # Adjust based on queue volume needs
-
-  # Optional: Resource requirements
-  resources:
-    requests:
-      memory: "1Gi"
-      cpu: "500m"
-    limits:
-      memory: "2Gi"
-      cpu: "2000m"
 ```
 <!-- x-release-please-end -->
 

@@ -12,22 +12,6 @@ Package v1alpha1 contains API Schema definitions for the klio v1alpha1 API group
 
 
 
-#### BaseConfiguration
-
-
-
-BaseConfiguration defines the configuration for the base server.
-
-
-
-_Appears in:_
-- [ServerSpec](#serverspec)
-
-| Field | Description | Required | Default | Validation |
-| --- | --- | --- | --- | --- |
-| `resources` _[ResourceRequirements](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#resourcerequirements-v1-core)_ | Resources defines the resource requirements for the Kopia server |  |  |  |
-
-
 #### CacheConfiguration
 
 
@@ -129,7 +113,6 @@ _Appears in:_
 
 | Field | Description | Required | Default | Validation |
 | --- | --- | --- | --- | --- |
-| `resources` _[ResourceRequirements](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#resourcerequirements-v1-core)_ | QueueResources defines the resource requirements for the NATS server |  |  |  |
 | `pvcTemplate` _[PersistentVolumeClaimSpec](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#persistentvolumeclaimspec-v1-core)_ | PersistentVolumeClaimTemplate is used to generate the configuration for<br />the PVC hosting the work queue. | True |  |  |
 
 
@@ -210,13 +193,11 @@ _Appears in:_
 
 | Field | Description | Required | Default | Validation |
 | --- | --- | --- | --- | --- |
-| `baseConfiguration` _[BaseConfiguration](#baseconfiguration)_ | BaseConfiguration is the configuration of the Kopia server |  |  |  |
 | `image` _string_ | Image is the image to be used for the Klio server | True |  |  |
 | `imagePullPolicy` _[PullPolicy](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#pullpolicy-v1-core)_ | ImagePullPolicy defines the policy for pulling the image |  | IfNotPresent |  |
 | `imagePullSecrets` _[LocalObjectReference](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#localobjectreference-v1-core) array_ | ImagePullSecrets is an optional list of references to secrets in the same namespace to use for pulling any of the<br />images |  |  |  |
 | `tlsSecretName` _string_ | TLSSecretName is the name of the Kubernetes secret containing the server-side certificate<br />to be used for the Klio server. | True |  |  |
 | `caSecretName` _string_ | ClientCASecretName is the name of the Kubernetes secret containing the CA certificate<br />to be used by the Klio server to validate the users. | True |  |  |
-| `resources` _[ResourceRequirements](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#resourcerequirements-v1-core)_ | Resources defines the resource requirements for the Klio server |  |  |  |
 | `cacheConfiguration` _[CacheConfiguration](#cacheconfiguration)_ | CacheConfiguration is the configuration of the PVC that should be<br />used for the cache | True |  |  |
 | `dataConfiguration` _[DataConfiguration](#dataconfiguration)_ | DataConfiguration is the configuration of the PVC that should be used<br />for the base backups | True |  |  |
 | `queueConfiguration` _[QueueConfiguration](#queueconfiguration)_ | QueueConfiguration is the configuration of the PVC that should host<br />the task queue. |  |  |  |

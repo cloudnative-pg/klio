@@ -132,7 +132,6 @@ func (r *ServerReconciler) reconcileStatefulSet(ctx context.Context, server *kli
 							},
 							Image:           server.Spec.Image,
 							ImagePullPolicy: server.Spec.ImagePullPolicy,
-							Resources:       server.Spec.BaseConfiguration.Resources,
 							VolumeMounts:    volumeMounts,
 							Ports: []corev1.ContainerPort{
 								{Name: "base", ContainerPort: 51515, Protocol: corev1.ProtocolTCP},
@@ -147,7 +146,6 @@ func (r *ServerReconciler) reconcileStatefulSet(ctx context.Context, server *kli
 							},
 							Image:           server.Spec.Image,
 							ImagePullPolicy: server.Spec.ImagePullPolicy,
-							Resources:       server.Spec.Resources,
 							Ports: []corev1.ContainerPort{
 								{Name: "wal", ContainerPort: 52000, Protocol: corev1.ProtocolTCP},
 							},
@@ -281,7 +279,6 @@ func injectQueueConfiguration(server *kliov1alpha1.Server, expected *appsv1.Stat
 				"-sd",
 				"/queue",
 			},
-			Resources: server.Spec.QueueConfiguration.QueueResources,
 			VolumeMounts: []corev1.VolumeMount{
 				{
 					Name:      "queue",

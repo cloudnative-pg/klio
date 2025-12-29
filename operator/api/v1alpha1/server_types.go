@@ -9,10 +9,6 @@ import (
 // ServerSpec defines the desired state of Server.
 // +kubebuilder:validation:XValidation:rule="!has(self.tier2) || has(self.queueConfiguration)",message="queueConfiguration is required when tier2 is defined"
 type ServerSpec struct {
-	// BaseConfiguration is the configuration of the Kopia server
-	// +optional
-	BaseConfiguration BaseConfiguration `json:"baseConfiguration,omitzero"`
-
 	// Image is the image to be used for the Klio server
 	Image string `json:"image"`
 
@@ -33,10 +29,6 @@ type ServerSpec struct {
 	// ClientCASecretName is the name of the Kubernetes secret containing the CA certificate
 	// to be used by the Klio server to validate the users.
 	ClientCASecretName string `json:"caSecretName"`
-
-	// Resources defines the resource requirements for the Klio server
-	// +optional
-	Resources corev1.ResourceRequirements `json:"resources,omitzero"`
 
 	// CacheConfiguration is the configuration of the PVC that should be
 	// used for the cache
@@ -65,13 +57,6 @@ type ServerSpec struct {
 	Template *corev1.PodTemplateSpec `json:"template,omitempty"`
 }
 
-// BaseConfiguration defines the configuration for the base server.
-type BaseConfiguration struct {
-	// Resources defines the resource requirements for the Kopia server
-	// +optional
-	Resources corev1.ResourceRequirements `json:"resources,omitzero"`
-}
-
 // DataConfiguration defines the configuration for the data directory.
 type DataConfiguration struct {
 	// Template to be used to generate the Persistent Volume Claim needed for the data folder,
@@ -87,10 +72,6 @@ type CacheConfiguration struct {
 // QueueConfiguration defines the configuration for the directory hosting the
 // task queue.
 type QueueConfiguration struct {
-	// QueueResources defines the resource requirements for the NATS server
-	// +optional
-	QueueResources corev1.ResourceRequirements `json:"resources,omitzero"`
-
 	// PersistentVolumeClaimTemplate is used to generate the configuration for
 	// the PVC hosting the work queue.
 	PersistentVolumeClaimTemplate corev1.PersistentVolumeClaimSpec `json:"pvcTemplate"`
