@@ -3,10 +3,6 @@ kind: Server
 metadata:
   name: klio
 spec:
-  baseConfiguration:
-    adminUser:
-      name: klio-admin
-
   cacheConfiguration:
     pvcTemplate:
       resources:

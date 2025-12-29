@@ -5,10 +5,6 @@ metadata:
   annotations:
     klio.cnpg.io/pprof: "true"
 spec:
-  baseConfiguration:
-    adminUser:
-      name: server-sample-adm
-
   cacheConfiguration:
     pvcTemplate:
       resources:
@@ -34,14 +30,6 @@ spec:
 
   image: registry.dev:5000/klio-testing:dev
   imagePullPolicy: Always
----
-apiVersion: v1
-data:
-  password: cGlwcG9waXBwbw==
-  username: a29waWE=
-kind: Secret
-metadata:
-  name: server-sample-adm
 ---
 apiVersion: v1
 data:

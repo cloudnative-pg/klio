@@ -94,8 +94,6 @@ base:
   tls_key: /home/klio/server.key
   listen_address: 0.0.0.0:52000
   client_ca_cert_file: ca-cert.pem
-  admin_user: kopia
-  admin_password: cicciopasticcio
 ```
 
 A new Klio repository for both WAL and base backups can be bootstrapped with:
@@ -269,8 +267,6 @@ base:
   tls_key: /home/klio/server.key
   listen_address: 0.0.0.0:52001
   client_ca_cert_file: /home/klio/ca-cert.pem
-  admin_user: kopia
-  admin_password: cicciopasticcio
 EOF
 
   # Initialize Klio Client CA

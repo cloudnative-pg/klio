@@ -25,7 +25,6 @@ func (e *envBuilder) build() []corev1.EnvVar {
 func (e *envBuilder) addCommonEnvs() *envBuilder {
 	result := e.getCoreEnvVars()
 	result = append(result, e.getKubernetesDownwardAPIEnvVars()...)
-	result = append(result, e.getAdminUserEnvVars()...)
 	result = append(result, e.getTier2EnvVars()...)
 
 	e.builtEnvs = append(e.builtEnvs, result...)
@@ -260,37 +259,6 @@ func secretKeySelectorToEnvVarSource(src *machineryapi.SecretKeySelector) *corev
 				Name: src.Name,
 			},
 			Key: src.Key,
-		},
-	}
-}
-
-func (e *envBuilder) getAdminUserEnvVars() []corev1.EnvVar {
-	if e.server == nil || e.server.Spec.BaseConfiguration.AdminUser.Name == "" {
-		return nil
-	}
-
-	return []corev1.EnvVar{
-		{
-			Name: "BASE_ADMIN_USER",
-			ValueFrom: &corev1.EnvVarSource{
-				SecretKeyRef: &corev1.SecretKeySelector{
-					LocalObjectReference: corev1.LocalObjectReference{
-						Name: e.server.Spec.BaseConfiguration.AdminUser.Name,
-					},
-					Key: corev1.BasicAuthUsernameKey,
-				},
-			},
-		},
-		{
-			Name: "BASE_ADMIN_PASSWORD",
-			ValueFrom: &corev1.EnvVarSource{
-				SecretKeyRef: &corev1.SecretKeySelector{
-					LocalObjectReference: corev1.LocalObjectReference{
-						Name: e.server.Spec.BaseConfiguration.AdminUser.Name,
-					},
-					Key: corev1.BasicAuthPasswordKey,
-				},
-			},
 		},
 	}
 }

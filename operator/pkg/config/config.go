@@ -67,12 +67,6 @@ type BaseServerConfig struct {
 	// ClientCACertFile is the file containing the CA certificate to be used
 	// to verify client certificates
 	ClientCACertFile string `mapstructure:"client_ca_cert_file" validate:"nonzero"`
-
-	// AdminUser kopia super-user name
-	AdminUser string `mapstructure:"admin_user"`
-
-	// AdminPassword kopia super-user password
-	AdminPassword string `mapstructure:"admin_password"`
 }
 
 // SourceConfig is the configuration of the WAL receiver.

@@ -26,7 +26,6 @@ _Appears in:_
 | Field | Description | Required | Default | Validation |
 | --- | --- | --- | --- | --- |
 | `resources` _[ResourceRequirements](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.32/#resourcerequirements-v1-core)_ | Resources defines the resource requirements for the Kopia server |  |  |  |
-| `adminUser` _[LocalObjectReference](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.32/#localobjectreference-v1-core)_ | AdminUser is a reference to a secret of type 'kubernetes.io/basic-auth' |  |  |  |
 
 
 #### CacheConfiguration

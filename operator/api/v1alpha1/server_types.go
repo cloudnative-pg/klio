@@ -70,10 +70,6 @@ type BaseConfiguration struct {
 	// Resources defines the resource requirements for the Kopia server
 	// +optional
 	Resources corev1.ResourceRequirements `json:"resources,omitzero"`
-
-	// AdminUser is a reference to a secret of type 'kubernetes.io/basic-auth'
-	// +optional
-	AdminUser corev1.LocalObjectReference `json:"adminUser,omitzero"`
 }
 
 // DataConfiguration defines the configuration for the data directory.

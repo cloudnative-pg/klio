@@ -52,8 +52,7 @@ A Klio server setup requires the following components:
 2. **TLS Certificate**: For secure communication
 3. **Encryption Password**: For encrypting backup data at rest
 4. **CA Certificate**: For client authentication via mTLS
-5. **Admin User Credentials**: Optional admin user for Kopia operations
-6. **Storage**: PersistentVolumeClaims for data, cache, and queue
+5. **Storage**: PersistentVolumeClaims for data, cache, and queue
 
 ### Step-by-step setup
 
@@ -138,30 +137,7 @@ PKI infrastructure already includes a CA for this scope, that CA can be used
 for the Klio server, too.
 :::
 
-#### 3. (Optional) Create Admin User Credentials
-
-If you need admin access to the underlying Kopia server web interface
-(mostly for debugging purposes), define the secret as follows:
-
-```yaml
-apiVersion: v1
-kind: Secret
-metadata:
-  name: my-server-adm
-  namespace: default
-type: kubernetes.io/basic-auth
-data:
-  username: "YWRtaW4=" # admin
-  password: "YWRtaW4tcGFzc3dvcmQ=" # admin-password
-```
-
-Apply the secret:
-
-```bash
-kubectl apply -f admin-credentials.yaml
-```
-
-#### 4. Create TLS Certificate
+#### 3. Create TLS Certificate
 
 Using cert-manager, create a self-signed certificate (for development) or use
 your organization's certificate issuer:
@@ -210,7 +186,7 @@ kubectl apply -f tls-certificate.yaml
 For production environments, use certificates signed by your organization's Certificate Authority (CA) or a trusted public CA instead of self-signed certificates.
 :::
 
-#### 5. Create the Server Resource
+#### 4. Create the Server Resource
 
 Now create the main `Server` resource:
 
@@ -237,11 +213,6 @@ spec:
   password:
     name: my-server-encryption
     key: password
-
-  # Optional: Admin user for Kopia operations
-  baseConfiguration:
-    adminUser:
-      name: my-server-adm
 
   # Cache storage configuration
   cacheConfiguration:
@@ -290,7 +261,7 @@ Apply the Server resource:
 kubectl apply -f klio-server.yaml
 ```
 
-#### 6. Verify the Server is Running
+#### 5. Verify the Server is Running
 
 Check the status of your Klio server:
 
@@ -482,38 +453,6 @@ spec:
   ca:
     secretName: server-sample-ca
 ```
-
-### Admin User (Optional)
-
-The optional admin user (`.spec.baseConfiguration.adminUser`) provides access to
-the Kopia web interface for administrative and debugging purposes. This is
-separate from the regular user authentication:
-
-```yaml
-spec:
-  baseConfiguration:
-    adminUser:
-      name: my-server-adm  # Reference to kubernetes.io/basic-auth secret
-```
-
-The admin user secret must be of type `kubernetes.io/basic-auth`:
-
-```yaml
-apiVersion: v1
-kind: Secret
-metadata:
-  name: my-server-adm
-type: kubernetes.io/basic-auth
-data:
-  username: <base64-encoded-username>
-  password: <base64-encoded-password>
-```
-
-:::info
-The admin user is primarily intended for debugging and should be used sparingly
-in production environments. Regular backup and restore operations use mTLS
-certificates.
-:::
 
 ## Access Control Lists (ACLs)
 

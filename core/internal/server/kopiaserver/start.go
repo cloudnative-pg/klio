@@ -44,15 +44,6 @@ func start(ctx context.Context, configFile string, cfg *config.BaseServerConfig)
 	}
 
 	kopiaServer := exec.CommandContext(ctx, kopiaBinary, args...) //nolint:gosec
-
-	if cfg.AdminUser != "" && cfg.AdminPassword != "" {
-		kopiaServer.Env = append(
-			kopiaServer.Env,
-			"KOPIA_SERVER_CONTROL_USER="+cfg.AdminUser,
-			"KOPIA_SERVER_CONTROL_PASSWORD="+cfg.AdminPassword,
-		)
-	}
-
 	kopiaServer.Stdout = os.Stdout
 	kopiaServer.Stderr = os.Stderr
 	contextLogger.Info("Starting Kopia server", "args", kopiaServer.Args)

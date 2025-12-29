@@ -10,10 +10,6 @@ metadata:
   name: klioserver-dc-a
   namespace: dc-a
 spec:
-  baseConfiguration:
-    adminUser:
-      name: klioserver-dc-a-adm
-
   cacheConfiguration:
     pvcTemplate:
       resources:
@@ -46,15 +42,6 @@ data:
 kind: Secret
 metadata:
   name: klioserver-dc-a-users
-  namespace: dc-a
----
-apiVersion: v1
-data:
-  password: cGlwcG9waXBwbw==
-  username: a29waWE=
-kind: Secret
-metadata:
-  name: klioserver-dc-a-adm
   namespace: dc-a
 ---
 apiVersion: v1

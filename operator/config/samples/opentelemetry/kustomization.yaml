@@ -6,7 +6,6 @@ resources:
   - cluster_klio_client_auth.yaml
   - issuer.yaml
   - jaeger.yaml
-  - klio_admin.yaml
   - klio_encryption.yaml
   - klio_server.yaml
   - klio_server_ca.yaml
