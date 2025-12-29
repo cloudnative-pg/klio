@@ -62,12 +62,12 @@ github.com/cloudnative-pg/barman-cloud v0.3.3 h1:EEcjeV+IUivDpmyF/H/XGY1pGaKJ5LS
 github.com/cloudnative-pg/barman-cloud v0.3.3/go.mod h1:5CM4MncAxAjnqxjDt0I5E/oVd7gsMLL0/o/wQ+vUSgs=
 github.com/cloudnative-pg/cloudnative-pg v1.28.0 h1:vkv0a0ewDSfJOPJrsyUr4uczsxheReAWf/k171V0Dm0=
 github.com/cloudnative-pg/cloudnative-pg v1.28.0/go.mod h1:209fkRR6m0vXUVQ9Q498eAPQqN2UlXECbXXtpGsZz3I=
-github.com/cloudnative-pg/cnpg-i v0.3.0 h1:5ayNOG5x68lU70IVbHDZQrv5p+bErCJ0mqRmOpW2jjE=
-github.com/cloudnative-pg/cnpg-i v0.3.0/go.mod h1:VOIWWXcJ1RyioK+elR2DGOa4cBA6K+6UQgx05aZmH+g=
+github.com/cloudnative-pg/cnpg-i v0.3.1 h1:fKj8NoToWI11HUL2UWYJBpkVzmaTvbs3kDMo7wQF8RU=
+github.com/cloudnative-pg/cnpg-i v0.3.1/go.mod h1:glRDiJLJY51FY8ScJIv/OkaGJxFnojJkkNAqSy5XC6s=
 github.com/cloudnative-pg/cnpg-i-machinery v0.4.1 h1:M4ELhZO0e7UjiV3PZ3uGJOz3SgG/3ThWiqkbrFCcXNE=
 github.com/cloudnative-pg/cnpg-i-machinery v0.4.1/go.mod h1:TxwoMgQINOJkS1kepudqCBTYd8QYev6JoT8R52pYD4E=
-github.com/cloudnative-pg/machinery v0.3.1 h1:KtPA6EwELTUNisCMLiFYkK83GU9606rkGQhDJGPB8Yw=
-github.com/cloudnative-pg/machinery v0.3.1/go.mod h1:jebuqKxZAbrRKDEEpVCIDMKW+FbWtB9Kf/hb2kMUu9o=
+github.com/cloudnative-pg/machinery v0.3.2 h1:jtJZiQ3hHGTTRk21854E84owFqrVvaGvLfBcH4E/WXY=
+github.com/cloudnative-pg/machinery v0.3.2/go.mod h1:RYAYlVKBF5pH4mg+Q8wHjNDyENV9ajbkG41zOEf8DEs=
 github.com/coreos/go-semver v0.3.1 h1:yi21YpKnrx1gt5R+la8n5WgS0kCrsPp33dmEyHReZr4=
 github.com/coreos/go-semver v0.3.1/go.mod h1:irMmmIw/7yzSRPWryHsK7EYSg09caPQL03VsM8rvUec=
 github.com/coreos/go-systemd/v22 v22.6.0 h1:aGVa/v8B7hpb0TKl0MWoAavPDmHvobFe5R5zn0bCJWo=
@@ -194,8 +194,8 @@ github.com/jackc/pgpassfile v1.0.0 h1:/6Hmqy13Ss2zCq62VdNG8tM1wchn8zjSGOBJ6icpsI
 github.com/jackc/pgpassfile v1.0.0/go.mod h1:CEx0iS5ambNFdcRtxPj5JhEz+xB6uRky5eyVu/W2HEg=
 github.com/jackc/pgservicefile v0.0.0-20240606120523-5a60cdf6a761 h1:iCEnooe7UlwOQYpKFhBabPMi4aNAfoODPEFNiAnClxo=
 github.com/jackc/pgservicefile v0.0.0-20240606120523-5a60cdf6a761/go.mod h1:5TJZWKEWniPve33vlWYSoGYefn3gLQRzjfDlhSJ9ZKM=
-github.com/jackc/pgx/v5 v5.7.6 h1:rWQc5FwZSPX58r1OQmkuaNicxdmExaEz5A2DO2hUuTk=
-github.com/jackc/pgx/v5 v5.7.6/go.mod h1:aruU7o91Tc2q2cFp5h4uP3f6ztExVpyVv88Xl/8Vl8M=
+github.com/jackc/pgx/v5 v5.8.0 h1:TYPDoleBBme0xGSAX3/+NujXXtpZn9HBONkQC7IEZSo=
+github.com/jackc/pgx/v5 v5.8.0/go.mod h1:QVeDInX2m9VyzvNeiCJVjCkNFqzsNb43204HshNSZKw=
 github.com/jackc/puddle/v2 v2.2.2 h1:PR8nw+E/1w0GLuRFSmiioY6UooMp6KJv0/61nB7icHo=
 github.com/jackc/puddle/v2 v2.2.2/go.mod h1:vriiEXHvEE654aYKXXjOvZM39qJ0q+azkZFrfEOc3H4=
 github.com/jmespath/go-jmespath v0.4.0 h1:BEgLn5cpjn8UN1mAw4NjwDrS35OdebyEtFe+9YPoQUg=

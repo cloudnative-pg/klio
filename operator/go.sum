@@ -22,12 +22,12 @@ github.com/cloudnative-pg/barman-cloud v0.3.3 h1:EEcjeV+IUivDpmyF/H/XGY1pGaKJ5LS
 github.com/cloudnative-pg/barman-cloud v0.3.3/go.mod h1:5CM4MncAxAjnqxjDt0I5E/oVd7gsMLL0/o/wQ+vUSgs=
 github.com/cloudnative-pg/cloudnative-pg v1.28.0 h1:vkv0a0ewDSfJOPJrsyUr4uczsxheReAWf/k171V0Dm0=
 github.com/cloudnative-pg/cloudnative-pg v1.28.0/go.mod h1:209fkRR6m0vXUVQ9Q498eAPQqN2UlXECbXXtpGsZz3I=
-github.com/cloudnative-pg/cnpg-i v0.3.0 h1:5ayNOG5x68lU70IVbHDZQrv5p+bErCJ0mqRmOpW2jjE=
-github.com/cloudnative-pg/cnpg-i v0.3.0/go.mod h1:VOIWWXcJ1RyioK+elR2DGOa4cBA6K+6UQgx05aZmH+g=
+github.com/cloudnative-pg/cnpg-i v0.3.1 h1:fKj8NoToWI11HUL2UWYJBpkVzmaTvbs3kDMo7wQF8RU=
+github.com/cloudnative-pg/cnpg-i v0.3.1/go.mod h1:glRDiJLJY51FY8ScJIv/OkaGJxFnojJkkNAqSy5XC6s=
 github.com/cloudnative-pg/cnpg-i-machinery v0.4.1 h1:M4ELhZO0e7UjiV3PZ3uGJOz3SgG/3ThWiqkbrFCcXNE=
 github.com/cloudnative-pg/cnpg-i-machinery v0.4.1/go.mod h1:TxwoMgQINOJkS1kepudqCBTYd8QYev6JoT8R52pYD4E=
-github.com/cloudnative-pg/machinery v0.3.1 h1:KtPA6EwELTUNisCMLiFYkK83GU9606rkGQhDJGPB8Yw=
-github.com/cloudnative-pg/machinery v0.3.1/go.mod h1:jebuqKxZAbrRKDEEpVCIDMKW+FbWtB9Kf/hb2kMUu9o=
+github.com/cloudnative-pg/machinery v0.3.2 h1:jtJZiQ3hHGTTRk21854E84owFqrVvaGvLfBcH4E/WXY=
+github.com/cloudnative-pg/machinery v0.3.2/go.mod h1:RYAYlVKBF5pH4mg+Q8wHjNDyENV9ajbkG41zOEf8DEs=
 github.com/cpuguy83/go-md2man/v2 v2.0.6/go.mod h1:oOW0eioCTA6cOiMLiUPZOpcVxMig6NIQQ7OS05n1F4g=
 github.com/davecgh/go-spew v1.1.0/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
 github.com/davecgh/go-spew v1.1.1/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
@@ -318,8 +318,8 @@ google.golang.org/genproto/googleapis/rpc v0.0.0-20251029180050-ab9386a59fda h1:
 google.golang.org/genproto/googleapis/rpc v0.0.0-20251029180050-ab9386a59fda/go.mod h1:7i2o+ce6H/6BluujYR+kqX3GKH+dChPTQU19wjRPiGk=
 google.golang.org/grpc v1.78.0 h1:K1XZG/yGDJnzMdd/uZHAkVqJE+xIDOcmdSFZkBUicNc=
 google.golang.org/grpc v1.78.0/go.mod h1:I47qjTo4OKbMkjA/aOOwxDIiPSBofUtQUI5EfpWvW7U=
-google.golang.org/protobuf v1.36.10 h1:AYd7cD/uASjIL6Q9LiTjz8JLcrh/88q5UObnmY3aOOE=
-google.golang.org/protobuf v1.36.10/go.mod h1:HTf+CrKn2C3g5S8VImy6tdcUvCska2kB7j23XfzDpco=
+google.golang.org/protobuf v1.36.11 h1:fV6ZwhNocDyBLK0dj+fg8ektcVegBBuEolpbTQyBNVE=
+google.golang.org/protobuf v1.36.11/go.mod h1:HTf+CrKn2C3g5S8VImy6tdcUvCska2kB7j23XfzDpco=
 gopkg.in/check.v1 v0.0.0-20161208181325-20d25e280405/go.mod h1:Co6ibVJAznAaIkqp8huTwlJQCZ016jof/cbN4VW5Yz0=
 gopkg.in/check.v1 v1.0.0-20201130134442-10cb98267c6c h1:Hei/4ADfdWqJk1ZMxUNpqntNwaWcugrBjAiHlqqRiVk=
 gopkg.in/check.v1 v1.0.0-20201130134442-10cb98267c6c/go.mod h1:JHkPIbrfpd72SG/EVd6muEfDQjcINNoR0C8j2r3qZ4Q=
