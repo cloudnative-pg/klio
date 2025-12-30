@@ -19,6 +19,7 @@ func StartTier2(
 	ctx context.Context,
 	baseServerCfg *config.BaseServerConfig,
 	tier2Config *config.Tier2Config,
+	tls *config.TLSConfig,
 ) error {
 	contextLogger := log.FromContext(ctx)
 
@@ -52,7 +53,7 @@ func StartTier2(
 	tier2ServerCfg.ListenAddress = tier2Config.BaseListenAddress
 	tier2ServerCfg.CacheDirectory = tier2CacheDir
 
-	return start(ctx, configFile.Name(), &tier2ServerCfg)
+	return start(ctx, configFile.Name(), &tier2ServerCfg, tls)
 }
 
 // InitializeTier2 initializes a new Kopia Tier2 Repository.

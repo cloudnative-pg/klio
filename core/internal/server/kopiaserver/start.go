@@ -19,7 +19,7 @@ import (
 const kopiaCommand = "kopia"
 
 // start runs a Kopia server with the passed configuration.
-func start(ctx context.Context, configFile string, cfg *config.BaseServerConfig) error {
+func start(ctx context.Context, configFile string, cfg *config.BaseServerConfig, tls *config.TLSConfig) error {
 	contextLogger := log.FromContext(ctx)
 
 	kopiaBinary, err := exec.LookPath(kopiaCommand)
@@ -33,9 +33,9 @@ func start(ctx context.Context, configFile string, cfg *config.BaseServerConfig)
 	// Start the Kopia server
 	args := []string{
 		"server", "start",
-		"--tls-key-file=" + cfg.TLSKey,
-		"--tls-cert-file=" + cfg.TLSCert,
-		"--tls-ca-file=" + cfg.ClientCACertFile,
+		"--tls-key-file=" + tls.TLSKey,
+		"--tls-cert-file=" + tls.TLSCert,
+		"--tls-ca-file=" + tls.ClientCACertFile,
 		"--config-file=" + configFile,
 		"--cache-directory=" + cfg.CacheDirectory,
 		"--address=" + cfg.ListenAddress,

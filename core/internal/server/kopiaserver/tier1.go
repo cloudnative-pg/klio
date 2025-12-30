@@ -12,7 +12,11 @@ import (
 )
 
 // StartTier1 runs a Tier 1 Kopia server.
-func StartTier1(ctx context.Context, cfg *config.BaseServerConfig) error {
+func StartTier1(
+	ctx context.Context,
+	cfg *config.BaseServerConfig,
+	tls *config.TLSConfig,
+) error {
 	contextLogger := log.FromContext(ctx)
 
 	configFile, err := os.CreateTemp("", "kopiaconfig_*")
@@ -42,7 +46,7 @@ func StartTier1(ctx context.Context, cfg *config.BaseServerConfig) error {
 	tier1Config := *cfg
 	tier1Config.CacheDirectory = cacheDir
 
-	return start(ctx, configFile.Name(), &tier1Config)
+	return start(ctx, configFile.Name(), &tier1Config, tls)
 }
 
 func getTier1CacheDirectory(cfg *config.BaseServerConfig) (string, error) {

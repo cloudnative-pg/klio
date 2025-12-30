@@ -28,6 +28,7 @@ func Start(
 	ctx context.Context,
 	repoConnection *repository.Connection,
 	walServerConfiguration *config.WalServerConfig,
+	tlsConfiguration *config.TLSConfig,
 ) error {
 	logger := log.FromContext(ctx)
 
@@ -40,14 +41,14 @@ func Start(
 
 	// Configure TLS
 	cert, err := tls.LoadX509KeyPair(
-		walServerConfiguration.TLSCert,
-		walServerConfiguration.TLSKey,
+		tlsConfiguration.TLSCert,
+		tlsConfiguration.TLSKey,
 	)
 	if err != nil {
 		return fmt.Errorf("failed to load server key pair: %w", err)
 	}
 
-	clientCAPem, err := os.ReadFile(walServerConfiguration.ClientCACertFile)
+	clientCAPem, err := os.ReadFile(tlsConfiguration.ClientCACertFile)
 	if err != nil {
 		return fmt.Errorf("while reading Client CA certificate file: %w", err)
 	}

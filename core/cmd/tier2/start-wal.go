@@ -49,7 +49,12 @@ var startWALCmd = &cobra.Command{
 		walServerConfiguration := configuration.Wal
 		walServerConfiguration.ListenAddress = configuration.Tier2.WALListenAddress
 
-		if err := walserver.Start(cmd.Context(), tier2RepoConnection, &walServerConfiguration); err != nil {
+		if err := walserver.Start(
+			cmd.Context(),
+			tier2RepoConnection,
+			&walServerConfiguration,
+			&configuration.TLS,
+		); err != nil {
 			return fmt.Errorf("while starting the WAL server: %w", err)
 		}
 

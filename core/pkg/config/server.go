@@ -8,8 +8,25 @@ type ServerConfig struct {
 	// Wal is the configuration of the Wal server
 	Wal WalServerConfig `mapstructure:"wal" validate:"nonzero"`
 
+	// TLS is the TLS configuration of the base and of the WAL
+	// server
+	TLS TLSConfig `mapstructure:"tls" validate:"nonzero"`
+
 	// Tier2Config is the Tier 2 configuration
 	Tier2 Tier2Config `mapstructure:"tier2"`
+}
+
+// TLSConfig is the TLS configuration of the server.
+type TLSConfig struct {
+	// TLSCert is the path to the server public key
+	TLSCert string `json:"tls_cert" mapstructure:"cert" validate:"nonzero"`
+
+	// TLSKey is the path to the server private key
+	TLSKey string `json:"tls_key" mapstructure:"key" validate:"nonzero"`
+
+	// ClientCACertFile is the file containing the CA certificate to be used
+	// to verify client certificates
+	ClientCACertFile string `json:"client_ca_cert" mapstructure:"client_ca_cert" validate:"nonzero"`
 }
 
 // BaseServerConfig is the configuration that will be used for
@@ -25,18 +42,8 @@ type BaseServerConfig struct {
 	// RepositoryDirectory is the directory where the Kopia repository is stored.
 	RepositoryDirectory string `mapstructure:"repository" validate:"nonzero"`
 
-	// TLSKey is the file of the TLS private key
-	TLSKey string `mapstructure:"tls_key" validate:"nonzero"`
-
-	// TLSCert is the file of the TLS public key
-	TLSCert string `mapstructure:"tls_cert" validate:"nonzero"`
-
 	// ListenAddress is the address where we should listen to
 	ListenAddress string `mapstructure:"listen_address" validate:"nonzero"`
-
-	// ClientCACertFile is the file containing the CA certificate to be used
-	// to verify client certificates
-	ClientCACertFile string `mapstructure:"client_ca_cert_file" validate:"nonzero"`
 }
 
 // WalServerConfig is the configuration of the Klio server.
@@ -44,21 +51,11 @@ type WalServerConfig struct {
 	// ListenAddress is the listening address
 	ListenAddress string `json:"listen_address" mapstructure:"listen_address" validate:"nonzero"`
 
-	// TLSCert is the path to the server public key
-	TLSCert string `json:"tls_cert" mapstructure:"tls_cert" validate:"nonzero"`
-
-	// TLSKey is the path to the server private key
-	TLSKey string `json:"tls_key" mapstructure:"tls_key" validate:"nonzero"`
-
 	// WALPath is the path where the WALs should be stored
 	WALPath string `json:"path" mapstructure:"path" validate:"nonzero"`
 
 	// EncryptionPassword is the encryption password
 	EncryptionPassword string `json:"encryption_password" mapstructure:"encryption_password" validate:"nonzero"`
-
-	// ClientCACertFile is the file containing the CA certificate to be used
-	// to verify client certificates
-	ClientCACertFile string `mapstructure:"client_ca_cert_file" validate:"nonzero"`
 
 	// NATSAddress is the address where the NATS server can be reached.
 	NATSAddress string `mapstructure:"nats_address"`

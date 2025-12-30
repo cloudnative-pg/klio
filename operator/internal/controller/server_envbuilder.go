@@ -123,32 +123,24 @@ func (e *envBuilder) getCoreEnvVars() []corev1.EnvVar {
 			Value: basePath,
 		},
 		{
-			Name:  "BASE_TLS_CERT",
+			Name:  "TLS_CERT",
 			Value: "/certs/tls.crt",
 		},
 		{
-			Name:  "BASE_TLS_KEY",
+			Name:  "TLS_KEY",
 			Value: "/certs/tls.key",
+		},
+		{
+			Name:  "TLS_CLIENT_CA_CERT",
+			Value: "/client-ca/tls.crt",
 		},
 		{
 			Name:  "BASE_LISTEN_ADDRESS",
 			Value: "0.0.0.0:51515",
 		},
 		{
-			Name:  "BASE_CLIENT_CA_CERT_FILE",
-			Value: "/client-ca/tls.crt",
-		},
-		{
 			Name:  "WAL_LISTEN_ADDRESS",
 			Value: "0.0.0.0:52000",
-		},
-		{
-			Name:  "WAL_TLS_CERT",
-			Value: "/certs/tls.crt",
-		},
-		{
-			Name:  "WAL_TLS_KEY",
-			Value: "/certs/tls.key",
 		},
 		{
 			Name:  "WAL_PATH",
@@ -157,10 +149,6 @@ func (e *envBuilder) getCoreEnvVars() []corev1.EnvVar {
 		{
 			Name:      "WAL_ENCRYPTION_PASSWORD",
 			ValueFrom: secretKeySelectorToEnvVarSource(e.server.Spec.Password),
-		},
-		{
-			Name:  "WAL_CLIENT_CA_CERT_FILE",
-			Value: "/client-ca/tls.crt",
 		},
 	}
 }

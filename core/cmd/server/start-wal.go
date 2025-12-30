@@ -42,7 +42,7 @@ var startWALCmd = &cobra.Command{
 			return fmt.Errorf("failed to connect to local repository: %w", err)
 		}
 
-		if err := walserver.Start(cmd.Context(), repoConnection, &configuration.Wal); err != nil {
+		if err := walserver.Start(cmd.Context(), repoConnection, &configuration.Wal, &configuration.TLS); err != nil {
 			return fmt.Errorf("while starting the WAL server: %w", err)
 		}
 
