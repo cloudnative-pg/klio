@@ -3,7 +3,7 @@
 ARG BASE_IMAGE=registry.access.redhat.com/ubi10/ubi-micro:10.1-1766049088@sha256:2946fa1b951addbcd548ef59193dc0af9b3e9fedb0287b4ddb6e697b06581622
 
 # Build stage: build on the host platform for the target platform
-FROM --platform=${BUILDPLATFORM} golang:1.25.5@sha256:97be07314ef2af5f56d22c3bb608c4cffa2a92b3c8252e9f674081ed8217f75b AS builder
+FROM --platform=${BUILDPLATFORM} golang:1.25.5@sha256:b6ba5234ed128185b0b81070813c77dd5c973aec7703f4646805f11377627408 AS builder
 WORKDIR /workspace
 
 ARG TARGETPLATFORM
