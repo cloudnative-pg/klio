@@ -17,7 +17,6 @@ import (
 // StartTier2 runs a Tier 2 Kopia server.
 func StartTier2(
 	ctx context.Context,
-	baseServerCfg *config.BaseServerConfig,
 	tier2Config *config.Tier2Config,
 	tls *config.TLSConfig,
 ) error {
@@ -38,26 +37,28 @@ func StartTier2(
 		}
 	}()
 
-	if err := CreateTier2KopiaConfigFile(ctx, configFile.Name(), &tier2Config.S3); err != nil {
+	if err := CreateTier2KopiaConfigFile(ctx, configFile.Name(), tier2Config); err != nil {
 		return err
 	}
 
 	// A tier-2 Kopia server is configured exactly like a tier-1 server, but with
 	// a different kopia target repository and different listen address.
-	tier2CacheDir, err := getTier2CacheDirectory(&tier2Config.S3)
+	tier2CacheDir, err := getTier2CacheDirectory(tier2Config)
 	if err != nil {
 		return err
 	}
 
-	tier2ServerCfg := *baseServerCfg
-	tier2ServerCfg.ListenAddress = tier2Config.BaseListenAddress
-	tier2ServerCfg.CacheDirectory = tier2CacheDir
+	kopiaServerConfig := Config{
+		EncryptionPassword: tier2Config.EncryptionPassword,
+		CacheDirectory:     tier2CacheDir,
+		ListenAddress:      tier2Config.BaseListenAddress,
+	}
 
-	return start(ctx, configFile.Name(), &tier2ServerCfg, tls)
+	return start(ctx, configFile.Name(), &kopiaServerConfig, tls)
 }
 
 // InitializeTier2 initializes a new Kopia Tier2 Repository.
-func InitializeTier2(ctx context.Context, cfg *config.S3Configuration) error {
+func InitializeTier2(ctx context.Context, cfg *config.Tier2Config) error {
 	contextLogger := log.FromContext(ctx)
 
 	if err := cleanupTier2Cache(cfg); err != nil {
@@ -95,7 +96,7 @@ func InitializeTier2(ctx context.Context, cfg *config.S3Configuration) error {
 }
 
 // CreateTier2KopiaConfigFile creates a Kopia config file for tier2.
-func CreateTier2KopiaConfigFile(ctx context.Context, fileName string, cfg *config.S3Configuration) error {
+func CreateTier2KopiaConfigFile(ctx context.Context, fileName string, cfg *config.Tier2Config) error {
 	contextLogger := log.FromContext(ctx)
 
 	kopiaBinary, err := exec.LookPath(kopiaCommand)
@@ -132,11 +133,11 @@ func CreateTier2KopiaConfigFile(ctx context.Context, fileName string, cfg *confi
 	return nil
 }
 
-func getTier2CacheDirectory(cfg *config.S3Configuration) (string, error) {
+func getTier2CacheDirectory(cfg *config.Tier2Config) (string, error) {
 	return cacheDirectory(cfg.CacheDirectory, "tier2")
 }
 
-func cleanupTier2Cache(cfg *config.S3Configuration) error {
+func cleanupTier2Cache(cfg *config.Tier2Config) error {
 	cacheDir, err := getTier2CacheDirectory(cfg)
 	if err != nil {
 		return err
@@ -145,12 +146,12 @@ func cleanupTier2Cache(cfg *config.S3Configuration) error {
 	return cleanupCache(cacheDir)
 }
 
-func getCommonTier2Args(cfg *config.S3Configuration) ([]string, error) {
+func getCommonTier2Args(cfg *config.Tier2Config) ([]string, error) {
 	doNotUseTLS := false
 	shortenedEndpoint := ""
 
-	if cfg.Endpoint != "" {
-		endpointURL, err := url.Parse(cfg.Endpoint)
+	if cfg.S3.Endpoint != "" {
+		endpointURL, err := url.Parse(cfg.S3.Endpoint)
 		if err != nil {
 			return nil, fmt.Errorf("invalid endpoint URL %q: %w", endpointURL, err)
 		}
@@ -165,15 +166,15 @@ func getCommonTier2Args(cfg *config.S3Configuration) ([]string, error) {
 	}
 
 	args := []string{
-		"--bucket=" + cfg.BucketName,
+		"--bucket=" + cfg.S3.BucketName,
 		"--cache-directory=" + cacheDir,
-		"--prefix=" + path.Join(cfg.Prefix, "base") + "/",
+		"--prefix=" + path.Join(cfg.S3.Prefix, "base") + "/",
 		"--disable-file-logging",
 		"--json-log-console",
 	}
 
-	if cfg.Region != "" {
-		args = append(args, "--region="+cfg.Region)
+	if cfg.S3.Region != "" {
+		args = append(args, "--region="+cfg.S3.Region)
 	}
 
 	if shortenedEndpoint != "" {
@@ -182,20 +183,20 @@ func getCommonTier2Args(cfg *config.S3Configuration) ([]string, error) {
 	if doNotUseTLS {
 		args = append(args, "--disable-tls")
 	}
-	if cfg.CustomCABundleFile != "" {
-		args = append(args, "--root-ca-pem-path="+cfg.CustomCABundleFile)
+	if cfg.S3.CustomCABundleFile != "" {
+		args = append(args, "--root-ca-pem-path="+cfg.S3.CustomCABundleFile)
 	}
 
 	return args, nil
 }
 
-func getCommonTier2Env(cfg *config.S3Configuration) []string {
+func getCommonTier2Env(cfg *config.Tier2Config) []string {
 	return []string{
 		"KOPIA_LOG_DIR=" + cfg.CacheDirectory,
 		"KOPIA_PASSWORD=" + cfg.EncryptionPassword,
-		"AWS_ACCESS_KEY_ID=" + cfg.AccessKeyID,
-		"AWS_SECRET_ACCESS_KEY=" + cfg.SecretAccessKey,
-		"AWS_SESSION_TOKEN=" + cfg.SessionToken,
+		"AWS_ACCESS_KEY_ID=" + cfg.S3.AccessKeyID,
+		"AWS_SECRET_ACCESS_KEY=" + cfg.S3.SecretAccessKey,
+		"AWS_SESSION_TOKEN=" + cfg.S3.SessionToken,
 		"KOPIA_CHECK_FOR_UPDATES=false",
 	}
 }

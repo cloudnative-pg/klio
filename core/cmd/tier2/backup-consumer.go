@@ -62,7 +62,7 @@ var backupConsumerCmd = &cobra.Command{
 		if err := kopiaserver.CreateTier1KopiaConfigFile(
 			cmd.Context(),
 			tier1ConfigFile.Name(),
-			&configuration.Base,
+			&configuration.Tier1,
 		); err != nil {
 			return err
 		}
@@ -86,14 +86,14 @@ var backupConsumerCmd = &cobra.Command{
 		if err := kopiaserver.CreateTier2KopiaConfigFile(
 			cmd.Context(),
 			tier2ConfigFile.Name(),
-			&configuration.Tier2.S3,
+			&configuration.Tier2,
 		); err != nil {
 			return err
 		}
 
 		// Connect to NATS
 		natsConnection, err := nats.Connect(
-			configuration.Wal.NATSAddress,
+			configuration.Tier1.Wal.NATSAddress,
 			nats.RetryOnFailedConnect(true),
 			nats.ReconnectWait(1*time.Second),
 		)
@@ -110,8 +110,8 @@ var backupConsumerCmd = &cobra.Command{
 			Queue:                   queueConnection,
 			Tier1KopiaConfig:        tier1ConfigFile.Name(),
 			Tier2KopiaConfig:        tier2ConfigFile.Name(),
-			CacheDirectory:          configuration.Base.CacheDirectory,
-			Tier1EncryptionPassword: configuration.Base.EncryptionPassword,
+			CacheDirectory:          configuration.Tier1.Base.CacheDirectory,
+			Tier1EncryptionPassword: configuration.Tier1.EncryptionPassword,
 		})
 		if err != nil {
 			return fmt.Errorf("error while creating backup consumer: %w", err)

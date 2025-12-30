@@ -42,10 +42,10 @@ var walConsumerCmd = &cobra.Command{
 		}
 
 		// Connect to the Klio repository in Tier 1
-		tier1WALFS := afero.NewBasePathFs(afero.NewOsFs(), configuration.Wal.WALPath)
+		tier1WALFS := afero.NewBasePathFs(afero.NewOsFs(), configuration.Tier1.Wal.WALPath)
 		tier1RepoConnection, err := repository.Open(repository.Options{
 			FS:       tier1WALFS,
-			Password: configuration.Wal.EncryptionPassword,
+			Password: configuration.Tier1.EncryptionPassword,
 		})
 		if err != nil {
 			return fmt.Errorf("failed to connect to local repository: %w", err)
@@ -58,7 +58,7 @@ var walConsumerCmd = &cobra.Command{
 		}
 		tier2RepoConnection, err := repository.Open(repository.Options{
 			FS:       tier2WALFS,
-			Password: configuration.Tier2.S3.EncryptionPassword,
+			Password: configuration.Tier2.EncryptionPassword,
 		})
 		if err != nil {
 			return fmt.Errorf("failed to connect to local repository: %w", err)
@@ -66,7 +66,7 @@ var walConsumerCmd = &cobra.Command{
 
 		// Connect to NATS
 		natsConnection, err := nats.Connect(
-			configuration.Wal.NATSAddress,
+			configuration.Tier1.Wal.NATSAddress,
 			nats.RetryOnFailedConnect(true),
 			nats.ReconnectWait(1*time.Second),
 		)

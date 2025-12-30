@@ -2,15 +2,12 @@ package config
 
 // ServerConfig is the configuration of the Klio server.
 type ServerConfig struct {
-	// Base is the configuration of the Base server
-	Base BaseServerConfig `mapstructure:"base" validate:"nonzero"`
-
-	// Wal is the configuration of the Wal server
-	Wal WalServerConfig `mapstructure:"wal" validate:"nonzero"`
-
 	// TLS is the TLS configuration of the base and of the WAL
 	// server
 	TLS TLSConfig `mapstructure:"tls" validate:"nonzero"`
+
+	// Tier1Config is the Tier 1 configuration
+	Tier1 Tier1Config `mapstructure:"tier1" validate:"nonzero"`
 
 	// Tier2Config is the Tier 2 configuration
 	Tier2 Tier2Config `mapstructure:"tier2"`
@@ -29,13 +26,40 @@ type TLSConfig struct {
 	ClientCACertFile string `json:"client_ca_cert" mapstructure:"client_ca_cert" validate:"nonzero"`
 }
 
+// Tier1Config is the configuration of tier 1.
+type Tier1Config struct {
+	// EncryptionPassword is the encryption password that is used to
+	// operate on the Kopia repository and on the WAL directory.
+	EncryptionPassword string `mapstructure:"encryption_password" validate:"nonzero"`
+
+	// Base is the configuration of the Base server
+	Base BaseServerConfig `mapstructure:"base" validate:"nonzero"`
+
+	// Wal is the configuration of the Wal server
+	Wal WalServerConfig `mapstructure:"wal" validate:"nonzero"`
+}
+
+// Tier2Config is the configuration of tier 2.
+type Tier2Config struct {
+	// EncryptionPassword is the encryption password
+	EncryptionPassword string `json:"encryption_password" mapstructure:"encryption_password"`
+
+	// BaseListenAddress is the address where the tier2 base server will listen
+	BaseListenAddress string `mapstructure:"base_listen_address"`
+
+	// WALListenAddress is the address where the tier2 wal server will listen
+	WALListenAddress string `mapstructure:"wal_listen_address"`
+
+	// CacheDirectory is the directory of the Kopia cache
+	CacheDirectory string `mapstructure:"cache"`
+
+	// S3 contains the configuration parameters for an S3-based tier 2
+	S3 S3Configuration `json:"s3" mapstructure:"s3"`
+}
+
 // BaseServerConfig is the configuration that will be used for
 // the kopia server.
 type BaseServerConfig struct {
-	// EncryptionPassword is the encryption password that is used to create and
-	// operate on the Kopia repository.
-	EncryptionPassword string `mapstructure:"encryption_password" validate:"nonzero"`
-
 	// CacheDirectory is the directory of the Kopia cache
 	CacheDirectory string `mapstructure:"cache" validate:"nonzero"`
 
@@ -54,23 +78,8 @@ type WalServerConfig struct {
 	// WALPath is the path where the WALs should be stored
 	WALPath string `json:"path" mapstructure:"path" validate:"nonzero"`
 
-	// EncryptionPassword is the encryption password
-	EncryptionPassword string `json:"encryption_password" mapstructure:"encryption_password" validate:"nonzero"`
-
 	// NATSAddress is the address where the NATS server can be reached.
 	NATSAddress string `mapstructure:"nats_address"`
-}
-
-// Tier2Config is the tier 2 configuration.
-type Tier2Config struct {
-	// S3 contains the configuration parameters for an S3-based tier 2
-	S3 S3Configuration `json:"s3" mapstructure:"s3"`
-
-	// BaseListenAddress is the address where the tier2 base server will listen
-	BaseListenAddress string `mapstructure:"base_listen_address"`
-
-	// WALListenAddress is the address where the tier2 base server will listen
-	WALListenAddress string `mapstructure:"wal_listen_address"`
 }
 
 // S3Configuration is the configuration to a S3 defined tier 2.
@@ -101,10 +110,4 @@ type S3Configuration struct {
 
 	// CustomCABundleFile is the file where we should read the custom CA bundle
 	CustomCABundleFile string `json:"custom_ca_bundle_file" mapstructure:"custom_ca_bundle_file"`
-
-	// EncryptionPassword is the encryption password
-	EncryptionPassword string `json:"encryption_password" mapstructure:"encryption_password"`
-
-	// CacheDirectory is the directory of the Kopia cache
-	CacheDirectory string `mapstructure:"cache"`
 }

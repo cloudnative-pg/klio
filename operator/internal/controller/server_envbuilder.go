@@ -104,22 +104,11 @@ func (e *envBuilder) getCoreEnvVars() []corev1.EnvVar {
 
 	return []corev1.EnvVar{
 		{
-			Name: "BASE_ENCRYPTION_PASSWORD",
-			ValueFrom: &corev1.EnvVarSource{
-				SecretKeyRef: &corev1.SecretKeySelector{
-					LocalObjectReference: corev1.LocalObjectReference{
-						Name: e.server.Spec.Password.Name,
-					},
-					Key: e.server.Spec.Password.Key,
-				},
-			},
-		},
-		{
-			Name:  "BASE_CACHE",
+			Name:  "TIER1_BASE_CACHE",
 			Value: kopiaCacheMountPath,
 		},
 		{
-			Name:  "BASE_REPOSITORY",
+			Name:  "TIER1_BASE_REPOSITORY",
 			Value: basePath,
 		},
 		{
@@ -135,19 +124,19 @@ func (e *envBuilder) getCoreEnvVars() []corev1.EnvVar {
 			Value: "/client-ca/tls.crt",
 		},
 		{
-			Name:  "BASE_LISTEN_ADDRESS",
+			Name:  "TIER1_BASE_LISTEN_ADDRESS",
 			Value: "0.0.0.0:51515",
 		},
 		{
-			Name:  "WAL_LISTEN_ADDRESS",
+			Name:  "TIER1_WAL_LISTEN_ADDRESS",
 			Value: "0.0.0.0:52000",
 		},
 		{
-			Name:  "WAL_PATH",
+			Name:  "TIER1_WAL_PATH",
 			Value: walPath,
 		},
 		{
-			Name:      "WAL_ENCRYPTION_PASSWORD",
+			Name:      "TIER1_ENCRYPTION_PASSWORD",
 			ValueFrom: secretKeySelectorToEnvVarSource(e.server.Spec.Password),
 		},
 	}
@@ -183,7 +172,7 @@ func (e *envBuilder) getTier2EnvVars() []corev1.EnvVar {
 			Value: e.server.Spec.Tier2.S3.Prefix,
 		},
 		{
-			Name:      "TIER2_S3_ENCRYPTION_PASSWORD",
+			Name:      "TIER2_ENCRYPTION_PASSWORD",
 			ValueFrom: secretKeySelectorToEnvVarSource(e.server.Spec.Tier2.EncryptionPassword),
 		},
 		{
@@ -191,7 +180,7 @@ func (e *envBuilder) getTier2EnvVars() []corev1.EnvVar {
 			Value: e.server.Spec.Tier2.S3.Region,
 		},
 		{
-			Name:  "TIER2_S3_CACHE",
+			Name:  "TIER2_CACHE",
 			Value: kopiaCacheMountPath,
 		},
 		{
@@ -203,7 +192,7 @@ func (e *envBuilder) getTier2EnvVars() []corev1.EnvVar {
 			Value: "0.0.0.0:52001",
 		},
 		{
-			Name:  "WAL_NATS_ADDRESS",
+			Name:  "TIER1_WAL_NATS_ADDRESS",
 			Value: "127.0.0.1:4222",
 		},
 	}

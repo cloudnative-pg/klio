@@ -33,16 +33,16 @@ var startWALCmd = &cobra.Command{
 		}
 
 		// Connects to the Klio repository
-		walFS := afero.NewBasePathFs(afero.NewOsFs(), configuration.Wal.WALPath)
+		walFS := afero.NewBasePathFs(afero.NewOsFs(), configuration.Tier1.Wal.WALPath)
 		repoConnection, err := repository.Open(repository.Options{
 			FS:       walFS,
-			Password: configuration.Wal.EncryptionPassword,
+			Password: configuration.Tier1.EncryptionPassword,
 		})
 		if err != nil {
 			return fmt.Errorf("failed to connect to local repository: %w", err)
 		}
 
-		if err := walserver.Start(cmd.Context(), repoConnection, &configuration.Wal, &configuration.TLS); err != nil {
+		if err := walserver.Start(cmd.Context(), repoConnection, &configuration.Tier1.Wal, &configuration.TLS); err != nil {
 			return fmt.Errorf("while starting the WAL server: %w", err)
 		}
 

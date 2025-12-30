@@ -34,17 +34,17 @@ var initializeCmd = &cobra.Command{
 		}
 
 		skipIfExisting, _ := cmd.Flags().GetBool("skip-if-existing")
-		walDirectory := configuration.Wal.WALPath
-		kopiaDirectory := configuration.Base.RepositoryDirectory
+		walDirectory := configuration.Tier1.Wal.WALPath
+		kopiaDirectory := configuration.Tier1.Base.RepositoryDirectory
 
 		opts := initialize.Options{
 			WalFS:                 afero.NewBasePathFs(afero.NewOsFs(), walDirectory),
-			WalEncryptionPassword: configuration.Wal.EncryptionPassword,
+			WalEncryptionPassword: configuration.Tier1.EncryptionPassword,
 
 			KopiaFS:                 afero.NewBasePathFs(afero.NewOsFs(), kopiaDirectory),
-			KopiaEncryptionPassword: configuration.Base.EncryptionPassword,
+			KopiaEncryptionPassword: configuration.Tier1.EncryptionPassword,
 			KopiaInitializeRepo: func() error {
-				return kopiaserver.InitializeTier1(ctx, &configuration.Base)
+				return kopiaserver.InitializeTier1(ctx, &configuration.Tier1)
 			},
 
 			SkipIfExisting: skipIfExisting,

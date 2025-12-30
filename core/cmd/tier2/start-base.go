@@ -58,7 +58,6 @@ var startBase = &cobra.Command{
 		// IMPORTANT: this requires this program to be built with "-tags viper_bind_struct"
 		if err := kopiaserver.StartTier2(
 			cmd.Context(),
-			&configuration.Base,
 			&configuration.Tier2,
 			&configuration.TLS,
 		); err != nil {

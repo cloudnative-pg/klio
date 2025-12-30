@@ -18,8 +18,22 @@ import (
 // kopiaCommand is the name of the kopia binary.
 const kopiaCommand = "kopia"
 
+// Config contains the information required to start up a Kopia server.
+type Config struct {
+	// EncryptionPassword is the repository encryption password
+	EncryptionPassword string
+
+	// CacheDirectory is used by the Kopia server to cache blobs.
+	// This is important for remote repositories.
+	CacheDirectory string
+
+	// ListenAddress is the <host>:<port> specification that is
+	// used to create the listening socket.
+	ListenAddress string
+}
+
 // start runs a Kopia server with the passed configuration.
-func start(ctx context.Context, configFile string, cfg *config.BaseServerConfig, tls *config.TLSConfig) error {
+func start(ctx context.Context, configFile string, cfg *Config, tls *config.TLSConfig) error {
 	contextLogger := log.FromContext(ctx)
 
 	kopiaBinary, err := exec.LookPath(kopiaCommand)

@@ -14,7 +14,7 @@ import (
 // StartTier1 runs a Tier 1 Kopia server.
 func StartTier1(
 	ctx context.Context,
-	cfg *config.BaseServerConfig,
+	cfg *config.Tier1Config,
 	tls *config.TLSConfig,
 ) error {
 	contextLogger := log.FromContext(ctx)
@@ -38,15 +38,18 @@ func StartTier1(
 		return err
 	}
 
-	cacheDir, err := getTier1CacheDirectory(cfg)
+	cacheDir, err := getTier1CacheDirectory(&cfg.Base)
 	if err != nil {
 		return err
 	}
 
-	tier1Config := *cfg
-	tier1Config.CacheDirectory = cacheDir
+	kopiaCfg := Config{
+		EncryptionPassword: cfg.EncryptionPassword,
+		CacheDirectory:     cacheDir,
+		ListenAddress:      cfg.Base.ListenAddress,
+	}
 
-	return start(ctx, configFile.Name(), &tier1Config, tls)
+	return start(ctx, configFile.Name(), &kopiaCfg, tls)
 }
 
 func getTier1CacheDirectory(cfg *config.BaseServerConfig) (string, error) {
@@ -77,10 +80,10 @@ func getCommonTier1Args(cfg *config.BaseServerConfig) ([]string, error) {
 }
 
 // InitializeTier1 initializes a new Kopia Tier1 Repository.
-func InitializeTier1(ctx context.Context, cfg *config.BaseServerConfig) error {
+func InitializeTier1(ctx context.Context, cfg *config.Tier1Config) error {
 	contextLogger := log.FromContext(ctx)
 
-	if err := cleanupTier1Cache(cfg); err != nil {
+	if err := cleanupTier1Cache(&cfg.Base); err != nil {
 		return err
 	}
 
@@ -93,7 +96,7 @@ func InitializeTier1(ctx context.Context, cfg *config.BaseServerConfig) error {
 		"repository", "create", "filesystem",
 		"--create-only",
 	}
-	commonArgs, err := getCommonTier1Args(cfg)
+	commonArgs, err := getCommonTier1Args(&cfg.Base)
 	if err != nil {
 		return err
 	}
@@ -116,7 +119,7 @@ func InitializeTier1(ctx context.Context, cfg *config.BaseServerConfig) error {
 }
 
 // CreateTier1KopiaConfigFile creates a Kopia config file for tier1.
-func CreateTier1KopiaConfigFile(ctx context.Context, fileName string, cfg *config.BaseServerConfig) error {
+func CreateTier1KopiaConfigFile(ctx context.Context, fileName string, cfg *config.Tier1Config) error {
 	contextLogger := log.FromContext(ctx)
 
 	kopiaBinary, err := exec.LookPath(kopiaCommand)
@@ -131,7 +134,7 @@ func CreateTier1KopiaConfigFile(ctx context.Context, fileName string, cfg *confi
 		"--override-username=klio",
 		"--override-hostname=klio",
 	}
-	commonArgs, err := getCommonTier1Args(cfg)
+	commonArgs, err := getCommonTier1Args(&cfg.Base)
 	if err != nil {
 		return err
 	}
@@ -139,7 +142,7 @@ func CreateTier1KopiaConfigFile(ctx context.Context, fileName string, cfg *confi
 
 	kopiaRepositoryConnect := exec.CommandContext(ctx, kopiaBinary, args...) //nolint:gosec
 	kopiaRepositoryConnect.Env = append(kopiaRepositoryConnect.Env,
-		"KOPIA_LOG_DIR="+cfg.CacheDirectory,
+		"KOPIA_LOG_DIR="+cfg.Base.CacheDirectory,
 		"KOPIA_PASSWORD="+cfg.EncryptionPassword,
 		"KOPIA_CHECK_FOR_UPDATES=false",
 	)

@@ -30,7 +30,7 @@ var startBase = &cobra.Command{
 			return fmt.Errorf("configuration validation error: %w", errs)
 		}
 
-		if err := kopiaserver.StartTier1(cmd.Context(), &configuration.Base, &configuration.TLS); err != nil {
+		if err := kopiaserver.StartTier1(cmd.Context(), &configuration.Tier1, &configuration.TLS); err != nil {
 			return fmt.Errorf("while running kopia server: %w", err)
 		}
 

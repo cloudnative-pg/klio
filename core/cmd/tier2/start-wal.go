@@ -39,14 +39,14 @@ var startWALCmd = &cobra.Command{
 		}
 		tier2RepoConnection, err := repository.Open(repository.Options{
 			FS:       tier2WALFS,
-			Password: configuration.Tier2.S3.EncryptionPassword,
+			Password: configuration.Tier2.EncryptionPassword,
 		})
 		if err != nil {
 			return fmt.Errorf("failed to connect to local repository: %w", err)
 		}
 
 		// We use the same configuration as Tier1, but changing the listen address
-		walServerConfiguration := configuration.Wal
+		walServerConfiguration := configuration.Tier1.Wal
 		walServerConfiguration.ListenAddress = configuration.Tier2.WALListenAddress
 
 		if err := walserver.Start(
