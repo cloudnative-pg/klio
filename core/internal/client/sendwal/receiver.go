@@ -17,7 +17,6 @@ import (
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/codes"
 	"go.opentelemetry.io/otel/trace"
-	"go.uber.org/multierr"
 
 	"github.com/cloudnative-pg/klio/core/internal/client/klioclient/grpcclient"
 	"github.com/cloudnative-pg/klio/core/internal/client/sendwal/buffer"
@@ -343,14 +342,14 @@ func (s *Process) downloadHistoryFiles(
 		if err != nil {
 			span.RecordError(err)
 			contextLogger.Error(err, "timeline history fetching failed, skipping", "tli", tli)
-			errorList = multierr.Append(errorList, err)
+			errorList = errors.Join(errorList, err)
 
 			continue
 		}
 
 		if err := s.client.StoreHistoryFile(ctx, result.FileName, result.Content); err != nil {
 			span.RecordError(err)
-			errorList = multierr.Append(errorList, err)
+			errorList = errors.Join(errorList, err)
 			contextLogger.Error(err, "timeline history upload failed",
 				"tli", tli, "file", result.FileName)
 

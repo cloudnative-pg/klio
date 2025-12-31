@@ -9,7 +9,6 @@ import (
 	"errors"
 	"fmt"
 
-	"go.uber.org/multierr"
 	"golang.org/x/crypto/pbkdf2"
 )
 
@@ -95,7 +94,7 @@ func (c *KlioRepositoryConfig) RecoverMasterKey(password string) ([]byte, error)
 			return masterKey, nil
 		}
 
-		err = multierr.Append(err, keyErr)
+		err = errors.Join(err, keyErr)
 	}
 
 	return nil, err //nolint:wrapcheck

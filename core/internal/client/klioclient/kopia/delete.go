@@ -4,12 +4,12 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
 
 	"github.com/cloudnative-pg/machinery/pkg/log"
-	"go.uber.org/multierr"
 
 	"github.com/cloudnative-pg/klio/core/internal/client/klioclient"
 )
@@ -48,7 +48,7 @@ func (s *Connection) DeleteBackup(ctx context.Context, hostname string, name str
 	var err error
 	for _, entry := range entries {
 		if entry.Source.Host == hostname {
-			err = multierr.Append(err, s.internalDeleteSnapshot(ctx, entry.ID))
+			err = errors.Join(err, s.internalDeleteSnapshot(ctx, entry.ID))
 		}
 	}
 
