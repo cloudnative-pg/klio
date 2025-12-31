@@ -2,9 +2,8 @@ package klioclient
 
 import (
 	"encoding/json"
+	"fmt"
 	"time"
-
-	"github.com/pkg/errors"
 )
 
 // UTCTimestamp stores the UTC timestamp in nanoseconds and provides JSON serializability.
@@ -17,7 +16,7 @@ func (u *UTCTimestamp) UnmarshalJSON(v []byte) error {
 	var t time.Time
 
 	if err := t.UnmarshalJSON(v); err != nil {
-		return errors.Wrap(err, "unable to unmarshal time")
+		return fmt.Errorf("unable to unmarshal time: %w", err)
 	}
 
 	*u = UTCTimestamp(t.UnixNano())

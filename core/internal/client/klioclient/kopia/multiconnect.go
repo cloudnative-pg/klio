@@ -2,10 +2,10 @@ package kopia
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/cloudnative-pg/machinery/pkg/stringset"
-	"github.com/pkg/errors"
 
 	"github.com/cloudnative-pg/klio/core/internal/client/klioclient"
 	"github.com/cloudnative-pg/klio/core/pkg/config"
