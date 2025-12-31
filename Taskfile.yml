@@ -121,8 +121,8 @@ tasks:
       - core:protoc-gen-go-grpc
       - core:openapi-gen
     env:
-      # renovate: datasource=docker depName=golang versioning=semver
-      GOLANG_IMAGE_VERSION: 1.25.5
+      # renovate: datasource=docker depName=golang versioning=docker
+      GOLANG_IMAGE_VERSION: 1.25.5@sha256:31c1e53dfc1cc2d269deec9c83f58729fa3c53dc9a576f6426109d1e319e9e9a
       # renovate: datasource=custom.envtest depName=kubernetes packageName=https://github.com/kubernetes/kubernetes versioning=semver
       K8S_VERSION: 1.35.0
       # renovate: datasource=git-refs depName=controller-runtime packageName=https://github.com/kubernetes-sigs/controller-runtime versioning=semver
@@ -144,8 +144,8 @@ tasks:
       - core:protoc-gen-go-grpc
       - core:openapi-gen
     env:
-      # renovate: datasource=docker depName=ghcr.io/goreleaser/goreleaser versioning=semver
-      GORELEASER_IMAGE_VERSION: v2.13.2
+      # renovate: datasource=docker depName=ghcr.io/goreleaser/goreleaser versioning=docker
+      GORELEASER_IMAGE_VERSION: v2.13.2@sha256:db5f5cfd625a27ae624836956ce762b4cea6895c0cb90964553e2b10057eccce
     run: once
     cmds:
       - |
@@ -187,8 +187,8 @@ tasks:
         - GITHUB_REF_NAME
         - GITHUB_TOKEN
     env:
-      # renovate: datasource=docker depName=ghcr.io/goreleaser/goreleaser versioning=semver
-      GORELEASER_IMAGE_VERSION: v2.13.2
+      # renovate: datasource=docker depName=ghcr.io/goreleaser/goreleaser versioning=docker
+      GORELEASER_IMAGE_VERSION: v2.13.2@sha256:db5f5cfd625a27ae624836956ce762b4cea6895c0cb90964553e2b10057eccce
     preconditions:
       - sh: "[[ {{.GITHUB_REF}} =~ 'refs/tags/v.*' ]]"
         msg: not a tag, failing
@@ -268,8 +268,8 @@ tasks:
     summary: Generate the deepcopy and the violation files for the api service API
     run: once
     env:
-      # renovate: datasource=docker depName=golang versioning=semver
-      GOLANG_IMAGE_VERSION: 1.25.5
+      # renovate: datasource=docker depName=golang versioning=docker
+      GOLANG_IMAGE_VERSION: 1.25.5@sha256:31c1e53dfc1cc2d269deec9c83f58729fa3c53dc9a576f6426109d1e319e9e9a
       # renovate: datasource=git-refs depName=code-generator packageName=https://github.com/kubernetes/code-generator versioning=semver
       CODE_GENERATOR_VERSION: v0.35.0
     cmds:
@@ -346,7 +346,7 @@ tasks:
       - internal:start-build-network
     env:
       # renovate: datasource=docker depName=registry versioning=docker
-      REGISTRY_VERSION: 3.0.0
+      REGISTRY_VERSION: 3.0.0@sha256:cd92709b4191c5779cd7215ccd695db6c54652e7a62843197e367427efb84d0e
     cmds:
       - >
         docker run -d --name {{ .REGISTRY_NAME }}
@@ -410,8 +410,8 @@ tasks:
     env:
       # renovate: datasource=git-refs depName=golangci-lint lookupName=https://github.com/sagikazarmark/daggerverse currentValue=main
       DAGGER_GOLANGCI_LINT_SHA: 6133ad18e131b891d4723b8e25d69f5de077b472
-      # renovate: datasource=docker depName=golangci/golangci-lint versioning=semver
-      GOLANGCI_LINT_VERSION: v2.7.2
+      # renovate: datasource=docker depName=golangci/golangci-lint versioning=docker
+      GOLANGCI_LINT_VERSION: v2.7.2@sha256:5d6d5c70a61f1356adfd9dd6316ce286799fefc9d743421356ff1b00842368ba
     internal: true
     dir: '{{ .WORKDIR }}'
     cmds:
@@ -547,8 +547,8 @@ tasks:
     env:
       # renovate: datasource=git-refs depName=kustomize lookupName=https://github.com/sagikazarmark/daggerverse currentValue=main
       DAGGER_KUSTOMIZE_SHA: 6133ad18e131b891d4723b8e25d69f5de077b472
-      # renovate: datasource=docker depName=registry.k8s.io/kustomize/kustomize versioning=semver
-      KUSTOMIZE_IMAGE_VERSION: v5.8.0
+      # renovate: datasource=docker depName=registry.k8s.io/kustomize/kustomize versioning=docker
+      KUSTOMIZE_IMAGE_VERSION: v5.8.0@sha256:98424842862ed35fa666dbaac02159623567e1e9e184d91382fa665e89023258
     cmds:
       # Generate the Helm chart for the operator.
       # Kubebuilder wants to generate the CRDs in the chart/templates/crd directory, but we want to
@@ -684,8 +684,8 @@ tasks:
     deps:
       - olm:manifest
     env:
-      # renovate: datasource=docker depName=quay.io/operator-framework/operator-sdk versioning=semver
-      OPERATOR_SDK_IMAGE_VERSION: v1.42.0
+      # renovate: datasource=docker depName=quay.io/operator-framework/operator-sdk versioning=docker
+      OPERATOR_SDK_IMAGE_VERSION: v1.42.0@sha256:7d6d1166378793fade8dc5ba27ec4661b1812dc4eabbf3dc439c6512b7f4fbc3
     cmds:
       - >
         docker
@@ -738,8 +738,8 @@ tasks:
       insecure: '{{ if .GITHUB_ACTIONS }}false{{ else }}true{{ end }}'
       suffix: '{{ if ( ne .ENVIRONMENT "production" ) }}-testing{{end}}'
       tag: '{{ .TAG | default .IMAGE_TAG }}'
-      # renovate: datasource=docker depName=quay.io/operator-framework/opm versioning=semver
-      OPM_IMAGE_VERSION: v1.61.0
+      # renovate: datasource=docker depName=quay.io/operator-framework/opm versioning=docker
+      OPM_IMAGE_VERSION: v1.61.0@sha256:d4584b8e7789c7f7f3ac8547f20b6547951bfec73c2d639209fa1e58688b03b3
       CONTAINER_AUTH_FILE: '{{ .REGISTRY_AUTH_FILE | default (printf "%s/.docker/config.json" (env "HOME")) }}'
     cmds:
       - >
@@ -940,8 +940,8 @@ tasks:
     env:
       # renovate: datasource=git-refs depName=helm-docs lookupName=https://github.com/sagikazarmark/daggerverse currentValue=main
       DAGGER_HELM_DOCS_SHA: 6133ad18e131b891d4723b8e25d69f5de077b472
-      # renovate: datasource=docker depName=jnorwood/helm-docs versioning=semver
-      HELM_DOCS_IMAGE_VERSION: v1.14.2
+      # renovate: datasource=docker depName=jnorwood/helm-docs versioning=docker
+      HELM_DOCS_IMAGE_VERSION: v1.14.2@sha256:7e562b49ab6b1dbc50c3da8f2dd6ffa8a5c6bba327b1c6335cc15ce29267979c
     cmds:
       - >
         GITHUB_REF= dagger -s call -m github.com/sagikazarmark/daggerverse/helm-docs@${DAGGER_HELM_DOCS_SHA}
@@ -977,8 +977,8 @@ tasks:
     # documentation versions. The command returns exit code 0 if the version is found,
     # and exit code 1 otherwise.
     env:
-      # renovate: datasource=docker depName=ghcr.io/jqlang/jq versioning=semver
-      JQ_IMAGE_VERSION: 1.8.1
+      # renovate: datasource=docker depName=ghcr.io/jqlang/jq versioning=docker
+      JQ_IMAGE_VERSION: 1.8.1@sha256:4f34c6d23f4b1372ac789752cc955dc67c2ae177eb1b5860b75cdc5091ce6f91
     cmds:
       - >
         dagger core container from --address ghcr.io/jqlang/jq:${JQ_IMAGE_VERSION}
@@ -1105,7 +1105,7 @@ tasks:
       OPERAND_IMAGE_REPOSITORY: '{{ .OPERAND_IMAGE_REPOSITORY | default (printf "%s:%s/klio-testing" .REGISTRY_NAME .REGISTRY_PORT) }}'
       OPERAND_IMAGE_TAG: '{{ .OPERAND_IMAGE_TAG | default "dev" }}'
       # renovate: datasource=docker depName=alpine/k8s versioning=docker
-      ALPINE_K8S_VERSION: '1.35.0'
+      ALPINE_K8S_VERSION: '1.35.0@sha256:b01ed7ee5807e1abce433fba29447595b6157851054a649c2aafd6c22a3aa16c'
       # renovate: datasource=github-tags depName=cert-manager/cert-manager versioning=semver
       CERT_MANAGER_VERSION: 'v1.19.2'
     cmds:
@@ -1138,7 +1138,7 @@ tasks:
         # Redundant curly braces are used to escape the template syntax in Taskfile.
         sh: docker inspect --format '{{"{{"}} (index (index .HostConfig.PortBindings "6443/tcp") 0).HostPort {{"}}"}}' {{ .KIND_CLUSTER_NAME }}-control-plane
       # renovate: datasource=docker depName=golang versioning=docker
-      GOLANG_IMAGE_VERSION: 1.25.5-alpine
+      GOLANG_IMAGE_VERSION: 1.25.5-alpine@sha256:ac09a5f469f307e5da71e766b0bd59c9c49ea460a528cc3e6686513d64a6f1fb
     cmds:
       - kind get kubeconfig --name {{ .KIND_CLUSTER_NAME }} > {{ .KUBECONFIG_PATH }}
       - |
