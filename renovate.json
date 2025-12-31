@@ -1,15 +1,13 @@
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
   "extends": [
-    "config:recommended",
+    "config:best-practices",
     ":gitSignOff",
     ":semanticCommitType(chore)",
     ":labels(automated,no-issue)",
     "customManagers:githubActionsVersions",
     ":automergeMinor",
-    ":automergeDigest",
-    "docker:pinDigests",
-    "helpers:pinGitHubActionDigests"
+    ":automergeDigest"
   ],
   "enabled": true,
   "prConcurrentLimit": 5,
@@ -23,6 +21,11 @@
       "core/kubernetes/klio/overlays/**/kustomization.yaml"
     ]
   },
+  "ignoreDeps": [
+    "ghcr.io/enterprisedb/klio-operator",
+    "ghcr.io/enterprisedb/klio",
+    "REDACTED-INTERNAL-REPO"
+  ],
   "lockFileMaintenance": {
     "enabled": true
   },

@@ -41,17 +41,17 @@ func (m *Devenv) Kubernetes(
 	source *dagger.Directory,
 // +optional
 // renovate image: datasource=docker depName=registry versioning=docker
-// +default="registry:3.0"
+// +default="registry:3.0@sha256:cd92709b4191c5779cd7215ccd695db6c54652e7a62843197e367427efb84d0e"
 	registryImage string,
 // +optional
 // renovate image: datasource=docker depName=skopeo lookupName=quay.io/skopeo/stable versioning=docker
-// +default="quay.io/skopeo/stable:v1.21.0"
+// +default="quay.io/skopeo/stable:v1.21.0@sha256:284478f58e1469fdd5d83247f1111edc90a1e3386954e47b51c56f1607c38e23"
 	skopeoImage string,
 // renovate image: datasource=docker depName=k3s lookupName=rancher/k3s versioning=docker
-// +default="rancher/k3s:v1.35.0-k3s1"
+// +default="rancher/k3s:v1.35.0-k3s1@sha256:10464930d9bad0c06aef9830e84cd4019c24ed44d5eab594efb7416119097248"
 	k3SImage string,
 // renovate image: datasource=docker depName=alpine/k8s versioning=docker
-// +default="alpine/k8s:1.35.0"
+// +default="alpine/k8s:1.35.0@sha256:b01ed7ee5807e1abce433fba29447595b6157851054a649c2aafd6c22a3aa16c
 	alpineK8S string,
 ) (*dagger.Container, error) {
 	klioImage := source.
