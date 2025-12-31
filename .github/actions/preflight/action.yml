@@ -4,7 +4,7 @@ runs:
   using: composite
   steps:
     - name: Install CLI tools from OpenShift Mirror
-      uses: redhat-actions/openshift-tools-installer@v1
+      uses: redhat-actions/openshift-tools-installer@144527c7d98999f2652264c048c7a9bd103f8a82 # v1
       id: preflight-install
       with:
         source: "github"

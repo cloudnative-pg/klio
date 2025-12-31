@@ -235,7 +235,7 @@ jobs:
         uses: ./.github/actions/setup-dagger
 
       - name: Login to ghcr.io using Podman
-        uses: redhat-actions/podman-login@v1
+        uses: redhat-actions/podman-login@4934294ad0449894bcd1e9f191899d7292469603 # v1
         with:
           registry: "ghcr.io"
           username: ${{ github.actor }}
