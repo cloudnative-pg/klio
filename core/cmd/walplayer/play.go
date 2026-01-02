@@ -6,7 +6,6 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
-	"gopkg.in/validator.v2"
 
 	"github.com/cloudnative-pg/klio/core/internal/cli"
 	"github.com/cloudnative-pg/klio/core/internal/wal"
@@ -47,8 +46,8 @@ var playCmd = &cobra.Command{
 			return cli.ErrKlioClientSectionIsRequired
 		}
 
-		if errs := validator.Validate(&configuration.Client.Wal); errs != nil {
-			return fmt.Errorf("configuration validation error: %w", errs)
+		if err := configuration.Client.Wal.Validate(); err != nil {
+			return fmt.Errorf("configuration validation error: %w", err)
 		}
 
 		const (

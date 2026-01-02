@@ -29,7 +29,7 @@ var initializeCmd = &cobra.Command{
 		}
 
 		if err := configuration.RequireTier1(); err != nil {
-			return fmt.Errorf("configuration validation error: %w", err)
+			return fmt.Errorf("tier 1 configuration validation error: %w", err)
 		}
 
 		skipIfExisting, _ := cmd.Flags().GetBool("skip-if-existing")

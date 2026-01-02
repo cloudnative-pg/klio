@@ -30,7 +30,7 @@ var initializeCmd = &cobra.Command{
 		}
 
 		if err := configuration.RequireTier2(); err != nil {
-			return fmt.Errorf("configuration validation error: %w", err)
+			return fmt.Errorf("tier 2 configuration validation error: %w", err)
 		}
 
 		if !configuration.Tier2.S3.Enabled {

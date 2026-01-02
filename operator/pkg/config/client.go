@@ -27,26 +27,26 @@ func (d *Data) SetDefaults() {
 // SourceConfig is the configuration of the WAL receiver.
 type SourceConfig struct {
 	// DSN is the database service we should get the WALs from
-	DSN string `json:"dsn" mapstructure:"dsn" validate:"nonzero"`
+	DSN string `json:"dsn" mapstructure:"dsn"`
 
 	// StandardDSN is the database service name to be used for a standard
 	// database connection
-	StandardDSN string `json:"standard_dsn" mapstructure:"standard_dsn" validate:"nonzero"`
+	StandardDSN string `json:"standard_dsn" mapstructure:"standard_dsn"`
 
 	// Slot is the name of the replication slot to be used
-	Slot string `json:"slot" mapstructure:"slot" validate:"nonzero,regexp=^[a-z0-9_]+$"`
+	Slot string `json:"slot" mapstructure:"slot"`
 
 	// StandbyMessageTimeoutSeconds is the timeout after which the WAL
 	// receiver will send a status update
-	StandbyMessageTimeoutSeconds int `json:"standby_message_timeout_seconds" mapstructure:"standby_message_timeout_seconds" validate:"min=1"` //nolint:lll
+	StandbyMessageTimeoutSeconds int `json:"standby_message_timeout_seconds" mapstructure:"standby_message_timeout_seconds"` //nolint:lll
 
 	// FlushTimeoutMilliseconds is the timeout in milliseconds after which buffered
 	// WAL data is automatically flushed to the Klio server
-	FlushTimeoutMilliseconds int `json:"flush_timeout_ms" mapstructure:"flush_timeout_ms" validate:"min=1"`
+	FlushTimeoutMilliseconds int `json:"flush_timeout_ms" mapstructure:"flush_timeout_ms"`
 
 	// BufferSize is the maximum size in bytes of the in-memory WAL buffer before
 	// triggering an automatic flush
-	BufferSize int `json:"buffer_size" mapstructure:"buffer_size" validate:"min=1"`
+	BufferSize int `json:"buffer_size" mapstructure:"buffer_size"`
 }
 
 // ClientConfig is the configuration of the Klio client.
@@ -62,41 +62,41 @@ type ClientConfig struct {
 // where WALs should be uploaded.
 type WalRepositoryClientConfig struct {
 	// Address of the Tier 1 Klio server
-	Address string `json:"address" mapstructure:"address" validate:"nonzero"`
+	Address string `json:"address" mapstructure:"address"`
 
 	// Address of the Tier 2 Klio server
 	Tier2Address string `json:"tier2_address" mapstructure:"tier2_address"`
 
 	// ClusterName is the name of the target cluster where to upload WALs
-	ClusterName string `json:"cluster_name" mapstructure:"cluster_name" validate:"nonzero"`
+	ClusterName string `json:"cluster_name" mapstructure:"cluster_name"`
 
 	// ServerCertPath is the path to the server public key
-	ServerCertPath string `json:"server_cert_path" mapstructure:"server_cert_path" validate:"nonzero"`
+	ServerCertPath string `json:"server_cert_path" mapstructure:"server_cert_path"`
 
 	// ClientCertPath is the path to the client public key
-	ClientCertPath string `json:"client_cert_path" mapstructure:"client_cert_path" validate:"nonzero"`
+	ClientCertPath string `json:"client_cert_path" mapstructure:"client_cert_path"`
 
 	// ClientKeyPath is the path to the client private key
-	ClientKeyPath string `json:"client_key_path" mapstructure:"client_key_path" validate:"nonzero"`
+	ClientKeyPath string `json:"client_key_path" mapstructure:"client_key_path"`
 }
 
 // BaseRepositoryClientConfig is the configuration of the Kopia repository
 // to be used to upload the data directory.
 type BaseRepositoryClientConfig struct {
 	// URL is the base URL where the Tier 1 Kopia API server should be reached
-	URL string `json:"url" mapstructure:"url" validate:"nonzero"`
+	URL string `json:"url" mapstructure:"url"`
 
 	// URL is the base URL where the Tier 2 Kopia API server should be reached
 	Tier2URL string `json:"tier2_url" mapstructure:"tier2_url"`
 
 	// ServerCertPath is the path to the server public key
-	ServerCertPath string `json:"server_cert_path" mapstructure:"server_cert_path" validate:"nonzero"`
+	ServerCertPath string `json:"server_cert_path" mapstructure:"server_cert_path"`
 
 	// ClientCertPath is the path to the client public key
-	ClientCertPath string `json:"client_cert_path" mapstructure:"client_cert_path" validate:"nonzero"`
+	ClientCertPath string `json:"client_cert_path" mapstructure:"client_cert_path"`
 
 	// ClientKeyPath is the path to the client private key
-	ClientKeyPath string `json:"client_key_path" mapstructure:"client_key_path" validate:"nonzero"`
+	ClientKeyPath string `json:"client_key_path" mapstructure:"client_key_path"`
 
 	// APIServerCertFile is a file containing a PEM-encoded certificate, and possibly the complete certificate chain
 	// This certificate will be served by the Klio API aggregation server for TLS connections

@@ -28,7 +28,7 @@ var startWALCmd = &cobra.Command{
 		}
 
 		if err := configuration.RequireTier1(); err != nil {
-			return fmt.Errorf("configuration validation error: %w", err)
+			return fmt.Errorf("tier 1 configuration validation error: %w", err)
 		}
 
 		// Connects to the Klio repository
