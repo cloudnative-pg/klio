@@ -35,15 +35,20 @@ jobs:
               - 'operator/api/**/*.go'
               - 'operator/dist/chart/values.yaml'
               - 'Taskfile.yml'
-              - '.github/**'
+              - '.github/actions/**'
+              - '.github/workflows/ci.yml'
             core-changed:
               - 'core/!(licenses)**'
               - 'Taskfile.yml'
               - '.github/**'
+              - '.github/actions/**'
+              - '.github/workflows/ci.yml'
             operator-changed:
               - 'operator/!(licenses)**'
               - 'Taskfile.yml'
               - '.github/**'
+              - '.github/actions/**'
+              - '.github/workflows/ci.yml'
             renovate-changed:
               - 'renovate.json'
 
