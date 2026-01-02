@@ -1,0 +1,16 @@
+name: Renovate Autoapprove
+on:
+  pull_request:
+    branches:
+      - renovate/**
+permissions:
+  contents: write
+jobs:
+  autoapprove:
+    runs-on: ubuntu-latest
+    if: github.actor == 'cnp-autobot'
+    steps:
+      - name: Auto approve Renovate PRs
+        uses: hmarr/auto-approve-action@v4.0.0
+        with:
+          review-message: "Auto approved automated PR"
