@@ -12,16 +12,16 @@ import (
 )
 
 const (
-	tierAnnotationName   = "klio.io/tier"
-	tier1AnnotationValue = "tier1"
-	tier2AnnotationValue = "tier2"
+	tier1AnnotationName    = "klio.io/tier1"
+	tier2AnnotationName    = "klio.io/tier2"
+	presentAnnotationValue = "present"
 )
 
 // MultiConnection is composed by two clients: one for tier1
 // and one for tier2.
 type MultiConnection struct {
-	Tier1 *Connection
-	Tier2 *Connection
+	Tier1 klioclient.Client
+	Tier2 klioclient.Client
 }
 
 // MultiConnect creates two connections: one to tier1 and one to
@@ -32,25 +32,24 @@ func MultiConnect(
 	ctx context.Context,
 	kopiaClientConfig *config.BaseRepositoryClientConfig,
 ) (*MultiConnection, error) {
-	var tier1, tier2 *Connection
-	var err error
-
-	tier1, err = ConnectTier1(ctx, kopiaClientConfig)
+	tier1, err := ConnectTier1(ctx, kopiaClientConfig)
 	if err != nil {
 		return nil, fmt.Errorf("connecting to tier1: %w", err)
 	}
 
+	mc := &MultiConnection{
+		Tier1: tier1,
+	}
+
 	if kopiaClientConfig.Tier2URL != "" {
-		tier2, err = ConnectTier2(ctx, kopiaClientConfig)
+		tier2, err := ConnectTier2(ctx, kopiaClientConfig)
 		if err != nil {
 			return nil, fmt.Errorf("connecting to tier2: %w", err)
 		}
+		mc.Tier2 = tier2
 	}
 
-	return &MultiConnection{
-		Tier1: tier1,
-		Tier2: tier2,
-	}, nil
+	return mc, nil
 }
 
 // GetUsername implements the Client interface.
@@ -120,36 +119,52 @@ func (s *MultiConnection) ApplyRetentionPolicy(ctx context.Context, t klioclient
 
 // ListBackups implements the BackupRestoreSupport interface.
 func (s *MultiConnection) ListBackups(ctx context.Context, hostname string) (klioclient.BackupList, error) {
+	var tier1List, tier2List klioclient.BackupList
+
 	tier1List, err := s.Tier1.ListBackups(ctx, hostname)
 	if err != nil {
 		return nil, fmt.Errorf("while listing backups from tier1: %w", err)
 	}
 
-	tier1List = markTier1List(tier1List)
-
-	if s.Tier2 == nil {
-		return tier1List, nil
+	if s.Tier2 != nil {
+		tier2List, err = s.Tier2.ListBackups(ctx, hostname)
+		if err != nil {
+			return nil, fmt.Errorf("while listing backups from tier2: %w", err)
+		}
 	}
-
-	tier2List, err := s.Tier2.ListBackups(ctx, hostname)
-	if err != nil {
-		return nil, fmt.Errorf("while listing backups from tier2: %w", err)
-	}
-
-	tier2List = markTier2List(tier2List)
 
 	tier1BackupNames := stringset.New()
 	for i := range tier1List {
 		tier1BackupNames.Put(tier1List[i].Name)
 	}
 
+	tier2BackupNames := stringset.New()
+	for i := range tier2List {
+		tier2BackupNames.Put(tier2List[i].Name)
+	}
+
 	result := make(klioclient.BackupList, 0, len(tier1List)+len(tier2List))
-	result = append(result, tier1List...)
+
+	for i := range tier1List {
+		markTier1(&tier1List[i])
+
+		if tier2BackupNames.Has(tier1List[i].Name) {
+			markTier2(&tier1List[i])
+		}
+
+		result = append(result, tier1List[i])
+	}
 
 	for i := range tier2List {
-		if !tier1BackupNames.Has(tier2List[i].Name) {
-			result = append(result, tier2List[i])
+		markTier2(&tier2List[i])
+
+		if tier1BackupNames.Has(tier2List[i].Name) {
+			// This backup has been put in the backup list
+			// by the previous loop
+			continue
 		}
+
+		result = append(result, tier2List[i])
 	}
 
 	return result, nil
@@ -219,43 +234,26 @@ func (s *MultiConnection) UploadBackupMetadata(
 	return s.Tier1.UploadBackupMetadata(ctx, backupName, metadata)
 }
 
-func (s *MultiConnection) getClientFromMetadata(meta *klioclient.BackupMetadata) *Connection {
-	if meta.Annotations[tierAnnotationName] == tier2AnnotationValue && s.Tier2 != nil {
+func (s *MultiConnection) getClientFromMetadata(meta *klioclient.BackupMetadata) klioclient.Client { //nolint:ireturn
+	if meta.Annotations[tier1AnnotationName] == presentAnnotationValue {
+		return s.Tier1
+	}
+
+	if meta.Annotations[tier2AnnotationName] == presentAnnotationValue {
 		return s.Tier2
 	}
 
-	return s.Tier1
+	return nil
 }
 
 func markTier1(meta *klioclient.BackupMetadata) *klioclient.BackupMetadata {
-	setTierAnnotation(meta, tier1AnnotationValue)
-	return meta
-}
+	meta.SetAnnotation(tier1AnnotationName, presentAnnotationValue)
 
-func markTier1List(meta klioclient.BackupList) klioclient.BackupList {
-	setTierAnnotationOnList(meta, tier1AnnotationValue)
 	return meta
 }
 
 func markTier2(meta *klioclient.BackupMetadata) *klioclient.BackupMetadata {
-	setTierAnnotation(meta, tier2AnnotationValue)
+	meta.SetAnnotation(tier2AnnotationName, presentAnnotationValue)
+
 	return meta
-}
-
-func markTier2List(meta klioclient.BackupList) klioclient.BackupList {
-	setTierAnnotationOnList(meta, tier2AnnotationValue)
-	return meta
-}
-
-func setTierAnnotation(meta *klioclient.BackupMetadata, v string) {
-	if meta.Annotations == nil {
-		meta.Annotations = make(map[string]string)
-	}
-	meta.Annotations[tierAnnotationName] = v
-}
-
-func setTierAnnotationOnList(meta klioclient.BackupList, v string) {
-	for i := range meta {
-		setTierAnnotation(&meta[i], v)
-	}
 }

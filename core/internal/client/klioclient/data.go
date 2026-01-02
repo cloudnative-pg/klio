@@ -67,3 +67,13 @@ type BackupMetadata struct {
 
 // BackupList is a list of backups.
 type BackupList []BackupMetadata
+
+// SetAnnotation sets an annotation on a backup metadata to the
+// specified value.
+func (m *BackupMetadata) SetAnnotation(n, v string) {
+	if m.Annotations == nil {
+		m.Annotations = make(map[string]string)
+	}
+
+	m.Annotations[n] = v
+}
