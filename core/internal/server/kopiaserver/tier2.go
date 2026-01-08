@@ -71,16 +71,16 @@ func InitializeTier2(ctx context.Context, cfg *config.Tier2Config) error {
 		return fmt.Errorf("kopia binary not found (%q): %w", kopiaCommand, err)
 	}
 
-	args := []string{
-		"repository", "create", "s3",
-		"--create-only",
-	}
-
 	backendArgs, err := getCommonTier2Args(cfg)
 	if err != nil {
 		return err
 	}
 
+	args := make([]string, 0, 4+len(backendArgs))
+	args = append(args,
+		"repository", "create", "s3",
+		"--create-only",
+	)
 	args = append(args, backendArgs...)
 
 	kopiaRepositoryInitialize := exec.CommandContext(ctx, kopiaBinary, args...) //nolint:gosec
@@ -105,19 +105,19 @@ func CreateTier2KopiaConfigFile(ctx context.Context, fileName string, cfg *confi
 		return fmt.Errorf("kopia binary not found (%q): %w", kopiaCommand, err)
 	}
 
-	args := []string{
-		"repository", "connect", "s3",
-		"--config-file=" + fileName,
-		"--persist-credentials",
-		"--override-username=klio",
-		"--override-hostname=klio",
-	}
-
 	backendArgs, err := getCommonTier2Args(cfg)
 	if err != nil {
 		return err
 	}
 
+	args := make([]string, 0, 7+len(backendArgs))
+	args = append(args,
+		"repository", "connect", "s3",
+		"--config-file="+fileName,
+		"--persist-credentials",
+		"--override-username=klio",
+		"--override-hostname=klio",
+	)
 	args = append(args, backendArgs...)
 
 	kopiaRepositoryConnect := exec.CommandContext(ctx, kopiaBinary, args...) //nolint:gosec

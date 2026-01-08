@@ -74,15 +74,16 @@ func (s *Connection) getSnapshotID(
 ) (string, error) {
 	contextLogger := log.FromContext(ctx)
 
-	args := []string{
+	args := make([]string, 0, 7+len(tags))
+	args = append(args,
 		"snapshot",
 		"list",
 		"--disable-file-logging",
 		"--all",
 		"--json",
 		"--password=mtls",
-		"--config-file=" + s.configFile,
-	}
+		"--config-file="+s.configFile,
+	)
 
 	for k, v := range tags {
 		args = append(args, fmt.Sprintf("--tags=%s:%s", k, v))

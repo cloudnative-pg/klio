@@ -79,7 +79,7 @@ type KlioBackup struct {
 // KlioBackupList contains a list of KlioBackup.
 type KlioBackupList struct {
 	metav1.TypeMeta `json:",inline"`
-	metav1.ListMeta `json:"metadata,omitempty"` //nolint:modernize
+	metav1.ListMeta `json:"metadata,omitempty"`
 
 	Items []KlioBackup `json:"items"`
 }
