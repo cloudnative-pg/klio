@@ -145,7 +145,7 @@ tasks:
       - core:openapi-gen
     env:
       # renovate: datasource=docker depName=ghcr.io/goreleaser/goreleaser versioning=docker
-      GORELEASER_IMAGE_VERSION: v2.13.2@sha256:db5f5cfd625a27ae624836956ce762b4cea6895c0cb90964553e2b10057eccce
+      GORELEASER_IMAGE_VERSION: v2.13.3@sha256:846b7cad015f87712ad4e68d9cd59bfde4e59c9970265f76dd4e3b3b6f41c768
     run: once
     cmds:
       - |
@@ -188,7 +188,7 @@ tasks:
         - GITHUB_TOKEN
     env:
       # renovate: datasource=docker depName=ghcr.io/goreleaser/goreleaser versioning=docker
-      GORELEASER_IMAGE_VERSION: v2.13.2@sha256:db5f5cfd625a27ae624836956ce762b4cea6895c0cb90964553e2b10057eccce
+      GORELEASER_IMAGE_VERSION: v2.13.3@sha256:846b7cad015f87712ad4e68d9cd59bfde4e59c9970265f76dd4e3b3b6f41c768
     preconditions:
       - sh: "[[ {{.GITHUB_REF}} =~ 'refs/tags/v.*' ]]"
         msg: not a tag, failing
