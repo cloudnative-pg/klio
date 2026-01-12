@@ -1,9 +1,7 @@
 package kopiaserver
 
 import (
-	"bytes"
 	"context"
-	"encoding/json"
 	"fmt"
 	"os/exec"
 	"time"
@@ -13,7 +11,7 @@ import (
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/metric"
 
-	"github.com/cloudnative-pg/klio/core/internal/client/klioclient"
+	"github.com/cloudnative-pg/klio/core/internal/kopia"
 	"github.com/cloudnative-pg/klio/core/internal/opentelemetry"
 )
 
@@ -107,12 +105,12 @@ func newSnapshotMetrics() (*SnapshotMetrics, error) {
 
 // SnapshotMetricsCollector periodically collects Kopia snapshot metrics.
 type SnapshotMetricsCollector struct {
-	metrics    *SnapshotMetrics
-	configPath string
-	password   string
-	interval   time.Duration
-	logger     log.Logger
-	stopCh     chan struct{}
+	metrics  *SnapshotMetrics
+	password string
+	interval time.Duration
+	logger   log.Logger
+	stopCh   chan struct{}
+	kopia    *kopia.Client
 }
 
 // newSnapshotMetricsCollector creates a new snapshot metrics collector.
@@ -124,13 +122,21 @@ func newSnapshotMetricsCollector(
 		return nil, fmt.Errorf("failed to create snapshot metrics: %w", err)
 	}
 
+	kopiaBinary, err := exec.LookPath(kopiaCommand)
+	if err != nil {
+		return nil, fmt.Errorf("kopia binary not found: %w", err)
+	}
+
 	return &SnapshotMetricsCollector{
-		metrics:    metrics,
-		configPath: configPath,
-		password:   password,
-		interval:   interval,
-		logger:     logger,
-		stopCh:     make(chan struct{}),
+		metrics:  metrics,
+		password: password,
+		interval: interval,
+		logger:   logger,
+		stopCh:   make(chan struct{}),
+		kopia: &kopia.Client{
+			ConfigFile:  configPath,
+			KopiaBinary: kopiaBinary,
+		},
 	}, nil
 }
 
@@ -163,59 +169,13 @@ func (c *SnapshotMetricsCollector) Stop() {
 // collectMetrics executes kopia snapshot list and extracts metrics.
 func (c *SnapshotMetricsCollector) collectMetrics(ctx context.Context) {
 	c.logger.Debug("Collecting Kopia snapshot metrics")
-	snapshots, err := c.getSnapshots(ctx)
+	snapshots, err := c.kopia.ListSnapshots(ctx, nil)
 	if err != nil {
 		c.logger.Warning("Failed to get Kopia snapshots", "error", err)
 		return
 	}
 
 	c.updateMetrics(ctx, snapshots)
-}
-
-// getSnapshots executes kopia snapshot list --all --json and parses the output.
-func (c *SnapshotMetricsCollector) getSnapshots(ctx context.Context) ([]klioclient.Manifest, error) {
-	contextLogger := log.FromContext(ctx)
-
-	kopiaBinary, err := exec.LookPath(kopiaCommand)
-	if err != nil {
-		return nil, fmt.Errorf("kopia binary not found: %w", err)
-	}
-
-	args := []string{
-		"snapshot",
-		"list",
-		"--all",
-		"--json",
-		"--config-file=" + c.configPath,
-		"--disable-file-logging",
-		"--json-log-console",
-	}
-
-	contextLogger.Info("Collecting Kopia snapshot information", "args", args)
-	cmd := exec.CommandContext(ctx, kopiaBinary, args...) //nolint:gosec
-	cmd.Env = []string{
-		"KOPIA_PASSWORD=" + c.password,
-	}
-
-	var outputBuffer, errorBuffer bytes.Buffer
-	cmd.Stdout = &outputBuffer
-	cmd.Stderr = &errorBuffer
-
-	err = cmd.Run()
-	if err != nil {
-		return nil, fmt.Errorf("failed to execute kopia snapshot list: %w [stdout\n%s\n\nstderr\n%s]",
-			err,
-			outputBuffer.String(),
-			errorBuffer.String(),
-		)
-	}
-
-	var snapshots []klioclient.Manifest
-	if err := json.Unmarshal(outputBuffer.Bytes(), &snapshots); err != nil {
-		return nil, fmt.Errorf("failed to parse kopia snapshot JSON: %w", err)
-	}
-
-	return snapshots, nil
 }
 
 type snapshotStats struct {
@@ -227,7 +187,7 @@ type snapshotStats struct {
 	latestSnapshotDirCount   int64
 }
 
-func (s *snapshotStats) update(age float64, ds *klioclient.DirectorySummary) {
+func (s *snapshotStats) update(age float64, ds *kopia.DirectorySummary) {
 	defer func() {
 		s.snapshotCount++
 	}()
@@ -254,10 +214,10 @@ func (s *snapshotStats) update(age float64, ds *klioclient.DirectorySummary) {
 }
 
 // updateMetrics updates OpenTelemetry metrics based on snapshot data.
-func (c *SnapshotMetricsCollector) updateMetrics(ctx context.Context, snapshots []klioclient.Manifest) {
+func (c *SnapshotMetricsCollector) updateMetrics(ctx context.Context, snapshots []kopia.Manifest) {
 	now := time.Now()
 
-	stats := make(map[klioclient.SourceInfo]snapshotStats)
+	stats := make(map[kopia.SourceInfo]snapshotStats)
 	for _, s := range snapshots {
 		snapshotLogger := log.FromContext(ctx).WithValues("snapshotID", s.ID, "source", s.Source)
 		snapshotLogger.Debug("Processing snapshot")

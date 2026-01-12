@@ -1,83 +1,28 @@
 package kopia
 
 import (
-	"bytes"
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
-	"os"
-	"os/exec"
-
-	"github.com/cloudnative-pg/machinery/pkg/log"
 
 	"github.com/cloudnative-pg/klio/core/internal/client/klioclient"
 )
 
 // DeleteBackup removes the backup with the provided name.
 func (s *Connection) DeleteBackup(ctx context.Context, hostname string, name string) error {
-	contextLogger := log.FromContext(ctx)
-
-	args := []string{
-		"snapshot",
-		"list",
-		"--disable-file-logging",
-		"--all",
-		"--json",
-		"--password=mtls",
-		"--config-file=" + s.configFile,
-		"--tags=" + klioclient.BackupNameTagName + ":" + name,
-		"--tags=" + klioclient.BackupContentTagName + ":metadata",
-	}
-
-	var stdout bytes.Buffer
-	snapshotList := exec.CommandContext(ctx, s.kopiaBinary, args...) //nolint:gosec
-	snapshotList.Stdout = &stdout
-	snapshotList.Stderr = os.Stderr
-
-	contextLogger.Info("Looking for Kopia backups", "args", snapshotList.Args)
-	if err := snapshotList.Run(); err != nil {
+	entries, err := s.kopia.ListSnapshots(ctx, map[string]string{
+		klioclient.BackupNameTagName:    name,
+		klioclient.BackupContentTagName: "metadata",
+	})
+	if err != nil {
 		return fmt.Errorf("while executing Kopia command: %w", err)
 	}
 
-	var entries []klioclient.Manifest
-	if err := json.Unmarshal(stdout.Bytes(), &entries); err != nil {
-		return fmt.Errorf("while unmarshalling kopia command output %q: %w", stdout.String(), err)
-	}
-
-	var err error
 	for _, entry := range entries {
 		if entry.Source.Host == hostname {
-			err = errors.Join(err, s.internalDeleteSnapshot(ctx, entry.ID))
+			err = errors.Join(err, s.kopia.DeleteSnapshot(ctx, entry.ID))
 		}
 	}
 
 	return err
-}
-
-func (s *Connection) internalDeleteSnapshot(ctx context.Context, id string) error {
-	contextLogger := log.FromContext(ctx)
-
-	args := []string{
-		"snapshot",
-		"delete",
-		"--delete",
-		"--config-file=" + s.configFile,
-		"--disable-file-logging",
-		"--json-log-console",
-		"--password=mtls",
-		id,
-	}
-
-	contextLogger.Info("Deleting Kopia snapshot", "args", args)
-
-	deleteSnapshotCmd := exec.CommandContext(ctx, s.kopiaBinary, args...) //nolint:gosec
-	deleteSnapshotCmd.Stdout = os.Stdout
-	deleteSnapshotCmd.Stderr = os.Stderr
-
-	if err := deleteSnapshotCmd.Run(); err != nil {
-		return fmt.Errorf("while deleting Kopia snapshot: %w", err)
-	}
-
-	return nil
 }

@@ -1,146 +1,28 @@
 package kopia
 
 import (
-	"bytes"
 	"context"
-	"encoding/json"
-	"fmt"
-	"os"
-	"os/exec"
-	"strconv"
 
-	"github.com/cloudnative-pg/machinery/pkg/log"
-
-	"github.com/cloudnative-pg/klio/core/internal/client/klioclient"
+	"github.com/cloudnative-pg/klio/core/internal/kopia"
 )
 
 // SetRetentionPolicy sets the retention policy for backups of this cluster.
-func (s *Connection) SetRetentionPolicy(ctx context.Context, t klioclient.Target, p klioclient.RetentionPolicy) error {
-	return s.internalSetKopiaPolicy(ctx, t, &p)
+func (s *Connection) SetRetentionPolicy(ctx context.Context, t kopia.Target, p kopia.RetentionPolicy) error {
+	return s.kopia.SetKopiaPolicy(ctx, t, &p)
 }
 
 // GetRetentionPolicy gets the currently applied retention policy for this cluster.
-func (s *Connection) GetRetentionPolicy(ctx context.Context, t klioclient.Target) (*klioclient.RetentionPolicy, error) {
-	currentPolicy, err := s.internalGetCurrentKopiaPolicy(ctx, t)
+func (s *Connection) GetRetentionPolicy(ctx context.Context, t kopia.Target) (*kopia.RetentionPolicy, error) {
+	policy, err := s.kopia.GetCurrentKopiaPolicy(ctx, t)
 	if err != nil {
 		return nil, err
 	}
 
-	if currentPolicy == nil {
-		return nil, nil
-	}
-
-	return &currentPolicy.RetentionPolicy, nil
+	return &policy.RetentionPolicy, nil
 }
 
 // ApplyRetentionPolicy applies the retention policy for this cluster, deleting any
 // snapshots that are no longer needed.
-func (s *Connection) ApplyRetentionPolicy(ctx context.Context, t klioclient.Target) error {
-	return s.internalApplyKopiaPolicy(ctx, t)
-}
-
-func (s *Connection) internalGetCurrentKopiaPolicy(
-	ctx context.Context,
-	t klioclient.Target,
-) (*klioclient.Policy, error) {
-	contextLogger := log.FromContext(ctx)
-
-	args := []string{
-		"policy",
-		"show",
-		t.String(),
-		"--config-file=" + s.configFile,
-		"--disable-file-logging",
-		"--json",
-		"--password=mtls",
-	}
-
-	contextLogger.Info("Getting Kopia policy", "args", args, "target", t)
-
-	var buffer bytes.Buffer
-
-	showPolicyCmd := exec.CommandContext(ctx, s.kopiaBinary, args...) //nolint:gosec
-	showPolicyCmd.Stdout = &buffer
-	showPolicyCmd.Stderr = os.Stderr
-
-	if err := showPolicyCmd.Run(); err != nil {
-		return nil, fmt.Errorf("error while getting Kopia policy: %w", err)
-	}
-
-	var result klioclient.Policy
-	if err := json.NewDecoder(&buffer).Decode(&result); err != nil {
-		return nil, fmt.Errorf("cannot decode JSON backup metadata: %w", err)
-	}
-
-	return &result, nil
-}
-
-func (s *Connection) internalSetKopiaPolicy(
-	ctx context.Context,
-	t klioclient.Target,
-	policy *klioclient.RetentionPolicy,
-) error {
-	policyToArgument := func(value *int) string {
-		if value == nil {
-			return "none"
-		}
-
-		return strconv.Itoa(*value)
-	}
-
-	contextLogger := log.FromContext(ctx)
-
-	args := []string{
-		"policy",
-		"set",
-		"--config-file=" + s.configFile,
-		"--disable-file-logging",
-		"--json-log-console",
-		"--password=mtls",
-		"--keep-annual=" + policyToArgument(policy.KeepAnnual),
-		"--keep-daily=" + policyToArgument(policy.KeepDaily),
-		"--keep-hourly=" + policyToArgument(policy.KeepHourly),
-		"--keep-latest=" + policyToArgument(policy.KeepLatest),
-		"--keep-monthly=" + policyToArgument(policy.KeepMonthly),
-		"--keep-weekly=" + policyToArgument(policy.KeepWeekly),
-		t.String(),
-	}
-
-	contextLogger.Info("Setting Kopia policy", "args", args, "target", t)
-
-	setPolicyCmd := exec.CommandContext(ctx, s.kopiaBinary, args...) //nolint:gosec
-	setPolicyCmd.Stdout = os.Stdout
-	setPolicyCmd.Stderr = os.Stderr
-
-	if err := setPolicyCmd.Run(); err != nil {
-		return fmt.Errorf("error while setting Kopia policy: %w", err)
-	}
-
-	return nil
-}
-
-func (s *Connection) internalApplyKopiaPolicy(ctx context.Context, t klioclient.Target) error {
-	contextLogger := log.FromContext(ctx)
-
-	args := []string{
-		"snapshot",
-		"expire",
-		"--config-file=" + s.configFile,
-		"--disable-file-logging",
-		"--json-log-console",
-		"--password=mtls",
-		t.String(),
-	}
-
-	contextLogger.Info("Applying Kopia policy", "args", args, "target", t)
-
-	snapshotExpireCmd := exec.CommandContext(ctx, s.kopiaBinary, args...) //nolint:gosec
-	snapshotExpireCmd.Stdout = os.Stdout
-	snapshotExpireCmd.Stderr = os.Stderr
-
-	if err := snapshotExpireCmd.Run(); err != nil {
-		return fmt.Errorf("error while applying Kopia policy: %w", err)
-	}
-
-	return nil
+func (s *Connection) ApplyRetentionPolicy(ctx context.Context, t kopia.Target) error {
+	return s.kopia.ApplyKopiaPolicy(ctx, t)
 }

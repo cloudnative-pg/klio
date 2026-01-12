@@ -1,0 +1,83 @@
+package kopia
+
+import (
+	"context"
+	"fmt"
+	"os"
+	"os/exec"
+
+	"github.com/cloudnative-pg/machinery/pkg/log"
+)
+
+// FSRepoOpts contains options for filesystem repository operations.
+type FSRepoOpts struct {
+	CommonRepoOpts
+
+	// DataDirectory is the filesystem path where the repository data is stored.
+	DataDirectory string
+}
+
+// InitializeFilesystem initializes a new Kopia repository on the filesystem.
+func InitializeFilesystem(ctx context.Context, opts FSRepoOpts) error {
+	contextLogger := log.FromContext(ctx)
+
+	args := []string{
+		"repository", "create", "filesystem",
+		"--create-only",
+		"--path=" + opts.DataDirectory,
+		"--disable-file-logging",
+		"--json-log-console",
+		"--cache-directory=" + opts.CacheDirectory,
+	}
+
+	kopiaRepositoryInitialize := exec.CommandContext(ctx, opts.KopiaBinary, args...) //nolint:gosec
+	kopiaRepositoryInitialize.Env = append(kopiaRepositoryInitialize.Env,
+		"KOPIA_PASSWORD="+opts.EncryptionPassword,
+	)
+
+	kopiaRepositoryInitialize.Stdout = os.Stdout
+	kopiaRepositoryInitialize.Stderr = os.Stderr
+
+	contextLogger.Info("Kopia repository initialize", "args", kopiaRepositoryInitialize.Args)
+	if err := kopiaRepositoryInitialize.Run(); err != nil {
+		return fmt.Errorf("while creating Kopia repository: %w", err)
+	}
+
+	return nil
+}
+
+// ConnectFileSystem connects to an existing Kopia repository on the filesystem.
+func ConnectFileSystem(ctx context.Context, configFileName string, opts FSRepoOpts) error {
+	contextLogger := log.FromContext(ctx)
+
+	args := []string{
+		"repository", "connect", "filesystem",
+		"--config-file=" + configFileName,
+		"--path=" + opts.DataDirectory,
+		"--override-username=klio",
+		"--override-hostname=klio",
+		"--disable-file-logging",
+		"--json-log-console",
+		"--cache-directory=" + opts.CacheDirectory,
+	}
+
+	if opts.PersistCredentials {
+		args = append(args, "--persist-credentials")
+	}
+
+	kopiaRepositoryConnect := exec.CommandContext(ctx, opts.KopiaBinary, args...) //nolint:gosec
+	kopiaRepositoryConnect.Env = append(kopiaRepositoryConnect.Env,
+		"KOPIA_PASSWORD="+opts.EncryptionPassword,
+		"KOPIA_CHECK_FOR_UPDATES=false",
+	)
+
+	kopiaRepositoryConnect.Stdout = os.Stdout
+	kopiaRepositoryConnect.Stderr = os.Stderr
+
+	contextLogger.Info("Kopia repository connect", "args", kopiaRepositoryConnect.Args)
+	if err := kopiaRepositoryConnect.Run(); err != nil {
+		return fmt.Errorf("while connecting to Kopia repository: %w", err)
+	}
+
+	return nil
+}

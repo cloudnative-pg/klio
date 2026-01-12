@@ -12,15 +12,17 @@ import (
 	"github.com/cloudnative-pg/machinery/pkg/log"
 
 	"github.com/cloudnative-pg/klio/core/internal/client/klioclient"
+	"github.com/cloudnative-pg/klio/core/internal/kopia"
 	"github.com/cloudnative-pg/klio/core/pkg/config"
 )
 
 // Connection represent a connection to a Klio server.
 type Connection struct {
-	configFile  string
 	kopiaBinary string
 	hostName    string
 	userName    string
+
+	kopia *kopia.Client
 }
 
 // ConnectTier1 creates a new Kopia client to the tier1 kopia repository and opens a connection to it.
@@ -44,8 +46,6 @@ func internalConnect(
 	kopiaClientConfig *config.BaseRepositoryClientConfig,
 	kopiaURL string,
 ) (*Connection, error) {
-	contextLogger := log.FromContext(ctx)
-
 	configFile, err := os.CreateTemp("", "kopiaconfig_*")
 	if err != nil {
 		return nil, fmt.Errorf("while writing a temporary Kopia config: %w", err)
@@ -91,36 +91,31 @@ func internalConnect(
 	// Should we allocate a emptyDir volume just for it and use that?
 	cacheDirectory := filepath.Join(os.TempDir(), "kopia-cache")
 
-	args := []string{
-		"repository",
-		"connect",
-		"server",
-		"--disable-file-logging",
-		"--cache-directory=" + cacheDirectory,
-		"--json-log-console",
-		"--config-file=" + configFile.Name(),
-		"--url=" + kopiaURL,
-		"--client-certificate=" + kopiaClientConfig.ClientCertPath,
-		"--client-key=" + kopiaClientConfig.ClientKeyPath,
-		"--server-cert-fingerprint=" + certificateFingerprint,
-		"--override-username=" + userName,
-		"--override-hostname=" + hostName,
-	}
-
-	repositoryConnectCmd := exec.CommandContext(ctx, kopiaBinary, args...) //nolint:gosec
-	repositoryConnectCmd.Stdout = os.Stdout
-	repositoryConnectCmd.Stderr = os.Stderr
-
-	contextLogger.Info("Connecting to Kopia repository", "args", args)
-	if err := repositoryConnectCmd.Run(); err != nil {
+	if err := kopia.ConnectRemote(ctx, configFile.Name(), kopia.RemoteRepoOpts{
+		CommonRepoOpts: kopia.CommonRepoOpts{
+			KopiaBinary:        kopiaBinary,
+			PersistCredentials: false,
+			CacheDirectory:     cacheDirectory,
+		},
+		URL:                   kopiaURL,
+		ClientCertPath:        kopiaClientConfig.ClientCertPath,
+		ClientKeyPath:         kopiaClientConfig.ClientKeyPath,
+		ServerCertFingerprint: certificateFingerprint,
+		Username:              userName,
+		Hostname:              hostName,
+	}); err != nil {
 		return nil, fmt.Errorf("while executing Kopia command: %w", err)
 	}
 
 	return &Connection{
 		kopiaBinary: kopiaBinary,
-		configFile:  configFile.Name(),
 		userName:    userName,
 		hostName:    hostName,
+		kopia: &kopia.Client{
+			KopiaBinary: kopiaBinary,
+			ConfigFile:  configFile.Name(),
+			Password:    "mtls",
+		},
 	}, nil
 }
 
@@ -140,11 +135,11 @@ func (s *Connection) GetHostname() string {
 func (s *Connection) Close(ctx context.Context) error {
 	contextLogger := log.FromContext(ctx)
 
-	if err := os.Remove(s.configFile); err != nil {
+	if err := os.Remove(s.kopia.ConfigFile); err != nil {
 		contextLogger.Error(
 			err,
 			"error while removing temporary Kopia configuration file, skipping",
-			"configFile", s.configFile)
+			"configFile", s.kopia.ConfigFile)
 	}
 
 	return nil

@@ -2,6 +2,8 @@ package klioclient
 
 import (
 	"context"
+
+	"github.com/cloudnative-pg/klio/core/internal/kopia"
 )
 
 // BackupExecutorSupport contains the functions needed to execute a backup.
@@ -63,14 +65,14 @@ type Client interface {
 	GetHostname() string
 
 	// SetRetentionPolicy sets the retention policy for backups of this cluster.
-	SetRetentionPolicy(ctx context.Context, t Target, p RetentionPolicy) error
+	SetRetentionPolicy(ctx context.Context, t kopia.Target, p kopia.RetentionPolicy) error
 
 	// GetRetentionPolicy gets the currently applied retention policy for this cluster.
-	GetRetentionPolicy(ctx context.Context, t Target) (*RetentionPolicy, error)
+	GetRetentionPolicy(ctx context.Context, t kopia.Target) (*kopia.RetentionPolicy, error)
 
 	// ApplyRetentionPolicy applies the retention policy for this cluster, deleting any
 	// snapshots that are no longer needed.
-	ApplyRetentionPolicy(ctx context.Context, t Target) error
+	ApplyRetentionPolicy(ctx context.Context, t kopia.Target) error
 }
 
 // WALUploaderImpl is the underlying implementation of a WAL

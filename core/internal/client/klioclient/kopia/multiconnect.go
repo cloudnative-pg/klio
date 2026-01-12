@@ -8,6 +8,7 @@ import (
 	"github.com/cloudnative-pg/machinery/pkg/stringset"
 
 	"github.com/cloudnative-pg/klio/core/internal/client/klioclient"
+	"github.com/cloudnative-pg/klio/core/internal/kopia"
 	"github.com/cloudnative-pg/klio/core/pkg/config"
 )
 
@@ -70,8 +71,8 @@ func (s *MultiConnection) DeleteBackup(ctx context.Context, hostname string, nam
 // SetRetentionPolicy implements the Client interface.
 func (s *MultiConnection) SetRetentionPolicy(
 	ctx context.Context,
-	t klioclient.Target,
-	p klioclient.RetentionPolicy,
+	t kopia.Target,
+	p kopia.RetentionPolicy,
 ) error {
 	return s.Tier1.SetRetentionPolicy(ctx, t, p)
 }
@@ -79,8 +80,8 @@ func (s *MultiConnection) SetRetentionPolicy(
 // GetRetentionPolicy implements the Client interface.
 func (s *MultiConnection) GetRetentionPolicy(
 	ctx context.Context,
-	t klioclient.Target,
-) (*klioclient.RetentionPolicy, error) {
+	t kopia.Target,
+) (*kopia.RetentionPolicy, error) {
 	return s.Tier1.GetRetentionPolicy(ctx, t)
 }
 
@@ -113,7 +114,7 @@ func (s *MultiConnection) GetMetadata(
 }
 
 // ApplyRetentionPolicy implements the Client interface.
-func (s *MultiConnection) ApplyRetentionPolicy(ctx context.Context, t klioclient.Target) error {
+func (s *MultiConnection) ApplyRetentionPolicy(ctx context.Context, t kopia.Target) error {
 	return s.Tier1.ApplyRetentionPolicy(ctx, t)
 }
 

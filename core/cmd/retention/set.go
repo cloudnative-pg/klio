@@ -8,8 +8,8 @@ import (
 	"github.com/spf13/viper"
 
 	"github.com/cloudnative-pg/klio/core/internal/cli"
-	"github.com/cloudnative-pg/klio/core/internal/client/klioclient"
 	"github.com/cloudnative-pg/klio/core/internal/client/klioclient/kopia"
+	kopiaWrapper "github.com/cloudnative-pg/klio/core/internal/kopia"
 	"github.com/cloudnative-pg/klio/core/pkg/config"
 )
 
@@ -50,7 +50,7 @@ var setCmd = &cobra.Command{
 			return fmt.Errorf("while connecting to the Klio server: %w %q", err, configuration.Client.Base.URL)
 		}
 
-		target := klioclient.Target{
+		target := kopiaWrapper.Target{
 			Hostname: client.GetHostname(),
 			Username: client.GetUsername(),
 		}
@@ -79,7 +79,7 @@ var setCmd = &cobra.Command{
 		}
 
 		if effectivePolicy == nil {
-			effectivePolicy = &klioclient.RetentionPolicy{}
+			effectivePolicy = &kopiaWrapper.RetentionPolicy{}
 		}
 		effectivePolicy.KeepLatest = getKeepValue("keep-latest")
 		effectivePolicy.KeepAnnual = getKeepValue("keep-annual")

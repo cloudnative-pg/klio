@@ -3,7 +3,6 @@ package kopiaserver
 import (
 	"context"
 	"fmt"
-	"os"
 	"os/exec"
 	"time"
 
@@ -11,6 +10,7 @@ import (
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/metric"
 
+	"github.com/cloudnative-pg/klio/core/internal/kopia"
 	"github.com/cloudnative-pg/klio/core/internal/opentelemetry"
 	"github.com/cloudnative-pg/klio/core/pkg/config"
 )
@@ -48,32 +48,6 @@ func start(ctx context.Context, configFile string, cfg *Config, tls *config.TLSC
 	// Enable ACLs
 	enableACLs(ctx, kopiaBinary, configFile, cfg.EncryptionPassword)
 
-	// Start the Kopia server
-	args := []string{
-		"server", "start",
-		"--tls-key-file=" + tls.TLSKey,
-		"--tls-cert-file=" + tls.TLSCert,
-		"--tls-ca-file=" + tls.ClientCACertFile,
-		"--config-file=" + configFile,
-		"--cache-directory=" + cfg.CacheDirectory,
-		"--address=" + cfg.ListenAddress,
-		"--disable-file-logging",
-		"--json-log-console",
-	}
-
-	if cfg.ReadOnly {
-		args = append(args, "--readonly")
-	}
-
-	kopiaServer := exec.CommandContext(ctx, kopiaBinary, args...) //nolint:gosec
-	kopiaServer.Stdout = os.Stdout
-	kopiaServer.Stderr = os.Stderr
-	contextLogger.Info("Starting Kopia server", "args", kopiaServer.Args)
-
-	if err := kopiaServer.Start(); err != nil {
-		return fmt.Errorf("while starting the kopia server: %w", err)
-	}
-
 	// Create observable uptime metric
 	serverStartTime := time.Now()
 	_, err = otel.Meter(opentelemetry.Meter).Float64ObservableGauge(
@@ -102,8 +76,19 @@ func start(ctx context.Context, configFile string, cfg *Config, tls *config.TLSC
 	go metricsCollector.Start(ctx)
 	defer metricsCollector.Stop()
 
-	if err := kopiaServer.Wait(); err != nil {
-		return fmt.Errorf("while running the kopia server: %w", err)
+	wrapper := kopia.Client{
+		KopiaBinary: kopiaBinary,
+		ConfigFile:  configFile,
+	}
+
+	if err := wrapper.RunServer(ctx, kopia.ServerOptions{
+		TLSCert:          tls.TLSCert,
+		TLSKey:           tls.TLSKey,
+		ClientCACertFile: tls.ClientCACertFile,
+		ListenAddress:    cfg.ListenAddress,
+		ReadOnly:         cfg.ReadOnly,
+	}); err != nil {
+		return fmt.Errorf("while starting the kopia server: %w", err)
 	}
 
 	return nil

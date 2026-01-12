@@ -1,18 +1,17 @@
 package kopia
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
 	"os"
-	"os/exec"
 	"path"
 	"strings"
 
 	"github.com/cloudnative-pg/machinery/pkg/log"
 
 	"github.com/cloudnative-pg/klio/core/internal/client/klioclient"
+	"github.com/cloudnative-pg/klio/core/internal/kopia"
 )
 
 // UploadTablespace implements common.BackupUploader.
@@ -27,9 +26,13 @@ func (s *Connection) UploadTablespace(
 		klioclient.BackupNameTagName:     backupName,
 	}
 
-	err := s.uploadPath(ctx, tbl.Path, tags, fmt.Sprintf("tablespace %s (%v)", tbl.Name, tbl.Oid))
+	err := s.kopia.SnapshotDirectory(ctx, kopia.SnapshotDirectoryOptions{
+		Directory:   tbl.Path,
+		Tags:        tags,
+		Description: fmt.Sprintf("tablespace %s (%v)", tbl.Name, tbl.Oid),
+	})
 	if err != nil {
-		return err
+		return fmt.Errorf("unable to snapshot directory: %w", err)
 	}
 
 	return nil
@@ -56,7 +59,11 @@ func (s *Connection) UploadPgData(ctx context.Context, backupName, pgData string
 		klioclient.BackupNameTagName:    backupName,
 	}
 
-	err := s.uploadPath(ctx, pgData, tags, "pgdata")
+	err := s.kopia.SnapshotDirectory(ctx, kopia.SnapshotDirectoryOptions{
+		Directory:   pgData,
+		Tags:        tags,
+		Description: "pgdata",
+	})
 	if err != nil {
 		return err
 	}
@@ -76,7 +83,16 @@ func (s *Connection) UploadControlFile(ctx context.Context, backupName, controlD
 		klioclient.BackupContentTagName: "controldata",
 	}
 
-	return s.uploadPath(ctx, controlDataFileName, tags, "control data file")
+	err := s.kopia.SnapshotDirectory(ctx, kopia.SnapshotDirectoryOptions{
+		Directory:   controlDataFileName,
+		Tags:        tags,
+		Description: "control data file",
+	})
+	if err != nil {
+		return fmt.Errorf("while snapshotting control data file: %w", err)
+	}
+
+	return nil
 }
 
 // UploadBackupMetadata implements common.BackupUploader.
@@ -97,97 +113,16 @@ func (s *Connection) UploadBackupMetadata(
 
 	fakeMetadataDirectory := strings.TrimSuffix(data.PgData, "/") + "_meta"
 
-	content := uploadFile{
-		content:       metadataContent,
-		fileName:      "metadata.json",
-		directoryName: fakeMetadataDirectory,
+	opts := kopia.SnapshotFileContentOptions{
+		Content:       metadataContent,
+		FileName:      "metadata.json",
+		DirectoryName: fakeMetadataDirectory,
+		Description:   "metadata for " + backupName,
+		Tags:          tags,
 	}
 
-	return s.uploadFile(ctx, content, tags, "metadata for "+backupName)
-}
-
-func (s *Connection) uploadPath(
-	ctx context.Context,
-	filePath string,
-	tags map[string]string,
-	description string,
-) error {
-	contextLogger := log.FromContext(ctx)
-
-	args := []string{
-		"snapshot",
-		"create",
-		"--disable-file-logging",
-		"--json-log-console",
-		"--password=mtls",
-		"--config-file=" + s.configFile,
-	}
-
-	for k, v := range tags {
-		args = append(args, fmt.Sprintf("--tags=%s:%s", k, v))
-	}
-
-	if description != "" {
-		args = append(args, "--description="+description)
-	}
-
-	args = append(args, filePath)
-
-	snapshotCreateCommand := exec.CommandContext(ctx, s.kopiaBinary, args...) //nolint:gosec
-	snapshotCreateCommand.Stdout = os.Stdout
-	snapshotCreateCommand.Stderr = os.Stderr
-
-	contextLogger.Info("Saving Kopia snapshot", "args", snapshotCreateCommand.Args)
-	if err := snapshotCreateCommand.Run(); err != nil {
-		return fmt.Errorf("while executing Kopia command: %w", err)
-	}
-
-	return nil
-}
-
-type uploadFile struct {
-	fileName      string
-	directoryName string
-	content       []byte
-}
-
-func (s *Connection) uploadFile(
-	ctx context.Context,
-	content uploadFile,
-	tags map[string]string,
-	description string,
-) error {
-	contextLogger := log.FromContext(ctx)
-
-	args := []string{
-		"snapshot",
-		"create",
-		"--disable-file-logging",
-		"--json-log-console",
-		"--password=mtls",
-		"--config-file=" + s.configFile,
-		"--stdin-file=" + content.fileName,
-		content.directoryName,
-	}
-
-	for k, v := range tags {
-		args = append(args, fmt.Sprintf("--tags=%s:%s", k, v))
-	}
-
-	if description != "" {
-		args = append(args, "--description="+description)
-	}
-
-	buffer := bytes.NewBuffer(content.content)
-
-	snapshotCreateCommand := exec.CommandContext(ctx, s.kopiaBinary, args...) //nolint:gosec
-	snapshotCreateCommand.Stdin = buffer
-	snapshotCreateCommand.Stdout = os.Stdout
-	snapshotCreateCommand.Stderr = os.Stderr
-
-	contextLogger.Info("Saving Kopia snapshot", "args", snapshotCreateCommand.Args)
-	if err := snapshotCreateCommand.Run(); err != nil {
-		return fmt.Errorf("while executing Kopia command: %w", err)
+	if err := s.kopia.SnapshotFileContent(ctx, opts); err != nil {
+		return fmt.Errorf("error file snapshotting metadata: %w", err)
 	}
 
 	return nil

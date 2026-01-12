@@ -9,6 +9,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/cloudnative-pg/klio/core/internal/client/klioclient"
+	"github.com/cloudnative-pg/klio/core/internal/kopia"
 )
 
 // MockKlioClient is a mock implementation of klioclient.Client.
@@ -22,11 +23,11 @@ type MockKlioClient struct {
 		name string) (
 		*klioclient.BackupMetadata, error)
 	DeleteBackupFunc       func(ctx context.Context, hostname string, name string) error
-	SetRetentionPolicyFunc func(ctx context.Context, t klioclient.Target,
-		p klioclient.RetentionPolicy) error
-	GetRetentionPolicyFunc func(ctx context.Context, t klioclient.Target) (
-		*klioclient.RetentionPolicy, error)
-	ApplyRetentionPolicyFunc func(ctx context.Context, t klioclient.Target) error
+	SetRetentionPolicyFunc func(ctx context.Context, t kopia.Target,
+		p kopia.RetentionPolicy) error
+	GetRetentionPolicyFunc func(ctx context.Context, t kopia.Target) (
+		*kopia.RetentionPolicy, error)
+	ApplyRetentionPolicyFunc func(ctx context.Context, t kopia.Target) error
 	UploadTablespaceFunc     func(ctx context.Context, backupName string,
 		tbl klioclient.TablespaceLayout) error
 	UploadPgDataFunc func(ctx context.Context, backupName string,
@@ -77,7 +78,7 @@ func (m *MockKlioClient) DeleteBackup(ctx context.Context, hostname string, name
 }
 
 func (m *MockKlioClient) SetRetentionPolicy(
-	ctx context.Context, t klioclient.Target, p klioclient.RetentionPolicy,
+	ctx context.Context, t kopia.Target, p kopia.RetentionPolicy,
 ) error {
 	if m.SetRetentionPolicyFunc != nil {
 		return m.SetRetentionPolicyFunc(ctx, t, p)
@@ -87,8 +88,8 @@ func (m *MockKlioClient) SetRetentionPolicy(
 }
 
 func (m *MockKlioClient) GetRetentionPolicy(
-	ctx context.Context, t klioclient.Target,
-) (*klioclient.RetentionPolicy, error) {
+	ctx context.Context, t kopia.Target,
+) (*kopia.RetentionPolicy, error) {
 	if m.GetRetentionPolicyFunc != nil {
 		return m.GetRetentionPolicyFunc(ctx, t)
 	}
@@ -96,7 +97,7 @@ func (m *MockKlioClient) GetRetentionPolicy(
 	return nil, nil
 }
 
-func (m *MockKlioClient) ApplyRetentionPolicy(ctx context.Context, t klioclient.Target) error {
+func (m *MockKlioClient) ApplyRetentionPolicy(ctx context.Context, t kopia.Target) error {
 	if m.ApplyRetentionPolicyFunc != nil {
 		return m.ApplyRetentionPolicyFunc(ctx, t)
 	}

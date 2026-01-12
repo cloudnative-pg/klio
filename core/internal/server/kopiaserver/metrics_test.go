@@ -3,12 +3,12 @@ package kopiaserver
 import (
 	"testing"
 
-	"github.com/cloudnative-pg/klio/core/internal/client/klioclient"
+	"github.com/cloudnative-pg/klio/core/internal/kopia"
 )
 
 func TestSnapshotStats_Increment_FirstSnapshot_ShouldInitializeAndUpdate(t *testing.T) {
 	s := snapshotStats{}
-	ds := klioclient.DirectorySummary{
+	ds := kopia.DirectorySummary{
 		TotalFileSize:  123,
 		TotalFileCount: 5,
 		TotalDirCount:  2,

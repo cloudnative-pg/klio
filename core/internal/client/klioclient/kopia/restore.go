@@ -1,14 +1,8 @@
 package kopia
 
 import (
-	"bytes"
 	"context"
-	"encoding/json"
 	"fmt"
-	"os"
-	"os/exec"
-
-	"github.com/cloudnative-pg/machinery/pkg/log"
 
 	"github.com/cloudnative-pg/klio/core/internal/client/klioclient"
 )
@@ -29,7 +23,7 @@ func (s *Connection) RestoreTablespace(
 		return err
 	}
 
-	return s.restoreSnapshot(ctx, source, destinationDirectory)
+	return s.kopia.RestoreSnapshot(ctx, source, destinationDirectory)
 }
 
 // RestorePgData restores the passed pgdata in the specified
@@ -47,7 +41,7 @@ func (s *Connection) RestorePgData(
 		return err
 	}
 
-	return s.restoreSnapshot(ctx, source, destinationDirectory)
+	return s.kopia.RestoreSnapshot(ctx, source, destinationDirectory)
 }
 
 // RestoreControlData restores the control data from the backup.
@@ -64,44 +58,16 @@ func (s *Connection) RestoreControlData(
 		return err
 	}
 
-	return s.restoreSnapshot(ctx, source, destinationPath)
+	return s.kopia.RestoreSnapshot(ctx, source, destinationPath)
 }
 
-// getSnapshotID implements the RestoreExecutor interface.
 func (s *Connection) getSnapshotID(
 	ctx context.Context,
 	tags map[string]string,
 ) (string, error) {
-	contextLogger := log.FromContext(ctx)
-
-	args := make([]string, 0, 7+len(tags))
-	args = append(args,
-		"snapshot",
-		"list",
-		"--disable-file-logging",
-		"--all",
-		"--json",
-		"--password=mtls",
-		"--config-file="+s.configFile,
-	)
-
-	for k, v := range tags {
-		args = append(args, fmt.Sprintf("--tags=%s:%s", k, v))
-	}
-
-	var stdout bytes.Buffer
-	snapshotList := exec.CommandContext(ctx, s.kopiaBinary, args...) //nolint:gosec
-	snapshotList.Stdout = &stdout
-	snapshotList.Stderr = os.Stderr
-
-	contextLogger.Info("Looking for Kopia snapshot", "args", snapshotList.Args, "tags", tags)
-	if err := snapshotList.Run(); err != nil {
+	entries, err := s.kopia.ListSnapshots(ctx, tags)
+	if err != nil {
 		return "", fmt.Errorf("while executing Kopia command: %w", err)
-	}
-
-	var entries []klioclient.Manifest
-	if err := json.Unmarshal(stdout.Bytes(), &entries); err != nil {
-		return "", fmt.Errorf("while unmarshalling kopia command output %q: %w", stdout.String(), err)
 	}
 
 	for _, entry := range entries {
@@ -111,36 +77,4 @@ func (s *Connection) getSnapshotID(
 	}
 
 	return "", newNoSnapshotFound(s.GetHostname(), tags)
-}
-
-// RestorePgData restores the passed pgdata in the specified
-// directory.
-func (s *Connection) restoreSnapshot(
-	ctx context.Context,
-	snapshotID string,
-	destinationDirectory string,
-) error {
-	contextLogger := log.FromContext(ctx)
-
-	args := []string{
-		"restore",
-		"--config-file=" + s.configFile,
-		"--disable-file-logging",
-		"--json-log-console",
-		"--password=mtls",
-		snapshotID,
-		destinationDirectory,
-	}
-
-	contextLogger.Info("Restoring Kopia snapshot", "args", args)
-
-	restoreCmd := exec.CommandContext(ctx, s.kopiaBinary, args...) //nolint:gosec
-	restoreCmd.Stdout = os.Stdout
-	restoreCmd.Stderr = os.Stderr
-
-	if err := restoreCmd.Run(); err != nil {
-		return fmt.Errorf("while restoring Kopia snapshot: %w", err)
-	}
-
-	return nil
 }

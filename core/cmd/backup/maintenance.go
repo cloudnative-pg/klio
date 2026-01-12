@@ -9,9 +9,9 @@ import (
 	"github.com/spf13/viper"
 
 	"github.com/cloudnative-pg/klio/core/internal/cli"
-	"github.com/cloudnative-pg/klio/core/internal/client/klioclient"
 	"github.com/cloudnative-pg/klio/core/internal/client/klioclient/grpcclient"
 	"github.com/cloudnative-pg/klio/core/internal/client/klioclient/kopia"
+	kopiaWrapper "github.com/cloudnative-pg/klio/core/internal/kopia"
 	"github.com/cloudnative-pg/klio/core/pkg/config"
 )
 
@@ -59,7 +59,7 @@ var maintenanceCmd = &cobra.Command{
 			return fmt.Errorf("while connecting to the Klio server: %w %q", err, configuration.Client.Base.URL)
 		}
 
-		target := klioclient.Target{
+		target := kopiaWrapper.Target{
 			Hostname: kopiaClient.GetHostname(),
 			Username: kopiaClient.GetUsername(),
 		}

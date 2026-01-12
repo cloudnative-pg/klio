@@ -8,8 +8,8 @@ import (
 	"github.com/spf13/viper"
 
 	"github.com/cloudnative-pg/klio/core/internal/cli"
-	"github.com/cloudnative-pg/klio/core/internal/client/klioclient"
 	"github.com/cloudnative-pg/klio/core/internal/client/klioclient/kopia"
+	kopiaWrapper "github.com/cloudnative-pg/klio/core/internal/kopia"
 	"github.com/cloudnative-pg/klio/core/pkg/config"
 )
 
@@ -52,7 +52,7 @@ var getCmd = &cobra.Command{
 
 		effectivePolicy, err := client.GetRetentionPolicy(
 			cmd.Context(),
-			klioclient.Target{
+			kopiaWrapper.Target{
 				Hostname: client.GetHostname(),
 				Username: client.GetUsername(),
 			},
