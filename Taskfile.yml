@@ -409,7 +409,7 @@ tasks:
     desc: Run golangci-lint
     env:
       # renovate: datasource=git-refs depName=golangci-lint lookupName=https://github.com/sagikazarmark/daggerverse currentValue=main
-      DAGGER_GOLANGCI_LINT_SHA: 5b521efa440ac96d86c4a73a053a4aeeed6890f9
+      DAGGER_GOLANGCI_LINT_SHA: 5dcc7e4c4cd5ed230046955f42e27f2166545155
       # renovate: datasource=docker depName=golangci/golangci-lint versioning=docker
       GOLANGCI_LINT_VERSION: v2.8.0@sha256:bebcfa63db7df53e417845ed61e4540519cf74fcba22793cdd174b3415a9e4e2
     internal: true
@@ -546,7 +546,7 @@ tasks:
     run: once
     env:
       # renovate: datasource=git-refs depName=kustomize lookupName=https://github.com/sagikazarmark/daggerverse currentValue=main
-      DAGGER_KUSTOMIZE_SHA: 5b521efa440ac96d86c4a73a053a4aeeed6890f9
+      DAGGER_KUSTOMIZE_SHA: 5dcc7e4c4cd5ed230046955f42e27f2166545155
       # renovate: datasource=docker depName=registry.k8s.io/kustomize/kustomize versioning=docker
       KUSTOMIZE_IMAGE_VERSION: v5.8.0@sha256:98424842862ed35fa666dbaac02159623567e1e9e184d91382fa665e89023258
     cmds:
@@ -581,7 +581,7 @@ tasks:
       - operator:helm-chart
     env:
       # renovate: datasource=git-refs depName=helm lookupName=https://github.com/sagikazarmark/daggerverse currentValue=main
-      DAGGER_HELM_SHA: 5b521efa440ac96d86c4a73a053a4aeeed6890f9
+      DAGGER_HELM_SHA: 5dcc7e4c4cd5ed230046955f42e27f2166545155
     cmds:
       - >
         GITHUB_REF= dagger -s call -m github.com/sagikazarmark/daggerverse/helm@${DAGGER_HELM_SHA}
@@ -604,7 +604,7 @@ tasks:
         - GITHUB_TOKEN
     env:
       # renovate: datasource=git-refs depName=helm lookupName=https://github.com/sagikazarmark/daggerverse currentValue=main
-      DAGGER_HELM_SHA: 5b521efa440ac96d86c4a73a053a4aeeed6890f9
+      DAGGER_HELM_SHA: 5dcc7e4c4cd5ed230046955f42e27f2166545155
       GITHUB_TOKEN: '{{ .GITHUB_TOKEN }}'
     cmds:
       # Nothing should have changed in the chart, so we can use the uncommitted task to check for changes.
@@ -661,7 +661,7 @@ tasks:
       suffix: '{{ if ( ne .ENVIRONMENT "production" ) }}-testing{{end}}'
       tag: '{{ .TAG | default .IMAGE_TAG }}'
       # renovate: datasource=git-refs depName=kustomize lookupName=https://github.com/sagikazarmark/daggerverse currentValue=main
-      DAGGER_KUSTOMIZE_SHA: 5b521efa440ac96d86c4a73a053a4aeeed6890f9
+      DAGGER_KUSTOMIZE_SHA: 5dcc7e4c4cd5ed230046955f42e27f2166545155
     cmds:
       - >
         GITHUB_REF= dagger -s call -m github.com/sagikazarmark/daggerverse/kustomize@${DAGGER_KUSTOMIZE_SHA}
@@ -939,7 +939,7 @@ tasks:
       - operator:helm-chart
     env:
       # renovate: datasource=git-refs depName=helm-docs lookupName=https://github.com/sagikazarmark/daggerverse currentValue=main
-      DAGGER_HELM_DOCS_SHA: 5b521efa440ac96d86c4a73a053a4aeeed6890f9
+      DAGGER_HELM_DOCS_SHA: 5dcc7e4c4cd5ed230046955f42e27f2166545155
       # renovate: datasource=docker depName=jnorwood/helm-docs versioning=docker
       HELM_DOCS_IMAGE_VERSION: v1.14.2@sha256:7e562b49ab6b1dbc50c3da8f2dd6ffa8a5c6bba327b1c6335cc15ce29267979c
     cmds:
