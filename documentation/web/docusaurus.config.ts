@@ -76,6 +76,14 @@ const config: Config = {
     '@docusaurus/theme-mermaid',
   ],
   themeConfig: {
+    announcementBar: {
+      id: 'tech_preview',
+      content:
+        '⚠️ Klio is distributed as a Tech Preview. See <a href="https://www.enterprisedb.com/legal/EDB-Eula" target="_blank" rel="noopener noreferrer">EDB EULA</a> section 9.4 for details. ⚠️',
+      backgroundColor: '#ffa500',
+      textColor: '#000000',
+      isCloseable: true,
+    },
     navbar: {
       logo: {
         alt: 'EDB Logo',
