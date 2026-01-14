@@ -76,6 +76,7 @@ func (impl LifecycleImplementation) LifecycleHook(
 	contextLogger.Info("Lifecycle hook reconciliation start")
 	operation := request.GetOperationType().GetType().Enum()
 	if operation == nil {
+		contextLogger.Warning("Operation type is not set in request")
 		return nil, errors.New("no operation set")
 	}
 
@@ -84,11 +85,13 @@ func (impl LifecycleImplementation) LifecycleHook(
 		request.GetClusterDefinition(),
 		&cluster,
 	); err != nil {
+		contextLogger.Error(err, "Failed to decode cluster definition")
 		return nil, err
 	}
 
 	kind, err := object.GetKind(request.GetObjectDefinition())
 	if err != nil {
+		contextLogger.Error(err, "Failed to get object kind from definition")
 		return nil, err
 	}
 
@@ -97,8 +100,10 @@ func (impl LifecycleImplementation) LifecycleHook(
 		contextLogger.Info("Reconciling pod")
 		return impl.reconcilePod(ctx, &cluster, request)
 	case "Job":
+		contextLogger.Info("Reconciling job")
 		return impl.reconcileJob(ctx, &cluster, request)
 	default:
+		contextLogger.Warning("Unsupported kind", "kind", kind)
 		return nil, fmt.Errorf("unsupported kind: %s", kind)
 	}
 }
@@ -137,12 +142,13 @@ func (impl LifecycleImplementation) reconcileJob(
 		},
 		clusterPC)
 	if err != nil {
-		contextLogger.Error(err, "failed to get client configuration")
+		contextLogger.Error(err, "Failed to get client configuration")
 		return nil, fmt.Errorf("failed to get client configuration: %w", err)
 	}
 
 	// Reconcile the configuration secret
 	if err := impl.reconcileKlioConfigSecret(ctx, klioConfigs, cluster); err != nil {
+		contextLogger.Error(err, "Failed to reconcile Klio configuration secret for job")
 		return nil, err
 	}
 
@@ -152,7 +158,7 @@ func (impl LifecycleImplementation) reconcileJob(
 		&job,
 		batchv1.SchemeGroupVersion.WithKind("Job"),
 	); err != nil {
-		contextLogger.Error(err, "failed to decode job")
+		contextLogger.Error(err, "Failed to decode job")
 		return nil, err
 	}
 
@@ -198,11 +204,13 @@ func (impl LifecycleImplementation) reconcileJob(
 		reconcilePodSpecConfiguration{
 			sidecarsToEnrich: sidecarsToEnrich,
 		}); err != nil {
+		contextLogger.Error(err, "Failed to reconcile pod spec for job")
 		return nil, fmt.Errorf("while reconciling pod spec for job: %w", err)
 	}
 
 	patch, err := object.CreatePatch(mutatedJob, &job)
 	if err != nil {
+		contextLogger.Error(err, "Failed to create patch for job")
 		return nil, err
 	}
 
@@ -220,11 +228,8 @@ func (impl LifecycleImplementation) reconcileKlioConfigSecret(
 	klioConfigs map[string]*config.Data,
 	cluster *cnpgv1.Cluster,
 ) error {
-	contextLogger := log.FromContext(ctx).WithName("klio-config-secret")
-
 	generatedSecret, err := klioConfigsToSecret(klioConfigs, cluster)
 	if err != nil {
-		contextLogger.Error(err, "Failed to generate configuration secret from cluster definition")
 		return fmt.Errorf("error generating configuration secret from cluster definition: %w", err)
 	}
 
@@ -273,11 +278,13 @@ func (impl LifecycleImplementation) reconcilePod(
 
 	// Reconcile the configuration secret
 	if err := impl.reconcileKlioConfigSecret(ctx, klioConfigs, cluster); err != nil {
+		contextLogger.Error(err, "Failed to reconcile Klio configuration secret for pod")
 		return nil, err
 	}
 
 	pod, err := decoder.DecodePodJSON(request.GetObjectDefinition())
 	if err != nil {
+		contextLogger.Error(err, "Failed to decode pod definition")
 		return nil, err
 	}
 
@@ -306,6 +313,7 @@ func (impl LifecycleImplementation) reconcilePod(
 
 	patch, err := object.CreatePatch(mutatedPod, pod)
 	if err != nil {
+		contextLogger.Error(err, "Failed to create patch for pod")
 		return nil, err
 	}
 
