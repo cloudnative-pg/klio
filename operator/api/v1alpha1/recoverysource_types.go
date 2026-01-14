@@ -36,7 +36,7 @@ type RecoverySourceSpec struct {
 type RecoverySourceStorageConfiguration struct {
 	// Cache is the configuration of the PVC that should be
 	// used for the cache.
-	Cache CacheConfiguration `json:"cache"`
+	Cache Cache `json:"cache"`
 }
 
 // RecoverySourceStatus defines the observed state of recovery source.

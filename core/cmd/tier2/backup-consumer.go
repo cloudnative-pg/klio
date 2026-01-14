@@ -114,7 +114,7 @@ var backupConsumerCmd = &cobra.Command{
 			Tier1KopiaConfig:        tier1ConfigFile.Name(),
 			Tier2KopiaConfig:        tier2ConfigFile.Name(),
 			CacheDirectory:          configuration.Tier1.Base.CacheDirectory,
-			Tier1EncryptionPassword: configuration.Tier1.EncryptionPassword,
+			Tier1EncryptionPassword: configuration.Tier1.EncryptionKey,
 		})
 		if err != nil {
 			return fmt.Errorf("error while creating backup consumer: %w", err)

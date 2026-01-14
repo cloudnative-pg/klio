@@ -12,15 +12,13 @@ import (
 type envBuilder struct {
 	builtEnvs []corev1.EnvVar
 
-	// TODO(leonardoce): replace this with the structure
-	// representing the tier1 configuration
-	tier1 *kliov1alpha1.ServerSpec
+	tier1 *kliov1alpha1.Tier1Configuration
 	tier2 *kliov1alpha1.Tier2Configuration
 }
 
 func newServerEnvBuilder(server *kliov1alpha1.Server) *envBuilder {
 	return &envBuilder{
-		tier1: &server.Spec,
+		tier1: server.Spec.Tier1,
 		tier2: server.Spec.Tier2,
 	}
 }
@@ -131,7 +129,7 @@ func (e *envBuilder) getCoreEnvVars() []corev1.EnvVar {
 		tier1Envs := []corev1.EnvVar{
 			{
 				Name:  "TIER1_BASE_CACHE",
-				Value: kopiaCacheMountPath,
+				Value: kopiaCacheTier1MountPath,
 			},
 			{
 				Name:  "TIER1_BASE_REPOSITORY",
@@ -150,8 +148,8 @@ func (e *envBuilder) getCoreEnvVars() []corev1.EnvVar {
 				Value: walPath,
 			},
 			{
-				Name:      "TIER1_ENCRYPTION_PASSWORD",
-				ValueFrom: secretKeySelectorToEnvVarSource(e.tier1.Password),
+				Name:      "TIER1_ENCRYPTION_KEY",
+				ValueFrom: secretKeySelectorToEnvVarSource(e.tier1.EncryptionKey),
 			},
 		}
 		result = append(result, tier1Envs...)
@@ -186,8 +184,8 @@ func (e *envBuilder) getTier2EnvVars() []corev1.EnvVar {
 			Value: e.tier2.S3.Prefix,
 		},
 		{
-			Name:      "TIER2_ENCRYPTION_PASSWORD",
-			ValueFrom: secretKeySelectorToEnvVarSource(e.tier2.EncryptionPassword),
+			Name:      "TIER2_ENCRYPTION_KEY",
+			ValueFrom: secretKeySelectorToEnvVarSource(e.tier2.EncryptionKey),
 		},
 		{
 			Name:  "TIER2_S3_REGION",
@@ -195,7 +193,7 @@ func (e *envBuilder) getTier2EnvVars() []corev1.EnvVar {
 		},
 		{
 			Name:  "TIER2_CACHE",
-			Value: kopiaCacheMountPath,
+			Value: kopiaCacheTier2MountPath,
 		},
 		{
 			Name:  "TIER2_BASE_LISTEN_ADDRESS",

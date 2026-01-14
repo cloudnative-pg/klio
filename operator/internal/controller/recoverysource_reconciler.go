@@ -337,7 +337,7 @@ func (r *RecoverySourceReconciler) buildVolumeMounts() []corev1.VolumeMount {
 		},
 		{
 			Name:      "cache",
-			MountPath: kopiaCacheMountPath,
+			MountPath: kopiaCacheTier2MountPath,
 		},
 		{
 			Name:      "tmp",

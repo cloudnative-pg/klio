@@ -47,7 +47,7 @@ func StartTier2(
 	}
 
 	kopiaServerConfig := Config{
-		EncryptionPassword: tier2Config.EncryptionPassword,
+		EncryptionPassword: tier2Config.EncryptionKey,
 		CacheDirectory:     tier2CacheDir,
 		ListenAddress:      tier2Config.BaseListenAddress,
 		ReadOnly:           true,
@@ -75,7 +75,7 @@ func InitializeTier2(ctx context.Context, cfg *config.Tier2Config) error {
 	if err := kopia.InitializeS3(ctx, kopia.S3RepoOpts{
 		CommonRepoOpts: kopia.CommonRepoOpts{
 			KopiaBinary:        kopiaBinary,
-			EncryptionPassword: cfg.EncryptionPassword,
+			EncryptionPassword: cfg.EncryptionKey,
 			PersistCredentials: false,
 			CacheDirectory:     cacheDir,
 		},
@@ -109,7 +109,7 @@ func CreateTier2KopiaConfigFile(ctx context.Context, fileName string, cfg *confi
 	if err := kopia.ConnectS3(ctx, fileName, kopia.S3RepoOpts{
 		CommonRepoOpts: kopia.CommonRepoOpts{
 			KopiaBinary:        kopiaBinary,
-			EncryptionPassword: cfg.EncryptionPassword,
+			EncryptionPassword: cfg.EncryptionKey,
 			PersistCredentials: true,
 			CacheDirectory:     cacheDir,
 		},

@@ -35,13 +35,14 @@ var startWALCmd = &cobra.Command{
 		walFS := afero.NewBasePathFs(afero.NewOsFs(), configuration.Tier1.Wal.WALPath)
 		repoConnection, err := repository.Open(repository.Options{
 			FS:       walFS,
-			Password: configuration.Tier1.EncryptionPassword,
+			Password: configuration.Tier1.EncryptionKey,
 		})
 		if err != nil {
 			return fmt.Errorf("failed to connect to local repository: %w", err)
 		}
 
-		if err := walserver.Start(cmd.Context(), repoConnection, &configuration.Tier1.Wal, &configuration.TLS); err != nil {
+		if err := walserver.Start(cmd.Context(), repoConnection, &configuration.Tier1.Wal,
+			&configuration.TLS); err != nil {
 			return fmt.Errorf("while starting the WAL server: %w", err)
 		}
 

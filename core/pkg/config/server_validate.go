@@ -47,8 +47,8 @@ func (c *TLSConfig) Validate() error {
 func (c *Tier1Config) Validate() error {
 	var errs error
 
-	if c.EncryptionPassword == "" {
-		errs = errors.Join(errs, errors.New("invalid tier1 config: encryption_password is empty"))
+	if c.EncryptionKey == "" {
+		errs = errors.Join(errs, errors.New("invalid tier1 config: encryption_key is empty"))
 	}
 	if err := c.Base.Validate(); err != nil {
 		errs = errors.Join(errs, err)
@@ -65,8 +65,8 @@ func (c *Tier2Config) Validate() error {
 	var errs error
 
 	if c.S3.Enabled {
-		if c.EncryptionPassword == "" {
-			errs = errors.Join(errs, errors.New("invalid tier2 config: encryption_password is empty"))
+		if c.EncryptionKey == "" {
+			errs = errors.Join(errs, errors.New("invalid tier2 config: encryption_key is empty"))
 		}
 		if c.BaseListenAddress == "" {
 			errs = errors.Join(errs, errors.New("invalid tier2 config: base_listen_address is empty"))

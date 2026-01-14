@@ -38,7 +38,7 @@ var startWALCmd = &cobra.Command{
 		}
 		tier2RepoConnection, err := repository.Open(repository.Options{
 			FS:       tier2WALFS,
-			Password: configuration.Tier2.EncryptionPassword,
+			Password: configuration.Tier2.EncryptionKey,
 		})
 		if err != nil {
 			return fmt.Errorf("failed to connect to local repository: %w", err)

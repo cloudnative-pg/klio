@@ -7,7 +7,8 @@ import (
 )
 
 // ServerSpec defines the desired state of Server.
-// +kubebuilder:validation:XValidation:rule="!has(self.tier2) || has(self.queueConfiguration)",message="queueConfiguration is required when tier2 is defined"
+// +kubebuilder:validation:XValidation:rule="has(self.tier1)",message="tier1 is required"
+// +kubebuilder:validation:XValidation:rule="!has(self.queue) || (has(self.tier1) && has(self.tier2))",message="queue requires both tier1 and tier2"
 type ServerSpec struct {
 	// ImageConfiguration tells how to download the Klio
 	// image.
@@ -17,24 +18,16 @@ type ServerSpec struct {
 	// certificate.
 	TLSConfiguration `json:",inline"`
 
-	// CacheConfiguration is the configuration of the PVC that should be
-	// used for the cache
-	CacheConfiguration CacheConfiguration `json:"cacheConfiguration"`
-
-	// DataConfiguration is the configuration of the PVC that should be used
-	// for the base backups
-	DataConfiguration DataConfiguration `json:"dataConfiguration"`
-
-	// QueueConfiguration is the configuration of the PVC that should host
-	// the task queue.
-	// +optional
-	QueueConfiguration *QueueConfiguration `json:"queueConfiguration,omitempty"`
-
-	// Password is a reference to a secret containing the Klio password
-	Password *machineryapi.SecretKeySelector `json:"password"`
+	// Tier1 is the Tier 1 configuration
+	Tier1 *Tier1Configuration `json:"tier1,omitempty"`
 
 	// Tier2 is the Tier 2 configuration
 	Tier2 *Tier2Configuration `json:"tier2,omitempty"`
+
+	// Queue is the configuration of the PVC that should host
+	// the task queue.
+	// +optional
+	Queue *Queue `json:"queue,omitempty"`
 
 	// Template to override the default StatefulSet of the Klio server.
 	// WARNING: Modifying this template may break the server functionality if not done carefully.
@@ -73,33 +66,51 @@ type TLSConfiguration struct {
 	ClientCASecretName string `json:"caSecretName"`
 }
 
-// DataConfiguration defines the configuration for the data directory.
-type DataConfiguration struct {
+// Data defines the configuration for the data directory.
+type Data struct {
 	// Template to be used to generate the Persistent Volume Claim needed for the data folder,
 	// containing base backups and WAL files.
 	PersistentVolumeClaimTemplate corev1.PersistentVolumeClaimSpec `json:"pvcTemplate"`
 }
 
-// CacheConfiguration defines the configuration for the cache directory.
-type CacheConfiguration struct {
+// Cache defines the configuration for the cache directory.
+type Cache struct {
 	PersistentVolumeClaimTemplate corev1.PersistentVolumeClaimSpec `json:"pvcTemplate"`
 }
 
-// QueueConfiguration defines the configuration for the directory hosting the
+// Queue defines the configuration for the directory hosting the
 // task queue.
-type QueueConfiguration struct {
+type Queue struct {
 	// PersistentVolumeClaimTemplate is used to generate the configuration for
 	// the PVC hosting the work queue.
 	PersistentVolumeClaimTemplate corev1.PersistentVolumeClaimSpec `json:"pvcTemplate"`
 }
 
+// Tier1Configuration is the tier 1 configuration.
+type Tier1Configuration struct {
+	// Cache is the configuration of the PVC that should be
+	// used for the cache
+	Cache Cache `json:"cache"`
+
+	// Data is the configuration of the PVC that should be used
+	// for the base backups
+	Data Data `json:"data"`
+
+	// EncryptionKey is a reference to a secret containing the Klio password
+	EncryptionKey *machineryapi.SecretKeySelector `json:"encryptionKey"`
+}
+
 // Tier2Configuration is the tier 2 configuration.
 type Tier2Configuration struct {
+	// Cache is the configuration of the PVC that should be
+	// used for the cache
+	Cache Cache `json:"cache"`
+
 	// S3 contains the configuration parameters for an S3-based tier 2
 	S3 *S3Configuration `json:"s3"`
 
-	// EncryptionPassword is a pointer to the key in a secret containing the encryption password.
-	EncryptionPassword *machineryapi.SecretKeySelector `json:"encryptionPassword"`
+	// EncryptionKey is a reference to a secret containing the Klio password
+	EncryptionKey *machineryapi.SecretKeySelector `json:"encryptionKey"`
 }
 
 // S3Configuration is the configuration to a S3 defined tier 2.

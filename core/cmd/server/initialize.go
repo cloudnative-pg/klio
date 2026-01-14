@@ -38,10 +38,10 @@ var initializeCmd = &cobra.Command{
 
 		opts := initialize.Options{
 			WalFS:                 afero.NewBasePathFs(afero.NewOsFs(), walDirectory),
-			WalEncryptionPassword: configuration.Tier1.EncryptionPassword,
+			WalEncryptionPassword: configuration.Tier1.EncryptionKey,
 
 			KopiaFS:                 afero.NewBasePathFs(afero.NewOsFs(), kopiaDirectory),
-			KopiaEncryptionPassword: configuration.Tier1.EncryptionPassword,
+			KopiaEncryptionPassword: configuration.Tier1.EncryptionKey,
 			KopiaInitializeRepo: func() error {
 				return kopiaserver.InitializeTier1(ctx, &configuration.Tier1)
 			},

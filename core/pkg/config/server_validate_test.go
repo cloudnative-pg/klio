@@ -33,7 +33,7 @@ func TestTierConfigs_Validate(t *testing.T) {
 			{
 				name: "Valid",
 				config: Tier1Config{
-					EncryptionPassword: "p",
+					EncryptionKey: "p",
 					Base: BaseServerConfig{
 						CacheDirectory:      "cache",
 						RepositoryDirectory: "repo",
@@ -46,7 +46,7 @@ func TestTierConfigs_Validate(t *testing.T) {
 				},
 				wantErr: false,
 			},
-			{"Missing Password", Tier1Config{}, true},
+			{"Missing EncryptionPassword", Tier1Config{}, true},
 		}
 		for _, tt := range tests {
 			if err := tt.config.Validate(); (err != nil) != tt.wantErr {

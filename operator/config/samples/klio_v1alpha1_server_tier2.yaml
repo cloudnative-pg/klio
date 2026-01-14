@@ -12,39 +12,36 @@ metadata:
   annotations:
     klio.cnpg.io/pprof: "true"
 spec:
-  cacheConfiguration:
-    pvcTemplate:
-      resources:
-        requests:
-          storage: 1Gi
-      accessModes:
-      - ReadWriteOnce
+  tier1:
+    cache:
+      pvcTemplate:
+        resources:
+          requests:
+            storage: 1Gi
+        accessModes:
+        - ReadWriteOnce
 
-  dataConfiguration:
-    pvcTemplate:
-      resources:
-        requests:
-          storage: 1Gi
-      accessModes:
-      - ReadWriteOnce
+    data:
+      pvcTemplate:
+        resources:
+          requests:
+            storage: 1Gi
+        accessModes:
+        - ReadWriteOnce
 
-  queueConfiguration:
-    pvcTemplate:
-      resources:
-        requests:
-          storage: 100Mi
-      accessModes:
-      - ReadWriteOnce
-
-  password:
-    name: server-sample-encryption
-    key: password
-
-  tlsSecretName: server-sample-tls
-  caSecretName: server-sample-ca
+    encryptionKey:
+      name: server-sample-encryption
+      key: password
 
   tier2:
-    encryptionPassword:
+    cache:
+      pvcTemplate:
+        resources:
+          requests:
+            storage: 1Gi
+        accessModes:
+          - ReadWriteOnce
+    encryptionKey:
       name: server-sample-encryption
       key: password
     s3:
@@ -61,7 +58,17 @@ spec:
       customCaBundle:
         name: minio-server-tls
         key: tls.crt
-      
+
+  queue:
+    pvcTemplate:
+      resources:
+        requests:
+          storage: 100Mi
+      accessModes:
+        - ReadWriteOnce
+
+  tlsSecretName: server-sample-tls
+  caSecretName: server-sample-ca
 
   image: registry.dev:5000/klio-testing:dev
   imagePullPolicy: Always

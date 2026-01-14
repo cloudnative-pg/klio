@@ -10,25 +10,26 @@ metadata:
   name: klioserver-dc-a
   namespace: dc-a
 spec:
-  cacheConfiguration:
-    pvcTemplate:
-      resources:
-        requests:
-          storage: 1Gi
-      accessModes:
-      - ReadWriteOnce
+  tier1:
+    cache:
+      pvcTemplate:
+        resources:
+          requests:
+            storage: 1Gi
+        accessModes:
+        - ReadWriteOnce
 
-  dataConfiguration:
-    pvcTemplate:
-      resources:
-        requests:
-          storage: 1Gi
-      accessModes:
-      - ReadWriteOnce
+    data:
+      pvcTemplate:
+        resources:
+          requests:
+            storage: 1Gi
+        accessModes:
+        - ReadWriteOnce
 
-  password:
-    name: klioserver-dc-a-encryption
-    key: password
+    encryptionKey:
+      name: klioserver-dc-a-encryption
+      key: password
 
   tlsSecretName: klioserver-dc-a-tls
   caSecretName: klioserver-dc-a-ca

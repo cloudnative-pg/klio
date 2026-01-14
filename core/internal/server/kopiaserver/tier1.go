@@ -45,7 +45,7 @@ func StartTier1(
 	}
 
 	kopiaCfg := Config{
-		EncryptionPassword: cfg.EncryptionPassword,
+		EncryptionPassword: cfg.EncryptionKey,
 		CacheDirectory:     cacheDir,
 		ListenAddress:      cfg.Base.ListenAddress,
 	}
@@ -76,7 +76,7 @@ func InitializeTier1(ctx context.Context, cfg *config.Tier1Config) error {
 	opts := kopia.FSRepoOpts{
 		CommonRepoOpts: kopia.CommonRepoOpts{
 			KopiaBinary:        kopiaBinary,
-			EncryptionPassword: cfg.EncryptionPassword,
+			EncryptionPassword: cfg.EncryptionKey,
 			CacheDirectory:     cacheDir,
 		},
 		DataDirectory: cfg.Base.RepositoryDirectory,
@@ -104,7 +104,7 @@ func CreateTier1KopiaConfigFile(ctx context.Context, fileName string, cfg *confi
 	if err := kopia.ConnectFileSystem(ctx, fileName, kopia.FSRepoOpts{
 		CommonRepoOpts: kopia.CommonRepoOpts{
 			KopiaBinary:        kopiaBinary,
-			EncryptionPassword: cfg.EncryptionPassword,
+			EncryptionPassword: cfg.EncryptionKey,
 			PersistCredentials: true,
 			CacheDirectory:     cacheDir,
 		},

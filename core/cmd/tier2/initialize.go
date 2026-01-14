@@ -52,10 +52,10 @@ var initializeCmd = &cobra.Command{
 
 		opts := initialize.Options{
 			WalFS:                 tier2WALFS,
-			WalEncryptionPassword: configuration.Tier2.EncryptionPassword,
+			WalEncryptionPassword: configuration.Tier2.EncryptionKey,
 
 			KopiaFS:                 tier2BaseFS,
-			KopiaEncryptionPassword: configuration.Tier2.EncryptionPassword,
+			KopiaEncryptionPassword: configuration.Tier2.EncryptionKey,
 			KopiaInitializeRepo: func() error {
 				return kopiaserver.InitializeTier2(ctx, &configuration.Tier2)
 			},

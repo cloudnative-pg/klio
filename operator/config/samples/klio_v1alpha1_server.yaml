@@ -5,25 +5,26 @@ metadata:
   annotations:
     klio.cnpg.io/pprof: "true"
 spec:
-  cacheConfiguration:
-    pvcTemplate:
-      resources:
-        requests:
-          storage: 1Gi
-      accessModes:
-      - ReadWriteOnce
+  tier1:
+    cache:
+      pvcTemplate:
+        resources:
+          requests:
+            storage: 1Gi
+        accessModes:
+        - ReadWriteOnce
 
-  dataConfiguration:
-    pvcTemplate:
-      resources:
-        requests:
-          storage: 1Gi
-      accessModes:
-      - ReadWriteOnce
+    data:
+      pvcTemplate:
+        resources:
+          requests:
+            storage: 1Gi
+        accessModes:
+        - ReadWriteOnce
 
-  password:
-    name: server-sample-encryption
-    key: password
+    encryptionKey:
+      name: server-sample-encryption
+      key: password
 
   tlsSecretName: server-sample-tls
   caSecretName: server-sample-ca

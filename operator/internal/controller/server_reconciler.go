@@ -25,8 +25,9 @@ const (
 )
 
 const (
-	kopiaDataMountPath  = "/data"
-	kopiaCacheMountPath = "/cache"
+	kopiaDataMountPath       = "/data"
+	kopiaCacheTier1MountPath = "/cache_tier1"
+	kopiaCacheTier2MountPath = "/cache_tier2"
 )
 
 func (r *ServerReconciler) reconcile(ctx context.Context, server *kliov1alpha1.Server) error {
@@ -62,29 +63,7 @@ func (r *ServerReconciler) reconcileStatefulSet(ctx context.Context, server *kli
 		},
 		Spec: appsv1.StatefulSetSpec{
 			ServiceName: server.GetServiceName(),
-			VolumeClaimTemplates: []corev1.PersistentVolumeClaim{
-				{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: "data",
-						Labels: map[string]string{
-							klioServerLabel: server.Name,
-							pvcTypeLabel:    "data",
-						},
-					},
-					Spec: server.Spec.DataConfiguration.PersistentVolumeClaimTemplate,
-				},
-				{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: "cache",
-						Labels: map[string]string{
-							klioServerLabel: server.Name,
-							pvcTypeLabel:    "cache",
-						},
-					},
-					Spec: server.Spec.CacheConfiguration.PersistentVolumeClaimTemplate,
-				},
-			},
-			Replicas: ptr.To(int32(1)),
+			Replicas:    ptr.To(int32(1)),
 			Selector: &metav1.LabelSelector{
 				MatchLabels: map[string]string{
 					klioServerLabel: server.Name,
@@ -160,13 +139,18 @@ func (r *ServerReconciler) reconcileStatefulSet(ctx context.Context, server *kli
 		Status: appsv1.StatefulSetStatus{},
 	}
 
-	if server.Spec.QueueConfiguration != nil {
-		injectQueueConfiguration(server, expected)
+	if server.Spec.Tier1 != nil {
+		injectTier1VolumeClaimTemplates(expected, *server)
+	}
+
+	if server.Spec.Queue != nil {
+		injectQueueConfiguration(expected, *server)
 	}
 
 	// Add Tier2 containers if the server has Tier 2 configuration
 	if server.Spec.Tier2 != nil {
 		injectTier2Containers(expected, server, volumeMounts)
+		injectTier2VolumeClaimTemplates(expected, *server)
 	}
 
 	if server.Spec.Template != nil {
@@ -248,7 +232,7 @@ func (r *ServerReconciler) reconcileStatefulSet(ctx context.Context, server *kli
 	return nil
 }
 
-func injectQueueConfiguration(server *kliov1alpha1.Server, expected *appsv1.StatefulSet) {
+func injectQueueConfiguration(expected *appsv1.StatefulSet, server kliov1alpha1.Server) {
 	expected.Spec.VolumeClaimTemplates = append(expected.Spec.VolumeClaimTemplates, corev1.PersistentVolumeClaim{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "queue",
@@ -257,7 +241,7 @@ func injectQueueConfiguration(server *kliov1alpha1.Server, expected *appsv1.Stat
 				pvcTypeLabel:    "queue",
 			},
 		},
-		Spec: server.Spec.QueueConfiguration.PersistentVolumeClaimTemplate,
+		Spec: server.Spec.Queue.PersistentVolumeClaimTemplate,
 	})
 
 	expected.Spec.Template.Spec.Containers = append(expected.Spec.Template.Spec.Containers,
@@ -297,6 +281,50 @@ func enablePProf(containers []corev1.Container) {
 			containers[i].Args,
 			"--pprof-server=:606"+strconv.Itoa(i))
 	}
+}
+
+func injectTier1VolumeClaimTemplates(
+	ss *appsv1.StatefulSet,
+	server kliov1alpha1.Server,
+) {
+	ss.Spec.VolumeClaimTemplates = append(ss.Spec.VolumeClaimTemplates,
+		corev1.PersistentVolumeClaim{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "data",
+				Labels: map[string]string{
+					klioServerLabel: server.Name,
+					pvcTypeLabel:    "data",
+				},
+			},
+			Spec: server.Spec.Tier1.Data.PersistentVolumeClaimTemplate,
+		},
+		corev1.PersistentVolumeClaim{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "cachetier1",
+				Labels: map[string]string{
+					klioServerLabel: server.Name,
+					pvcTypeLabel:    "cachetier1",
+				},
+			},
+			Spec: server.Spec.Tier1.Cache.PersistentVolumeClaimTemplate,
+		})
+}
+
+func injectTier2VolumeClaimTemplates(
+	ss *appsv1.StatefulSet,
+	server kliov1alpha1.Server,
+) {
+	ss.Spec.VolumeClaimTemplates = append(ss.Spec.VolumeClaimTemplates,
+		corev1.PersistentVolumeClaim{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "cachetier2",
+				Labels: map[string]string{
+					klioServerLabel: server.Name,
+					pvcTypeLabel:    "cachetier2",
+				},
+			},
+			Spec: server.Spec.Tier2.Cache.PersistentVolumeClaimTemplate,
+		})
 }
 
 func injectTier2Containers(
@@ -507,8 +535,7 @@ func (r *ServerReconciler) buildVolumes(server *kliov1alpha1.Server) []corev1.Vo
 						Sources: sources,
 					},
 				},
-			},
-		)
+			})
 	}
 
 	return volumes
@@ -529,16 +556,22 @@ func (r *ServerReconciler) buildVolumeMounts(server *kliov1alpha1.Server) []core
 			MountPath: "/client-ca",
 		},
 		{
-			Name:      "cache",
-			MountPath: kopiaCacheMountPath,
-		},
-		{
 			Name:      "tmp",
 			MountPath: "/tmp",
 		},
 	}
 
-	if server.Spec.QueueConfiguration != nil {
+	if server.Spec.Tier1 != nil {
+		volumeMounts = append(
+			volumeMounts,
+			corev1.VolumeMount{
+				Name:      "cachetier1",
+				MountPath: kopiaCacheTier1MountPath,
+			},
+		)
+	}
+
+	if server.Spec.Queue != nil {
 		volumeMounts = append(
 			volumeMounts,
 			corev1.VolumeMount{
@@ -554,6 +587,10 @@ func (r *ServerReconciler) buildVolumeMounts(server *kliov1alpha1.Server) []core
 			corev1.VolumeMount{
 				Name:      "tier2",
 				MountPath: "/tier2",
+			},
+			corev1.VolumeMount{
+				Name:      "cachetier2",
+				MountPath: kopiaCacheTier2MountPath,
 			},
 		)
 	}

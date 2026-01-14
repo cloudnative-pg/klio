@@ -12,25 +12,26 @@ metadata:
   annotations:
     klio.cnpg.io/pprof: "true"
 spec:
-  cacheConfiguration:
-    pvcTemplate:
-      resources:
-        requests:
-          storage: 1Gi
-      accessModes:
-      - ReadWriteOnce
+  tier1:
+    cache:
+      pvcTemplate:
+        resources:
+          requests:
+            storage: 1Gi
+        accessModes:
+        - ReadWriteOnce
 
-  dataConfiguration:
-    pvcTemplate:
-      resources:
-        requests:
-          storage: 1Gi
-      accessModes:
-      - ReadWriteOnce
+    data:
+      pvcTemplate:
+        resources:
+          requests:
+            storage: 1Gi
+        accessModes:
+        - ReadWriteOnce
 
-  password:
-    name: klioserver-dc-b-encryption
-    key: password
+    encryptionKey:
+      name: klioserver-dc-b-encryption
+      key: password
 
   tlsSecretName: klioserver-dc-b-tls
   caSecretName: klioserver-dc-b-ca

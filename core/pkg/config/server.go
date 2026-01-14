@@ -28,9 +28,9 @@ type TLSConfig struct {
 
 // Tier1Config is the configuration of tier 1.
 type Tier1Config struct {
-	// EncryptionPassword is the encryption password that is used to
+	// EncryptionKey is the encryption key that is used to
 	// operate on the Kopia repository and on the WAL directory.
-	EncryptionPassword string `mapstructure:"encryption_password"`
+	EncryptionKey string `mapstructure:"encryption_key"`
 
 	// Base is the configuration of the Base server
 	Base BaseServerConfig `mapstructure:"base"`
@@ -41,8 +41,8 @@ type Tier1Config struct {
 
 // Tier2Config is the configuration of tier 2.
 type Tier2Config struct {
-	// EncryptionPassword is the encryption password
-	EncryptionPassword string `json:"encryption_password" mapstructure:"encryption_password"`
+	// EncryptionKey is the encryption key
+	EncryptionKey string `json:"encryption_key" mapstructure:"encryption_key"`
 
 	// BaseListenAddress is the address where the tier2 base server will listen
 	BaseListenAddress string `mapstructure:"base_listen_address"`

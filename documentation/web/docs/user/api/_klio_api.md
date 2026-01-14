@@ -14,33 +14,34 @@ Package v1alpha1 contains API Schema definitions for the klio v1alpha1 API group
 
 
 
-#### CacheConfiguration
+#### Cache
 
 
 
-CacheConfiguration defines the configuration for the cache directory.
+Cache defines the configuration for the cache directory.
 
 
 
 _Appears in:_
 - [RecoverySourceStorageConfiguration](#recoverysourcestorageconfiguration)
-- [ServerSpec](#serverspec)
+- [Tier1Configuration](#tier1configuration)
+- [Tier2Configuration](#tier2configuration)
 
 | Field | Description | Required | Default | Validation |
 | --- | --- | --- | --- | --- |
 | `pvcTemplate` _[PersistentVolumeClaimSpec](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#persistentvolumeclaimspec-v1-core)_ |  | True |  |  |
 
 
-#### DataConfiguration
+#### Data
 
 
 
-DataConfiguration defines the configuration for the data directory.
+Data defines the configuration for the data directory.
 
 
 
 _Appears in:_
-- [ServerSpec](#serverspec)
+- [Tier1Configuration](#tier1configuration)
 
 | Field | Description | Required | Default | Validation |
 | --- | --- | --- | --- | --- |
@@ -122,11 +123,11 @@ _Appears in:_
 
 
 
-#### QueueConfiguration
+#### Queue
 
 
 
-QueueConfiguration defines the configuration for the directory hosting the
+Queue defines the configuration for the directory hosting the
 task queue.
 
 
@@ -228,7 +229,7 @@ _Appears in:_
 
 | Field | Description | Required | Default | Validation |
 | --- | --- | --- | --- | --- |
-| `cache` _[CacheConfiguration](#cacheconfiguration)_ | Cache is the configuration of the PVC that should be<br />used for the cache. | True |  |  |
+| `cache` _[Cache](#cache)_ | Cache is the configuration of the PVC that should be<br />used for the cache. | True |  |  |
 
 
 #### RetentionPolicy
@@ -313,11 +314,9 @@ _Appears in:_
 | `imagePullSecrets` _[LocalObjectReference](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#localobjectreference-v1-core) array_ | ImagePullSecrets is an optional list of references to secrets in the same namespace to use for pulling any of the<br />images |  |  | Optional: \{\} <br /> |
 | `tlsSecretName` _string_ | TLSSecretName is the name of the Kubernetes secret containing the server-side certificate<br />to be used for the Klio server. | True |  |  |
 | `caSecretName` _string_ | ClientCASecretName is the name of the Kubernetes secret containing the CA certificate<br />to be used by the Klio server to validate the users. | True |  |  |
-| `cacheConfiguration` _[CacheConfiguration](#cacheconfiguration)_ | CacheConfiguration is the configuration of the PVC that should be<br />used for the cache | True |  |  |
-| `dataConfiguration` _[DataConfiguration](#dataconfiguration)_ | DataConfiguration is the configuration of the PVC that should be used<br />for the base backups | True |  |  |
-| `queueConfiguration` _[QueueConfiguration](#queueconfiguration)_ | QueueConfiguration is the configuration of the PVC that should host<br />the task queue. |  |  | Optional: \{\} <br /> |
-| `password` _[SecretKeySelector](#secretkeyselector)_ | Password is a reference to a secret containing the Klio password | True |  |  |
+| `tier1` _[Tier1Configuration](#tier1configuration)_ | Tier1 is the Tier 1 configuration | True |  |  |
 | `tier2` _[Tier2Configuration](#tier2configuration)_ | Tier2 is the Tier 2 configuration | True |  |  |
+| `queue` _[Queue](#queue)_ | Queue is the configuration of the PVC that should host<br />the task queue. |  |  | Optional: \{\} <br /> |
 | `template` _[PodTemplateSpec](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#podtemplatespec-v1-core)_ | Template to override the default StatefulSet of the Klio server.<br />WARNING: Modifying this template may break the server functionality if not done carefully.<br />This field is primarily intended for advanced configuration such as telemetry setup.<br />Use at your own risk and ensure thorough testing before applying changes. |  |  | Optional: \{\} <br /> |
 
 
@@ -353,6 +352,24 @@ _Appears in:_
 | `caSecretName` _string_ | ClientCASecretName is the name of the Kubernetes secret containing the CA certificate<br />to be used by the Klio server to validate the users. | True |  |  |
 
 
+#### Tier1Configuration
+
+
+
+Tier1Configuration is the tier 1 configuration.
+
+
+
+_Appears in:_
+- [ServerSpec](#serverspec)
+
+| Field | Description | Required | Default | Validation |
+| --- | --- | --- | --- | --- |
+| `cache` _[Cache](#cache)_ | Cache is the configuration of the PVC that should be<br />used for the cache | True |  |  |
+| `data` _[Data](#data)_ | Data is the configuration of the PVC that should be used<br />for the base backups | True |  |  |
+| `encryptionKey` _[SecretKeySelector](#secretkeyselector)_ | EncryptionKey is a reference to a secret containing the Klio password | True |  |  |
+
+
 #### Tier1PluginConfiguration
 
 
@@ -383,8 +400,9 @@ _Appears in:_
 
 | Field | Description | Required | Default | Validation |
 | --- | --- | --- | --- | --- |
+| `cache` _[Cache](#cache)_ | Cache is the configuration of the PVC that should be<br />used for the cache | True |  |  |
 | `s3` _[S3Configuration](#s3configuration)_ | S3 contains the configuration parameters for an S3-based tier 2 | True |  |  |
-| `encryptionPassword` _[SecretKeySelector](#secretkeyselector)_ | EncryptionPassword is a pointer to the key in a secret containing the encryption password. | True |  |  |
+| `encryptionKey` _[SecretKeySelector](#secretkeyselector)_ | EncryptionKey is a reference to a secret containing the Klio password | True |  |  |
 
 
 #### Tier2PluginConfiguration

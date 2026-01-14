@@ -47,7 +47,7 @@ var _ = Describe("RecoverySource Controller", func() {
 							ClientCASecretName: "test-ca-secret",
 						},
 						Tier2: kliov1alpha1.Tier2Configuration{
-							EncryptionPassword: &machineryapi.SecretKeySelector{
+							EncryptionKey: &machineryapi.SecretKeySelector{
 								LocalObjectReference: machineryapi.LocalObjectReference{
 									Name: "test-encryption-secret",
 								},
@@ -61,7 +61,7 @@ var _ = Describe("RecoverySource Controller", func() {
 							},
 						},
 						Storage: kliov1alpha1.RecoverySourceStorageConfiguration{
-							Cache: kliov1alpha1.CacheConfiguration{
+							Cache: kliov1alpha1.Cache{
 								PersistentVolumeClaimTemplate: corev1.PersistentVolumeClaimSpec{
 									AccessModes: []corev1.PersistentVolumeAccessMode{
 										corev1.ReadWriteOnce,

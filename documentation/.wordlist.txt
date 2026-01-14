@@ -37,6 +37,7 @@ Docusaurus
 EDB
 EnableBackup
 EnableRecovery
+EncryptionKey
 EncryptionPassword
 EndLSN
 EndWAL

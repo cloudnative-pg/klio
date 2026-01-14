@@ -46,31 +46,33 @@ func GetKlioServerObject(
 				TLSSecretName:      opts.TLSSecretName,
 				ClientCASecretName: opts.ClientCASecretName,
 			},
-			CacheConfiguration: kliov1alpha1.CacheConfiguration{
-				PersistentVolumeClaimTemplate: corev1.PersistentVolumeClaimSpec{
-					AccessModes: []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOncePod},
-					Resources: corev1.VolumeResourceRequirements{
-						Requests: corev1.ResourceList{
-							corev1.ResourceStorage: resource.MustParse("1Gi"),
+			Tier1: &kliov1alpha1.Tier1Configuration{
+				Cache: kliov1alpha1.Cache{
+					PersistentVolumeClaimTemplate: corev1.PersistentVolumeClaimSpec{
+						AccessModes: []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOncePod},
+						Resources: corev1.VolumeResourceRequirements{
+							Requests: corev1.ResourceList{
+								corev1.ResourceStorage: resource.MustParse("1Gi"),
+							},
 						},
 					},
 				},
-			},
-			DataConfiguration: kliov1alpha1.DataConfiguration{
-				PersistentVolumeClaimTemplate: corev1.PersistentVolumeClaimSpec{
-					AccessModes: []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOncePod},
-					Resources: corev1.VolumeResourceRequirements{
-						Requests: corev1.ResourceList{
-							corev1.ResourceStorage: resource.MustParse("1Gi"),
+				Data: kliov1alpha1.Data{
+					PersistentVolumeClaimTemplate: corev1.PersistentVolumeClaimSpec{
+						AccessModes: []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOncePod},
+						Resources: corev1.VolumeResourceRequirements{
+							Requests: corev1.ResourceList{
+								corev1.ResourceStorage: resource.MustParse("1Gi"),
+							},
 						},
 					},
 				},
-			},
-			Password: &cnpgv1.SecretKeySelector{
-				LocalObjectReference: api.LocalObjectReference{
-					Name: opts.EncryptionSecretName,
+				EncryptionKey: &cnpgv1.SecretKeySelector{
+					LocalObjectReference: api.LocalObjectReference{
+						Name: opts.EncryptionSecretName,
+					},
+					Key: "password",
 				},
-				Key: "password",
 			},
 		},
 	}

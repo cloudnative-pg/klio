@@ -48,7 +48,7 @@ var walConsumerCmd = &cobra.Command{
 		tier1WALFS := afero.NewBasePathFs(afero.NewOsFs(), configuration.Tier1.Wal.WALPath)
 		tier1RepoConnection, err := repository.Open(repository.Options{
 			FS:       tier1WALFS,
-			Password: configuration.Tier1.EncryptionPassword,
+			Password: configuration.Tier1.EncryptionKey,
 		})
 		if err != nil {
 			return fmt.Errorf("failed to connect to local repository: %w", err)
@@ -61,7 +61,7 @@ var walConsumerCmd = &cobra.Command{
 		}
 		tier2RepoConnection, err := repository.Open(repository.Options{
 			FS:       tier2WALFS,
-			Password: configuration.Tier2.EncryptionPassword,
+			Password: configuration.Tier2.EncryptionKey,
 		})
 		if err != nil {
 			return fmt.Errorf("failed to connect to local repository: %w", err)
