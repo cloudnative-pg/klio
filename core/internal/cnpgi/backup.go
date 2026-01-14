@@ -25,6 +25,7 @@ type backupServiceImplementation struct {
 	backup.UnimplementedBackupServer
 
 	InstanceName string
+	Tier2        bool
 }
 
 // GetCapabilities implements the Backup service interface.
@@ -50,8 +51,6 @@ func (b backupServiceImplementation) Backup(
 	ctx context.Context,
 	request *backup.BackupRequest,
 ) (*backup.BackupResult, error) {
-	contextLogger := log.FromContext(ctx)
-
 	// Step 1: get and apply the retention policies
 	var cluster cnpgv1.Cluster
 	if err := json.Unmarshal(request.GetClusterDefinition(), &cluster); err != nil {
@@ -63,7 +62,7 @@ func (b backupServiceImplementation) Backup(
 		return nil, fmt.Errorf("failed to unmarshal backup definition: %w", err)
 	}
 
-	r, err := extractRetentionFromConfiguration()
+	r, err := extractTier1RetentionFromConfiguration()
 	if err != nil {
 		return nil, fmt.Errorf("failed to extract retention policy from configuration: %w", err)
 	}
@@ -77,31 +76,74 @@ func (b backupServiceImplementation) Backup(
 
 	// Step 2: starting the backup
 	backupName := fmt.Sprintf("backup-%v", pgTime.ToCompactISO8601(time.Now()))
+	targetStandby := cnpgBackup.Spec.Target == cnpgv1.BackupTargetStandby
+
+	metadata, err := b.runBackup(
+		ctx,
+		backupName,
+		targetStandby,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	// Step 3: trigger maintenance
+	b.triggerMaintenance(ctx)
+
+	return &backup.BackupResult{
+		BackupName:        backupName,
+		StartedAt:         metadata.StartedAt,
+		StoppedAt:         metadata.StoppedAt,
+		BackupLabelFile:   []byte(metadata.BackupLabel),
+		TablespaceMapFile: []byte(metadata.TablespaceMap),
+		Metadata:          metadata.Annotations,
+		BeginLsn:          string(types.Int64ToLSN(metadata.StartLSN)),
+		EndLsn:            string(types.Int64ToLSN(metadata.EndLSN)),
+		BackupId:          backupName,
+		InstanceId:        b.InstanceName,
+		BeginWal:          metadata.StartWAL,
+		EndWal:            metadata.EndWAL,
+		Online:            true,
+	}, nil
+}
+
+func (b backupServiceImplementation) runBackup(
+	ctx context.Context,
+	backupName string,
+	targetStandby bool,
+) (*klioclient.BackupMetadata, error) {
+	contextLogger := log.FromContext(ctx)
 
 	waitForWals := "--wait-for-wals=true"
-	if cnpgBackup.Spec.Target == cnpgv1.BackupTargetStandby {
+	if targetStandby {
 		waitForWals = "--wait-for-wals=false"
 	}
 
-	contextLogger.Info("Starting Klio backup", "backupName", backupName)
-	//nolint:gosec
-	cmd := exec.CommandContext(ctx,
-		"klio",
+	args := []string{
 		"backup",
 		"run",
 		"--config",
 		backupRepositoryConfigPath,
 		waitForWals,
 		"-n",
-		backupName)
+		backupName,
+	}
+
+	if b.Tier2 {
+		args = append(args, "--enable-tier2-backup")
+	}
+
+	contextLogger.Info("Starting Klio backup", "backupName", backupName, "args", args)
+
+	//nolint:gosec
+	cmd := exec.CommandContext(ctx, "klio", args...)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	if err := cmd.Run(); err != nil {
 		return nil, fmt.Errorf("failed to execute klio backup run command: %w", err)
 	}
-
 	contextLogger.Info("Backup completed, getting metadata", "backupName", backupName)
-	//nolint:gosec
+
 	cmd = exec.CommandContext(
 		ctx,
 		"klio",
@@ -123,31 +165,20 @@ func (b backupServiceImplementation) Backup(
 		return nil, fmt.Errorf("failed to parse backup metadata: %w", err)
 	}
 
-	// Step 3: trigger maintenance
+	return &metadata, nil
+}
+
+func (b backupServiceImplementation) triggerMaintenance(ctx context.Context) {
+	contextLogger := log.FromContext(ctx)
+
 	contextLogger.Info("Starting Klio backup maintenance")
-	cmd = exec.CommandContext(ctx, "klio", "backup", "maintenance", "--config", backupRepositoryConfigPath)
+	cmd := exec.CommandContext(ctx, "klio", "backup", "maintenance", "--config", backupRepositoryConfigPath)
 
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	if err := cmd.Run(); err != nil {
 		contextLogger.Error(err, "failed to execute klio backup maintenance command, skipping")
 	}
-
-	return &backup.BackupResult{
-		BackupName:        backupName,
-		StartedAt:         metadata.StartedAt,
-		StoppedAt:         metadata.StoppedAt,
-		BackupLabelFile:   []byte(metadata.BackupLabel),
-		TablespaceMapFile: []byte(metadata.TablespaceMap),
-		Metadata:          metadata.Annotations,
-		BeginLsn:          string(types.Int64ToLSN(metadata.StartLSN)),
-		EndLsn:            string(types.Int64ToLSN(metadata.EndLSN)),
-		BackupId:          backupName,
-		InstanceId:        b.InstanceName,
-		BeginWal:          metadata.StartWAL,
-		EndWal:            metadata.EndWAL,
-		Online:            true,
-	}, nil
 }
 
 func (b backupServiceImplementation) setRetentionPolicy(ctx context.Context, r *Retention) error {

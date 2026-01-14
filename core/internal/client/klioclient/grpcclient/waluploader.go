@@ -20,6 +20,7 @@ func (g *grpcWALStream) SendBlock(ctx context.Context, block []byte) error {
 		WalBlock:    block,
 		TraceId:     spanContext.TraceID().String(),
 		SpanId:      spanContext.SpanID().String(),
+		SendToTier2: g.sendToTier2,
 	}); err != nil {
 		return fmt.Errorf("error while sending WAL block (send streaming len=%v): %w", len(block), err)
 	}

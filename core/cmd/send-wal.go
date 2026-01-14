@@ -66,7 +66,9 @@ var sendWalCmd = &cobra.Command{
 			return fmt.Errorf("while connecting to the Klio server: %w", err)
 		}
 
-		return sendwal.New(&configuration, logger, client).
+		sendToTier2, _ := cmd.Flags().GetBool("enable-tier2-backup")
+
+		return sendwal.New(&configuration, logger, client, sendToTier2).
 			Start(cmd.Context())
 	},
 }
@@ -125,18 +127,10 @@ func waitForPostgreSQLInstance(ctx context.Context, dsn string, waitForPrimary b
 
 //nolint:gochecknoinits
 func init() {
-	rootCmd.AddCommand(sendWalCmd)
-
 	sendWalCmd.Flags().Bool(
 		"primary", true, "Wait for the current instance to become a primary")
 
-	// Here you will define your flags and configuration settings.
+	sendWalCmd.Flags().Bool("enable-tier2-backup", false, "Send WALs to tier2")
 
-	// Cobra supports Persistent Flags which will work for this command
-	// and all subcommands, e.g.:
-	// runCmd.PersistentFlags().String("foo", "", "A help for foo")
-
-	// Cobra supports local flags which will only run when this command
-	// is called directly, e.g.:
-	// runCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
+	rootCmd.AddCommand(sendWalCmd)
 }

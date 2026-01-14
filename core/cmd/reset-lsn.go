@@ -55,7 +55,7 @@ var resetLSNCommand = &cobra.Command{
 		}
 
 		return sendwal.
-			New(&configuration, contextLogger, client).
+			New(&configuration, contextLogger, client, false).
 			ResetReplicationStatus(cmd.Context())
 	},
 }

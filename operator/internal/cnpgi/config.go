@@ -52,18 +52,24 @@ func generateKlioConfigForPlugin(
 		return nil, nil, errors.New("missing client parameters configuration for klio plugin")
 	}
 
-	klioPluginConfigurationSpec := rawConfiguration.klioPluginConfiguration.Spec
-	var klioRetentionPolicy *config.RetentionPolicy
-	if klioPluginConfigurationSpec.RetentionPolicy != nil {
-		klioRetentionPolicy = &config.RetentionPolicy{
-			KeepLatest:  klioPluginConfigurationSpec.RetentionPolicy.KeepLatest,
-			KeepAnnual:  klioPluginConfigurationSpec.RetentionPolicy.KeepAnnual,
-			KeepMonthly: klioPluginConfigurationSpec.RetentionPolicy.KeepMonthly,
-			KeepWeekly:  klioPluginConfigurationSpec.RetentionPolicy.KeepWeekly,
-			KeepDaily:   klioPluginConfigurationSpec.RetentionPolicy.KeepDaily,
-			KeepHourly:  klioPluginConfigurationSpec.RetentionPolicy.KeepHourly,
+	convertRetentionPolicy := func(p *kliov1alpha1.RetentionPolicy) *config.RetentionPolicy {
+		if p == nil {
+			return nil
+		}
+
+		return &config.RetentionPolicy{
+			KeepLatest:  p.KeepLatest,
+			KeepAnnual:  p.KeepAnnual,
+			KeepMonthly: p.KeepMonthly,
+			KeepWeekly:  p.KeepWeekly,
+			KeepDaily:   p.KeepDaily,
+			KeepHourly:  p.KeepHourly,
 		}
 	}
+
+	klioPluginConfigurationSpec := rawConfiguration.klioPluginConfiguration.Spec
+	klioTier1RetentionPolicy := convertRetentionPolicy(klioPluginConfigurationSpec.Tier1.RetentionPolicy)
+	klioTier2RetentionPolicy := convertRetentionPolicy(klioPluginConfigurationSpec.Tier2.RetentionPolicy)
 
 	klioConfig := &config.Data{
 		Source: config.SourceConfig{
@@ -90,10 +96,11 @@ func generateKlioConfigForPlugin(
 				ClientKeyPath:  path.Join(clientCertPath, "tls.key"),
 			},
 		},
-		RetentionPolicy: klioRetentionPolicy,
+		Tier1RetentionPolicy: klioTier1RetentionPolicy,
+		Tier2RetentionPolicy: klioTier2RetentionPolicy,
 	}
 
-	if klioPluginConfigurationSpec.Tier2 {
+	if klioPluginConfigurationSpec.Tier2.EnableBackup || klioPluginConfigurationSpec.Tier2.EnableRecovery {
 		klioConfig.Client.Base.Tier2URL = "https://" + net.JoinHostPort(
 			klioPluginConfigurationSpec.ServerAddress, KlioTier2HTTPPort)
 		klioConfig.Client.Wal.Tier2Address = net.JoinHostPort(

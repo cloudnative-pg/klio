@@ -268,31 +268,29 @@ func (r *RecoverySourceReconciler) reconcileStatefulSet(
 }
 
 func (r *RecoverySourceReconciler) buildVolumes(recoverySource *kliov1alpha1.RecoverySource) []corev1.Volume {
-	volumes := make([]corev1.Volume, 0, 4)
-	volumes = append(volumes,
-		corev1.Volume{
-			Name: "tls",
-			VolumeSource: corev1.VolumeSource{
-				Secret: &corev1.SecretVolumeSource{
-					SecretName: recoverySource.Spec.TLSSecretName,
-				},
+	volumes := make([]corev1.Volume, 3, 5)
+	volumes[0] = corev1.Volume{
+		Name: "tls",
+		VolumeSource: corev1.VolumeSource{
+			Secret: &corev1.SecretVolumeSource{
+				SecretName: recoverySource.Spec.TLSSecretName,
 			},
 		},
-		corev1.Volume{
-			Name: "client-ca",
-			VolumeSource: corev1.VolumeSource{
-				Secret: &corev1.SecretVolumeSource{
-					SecretName: recoverySource.Spec.ClientCASecretName,
-				},
+	}
+	volumes[1] = corev1.Volume{
+		Name: "client-ca",
+		VolumeSource: corev1.VolumeSource{
+			Secret: &corev1.SecretVolumeSource{
+				SecretName: recoverySource.Spec.ClientCASecretName,
 			},
 		},
-		corev1.Volume{
-			Name: "tmp",
-			VolumeSource: corev1.VolumeSource{
-				EmptyDir: &corev1.EmptyDirVolumeSource{},
-			},
+	}
+	volumes[2] = corev1.Volume{
+		Name: "tmp",
+		VolumeSource: corev1.VolumeSource{
+			EmptyDir: &corev1.EmptyDirVolumeSource{},
 		},
-	)
+	}
 
 	var sources []corev1.VolumeProjection
 

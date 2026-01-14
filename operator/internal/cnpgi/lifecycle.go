@@ -179,7 +179,7 @@ func (impl LifecycleImplementation) reconcileJob(
 		"restore",
 		pgdata,
 	}
-	if clusterPC.Spec.Tier2 {
+	if clusterPC.Spec.Tier2.EnableRecovery {
 		restoreSidecar.Args = append(restoreSidecar.Args, "--include-tier2")
 	}
 	restoreSidecar.Env = ensureEnvVar(restoreSidecar.Env, corev1.EnvVar{
@@ -327,10 +327,6 @@ func buildSendWALSidecarTemplate(
 	// 3. Template defaults will be merged later in reconcilePodSpec
 	sidecar := corev1.Container{Name: "klio-wal"}
 
-	if clusterPC != nil {
-		sidecar = findUserContainer("klio-wal", clusterPC.Spec.Containers)
-	}
-
 	args := []string{
 		"cnpgi",
 		"send-wal",
@@ -338,6 +334,14 @@ func buildSendWALSidecarTemplate(
 		"--pod-name", pod.Name,
 		"--cluster-name", cluster.Name,
 		"--cluster-namespace", cluster.Namespace,
+	}
+
+	if clusterPC != nil {
+		sidecar = findUserContainer("klio-wal", clusterPC.Spec.Containers)
+
+		if clusterPC.Spec.Tier2.EnableBackup {
+			args = append(args, "--enable-tier2-backup")
+		}
 	}
 
 	sidecar.Args = args
@@ -356,11 +360,19 @@ func buildInstanceSidecarTemplate(clusterPC *kliov1alpha1.PluginConfiguration) c
 	// 3. Template defaults will be merged later in reconcilePodSpec
 	sidecar := corev1.Container{Name: "klio-plugin"}
 
+	args := []string{"cnpgi", "instance"}
+
 	if clusterPC != nil {
 		sidecar = findUserContainer("klio-plugin", clusterPC.Spec.Containers)
-	}
 
-	args := []string{"cnpgi", "instance"}
+		if clusterPC.Spec.Tier2.EnableBackup {
+			args = append(args, "--enable-tier2-backup")
+		}
+
+		if clusterPC.Spec.Tier2.EnableRecovery {
+			args = append(args, "--enable-tier2-recovery")
+		}
+	}
 
 	sidecar.Args = args
 	sidecar.Env = ensureEnvVar(sidecar.Env, corev1.EnvVar{

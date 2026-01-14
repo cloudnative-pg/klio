@@ -21,6 +21,7 @@ type grpcWALStream struct {
 	clusterName string
 	sentBytes   uint64
 	walName     string
+	sendToTier2 bool
 }
 
 // Close implements common.WALStream.

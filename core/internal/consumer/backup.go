@@ -40,7 +40,7 @@ type BackupOptions struct {
 	Tier1EncryptionPassword string
 }
 
-// NewBackup creates a new WAL consumer.
+// NewBackup creates a new Backup consumer.
 func NewBackup(opts *BackupOptions) (*Backup, error) {
 	kopiaBinary, err := exec.LookPath(klioclient.KopiaCommand)
 	if err != nil {
@@ -73,12 +73,18 @@ func (d *Backup) backupHandler(ctx context.Context, task *queue.BackupTask) erro
 	contextLogger := log.FromContext(ctx)
 	contextLogger.Info("Synchronizing backup", "task", task)
 
-	sources, err := d.sourcesForCluster(ctx, task.ClusterName)
+	entries, err := d.sourcesForCluster(ctx, task.ClusterName)
 	if err != nil {
 		return err
 	}
 
-	return d.tier2Kopia.MigrateSnapshots(ctx, kopia.SnapshotMigrateOpts{
+	if len(entries) == 0 {
+		return nil
+	}
+
+	sources := sourceInfoListToDescriptors(entries)
+
+	err = d.tier2Kopia.MigrateSnapshots(ctx, kopia.SnapshotMigrateOpts{
 		SourceConfig: d.opts.Tier1KopiaConfig,
 		Sources:      sources,
 		Tags: []string{
@@ -87,23 +93,58 @@ func (d *Backup) backupHandler(ctx context.Context, task *queue.BackupTask) erro
 			klioclient.BackupNameTagName,
 		},
 	})
+	if err != nil {
+		return err
+	}
+
+	userName := entries[0].UserName
+
+	if task.Tier2RetentionPolicy != nil {
+		if err := d.tier2Kopia.SetKopiaPolicy(
+			ctx,
+			kopia.Target{
+				Username: userName,
+				Hostname: task.ClusterName,
+			},
+			task.Tier2RetentionPolicy,
+		); err != nil {
+			return err
+		}
+	}
+
+	return d.tier2Kopia.ApplyKopiaPolicy(
+		ctx,
+		kopia.Target{
+			Username: userName,
+			Hostname: task.ClusterName,
+		},
+	)
 }
 
 // ListBackups list all Kopia sources for a specified cluster.
-func (d *Backup) sourcesForCluster(ctx context.Context, cluster string) ([]string, error) {
+func (d *Backup) sourcesForCluster(ctx context.Context, cluster string) ([]kopia.SourceInfo, error) {
 	entries, err := d.tier1Kopia.ListSnapshots(ctx, nil)
 	if err != nil {
 		return nil, fmt.Errorf("while executing Kopia command: %w", err)
 	}
 
-	result := stringset.New()
-	for _, entry := range entries {
-		if entry.Source.Host != cluster {
+	result := make([]kopia.SourceInfo, 0, len(entries))
+	for i := range entries {
+		if entries[i].Source.Host != cluster {
 			continue
 		}
 
-		result.Put(entry.Source.String())
+		result = append(result, entries[i].Source)
 	}
 
-	return result.ToSortedList(), nil
+	return result, nil
+}
+
+func sourceInfoListToDescriptors(entries []kopia.SourceInfo) []string {
+	result := stringset.New()
+	for _, entry := range entries {
+		result.Put(entry.String())
+	}
+
+	return result.ToSortedList()
 }

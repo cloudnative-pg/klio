@@ -13,8 +13,11 @@ type Data struct {
 	// Client is the configuration of the Klio client
 	Client ClientConfig `json:"client" mapstructure:"client"`
 
-	// RetentionPolicy is the retention policy to be applied
-	RetentionPolicy *RetentionPolicy `json:"retention,omitempty" mapstructure:"retention"`
+	// Tier1RetentionPolicy is the retention policy to be applied to tier1.
+	Tier1RetentionPolicy *RetentionPolicy `json:"tier1_retention,omitempty" mapstructure:"retention"`
+
+	// Tier2RetentionPolicy is the retention policy to be applied to tier2.
+	Tier2RetentionPolicy *RetentionPolicy `json:"tier2_retention,omitempty" mapstructure:"tier2_retention"`
 }
 
 // SetDefaults sets the default values of the configuration.

@@ -31,6 +31,7 @@ type SendWalController struct {
 	KlioConfigFile string
 	PodName        string
 	ClusterKey     types.NamespacedName
+	Tier2          bool
 }
 
 // ErrInstanceIsReplica is raised as a send-wal process cause when
@@ -66,6 +67,9 @@ func (m *SendWalController) Start(ctx context.Context) error {
 	}
 	if m.KlioConfigFile != "" {
 		sendWALArgs = append(sendWALArgs, "--primary=false", "--config", m.KlioConfigFile)
+	}
+	if m.Tier2 {
+		sendWALArgs = append(sendWALArgs, "--enable-tier2-backup")
 	}
 	sendWal := supervisor.NewService(&supervisor.Definition{
 		Exec:              "klio",

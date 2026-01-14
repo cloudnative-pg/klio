@@ -40,6 +40,7 @@ type walUploadBlockMetadata struct {
 	clusterName string
 	walFileName string
 	segmentSize uint64
+	sendToTier2 bool
 }
 
 func (m *walUploadBlockMetadata) handleRequest(request *grpc.PutRequest) error {
@@ -82,6 +83,8 @@ func (m *walUploadBlockMetadata) handleRequest(request *grpc.PutRequest) error {
 			foundValue:    strconv.FormatUint(request.GetSegmentSize(), 10),
 		}
 	}
+
+	m.sendToTier2 = request.GetSendToTier2()
 
 	return nil
 }
@@ -320,7 +323,14 @@ func (w *Implementation) Put(req grpc.WAL_PutServer) error {
 		return status.Errorf(grpccodes.Internal, "error while sending response: %v", err.Error())
 	}
 
-	if w.queue != nil {
+	if blockMeta.sendToTier2 {
+		if w.queue == nil {
+			return status.Errorf(
+				grpccodes.Internal,
+				"queue service is uninitialized",
+			)
+		}
+
 		if err := w.queue.NotifyWALReceived(ctx, &queue.WALTask{
 			ClusterName: blockMeta.clusterName,
 			WALName:     blockMeta.walFileName,

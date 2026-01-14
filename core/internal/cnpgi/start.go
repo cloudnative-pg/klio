@@ -44,11 +44,17 @@ func (c *CNPGI) AddRestoreCapability(pgDataPath string) {
 	})
 }
 
+// BackupCapabilityOptions contains options for configuring the backup capability.
+type BackupCapabilityOptions struct {
+	Tier2 bool
+}
+
 // AddBackupCapability adds the backup capability to the CNPGI service.
-func (c *CNPGI) AddBackupCapability() {
+func (c *CNPGI) AddBackupCapability(opts BackupCapabilityOptions) {
 	enricher := func(server *grpc.Server) error {
 		backup.RegisterBackupServer(server, backupServiceImplementation{
 			InstanceName: os.Getenv("POD_NAME"),
+			Tier2:        opts.Tier2,
 		})
 
 		return nil

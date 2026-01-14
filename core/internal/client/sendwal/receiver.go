@@ -31,14 +31,16 @@ type Process struct {
 	config         *config.Data
 	infrastructure *infrastructure.Postgres
 	client         *grpcclient.Connection
+	sendToTier2    bool
 }
 
 // New creates a new receiver.
-func New(cfg *config.Data, logger log.Logger, client *grpcclient.Connection) *Process {
+func New(cfg *config.Data, logger log.Logger, client *grpcclient.Connection, sendToTier2 bool) *Process {
 	return &Process{
 		config:         cfg,
 		infrastructure: infrastructure.NewPostgres(cfg, logger),
 		client:         client,
+		sendToTier2:    sendToTier2,
 	}
 }
 
@@ -411,6 +413,7 @@ func (s *Process) startReplication(
 			int(timeline),
 			walSegmentSize,
 			s.client,
+			s.sendToTier2,
 		)
 
 		walBuffer := buffer.New(

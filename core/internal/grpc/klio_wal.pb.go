@@ -30,6 +30,7 @@ type PutRequest struct {
 	SegmentSize   uint64                 `protobuf:"varint,4,opt,name=segment_size,json=segmentSize,proto3" json:"segment_size,omitempty"`
 	TraceId       string                 `protobuf:"bytes,5,opt,name=trace_id,json=traceId,proto3" json:"trace_id,omitempty"`
 	SpanId        string                 `protobuf:"bytes,6,opt,name=span_id,json=spanId,proto3" json:"span_id,omitempty"`
+	SendToTier2   bool                   `protobuf:"varint,7,opt,name=send_to_tier2,json=sendToTier2,proto3" json:"send_to_tier2,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -104,6 +105,13 @@ func (x *PutRequest) GetSpanId() string {
 		return x.SpanId
 	}
 	return ""
+}
+
+func (x *PutRequest) GetSendToTier2() bool {
+	if x != nil {
+		return x.SendToTier2
+	}
+	return false
 }
 
 type PutResult struct {
@@ -804,9 +812,13 @@ type CloseBackupRequest struct {
 	EndWal string `protobuf:"bytes,6,opt,name=end_wal,json=endWal,proto3" json:"end_wal,omitempty"`
 	// The size of a WAL segment. Needed to generate
 	// the sequence of WAL files between the start and the end.
-	SegmentSize   uint64 `protobuf:"varint,7,opt,name=segment_size,json=segmentSize,proto3" json:"segment_size,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	SegmentSize uint64 `protobuf:"varint,7,opt,name=segment_size,json=segmentSize,proto3" json:"segment_size,omitempty"`
+	// Require this backup to be sent to tier2.
+	SendToTier2 bool `protobuf:"varint,8,opt,name=send_to_tier2,json=sendToTier2,proto3" json:"send_to_tier2,omitempty"`
+	// When present, set the tier2 retention policy to the specified JSON-serialized policy.
+	Tier2RetentionPolicy string `protobuf:"bytes,9,opt,name=tier2_retention_policy,json=tier2RetentionPolicy,proto3" json:"tier2_retention_policy,omitempty"`
+	unknownFields        protoimpl.UnknownFields
+	sizeCache            protoimpl.SizeCache
 }
 
 func (x *CloseBackupRequest) Reset() {
@@ -881,6 +893,20 @@ func (x *CloseBackupRequest) GetSegmentSize() uint64 {
 	return 0
 }
 
+func (x *CloseBackupRequest) GetSendToTier2() bool {
+	if x != nil {
+		return x.SendToTier2
+	}
+	return false
+}
+
+func (x *CloseBackupRequest) GetTier2RetentionPolicy() string {
+	if x != nil {
+		return x.Tier2RetentionPolicy
+	}
+	return ""
+}
+
 // This is sent by the WAL server in response to a CloseBackupRequest
 // message.
 type CloseBackupResult struct {
@@ -943,7 +969,7 @@ var File_proto_klio_wal_proto protoreflect.FileDescriptor
 
 const file_proto_klio_wal_proto_rawDesc = "" +
 	"\n" +
-	"\x14proto/klio_wal.proto\x12\vklio.wal.v1\x1a\x1fgoogle/protobuf/timestamp.proto\"\xbe\x01\n" +
+	"\x14proto/klio_wal.proto\x12\vklio.wal.v1\x1a\x1fgoogle/protobuf/timestamp.proto\"\xe2\x01\n" +
 	"\n" +
 	"PutRequest\x12!\n" +
 	"\fcluster_name\x18\x01 \x01(\tR\vclusterName\x12\x19\n" +
@@ -951,7 +977,8 @@ const file_proto_klio_wal_proto_rawDesc = "" +
 	"\twal_block\x18\x03 \x01(\fR\bwalBlock\x12!\n" +
 	"\fsegment_size\x18\x04 \x01(\x04R\vsegmentSize\x12\x19\n" +
 	"\btrace_id\x18\x05 \x01(\tR\atraceId\x12\x17\n" +
-	"\aspan_id\x18\x06 \x01(\tR\x06spanId\".\n" +
+	"\aspan_id\x18\x06 \x01(\tR\x06spanId\x12\"\n" +
+	"\rsend_to_tier2\x18\a \x01(\bR\vsendToTier2\".\n" +
 	"\tPutResult\x12!\n" +
 	"\fwritten_size\x18\x01 \x01(\x04R\vwrittenSize\"7\n" +
 	"\x12GetMetadataRequest\x12!\n" +
@@ -989,7 +1016,7 @@ const file_proto_klio_wal_proto_rawDesc = "" +
 	"\fStartWALFile\x12!\n" +
 	"\fklio_version\x18\x01 \x01(\x04R\vklioVersion\x12\x1f\n" +
 	"\vfile_length\x18\x02 \x01(\x04R\n" +
-	"fileLength\"\xcd\x01\n" +
+	"fileLength\"\xa7\x02\n" +
 	"\x12CloseBackupRequest\x12!\n" +
 	"\fcluster_name\x18\x01 \x01(\tR\vclusterName\x12\x1f\n" +
 	"\vbackup_name\x18\x03 \x01(\tR\n" +
@@ -997,7 +1024,9 @@ const file_proto_klio_wal_proto_rawDesc = "" +
 	"\btimeline\x18\x04 \x01(\x05R\btimeline\x12\x1b\n" +
 	"\tstart_wal\x18\x05 \x01(\tR\bstartWal\x12\x17\n" +
 	"\aend_wal\x18\x06 \x01(\tR\x06endWal\x12!\n" +
-	"\fsegment_size\x18\a \x01(\x04R\vsegmentSize\"f\n" +
+	"\fsegment_size\x18\a \x01(\x04R\vsegmentSize\x12\"\n" +
+	"\rsend_to_tier2\x18\b \x01(\bR\vsendToTier2\x124\n" +
+	"\x16tier2_retention_policy\x18\t \x01(\tR\x14tier2RetentionPolicy\"f\n" +
 	"\x11CloseBackupResult\x12%\n" +
 	"\x0etier2_schedule\x18\x01 \x01(\bR\rtier2Schedule\x12*\n" +
 	"\x11missing_wal_files\x18\x02 \x03(\tR\x0fmissingWalFiles2\xc2\x04\n" +

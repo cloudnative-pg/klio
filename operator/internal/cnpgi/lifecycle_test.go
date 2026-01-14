@@ -276,6 +276,64 @@ func TestBuildInstanceSidecarTemplate(t *testing.T) {
 		assert.True(t, customVarFound, "CUSTOM_VAR was not preserved")
 	})
 
+	t.Run("with tier2 backup enabled", func(t *testing.T) {
+		clusterPC := &kliov1alpha1.PluginConfiguration{
+			Spec: kliov1alpha1.PluginConfigurationSpec{
+				Tier2: kliov1alpha1.Tier2PluginConfiguration{
+					EnableBackup: true,
+				},
+			},
+		}
+
+		result := buildInstanceSidecarTemplate(clusterPC)
+
+		assert.Equal(t, "klio-plugin", result.Name)
+		assert.Contains(t, result.Args, "--enable-tier2-backup")
+		assert.NotContains(t, result.Args, "--enable-tier2-recovery")
+	})
+
+	t.Run("with tier2 recovery enabled", func(t *testing.T) {
+		clusterPC := &kliov1alpha1.PluginConfiguration{
+			Spec: kliov1alpha1.PluginConfigurationSpec{
+				Tier2: kliov1alpha1.Tier2PluginConfiguration{
+					EnableRecovery: true,
+				},
+			},
+		}
+
+		result := buildInstanceSidecarTemplate(clusterPC)
+
+		assert.Equal(t, "klio-plugin", result.Name)
+		assert.NotContains(t, result.Args, "--enable-tier2-backup")
+		assert.Contains(t, result.Args, "--enable-tier2-recovery")
+	})
+
+	t.Run("with both tier2 backup and recovery enabled", func(t *testing.T) {
+		clusterPC := &kliov1alpha1.PluginConfiguration{
+			Spec: kliov1alpha1.PluginConfigurationSpec{
+				Tier2: kliov1alpha1.Tier2PluginConfiguration{
+					EnableBackup:   true,
+					EnableRecovery: true,
+				},
+			},
+		}
+
+		result := buildInstanceSidecarTemplate(clusterPC)
+
+		assert.Equal(t, "klio-plugin", result.Name)
+		assert.Contains(t, result.Args, "--enable-tier2-backup")
+		assert.Contains(t, result.Args, "--enable-tier2-recovery")
+	})
+
+	t.Run("with nil clusterPC", func(t *testing.T) {
+		result := buildInstanceSidecarTemplate(nil)
+
+		assert.Equal(t, "klio-plugin", result.Name)
+		assert.Equal(t, []string{"cnpgi", "instance"}, result.Args)
+		assert.NotContains(t, result.Args, "--enable-tier2-backup")
+		assert.NotContains(t, result.Args, "--enable-tier2-recovery")
+	})
+
 	t.Run("with user customizations for different container", func(t *testing.T) {
 		clusterPC := &kliov1alpha1.PluginConfiguration{
 			Spec: kliov1alpha1.PluginConfigurationSpec{

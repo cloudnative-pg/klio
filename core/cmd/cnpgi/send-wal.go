@@ -20,6 +20,7 @@ var sendWalCmd = &cobra.Command{
 		clusterName, _ := cmd.Flags().GetString("cluster-name")
 		clusterNamespace, _ := cmd.Flags().GetString("cluster-namespace")
 		podName, _ := cmd.Flags().GetString("pod-name")
+		enableTier2Backup, _ := cmd.Flags().GetBool("enable-tier2-backup")
 
 		_ = viper.BindEnv("custom-cnpg-group", "CUSTOM_CNPG_GROUP")
 		_ = viper.BindEnv("custom-cnpg-version", "CUSTOM_CNPG_VERSION")
@@ -32,6 +33,7 @@ var sendWalCmd = &cobra.Command{
 				Name:      clusterName,
 			},
 			PodName: podName,
+			Tier2:   enableTier2Backup,
 		}
 
 		return ctrl.Start(cmd.Context())
@@ -54,6 +56,11 @@ func init() {
 		"pod-name",
 		"",
 		"The name of the current instance",
+	)
+	sendWalCmd.Flags().Bool(
+		"enable-tier2-backup",
+		false,
+		"Send WALs to tier2",
 	)
 
 	CnpgiCmd.AddCommand(sendWalCmd)

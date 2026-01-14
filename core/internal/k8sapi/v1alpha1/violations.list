@@ -13,3 +13,4 @@ API rule violation: names_match,k8s.io/apimachinery/pkg/apis/meta/v1,StatusCause
 API rule violation: names_match,k8s.io/apimachinery/pkg/apis/meta/v1,Time,Time
 API rule violation: names_match,k8s.io/apimachinery/pkg/runtime,Unknown,ContentEncoding
 API rule violation: names_match,k8s.io/apimachinery/pkg/runtime,Unknown,ContentType
+API rule violation: streaming_list_type_json_tags,github.com/cloudnative-pg/klio/core/internal/k8sapi/v1alpha1,KlioBackupList,ListMeta

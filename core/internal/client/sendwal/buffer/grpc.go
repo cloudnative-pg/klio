@@ -19,6 +19,8 @@ type KlioClientStreamingHandler struct {
 	stream klioclient.WALUploaderImpl
 	offset uint64
 
+	sendToTier2 bool
+
 	tli            int
 	segmentSize    uint64
 	currentWALFile string
@@ -29,12 +31,14 @@ func NewKlioClientHandler(
 	tli int,
 	segmentSize uint64,
 	conn *grpcclient.Connection,
+	sendToTier2 bool,
 ) *KlioClientStreamingHandler {
 	return &KlioClientStreamingHandler{
 		conn:        conn,
 		tli:         tli,
 		segmentSize: segmentSize,
 		stream:      nil,
+		sendToTier2: sendToTier2,
 	}
 }
 
@@ -48,7 +52,7 @@ func (wal *KlioClientStreamingHandler) OpenWAL(ctx context.Context, blockpos uin
 	wal.offset = 0
 	wal.currentWALFile = currentWALFile
 
-	stream, err := wal.conn.StoreWALStreaming(ctx, wal.currentWALFile, wal.segmentSize)
+	stream, err := wal.conn.StoreWALStreaming(ctx, wal.currentWALFile, wal.segmentSize, wal.sendToTier2)
 	if err != nil {
 		return fmt.Errorf("while starting WAL file streaming (pos %v): %w", blockpos, err)
 	}

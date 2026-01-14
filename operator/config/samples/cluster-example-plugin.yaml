@@ -48,5 +48,10 @@ spec:
   clientSecretName: cluster-example-klio-user
   serverSecretName: server-sample-tls
   pprof: true
-  retention:
-    keepAnnual: 1
+  tier1:
+    retention:
+      keepAnnual: 1
+  # similarly we can set the retention policy for tier2 too
+  # tier2:
+  #   retention:
+  #     keepAnnual: 2

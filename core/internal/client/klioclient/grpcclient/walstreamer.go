@@ -20,6 +20,7 @@ func (c *Connection) StoreWALStreaming(
 	ctx context.Context,
 	name string,
 	segmentSize uint64,
+	sendToTier2 bool,
 ) (*klioclient.WALUploader, error) {
 	stream, err := c.Put(ctx)
 	if err != nil {
@@ -31,6 +32,7 @@ func (c *Connection) StoreWALStreaming(
 		segmentSize: segmentSize,
 		clusterName: c.cfg.ClusterName,
 		walName:     name,
+		sendToTier2: sendToTier2,
 	}), nil
 }
 

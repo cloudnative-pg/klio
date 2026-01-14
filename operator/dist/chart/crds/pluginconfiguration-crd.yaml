@@ -1593,40 +1593,6 @@ spec:
               pprof:
                 description: Pprof enables the pprof endpoint for performance profiling
                 type: boolean
-              retention:
-                description: RetentionPolicy defines how many backups we should keep
-                properties:
-                  keepAnnual:
-                    description: |-
-                      KeepAnnual is the number of annual backups to keep
-                      optional
-                    type: integer
-                  keepDaily:
-                    description: |-
-                      KeepDaily is the number of daily backups to keep
-                      optional
-                    type: integer
-                  keepHourly:
-                    description: |-
-                      KeepHourly is the number of hourly backups to keep
-                      optional
-                    type: integer
-                  keepLatest:
-                    description: |-
-                      KeepLatest is the number of latest backups to keep
-                      optional
-                    type: integer
-                  keepMonthly:
-                    description: |-
-                      KeepMonthly is the number of monthly backups to keep
-                      optional
-                    type: integer
-                  keepWeekly:
-                    description: |-
-                      KeepWeekly is the number of weekly backups to keep
-                      optional
-                    type: integer
-                type: object
               serverAddress:
                 description: ServerAddress is the address of the Klio server
                 minLength: 1
@@ -1636,9 +1602,92 @@ spec:
                   the server TLS certificate
                 minLength: 1
                 type: string
+              tier1:
+                description: Tier1 is the Tier 1 configuration
+                properties:
+                  retention:
+                    description: RetentionPolicy defines how many backups we should
+                      keep
+                    properties:
+                      keepAnnual:
+                        description: |-
+                          KeepAnnual is the number of annual backups to keep
+                          optional
+                        type: integer
+                      keepDaily:
+                        description: |-
+                          KeepDaily is the number of daily backups to keep
+                          optional
+                        type: integer
+                      keepHourly:
+                        description: |-
+                          KeepHourly is the number of hourly backups to keep
+                          optional
+                        type: integer
+                      keepLatest:
+                        description: |-
+                          KeepLatest is the number of latest backups to keep
+                          optional
+                        type: integer
+                      keepMonthly:
+                        description: |-
+                          KeepMonthly is the number of monthly backups to keep
+                          optional
+                        type: integer
+                      keepWeekly:
+                        description: |-
+                          KeepWeekly is the number of weekly backups to keep
+                          optional
+                        type: integer
+                    type: object
+                type: object
               tier2:
-                description: Tier2 enables backup lookup in tier 2.
-                type: boolean
+                description: Tier2 is the Tier 2 configuration
+                properties:
+                  enableBackup:
+                    description: EnableBackup controls whether WAL and base backups
+                      should be stored in tier2
+                    type: boolean
+                  enableRecovery:
+                    description: EnableRecovery controls whether tier2 should be included
+                      in the recovery source list
+                    type: boolean
+                  retention:
+                    description: RetentionPolicy defines how many backups we should
+                      keep
+                    properties:
+                      keepAnnual:
+                        description: |-
+                          KeepAnnual is the number of annual backups to keep
+                          optional
+                        type: integer
+                      keepDaily:
+                        description: |-
+                          KeepDaily is the number of daily backups to keep
+                          optional
+                        type: integer
+                      keepHourly:
+                        description: |-
+                          KeepHourly is the number of hourly backups to keep
+                          optional
+                        type: integer
+                      keepLatest:
+                        description: |-
+                          KeepLatest is the number of latest backups to keep
+                          optional
+                        type: integer
+                      keepMonthly:
+                        description: |-
+                          KeepMonthly is the number of monthly backups to keep
+                          optional
+                        type: integer
+                      keepWeekly:
+                        description: |-
+                          KeepWeekly is the number of weekly backups to keep
+                          optional
+                        type: integer
+                    type: object
+                type: object
             required:
             - clientSecretName
             - serverAddress

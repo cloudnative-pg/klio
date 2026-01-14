@@ -167,7 +167,7 @@ func schema_core_internal_k8sapi_v1alpha1_KlioBackupList(ref common.ReferenceCal
 						},
 					},
 				},
-				Required: []string{"items"},
+				Required: []string{"metadata", "items"},
 			},
 		},
 		Dependencies: []string{

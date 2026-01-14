@@ -132,7 +132,9 @@ customize the plugin's behavior.
 
 ### Retention policies
 
-Define how long backups should be retained by configuring the retention policy:
+Define how long backups should be retained by configuring retention policies
+for Tier 1 and Tier 2 storage. Retention policies can be configured independently
+for each tier:
 
 ```yaml
 apiVersion: klio.cnpg.io/v1alpha1
@@ -143,13 +145,22 @@ spec:
   serverAddress: klio-server.default
   clientSecretName: klio-client-credentials
   serverSecretName: klio-server-tls
-  retention:
-    keepLatest: 5
-    keepHourly: 12
-    keepDaily: 7
-    keepWeekly: 4
-    keepMonthly: 6
-    keepAnnual: 2
+  tier1:
+    retention:
+      keepLatest: 5
+      keepHourly: 12
+      keepDaily: 7
+      keepWeekly: 4
+      keepMonthly: 6
+      keepAnnual: 2
+  tier2:
+    enableBackup: true
+    enableRecovery: true
+    retention:
+      keepLatest: 10
+      keepDaily: 30
+      keepMonthly: 12
+      keepAnnual: 5
 ```
 
 Except for `keepLatest`, each option defines how many backups to retain
@@ -191,18 +202,36 @@ spec:
 This can be useful working with backups from different clusters, for example
 when restoring clusters or configuring replica clusters.
 
-### Tier 2 restore
+### Tier 2 configuration
 
-To enable restore from Tier 2 storage, set the `tier2` field to `true`:
+Tier 2 provides secondary storage (typically object storage like S3) for
+long-term backup retention and disaster recovery. Configure Tier 2 using the
+`tier2` section:
 
 ```yaml
 spec:
-  tier2: true
+  tier2:
+    enableBackup: true
+    enableRecovery: true
+    retention:
+      keepDaily: 30
+      keepMonthly: 12
 ```
 
-When enabled, Klio will look for backups in both Tier 1 and Tier 2. If a backup
-is available in both tiers, Tier 1 takes precedence as restore from it will be
-faster.
+#### Options
+
+- **`enableBackup`**: When set to `true`, backups and WAL files are
+  automatically synchronized to Tier 2 storage after being stored in Tier 1.
+  This ensures your backups are available in long-term storage.
+
+- **`enableRecovery`**: When set to `true`, Klio will look for backups and
+  WAL files in both Tier 1 and Tier 2 during restore operations. If a backup
+  is available in both tiers, Tier 1 takes precedence as restore from it will
+  be faster.
+
+- **`retention`**: Configure a separate retention policy for Tier 2.
+  Typically, you would configure longer retention periods for Tier 2 since
+  object storage is more cost-effective for long-term storage.
 
 See the [Architecture documentation](./architectures.md#tier-2-secondary-storage-object-storage)
 for more details on Tier 2 storage.

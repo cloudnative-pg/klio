@@ -16,6 +16,7 @@ import (
 	"github.com/cloudnative-pg/klio/core/internal/client/klioclient/grpcclient"
 	"github.com/cloudnative-pg/klio/core/internal/client/klioclient/kopia"
 	"github.com/cloudnative-pg/klio/core/internal/grpc"
+	kopiaWrapper "github.com/cloudnative-pg/klio/core/internal/kopia"
 	"github.com/cloudnative-pg/klio/core/pkg/config"
 )
 
@@ -53,6 +54,7 @@ var runCmd = &cobra.Command{
 		}
 
 		waitWALs, _ := cmd.Flags().GetBool("wait-for-wals")
+		tier2, _ := cmd.Flags().GetBool("enable-tier2-backup")
 
 		if err := configuration.Validate(); err != nil {
 			return fmt.Errorf("configuration validation error: %w", err)
@@ -100,13 +102,34 @@ var runCmd = &cobra.Command{
 		}
 
 		for {
+			var tier2RetentionPolicy string
+			if configuration.Tier2RetentionPolicy != nil {
+				policy := kopiaWrapper.RetentionPolicy{
+					KeepLatest:  configuration.Tier2RetentionPolicy.KeepLatest,
+					KeepHourly:  configuration.Tier2RetentionPolicy.KeepHourly,
+					KeepDaily:   configuration.Tier2RetentionPolicy.KeepDaily,
+					KeepWeekly:  configuration.Tier2RetentionPolicy.KeepWeekly,
+					KeepMonthly: configuration.Tier2RetentionPolicy.KeepMonthly,
+					KeepAnnual:  configuration.Tier2RetentionPolicy.KeepAnnual,
+				}
+
+				content, err := json.Marshal(policy)
+				if err != nil {
+					contextLogger.Error(err, "Error while serializing the tier2 retention policy, skipping")
+				} else {
+					tier2RetentionPolicy = string(content)
+				}
+			}
+
 			result, err := grpcClient.CloseBackup(cmd.Context(), &grpc.CloseBackupRequest{
-				ClusterName: kopiaClient.GetHostname(),
-				BackupName:  metadata.Name,
-				Timeline:    int32(metadata.Timeline),
-				StartWal:    metadata.StartWAL,
-				EndWal:      metadata.EndWAL,
-				SegmentSize: metadata.SegmentSize,
+				ClusterName:          kopiaClient.GetHostname(),
+				BackupName:           metadata.Name,
+				Timeline:             int32(metadata.Timeline),
+				StartWal:             metadata.StartWAL,
+				EndWal:               metadata.EndWAL,
+				SegmentSize:          metadata.SegmentSize,
+				SendToTier2:          tier2,
+				Tier2RetentionPolicy: tier2RetentionPolicy,
 			})
 			if err != nil {
 				return fmt.Errorf("while closing the backup: %w", err)
@@ -148,6 +171,11 @@ func init() {
 		true,
 		"When enabled, wait until all the required WAL files have "+
 			"been archived in tier1 before declaring the backup completed.")
+
+	runCmd.Flags().Bool(
+		"enable-tier2-backup",
+		false,
+		"When enabled, require the backup to be sent to tier2")
 
 	// Cobra supports Persistent Flags which will work for this command
 	// and all subcommands, e.g.:

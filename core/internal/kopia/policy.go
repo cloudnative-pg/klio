@@ -57,7 +57,7 @@ func (s *Client) SetKopiaPolicy(
 ) error {
 	policyToArgument := func(value *int) string {
 		if value == nil {
-			return "none"
+			return "inherit"
 		}
 
 		return strconv.Itoa(*value)

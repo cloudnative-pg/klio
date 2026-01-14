@@ -100,12 +100,12 @@ _Appears in:_
 | Field | Description | Required | Default | Validation |
 | --- | --- | --- | --- | --- |
 | `serverAddress` _string_ | ServerAddress is the address of the Klio server | True |  | MinLength: 1 <br />Required: \{\} <br /> |
-| `tier2` _boolean_ | Tier2 enables backup lookup in tier 2. | True |  |  |
+| `tier1` _[Tier1PluginConfiguration](#tier1pluginconfiguration)_ | Tier1 is the Tier 1 configuration |  |  | Optional: \{\} <br /> |
+| `tier2` _[Tier2PluginConfiguration](#tier2pluginconfiguration)_ | Tier2 is the Tier 2 configuration |  |  | Optional: \{\} <br /> |
 | `clientSecretName` _string_ | ClientSecretName is the name of the secret containing the client credentials | True |  | MinLength: 1 <br />Required: \{\} <br /> |
 | `serverSecretName` _string_ | ServerSecretName is the name of the secret containing the server TLS certificate | True |  | MinLength: 1 <br />Required: \{\} <br /> |
 | `clusterName` _string_ | ClusterName is the name of the PostgreSQL cluster we are connecting to |  |  | Optional: \{\} <br /> |
 | `pprof` _boolean_ | Pprof enables the pprof endpoint for performance profiling |  |  | Optional: \{\} <br /> |
-| `retention` _[RetentionPolicy](#retentionpolicy)_ | RetentionPolicy defines how many backups we should keep |  |  | Optional: \{\} <br /> |
 | `containers` _[Container](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#container-v1-core) array_ | Containers allows defining a list of containers that will be merged with the Klio sidecar containers.<br />This enables users to customize the sidecars with additional environment variables, volume mounts,<br />resource limits, and other container settings without polluting the PostgreSQL container environment.<br />Merge behavior:<br />- Containers are matched by name (klio-plugin, klio-wal, klio-restore)<br />- User customizations serve as the base<br />- Klio required values (name, args, CONTAINER_NAME env var) always override user values<br />- User-defined environment variables and volume mounts are preserved<br />- Template defaults are applied only for fields not set by the user or Klio |  |  | MaxItems: 3 <br />Optional: \{\} <br /> |
 
 
@@ -240,7 +240,8 @@ RetentionPolicy defines how many backups we should keep.
 
 
 _Appears in:_
-- [PluginConfigurationSpec](#pluginconfigurationspec)
+- [Tier1PluginConfiguration](#tier1pluginconfiguration)
+- [Tier2PluginConfiguration](#tier2pluginconfiguration)
 
 | Field | Description | Required | Default | Validation |
 | --- | --- | --- | --- | --- |
@@ -352,6 +353,22 @@ _Appears in:_
 | `caSecretName` _string_ | ClientCASecretName is the name of the Kubernetes secret containing the CA certificate<br />to be used by the Klio server to validate the users. | True |  |  |
 
 
+#### Tier1PluginConfiguration
+
+
+
+Tier1PluginConfiguration configures tier1 backup and recovery settings.
+
+
+
+_Appears in:_
+- [PluginConfigurationSpec](#pluginconfigurationspec)
+
+| Field | Description | Required | Default | Validation |
+| --- | --- | --- | --- | --- |
+| `retention` _[RetentionPolicy](#retentionpolicy)_ | RetentionPolicy defines how many backups we should keep |  |  | Optional: \{\} <br /> |
+
+
 #### Tier2Configuration
 
 
@@ -368,5 +385,23 @@ _Appears in:_
 | --- | --- | --- | --- | --- |
 | `s3` _[S3Configuration](#s3configuration)_ | S3 contains the configuration parameters for an S3-based tier 2 | True |  |  |
 | `encryptionPassword` _[SecretKeySelector](#secretkeyselector)_ | EncryptionPassword is a pointer to the key in a secret containing the encryption password. | True |  |  |
+
+
+#### Tier2PluginConfiguration
+
+
+
+Tier2PluginConfiguration configures tier2 backup and recovery settings.
+
+
+
+_Appears in:_
+- [PluginConfigurationSpec](#pluginconfigurationspec)
+
+| Field | Description | Required | Default | Validation |
+| --- | --- | --- | --- | --- |
+| `enableBackup` _boolean_ | EnableBackup controls whether WAL and base backups should be stored in tier2 |  |  | Optional: \{\} <br /> |
+| `enableRecovery` _boolean_ | EnableRecovery controls whether tier2 should be included in the recovery source list |  |  | Optional: \{\} <br /> |
+| `retention` _[RetentionPolicy](#retentionpolicy)_ | RetentionPolicy defines how many backups we should keep |  |  | Optional: \{\} <br /> |
 
 

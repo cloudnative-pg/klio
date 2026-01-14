@@ -235,7 +235,7 @@ func (s *MultiConnection) UploadBackupMetadata(
 	return s.Tier1.UploadBackupMetadata(ctx, backupName, metadata)
 }
 
-func (s *MultiConnection) getClientFromMetadata(meta *klioclient.BackupMetadata) klioclient.Client { //nolint:ireturn
+func (s *MultiConnection) getClientFromMetadata(meta *klioclient.BackupMetadata) klioclient.Client {
 	if meta.Annotations[tier1AnnotationName] == presentAnnotationValue {
 		return s.Tier1
 	}

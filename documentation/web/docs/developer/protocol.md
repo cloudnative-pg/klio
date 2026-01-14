@@ -49,6 +49,8 @@ been completed.
 | start_wal | [string](#string) |  | the first WAL required to restore this backup. |
 | end_wal | [string](#string) |  | The last WAL required to restore this backup. |
 | segment_size | [uint64](#uint64) |  | The size of a WAL segment. Needed to generate the sequence of WAL files between the start and the end. |
+| send_to_tier2 | [bool](#bool) |  | Require this backup to be sent to tier2. |
+| tier2_retention_policy | [string](#string) |  | When present, set the tier2 retention policy to the specified JSON-serialized policy. |
 
 
 
@@ -150,6 +152,7 @@ file
 | segment_size | [uint64](#uint64) |  |  |
 | trace_id | [string](#string) |  |  |
 | span_id | [string](#string) |  |  |
+| send_to_tier2 | [bool](#bool) |  |  |
 
 
 

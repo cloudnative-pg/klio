@@ -30,8 +30,8 @@ func (r *Retention) IsEmpty() bool {
 	return *r == emptyRetention
 }
 
-// extractRetentionFromConfiguration reads retention policy settings.
-func extractRetentionFromConfiguration() (*Retention, error) {
+// extractTier1RetentionFromConfiguration reads retention policy settings.
+func extractTier1RetentionFromConfiguration() (*Retention, error) {
 	osFS := afero.NewOsFs()
 	f, err := afero.ReadFile(osFS, backupRepositoryConfigPath)
 	if err != nil {
@@ -46,16 +46,16 @@ func extractRetentionFromConfiguration() (*Retention, error) {
 
 	conf := Retention{}
 
-	if configData.RetentionPolicy == nil {
+	if configData.Tier1RetentionPolicy == nil {
 		return &conf, nil
 	}
 
-	conf.KeepLatest = configData.RetentionPolicy.KeepLatest
-	conf.KeepAnnual = configData.RetentionPolicy.KeepAnnual
-	conf.KeepMonthly = configData.RetentionPolicy.KeepMonthly
-	conf.KeepWeekly = configData.RetentionPolicy.KeepWeekly
-	conf.KeepDaily = configData.RetentionPolicy.KeepDaily
-	conf.KeepHourly = configData.RetentionPolicy.KeepHourly
+	conf.KeepLatest = configData.Tier1RetentionPolicy.KeepLatest
+	conf.KeepAnnual = configData.Tier1RetentionPolicy.KeepAnnual
+	conf.KeepMonthly = configData.Tier1RetentionPolicy.KeepMonthly
+	conf.KeepWeekly = configData.Tier1RetentionPolicy.KeepWeekly
+	conf.KeepDaily = configData.Tier1RetentionPolicy.KeepDaily
+	conf.KeepHourly = configData.Tier1RetentionPolicy.KeepHourly
 
 	return &conf, nil
 }

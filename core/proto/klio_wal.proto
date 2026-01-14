@@ -26,6 +26,8 @@ message PutRequest {
 
   string trace_id = 5;
   string span_id = 6;
+
+  bool send_to_tier2 = 7;
 }
 
 message PutResult {
@@ -150,6 +152,12 @@ message CloseBackupRequest {
   // The size of a WAL segment. Needed to generate
   // the sequence of WAL files between the start and the end.
   uint64 segment_size = 7;
+
+  // Require this backup to be sent to tier2.
+  bool send_to_tier2 = 8;
+
+  // When present, set the tier2 retention policy to the specified JSON-serialized policy.
+  string tier2_retention_policy = 9;
 }
 
 // This is sent by the WAL server in response to a CloseBackupRequest

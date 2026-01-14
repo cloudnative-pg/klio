@@ -49,7 +49,7 @@ func (r *REST) GetSingularName() string {
 
 // New returns an empty object that can be used with Create and Update after request data has been put into it.
 // This object must be a pointer type for use with Codec.DecodeInto([]byte, runtime.Object).
-func (r *REST) New() runtime.Object { //nolint:ireturn
+func (r *REST) New() runtime.Object {
 	return &v1alpha1.KlioBackup{}
 }
 
@@ -62,7 +62,7 @@ func (r *REST) Destroy() {
 // Get finds a resource in the storage by name and returns it.
 // Although it can return an arbitrary error value, IsNotFound(err) is true for the
 // returned error value err when the specified resource is not found.
-func (r *REST) Get(ctx context.Context, name string, _ *metav1.GetOptions) (runtime.Object, error) { //nolint:ireturn
+func (r *REST) Get(ctx context.Context, name string, _ *metav1.GetOptions) (runtime.Object, error) {
 	contextLogger := log.FromContext(ctx)
 
 	splittedName := strings.SplitN(name, ".", 2)
@@ -102,12 +102,12 @@ func (r *REST) Get(ctx context.Context, name string, _ *metav1.GetOptions) (runt
 
 // NewList returns an empty object that can be used with the List call.
 // This object must be a pointer type for use with Codec.DecodeInto([]byte, runtime.Object).
-func (r *REST) NewList() runtime.Object { //nolint:ireturn
+func (r *REST) NewList() runtime.Object {
 	return &v1alpha1.KlioBackupList{}
 }
 
 // List selects resources in the storage which match to the selector. 'options' can be nil.
-func (r *REST) List(ctx context.Context, _ *internalversion.ListOptions) (runtime.Object, error) { //nolint:ireturn
+func (r *REST) List(ctx context.Context, _ *internalversion.ListOptions) (runtime.Object, error) {
 	contextLogger := log.FromContext(ctx)
 
 	backupMetadataList, err := r.connection.ListBackups(ctx, "")

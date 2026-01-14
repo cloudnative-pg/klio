@@ -31,6 +31,8 @@ linters:
         - blob.Storage
         - error
         - stdlib
+        - github.com/cloudnative-pg/klio/core/internal/client/klioclient.Client
+        - k8s.io/apimachinery/pkg/runtime.Object
     varnamelen:
       ignore-decls:
         - g Gomega

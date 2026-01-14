@@ -12,8 +12,13 @@ type PluginConfigurationSpec struct {
 	// +kubebuilder:validation:MinLength=1
 	ServerAddress string `json:"serverAddress"`
 
-	// Tier2 enables backup lookup in tier 2.
-	Tier2 bool `json:"tier2,omitempty"`
+	// Tier1 is the Tier 1 configuration
+	// +optional
+	Tier1 Tier1PluginConfiguration `json:"tier1,omitzero"`
+
+	// Tier2 is the Tier 2 configuration
+	// +optional
+	Tier2 Tier2PluginConfiguration `json:"tier2,omitzero"`
 
 	// ClientSecretName is the name of the secret containing the client credentials
 	// +kubebuilder:validation:Required
@@ -33,10 +38,6 @@ type PluginConfigurationSpec struct {
 	// +optional
 	Pprof bool `json:"pprof,omitempty"`
 
-	// RetentionPolicy defines how many backups we should keep
-	// +optional
-	RetentionPolicy *RetentionPolicy `json:"retention,omitempty" mapstructure:"retention"`
-
 	// Containers allows defining a list of containers that will be merged with the Klio sidecar containers.
 	// This enables users to customize the sidecars with additional environment variables, volume mounts,
 	// resource limits, and other container settings without polluting the PostgreSQL container environment.
@@ -54,6 +55,28 @@ type PluginConfigurationSpec struct {
 	// +listMapKey=name
 	// +kubebuilder:validation:XValidation:rule="self.all(c, c.name in ['klio-plugin', 'klio-wal', 'klio-restore'])",message="container name must be one of: klio-plugin, klio-wal, klio-restore"
 	Containers []corev1.Container `json:"containers,omitempty"`
+}
+
+// Tier1PluginConfiguration configures tier1 backup and recovery settings.
+type Tier1PluginConfiguration struct {
+	// RetentionPolicy defines how many backups we should keep
+	// +optional
+	RetentionPolicy *RetentionPolicy `json:"retention,omitempty" mapstructure:"retention"`
+}
+
+// Tier2PluginConfiguration configures tier2 backup and recovery settings.
+type Tier2PluginConfiguration struct {
+	// EnableBackup controls whether WAL and base backups should be stored in tier2
+	// +optional
+	EnableBackup bool `json:"enableBackup,omitempty"`
+
+	// EnableRecovery controls whether tier2 should be included in the recovery source list
+	// +optional
+	EnableRecovery bool `json:"enableRecovery,omitempty"`
+
+	// RetentionPolicy defines how many backups we should keep
+	// +optional
+	RetentionPolicy *RetentionPolicy `json:"retention,omitempty" mapstructure:"retention"`
 }
 
 // RetentionPolicy defines how many backups we should keep.

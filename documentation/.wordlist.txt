@@ -35,6 +35,8 @@ DNS
 DataConfiguration
 Docusaurus
 EDB
+EnableBackup
+EnableRecovery
 EncryptionPassword
 EndLSN
 EndWAL

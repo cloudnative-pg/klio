@@ -3,6 +3,8 @@ package queue
 import (
 	"context"
 	"fmt"
+
+	"github.com/cloudnative-pg/klio/core/internal/kopia"
 )
 
 // BackupTask is the structure that is sent on NATS Stream when
@@ -10,6 +12,9 @@ import (
 type BackupTask struct {
 	// The name of the cluster
 	ClusterName string `json:"clusterName"`
+
+	// The retention policy to apply to tier2.
+	Tier2RetentionPolicy *kopia.RetentionPolicy `json:"tier2RetentionPolicy,omitzero"`
 }
 
 // NotifyBackupReceived is called to notify the consumers that a new backup
