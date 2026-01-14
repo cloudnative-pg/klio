@@ -346,10 +346,7 @@ func injectTier2Containers(
 			Image:           server.Spec.Image,
 			ImagePullPolicy: server.Spec.ImagePullPolicy,
 			Env:             newServerEnvBuilder(server).addCommonEnvs().addTier2BackupConsumerEnvs().build(),
-			Ports: []corev1.ContainerPort{
-				{Name: "tier2-base", ContainerPort: 51516, Protocol: corev1.ProtocolTCP},
-			},
-			VolumeMounts: volumeMounts,
+			VolumeMounts:    volumeMounts,
 		},
 	)
 

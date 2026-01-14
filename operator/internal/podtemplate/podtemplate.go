@@ -34,7 +34,8 @@ func Merge(base, overlay *corev1.PodTemplateSpec) (*corev1.PodTemplateSpec, erro
 		overlayContainers.Put(container.Name)
 	}
 
-	for _, missingContainerName := range baseContainers.Subtract(overlayContainers).ToList() {
+	missingContainers := baseContainers.Subtract(overlayContainers).ToSortedList()
+	for _, missingContainerName := range missingContainers {
 		overlayAug.Spec.Containers = append(overlayAug.Spec.Containers, corev1.Container{Name: missingContainerName})
 	}
 
@@ -47,7 +48,8 @@ func Merge(base, overlay *corev1.PodTemplateSpec) (*corev1.PodTemplateSpec, erro
 	for _, c := range overlayAug.Spec.InitContainers {
 		overlayInitContainers.Put(c.Name)
 	}
-	for _, missingInitName := range baseInitContainers.Subtract(overlayInitContainers).ToList() {
+	missingInitContainers := baseInitContainers.Subtract(overlayInitContainers).ToSortedList()
+	for _, missingInitName := range missingInitContainers {
 		overlayAug.Spec.InitContainers = append(overlayAug.Spec.InitContainers, corev1.Container{Name: missingInitName})
 	}
 
