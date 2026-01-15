@@ -15,7 +15,7 @@ Operator in your Kubernetes cluster. It is distributed as a private OCI image.
 
 Before installing the Klio Operator, ensure you have:
 
-- **Helm** - see the [Helm installation guide](https://helm.sh/docs/intro/install/)
+- **Helm** – see the [Helm installation guide](https://helm.sh/docs/intro/install/)
 - **Kubernetes** cluster with appropriate permissions
 - **Credentials** to access the registry hosting the Helm chart, the Klio operator
   image, and the Klio operand image.
@@ -33,18 +33,19 @@ Before installing the Klio Operator, ensure you have:
 First, authenticate with the EDB registry where the Helm chart is hosted:
 
 ```sh
-helm registry login <REGISTRY> -u <USERNAME> -p <TOKEN>
+helm registry login ghcr.io -u <USERNAME> -p <TOKEN>
 ```
 
-Replace `<REGISTRY>`, `<USERNAME>`, and `<TOKEN>` with the required credentials.
+Replace `<USERNAME>`, and `<TOKEN>` with the required credentials.
 
 ### Step 2: Create an Image Pull Secret
 
-Create a Kubernetes secret to allow the operator to pull container images from the registry:
+Create a Kubernetes secret to allow the operator to pull container images from
+the registry:
 
 ```sh
 kubectl create secret docker-registry klio-registry-secret \
-  --docker-server=<REGISTRY> \
+  --docker-server=ghcr.io \
   --docker-username=<USERNAME> \
   --docker-password=<TOKEN> \
   --namespace <NAMESPACE>

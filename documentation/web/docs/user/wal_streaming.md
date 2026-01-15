@@ -57,8 +57,6 @@ approach:
   at rest, providing protection not available with the traditional
   `archive_command`.
 
-<!-- TODO: not available yet -->
-
 - **Comprehensive observability:** Native metrics and structured logging
   provide full visibility into WAL streaming operations, simplifying
   monitoring, anomaly detection, and troubleshooting compared to the opaque

@@ -19,7 +19,7 @@ your PostgreSQL clusters. To use Klio with a CloudNativePG cluster, you need to:
 
 1. Create a `PluginConfiguration` resource that defines how to connect to the
    Klio server
-1. Reference the plugin in your `Cluster` resource specification
+2. Reference the plugin in your `Cluster` resource specification
 
 ## Prerequisites
 
@@ -58,7 +58,8 @@ The client credentials must be stored in a Kubernetes Secret of type
 `kubernetes.io/tls`, containing a secret to be presented to the Klio server.
 
 This secret can be generated with cert-manager by following the [documentation
-in the Klio server page](klio_server.md#creating-a-client-side-certificate).
+in the Klio server page](klio_server.md#creating-a-client-side-certificate),
+or be provided by the user.
 
 ### Server Address
 
@@ -133,8 +134,8 @@ customize the plugin's behavior.
 ### Retention policies
 
 Define how long backups should be retained by configuring retention policies
-for Tier 1 and Tier 2 storage. Retention policies can be configured independently
-for each tier:
+for Tier 1 and Tier 2 storage. Retention policies can be configured
+independently for each tier:
 
 ```yaml
 apiVersion: klio.cnpg.io/v1alpha1
@@ -236,18 +237,6 @@ spec:
 See the [Architecture documentation](./architectures.md#tier-2-secondary-storage-object-storage)
 for more details on Tier 2 storage.
 
-### Restore configuration
-
-When performing a restore, you can specify which backup to use:
-
-```yaml
-spec:
-  backupId: backup-YYYYMMDDHHMMSS
-```
-
-You can find the backup ID in the `Backup` resources status, or through the
-Klio API server.
-
 ### Observability
 
 See the [OpenTelemetry observability](./opentelemetry.md) section for more
@@ -309,19 +298,23 @@ spec:
 The containers you define serve as the base for the Klio sidecars, with the
 following merge behavior:
 
-1. **Your container is the base**: When you define a container (e.g., `klio-plugin`),
-   your specification serves as the starting point
+1. **Your container is the base**: When you define a container
+   (e.g., `klio-plugin`), your specification serves as the starting point
 2. **Klio enforces required values**: Klio sets its essential configuration:
    - Container `name` (klio-plugin, klio-wal, or klio-restore)
    - Container `args` (the command arguments needed for operation)
    - `CONTAINER_NAME` environment variable
-3. **Your customizations are preserved**: All other fields you define remain intact
+3. **Your customizations are preserved**: All other fields you define remain
+   intact
 4. **Template defaults fill gaps**: For fields you don't specify, Klio applies
    sensible defaults (image, security context, standard volume mounts, etc.)
 
-**Important**: Klio's required values (name, args, CONTAINER_NAME env var) will
+:::important
+
+Klio's required values (name, args, `CONTAINER_NAME` env var) will
 always override any conflicting values you set. All other customizations are
 respected.
+:::
 
 ### Available sidecar containers
 
@@ -368,10 +361,3 @@ spec:
           memory: "128Mi"
           cpu: "250m"
 ```
-
-:::warning
-Be careful when customizing containers. While your customizations serve as the
-base, Klio will override certain critical values (name, args, CONTAINER_NAME env var)
-that are required for proper operation. Avoid setting these fields as they will be
-replaced. Always test changes in a non-production environment first.
-:::

@@ -117,4 +117,7 @@ cd documentation/web
 docker run -ti --rm -v $(pwd):/website -w /website --net host node:24 bash -c "yarn && yarn start" # Development server on localhost:3000
 ```
 
+`md` and `mdx` files in the documentation should have a maximum line length of
+80 characters.
+
 Official docs: https://enterprisedb.github.io/klio

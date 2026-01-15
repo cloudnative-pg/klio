@@ -117,6 +117,8 @@ PGData
 PITR
 PKI
 PV
+PVC
+PVCs
 PersistentVolume
 PersistentVolumeClaim
 PersistentVolumeClaimSpec

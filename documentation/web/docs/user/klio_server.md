@@ -33,20 +33,63 @@ providing the fastest recovery times.
 
 ### Tier 2: Remote Object Storage
 
+:::warning Work in Progress
+Tier 2 functionality is currently under heavy development and should be
+considered experimental. The features described below are subject to change.
+:::
+
 Tier 2 offloads data to S3-compatible object storage.
 This is used for long-term retention and disaster recovery.
 When Tier 2 is enabled, the server uses a work queue to manage
 the asynchronous transfer of data from the local environment to the cloud.
 
-## The Work Queue
+### The Work Queue
 
-If both tier 1 and tier 2 are configured, it is mandatory to configure
+If both Tier 1 and Tier 2 are configured, it is mandatory to configure
 a work queue in the klio Server resource.
 The work queue is backed by NATS JetStream with file storage on a separate
 `PersistentVolume mounted` at `/queue`.
 When a WAL file is received, the server publishes a notification to the queue,
 enabling asynchronous processing. This ensures that the primary backup flow
 is not slowed down by network latency to remote object storage.
+
+## Storage Requirements
+
+The Klio Server uses three distinct PersistentVolumeClaims (PVCs), each
+serving a different purpose. Understanding what each PVC contains helps you
+size them appropriately for your environment.
+
+### Data PVC
+
+The data PVC stores all backup data and WAL archives for Tier 1 storage.
+
+It holds the base backups and the WAL archive of all the servers that are backed
+up.
+
+The following factors should be considered when defining the PVC size:
+1. WAL file production rate
+2. Base backup size
+3. Retention policies
+
+### Cache PVCs
+
+The cache PVCs (one for Tier 1 and Tier 2 each) are used by Kopia for its
+[caching operations](https://kopia.io/docs/advanced/caching/).
+They are used to speed up snapshot operations.
+
+:::warning
+Klio is currently limited to use the default cache size when creating a Kopia
+repository, 5GB for content and 5GB for metadata.
+The cache sizes are not hard limits, as the cache is swept periodically,
+so users should have a space buffer to account for this additional space.
+This limitation will be removed in a future version.
+:::
+
+### Queue PVC
+
+The queue PVC is only required when both Tier 1 and Tier 2 are configured.
+It stores the NATS JetStream work queue used for asynchronous Tier 2
+replication.
 
 ## Setting up a new Klio server
 
@@ -69,16 +112,16 @@ Before setting up a Klio server, ensure you have:
 A Klio server setup requires the following components:
 
 1. **Server Resource**: The main `Server` custom resource
-1. **TLS Certificate**: For secure communication
-1. **Encryption Password**: For encrypting backup data at rest
-1. **CA Certificate**: For client authentication via mTLS
-1. **Storage**: PersistentVolumeClaims for data, cache, and queue
+2. **TLS Certificate**: For secure communication
+3. **Encryption Password**: For encrypting backup data at rest
+4. **CA Certificate**: For client authentication via mTLS
+5. **Storage**: PersistentVolumeClaims for data, cache, and queue
 
 ### Step-by-step setup
 
-#### 1. Create the Encryption Password Secret
+#### 1. Create the Encryption Key Secret
 
-The encryption password is used to encrypt backup data at rest:
+The encryption key is used to encrypt backup data at rest:
 
 ```yaml
 apiVersion: v1
@@ -88,7 +131,7 @@ metadata:
   namespace: default
 type: Opaque
 data:
-  password: "bXktc2VjdXJlLXBhc3N3b3Jk" # my-secure-password
+  encryptionKey: "bXktc2VjdXJlLWtleQ==" # my-secure-key
 ```
 
 Apply the secret:
@@ -98,7 +141,7 @@ kubectl apply -f encryption-secret.yaml
 ```
 
 :::tip
-Use a strong, randomly generated password. This password is critical for
+Use a strong, randomly generated key. This key is critical for
 data security and recovery.
 :::
 
@@ -203,10 +246,9 @@ kubectl apply -f tls-certificate.yaml
 ```
 
 :::info
-For production environments,
-use certificates signed by
-your organization's Certificate Authority (CA)
-or a trusted public CA instead of self-signed certificates.
+For production environments, use certificates signed by your organization's
+Certificate Authority (CA) or a trusted public CA instead of self-signed
+certificates.
 :::
 
 #### 4. Create the Server Resource
@@ -234,28 +276,28 @@ spec:
 
   # tier 1 configuration
   tier1:
-      # Cache storage configuration
-      cache:
-        pvcTemplate:
-          storageClassName: standard  # Adjust to your storage class (use 'kubectl get storageclass' to see available options)
-          accessModes:
-            - ReadWriteOnce
-          resources:
-            requests:
-              storage: 10Gi  # Adjust based on your needs
-      # Data storage pvcTemplate (for backups and WAL)
-      data:
-        pvcTemplate:
-          storageClassName: standard  # Adjust to your storage class (use 'kubectl get storageclass' to see available options)
-          accessModes:
-            - ReadWriteOnce
-          resources:
-            requests:
-              storage: 100Gi  # Adjust based on your backup needs
-      # Encryption key reference
-      encryptionKey:
-        name: my-server-encryption
-        key: password
+    # Cache storage configuration
+    cache:
+      pvcTemplate:
+        storageClassName: standard  # Adjust to your storage class (use 'kubectl get storageclass' to see available options)
+        accessModes:
+          - ReadWriteOnce
+        resources:
+          requests:
+            storage: 10Gi  # Adjust based on your needs
+    # Data storage pvcTemplate (for backups and WAL)
+    data:
+      pvcTemplate:
+        storageClassName: standard  # Adjust to your storage class (use 'kubectl get storageclass' to see available options)
+        accessModes:
+          - ReadWriteOnce
+        resources:
+          requests:
+            storage: 100Gi  # Adjust based on your backup needs
+    # Encryption key reference
+    encryptionKey:
+      name: my-server-encryption
+      key: encryptionKey
 
   # Queue storage configuration (for NATS work queue)
   # It can be added only if both tier1 and tier2 are configured
@@ -272,16 +314,16 @@ spec:
   tier2:
     # Cache storage configuration
     cache:
-    pvcTemplate:
-      resources:
-        requests:
-          storage: 1Gi
-      accessModes:
-        - ReadWriteOnce
-    # Encryption key reference
+      pvcTemplate:
+        resources:
+          requests:
+            storage: 1Gi
+        accessModes:
+          - ReadWriteOnce
+    # Encryption key reference. Can differ from tier1 encryption key.
     encryptionKey:
-      name: server-sample-encryption
-      key: password
+      name: my-server-encryption
+      key: encryptionKey
     # S3 access configuration
     s3:
       prefix: klio
@@ -297,7 +339,6 @@ spec:
       customCaBundle:
         name: minio-server-tls
         key: tls.crt
-
 ```
 <!-- x-release-please-end -->
 
@@ -389,14 +430,14 @@ ensure data security throughout the backup lifecycle.
 ### Base Backups Encryption
 
 Base backups are encrypted by Kopia using the encryption password provided in
-the `password` secret reference. Kopia handles encryption transparently.
+the `encryptionKey` secret references. Kopia handles encryption transparently.
 
-The encryption password is set during repository initialization and is required
+The encryption key is set during repository initialization and is required
 for all subsequent backup and restore operations.
 
 :::warning Critical
-Store the encryption password securely. Loss of this password means permanent
-loss of access to all backup data. There is no password recovery mechanism.
+Store the encryption key securely. Loss of this key means permanent
+loss of access to all backup data. There is no key recovery mechanism.
 :::
 
 ### WAL Files Encryption
@@ -405,30 +446,30 @@ WAL files are encrypted using a master key derivation system with authenticated
 encryption. The encryption process works as follows:
 
 1. **Master Key Generation**: A 32-byte master key is derived from the encryption
-   password using PBKDF2
-1. **Key Enveloping**: The master key itself is encrypted using AES-256-GCM
+   key using PBKDF2
+2. **Key Enveloping**: The master key itself is encrypted using AES-256-GCM
    with a password-derived encryption key to protect the key at rest
-1. **Per-File Encryption**: Each WAL file is compressed and then encrypted using
+3. **Per-File Encryption**: Each WAL file is compressed and then encrypted using
    the master key with authenticated encryption before being stored
 
 WAL files are first compressed using Snappy S2 compression,
 then encrypted to ensure both space efficiency and security.
 
-The same encryption password used for base backups encrypts the WAL files,
+The same encryption key used for base backups encrypts the WAL files,
 ensuring a unified security model across all backup artifacts.
 
 ### Encryption Password Rotation
 
-Currently, encryption password rotation is not supported. To change the
-encryption password, you would need to:
+Currently, encryption key rotation is not supported. To change the
+encryption key, you would need to:
 
-1. Create a new Klio server with a new encryption password
-1. Perform new base backups to the new server
-1. Migrate to using the new server
+1. Create a new Klio server with a new encryption key
+2. Perform new base backups to the new server
+3. Migrate to using the new server
 
 :::tip
-Choose a strong encryption password from the start. Use a password manager or
-key management system to generate and store a cryptographically secure password
+Choose a strong encryption key from the start. Use a password manager or
+key management system to generate and store a cryptographically secure key
 (recommended: 32+ random characters).
 :::
 
@@ -454,7 +495,7 @@ backup data is protected both at rest and in transit.
 ## Authentication
 
 Klio uses mTLS Authentication for securing access to both the base backup server
-and the WAL streaming server. Authentication is handled by verify the client
+and the WAL streaming server. Authentication is handled by verifying the client
 certificates against the CA certificate which has been created when configuring
 the Klio server.
 
@@ -503,7 +544,7 @@ spec:
 ## Access Control Lists (ACLs)
 
 Klio automatically configures Kopia's Access Control Lists (ACLs) during server
-startup to provide fine-grained access control to backup snapshots. This
+startup to provide fine-grained access control to back up snapshots. This
 automation eliminates the need for manual ACL configuration.
 
 ### Automatic ACL Configuration
@@ -511,13 +552,13 @@ automation eliminates the need for manual ACL configuration.
 When the Klio server starts, it automatically:
 
 1. **Enables ACL support** in the Kopia repository
-1. **Creates a read-only user** (`snapshot_reader@klio`)
+2. **Creates a read-only user** (`snapshot_reader@klio`)
    with READ access to all snapshots
-1. **Configures the API server** to use the read-only user for backup catalog queries
+3. **Configures the API server** to use the read-only user for backup catalog queries
 
-This automation ensures that the Klio API server (used for backup observability
-and catalog browsing) operates with minimal privileges, following the principle
-of least privilege.
+This automation ensures that the Klio [API service](api_service.md) (used for
+backup observability and catalog browsing) operates with minimal privileges,
+following the principle of least privilege.
 
 ### How ACLs Work
 
@@ -582,7 +623,7 @@ spec:
 
 ### API Server Integration
 
-The Klio API server deployment is automatically configured to use the
+The Klio API service deployment is automatically configured to use the
 `snapshot_reader@klio` user for all Kopia operations. This happens through
 environment variable configuration in the API server deployment:
 
@@ -593,7 +634,7 @@ environment variable configuration in the API server deployment:
   value: /client-certs/tls.key
 ```
 
-No manual configuration is required - the API server will automatically use the
+No manual configuration is required. The API server will automatically use the
 restricted read-only access for all backup catalog queries.
 
 ### Benefits
@@ -601,34 +642,13 @@ restricted read-only access for all backup catalog queries.
 The automated ACL configuration provides several benefits:
 
 1. **Security**: API server operates with minimal privileges
-1. **Simplicity**: No manual ACL commands required during setup
-1. **Consistency**: ACL configuration is standardized across all deployments
-1. **Separation of Concerns**: Read operations (API server) are isolated from
+2. **Simplicity**: No manual ACL commands required during setup
+3. **Consistency**: ACL configuration is standardized across all deployments
+4. **Separation of Concerns**: Read operations (API server) are isolated from
    write operations (backup/restore processes)
 
 ### Idempotency
 
-The ACL automation is idempotent - if ACLs are already enabled or the user
+The ACL automation is idempotent. If ACLs are already enabled or the user
 already exists, the startup process will detect this and continue without
 error. This allows for safe server restarts and upgrades.
-
-### Troubleshooting ACLs
-
-If you encounter ACL-related issues, check the Klio server logs:
-
-```bash
-kubectl logs my-server-klio-0 -n default -c base
-```
-
-Look for log entries related to ACL enablement:
-
-- `"ACLs enabled"`: ACLs were successfully enabled
-- `"ACLs already enabled"`: ACLs were previously enabled (normal on restart)
-- `"User snapshot_reader added to ACLs"`: Read-only user was successfully configured
-- `"failed to execute ACLs enablement"`: An error occurred during ACL setup
-
-:::note
-ACL configuration happens during server startup, before the Kopia server process
-begins accepting connections. Any ACL errors will appear early in the container
-logs.
-:::

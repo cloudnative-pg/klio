@@ -40,6 +40,9 @@ spec:
             value: klio
           - name: CLIENT_BASE_URL
             value: https://server-sample.default:51515
+          # Tier 2 support, if needed
+          #- name: CLIENT_BASE_TIER2_URL
+          #  value: https://server-sample.default:51516
           - name: CLIENT_BASE_SERVER_CERT_PATH
             value: /certs/tls.crt
           - name: CLIENT_BASE_API_SERVER_CERTFILE

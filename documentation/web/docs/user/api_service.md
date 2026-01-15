@@ -9,6 +9,13 @@ Kubernetes API to expose Klio backup metadata as native Kubernetes resources.
 This allows users to query and inspect backup information using standard
 Kubernetes tools like `kubectl`.
 
+:::caution Experimental - Subject to Change
+The Klio API Service is **experimental** and under evaluation. Future releases
+may provide an alternative method for listing backups, which
+may result in changes or removal of the API service.
+:::
+
+
 ## Overview
 
 The API service integrates with the Kubernetes API server through the
@@ -57,7 +64,7 @@ The resource is described in the [Klio Catalog API reference](./api/klio_catalog
 The API service supports the following operations:
 
 1. **List all backups**: Retrieve all backups across all clusters
-1. **Get specific backup**: Retrieve details for a specific backup by name
+2. **Get specific backup**: Retrieve details for a specific backup by name
 
 ## Setting Up the API Service
 
@@ -78,11 +85,11 @@ The API service setup includes:
 1. **TLS Certificates**: For secure communication between the Kubernetes API
    server and the Klio API service, and between the Klio API service and the
    Klio server
-1. **Service Account**: Dedicated service account with necessary permissions
-1. **RBAC Resources**: ClusterRole and Role for authorization
-1. **Deployment**: The API service deployment specification
-1. **Service**: Kubernetes service to expose the API server
-1. **APIService**: Registration with the Kubernetes API aggregation layer
+2. **Service Account**: Dedicated service account with necessary permissions
+3. **RBAC Resources**: ClusterRole and Role for authorization
+4. **Deployment**: The API service deployment specification
+5. **Service**: Kubernetes service to expose the API server
+6. **APIService**: Registration with the Kubernetes API aggregation layer
 
 ### Step-by-Step Setup
 
@@ -90,7 +97,7 @@ The API service setup includes:
 Setup procedure will be simplified in future Klio releases.
 :::
 
-#### 1. Create Service Account and RBAC Resources
+#### 1. Create ServiceAccount and RBAC Resources
 
 Create a service account and the necessary RBAC resources.
 
@@ -294,10 +301,6 @@ spec:
               name: scratch-data
 ```
 <!-- x-release-please-end -->
-
-:::warning
-`CLIENT_BASE_HOSTNAME` will be removed in a future Klio release.
-:::
 
 #### 5. Create a service
 

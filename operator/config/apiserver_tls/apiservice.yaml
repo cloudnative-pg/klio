@@ -2,6 +2,8 @@ apiVersion: apiregistration.k8s.io/v1
 kind: APIService
 metadata:
   name: v1alpha1.kliocatalog.cnpg.io
+  annotations:
+    cert-manager.io/inject-ca-from: default/klio-api
 spec:
   group: kliocatalog.cnpg.io
   groupPriorityMinimum: 1000
@@ -12,4 +14,4 @@ spec:
   version: v1alpha1
   #  yq -iy ".spec.caBundle = \"$(kubectl get secret klio-api-tls -o jsonpath='{.data.tls\.crt}')\"" \
   # ~/path/to/klio/operator/config/apiserver_tls/apiservice.yaml
-  caBundle: put-CA-Bundle-here
+  # caBundle: put-CA-Bundle-here

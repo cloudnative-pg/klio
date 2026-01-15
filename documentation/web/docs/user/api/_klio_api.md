@@ -8,8 +8,6 @@ Package v1alpha1 contains API Schema definitions for the klio v1alpha1 API group
 
 ### Resource Types
 - [PluginConfiguration](#pluginconfiguration)
-- [RecoverySource](#recoverysource)
-- [RecoverySourceList](#recoverysourcelist)
 - [Server](#server)
 
 
@@ -23,7 +21,6 @@ Cache defines the configuration for the cache directory.
 
 
 _Appears in:_
-- [RecoverySourceStorageConfiguration](#recoverysourcestorageconfiguration)
 - [Tier1Configuration](#tier1configuration)
 - [Tier2Configuration](#tier2configuration)
 
@@ -58,7 +55,6 @@ the Klio image.
 
 
 _Appears in:_
-- [RecoverySourceSpec](#recoverysourcespec)
 - [ServerSpec](#serverspec)
 
 | Field | Description | Required | Default | Validation |
@@ -140,96 +136,6 @@ _Appears in:_
 | `pvcTemplate` _[PersistentVolumeClaimSpec](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#persistentvolumeclaimspec-v1-core)_ | PersistentVolumeClaimTemplate is used to generate the configuration for<br />the PVC hosting the work queue. | True |  |  |
 
 
-#### RecoverySource
-
-
-
-RecoverySource is the Schema for the recovery source API.
-
-
-
-_Appears in:_
-- [RecoverySourceList](#recoverysourcelist)
-
-| Field | Description | Required | Default | Validation |
-| --- | --- | --- | --- | --- |
-| `apiVersion` _string_ | `klio.cnpg.io/v1alpha1` | True | | |
-| `kind` _string_ | `RecoverySource` | True | | |
-| `metadata` _[ObjectMeta](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#objectmeta-v1-meta)_ | Refer to Kubernetes API documentation for fields of `metadata`. | True |  |  |
-| `spec` _[RecoverySourceSpec](#recoverysourcespec)_ |  | True |  |  |
-| `status` _[RecoverySourceStatus](#recoverysourcestatus)_ |  |  |  | Optional: \{\} <br /> |
-
-
-#### RecoverySourceList
-
-
-
-RecoverySourceList contains a list of RecoverySources.
-
-
-
-
-
-| Field | Description | Required | Default | Validation |
-| --- | --- | --- | --- | --- |
-| `apiVersion` _string_ | `klio.cnpg.io/v1alpha1` | True | | |
-| `kind` _string_ | `RecoverySourceList` | True | | |
-| `metadata` _[ListMeta](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#listmeta-v1-meta)_ | Refer to Kubernetes API documentation for fields of `metadata`. | True |  |  |
-| `items` _[RecoverySource](#recoverysource) array_ |  | True |  |  |
-
-
-#### RecoverySourceSpec
-
-
-
-RecoverySourceSpec defines a remote Klio tier2 to be used as a
-recovery source.
-
-
-
-_Appears in:_
-- [RecoverySource](#recoverysource)
-
-| Field | Description | Required | Default | Validation |
-| --- | --- | --- | --- | --- |
-| `image` _string_ | Image is the image to be used for the Klio server | True |  |  |
-| `imagePullPolicy` _[PullPolicy](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#pullpolicy-v1-core)_ | ImagePullPolicy defines the policy for pulling the image |  | IfNotPresent | Optional: \{\} <br /> |
-| `imagePullSecrets` _[LocalObjectReference](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#localobjectreference-v1-core) array_ | ImagePullSecrets is an optional list of references to secrets in the same namespace to use for pulling any of the<br />images |  |  | Optional: \{\} <br /> |
-| `tlsSecretName` _string_ | TLSSecretName is the name of the Kubernetes secret containing the server-side certificate<br />to be used for the Klio server. | True |  |  |
-| `caSecretName` _string_ | ClientCASecretName is the name of the Kubernetes secret containing the CA certificate<br />to be used by the Klio server to validate the users. | True |  |  |
-| `tier2` _[Tier2Configuration](#tier2configuration)_ | Tier2 is the tier 2 configuration to be used by this recovery source. | True |  |  |
-| `storage` _[RecoverySourceStorageConfiguration](#recoverysourcestorageconfiguration)_ | Storage is the storage resources to be used<br />for this Klio recovery source. | True |  |  |
-| `template` _[PodTemplateSpec](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#podtemplatespec-v1-core)_ | Template to override the default StatefulSet of the Klio recovery source.<br />WARNING: Modifying this template may break the server functionality if not done carefully.<br />This field is primarily intended for advanced configuration such as telemetry setup.<br />Use at your own risk and ensure thorough testing before applying changes. |  |  | Optional: \{\} <br /> |
-
-
-#### RecoverySourceStatus
-
-
-
-RecoverySourceStatus defines the observed state of recovery source.
-
-
-
-_Appears in:_
-- [RecoverySource](#recoverysource)
-
-
-
-#### RecoverySourceStorageConfiguration
-
-
-
-RecoverySourceStorageConfiguration defines the storage
-to be used for this recovery source.
-
-
-
-_Appears in:_
-- [RecoverySourceSpec](#recoverysourcespec)
-
-| Field | Description | Required | Default | Validation |
-| --- | --- | --- | --- | --- |
-| `cache` _[Cache](#cache)_ | Cache is the configuration of the PVC that should be<br />used for the cache. | True |  |  |
 
 
 #### RetentionPolicy
@@ -343,7 +249,6 @@ the PKI infrastructure of the Klio server.
 
 
 _Appears in:_
-- [RecoverySourceSpec](#recoverysourcespec)
 - [ServerSpec](#serverspec)
 
 | Field | Description | Required | Default | Validation |
@@ -395,7 +300,6 @@ Tier2Configuration is the tier 2 configuration.
 
 
 _Appears in:_
-- [RecoverySourceSpec](#recoverysourcespec)
 - [ServerSpec](#serverspec)
 
 | Field | Description | Required | Default | Validation |

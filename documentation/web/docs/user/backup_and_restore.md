@@ -26,11 +26,6 @@ It is recommended to periodically test backup restores to ensure correct
 recovery procedures.
 :::
 
-:::warning
-The Klio MVP does not currently verify the presence of all required WAL files
-for a given backup. This limitation will be resolved before the GA release.
-:::
-
 ## Prerequisites
 
 Before performing backup and restore operations, ensure you have:
@@ -140,12 +135,12 @@ kubectl apply -f scheduled-backup.yaml
 ## Backup Retention and Maintenance
 
 Klio automatically manages backup retention based on the
-[retention policy](plugin_configuration.md#retention-policies) defined in the
+[retention policies](plugin_configuration.md#retention-policies) defined in the
 `PluginConfiguration` referred by the `Cluster`.
 
 :::important
 Deleting a `Backup` resource through `kubectl` only removes the Kubernetes
-object. The actual backup data in the Klio server may be retained according to
+object. The actual backup data in the Klio server will be retained according to
 the retention policy.
 :::
 
@@ -165,6 +160,9 @@ Once you identify the backup you want to use, you can identify its backupID
 kubectl get backup <backup_name> -n <your-namespace> -o jsonpath='{.status.backupId}'
 ```
 
+Alternatively, you can use the [API service](api_service.md) to get the backup
+list.
+
 ## Restoring from a Backup
 
 Klio supports restoring PostgreSQL clusters from backups using CloudNativePG's
@@ -179,7 +177,7 @@ following actions during a restore:
 
 1. **Restores the base backup**: Copies the physical backup data to the new
    cluster's data directory. Uses `klio restore` command under the hood.
-1. **Restores WAL files**: Klio is configured to retrieve the WAL files from
+2. **Restores WAL files**: Klio is configured to retrieve the WAL files from
    required for the PostgreSQL recovery as needed.
    Uses `klio get-wal` command under the hood.
 
@@ -225,10 +223,12 @@ spec:
 ```
 
 :::note
-Klio will choose the latest backup available in case the `backupID` field is omitted.
+Klio will choose the latest backup available in case the `backupID` field is
+omitted.
 :::
 
-Create a corresponding `PluginConfiguration` that specifies which backup to restore:
+Create a corresponding `PluginConfiguration` that specifies which backup to
+restore:
 
 ```yaml
 apiVersion: klio.cnpg.io/v1alpha1
@@ -299,6 +299,7 @@ available WAL files.
 :::
 
 :::note
-During the Point in Time Recovery, Klio will automatically choose the right
-backup if not specified with the `backupID` field.
+During the Point in Time Recovery, if `targetTime` or `targetLSN` are specified,
+Klio will automatically choose the closest backup for the PITR, if not defined
+with the `backupID` field.
 :::
