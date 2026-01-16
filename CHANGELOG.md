@@ -1,5 +1,41 @@
 # Changelog
 
+## [0.0.11](https://github.com/EnterpriseDB/klio/compare/v0.0.10...v0.0.11) (2026-01-16)
+
+
+### ⚠ BREAKING CHANGES
+
+* **api:** tier1 configuration has been moved to the spec.tier1 stanza; encryption_password has been renamed to encryption_key
+* spec.baseConfiguration, spec.resources and spec.queueConfiguration.resources have been removed from the API.
+* spec.baseConfiguration.adminUser has been removed from the Server API.
+
+### Features
+
+* **core,operator:** Implement tier2 retention policy support ([#615](https://github.com/EnterpriseDB/klio/issues/615)) ([e5fca21](https://github.com/cloudnative-pg/klio/commit/e5fca2145de82448b2d4f4d5c0060d4d1523b981))
+* Introduce RecoverySource CRD ([3884720](https://github.com/cloudnative-pg/klio/commit/388472085ac309ccb59d358607f87ca096590959))
+* Remove admin user and password Kopia settings ([#543](https://github.com/EnterpriseDB/klio/issues/543)) ([b0588a5](https://github.com/cloudnative-pg/klio/commit/b0588a5099805fe5254ab67aada4da015f9c7f0b))
+* Remove container resources configuration from API ([#545](https://github.com/EnterpriseDB/klio/issues/545)) ([bf4d3b0](https://github.com/cloudnative-pg/klio/commit/bf4d3b0adee14d35c883bbac8a32835442037aed))
+
+
+### Bug Fixes
+
+* **deps:** Update all non-major go dependencies ([#538](https://github.com/EnterpriseDB/klio/issues/538)) ([eccbfe3](https://github.com/cloudnative-pg/klio/commit/eccbfe3d01f8570b438315b6ff122b3cd0b71d0b))
+* **deps:** Update all non-major go dependencies ([#552](https://github.com/EnterpriseDB/klio/issues/552)) ([5fc1788](https://github.com/cloudnative-pg/klio/commit/5fc17884bae9af703a20891d741383c3b4a8fdbd))
+* **deps:** Update all non-major go dependencies ([#599](https://github.com/EnterpriseDB/klio/issues/599)) ([7337dde](https://github.com/cloudnative-pg/klio/commit/7337dde915b43221e72b5fea30a537995f6b0d9b))
+* **deps:** Update k8s.io/utils digest to 0fe9cd7 ([#590](https://github.com/EnterpriseDB/klio/issues/590)) ([8315738](https://github.com/cloudnative-pg/klio/commit/83157387dd61d80ade3f71cca60e2f89eb85fd52))
+* **deps:** Update k8s.io/utils digest to 914a6e7 ([#600](https://github.com/EnterpriseDB/klio/issues/600)) ([811887f](https://github.com/cloudnative-pg/klio/commit/811887fdfcb3869681e3989c22d6464c7c738767))
+* **deps:** Update module github.com/fclairamb/afero-s3 to v0.4.0 ([#610](https://github.com/EnterpriseDB/klio/issues/610)) ([585ece5](https://github.com/cloudnative-pg/klio/commit/585ece5664861ad4129e6c37a8609aa7ef85bfd1))
+* **deps:** Update module github.com/onsi/ginkgo/v2 to v2.27.5 ([#622](https://github.com/EnterpriseDB/klio/issues/622)) ([6f60141](https://github.com/cloudnative-pg/klio/commit/6f6014173da0d6c3fb2a4f00d55463d1ac250831))
+* **deps:** Update module golang.org/x/crypto to v0.47.0 ([#619](https://github.com/EnterpriseDB/klio/issues/619)) ([7992f6b](https://github.com/cloudnative-pg/klio/commit/7992f6ba42aeefe4ccc4686a903eed8cbb9f4f64))
+* **integration:** Prevent Dagger from caching Klio helm deployments ([#635](https://github.com/EnterpriseDB/klio/issues/635)) ([bd7fbf4](https://github.com/cloudnative-pg/klio/commit/bd7fbf4631793d41fb3fa5ddfc0c59b6fb40cd68))
+* **operator:** Add comprehensive error logging to lifecycle plugin ([#633](https://github.com/EnterpriseDB/klio/issues/633)) ([df4e445](https://github.com/cloudnative-pg/klio/commit/df4e445bb2b75282b72273bfef9ab5aaf5a85fa7))
+* **operator:** Resolve server reconciliation issues ([#626](https://github.com/EnterpriseDB/klio/issues/626)) ([8f63cda](https://github.com/cloudnative-pg/klio/commit/8f63cdadf2480411a623ead690aca0e32ad47e01))
+
+
+### Code Refactoring
+
+* **api:** Add tier1 stanza and rename several spec fields ([#618](https://github.com/EnterpriseDB/klio/issues/618)) ([4e5f663](https://github.com/cloudnative-pg/klio/commit/4e5f663d98472be2fdcfdcaadd758f3ecfbbe2fc))
+
 ## [0.0.10](https://github.com/EnterpriseDB/klio/compare/v0.0.9...v0.0.10) (2025-12-24)
 
 

@@ -284,7 +284,7 @@ spec:
               value: /client-certs/tls.key
             - name: TMPDIR
               value: /tmp
-          image: ghcr.io/enterprisedb/klio:v0.0.8
+          image: ghcr.io/enterprisedb/klio:v0.0.11
           imagePullPolicy: Always
           name: api-server
           resources: {}
