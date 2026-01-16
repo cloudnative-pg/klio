@@ -147,8 +147,8 @@ WAL file:
 
 ## Benchmarking Example
 
-The following is an example Kubernetes Job definition that demonstrates how to use
-the WAL Player to benchmark a Klio server. This example includes generating
+The following Kubernetes Job definition demonstrates how to use
+the WAL Player to benchmark a Klio server. This example covers generating
 WAL files and then playing them back to the server.
 
 <!-- x-release-please-start-version -->
