@@ -15,7 +15,6 @@ may provide an alternative method for listing backups, which
 may result in changes or removal of the API service.
 :::
 
-
 ## Overview
 
 The API service integrates with the Kubernetes API server through the
@@ -64,7 +63,7 @@ The resource is described in the [Klio Catalog API reference](./api/klio_catalog
 The API service supports the following operations:
 
 1. **List all backups**: Retrieve all backups across all clusters
-2. **Get specific backup**: Retrieve details for a specific backup by name
+1. **Get specific backup**: Retrieve details for a specific backup by name
 
 ## Setting Up the API Service
 
@@ -85,11 +84,11 @@ The API service setup includes:
 1. **TLS Certificates**: For secure communication between the Kubernetes API
    server and the Klio API service, and between the Klio API service and the
    Klio server
-2. **Service Account**: Dedicated service account with necessary permissions
-3. **RBAC Resources**: ClusterRole and Role for authorization
-4. **Deployment**: The API service deployment specification
-5. **Service**: Kubernetes service to expose the API server
-6. **APIService**: Registration with the Kubernetes API aggregation layer
+1. **Service Account**: Dedicated service account with necessary permissions
+1. **RBAC Resources**: ClusterRole and Role for authorization
+1. **Deployment**: The API service deployment specification
+1. **Service**: Kubernetes service to expose the API server
+1. **APIService**: Registration with the Kubernetes API aggregation layer
 
 ### Step-by-Step Setup
 
@@ -189,7 +188,8 @@ for instructions on generating the certificate.
 Create a Kubernetes `Secret` containing the Klio server's TLS certificate
 for validating the server's identity.
 
-If you're using `cert-manager`, you can create a `Certificate` resource as shown below:
+If you're using `cert-manager`, you can create a `Certificate` resource
+as shown below:
 
 ```yaml
 apiVersion: cert-manager.io/v1

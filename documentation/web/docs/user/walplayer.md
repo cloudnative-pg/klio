@@ -277,12 +277,14 @@ You can adjust the following parameters to simulate different workload scenarios
 Modify the `generate-wals` init container to create different test workloads:
 
 - Many small files:
+
   ```yaml
   - --wal-size=16
   - --length=1000
   ```
 
 - Less large files:
+
   ```yaml
   - --wal-size=256
   - --length=100
@@ -295,13 +297,12 @@ Match actual production for better results.
 Modify the `play-wals` container to test different upload patterns:
 
 - **Jobs** (`--jobs`): Number of parallel upload workers
-  - Start with `--jobs=1` to establish baseline performance
-  - Increase to `--jobs=2`, `--jobs=4`, `--jobs=8` to find optimal concurrency
-  - Performance typically plateaus at some point
-
+   - Start with `--jobs=1` to establish baseline performance
+   - Increase to `--jobs=2`, `--jobs=4`, `--jobs=8` to find optimal concurrency
+   - Performance typically plateaus at some point
 - **Block Size** (`--block-size`): Size of each streaming chunk in KB
-  - Default is `--block-size=2048`
-  - Maximum is 8192
+   - Default is `--block-size=2048`
+   - Maximum is 8192
 
 ### Analyzing Results
 
@@ -330,5 +331,5 @@ jq -s '.[] | select(has("error") and .error != "")' results.json
 ## Performance Optimization Tips
 
 1. **Resource Monitoring**: Monitor CPU, memory, and disk I/O on the Klio server
-2. **Network Bandwidth**: Ensure sufficient bandwidth between client and server
-3. **Storage Performance**: Verify storage can handle the write throughput
+1. **Network Bandwidth**: Ensure sufficient bandwidth between client and server
+1. **Storage Performance**: Verify storage can handle the write throughput

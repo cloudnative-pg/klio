@@ -67,9 +67,10 @@ It holds the base backups and the WAL archive of all the servers that are backed
 up.
 
 The following factors should be considered when defining the PVC size:
+
 1. WAL file production rate
-2. Base backup size
-3. Retention policies
+1. Base backup size
+1. Retention policies
 
 ### Cache PVCs
 
@@ -112,10 +113,10 @@ Before setting up a Klio server, ensure you have:
 A Klio server setup requires the following components:
 
 1. **Server Resource**: The main `Server` custom resource
-2. **TLS Certificate**: For secure communication
-3. **Encryption Password**: For encrypting backup data at rest
-4. **CA Certificate**: For client authentication via mTLS
-5. **Storage**: PersistentVolumeClaims for data, cache, and queue
+1. **TLS Certificate**: For secure communication
+1. **Encryption Password**: For encrypting backup data at rest
+1. **CA Certificate**: For client authentication via mTLS
+1. **Storage**: PersistentVolumeClaims for data, cache, and queue
 
 ### Step-by-step setup
 
@@ -447,9 +448,9 @@ encryption. The encryption process works as follows:
 
 1. **Master Key Generation**: A 32-byte master key is derived from the encryption
    key using PBKDF2
-2. **Key Enveloping**: The master key itself is encrypted using AES-256-GCM
+1. **Key Enveloping**: The master key itself is encrypted using AES-256-GCM
    with a password-derived encryption key to protect the key at rest
-3. **Per-File Encryption**: Each WAL file is compressed and then encrypted using
+1. **Per-File Encryption**: Each WAL file is compressed and then encrypted using
    the master key with authenticated encryption before being stored
 
 WAL files are first compressed using Snappy S2 compression,
@@ -464,8 +465,8 @@ Currently, encryption key rotation is not supported. To change the
 encryption key, you would need to:
 
 1. Create a new Klio server with a new encryption key
-2. Perform new base backups to the new server
-3. Migrate to using the new server
+1. Perform new base backups to the new server
+1. Migrate to using the new server
 
 :::tip
 Choose a strong encryption key from the start. Use a password manager or
@@ -552,9 +553,9 @@ automation eliminates the need for manual ACL configuration.
 When the Klio server starts, it automatically:
 
 1. **Enables ACL support** in the Kopia repository
-2. **Creates a read-only user** (`snapshot_reader@klio`)
+1. **Creates a read-only user** (`snapshot_reader@klio`)
    with READ access to all snapshots
-3. **Configures the API server** to use the read-only user for backup catalog queries
+1. **Configures the API server** to use the read-only user for backup catalog queries
 
 This automation ensures that the Klio [API service](api_service.md) (used for
 backup observability and catalog browsing) operates with minimal privileges,
@@ -642,9 +643,9 @@ restricted read-only access for all backup catalog queries.
 The automated ACL configuration provides several benefits:
 
 1. **Security**: API server operates with minimal privileges
-2. **Simplicity**: No manual ACL commands required during setup
-3. **Consistency**: ACL configuration is standardized across all deployments
-4. **Separation of Concerns**: Read operations (API server) are isolated from
+1. **Simplicity**: No manual ACL commands required during setup
+1. **Consistency**: ACL configuration is standardized across all deployments
+1. **Separation of Concerns**: Read operations (API server) are isolated from
    write operations (backup/restore processes)
 
 ### Idempotency

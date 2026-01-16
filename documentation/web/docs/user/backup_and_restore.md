@@ -177,7 +177,7 @@ following actions during a restore:
 
 1. **Restores the base backup**: Copies the physical backup data to the new
    cluster's data directory. Uses `klio restore` command under the hood.
-2. **Restores WAL files**: Klio is configured to retrieve the WAL files from
+1. **Restores WAL files**: Klio is configured to retrieve the WAL files from
    required for the PostgreSQL recovery as needed.
    Uses `klio get-wal` command under the hood.
 

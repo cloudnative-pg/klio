@@ -19,7 +19,7 @@ your PostgreSQL clusters. To use Klio with a CloudNativePG cluster, you need to:
 
 1. Create a `PluginConfiguration` resource that defines how to connect to the
    Klio server
-2. Reference the plugin in your `Cluster` resource specification
+1. Reference the plugin in your `Cluster` resource specification
 
 ## Prerequisites
 
@@ -300,13 +300,13 @@ following merge behavior:
 
 1. **Your container is the base**: When you define a container
    (e.g., `klio-plugin`), your specification serves as the starting point
-2. **Klio enforces required values**: Klio sets its essential configuration:
+1. **Klio enforces required values**: Klio sets its essential configuration:
    - Container `name` (klio-plugin, klio-wal, or klio-restore)
    - Container `args` (the command arguments needed for operation)
    - `CONTAINER_NAME` environment variable
-3. **Your customizations are preserved**: All other fields you define remain
+1. **Your customizations are preserved**: All other fields you define remain
    intact
-4. **Template defaults fill gaps**: For fields you don't specify, Klio applies
+1. **Template defaults fill gaps**: For fields you don't specify, Klio applies
    sensible defaults (image, security context, standard volume mounts, etc.)
 
 :::important

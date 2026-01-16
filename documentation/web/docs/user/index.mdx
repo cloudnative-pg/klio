@@ -40,13 +40,11 @@ development.
 
 - Native WAL streaming from the primary, eliminating the need for
   `archive_command`, with support for:
-
-  - Partial WAL file handling
-  - WAL file compression
-  - WAL file encryption using user-provided keys
-  - Controlled replication slot advancement to ensure uninterrupted streaming
-  - Synchronous replication
-
+   - Partial WAL file handling
+   - WAL file compression
+   - WAL file encryption using user-provided keys
+   - Controlled replication slot advancement to ensure uninterrupted streaming
+   - Synchronous replication
 - WAL archive storage on a local PVC (Tier 1)
 - Extension of base backup retention policy enforcement to WAL files
 - Asynchronous WAL relay to Tier 2 object storage
@@ -61,11 +59,9 @@ Therefore, Klio requires PostgreSQL version 15 or greater to function properly.
 
 - Physical online base backups from the primary node to Tier 1, with support
   for:
-
-  - Data deduplication for efficient remote incremental backups
-  - Compression to optimize storage usage
-  - Encryption using user-provided keys for data confidentiality
-
+   - Data deduplication for efficient remote incremental backups
+   - Compression to optimize storage usage
+   - Encryption using user-provided keys for data confidentiality
 - Backup catalog stored on a file system Persistent Volume Claim (PVC) in Tier 1
 - Integration with CloudNativePG Kubernetes Volume Snapshots (Tier 0),
   enabling asynchronous offload to Tier 1 using the same physical backup

@@ -50,7 +50,8 @@ all necessary backup artifacts for most recovery scenarios.
 
 This tier consists of a **local Persistent Volume (PV)** deployed by the
 Klio Server. It can be located in the same namespace as the PostgreSQL cluster
-or in a different one within the same Kubernetes cluster (see the ["Tier 1 Architectures" section below](#tier-1-architectures)).
+or in a different one within the same Kubernetes cluster
+(see the ["Tier 1 Architectures" section below](#tier-1-architectures)).
 
 Its purpose is to store the **WAL archive** and the **catalog of physical base
 backups**. Its high-throughput, low-latency nature is optimized for several key
@@ -118,14 +119,14 @@ different namespaces, as shown below:
 For dedicated performance and resource isolation, you can reserve specific
 worker nodes for Klio pods using Kubernetes taints and tolerations.
 
-1.  **Taint the Node**: Apply a taint to the desired node. This prevents most
+1. **Taint the Node**: Apply a taint to the desired node. This prevents most
     pods from being scheduled on it.
 
     ```sh
     kubectl taint node <NODE-NAME> node-role.kubernetes.io/klio=:NoSchedule
     ```
 
-2.  **Add Toleration to Klio Server**: Add the corresponding toleration to your
+1. **Add Toleration to Klio Server**: Add the corresponding toleration to your
     Klio `Server` resource, adding it to `.spec.template`.
     This allows the Klio Server to be scheduled on the tainted node.
 
@@ -187,7 +188,8 @@ object storage without the risk of accidental modifications.
 When a WAL server is started in read-only mode:
 
 - All **read operations** (e.g., `Get`, `GetMetadata`) continue to function normally
-- All **write operations** (e.g., `Put`, `SetFirstRequiredWAL`, `RequestWALStart`, `ResetWALStream`) are rejected with a `FailedPrecondition` gRPC error
+- All **write operations** (e.g., `Put`, `SetFirstRequiredWAL`, `RequestWALStart`,
+  `ResetWALStream`) are rejected with a `FailedPrecondition` gRPC error
 - The server will return error code `3` (FailedPrecondition) for any write attempt
 
 This ensures data integrity in distributed backup scenarios where secondary sites
