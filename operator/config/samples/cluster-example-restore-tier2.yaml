@@ -50,4 +50,5 @@ spec:
   clientSecretName: cluster-restore-klio-user
   serverSecretName: server-sample-tls
   clusterName: cluster-example
-  tier2: true
+  tier2:
+    enableRecovery: true

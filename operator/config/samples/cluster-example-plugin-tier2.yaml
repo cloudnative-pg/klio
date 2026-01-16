@@ -5,7 +5,7 @@ metadata:
 spec:
   instances: 3
   imagePullPolicy: Always
-  
+
   postgresql:
     pg_hba:
       - local replication all peer
@@ -51,3 +51,7 @@ spec:
   tier1:
     retention:
       keepAnnual: 1
+  tier2:
+    enableBackup: true
+    retention:
+      keepAnnual: 2

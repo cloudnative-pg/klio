@@ -153,32 +153,21 @@ func (r *RecoverySourceReconciler) reconcileStatefulSet(
 					},
 					Containers: []corev1.Container{
 						{
-							Name: "tier2-base",
+							Name: "server",
 							Args: []string{
-								"tier2",
-								"start-base",
+								"server",
+								"start",
+								"--tier1=false",
+								"--tier2=true",
 							},
 							Image:           recoverySource.Spec.Image,
 							ImagePullPolicy: recoverySource.Spec.ImagePullPolicy,
-							Env:             newRecoverySourceEnvBuilder(recoverySource).addCommonEnvs().addTier2BaseEnvs().build(),
+							Env:             newRecoverySourceEnvBuilder(recoverySource).addCommonEnvs().build(),
 							Ports: []corev1.ContainerPort{
 								{Name: "tier2-base", ContainerPort: 51516, Protocol: corev1.ProtocolTCP},
-							},
-							VolumeMounts: volumeMounts,
-						},
-						{
-							Name: "tier2-wal",
-							Args: []string{
-								"tier2",
-								"start-wal",
-							},
-							Image:           recoverySource.Spec.Image,
-							ImagePullPolicy: recoverySource.Spec.ImagePullPolicy,
-							Env:             newRecoverySourceEnvBuilder(recoverySource).addCommonEnvs().addTier2WalEnvs().build(),
-							VolumeMounts:    volumeMounts,
-							Ports: []corev1.ContainerPort{
 								{Name: "tier2-wal", ContainerPort: 52001, Protocol: corev1.ProtocolTCP},
 							},
+							VolumeMounts: volumeMounts,
 						},
 					},
 					Volumes: volumes,

@@ -49,38 +49,13 @@ func (e *envBuilder) addInitEnvs() *envBuilder {
 	return e
 }
 
-func (e *envBuilder) addBaseEnvs() *envBuilder {
+func (e *envBuilder) addServerEnvs() *envBuilder {
 	e.builtEnvs = append(e.builtEnvs, corev1.EnvVar{Name: "CONTAINER_NAME", Value: "base"})
-	return e
-}
-
-func (e *envBuilder) addWalEnvs() *envBuilder {
-	e.builtEnvs = append(e.builtEnvs, corev1.EnvVar{Name: "CONTAINER_NAME", Value: "wal"})
 	return e
 }
 
 func (e *envBuilder) addTier2InitEnvs() *envBuilder {
 	e.builtEnvs = append(e.builtEnvs, corev1.EnvVar{Name: "CONTAINER_NAME", Value: "tier2-init"})
-	return e
-}
-
-func (e *envBuilder) addTier2WalConsumerEnvs() *envBuilder {
-	e.builtEnvs = append(e.builtEnvs, corev1.EnvVar{Name: "CONTAINER_NAME", Value: "tier2-wal-consumer"})
-	return e
-}
-
-func (e *envBuilder) addTier2BackupConsumerEnvs() *envBuilder {
-	e.builtEnvs = append(e.builtEnvs, corev1.EnvVar{Name: "CONTAINER_NAME", Value: "tier2-backup-consumer"})
-	return e
-}
-
-func (e *envBuilder) addTier2BaseEnvs() *envBuilder {
-	e.builtEnvs = append(e.builtEnvs, corev1.EnvVar{Name: "CONTAINER_NAME", Value: "tier2-base"})
-	return e
-}
-
-func (e *envBuilder) addTier2WalEnvs() *envBuilder {
-	e.builtEnvs = append(e.builtEnvs, corev1.EnvVar{Name: "CONTAINER_NAME", Value: "tier2-wal"})
 	return e
 }
 

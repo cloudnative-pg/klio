@@ -37,7 +37,7 @@ type BackupOptions struct {
 	CacheDirectory string
 
 	// The tier1 encryption password (LEO: why?)
-	Tier1EncryptionPassword string
+	Tier1EncryptionKey string
 }
 
 // NewBackup creates a new Backup consumer.

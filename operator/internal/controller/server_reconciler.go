@@ -51,6 +51,18 @@ func (r *ServerReconciler) reconcileStatefulSet(ctx context.Context, server *kli
 	volumes := r.buildVolumes(server)
 	volumeMounts := r.buildVolumeMounts(server)
 
+	// Build container ports - always include tier1 ports, add tier2 ports if tier2 is enabled
+	containerPorts := []corev1.ContainerPort{
+		{Name: "base", ContainerPort: 51515, Protocol: corev1.ProtocolTCP},
+		{Name: "wal", ContainerPort: 52000, Protocol: corev1.ProtocolTCP},
+	}
+	if server.Spec.Tier2 != nil {
+		containerPorts = append(containerPorts,
+			corev1.ContainerPort{Name: "tier2-base", ContainerPort: 51516, Protocol: corev1.ProtocolTCP},
+			corev1.ContainerPort{Name: "tier2-wal", ContainerPort: 52001, Protocol: corev1.ProtocolTCP},
+		)
+	}
+
 	expected := &appsv1.StatefulSet{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      klioName,
@@ -104,32 +116,18 @@ func (r *ServerReconciler) reconcileStatefulSet(ctx context.Context, server *kli
 					},
 					Containers: []corev1.Container{
 						{
-							Name: "base",
+							Name: "server",
 							Args: []string{
 								"server",
-								"start-base",
+								"start",
+								"--tier1=true",
+								"--tier2=" + strconv.FormatBool(server.Spec.Tier2 != nil),
 							},
 							Image:           server.Spec.Image,
 							ImagePullPolicy: server.Spec.ImagePullPolicy,
 							VolumeMounts:    volumeMounts,
-							Ports: []corev1.ContainerPort{
-								{Name: "base", ContainerPort: 51515, Protocol: corev1.ProtocolTCP},
-							},
-							Env: newServerEnvBuilder(server).addCommonEnvs().addBaseEnvs().build(),
-						},
-						{
-							Name: "wal",
-							Args: []string{
-								"server",
-								"start-wal",
-							},
-							Image:           server.Spec.Image,
-							ImagePullPolicy: server.Spec.ImagePullPolicy,
-							Ports: []corev1.ContainerPort{
-								{Name: "wal", ContainerPort: 52000, Protocol: corev1.ProtocolTCP},
-							},
-							Env:          newServerEnvBuilder(server).addCommonEnvs().addWalEnvs().build(),
-							VolumeMounts: volumeMounts,
+							Ports:           containerPorts,
+							Env:             newServerEnvBuilder(server).addCommonEnvs().addServerEnvs().build(),
 						},
 					},
 					Volumes: volumes,
@@ -244,7 +242,7 @@ func injectQueueConfiguration(expected *appsv1.StatefulSet, server kliov1alpha1.
 		Spec: server.Spec.Queue.PersistentVolumeClaimTemplate,
 	})
 
-	expected.Spec.Template.Spec.Containers = append(expected.Spec.Template.Spec.Containers,
+	expected.Spec.Template.Spec.InitContainers = append(expected.Spec.Template.Spec.InitContainers,
 		corev1.Container{
 			Name:  "nats",
 			Image: server.Spec.Image,
@@ -266,6 +264,7 @@ func injectQueueConfiguration(expected *appsv1.StatefulSet, server kliov1alpha1.
 					MountPath: "/queue",
 				},
 			},
+			RestartPolicy: ptr.To(corev1.ContainerRestartPolicyAlways),
 		},
 	)
 }
@@ -345,72 +344,6 @@ func injectTier2Containers(
 			ImagePullPolicy: server.Spec.ImagePullPolicy,
 			Env:             newServerEnvBuilder(server).addCommonEnvs().addTier2InitEnvs().build(),
 			VolumeMounts:    volumeMounts,
-		},
-	)
-
-	ss.Spec.Template.Spec.Containers = append(
-		ss.Spec.Template.Spec.Containers,
-		corev1.Container{
-			Name: "tier2-wal-consumer",
-			Args: []string{
-				"tier2",
-				"wal-consumer",
-			},
-			Image:           server.Spec.Image,
-			ImagePullPolicy: server.Spec.ImagePullPolicy,
-			Env:             newServerEnvBuilder(server).addCommonEnvs().addTier2WalConsumerEnvs().build(),
-			VolumeMounts:    volumeMounts,
-		},
-	)
-
-	ss.Spec.Template.Spec.Containers = append(
-		ss.Spec.Template.Spec.Containers,
-		corev1.Container{
-			Name: "tier2-backup-consumer",
-			Args: []string{
-				"tier2",
-				"backup-consumer",
-			},
-			Image:           server.Spec.Image,
-			ImagePullPolicy: server.Spec.ImagePullPolicy,
-			Env:             newServerEnvBuilder(server).addCommonEnvs().addTier2BackupConsumerEnvs().build(),
-			VolumeMounts:    volumeMounts,
-		},
-	)
-
-	ss.Spec.Template.Spec.Containers = append(
-		ss.Spec.Template.Spec.Containers,
-		corev1.Container{
-			Name: "tier2-base",
-			Args: []string{
-				"tier2",
-				"start-base",
-			},
-			Image:           server.Spec.Image,
-			ImagePullPolicy: server.Spec.ImagePullPolicy,
-			Env:             newServerEnvBuilder(server).addCommonEnvs().addTier2BaseEnvs().build(),
-			Ports: []corev1.ContainerPort{
-				{Name: "tier2-base", ContainerPort: 51516, Protocol: corev1.ProtocolTCP},
-			},
-			VolumeMounts: volumeMounts,
-		},
-	)
-
-	ss.Spec.Template.Spec.Containers = append(
-		ss.Spec.Template.Spec.Containers,
-		corev1.Container{
-			Name: "tier2-wal",
-			Args: []string{
-				"tier2",
-				"start-wal",
-			},
-			Image:           server.Spec.Image,
-			ImagePullPolicy: server.Spec.ImagePullPolicy,
-			Env:             newServerEnvBuilder(server).addCommonEnvs().addTier2WalEnvs().build(),
-			VolumeMounts:    volumeMounts,
-			Ports: []corev1.ContainerPort{
-				{Name: "tier2-wal", ContainerPort: 52001, Protocol: corev1.ProtocolTCP},
-			},
 		},
 	)
 }
