@@ -20,9 +20,6 @@ const kopiaCommand = "kopia"
 
 // Config contains the information required to start up a Kopia server.
 type Config struct {
-	// EncryptionPassword is the repository encryption password
-	EncryptionPassword string
-
 	// CacheDirectory is used by the Kopia server to cache blobs.
 	// This is important for remote repositories.
 	CacheDirectory string
@@ -46,7 +43,7 @@ func start(ctx context.Context, configFile string, cfg *Config, tls *config.TLSC
 	}
 
 	// Enable ACLs
-	enableACLs(ctx, kopiaBinary, configFile, cfg.EncryptionPassword)
+	enableACLs(ctx, kopiaBinary, configFile)
 
 	// Create observable uptime metric
 	serverStartTime := time.Now()
@@ -66,7 +63,6 @@ func start(ctx context.Context, configFile string, cfg *Config, tls *config.TLSC
 	// Start the snapshot metrics collector
 	metricsCollector, err := newSnapshotMetricsCollector(
 		configFile,
-		cfg.EncryptionPassword,
 		time.Minute,
 		contextLogger)
 	if err != nil {

@@ -45,9 +45,8 @@ func StartTier1(
 	}
 
 	kopiaCfg := Config{
-		EncryptionPassword: cfg.EncryptionKey,
-		CacheDirectory:     cacheDir,
-		ListenAddress:      cfg.Base.ListenAddress,
+		CacheDirectory: cacheDir,
+		ListenAddress:  cfg.Base.ListenAddress,
 	}
 
 	return start(ctx, configFile.Name(), &kopiaCfg, tls)

@@ -2,66 +2,42 @@ package kopiaserver
 
 import (
 	"context"
-	"os/exec"
-	"strings"
 
 	"github.com/cloudnative-pg/machinery/pkg/log"
+
+	"github.com/cloudnative-pg/klio/core/internal/kopia"
 )
 
-const aclEnabledMatchStr = "ACLs already enabled"
-
-func enableACLs(ctx context.Context, kopiaBinary string, configFileName string, password string) {
+func enableACLs(ctx context.Context, kopiaBinary string, configFileName string) {
 	contextLogger := log.FromContext(ctx)
 
-	kopiaArgs := []string{
-		"--config-file=" + configFileName,
-		"--log-dir=/tmp",
-		"server",
-		"acl",
-		"enable",
+	client := &kopia.Client{
+		ConfigFile:  configFileName,
+		KopiaBinary: kopiaBinary,
 	}
 
-	//nolint:gosec
-	cmd := exec.CommandContext(ctx, kopiaBinary, kopiaArgs...)
-	cmd.Env = []string{"KOPIA_PASSWORD=" + password}
-
-	output, err := cmd.CombinedOutput()
+	alreadyEnabled, err := client.EnableACL(ctx)
 	if err != nil {
-		if isACLsEnabled(string(output)) {
-			contextLogger.Info(aclEnabledMatchStr, "configFileName", configFileName)
-		} else {
-			contextLogger.Error(err, "failed to execute ACLs enablement:")
-			return
-		}
+		contextLogger.Error(err, "failed to execute ACLs enablement")
+		return
+	}
+
+	if alreadyEnabled {
+		contextLogger.Info("ACLs already enabled", "configFileName", configFileName)
 	} else {
 		contextLogger.Info("ACLs enabled", "configFileName", configFileName)
 	}
 
-	kopiaArgs = []string{
-		"--config-file=" + configFileName,
-		"--log-dir=/tmp",
-		"server",
-		"acl",
-		"add",
-		"--overwrite",
-		"--access=READ",
-		"--target=type=snapshot",
-		"--user=snapshot_reader@klio",
-	}
-
-	//nolint:gosec
-	cmd = exec.CommandContext(ctx, kopiaBinary, kopiaArgs...)
-	cmd.Env = []string{"KOPIA_PASSWORD=" + password}
-
-	err = cmd.Run()
+	err = client.AddACLUser(ctx, kopia.AddACLUserOptions{
+		User:      "snapshot_reader@klio",
+		Access:    "READ",
+		Target:    "type=snapshot",
+		Overwrite: true,
+	})
 	if err != nil {
-		contextLogger.Error(err, "failed to add snapshot_reader to ACLs:")
+		contextLogger.Error(err, "failed to add snapshot_reader to ACLs")
 		return
 	}
 
 	contextLogger.Info("User snapshot_reader added to ACLs", "configFileName", configFileName)
-}
-
-func isACLsEnabled(output string) bool {
-	return strings.Contains(output, aclEnabledMatchStr)
 }

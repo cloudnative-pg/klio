@@ -106,7 +106,6 @@ func newSnapshotMetrics() (*SnapshotMetrics, error) {
 // SnapshotMetricsCollector periodically collects Kopia snapshot metrics.
 type SnapshotMetricsCollector struct {
 	metrics  *SnapshotMetrics
-	password string
 	interval time.Duration
 	logger   log.Logger
 	stopCh   chan struct{}
@@ -115,7 +114,7 @@ type SnapshotMetricsCollector struct {
 
 // newSnapshotMetricsCollector creates a new snapshot metrics collector.
 func newSnapshotMetricsCollector(
-	configPath, password string, interval time.Duration, logger log.Logger,
+	configPath string, interval time.Duration, logger log.Logger,
 ) (*SnapshotMetricsCollector, error) {
 	metrics, err := newSnapshotMetrics()
 	if err != nil {
@@ -129,7 +128,6 @@ func newSnapshotMetricsCollector(
 
 	return &SnapshotMetricsCollector{
 		metrics:  metrics,
-		password: password,
 		interval: interval,
 		logger:   logger,
 		stopCh:   make(chan struct{}),

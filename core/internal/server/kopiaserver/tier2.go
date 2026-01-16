@@ -47,10 +47,9 @@ func StartTier2(
 	}
 
 	kopiaServerConfig := Config{
-		EncryptionPassword: tier2Config.EncryptionKey,
-		CacheDirectory:     tier2CacheDir,
-		ListenAddress:      tier2Config.BaseListenAddress,
-		ReadOnly:           true,
+		CacheDirectory: tier2CacheDir,
+		ListenAddress:  tier2Config.BaseListenAddress,
+		ReadOnly:       true,
 	}
 
 	return start(ctx, configFile.Name(), &kopiaServerConfig, tls)
