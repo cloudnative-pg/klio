@@ -182,8 +182,8 @@ func (e *envBuilder) getTier2EnvVars() []corev1.EnvVar {
 
 	if e.tier1 != nil {
 		result = append(result, corev1.EnvVar{
-			Name:  "TIER1_WAL_NATS_ADDRESS",
-			Value: "127.0.0.1:4222",
+			Name:  "QUEUE_DIRECTORY",
+			Value: "/queue",
 		})
 	}
 

@@ -21,7 +21,8 @@ import (
 
 // Tier2WALServer manages the tier 2 WAL server component.
 type Tier2WALServer struct {
-	Config *config.ServerConfig
+	Config   *config.ServerConfig
+	QueueURL string
 }
 
 // Serve starts the tier 2 WAL server and handles incoming requests.
@@ -51,6 +52,7 @@ func (s *Tier2WALServer) Serve(ctx context.Context) error {
 		tier2RepoConnection,
 		&walServerConfiguration,
 		&s.Config.TLS,
+		s.QueueURL,
 	); err != nil {
 		return fmt.Errorf("while starting the WAL server: %w", err)
 	}
@@ -106,7 +108,8 @@ func (s *Tier2KopiaServer) String() string {
 
 // Tier2BackupConsumer manages the tier 2 backup consumer that processes backup tasks from the queue.
 type Tier2BackupConsumer struct {
-	Config *config.ServerConfig
+	Config   *config.ServerConfig
+	QueueURL string
 }
 
 // Serve starts the tier 2 backup consumer and processes backup tasks from the queue.
@@ -166,7 +169,7 @@ func (s *Tier2BackupConsumer) Serve(ctx context.Context) error {
 
 	// Connect to NATS
 	natsConnection, err := nats.Connect(
-		s.Config.Tier1.Wal.NATSAddress,
+		s.QueueURL,
 		nats.RetryOnFailedConnect(true),
 		nats.ReconnectWait(1*time.Second),
 	)
@@ -175,7 +178,7 @@ func (s *Tier2BackupConsumer) Serve(ctx context.Context) error {
 	}
 	queueConnection, err := queue.New(ctx, natsConnection)
 	if err != nil {
-		return fmt.Errorf("error while setting up the NATS server: %w", err)
+		return fmt.Errorf("error while configuring NATS: %w", err)
 	}
 
 	// Starts the consumer
@@ -203,7 +206,8 @@ func (s *Tier2BackupConsumer) String() string {
 
 // Tier2WALConsumer manages the tier 2 WAL consumer that processes WAL tasks from the queue.
 type Tier2WALConsumer struct {
-	Config *config.ServerConfig
+	Config   *config.ServerConfig
+	QueueURL string
 }
 
 // Serve starts the tier 2 WAL consumer and processes WAL tasks from the queue.
@@ -236,7 +240,7 @@ func (s *Tier2WALConsumer) Serve(ctx context.Context) error {
 
 	// Connect to NATS
 	natsConnection, err := nats.Connect(
-		s.Config.Tier1.Wal.NATSAddress,
+		s.QueueURL,
 		nats.RetryOnFailedConnect(true),
 		nats.ReconnectWait(1*time.Second),
 	)
@@ -245,7 +249,7 @@ func (s *Tier2WALConsumer) Serve(ctx context.Context) error {
 	}
 	queueConnection, err := queue.New(ctx, natsConnection)
 	if err != nil {
-		return fmt.Errorf("error while setting up the NATS server: %w", err)
+		return fmt.Errorf("error while configuring NATS: %w", err)
 	}
 
 	// Starts the consumer

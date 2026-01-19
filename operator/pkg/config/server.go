@@ -11,6 +11,10 @@ type ServerConfig struct {
 
 	// Tier2Config is the Tier 2 configuration
 	Tier2 Tier2Config `mapstructure:"tier2"`
+
+	// QueueDirectory is the directory where the persistent queue
+	// messages will be stored.
+	QueueDirectory string `mapstructure:"queue_directory"`
 }
 
 // TLSConfig is the TLS configuration of the server.
@@ -77,9 +81,6 @@ type WalServerConfig struct {
 
 	// WALPath is the path where the WALs should be stored
 	WALPath string `json:"path" mapstructure:"path"`
-
-	// NATSAddress is the address where the NATS server can be reached.
-	NATSAddress string `mapstructure:"nats_address"`
 }
 
 // S3Configuration is the configuration to a S3 defined tier 2.

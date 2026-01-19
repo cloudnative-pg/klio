@@ -49,6 +49,22 @@ var startCmd = &cobra.Command{
 			},
 		})
 
+		// Configure NATS
+		var queueURL string
+		if tier1Enabled && tier2Enabled {
+			if configuration.QueueDirectory == "" {
+				return errors.New("queue is required when both tier1 and tier2 are enabled")
+			}
+
+			nats, err := server.NewNatsService(configuration.QueueDirectory)
+			if err != nil {
+				return err
+			}
+
+			queueURL = nats.ClientURL()
+			klio.Add(nats)
+		}
+
 		// Configure tier1
 		if tier1Enabled {
 			if err := configuration.RequireTier1(); err != nil {
@@ -60,7 +76,8 @@ var startCmd = &cobra.Command{
 				Config: &configuration,
 			})
 			tier1.Add(&server.Tier1WALServer{
-				Config: &configuration,
+				Config:   &configuration,
+				QueueURL: queueURL,
 			})
 			klio.Add(tier1)
 		}
@@ -79,10 +96,12 @@ var startCmd = &cobra.Command{
 				Config: &configuration,
 			})
 			tier2.Add(&server.Tier2BackupConsumer{
-				Config: &configuration,
+				Config:   &configuration,
+				QueueURL: queueURL,
 			})
 			tier2.Add(&server.Tier2WALConsumer{
-				Config: &configuration,
+				Config:   &configuration,
+				QueueURL: queueURL,
 			})
 			klio.Add(tier2)
 		}

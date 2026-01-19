@@ -241,32 +241,6 @@ func injectQueueConfiguration(expected *appsv1.StatefulSet, server kliov1alpha1.
 		},
 		Spec: server.Spec.Queue.PersistentVolumeClaimTemplate,
 	})
-
-	expected.Spec.Template.Spec.InitContainers = append(expected.Spec.Template.Spec.InitContainers,
-		corev1.Container{
-			Name:  "nats",
-			Image: server.Spec.Image,
-			Command: []string{
-				"/usr/bin/nats-server",
-			},
-			Args: []string{
-				"-a",
-				"127.0.0.1",
-				"-p",
-				"4222",
-				"-js",
-				"-sd",
-				"/queue",
-			},
-			VolumeMounts: []corev1.VolumeMount{
-				{
-					Name:      "queue",
-					MountPath: "/queue",
-				},
-			},
-			RestartPolicy: ptr.To(corev1.ContainerRestartPolicyAlways),
-		},
-	)
 }
 
 func enablePProf(containers []corev1.Container) {

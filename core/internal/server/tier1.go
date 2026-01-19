@@ -15,7 +15,8 @@ import (
 
 // Tier1WALServer manages the tier 1 WAL server component.
 type Tier1WALServer struct {
-	Config *config.ServerConfig
+	Config   *config.ServerConfig
+	QueueURL string
 }
 
 // Serve starts the tier 1 WAL server and handles incoming requests.
@@ -38,6 +39,7 @@ func (s *Tier1WALServer) Serve(ctx context.Context) error {
 		repoConnection,
 		&s.Config.Tier1.Wal,
 		&s.Config.TLS,
+		s.QueueURL,
 	); err != nil {
 		return fmt.Errorf("while starting the WAL server: %w", err)
 	}

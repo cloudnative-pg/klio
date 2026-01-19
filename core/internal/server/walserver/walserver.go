@@ -29,6 +29,7 @@ func Start(
 	repoConnection *repository.Connection,
 	walServerConfiguration *config.WalServerConfig,
 	tlsConfiguration *config.TLSConfig,
+	queueURL string,
 ) error {
 	logger := log.FromContext(ctx)
 
@@ -79,9 +80,9 @@ func Start(
 	}
 
 	var queueConnection *queue.Conn
-	if walServerConfiguration.NATSAddress != "" {
+	if queueURL != "" {
 		natsConnection, err := nats.Connect(
-			walServerConfiguration.NATSAddress,
+			queueURL,
 			nats.RetryOnFailedConnect(true),
 			nats.ReconnectWait(1*time.Second),
 		)
@@ -93,7 +94,7 @@ func Start(
 			return fmt.Errorf("error while setting up the queue: %w", err)
 		}
 
-		logger.Info("NATS server available", "address", walServerConfiguration.NATSAddress)
+		logger.Info("NATS server available", "address", queueURL)
 	}
 
 	server := grpc.NewServer(opts...)
