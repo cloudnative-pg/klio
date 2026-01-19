@@ -51,7 +51,7 @@ func internalConnect(
 		return nil, fmt.Errorf("while writing a temporary Kopia config: %w", err)
 	}
 
-	certificateFingerprint, err := extractSHA256CertificateFingerprint(
+	certificateFingerprint, err := kopia.ExtractSHA256CertificateFingerprint(
 		kopiaClientConfig.ServerCertPath)
 	if err != nil {
 		return nil, fmt.Errorf("error while extracting fingerprint of the kopia server certificate: %w", err)

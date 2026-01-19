@@ -25,6 +25,12 @@ type ServerOptions struct {
 
 	// ReadOnly indicates whether the server should operate in read-only mode.
 	ReadOnly bool
+
+	// ServerControlUser is the username for server control operations.
+	ServerControlUser string
+
+	// ServerControlPassword is the password for server control operations.
+	ServerControlPassword string
 }
 
 // RunServer starts a Kopia server with the provided options.
@@ -47,13 +53,76 @@ func (s *Client) RunServer(ctx context.Context, opts ServerOptions) error {
 		args = append(args, "--readonly")
 	}
 
+	env := os.Environ()
+	// Note: Kopia's 'server start' command uses KOPIA_SERVER_CONTROL_* variables
+	if opts.ServerControlUser != "" {
+		env = append(env, "KOPIA_SERVER_CONTROL_USER="+opts.ServerControlUser)
+	}
+	if opts.ServerControlPassword != "" {
+		env = append(env, "KOPIA_SERVER_CONTROL_PASSWORD="+opts.ServerControlPassword)
+	}
+
 	kopiaServer := exec.CommandContext(ctx, s.KopiaBinary, args...) //nolint:gosec
 	kopiaServer.Stdout = os.Stdout
 	kopiaServer.Stderr = os.Stderr
+	kopiaServer.Env = env
+
 	contextLogger.Info("Starting Kopia server", "args", kopiaServer.Args)
 
 	if err := kopiaServer.Run(); err != nil {
 		return fmt.Errorf("while running the kopia server: %w", err)
+	}
+
+	return nil
+}
+
+// RefreshServerOptions contains the configuration options for refreshing a Kopia server.
+type RefreshServerOptions struct {
+	// ServerControlUser is the username for server control authentication.
+	ServerControlUser string
+
+	// ServerControlPassword is the password for server control authentication.
+	ServerControlPassword string
+
+	// ServerCertFingerprint is the SHA256 fingerprint of the server's certificate.
+	ServerCertFingerprint string
+
+	// Address is the address of the Kopia server to refresh.
+	Address string
+}
+
+// RefreshServer triggers a repository refresh on a running Kopia server.
+func (s *Client) RefreshServer(ctx context.Context, opts RefreshServerOptions) error {
+	contextLogger := log.FromContext(ctx)
+
+	// Trigger repository refresh on the Kopia server
+	args := []string{
+		"server", "refresh",
+		"--address=" + opts.Address,
+		"--disable-file-logging",
+		"--json-log-console",
+		"--server-cert-fingerprint=" + opts.ServerCertFingerprint,
+	}
+
+	env := os.Environ()
+	// Note: Kopia's 'server refresh' command uses KOPIA_SERVER_USERNAME/PASSWORD
+	// (different from 'server start' which uses KOPIA_SERVER_CONTROL_*)
+	if opts.ServerControlUser != "" {
+		env = append(env, "KOPIA_SERVER_USERNAME="+opts.ServerControlUser)
+	}
+	if opts.ServerControlPassword != "" {
+		env = append(env, "KOPIA_SERVER_PASSWORD="+opts.ServerControlPassword)
+	}
+
+	kopiaServer := exec.CommandContext(ctx, s.KopiaBinary, args...) //nolint:gosec
+	kopiaServer.Stdout = os.Stdout
+	kopiaServer.Stderr = os.Stderr
+	kopiaServer.Env = env
+
+	contextLogger.Info("Refreshing kopia server", "args", kopiaServer.Args)
+
+	if err := kopiaServer.Run(); err != nil {
+		return fmt.Errorf("while refreshing the kopia server: %w", err)
 	}
 
 	return nil

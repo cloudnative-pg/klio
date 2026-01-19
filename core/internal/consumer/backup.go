@@ -36,8 +36,20 @@ type BackupOptions struct {
 	// The cache directory
 	CacheDirectory string
 
-	// The tier1 encryption password (LEO: why?)
+	// The tier1 encryption key (LEO: why?)
 	Tier1EncryptionKey string
+
+	// RunID is the unique identifier for this server run.
+	RunID string
+
+	// RunSecret is the secret credential for server control operations.
+	RunSecret string
+
+	// Tier2ServerAddress is the address of the tier 2 Kopia server.
+	Tier2ServerAddress string
+
+	// Tier2ServerCertificateFingerprint is the SHA256 fingerprint of the tier 2 server certificate.
+	Tier2ServerCertificateFingerprint string
 }
 
 // NewBackup creates a new Backup consumer.
@@ -84,7 +96,7 @@ func (d *Backup) backupHandler(ctx context.Context, task *queue.BackupTask) erro
 
 	sources := sourceInfoListToDescriptors(entries)
 
-	err = d.tier2Kopia.MigrateSnapshots(ctx, kopia.SnapshotMigrateOpts{
+	if err := d.tier2Kopia.MigrateSnapshots(ctx, kopia.SnapshotMigrateOpts{
 		SourceConfig: d.opts.Tier1KopiaConfig,
 		Sources:      sources,
 		Tags: []string{
@@ -92,8 +104,7 @@ func (d *Backup) backupHandler(ctx context.Context, task *queue.BackupTask) erro
 			klioclient.BackupContentTagName,
 			klioclient.BackupNameTagName,
 		},
-	})
-	if err != nil {
+	}); err != nil {
 		return err
 	}
 
@@ -112,13 +123,25 @@ func (d *Backup) backupHandler(ctx context.Context, task *queue.BackupTask) erro
 		}
 	}
 
-	return d.tier2Kopia.ApplyKopiaPolicy(
+	if err := d.tier2Kopia.ApplyKopiaPolicy(
 		ctx,
 		kopia.Target{
 			Username: userName,
 			Hostname: task.ClusterName,
 		},
-	)
+	); err != nil {
+		return err
+	}
+
+	// Refresh the tier 2 server cache to ensure it has the latest manifests.
+	// Note: We log but don't fail on refresh errors because the backup migration
+	// has already succeeded. Failing here would cause unnecessary retries of the
+	// entire migration, which is wasteful since the data is already safe.
+	if err := d.refreshTier2KopiaServer(ctx); err != nil {
+		contextLogger.Error(err, "Error while refreshing Kopia server cache, skipping")
+	}
+
+	return nil
 }
 
 // ListBackups list all Kopia sources for a specified cluster.
@@ -147,4 +170,15 @@ func sourceInfoListToDescriptors(entries []kopia.SourceInfo) []string {
 	}
 
 	return result.ToSortedList()
+}
+
+// refreshTier2KopiaServer makes sure the tier 2 kopia server
+// has downloaded the latest manifests from the object store.
+func (d *Backup) refreshTier2KopiaServer(ctx context.Context) error {
+	return d.tier2Kopia.RefreshServer(ctx, kopia.RefreshServerOptions{
+		ServerControlUser:     d.opts.RunID,
+		ServerControlPassword: d.opts.RunSecret,
+		ServerCertFingerprint: d.opts.Tier2ServerCertificateFingerprint,
+		Address:               d.opts.Tier2ServerAddress,
+	})
 }

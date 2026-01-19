@@ -31,6 +31,14 @@ type Config struct {
 	// ReadOnly is true when the server should deny write access,
 	// avoiding accidental changes.
 	ReadOnly bool
+
+	// Kopia server control username. This credential can be used
+	// to access the REST control API.
+	ServerControlUser string
+
+	// Kopia server control password. This credential can be used
+	// to access the REST control API.
+	ServerControlPassword string
 }
 
 // start runs a Kopia server with the passed configuration.
@@ -78,11 +86,13 @@ func start(ctx context.Context, configFile string, cfg *Config, tls *config.TLSC
 	}
 
 	if err := wrapper.RunServer(ctx, kopia.ServerOptions{
-		TLSCert:          tls.TLSCert,
-		TLSKey:           tls.TLSKey,
-		ClientCACertFile: tls.ClientCACertFile,
-		ListenAddress:    cfg.ListenAddress,
-		ReadOnly:         cfg.ReadOnly,
+		TLSCert:               tls.TLSCert,
+		TLSKey:                tls.TLSKey,
+		ClientCACertFile:      tls.ClientCACertFile,
+		ListenAddress:         cfg.ListenAddress,
+		ReadOnly:              cfg.ReadOnly,
+		ServerControlUser:     cfg.ServerControlUser,
+		ServerControlPassword: cfg.ServerControlPassword,
 	}); err != nil {
 		return fmt.Errorf("while starting the kopia server: %w", err)
 	}

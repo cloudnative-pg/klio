@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/cloudnative-pg/machinery/pkg/log"
+	"github.com/google/uuid"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"github.com/thejerf/suture/v4"
@@ -22,6 +23,11 @@ var startCmd = &cobra.Command{
 	RunE: func(cmd *cobra.Command, _ []string) error {
 		var configuration config.ServerConfig
 		contextLogger := log.FromContext(cmd.Context())
+
+		// Generate a unique run-id for this server invocation
+		runID := uuid.New()
+		runSecret := uuid.New()
+		contextLogger.Info("Starting Klio server", "run-id", runID.String())
 
 		// IMPORTANT: this requires this program to be built with "-tags viper_bind_struct"
 		// when using environment variables
@@ -73,7 +79,9 @@ var startCmd = &cobra.Command{
 
 			tier1 := suture.NewSimple("tier1")
 			tier1.Add(&server.Tier1KopiaServer{
-				Config: &configuration,
+				Config:    &configuration,
+				RunID:     runID.String(),
+				RunSecret: runSecret.String(),
 			})
 			tier1.Add(&server.Tier1WALServer{
 				Config:   &configuration,
@@ -90,14 +98,18 @@ var startCmd = &cobra.Command{
 
 			tier2 := suture.NewSimple("tier2")
 			tier2.Add(&server.Tier2KopiaServer{
-				Config: &configuration,
+				Config:    &configuration,
+				RunID:     runID.String(),
+				RunSecret: runSecret.String(),
 			})
 			tier2.Add(&server.Tier2WALServer{
 				Config: &configuration,
 			})
 			tier2.Add(&server.Tier2BackupConsumer{
-				Config:   &configuration,
-				QueueURL: queueURL,
+				Config:    &configuration,
+				QueueURL:  queueURL,
+				RunID:     runID.String(),
+				RunSecret: runSecret.String(),
 			})
 			tier2.Add(&server.Tier2WALConsumer{
 				Config:   &configuration,

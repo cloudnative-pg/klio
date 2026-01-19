@@ -19,9 +19,9 @@ func (e *UnexpectedBlockTypeError) Error() string {
 	return fmt.Sprintf("unexpected PEM block type, expected:%s found:%s", e.ExpectedType, e.FoundType)
 }
 
-// extractSHA256CertificateFingerprint extracts the SHA256 certificate fingerprint
+// ExtractSHA256CertificateFingerprint extracts the SHA256 certificate fingerprint
 // of the passed certificate file.
-func extractSHA256CertificateFingerprint(certificateFile string) (string, error) {
+func ExtractSHA256CertificateFingerprint(certificateFile string) (string, error) {
 	certPEMBlock, err := os.ReadFile(certificateFile) //nolint:gosec
 	if err != nil {
 		return "", fmt.Errorf("while reading the server certificate: %w", err)

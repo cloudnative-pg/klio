@@ -11,6 +11,7 @@ import (
 	"github.com/spf13/afero"
 
 	"github.com/cloudnative-pg/klio/core/internal/consumer"
+	"github.com/cloudnative-pg/klio/core/internal/kopia"
 	"github.com/cloudnative-pg/klio/core/internal/queue"
 	"github.com/cloudnative-pg/klio/core/internal/repository"
 	"github.com/cloudnative-pg/klio/core/internal/server/kopiaserver"
@@ -66,7 +67,9 @@ func (s *Tier2WALServer) String() string {
 
 // Tier2KopiaServer manages the tier 2 Kopia server component.
 type Tier2KopiaServer struct {
-	Config *config.ServerConfig
+	Config    *config.ServerConfig
+	RunID     string
+	RunSecret string
 }
 
 // Serve starts the tier 2 Kopia server and handles backup operations.
@@ -108,8 +111,10 @@ func (s *Tier2KopiaServer) String() string {
 
 // Tier2BackupConsumer manages the tier 2 backup consumer that processes backup tasks from the queue.
 type Tier2BackupConsumer struct {
-	Config   *config.ServerConfig
-	QueueURL string
+	Config    *config.ServerConfig
+	QueueURL  string
+	RunID     string
+	RunSecret string
 }
 
 // Serve starts the tier 2 backup consumer and processes backup tasks from the queue.
@@ -178,16 +183,27 @@ func (s *Tier2BackupConsumer) Serve(ctx context.Context) error {
 	}
 	queueConnection, err := queue.New(ctx, natsConnection)
 	if err != nil {
-		return fmt.Errorf("error while configuring NATS: %w", err)
+		return fmt.Errorf("error while configuring NATS server: %w", err)
+	}
+
+	// Extract the certificate fingerprint for the tier 2 Kopia server
+	certificateFingerprint, err := kopia.ExtractSHA256CertificateFingerprint(
+		s.Config.TLS.TLSCert)
+	if err != nil {
+		return fmt.Errorf("error while extracting fingerprint of the kopia server certificate: %w", err)
 	}
 
 	// Starts the consumer
 	c, err := consumer.NewBackup(&consumer.BackupOptions{
-		Queue:              queueConnection,
-		Tier1KopiaConfig:   tier1ConfigFile.Name(),
-		Tier2KopiaConfig:   tier2ConfigFile.Name(),
-		CacheDirectory:     s.Config.Tier1.Base.CacheDirectory,
-		Tier1EncryptionKey: s.Config.Tier1.EncryptionKey,
+		Queue:                             queueConnection,
+		Tier1KopiaConfig:                  tier1ConfigFile.Name(),
+		Tier2KopiaConfig:                  tier2ConfigFile.Name(),
+		CacheDirectory:                    s.Config.Tier1.Base.CacheDirectory,
+		Tier1EncryptionKey:                s.Config.Tier1.EncryptionKey,
+		RunID:                             s.RunID,
+		RunSecret:                         s.RunSecret,
+		Tier2ServerAddress:                "https://" + s.Config.Tier2.BaseListenAddress,
+		Tier2ServerCertificateFingerprint: certificateFingerprint,
 	})
 	if err != nil {
 		return fmt.Errorf("error while creating backup consumer: %w", err)
@@ -249,7 +265,7 @@ func (s *Tier2WALConsumer) Serve(ctx context.Context) error {
 	}
 	queueConnection, err := queue.New(ctx, natsConnection)
 	if err != nil {
-		return fmt.Errorf("error while configuring NATS: %w", err)
+		return fmt.Errorf("error while setting up the NATS server: %w", err)
 	}
 
 	// Starts the consumer
