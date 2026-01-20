@@ -3,7 +3,6 @@ package kopiaserver
 import (
 	"context"
 	"fmt"
-	"os/exec"
 	"time"
 
 	"github.com/cloudnative-pg/machinery/pkg/log"
@@ -14,9 +13,6 @@ import (
 	"github.com/cloudnative-pg/klio/core/internal/opentelemetry"
 	"github.com/cloudnative-pg/klio/core/pkg/config"
 )
-
-// kopiaCommand is the name of the kopia binary.
-const kopiaCommand = "kopia"
 
 // Config contains the information required to start up a Kopia server.
 type Config struct {
@@ -45,9 +41,9 @@ type Config struct {
 func start(ctx context.Context, configFile string, cfg *Config, tls *config.TLSConfig) error {
 	contextLogger := log.FromContext(ctx)
 
-	kopiaBinary, err := exec.LookPath(kopiaCommand)
+	kopiaBinary, err := kopia.LookupBinary()
 	if err != nil {
-		return fmt.Errorf("kopia binary not found (%q): %w", kopiaCommand, err)
+		return err
 	}
 
 	// Enable ACLs

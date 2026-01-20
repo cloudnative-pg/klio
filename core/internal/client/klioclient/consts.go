@@ -1,8 +1,5 @@
 package klioclient
 
-// KopiaCommand is the name of the kopia executable to be used.
-const KopiaCommand = "kopia"
-
 // BackupNameTagName is the name of the tag containing the
 // backup name.
 const BackupNameTagName = "klio.io/tag"

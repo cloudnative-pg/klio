@@ -3,7 +3,6 @@ package kopiaserver
 import (
 	"context"
 	"fmt"
-	"os/exec"
 	"time"
 
 	"github.com/cloudnative-pg/machinery/pkg/log"
@@ -121,9 +120,9 @@ func newSnapshotMetricsCollector(
 		return nil, fmt.Errorf("failed to create snapshot metrics: %w", err)
 	}
 
-	kopiaBinary, err := exec.LookPath(kopiaCommand)
+	kopiaBinary, err := kopia.LookupBinary()
 	if err != nil {
-		return nil, fmt.Errorf("kopia binary not found: %w", err)
+		return nil, err
 	}
 
 	return &SnapshotMetricsCollector{

@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"os/exec"
 
 	"github.com/cloudnative-pg/machinery/pkg/log"
 
@@ -75,9 +74,9 @@ func InitializeTier1(ctx context.Context, cfg *config.Tier1Config) error {
 		return err
 	}
 
-	kopiaBinary, err := exec.LookPath(kopiaCommand)
+	kopiaBinary, err := kopia.LookupBinary()
 	if err != nil {
-		return fmt.Errorf("kopia binary not found (%q): %w", kopiaCommand, err)
+		return err
 	}
 
 	if err := cleanupCache(cacheDir); err != nil {
@@ -107,9 +106,9 @@ func CreateTier1KopiaConfigFile(ctx context.Context, fileName string, cfg *confi
 		return err
 	}
 
-	kopiaBinary, err := exec.LookPath(kopiaCommand)
+	kopiaBinary, err := kopia.LookupBinary()
 	if err != nil {
-		return fmt.Errorf("kopia binary not found (%q): %w", kopiaCommand, err)
+		return err
 	}
 
 	if err := kopia.ConnectFileSystem(ctx, fileName, kopia.FSRepoOpts{

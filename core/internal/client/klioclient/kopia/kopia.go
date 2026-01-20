@@ -5,13 +5,11 @@ import (
 	"crypto/tls"
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
 
 	"github.com/cloudnative-pg/machinery/pkg/log"
 
-	"github.com/cloudnative-pg/klio/core/internal/client/klioclient"
 	"github.com/cloudnative-pg/klio/core/internal/kopia"
 	"github.com/cloudnative-pg/klio/core/pkg/config"
 )
@@ -81,9 +79,9 @@ func internalConnect(
 		return nil, fmt.Errorf("error while extracting userName and HostName from client certificate: %w", err)
 	}
 
-	kopiaBinary, err := exec.LookPath(klioclient.KopiaCommand)
+	kopiaBinary, err := kopia.LookupBinary()
 	if err != nil {
-		return nil, fmt.Errorf("kopia binary not found (%q): %w", klioclient.KopiaCommand, err)
+		return nil, err
 	}
 
 	// This is a cache directory to speed up backup uploads.

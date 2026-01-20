@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"os/exec"
 	"os/signal"
 
 	"github.com/cloudnative-pg/machinery/pkg/log"
@@ -54,9 +53,9 @@ type BackupOptions struct {
 
 // NewBackup creates a new Backup consumer.
 func NewBackup(opts *BackupOptions) (*Backup, error) {
-	kopiaBinary, err := exec.LookPath(klioclient.KopiaCommand)
+	kopiaBinary, err := kopia.LookupBinary()
 	if err != nil {
-		return nil, fmt.Errorf("kopia binary not found (%q): %w", klioclient.KopiaCommand, err)
+		return nil, err
 	}
 
 	return &Backup{

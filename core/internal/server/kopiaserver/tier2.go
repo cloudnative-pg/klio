@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"os/exec"
 
 	"github.com/cloudnative-pg/machinery/pkg/log"
 
@@ -69,9 +68,9 @@ func InitializeTier2(ctx context.Context, cfg *config.Tier2Config) error {
 		return err
 	}
 
-	kopiaBinary, err := exec.LookPath(kopiaCommand)
+	kopiaBinary, err := kopia.LookupBinary()
 	if err != nil {
-		return fmt.Errorf("kopia binary not found (%q): %w", kopiaCommand, err)
+		return err
 	}
 
 	if err := kopia.InitializeS3(ctx, kopia.S3RepoOpts{
@@ -103,9 +102,9 @@ func CreateTier2KopiaConfigFile(ctx context.Context, fileName string, cfg *confi
 		return err
 	}
 
-	kopiaBinary, err := exec.LookPath(kopiaCommand)
+	kopiaBinary, err := kopia.LookupBinary()
 	if err != nil {
-		return fmt.Errorf("kopia binary not found (%q): %w", kopiaCommand, err)
+		return err
 	}
 
 	if err := kopia.ConnectS3(ctx, fileName, kopia.S3RepoOpts{

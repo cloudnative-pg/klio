@@ -1,5 +1,24 @@
 package kopia
 
+import (
+	"fmt"
+	"os/exec"
+)
+
+// Binary is name of the Kopia executable.
+const Binary = "kopia"
+
+// LookupBinary finds the Kopia binary in the system PATH and returns its absolute path.
+// Returns an error if the binary is not found.
+func LookupBinary() (string, error) {
+	kopiaBinary, err := exec.LookPath(Binary)
+	if err != nil {
+		return "", fmt.Errorf("kopia binary not found (%q): %w", Binary, err)
+	}
+
+	return kopiaBinary, nil
+}
+
 // Client is a wrapper around the Kopia CLI.
 type Client struct {
 	// ConfigFile is the path to the Kopia configuration file.
