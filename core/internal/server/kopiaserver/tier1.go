@@ -48,13 +48,7 @@ func StartTier1(
 		return err
 	}
 
-	cacheDir, err := getTier1CacheDirectory(&cfg.Base)
-	if err != nil {
-		return err
-	}
-
 	kopiaCfg := Config{
-		CacheDirectory:        cacheDir,
 		ListenAddress:         cfg.Base.ListenAddress,
 		ServerControlUser:     serverControl.User,
 		ServerControlPassword: serverControl.Password,

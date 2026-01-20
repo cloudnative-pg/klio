@@ -16,10 +16,6 @@ import (
 
 // Config contains the information required to start up a Kopia server.
 type Config struct {
-	// CacheDirectory is used by the Kopia server to cache blobs.
-	// This is important for remote repositories.
-	CacheDirectory string
-
 	// ListenAddress is the <host>:<port> specification that is
 	// used to create the listening socket.
 	ListenAddress string

@@ -39,15 +39,7 @@ func StartTier2(
 		return err
 	}
 
-	// A tier-2 Kopia server is configured exactly like a tier-1 server, but with
-	// a different kopia target repository and different listen address.
-	tier2CacheDir, err := getTier2CacheDirectory(tier2Config)
-	if err != nil {
-		return err
-	}
-
 	kopiaServerConfig := Config{
-		CacheDirectory:        tier2CacheDir,
 		ListenAddress:         tier2Config.BaseListenAddress,
 		ReadOnly:              true,
 		ServerControlUser:     serverControl.User,
