@@ -17,6 +17,7 @@ func StartTier2(
 	ctx context.Context,
 	tier2Config *config.Tier2Config,
 	tls *config.TLSConfig,
+	serverControl ServerControlCredential,
 ) error {
 	contextLogger := log.FromContext(ctx)
 
@@ -47,9 +48,11 @@ func StartTier2(
 	}
 
 	kopiaServerConfig := Config{
-		CacheDirectory: tier2CacheDir,
-		ListenAddress:  tier2Config.BaseListenAddress,
-		ReadOnly:       true,
+		CacheDirectory:        tier2CacheDir,
+		ListenAddress:         tier2Config.BaseListenAddress,
+		ReadOnly:              true,
+		ServerControlUser:     serverControl.User,
+		ServerControlPassword: serverControl.Password,
 	}
 
 	return start(ctx, configFile.Name(), &kopiaServerConfig, tls)

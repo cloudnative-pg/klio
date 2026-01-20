@@ -12,11 +12,21 @@ import (
 	"github.com/cloudnative-pg/klio/core/pkg/config"
 )
 
+// ServerControlCredential contains the credentials for Kopia server control operations.
+type ServerControlCredential struct {
+	// User is the username for server control authentication.
+	User string
+
+	// Password is the password for server control authentication.
+	Password string
+}
+
 // StartTier1 runs a Tier 1 Kopia server.
 func StartTier1(
 	ctx context.Context,
 	cfg *config.Tier1Config,
 	tls *config.TLSConfig,
+	serverControl ServerControlCredential,
 ) error {
 	contextLogger := log.FromContext(ctx)
 
@@ -45,8 +55,10 @@ func StartTier1(
 	}
 
 	kopiaCfg := Config{
-		CacheDirectory: cacheDir,
-		ListenAddress:  cfg.Base.ListenAddress,
+		CacheDirectory:        cacheDir,
+		ListenAddress:         cfg.Base.ListenAddress,
+		ServerControlUser:     serverControl.User,
+		ServerControlPassword: serverControl.Password,
 	}
 
 	return start(ctx, configFile.Name(), &kopiaCfg, tls)

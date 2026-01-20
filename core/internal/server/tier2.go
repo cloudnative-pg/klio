@@ -98,6 +98,10 @@ func (s *Tier2KopiaServer) Serve(ctx context.Context) error {
 		ctx,
 		&s.Config.Tier2,
 		&s.Config.TLS,
+		kopiaserver.ServerControlCredential{
+			User:     s.RunID,
+			Password: s.RunSecret,
+		},
 	); err != nil {
 		return fmt.Errorf("while running kopia server: %w", err)
 	}
