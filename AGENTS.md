@@ -94,7 +94,15 @@ KIND_CLUSTER_NAME=$(kind get clusters  | grep pg-operator-e2e) task integration:
 ## PR instructions
 
 - Title format: conventional commit
-- Commits must have a `Signed-off-by` footer
+- Commits must have a `Signed-off-by` footer as the **last line** of the commit message
+  - If using `Co-Authored-By`, it must come before `Signed-off-by`
+  - Example order:
+    ```
+    commit message body
+
+    Co-Authored-By: Name <email>
+    Signed-off-by: Name <email>
+    ```
 - Before committing, run:
   - `golangci-lint run` in `core/`
   - `golangci-lint run` in `operator/`
