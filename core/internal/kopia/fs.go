@@ -3,7 +3,6 @@ package kopia
 import (
 	"context"
 	"fmt"
-	"os"
 	"os/exec"
 
 	"github.com/cloudnative-pg/machinery/pkg/log"
@@ -26,7 +25,6 @@ func InitializeFilesystem(ctx context.Context, opts FSRepoOpts) error {
 		"--create-only",
 		"--path=" + opts.DataDirectory,
 		"--disable-file-logging",
-		"--json-log-console",
 		"--cache-directory=" + opts.CacheDirectory,
 	}
 
@@ -35,11 +33,8 @@ func InitializeFilesystem(ctx context.Context, opts FSRepoOpts) error {
 		"KOPIA_PASSWORD="+opts.EncryptionPassword,
 	)
 
-	kopiaRepositoryInitialize.Stdout = os.Stdout
-	kopiaRepositoryInitialize.Stderr = os.Stderr
-
 	contextLogger.Info("Kopia repository initialize", "args", kopiaRepositoryInitialize.Args)
-	if err := kopiaRepositoryInitialize.Run(); err != nil {
+	if err := RunWithLogCapture(ctx, kopiaRepositoryInitialize, nil); err != nil {
 		return fmt.Errorf("while creating Kopia repository: %w", err)
 	}
 
@@ -57,7 +52,6 @@ func ConnectFileSystem(ctx context.Context, configFileName string, opts FSRepoOp
 		"--override-username=klio",
 		"--override-hostname=klio",
 		"--disable-file-logging",
-		"--json-log-console",
 		"--cache-directory=" + opts.CacheDirectory,
 	}
 
@@ -71,11 +65,8 @@ func ConnectFileSystem(ctx context.Context, configFileName string, opts FSRepoOp
 		"KOPIA_CHECK_FOR_UPDATES=false",
 	)
 
-	kopiaRepositoryConnect.Stdout = os.Stdout
-	kopiaRepositoryConnect.Stderr = os.Stderr
-
 	contextLogger.Info("Kopia repository connect", "args", kopiaRepositoryConnect.Args)
-	if err := kopiaRepositoryConnect.Run(); err != nil {
+	if err := RunWithLogCapture(ctx, kopiaRepositoryConnect, nil); err != nil {
 		return fmt.Errorf("while connecting to Kopia repository: %w", err)
 	}
 

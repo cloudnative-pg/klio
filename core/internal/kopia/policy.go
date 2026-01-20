@@ -5,7 +5,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"os"
 	"os/exec"
 	"strconv"
 
@@ -33,11 +32,9 @@ func (s *Client) GetCurrentKopiaPolicy(
 	var buffer bytes.Buffer
 
 	showPolicyCmd := exec.CommandContext(ctx, s.KopiaBinary, args...) //nolint:gosec
-	showPolicyCmd.Stdout = &buffer
-	showPolicyCmd.Stderr = os.Stderr
 	showPolicyCmd.Env = s.envPassword()
 
-	if err := showPolicyCmd.Run(); err != nil {
+	if err := RunWithLogCapture(ctx, showPolicyCmd, &buffer); err != nil {
 		return nil, fmt.Errorf("error while getting Kopia policy: %w", err)
 	}
 
@@ -70,7 +67,6 @@ func (s *Client) SetKopiaPolicy(
 		"set",
 		"--config-file=" + s.ConfigFile,
 		"--disable-file-logging",
-		"--json-log-console",
 		"--keep-annual=" + policyToArgument(policy.KeepAnnual),
 		"--keep-daily=" + policyToArgument(policy.KeepDaily),
 		"--keep-hourly=" + policyToArgument(policy.KeepHourly),
@@ -83,11 +79,9 @@ func (s *Client) SetKopiaPolicy(
 	contextLogger.Info("Setting Kopia policy", "args", args, "target", t)
 
 	setPolicyCmd := exec.CommandContext(ctx, s.KopiaBinary, args...) //nolint:gosec
-	setPolicyCmd.Stdout = os.Stdout
-	setPolicyCmd.Stderr = os.Stderr
 	setPolicyCmd.Env = s.envPassword()
 
-	if err := setPolicyCmd.Run(); err != nil {
+	if err := RunWithLogCapture(ctx, setPolicyCmd, nil); err != nil {
 		return fmt.Errorf("error while setting Kopia policy: %w", err)
 	}
 
@@ -103,18 +97,15 @@ func (s *Client) ApplyKopiaPolicy(ctx context.Context, t Target) error {
 		"expire",
 		"--config-file=" + s.ConfigFile,
 		"--disable-file-logging",
-		"--json-log-console",
 		t.String(),
 	}
 
 	contextLogger.Info("Applying Kopia policy", "args", args, "target", t)
 
 	snapshotExpireCmd := exec.CommandContext(ctx, s.KopiaBinary, args...) //nolint:gosec
-	snapshotExpireCmd.Stdout = os.Stdout
-	snapshotExpireCmd.Stderr = os.Stderr
 	snapshotExpireCmd.Env = s.envPassword()
 
-	if err := snapshotExpireCmd.Run(); err != nil {
+	if err := RunWithLogCapture(ctx, snapshotExpireCmd, nil); err != nil {
 		return fmt.Errorf("error while applying Kopia policy: %w", err)
 	}
 

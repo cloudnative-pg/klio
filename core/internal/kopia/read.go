@@ -33,12 +33,10 @@ func (s *Client) ListSnapshots(ctx context.Context, tags map[string]string) ([]M
 
 	var stdout bytes.Buffer
 	snapshotList := exec.CommandContext(ctx, s.KopiaBinary, args...) //nolint:gosec
-	snapshotList.Stdout = &stdout
-	snapshotList.Stderr = os.Stderr
 	snapshotList.Env = s.envPassword()
 
 	contextLogger.Info("Looking for Kopia snapshots", "args", snapshotList.Args)
-	if err := snapshotList.Run(); err != nil {
+	if err := RunWithLogCapture(ctx, snapshotList, &stdout); err != nil {
 		return nil, fmt.Errorf("while executing Kopia command: %w", err)
 	}
 
@@ -70,7 +68,6 @@ func (s *Client) RestoreSingleFile(ctx context.Context, snapshotID string, fileN
 		"restore",
 		"--config-file=" + s.ConfigFile,
 		"--disable-file-logging",
-		"--json-log-console",
 		snapshotID,
 		dirName,
 	}
@@ -78,11 +75,9 @@ func (s *Client) RestoreSingleFile(ctx context.Context, snapshotID string, fileN
 	contextLogger.Info("Restoring Kopia snapshot (single file)", "args", args)
 
 	restoreCmd := exec.CommandContext(ctx, s.KopiaBinary, args...) //nolint:gosec
-	restoreCmd.Stdout = os.Stdout
-	restoreCmd.Stderr = os.Stderr
 	restoreCmd.Env = s.envPassword()
 
-	if err := restoreCmd.Run(); err != nil {
+	if err := RunWithLogCapture(ctx, restoreCmd, nil); err != nil {
 		return nil, fmt.Errorf("while restoring Kopia snapshot: %w", err)
 	}
 
@@ -114,7 +109,6 @@ func (s *Client) RestoreSnapshot(
 		"restore",
 		"--config-file=" + s.ConfigFile,
 		"--disable-file-logging",
-		"--json-log-console",
 		snapshotID,
 		destinationDirectory,
 	}
@@ -122,11 +116,9 @@ func (s *Client) RestoreSnapshot(
 	contextLogger.Info("Restoring Kopia snapshot", "args", args)
 
 	restoreCmd := exec.CommandContext(ctx, s.KopiaBinary, args...) //nolint:gosec
-	restoreCmd.Stdout = os.Stdout
-	restoreCmd.Stderr = os.Stderr
 	restoreCmd.Env = s.envPassword()
 
-	if err := restoreCmd.Run(); err != nil {
+	if err := RunWithLogCapture(ctx, restoreCmd, nil); err != nil {
 		return fmt.Errorf("while restoring Kopia snapshot: %w", err)
 	}
 

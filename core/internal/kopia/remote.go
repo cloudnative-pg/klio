@@ -3,7 +3,6 @@ package kopia
 import (
 	"context"
 	"fmt"
-	"os"
 	"os/exec"
 
 	"github.com/cloudnative-pg/machinery/pkg/log"
@@ -42,7 +41,6 @@ func ConnectRemote(ctx context.Context, configFileName string, opts RemoteRepoOp
 		"server",
 		"--disable-file-logging",
 		"--cache-directory=" + opts.CacheDirectory,
-		"--json-log-console",
 		"--config-file=" + configFileName,
 		"--url=" + opts.URL,
 		"--client-certificate=" + opts.ClientCertPath,
@@ -53,11 +51,9 @@ func ConnectRemote(ctx context.Context, configFileName string, opts RemoteRepoOp
 	}
 
 	repositoryConnectCmd := exec.CommandContext(ctx, opts.KopiaBinary, args...) //nolint:gosec
-	repositoryConnectCmd.Stdout = os.Stdout
-	repositoryConnectCmd.Stderr = os.Stderr
 
 	contextLogger.Info("Connecting to Kopia repository", "args", args)
-	if err := repositoryConnectCmd.Run(); err != nil {
+	if err := RunWithLogCapture(ctx, repositoryConnectCmd, nil); err != nil {
 		return fmt.Errorf("while executing Kopia command: %w", err)
 	}
 

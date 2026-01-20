@@ -46,7 +46,6 @@ func (s *Client) RunServer(ctx context.Context, opts ServerOptions) error {
 		"--config-file=" + s.ConfigFile,
 		"--address=" + opts.ListenAddress,
 		"--disable-file-logging",
-		"--json-log-console",
 	}
 
 	if opts.ReadOnly {
@@ -63,13 +62,11 @@ func (s *Client) RunServer(ctx context.Context, opts ServerOptions) error {
 	}
 
 	kopiaServer := exec.CommandContext(ctx, s.KopiaBinary, args...) //nolint:gosec
-	kopiaServer.Stdout = os.Stdout
-	kopiaServer.Stderr = os.Stderr
 	kopiaServer.Env = env
 
 	contextLogger.Info("Starting Kopia server", "args", kopiaServer.Args)
 
-	if err := kopiaServer.Run(); err != nil {
+	if err := RunWithLogCapture(ctx, kopiaServer, nil); err != nil {
 		return fmt.Errorf("while running the kopia server: %w", err)
 	}
 
@@ -100,7 +97,6 @@ func (s *Client) RefreshServer(ctx context.Context, opts RefreshServerOptions) e
 		"server", "refresh",
 		"--address=" + opts.Address,
 		"--disable-file-logging",
-		"--json-log-console",
 		"--server-cert-fingerprint=" + opts.ServerCertFingerprint,
 	}
 
@@ -115,13 +111,11 @@ func (s *Client) RefreshServer(ctx context.Context, opts RefreshServerOptions) e
 	}
 
 	kopiaServer := exec.CommandContext(ctx, s.KopiaBinary, args...) //nolint:gosec
-	kopiaServer.Stdout = os.Stdout
-	kopiaServer.Stderr = os.Stderr
 	kopiaServer.Env = env
 
 	contextLogger.Info("Refreshing kopia server", "args", kopiaServer.Args)
 
-	if err := kopiaServer.Run(); err != nil {
+	if err := RunWithLogCapture(ctx, kopiaServer, nil); err != nil {
 		return fmt.Errorf("while refreshing the kopia server: %w", err)
 	}
 

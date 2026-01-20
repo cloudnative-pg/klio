@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"net/url"
-	"os"
 	"os/exec"
 	"path"
 	"strings"
@@ -60,11 +59,9 @@ func InitializeS3(ctx context.Context, cfg S3RepoOpts) error {
 
 	kopiaRepositoryInitialize := exec.CommandContext(ctx, cfg.KopiaBinary, args...) //nolint:gosec
 	kopiaRepositoryInitialize.Env = append(kopiaRepositoryInitialize.Env, getCommonS3Env(cfg)...)
-	kopiaRepositoryInitialize.Stdout = os.Stdout
-	kopiaRepositoryInitialize.Stderr = os.Stderr
 
 	contextLogger.Info("Kopia repository initialize", "args", kopiaRepositoryInitialize.Args)
-	if err := kopiaRepositoryInitialize.Run(); err != nil {
+	if err := RunWithLogCapture(ctx, kopiaRepositoryInitialize, nil); err != nil {
 		return fmt.Errorf("while creating Kopia repository: %w", err)
 	}
 
@@ -96,11 +93,8 @@ func ConnectS3(ctx context.Context, configFileName string, opts S3RepoOpts) erro
 	kopiaRepositoryConnect := exec.CommandContext(ctx, opts.KopiaBinary, args...) //nolint:gosec
 	kopiaRepositoryConnect.Env = append(kopiaRepositoryConnect.Env, getCommonS3Env(opts)...)
 
-	kopiaRepositoryConnect.Stdout = os.Stdout
-	kopiaRepositoryConnect.Stderr = os.Stderr
-
 	contextLogger.Info("Kopia repository connect", "args", kopiaRepositoryConnect.Args)
-	if err := kopiaRepositoryConnect.Run(); err != nil {
+	if err := RunWithLogCapture(ctx, kopiaRepositoryConnect, nil); err != nil {
 		return fmt.Errorf("while connecting to Kopia repository: %w", err)
 	}
 
@@ -127,7 +121,6 @@ func getCommonS3Args(cfg S3RepoOpts) ([]string, error) {
 		"--cache-directory="+cfg.CacheDirectory,
 		"--prefix="+path.Join(cfg.Prefix, "base")+"/",
 		"--disable-file-logging",
-		"--json-log-console",
 	)
 
 	if cfg.Region != "" {

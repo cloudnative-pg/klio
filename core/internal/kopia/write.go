@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"os"
 	"os/exec"
 
 	"github.com/cloudnative-pg/machinery/pkg/log"
@@ -20,18 +19,15 @@ func (s *Client) DeleteSnapshot(ctx context.Context, id string) error {
 		"--delete",
 		"--config-file=" + s.ConfigFile,
 		"--disable-file-logging",
-		"--json-log-console",
 		id,
 	}
 
 	contextLogger.Info("Deleting Kopia snapshot", "args", args)
 
 	deleteSnapshotCmd := exec.CommandContext(ctx, s.KopiaBinary, args...) //nolint:gosec
-	deleteSnapshotCmd.Stdout = os.Stdout
-	deleteSnapshotCmd.Stderr = os.Stderr
 	deleteSnapshotCmd.Env = s.envPassword()
 
-	if err := deleteSnapshotCmd.Run(); err != nil {
+	if err := RunWithLogCapture(ctx, deleteSnapshotCmd, nil); err != nil {
 		return fmt.Errorf("while deleting Kopia snapshot: %w", err)
 	}
 
@@ -63,7 +59,6 @@ func (s *Client) MigrateSnapshots(
 		"--source-config="+opts.SourceConfig,
 		"--config-file="+s.ConfigFile,
 		"--disable-file-logging",
-		"--json-log-console",
 	)
 
 	for _, source := range opts.Sources {
@@ -75,17 +70,11 @@ func (s *Client) MigrateSnapshots(
 	}
 
 	kopiaMigrate := exec.CommandContext(ctx, s.KopiaBinary, args...) //nolint:gosec
-	kopiaMigrate.Stdout = os.Stdout
-	kopiaMigrate.Stderr = os.Stderr
 	kopiaMigrate.Env = s.envPassword()
 
 	contextLogger.Info("Starting Kopia migration", "args", kopiaMigrate.Args)
 
-	if err := kopiaMigrate.Start(); err != nil {
-		return fmt.Errorf("while starting the kopia migration: %w", err)
-	}
-
-	if err := kopiaMigrate.Wait(); err != nil {
+	if err := RunWithLogCapture(ctx, kopiaMigrate, nil); err != nil {
 		return fmt.Errorf("while running the kopia migration: %w", err)
 	}
 
@@ -115,7 +104,6 @@ func (s *Client) SnapshotDirectory(
 		"snapshot",
 		"create",
 		"--disable-file-logging",
-		"--json-log-console",
 		"--config-file=" + s.ConfigFile,
 	}
 
@@ -130,12 +118,10 @@ func (s *Client) SnapshotDirectory(
 	args = append(args, opts.Directory)
 
 	snapshotCreateCommand := exec.CommandContext(ctx, s.KopiaBinary, args...) //nolint:gosec
-	snapshotCreateCommand.Stdout = os.Stdout
-	snapshotCreateCommand.Stderr = os.Stderr
 	snapshotCreateCommand.Env = s.envPassword()
 
 	contextLogger.Info("Saving Kopia snapshot", "args", snapshotCreateCommand.Args)
-	if err := snapshotCreateCommand.Run(); err != nil {
+	if err := RunWithLogCapture(ctx, snapshotCreateCommand, nil); err != nil {
 		return fmt.Errorf("while executing Kopia command: %w", err)
 	}
 
@@ -171,7 +157,6 @@ func (s *Client) SnapshotFileContent(
 		"snapshot",
 		"create",
 		"--disable-file-logging",
-		"--json-log-console",
 		"--config-file=" + s.ConfigFile,
 		"--stdin-file=" + opts.FileName,
 		opts.DirectoryName,
@@ -189,12 +174,10 @@ func (s *Client) SnapshotFileContent(
 
 	snapshotCreateCommand := exec.CommandContext(ctx, s.KopiaBinary, args...) //nolint:gosec
 	snapshotCreateCommand.Stdin = buffer
-	snapshotCreateCommand.Stdout = os.Stdout
-	snapshotCreateCommand.Stderr = os.Stderr
 	snapshotCreateCommand.Env = s.envPassword()
 
 	contextLogger.Info("Saving Kopia snapshot", "args", snapshotCreateCommand.Args)
-	if err := snapshotCreateCommand.Run(); err != nil {
+	if err := RunWithLogCapture(ctx, snapshotCreateCommand, nil); err != nil {
 		return fmt.Errorf("while executing Kopia command: %w", err)
 	}
 
