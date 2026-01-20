@@ -31,6 +31,9 @@ type ServerOptions struct {
 
 	// ServerControlPassword is the password for server control operations.
 	ServerControlPassword string
+
+	// EnableUI is true when the Kopia Javascript UI should be served by the Kopia server.
+	EnableUI bool
 }
 
 // RunServer starts a Kopia server with the provided options.
@@ -59,6 +62,9 @@ func (s *Client) RunServer(ctx context.Context, opts ServerOptions) error {
 	}
 	if opts.ServerControlPassword != "" {
 		env = append(env, "KOPIA_SERVER_CONTROL_PASSWORD="+opts.ServerControlPassword)
+	}
+	if !opts.EnableUI {
+		args = append(args, "--no-ui")
 	}
 
 	kopiaServer := exec.CommandContext(ctx, s.KopiaBinary, args...) //nolint:gosec
