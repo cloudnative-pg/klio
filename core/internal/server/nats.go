@@ -15,7 +15,9 @@ type NatsService struct {
 func NewNatsService(directory string) (*NatsService, error) {
 	natsOptions := natsServer.Options{
 		JetStream: true,
-		StoreDir:  directory,
+		// always will make sure servers fsync after every message BEFORE it is acknowledged.
+		SyncAlways: true,
+		StoreDir:   directory,
 	}
 
 	server, err := natsServer.NewServer(&natsOptions)
