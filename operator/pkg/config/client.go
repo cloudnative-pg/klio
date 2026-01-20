@@ -100,14 +100,6 @@ type BaseRepositoryClientConfig struct {
 
 	// ClientKeyPath is the path to the client private key
 	ClientKeyPath string `json:"client_key_path" mapstructure:"client_key_path"`
-
-	// APIServerCertFile is a file containing a PEM-encoded certificate, and possibly the complete certificate chain
-	// This certificate will be served by the Klio API aggregation server for TLS connections
-	APIServerCertFile string `json:"api_server_certfile" mapstructure:"api_server_certfile"`
-
-	// APIServerKeyFile is a file containing a PEM-encoded private key for the certificate specified by APIServerCertFile
-	// This private key will be used by the Klio API aggregation server for TLS connections
-	APIServerKeyFile string `json:"api_server_keyfile" mapstructure:"api_server_keyfile"`
 }
 
 // SetDefaults sets the default values of the configuration.

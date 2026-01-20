@@ -2,7 +2,6 @@ ACL
 ACLs
 AEAD
 AES
-APIService
 APIs
 AdminUser
 AtMostOneOf
@@ -29,7 +28,6 @@ CloudNativePG
 CloudNativePG's
 ClusterMetadata
 ClusterName
-ClusterRole
 ControllerManager
 DNS
 DataConfiguration
@@ -38,9 +36,6 @@ EDB
 EnableBackup
 EnableRecovery
 EncryptionKey
-EncryptionPassword
-EndLSN
-EndWAL
 Enum
 EnvConfiguration
 EnvVar
@@ -80,10 +75,6 @@ KeepWeekly
 Klio
 Klio's
 KlioAPI
-KlioBackup
-KlioBackupList
-KlioBackupSpec
-KlioBackupStatus
 KlioCatalogAPI
 Kopia
 Kopia's
@@ -102,11 +93,9 @@ Namespaces
 NetworkPolicies
 NodeSelector
 OCI
-OID
 OTEL
 OTLP
 ObjectMeta
-Oid
 OpenEBS
 OpenShift
 OpenTelemetry
@@ -117,7 +106,6 @@ PGData
 PITR
 PKI
 PV
-PVC
 PVCs
 PersistentVolume
 PersistentVolumeClaim
@@ -139,12 +127,6 @@ QueueResources
 RBAC
 RPO
 RTO
-RecoverySource
-RecoverySourceList
-RecoverySourceSpec
-RecoverySourceStatus
-RecoverySourceStorageConfiguration
-RecoverySources
 RequestWALStart
 RequestWALStartRequest
 RequestWALStartResult
@@ -167,19 +149,12 @@ ServiceName
 SetFirstRequiredWAL
 SetFirstRequiredWALRequest
 SetFirstRequiredWALResult
-StartLSN
-StartWAL
 StartWALFile
-StartedAt
 StatefulSet
-StoppedAt
 TLS
 TLSConfiguration
 TLSSecretName
 TODO
-TablespaceLayout
-TablespaceLayoutList
-TablespaceLayoutList
 Taskfile
 Tolerations
 TopoLVM
@@ -198,7 +173,6 @@ VMs
 Veeam
 Velero
 WAL
-WALEncryptionPassword
 WALFileBlock
 WALGap
 WALs
@@ -211,7 +185,6 @@ auth
 autodetect
 autoexport
 automount
-backend
 backupID
 backupId
 bcrypt
@@ -255,7 +228,6 @@ imagePullSecrets
 init
 io
 klio
-kliocatalog
 kopia
 kubectl
 kubernetes
@@ -304,7 +276,6 @@ sint
 sio
 str
 systemd
-tablespace
 tablespaces
 terminationGracePeriodSeconds
 tolerations

@@ -23,7 +23,6 @@ task all:ci
 task core:lint              # Run golangci-lint on core
 task core:go-test           # Run unit tests
 task core:protoc-gen-go-grpc  # Compile proto files
-task core:openapi-gen       # Generate OpenAPI specification
 
 # Operator module
 task operator:lint          # Run golangci-lint on operator

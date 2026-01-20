@@ -17,7 +17,6 @@
     },
     "operator/dist/chart/values.yaml",
     "operator/internal/cnpgi/metadata.go",
-    "core/internal/k8sapi/server.go",
     "documentation/web/docs/user/klio_server.md",
     "documentation/web/docs/user/api_service.md",
     "documentation/web/docs/user/helm_chart.mdx",

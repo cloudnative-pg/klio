@@ -60,7 +60,6 @@ tasks:
       - core:lint
       - core:protolint
       - core:protoc-gen-go-grpc
-      - core:openapi-gen
       - core:go-test
       - core:containerize-snapshot
       - core:uncommitted
@@ -119,7 +118,6 @@ tasks:
     dir: core
     deps:
       - core:protoc-gen-go-grpc
-      - core:openapi-gen
     env:
       # renovate: datasource=docker depName=golang versioning=docker
       GOLANG_IMAGE_VERSION: 1.25.6@sha256:ce63a16e0f7063787ebb4eb28e72d477b00b4726f79874b3205a965ffd797ab2
@@ -142,7 +140,6 @@ tasks:
     desc: Build snapshot packages
     deps:
       - core:protoc-gen-go-grpc
-      - core:openapi-gen
     env:
       # renovate: datasource=docker depName=ghcr.io/goreleaser/goreleaser versioning=docker
       GORELEASER_IMAGE_VERSION: v2.13.3@sha256:846b7cad015f87712ad4e68d9cd59bfde4e59c9970265f76dd4e3b3b6f41c768
@@ -174,7 +171,6 @@ tasks:
     desc: Upload the release artifacts
     deps:
       - core:protoc-gen-go-grpc
-      - core:openapi-gen
       - core:uncommitted
     run: once
     requires:
@@ -263,38 +259,10 @@ tasks:
     sources:
       - ./**/*
 
-  core:openapi-gen:
-    desc: Generate OpenAPI specification
-    summary: Generate the deepcopy and the violation files for the api service API
-    run: once
-    env:
-      # renovate: datasource=docker depName=golang versioning=docker
-      GOLANG_IMAGE_VERSION: 1.25.6@sha256:ce63a16e0f7063787ebb4eb28e72d477b00b4726f79874b3205a965ffd797ab2
-      # renovate: datasource=git-refs depName=code-generator packageName=https://github.com/kubernetes/code-generator versioning=semver
-      CODE_GENERATOR_VERSION: v0.35.0
-    cmds:
-      - >
-        dagger core container from --address golang:${GOLANG_IMAGE_VERSION}
-        with-mounted-cache --cache gomodcache --path /go/pkg/mod
-        with-mounted-cache --cache gobuildcache --path /root/.cache/go-build
-        with-mounted-directory --path /src --source .
-        with-exec --args sh --args '-c' --args "git clone https://github.com/kubernetes/code-generator -b ${CODE_GENERATOR_VERSION}"
-        with-env-variable --name update_report --value '--update-report'
-        with-env-variable --name report_filename --value /src/core/internal/k8sapi/v1alpha1/violations.list
-        with-env-variable --name CODEGEN_PKG --value /go/code-generator
-        with-workdir --path /src/core/hack
-        with-exec --args sh --args '-c' --args './codegen.sh'
-        directory --path /src/core/internal/k8sapi/v1alpha1/
-        filter --include 'zz_generated.*' --include violations.list
-        export --path core/internal/k8sapi/v1alpha1/
-    sources:
-      - core/internal/k8sapi/v1alpha1/**/*
-
   core:uncommitted:
     desc: Check for uncommitted changes
     deps:
         - core:protoc-gen-go-grpc
-        - core:openapi-gen
     cmds:
       - task: internal:uncommitted
     sources:
@@ -918,18 +886,8 @@ tasks:
         --templates-dir documentation/crd-gen-refs/markdown
         file --path out.md
         export --path documentation/web/docs/user/api/_klio_api.md
-      - >
-        GITHUB_REF= dagger -s call -m github.com/cloudnative-pg/daggerverse/crd-ref-docs@${DAGGER_CRDGENREF_SHA} generate
-        --src .
-        --source-path core/internal/k8sapi/v1alpha1
-        --config-file documentation/crd-gen-refs/config.yaml
-        --renderer markdown
-        --templates-dir documentation/crd-gen-refs/markdown
-        file --path out.md
-        export --path documentation/web/docs/user/api/_klio_catalog_api.md
     sources:
       - operator/api/v1alpha1/**/*
-      - core/internal/k8sapi/v1alpha1/**/*
       - documentation/crd-gen-refs/**/*
 
   documentation:helm-chart:

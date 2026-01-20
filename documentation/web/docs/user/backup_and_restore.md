@@ -160,9 +160,6 @@ Once you identify the backup you want to use, you can identify its backupID
 kubectl get backup <backup_name> -n <your-namespace> -o jsonpath='{.status.backupId}'
 ```
 
-Alternatively, you can use the [API service](api_service.md) to get the backup
-list.
-
 ## Restoring from a Backup
 
 Klio supports restoring PostgreSQL clusters from backups using CloudNativePG's

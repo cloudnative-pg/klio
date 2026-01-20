@@ -27,17 +27,4 @@ func enableACLs(ctx context.Context, kopiaBinary string, configFileName string) 
 	} else {
 		contextLogger.Info("ACLs enabled", "configFileName", configFileName)
 	}
-
-	err = client.AddACLUser(ctx, kopia.AddACLUserOptions{
-		User:      "snapshot_reader@klio",
-		Access:    "READ",
-		Target:    "type=snapshot",
-		Overwrite: true,
-	})
-	if err != nil {
-		contextLogger.Error(err, "failed to add snapshot_reader to ACLs")
-		return
-	}
-
-	contextLogger.Info("User snapshot_reader added to ACLs", "configFileName", configFileName)
 }
