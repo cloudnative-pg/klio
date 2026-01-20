@@ -4,6 +4,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
+	"os/signal"
+	"syscall"
 	"time"
 
 	"github.com/cloudnative-pg/machinery/pkg/log"
@@ -28,6 +31,10 @@ var sendWalCmd = &cobra.Command{
 	Short: "Upload the cluster's WALs to the target Klio server",
 	RunE: func(cmd *cobra.Command, _ []string) error {
 		logger := log.FromContext(cmd.Context())
+
+		// Create a context that gets cancelled on SIGINT/SIGTERM
+		ctx, stop := signal.NotifyContext(cmd.Context(), os.Interrupt, syscall.SIGTERM)
+		defer stop()
 
 		var configuration config.Data
 
@@ -57,7 +64,7 @@ var sendWalCmd = &cobra.Command{
 		}
 
 		waitForPrimary, _ := cmd.Flags().GetBool("primary")
-		if !retryWaitForPostgreSQLInstance(cmd.Context(), configuration.Source.StandardDSN, waitForPrimary, time.Hour) {
+		if !retryWaitForPostgreSQLInstance(ctx, configuration.Source.StandardDSN, waitForPrimary, time.Hour) {
 			return ErrTimeoutWaitingPG
 		}
 
@@ -68,8 +75,14 @@ var sendWalCmd = &cobra.Command{
 
 		sendToTier2, _ := cmd.Flags().GetBool("enable-tier2-backup")
 
-		return sendwal.New(&configuration, logger, client, sendToTier2).
-			Start(cmd.Context())
+		err = sendwal.New(&configuration, logger, client, sendToTier2).
+			Start(ctx)
+		if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+			logger.Info("send-wal stopped due to context cancellation, exiting gracefully")
+			return nil
+		}
+
+		return err
 	},
 }
 

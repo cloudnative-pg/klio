@@ -2,7 +2,11 @@ package cnpgi
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"os"
+	"os/signal"
+	"syscall"
 
 	cnpgv1 "github.com/cloudnative-pg/cloudnative-pg/api/v1"
 	"github.com/cloudnative-pg/machinery/pkg/log"
@@ -26,6 +30,10 @@ func runCNPGI(
 	addCapabilities func(server *cnpgi.CNPGI),
 ) error {
 	logger := log.FromContext(ctx)
+
+	// Create a context that gets cancelled on SIGINT/SIGTERM
+	ctx, stop := signal.NotifyContext(ctx, os.Interrupt, syscall.SIGTERM)
+	defer stop()
 
 	controllerOptions := ctrl.Options{
 		Scheme: generateScheme(),
@@ -61,7 +69,17 @@ func runCNPGI(
 		return fmt.Errorf("while creating CNPGI runnable: %w", err)
 	}
 
-	return mgr.Start(ctx)
+	// Start the manager and handle graceful shutdown
+	if err := mgr.Start(ctx); err != nil {
+		if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+			logger.Info("Manager stopped due to context cancellation, exiting gracefully")
+			return nil
+		}
+
+		return err
+	}
+
+	return nil
 }
 
 // generateScheme creates a runtime.Scheme object with all the
