@@ -15,6 +15,33 @@ import (
 // All Kopia output (both stdout and stderr) is logged line-by-line using structured logging.
 // If captureStdout is non-nil, stdout will also be written to that io.Writer for later parsing.
 //
+// Concurrency Pattern:
+// This function uses StdoutPipe() and StderrPipe() to capture output, which requires
+// a specific pattern to avoid a race condition with fast-executing subprocesses.
+//
+// Note: This race condition is specific to using pipes. If you directly assign io.Writer
+// instances to cmd.Stdout/cmd.Stderr, no special synchronization is needed because the
+// subprocess writes directly to those writers without requiring goroutines.
+//
+// The key insight is that we wait for pipe reading to complete BEFORE calling cmd.Wait():
+//
+//  1. cmd.Start() - Start the subprocess
+//  2. Launch goroutines to read from stdout/stderr pipes
+//  3. endWg.Wait() - Wait for goroutines to finish (pipes reach EOF)
+//  4. cmd.Wait() - Reap the process
+//
+// Why this works:
+// When both stdout and stderr reach EOF, it means the subprocess has closed both pipes.
+// This only happens when the process exits (or is about to exit). Therefore, when
+// endWg.Wait() returns, we know the process is done and cmd.Wait() will return
+// immediately (or very quickly).
+//
+// Race condition prevented:
+// Without this pattern, very fast commands (like 'echo') could complete before the
+// reading goroutines are scheduled by the Go runtime, potentially leading to missed
+// output or timing issues. By ensuring goroutines consume all pipe data before we
+// reap the process, we guarantee all output is captured reliably.
+//
 // Usage examples:
 //
 //	// For long-running servers that don't need stdout parsing:
@@ -63,6 +90,7 @@ func RunWithLogCapture(ctx context.Context, cmd *exec.Cmd, captureStdout io.Writ
 	}
 
 	// Use a WaitGroup to ensure all pipe data is consumed before reaping the process.
+	// This prevents a race condition where fast commands finish before goroutines start reading.
 	var endWg sync.WaitGroup
 
 	// Stream stdout
@@ -82,10 +110,11 @@ func RunWithLogCapture(ctx context.Context, cmd *exec.Cmd, captureStdout io.Writ
 	})
 
 	// Wait for both goroutines to finish reading all pipe data.
-	// This ensures we consume all output before calling Wait().
+	// When this returns, both pipes have reached EOF, meaning the subprocess has
+	// closed them (i.e., the process has exited or is about to exit).
 	endWg.Wait()
 
-	// Reap the process. This should return quickly since the pipes are already drained.
+	// Reap the process. This should return quickly since EOF means the process is done.
 	cmdErr := cmd.Wait()
 
 	if cmdErr != nil {
