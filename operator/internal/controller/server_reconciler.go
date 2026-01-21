@@ -107,6 +107,8 @@ func (r *ServerReconciler) reconcileStatefulSet(ctx context.Context, server *kli
 								"server",
 								"initialize",
 								"--skip-if-existing",
+								"--tier1=true",
+								"--tier2=" + strconv.FormatBool(server.Spec.Tier2 != nil),
 							},
 							Image:           server.Spec.Image,
 							ImagePullPolicy: server.Spec.ImagePullPolicy,
@@ -147,7 +149,6 @@ func (r *ServerReconciler) reconcileStatefulSet(ctx context.Context, server *kli
 
 	// Add Tier2 containers if the server has Tier 2 configuration
 	if server.Spec.Tier2 != nil {
-		injectTier2Containers(expected, server, volumeMounts)
 		injectTier2VolumeClaimTemplates(expected, *server)
 	}
 
@@ -298,28 +299,6 @@ func injectTier2VolumeClaimTemplates(
 			},
 			Spec: server.Spec.Tier2.Cache.PersistentVolumeClaimTemplate,
 		})
-}
-
-func injectTier2Containers(
-	ss *appsv1.StatefulSet,
-	server *kliov1alpha1.Server,
-	volumeMounts []corev1.VolumeMount,
-) {
-	ss.Spec.Template.Spec.InitContainers = append(
-		ss.Spec.Template.Spec.InitContainers,
-		corev1.Container{
-			Name: "tier2-init",
-			Args: []string{
-				"tier2",
-				"initialize",
-				"--skip-if-existing",
-			},
-			Image:           server.Spec.Image,
-			ImagePullPolicy: server.Spec.ImagePullPolicy,
-			Env:             newServerEnvBuilder(server).addCommonEnvs().addTier2InitEnvs().build(),
-			VolumeMounts:    volumeMounts,
-		},
-	)
 }
 
 func (r *ServerReconciler) reconcileService(ctx context.Context, server *kliov1alpha1.Server) error {

@@ -1,6 +1,7 @@
 package server
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/spf13/afero"
@@ -9,6 +10,7 @@ import (
 
 	"github.com/cloudnative-pg/klio/core/cmd/initialize"
 	"github.com/cloudnative-pg/klio/core/internal/server/kopiaserver"
+	"github.com/cloudnative-pg/klio/core/internal/tier2"
 	"github.com/cloudnative-pg/klio/core/pkg/config"
 )
 
@@ -19,11 +21,8 @@ var initializeCmd = &cobra.Command{
 	Use:   "initialize",
 	Short: "Initialize a new Klio repository on the configured folder",
 	RunE: func(cmd *cobra.Command, _ []string) error {
-		ctx := cmd.Context()
 		var configuration config.ServerConfig
 
-		// IMPORTANT: this requires this program to be built with "-tags viper_bind_struct"
-		// when using environment variables
 		if err := viper.Unmarshal(&configuration); err != nil {
 			return fmt.Errorf("could not unmarshal configuration: %w", err)
 		}
@@ -33,42 +32,90 @@ var initializeCmd = &cobra.Command{
 		}
 
 		skipIfExisting, _ := cmd.Flags().GetBool("skip-if-existing")
-		walDirectory := configuration.Tier1.Wal.WALPath
-		kopiaDirectory := configuration.Tier1.Base.RepositoryDirectory
+		enableTier1, _ := cmd.Flags().GetBool("tier1")
+		enableTier2, _ := cmd.Flags().GetBool("tier2")
 
-		opts := initialize.Options{
-			WalFS:                 afero.NewBasePathFs(afero.NewOsFs(), walDirectory),
-			WalEncryptionPassword: configuration.Tier1.EncryptionKey,
-
-			KopiaFS:                 afero.NewBasePathFs(afero.NewOsFs(), kopiaDirectory),
-			KopiaEncryptionPassword: configuration.Tier1.EncryptionKey,
-			KopiaInitializeRepo: func() error {
-				return kopiaserver.InitializeTier1(ctx, &configuration.Tier1)
-			},
-
-			SkipIfExisting: skipIfExisting,
+		if enableTier1 {
+			if err := initializeTier1(cmd.Context(), &configuration, skipIfExisting); err != nil {
+				return err
+			}
 		}
 
-		return initialize.Run(ctx, opts)
+		if enableTier2 {
+			if err := configuration.RequireTier2(); err != nil {
+				return fmt.Errorf("tier 2 configuration validation error: %w", err)
+			}
+
+			if !configuration.Tier2.S3.Enabled {
+				// Nothing to be done. There is no tier2.
+				return nil
+			}
+
+			if err := initializeTier2(cmd.Context(), &configuration, skipIfExisting); err != nil {
+				return err
+			}
+		}
+
+		return nil
 	},
+}
+
+func initializeTier1(ctx context.Context, cfg *config.ServerConfig, skipIfExisting bool) error {
+	walDirectory := cfg.Tier1.Wal.WALPath
+	kopiaDirectory := cfg.Tier1.Base.RepositoryDirectory
+
+	opts := initialize.Options{
+		WalFS:                 afero.NewBasePathFs(afero.NewOsFs(), walDirectory),
+		WalEncryptionPassword: cfg.Tier1.EncryptionKey,
+
+		KopiaFS:                 afero.NewBasePathFs(afero.NewOsFs(), kopiaDirectory),
+		KopiaEncryptionPassword: cfg.Tier1.EncryptionKey,
+		KopiaInitializeRepo: func() error {
+			return kopiaserver.InitializeTier1(ctx, &cfg.Tier1)
+		},
+
+		SkipIfExisting: skipIfExisting,
+	}
+
+	return initialize.Run(ctx, opts)
+}
+
+func initializeTier2(ctx context.Context, cfg *config.ServerConfig, skipIfExisting bool) error {
+	tier2BaseFS, err := tier2.ConnectBase(ctx, &cfg.Tier2)
+	if err != nil {
+		return fmt.Errorf("error while connecting to tier2 (base): %w", err)
+	}
+
+	tier2WALFS, err := tier2.ConnectWAL(ctx, &cfg.Tier2)
+	if err != nil {
+		return fmt.Errorf("error while connecting to tier2 (wal): %w", err)
+	}
+
+	opts := initialize.Options{
+		WalFS:                 tier2WALFS,
+		WalEncryptionPassword: cfg.Tier2.EncryptionKey,
+
+		KopiaFS:                 tier2BaseFS,
+		KopiaEncryptionPassword: cfg.Tier2.EncryptionKey,
+		KopiaInitializeRepo: func() error {
+			return kopiaserver.InitializeTier2(ctx, &cfg.Tier2)
+		},
+
+		SkipIfExisting: skipIfExisting,
+	}
+
+	return initialize.Run(ctx, opts)
 }
 
 //nolint:gochecknoinits
 func init() {
 	ServerCmd.AddCommand(initializeCmd)
 
-	// Here you will define your flags and configuration settings.
+	initializeCmd.Flags().Bool("tier1", true, "Enables Tier1 initialization")
+	initializeCmd.Flags().Bool("tier2", false, "Enables Tier2 initialization")
 	initializeCmd.Flags().Bool(
 		"skip-if-existing",
 		false,
 		"Skip initialization if the target directories already exist and are not empty",
 	)
-
-	// Cobra supports Persistent Flags which will work for this command
-	// and all subcommands, e.g.:
-	// runCmd.PersistentFlags().String("foo", "", "A help for foo")
-
-	// Cobra supports local flags which will only run when this command
-	// is called directly, e.g.:
-	// runCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
 }

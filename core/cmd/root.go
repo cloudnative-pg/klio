@@ -15,7 +15,6 @@ import (
 	"github.com/cloudnative-pg/klio/core/cmd/cnpgi"
 	"github.com/cloudnative-pg/klio/core/cmd/retention"
 	"github.com/cloudnative-pg/klio/core/cmd/server"
-	"github.com/cloudnative-pg/klio/core/cmd/tier2"
 	"github.com/cloudnative-pg/klio/core/cmd/walplayer"
 
 	_ "net/http/pprof" //nolint:gosec
@@ -94,7 +93,6 @@ func init() {
 	rootCmd.AddCommand(walplayer.WalPlayerCmd)
 	rootCmd.AddCommand(cnpgi.CnpgiCmd)
 	rootCmd.AddCommand(retention.RetentionCmd)
-	rootCmd.AddCommand(tier2.Tier2Cmd)
 }
 
 // initConfig reads in config file and ENV variables if set.

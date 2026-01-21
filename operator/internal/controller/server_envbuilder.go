@@ -54,11 +54,6 @@ func (e *envBuilder) addServerEnvs() *envBuilder {
 	return e
 }
 
-func (e *envBuilder) addTier2InitEnvs() *envBuilder {
-	e.builtEnvs = append(e.builtEnvs, corev1.EnvVar{Name: "CONTAINER_NAME", Value: "tier2-init"})
-	return e
-}
-
 // getKubernetesDownwardAPIEnvVars provides Kubernetes metadata through the downward API.
 func (e *envBuilder) getKubernetesDownwardAPIEnvVars() []corev1.EnvVar {
 	return []corev1.EnvVar{
