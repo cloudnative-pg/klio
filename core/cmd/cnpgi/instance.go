@@ -18,6 +18,7 @@ var instanceCmd = &cobra.Command{
 
 		enableTier2Backup, _ := cmd.Flags().GetBool("enable-tier2-backup")
 		enableTier2Recovery, _ := cmd.Flags().GetBool("enable-tier2-recovery")
+		debug, _ := cmd.PersistentFlags().GetBool("debug")
 
 		capabilities := func(server *cnpgi.CNPGI) {
 			server.AddBackupCapability(cnpgi.BackupCapabilityOptions{
@@ -25,7 +26,7 @@ var instanceCmd = &cobra.Command{
 			})
 			server.AddMetricsCapability()
 			server.AddWALCapability(cnpgi.WALCapabilityOptions{
-				Debug:        true,
+				Debug:        debug,
 				IncludeTier2: enableTier2Recovery,
 			})
 		}
