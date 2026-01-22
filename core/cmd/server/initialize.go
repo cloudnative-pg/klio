@@ -5,12 +5,10 @@ import (
 	"fmt"
 
 	"github.com/cloudnative-pg/machinery/pkg/log"
-	"github.com/spf13/afero"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 
 	"github.com/cloudnative-pg/klio/core/cmd/initialize"
-	"github.com/cloudnative-pg/klio/core/internal/server/kopiaserver"
 	"github.com/cloudnative-pg/klio/core/internal/tier2"
 	"github.com/cloudnative-pg/klio/core/pkg/config"
 )
@@ -32,12 +30,11 @@ var initializeCmd = &cobra.Command{
 			return fmt.Errorf("tier 1 configuration validation error: %w", err)
 		}
 
-		skipIfExisting, _ := cmd.Flags().GetBool("skip-if-existing")
 		enableTier1, _ := cmd.Flags().GetBool("tier1")
 		enableTier2, _ := cmd.Flags().GetBool("tier2")
 
 		if enableTier1 {
-			if err := initializeTier1(cmd.Context(), &configuration, skipIfExisting); err != nil {
+			if err := initializeTier1(cmd.Context(), &configuration); err != nil {
 				return err
 			}
 		}
@@ -52,7 +49,7 @@ var initializeCmd = &cobra.Command{
 				return nil
 			}
 
-			if err := initializeTier2(cmd.Context(), &configuration, skipIfExisting); err != nil {
+			if err := initializeTier2(cmd.Context(), &configuration); err != nil {
 				return err
 			}
 		}
@@ -61,22 +58,9 @@ var initializeCmd = &cobra.Command{
 	},
 }
 
-func initializeTier1(ctx context.Context, cfg *config.ServerConfig, skipIfExisting bool) error {
+func initializeTier1(ctx context.Context, cfg *config.ServerConfig) error {
 	walDirectory := cfg.Tier1.Wal.WALPath
 	kopiaDirectory := cfg.Tier1.Base.RepositoryDirectory
-
-	opts := initialize.Options{
-		WalFS:                 afero.NewBasePathFs(afero.NewOsFs(), walDirectory),
-		WalEncryptionPassword: cfg.Tier1.EncryptionKey,
-
-		KopiaFS:                 afero.NewBasePathFs(afero.NewOsFs(), kopiaDirectory),
-		KopiaEncryptionPassword: cfg.Tier1.EncryptionKey,
-		KopiaInitializeRepo: func() error {
-			return kopiaserver.InitializeTier1(ctx, &cfg.Tier1)
-		},
-
-		SkipIfExisting: skipIfExisting,
-	}
 
 	log.FromContext(ctx).Info(
 		"Ensuring tier1 repository is initialized.",
@@ -84,10 +68,10 @@ func initializeTier1(ctx context.Context, cfg *config.ServerConfig, skipIfExisti
 		"kopiaDirectory", kopiaDirectory,
 	)
 
-	return initialize.Run(ctx, opts)
+	return initialize.Run(ctx, initialize.NewTier1Options(&cfg.Tier1))
 }
 
-func initializeTier2(ctx context.Context, cfg *config.ServerConfig, skipIfExisting bool) error {
+func initializeTier2(ctx context.Context, cfg *config.ServerConfig) error {
 	tier2BaseFS, err := tier2.ConnectBase(ctx, &cfg.Tier2)
 	if err != nil {
 		return fmt.Errorf("error while connecting to tier2 (base): %w", err)
@@ -98,22 +82,9 @@ func initializeTier2(ctx context.Context, cfg *config.ServerConfig, skipIfExisti
 		return fmt.Errorf("error while connecting to tier2 (wal): %w", err)
 	}
 
-	opts := initialize.Options{
-		WalFS:                 tier2WALFS,
-		WalEncryptionPassword: cfg.Tier2.EncryptionKey,
-
-		KopiaFS:                 tier2BaseFS,
-		KopiaEncryptionPassword: cfg.Tier2.EncryptionKey,
-		KopiaInitializeRepo: func() error {
-			return kopiaserver.InitializeTier2(ctx, &cfg.Tier2)
-		},
-
-		SkipIfExisting: skipIfExisting,
-	}
-
 	log.FromContext(ctx).Info("Ensuring tier2 repository is initialized.")
 
-	return initialize.Run(ctx, opts)
+	return initialize.Run(ctx, initialize.NewTier2Options(&cfg.Tier2, tier2WALFS, tier2BaseFS))
 }
 
 //nolint:gochecknoinits
@@ -122,9 +93,4 @@ func init() {
 
 	initializeCmd.Flags().Bool("tier1", true, "Enables Tier1 initialization")
 	initializeCmd.Flags().Bool("tier2", false, "Enables Tier2 initialization")
-	initializeCmd.Flags().Bool(
-		"skip-if-existing",
-		false,
-		"Skip initialization if the target directories already exist and are not empty",
-	)
 }

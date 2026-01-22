@@ -106,7 +106,6 @@ func (r *ServerReconciler) reconcileStatefulSet(ctx context.Context, server *kli
 							Args: []string{
 								"server",
 								"initialize",
-								"--skip-if-existing",
 								"--tier1=true",
 								"--tier2=" + strconv.FormatBool(server.Spec.Tier2 != nil),
 							},
