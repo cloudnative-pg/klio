@@ -9,6 +9,8 @@ import (
 	kliov1alpha1 "github.com/cloudnative-pg/klio/operator/api/v1alpha1"
 )
 
+const kopiaCacheSubdirectory = "kopia-cache"
+
 type envBuilder struct {
 	builtEnvs []corev1.EnvVar
 
@@ -99,7 +101,7 @@ func (e *envBuilder) getCoreEnvVars() []corev1.EnvVar {
 		tier1Envs := []corev1.EnvVar{
 			{
 				Name:  "TIER1_BASE_CACHE",
-				Value: kopiaCacheTier1MountPath,
+				Value: path.Join(kopiaCacheTier1MountPath, kopiaCacheSubdirectory),
 			},
 			{
 				Name:  "TIER1_BASE_REPOSITORY",
@@ -163,7 +165,7 @@ func (e *envBuilder) getTier2EnvVars() []corev1.EnvVar {
 		},
 		{
 			Name:  "TIER2_CACHE",
-			Value: kopiaCacheTier2MountPath,
+			Value: path.Join(kopiaCacheTier2MountPath, kopiaCacheSubdirectory),
 		},
 		{
 			Name:  "TIER2_BASE_LISTEN_ADDRESS",

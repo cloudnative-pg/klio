@@ -46,23 +46,23 @@ type Options struct {
 // Run initializes the Klio WAL and the Kopia repository specified by the
 // options.
 func Run(ctx context.Context, opts Options) error {
-	var walDirectoryIsOk, kopiaDirectoryIsOk bool
+	var walDirectoryIsEmpty, kopiaDirectoryIsEmpty bool
 	var err error
 
 	contextLogger := log.FromContext(ctx)
 
-	walDirectoryIsOk, err = canInitRepoDirectory(opts.WalFS)
+	walDirectoryIsEmpty, err = canInitRepoDirectory(opts.WalFS)
 	if err != nil {
 		return fmt.Errorf("while checking if the Klio WAL FS is safe to use: %w", err)
 	}
 
-	kopiaDirectoryIsOk, err = canInitRepoDirectory(opts.KopiaFS)
+	kopiaDirectoryIsEmpty, err = canInitRepoDirectory(opts.KopiaFS)
 	if err != nil {
 		return fmt.Errorf("while checking if the Kopia repository is safe to use: %w", err)
 	}
 
 	switch {
-	case walDirectoryIsOk && kopiaDirectoryIsOk:
+	case walDirectoryIsEmpty && kopiaDirectoryIsEmpty:
 		if err := repository.Initialize(repository.Options{
 			FS:       opts.WalFS,
 			Password: opts.WalEncryptionPassword,
@@ -76,15 +76,15 @@ func Run(ctx context.Context, opts Options) error {
 
 	case opts.SkipIfExisting:
 		contextLogger.Info(
-			"skipping initialization of Klio repository directories",
-			"walDirectory", opts.WalFS.Name(),
-			"kopiaDirectory", opts.KopiaFS.Name(),
+			"The klio repository already exists, skipping initialization.",
+			"walDirectoryIsEmpty", walDirectoryIsEmpty,
+			"kopiaDirectoryIsEmpty", kopiaDirectoryIsEmpty,
 		)
 
-	case !walDirectoryIsOk:
+	case !walDirectoryIsEmpty:
 		return ErrWALDirectoryNotEmpty
 
-	case !kopiaDirectoryIsOk:
+	case !kopiaDirectoryIsEmpty:
 		return ErrKopiaDirectoryNotEmpty
 	}
 

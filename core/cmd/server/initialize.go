@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/cloudnative-pg/machinery/pkg/log"
 	"github.com/spf13/afero"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -77,6 +78,12 @@ func initializeTier1(ctx context.Context, cfg *config.ServerConfig, skipIfExisti
 		SkipIfExisting: skipIfExisting,
 	}
 
+	log.FromContext(ctx).Info(
+		"Ensuring tier1 repository is initialized.",
+		"walDirectory", walDirectory,
+		"kopiaDirectory", kopiaDirectory,
+	)
+
 	return initialize.Run(ctx, opts)
 }
 
@@ -103,6 +110,8 @@ func initializeTier2(ctx context.Context, cfg *config.ServerConfig, skipIfExisti
 
 		SkipIfExisting: skipIfExisting,
 	}
+
+	log.FromContext(ctx).Info("Ensuring tier2 repository is initialized.")
 
 	return initialize.Run(ctx, opts)
 }

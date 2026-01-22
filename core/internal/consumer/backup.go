@@ -35,9 +35,6 @@ type BackupOptions struct {
 	// The cache directory
 	CacheDirectory string
 
-	// The tier1 encryption key (LEO: why?)
-	Tier1EncryptionKey string
-
 	// RunID is the unique identifier for this server run.
 	RunID string
 

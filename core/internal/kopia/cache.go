@@ -1,13 +1,13 @@
-package kopiaserver
+package kopia
 
 import (
-	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
 )
 
-func cleanupCache(name string) error {
+// CleanupCacheDirectory removes the cache directory at the specified path.
+func CleanupCacheDirectory(name string) error {
 	cleanPath := filepath.Clean(name)
 
 	if !filepath.IsAbs(cleanPath) {
@@ -23,18 +23,4 @@ func cleanupCache(name string) error {
 	}
 
 	return nil
-}
-
-func cacheDirectory(baseDir, subDir string) (string, error) {
-	if baseDir == "" {
-		return "", errors.New("cache base directory is empty")
-	}
-
-	joined := filepath.Join(baseDir, subDir)
-	absolute, err := filepath.Abs(joined)
-	if err != nil {
-		return "", fmt.Errorf("while resolving cache directory %q: %w", joined, err)
-	}
-
-	return absolute, nil
 }

@@ -3,7 +3,6 @@ package server
 import (
 	"context"
 	"fmt"
-	"os"
 	"time"
 
 	"github.com/cloudnative-pg/machinery/pkg/log"
@@ -67,9 +66,10 @@ func (s *Tier2WALServer) String() string {
 
 // Tier2KopiaServer manages the tier 2 Kopia server component.
 type Tier2KopiaServer struct {
-	Config    *config.ServerConfig
-	RunID     string
-	RunSecret string
+	Config      *config.ServerConfig
+	KopiaConfig string
+	RunID       string
+	RunSecret   string
 }
 
 // Serve starts the tier 2 Kopia server and handles backup operations.
@@ -77,31 +77,16 @@ func (s *Tier2KopiaServer) Serve(ctx context.Context) error {
 	contextLogger := log.FromContext(ctx).WithName("tier2-kopia")
 	ctx = log.IntoContext(ctx, contextLogger)
 
-	// Create a Kopia configuration for tier2
-	tier2ConfigFile, err := os.CreateTemp("", "kopia_tier2_config_*")
-	if err != nil {
-		return fmt.Errorf("while writing a temporary Kopia config: %w", err)
-	}
-
-	defer func() {
-		if err := os.Remove(tier2ConfigFile.Name()); err != nil {
-			contextLogger.Warning(
-				"Error while removing temporary configuration file",
-				"err", err,
-				"tier2ConfigFile", tier2ConfigFile.Name(),
-			)
-		}
-	}()
-
 	// IMPORTANT: this requires this program to be built with "-tags viper_bind_struct"
 	if err := kopiaserver.StartTier2(
 		ctx,
-		&s.Config.Tier2,
+		s.Config.Tier2.BaseListenAddress,
 		&s.Config.TLS,
 		kopiaserver.ServerControlCredential{
 			User:     s.RunID,
 			Password: s.RunSecret,
 		},
+		s.KopiaConfig,
 	); err != nil {
 		return fmt.Errorf("while running kopia server: %w", err)
 	}
@@ -115,66 +100,18 @@ func (s *Tier2KopiaServer) String() string {
 
 // Tier2BackupConsumer manages the tier 2 backup consumer that processes backup tasks from the queue.
 type Tier2BackupConsumer struct {
-	Config    *config.ServerConfig
-	QueueURL  string
-	RunID     string
-	RunSecret string
+	Config               *config.ServerConfig
+	Tier1KopiaConfigFile string
+	Tier2KopiaConfigFile string
+	QueueURL             string
+	RunID                string
+	RunSecret            string
 }
 
 // Serve starts the tier 2 backup consumer and processes backup tasks from the queue.
-//
-//nolint:cyclop
 func (s *Tier2BackupConsumer) Serve(ctx context.Context) error {
 	contextLogger := log.FromContext(ctx).WithName("tier2-backup-consumer")
 	ctx = log.IntoContext(ctx, contextLogger)
-
-	// Create a Kopia configuration for tier1
-	tier1ConfigFile, err := os.CreateTemp("", "kopia_tier1_config_*")
-	if err != nil {
-		return fmt.Errorf("while writing a temporary Kopia Tier 1 config: %w", err)
-	}
-
-	defer func() {
-		if err := os.Remove(tier1ConfigFile.Name()); err != nil {
-			contextLogger.Warning(
-				"Error while removing temporary configuration file",
-				"err", err,
-				"tier1ConfigFile", tier1ConfigFile.Name(),
-			)
-		}
-	}()
-
-	if err := kopiaserver.CreateTier1KopiaConfigFile(
-		ctx,
-		tier1ConfigFile.Name(),
-		&s.Config.Tier1,
-	); err != nil {
-		return err
-	}
-
-	// Create a Kopia configuration for tier2
-	tier2ConfigFile, err := os.CreateTemp("", "kopia_tier2_config_*")
-	if err != nil {
-		return fmt.Errorf("while writing a temporary Kopia Tier 2 config: %w", err)
-	}
-
-	defer func() {
-		if err := os.Remove(tier2ConfigFile.Name()); err != nil {
-			contextLogger.Warning(
-				"Error while removing temporary configuration file",
-				"err", err,
-				"tier2ConfigFile", tier2ConfigFile.Name(),
-			)
-		}
-	}()
-
-	if err := kopiaserver.CreateTier2KopiaConfigFile(
-		ctx,
-		tier2ConfigFile.Name(),
-		&s.Config.Tier2,
-	); err != nil {
-		return err
-	}
 
 	// Connect to NATS
 	natsConnection, err := nats.Connect(
@@ -200,10 +137,9 @@ func (s *Tier2BackupConsumer) Serve(ctx context.Context) error {
 	// Starts the consumer
 	c, err := consumer.NewBackup(&consumer.BackupOptions{
 		Queue:                             queueConnection,
-		Tier1KopiaConfig:                  tier1ConfigFile.Name(),
-		Tier2KopiaConfig:                  tier2ConfigFile.Name(),
+		Tier1KopiaConfig:                  s.Tier1KopiaConfigFile,
+		Tier2KopiaConfig:                  s.Tier2KopiaConfigFile,
 		CacheDirectory:                    s.Config.Tier1.Base.CacheDirectory,
-		Tier1EncryptionKey:                s.Config.Tier1.EncryptionKey,
 		RunID:                             s.RunID,
 		RunSecret:                         s.RunSecret,
 		Tier2ServerAddress:                "https://" + s.Config.Tier2.BaseListenAddress,

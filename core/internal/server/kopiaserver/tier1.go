@@ -3,9 +3,6 @@ package kopiaserver
 import (
 	"context"
 	"fmt"
-	"os"
-
-	"github.com/cloudnative-pg/machinery/pkg/log"
 
 	"github.com/cloudnative-pg/klio/core/internal/kopia"
 	"github.com/cloudnative-pg/klio/core/pkg/config"
@@ -23,57 +20,29 @@ type ServerControlCredential struct {
 // StartTier1 runs a Tier 1 Kopia server.
 func StartTier1(
 	ctx context.Context,
-	cfg *config.Tier1Config,
+	listenAddress string,
 	tls *config.TLSConfig,
 	serverControl ServerControlCredential,
+	kopiaConfigFile string,
 ) error {
-	contextLogger := log.FromContext(ctx)
-
-	configFile, err := os.CreateTemp("", "kopiaconfig_*")
-	if err != nil {
-		return fmt.Errorf("while writing a temporary Kopia config: %w", err)
-	}
-
-	defer func() {
-		if err := os.Remove(configFile.Name()); err != nil {
-			contextLogger.Warning(
-				"Error while removing temporary Tier 1 configuration file",
-				"err", err,
-				"configFile", configFile.Name(),
-			)
-		}
-	}()
-
-	if err := CreateTier1KopiaConfigFile(ctx, configFile.Name(), cfg); err != nil {
-		return err
-	}
-
 	kopiaCfg := Config{
-		ListenAddress:         cfg.Base.ListenAddress,
+		ListenAddress:         listenAddress,
 		ServerControlUser:     serverControl.User,
 		ServerControlPassword: serverControl.Password,
 	}
 
-	return start(ctx, configFile.Name(), &kopiaCfg, tls)
-}
-
-func getTier1CacheDirectory(cfg *config.BaseServerConfig) (string, error) {
-	return cacheDirectory(cfg.CacheDirectory, "tier1")
+	return start(ctx, kopiaConfigFile, &kopiaCfg, tls)
 }
 
 // InitializeTier1 initializes a new Kopia Tier1 Repository.
 func InitializeTier1(ctx context.Context, cfg *config.Tier1Config) error {
-	cacheDir, err := getTier1CacheDirectory(&cfg.Base)
-	if err != nil {
-		return err
-	}
-
+	cacheDir := cfg.Base.CacheDirectory
 	kopiaBinary, err := kopia.LookupBinary()
 	if err != nil {
 		return err
 	}
 
-	if err := cleanupCache(cacheDir); err != nil {
+	if err := kopia.CleanupCacheDirectory(cacheDir); err != nil {
 		return err
 	}
 
@@ -88,33 +57,6 @@ func InitializeTier1(ctx context.Context, cfg *config.Tier1Config) error {
 
 	if err := kopia.InitializeFilesystem(ctx, opts); err != nil {
 		return fmt.Errorf("while creating Kopia repository: %w", err)
-	}
-
-	return nil
-}
-
-// CreateTier1KopiaConfigFile creates a Kopia config file for tier1.
-func CreateTier1KopiaConfigFile(ctx context.Context, fileName string, cfg *config.Tier1Config) error {
-	cacheDir, err := getTier1CacheDirectory(&cfg.Base)
-	if err != nil {
-		return err
-	}
-
-	kopiaBinary, err := kopia.LookupBinary()
-	if err != nil {
-		return err
-	}
-
-	if err := kopia.ConnectFileSystem(ctx, fileName, kopia.FSRepoOpts{
-		CommonRepoOpts: kopia.CommonRepoOpts{
-			KopiaBinary:        kopiaBinary,
-			EncryptionPassword: cfg.EncryptionKey,
-			PersistCredentials: true,
-			CacheDirectory:     cacheDir,
-		},
-		DataDirectory: cfg.Base.RepositoryDirectory,
-	}); err != nil {
-		return fmt.Errorf("while connecting to Kopia repository: %w", err)
 	}
 
 	return nil

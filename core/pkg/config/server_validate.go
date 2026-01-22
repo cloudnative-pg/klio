@@ -2,6 +2,7 @@ package config
 
 import (
 	"errors"
+	"path/filepath"
 )
 
 // ErrMissingTier2Configuration is raised when no tier2 backend
@@ -170,6 +171,22 @@ func (c *ServerConfig) RequireTier2() error {
 
 	if !c.Tier2.S3.Enabled {
 		errs = errors.Join(errs, ErrMissingTier2Configuration)
+	}
+
+	// Resolve absolute paths to catch collisions that use different naming conventions
+	cleanDir1, err := filepath.Abs(filepath.Clean(c.Tier1.Base.CacheDirectory))
+	if err != nil {
+		errs = errors.Join(errs, err)
+	}
+	cleanDir2, err := filepath.Abs(filepath.Clean(c.Tier2.CacheDirectory))
+	if err != nil {
+		errs = errors.Join(errs, err)
+	}
+
+	// Validate that tier1 and tier2 don't use the same cache directory
+	if cleanDir1 == cleanDir2 {
+		errs = errors.Join(errs, errors.New(
+			"tier1 and tier2 cannot use the same cache directory"))
 	}
 
 	return errs

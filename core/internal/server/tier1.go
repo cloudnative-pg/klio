@@ -53,9 +53,10 @@ func (s *Tier1WALServer) String() string {
 
 // Tier1KopiaServer manages the tier 1 Kopia server component.
 type Tier1KopiaServer struct {
-	Config    *config.ServerConfig
-	RunID     string
-	RunSecret string
+	Config      *config.ServerConfig
+	KopiaConfig string
+	RunID       string
+	RunSecret   string
 }
 
 // Serve starts the tier 1 Kopia server and handles backup operations.
@@ -65,12 +66,13 @@ func (s *Tier1KopiaServer) Serve(ctx context.Context) error {
 
 	if err := kopiaserver.StartTier1(
 		ctx,
-		&s.Config.Tier1,
+		s.Config.Tier1.Base.ListenAddress,
 		&s.Config.TLS,
 		kopiaserver.ServerControlCredential{
 			User:     s.RunID,
 			Password: s.RunSecret,
 		},
+		s.KopiaConfig,
 	); err != nil {
 		return fmt.Errorf("while running kopia server: %w", err)
 	}
