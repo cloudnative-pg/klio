@@ -23,6 +23,26 @@ type Connection struct {
 	kopia *kopia.Client
 }
 
+// CleanupConfigFile removes the Kopia configuration file and its associated password file.
+// This function is idempotent and will not fail if the files are already gone.
+func CleanupConfigFile(ctx context.Context, configFile string) {
+	contextLogger := log.FromContext(ctx)
+
+	removeIfExists := func(fileName string) {
+		if err := os.Remove(fileName); err != nil {
+			if !os.IsNotExist(err) {
+				contextLogger.Error(
+					err,
+					"error while removing temporary Kopia configuration file, skipping",
+					"configFile", fileName)
+			}
+		}
+	}
+
+	removeIfExists(configFile)
+	removeIfExists(configFile + ".kopia-password")
+}
+
 // ConnectTier1 creates a new Kopia client to the tier1 kopia repository and opens a connection to it.
 func ConnectTier1(
 	ctx context.Context,
@@ -130,17 +150,8 @@ func (s *Connection) GetHostname() string {
 }
 
 // Close closes the connection to the repository.
-func (s *Connection) Close(ctx context.Context) error {
-	contextLogger := log.FromContext(ctx)
-
-	if err := os.Remove(s.kopia.ConfigFile); err != nil {
-		contextLogger.Error(
-			err,
-			"error while removing temporary Kopia configuration file, skipping",
-			"configFile", s.kopia.ConfigFile)
-	}
-
-	return nil
+func (s *Connection) Close(ctx context.Context) {
+	CleanupConfigFile(ctx, s.kopia.ConfigFile)
 }
 
 // extractUserNameAndHostName from the common name in the client certificate.

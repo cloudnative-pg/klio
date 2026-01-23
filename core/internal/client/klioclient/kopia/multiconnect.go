@@ -53,6 +53,17 @@ func MultiConnect(
 	return mc, nil
 }
 
+// Close closes the connections to tier1 and tier2 repositories and cleans up temporary files.
+func (s *MultiConnection) Close(ctx context.Context) {
+	if s.Tier1 != nil {
+		s.Tier1.Close(ctx)
+	}
+
+	if s.Tier2 != nil {
+		s.Tier2.Close(ctx)
+	}
+}
+
 // GetUsername implements the Client interface.
 func (s *MultiConnection) GetUsername() string {
 	return s.Tier1.GetUsername()

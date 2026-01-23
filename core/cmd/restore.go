@@ -82,6 +82,7 @@ var restoreCmd = &cobra.Command{
 		if err != nil {
 			return fmt.Errorf("while connecting to the Klio server: %w", err)
 		}
+		defer client.Close(cmd.Context())
 
 		if backupName == "" {
 			contextLogger := contextLogger.WithValues("targetTime", targetTime)

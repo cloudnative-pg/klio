@@ -73,6 +73,9 @@ type Client interface {
 	// ApplyRetentionPolicy applies the retention policy for this cluster, deleting any
 	// snapshots that are no longer needed.
 	ApplyRetentionPolicy(ctx context.Context, t kopia.Target) error
+
+	// Close closes the underlying connection.
+	Close(ctx context.Context)
 }
 
 // WALUploaderImpl is the underlying implementation of a WAL

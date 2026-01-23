@@ -11,6 +11,7 @@ import (
 	"github.com/spf13/viper"
 	"github.com/thejerf/suture/v4"
 
+	"github.com/cloudnative-pg/klio/core/internal/client/klioclient/kopia"
 	"github.com/cloudnative-pg/klio/core/internal/server"
 	"github.com/cloudnative-pg/klio/core/internal/server/kopiaconfig"
 	"github.com/cloudnative-pg/klio/core/pkg/config"
@@ -87,7 +88,6 @@ var startCmd = &cobra.Command{
 			}
 
 			tier1ConfigFileName = tier1ConfigFile.Name()
-
 			if err := tier1ConfigFile.Close(); err != nil {
 				contextLogger.Warning(
 					"Error while closing temporary Tier 1 configuration file",
@@ -96,15 +96,7 @@ var startCmd = &cobra.Command{
 				)
 			}
 
-			defer func() {
-				if err := os.Remove(tier1ConfigFileName); err != nil {
-					contextLogger.Warning(
-						"Error while removing temporary Tier 1 configuration file",
-						"err", err,
-						"configFile", tier1ConfigFileName,
-					)
-				}
-			}()
+			defer kopia.CleanupConfigFile(cmd.Context(), tier1ConfigFileName)
 
 			if err := kopiaconfig.CreateTier1KopiaConfigFile(
 				cmd.Context(),
@@ -140,7 +132,6 @@ var startCmd = &cobra.Command{
 			}
 
 			tier2ConfigFileName = tier2ConfigFile.Name()
-
 			if err := tier2ConfigFile.Close(); err != nil {
 				contextLogger.Warning(
 					"Error while closing temporary Tier 2 configuration file",
@@ -149,15 +140,7 @@ var startCmd = &cobra.Command{
 				)
 			}
 
-			defer func() {
-				if err := os.Remove(tier2ConfigFileName); err != nil {
-					contextLogger.Warning(
-						"Error while removing temporary Tier 2 configuration file",
-						"err", err,
-						"configFile", tier2ConfigFileName,
-					)
-				}
-			}()
+			defer kopia.CleanupConfigFile(cmd.Context(), tier2ConfigFileName)
 
 			if err := kopiaconfig.CreateTier2KopiaConfigFile(
 				cmd.Context(),

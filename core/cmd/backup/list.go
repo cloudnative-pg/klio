@@ -52,6 +52,7 @@ var listCmd = &cobra.Command{
 		if err != nil {
 			return fmt.Errorf("while connecting to the Klio server: %w %q", err, configuration.Client.Base.URL)
 		}
+		defer client.Close(cmd.Context())
 
 		backups, err := client.ListBackups(cmd.Context(), client.GetHostname())
 		if err != nil {

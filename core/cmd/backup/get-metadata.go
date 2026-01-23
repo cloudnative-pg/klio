@@ -54,6 +54,7 @@ var getMetadataCmd = &cobra.Command{
 		if err != nil {
 			return fmt.Errorf("while connecting to the Klio server: %w %q", err, configuration.Client.Base.URL)
 		}
+		defer client.Close(cmd.Context())
 
 		metadata, err := client.GetMetadata(cmd.Context(), client.GetHostname(), backupName)
 		if err != nil {

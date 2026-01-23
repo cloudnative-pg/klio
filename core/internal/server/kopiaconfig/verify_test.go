@@ -12,7 +12,7 @@ func TestVerifyKopiaRepository(t *testing.T) {
 		var capturedPath string
 		tier := "tier1"
 
-		err := verifyKopiaRepository(tier, func(tmpPath string) error {
+		err := verifyKopiaRepository(t.Context(), tier, func(tmpPath string) error {
 			if !strings.Contains(tmpPath, "kopiaconfig_verify_"+tier) {
 				t.Errorf("temp file path %s does not follow expected pattern", tmpPath)
 			}
@@ -40,7 +40,7 @@ func TestVerifyKopiaRepository(t *testing.T) {
 		tier := "tier1"
 		expectedErrMsg := "mock callback failure"
 
-		err := verifyKopiaRepository("tier1", func(tmpPath string) error {
+		err := verifyKopiaRepository(t.Context(), "tier1", func(tmpPath string) error {
 			if !strings.Contains(tmpPath, "kopiaconfig_verify_"+tier) {
 				t.Errorf("temp file path %s does not follow expected pattern", tmpPath)
 			}

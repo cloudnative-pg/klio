@@ -49,6 +49,7 @@ var getCmd = &cobra.Command{
 		if err != nil {
 			return fmt.Errorf("while connecting to the Klio server: %w %q", err, configuration.Client.Base.URL)
 		}
+		defer client.Close(cmd.Context())
 
 		effectivePolicy, err := client.GetRetentionPolicy(
 			cmd.Context(),

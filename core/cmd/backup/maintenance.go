@@ -58,6 +58,7 @@ var maintenanceCmd = &cobra.Command{
 		if err != nil {
 			return fmt.Errorf("while connecting to the Klio server: %w %q", err, configuration.Client.Base.URL)
 		}
+		defer kopiaClient.Close(cmd.Context())
 
 		target := kopiaWrapper.Target{
 			Hostname: kopiaClient.GetHostname(),
