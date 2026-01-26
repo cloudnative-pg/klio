@@ -12,12 +12,16 @@ import (
 	"github.com/cloudnative-pg/machinery/pkg/log"
 	"github.com/spf13/viper"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/types"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/metrics/server"
 	"sigs.k8s.io/controller-runtime/pkg/scheme"
 
@@ -27,7 +31,9 @@ import (
 func runCNPGI(
 	ctx context.Context,
 	pluginPath string,
+	clusterKey types.NamespacedName,
 	addCapabilities func(server *cnpgi.CNPGI),
+	enrichManager func(m manager.Manager) error,
 ) error {
 	logger := log.FromContext(ctx)
 
@@ -37,6 +43,16 @@ func runCNPGI(
 
 	controllerOptions := ctrl.Options{
 		Scheme: generateScheme(),
+		Cache: cache.Options{
+			ByObject: map[client.Object]cache.ByObject{
+				&cnpgv1.Cluster{}: {
+					Field: fields.OneTermEqualSelector("metadata.name", clusterKey.Name),
+					Namespaces: map[string]cache.Config{
+						clusterKey.Namespace: {},
+					},
+				},
+			},
+		},
 		Client: client.Options{
 			Cache: &client.CacheOptions{
 				DisableFor: []client.Object{
@@ -61,12 +77,18 @@ func runCNPGI(
 		Client:     mgr.GetClient(),
 		PluginPath: pluginPath,
 	}
-
 	addCapabilities(server)
 
 	if err := mgr.Add(server); err != nil {
 		logger.Error(err, "unable to create CNPGI runnable")
 		return fmt.Errorf("while creating CNPGI runnable: %w", err)
+	}
+
+	// Enrich the manager
+	if enrichManager != nil {
+		if err := enrichManager(mgr); err != nil {
+			return err
+		}
 	}
 
 	// Start the manager and handle graceful shutdown

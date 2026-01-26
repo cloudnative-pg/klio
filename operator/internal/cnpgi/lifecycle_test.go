@@ -3,6 +3,7 @@ package cnpgi
 import (
 	"testing"
 
+	cnpgv1 "github.com/cloudnative-pg/cloudnative-pg/api/v1"
 	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -228,6 +229,13 @@ func TestMergeVolumeMounts(t *testing.T) {
 }
 
 func TestBuildInstanceSidecarTemplate(t *testing.T) {
+	pod := &corev1.Pod{}
+	pod.Name = "test-pod"
+
+	cluster := &cnpgv1.Cluster{}
+	cluster.Name = "test-cluster"
+	cluster.Namespace = "test-namespace"
+
 	t.Run("with user customizations", func(t *testing.T) {
 		clusterPC := &kliov1alpha1.PluginConfiguration{
 			Spec: kliov1alpha1.PluginConfigurationSpec{
@@ -252,11 +260,18 @@ func TestBuildInstanceSidecarTemplate(t *testing.T) {
 			},
 		}
 
-		result := buildInstanceSidecarTemplate(clusterPC)
+		result := buildInstanceSidecarTemplate(pod, cluster, clusterPC)
 
 		// Klio required values are set
 		assert.Equal(t, "klio-plugin", result.Name)
-		assert.Equal(t, []string{"cnpgi", "instance"}, result.Args)
+		assert.Equal(t, []string{
+			"cnpgi",
+			"instance",
+			"--pod-name", "test-pod",
+			"--cluster-name", "test-cluster",
+			"--cluster-namespace", "test-namespace",
+			"--config", "/var/lib/postgresql/klio/klio-archive",
+		}, result.Args)
 		assertContainerNameEnvVar(t, result)
 
 		// User customizations are preserved
@@ -285,7 +300,7 @@ func TestBuildInstanceSidecarTemplate(t *testing.T) {
 			},
 		}
 
-		result := buildInstanceSidecarTemplate(clusterPC)
+		result := buildInstanceSidecarTemplate(pod, cluster, clusterPC)
 
 		assert.Equal(t, "klio-plugin", result.Name)
 		assert.Contains(t, result.Args, "--enable-tier2-backup")
@@ -301,7 +316,7 @@ func TestBuildInstanceSidecarTemplate(t *testing.T) {
 			},
 		}
 
-		result := buildInstanceSidecarTemplate(clusterPC)
+		result := buildInstanceSidecarTemplate(pod, cluster, clusterPC)
 
 		assert.Equal(t, "klio-plugin", result.Name)
 		assert.NotContains(t, result.Args, "--enable-tier2-backup")
@@ -318,7 +333,7 @@ func TestBuildInstanceSidecarTemplate(t *testing.T) {
 			},
 		}
 
-		result := buildInstanceSidecarTemplate(clusterPC)
+		result := buildInstanceSidecarTemplate(pod, cluster, clusterPC)
 
 		assert.Equal(t, "klio-plugin", result.Name)
 		assert.Contains(t, result.Args, "--enable-tier2-backup")
@@ -326,10 +341,17 @@ func TestBuildInstanceSidecarTemplate(t *testing.T) {
 	})
 
 	t.Run("with nil clusterPC", func(t *testing.T) {
-		result := buildInstanceSidecarTemplate(nil)
+		result := buildInstanceSidecarTemplate(pod, cluster, nil)
 
 		assert.Equal(t, "klio-plugin", result.Name)
-		assert.Equal(t, []string{"cnpgi", "instance"}, result.Args)
+		assert.Equal(t, []string{
+			"cnpgi",
+			"instance",
+			"--pod-name", "test-pod",
+			"--cluster-name", "test-cluster",
+			"--cluster-namespace", "test-namespace",
+			"--config", "/var/lib/postgresql/klio/klio-archive",
+		}, result.Args)
 		assert.NotContains(t, result.Args, "--enable-tier2-backup")
 		assert.NotContains(t, result.Args, "--enable-tier2-recovery")
 	})
@@ -351,11 +373,18 @@ func TestBuildInstanceSidecarTemplate(t *testing.T) {
 			},
 		}
 
-		result := buildInstanceSidecarTemplate(clusterPC)
+		result := buildInstanceSidecarTemplate(pod, cluster, clusterPC)
 
 		// Should get the default template, not the custom one
 		assert.Equal(t, "klio-plugin", result.Name)
-		assert.Equal(t, []string{"cnpgi", "instance"}, result.Args)
+		assert.Equal(t, []string{
+			"cnpgi",
+			"instance",
+			"--pod-name", "test-pod",
+			"--cluster-name", "test-cluster",
+			"--cluster-namespace", "test-namespace",
+			"--config", "/var/lib/postgresql/klio/klio-archive",
+		}, result.Args)
 		assert.Empty(t, result.Image, "Image should not be set from non-matching container")
 		assert.Nil(t, result.Resources.Limits, "Resources should not be set from non-matching container")
 		assertContainerNameEnvVar(t, result)

@@ -294,8 +294,7 @@ func (impl LifecycleImplementation) reconcilePod(
 	mutatedPod := pod.DeepCopy()
 
 	sidecarsToEnrich := []corev1.Container{
-		buildInstanceSidecarTemplate(clusterPC),
-		buildSendWALSidecarTemplate(pod, cluster, clusterPC),
+		buildInstanceSidecarTemplate(pod, cluster, clusterPC),
 	}
 
 	if err := reconcilePodSpec(
@@ -324,7 +323,7 @@ func (impl LifecycleImplementation) reconcilePod(
 	}, nil
 }
 
-func buildSendWALSidecarTemplate(
+func buildInstanceSidecarTemplate(
 	pod *corev1.Pod,
 	cluster *cnpgv1.Cluster,
 	clusterPC *kliov1alpha1.PluginConfiguration,
@@ -333,42 +332,16 @@ func buildSendWALSidecarTemplate(
 	// 1. Start from user customization if present (as the base)
 	// 2. Apply Klio required values (name, args, essential env vars)
 	// 3. Template defaults will be merged later in reconcilePodSpec
-	sidecar := corev1.Container{Name: "klio-wal"}
+	sidecar := corev1.Container{Name: "klio-plugin"}
 
 	args := []string{
 		"cnpgi",
-		"send-wal",
-		"--config", "/var/lib/postgresql/klio/" + klioArchiveConfigKey,
+		"instance",
 		"--pod-name", pod.Name,
 		"--cluster-name", cluster.Name,
 		"--cluster-namespace", cluster.Namespace,
+		"--config", "/var/lib/postgresql/klio/" + klioArchiveConfigKey,
 	}
-
-	if clusterPC != nil {
-		sidecar = findUserContainer("klio-wal", clusterPC.Spec.Containers)
-
-		if clusterPC.Spec.Tier2.EnableBackup {
-			args = append(args, "--enable-tier2-backup")
-		}
-	}
-
-	sidecar.Args = args
-	sidecar.Env = ensureEnvVar(sidecar.Env, corev1.EnvVar{
-		Name:  "CONTAINER_NAME",
-		Value: "klio-wal",
-	})
-
-	return sidecar
-}
-
-func buildInstanceSidecarTemplate(clusterPC *kliov1alpha1.PluginConfiguration) corev1.Container {
-	// Merge strategy:
-	// 1. Start from user customization if present (as the base)
-	// 2. Apply Klio required values (name, args, essential env vars)
-	// 3. Template defaults will be merged later in reconcilePodSpec
-	sidecar := corev1.Container{Name: "klio-plugin"}
-
-	args := []string{"cnpgi", "instance"}
 
 	if clusterPC != nil {
 		sidecar = findUserContainer("klio-plugin", clusterPC.Spec.Containers)

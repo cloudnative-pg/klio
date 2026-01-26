@@ -3,6 +3,7 @@ package cnpgi
 import (
 	"github.com/cloudnative-pg/machinery/pkg/log"
 	"github.com/spf13/cobra"
+	"k8s.io/apimachinery/pkg/types"
 
 	"github.com/cloudnative-pg/klio/core/internal/cnpgi"
 )
@@ -18,6 +19,8 @@ var restoreJobCmd = &cobra.Command{
 	RunE: func(cmd *cobra.Command, args []string) error {
 		pluginPath, _ := cmd.Flags().GetString("plugin-path")
 		includeTier2, _ := cmd.Flags().GetBool("include-tier2")
+		clusterName, _ := cmd.Flags().GetString("cluster-name")
+		clusterNamespace, _ := cmd.Flags().GetString("cluster-namespace")
 		debug, _ := cmd.PersistentFlags().GetBool("debug")
 		destination := args[0]
 
@@ -34,12 +37,31 @@ var restoreJobCmd = &cobra.Command{
 			})
 		}
 
-		return runCNPGI(cmd.Context(), pluginPath, capabilities)
+		return runCNPGI(
+			cmd.Context(),
+			pluginPath,
+			types.NamespacedName{
+				Namespace: clusterNamespace,
+				Name:      clusterName,
+			},
+			capabilities,
+			nil,
+		)
 	},
 }
 
 //nolint:gochecknoinits
 func init() {
+	restoreJobCmd.Flags().String(
+		"cluster-name",
+		"",
+		"The name of the cluster object",
+	)
+	restoreJobCmd.Flags().String(
+		"cluster-namespace",
+		"",
+		"The namespace of the cluster object",
+	)
 	restoreJobCmd.Flags().String(
 		"plugin-path",
 		"/plugins",
