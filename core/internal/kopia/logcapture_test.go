@@ -14,7 +14,6 @@ import (
 func TestRunWithLogCapture_Success(t *testing.T) {
 	ctx := context.Background()
 
-	// Test a simple command that succeeds
 	cmd := exec.CommandContext(ctx, "echo", "hello world")
 
 	err := RunWithLogCapture(ctx, cmd, nil)
@@ -35,7 +34,6 @@ func TestRunWithLogCapture_CommandFailure(t *testing.T) {
 func TestRunWithLogCapture_WithStdoutCapture(t *testing.T) {
 	ctx := context.Background()
 
-	// Test stdout capture
 	var stdout bytes.Buffer
 	cmd := exec.CommandContext(ctx, "echo", "test output")
 
@@ -49,7 +47,6 @@ func TestRunWithLogCapture_WithStdoutCapture(t *testing.T) {
 func TestRunWithLogCapture_StderrCapture(t *testing.T) {
 	ctx := context.Background()
 
-	// Test a command that writes to stderr
 	cmd := exec.CommandContext(ctx, "sh", "-c", "echo 'error message' >&2")
 
 	err := RunWithLogCapture(ctx, cmd, nil)
@@ -59,7 +56,6 @@ func TestRunWithLogCapture_StderrCapture(t *testing.T) {
 func TestRunWithLogCapture_BothStreams(t *testing.T) {
 	ctx := context.Background()
 
-	// Test a command that writes to both stdout and stderr
 	var stdout bytes.Buffer
 	cmd := exec.CommandContext(ctx, "sh", "-c", "echo 'stdout line'; echo 'stderr line' >&2")
 
@@ -73,7 +69,6 @@ func TestRunWithLogCapture_BothStreams(t *testing.T) {
 func TestRunWithLogCapture_MultilineOutput(t *testing.T) {
 	ctx := context.Background()
 
-	// Test a command with multiline output
 	var stdout bytes.Buffer
 	cmd := exec.CommandContext(ctx, "sh", "-c", "echo 'line 1'; echo 'line 2'; echo 'line 3'")
 
