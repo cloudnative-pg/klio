@@ -46,11 +46,6 @@ func (e *envBuilder) addCommonEnvs() *envBuilder {
 	return e
 }
 
-func (e *envBuilder) addInitEnvs() *envBuilder {
-	e.builtEnvs = append(e.builtEnvs, corev1.EnvVar{Name: "CONTAINER_NAME", Value: "init"})
-	return e
-}
-
 func (e *envBuilder) addServerEnvs() *envBuilder {
 	e.builtEnvs = append(e.builtEnvs, corev1.EnvVar{Name: "CONTAINER_NAME", Value: "base"})
 	return e

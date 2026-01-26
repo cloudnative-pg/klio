@@ -100,21 +100,6 @@ func (r *ServerReconciler) reconcileStatefulSet(ctx context.Context, server *kli
 							Type: corev1.SeccompProfileTypeRuntimeDefault,
 						},
 					},
-					InitContainers: []corev1.Container{
-						{
-							Name: "init",
-							Args: []string{
-								"server",
-								"initialize",
-								"--tier1=true",
-								"--tier2=" + strconv.FormatBool(server.Spec.Tier2 != nil),
-							},
-							Image:           server.Spec.Image,
-							ImagePullPolicy: server.Spec.ImagePullPolicy,
-							VolumeMounts:    volumeMounts,
-							Env:             newServerEnvBuilder(server).addCommonEnvs().addInitEnvs().build(),
-						},
-					},
 					Containers: []corev1.Container{
 						{
 							Name: "server",

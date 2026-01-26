@@ -5,57 +5,26 @@ import (
 	"fmt"
 
 	"github.com/cloudnative-pg/machinery/pkg/log"
-	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
 
 	"github.com/cloudnative-pg/klio/core/cmd/initialize"
 	"github.com/cloudnative-pg/klio/core/internal/tier2"
 	"github.com/cloudnative-pg/klio/core/pkg/config"
 )
 
-// initializeCmd represents the "init" command
-//
-//nolint:gochecknoglobals
-var initializeCmd = &cobra.Command{
-	Use:   "initialize",
-	Short: "Initialize a new Klio repository on the configured folder",
-	RunE: func(cmd *cobra.Command, _ []string) error {
-		var configuration config.ServerConfig
-
-		if err := viper.Unmarshal(&configuration); err != nil {
-			return fmt.Errorf("could not unmarshal configuration: %w", err)
+func initializeRepository(ctx context.Context, opts serverOpts) error {
+	if opts.tier1 {
+		if err := initializeTier1(ctx, opts.cfg); err != nil {
+			return err
 		}
+	}
 
-		if err := configuration.RequireTier1(); err != nil {
-			return fmt.Errorf("tier 1 configuration validation error: %w", err)
+	if opts.tier2 {
+		if err := initializeTier2(ctx, opts.cfg); err != nil {
+			return err
 		}
+	}
 
-		enableTier1, _ := cmd.Flags().GetBool("tier1")
-		enableTier2, _ := cmd.Flags().GetBool("tier2")
-
-		if enableTier1 {
-			if err := initializeTier1(cmd.Context(), &configuration); err != nil {
-				return err
-			}
-		}
-
-		if enableTier2 {
-			if err := configuration.RequireTier2(); err != nil {
-				return fmt.Errorf("tier 2 configuration validation error: %w", err)
-			}
-
-			if !configuration.Tier2.S3.Enabled {
-				// Nothing to be done. There is no tier2.
-				return nil
-			}
-
-			if err := initializeTier2(cmd.Context(), &configuration); err != nil {
-				return err
-			}
-		}
-
-		return nil
-	},
+	return nil
 }
 
 func initializeTier1(ctx context.Context, cfg *config.ServerConfig) error {
@@ -85,12 +54,4 @@ func initializeTier2(ctx context.Context, cfg *config.ServerConfig) error {
 	log.FromContext(ctx).Info("Ensuring tier2 repository is initialized.")
 
 	return initialize.Run(ctx, initialize.NewTier2Options(&cfg.Tier2, tier2WALFS, tier2BaseFS))
-}
-
-//nolint:gochecknoinits
-func init() {
-	ServerCmd.AddCommand(initializeCmd)
-
-	initializeCmd.Flags().Bool("tier1", true, "Enables Tier1 initialization")
-	initializeCmd.Flags().Bool("tier2", false, "Enables Tier2 initialization")
 }
