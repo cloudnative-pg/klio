@@ -11,79 +11,92 @@ import (
 	"os"
 	"path"
 
-	"github.com/aws/aws-sdk-go/aws"             //nolint:staticcheck
-	"github.com/aws/aws-sdk-go/aws/credentials" //nolint:staticcheck
-	"github.com/aws/aws-sdk-go/aws/session"     //nolint:staticcheck
-	s3 "github.com/fclairamb/afero-s3"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	awsconfig "github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go-v2/credentials"
+	"github.com/aws/aws-sdk-go-v2/service/s3"
+	aferoS3 "github.com/fclairamb/afero-s3"
 	"github.com/spf13/afero"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	"github.com/cloudnative-pg/klio/core/pkg/config"
 )
 
-// CreateAWSSession creates an AWS session from the relative
-// configuration.
-func CreateAWSSession(ctx context.Context, cfg *config.Tier2Config) (*session.Session, error) {
-	awsCfg := aws.Config{}
+// CreateAWSS3Client creates an AWS S3 client configured from the tier2 configuration.
+func CreateAWSS3Client(ctx context.Context, cfg *config.Tier2Config) (*s3.Client, error) {
+	// Build configuration options
+	var opts []func(*awsconfig.LoadOptions) error
 
-	if cfg.S3.Endpoint != "" {
-		awsCfg.Endpoint = aws.String(cfg.S3.Endpoint)
-		awsCfg.S3ForcePathStyle = aws.Bool(true)
-	}
+	// Set region if provided
 	if cfg.S3.Region != "" {
-		awsCfg.Region = aws.String(cfg.S3.Region)
+		opts = append(opts, awsconfig.WithRegion(cfg.S3.Region))
 	}
+
+	// Set credentials if provided
 	if cfg.S3.AccessKeyID != "" || cfg.S3.SecretAccessKey != "" || cfg.S3.SessionToken != "" {
-		awsCfg.Credentials = credentials.NewStaticCredentials(
-			cfg.S3.AccessKeyID,
-			cfg.S3.SecretAccessKey,
-			cfg.S3.SessionToken,
-		)
+		opts = append(opts, awsconfig.WithCredentialsProvider(
+			credentials.NewStaticCredentialsProvider(
+				cfg.S3.AccessKeyID,
+				cfg.S3.SecretAccessKey,
+				cfg.S3.SessionToken,
+			),
+		))
 	}
+
+	// Set custom HTTP client with custom CA bundle if provided
 	if cfg.S3.CustomCABundleFile != "" {
 		httpClient, err := newHTTPClient(ctx, cfg.S3.CustomCABundleFile)
 		if err != nil {
 			return nil, err
 		}
-
-		awsCfg.HTTPClient = httpClient
+		opts = append(opts, awsconfig.WithHTTPClient(httpClient))
 	}
 
-	sess, err := session.NewSessionWithOptions(
-		session.Options{
-			Config: awsCfg,
-		},
-	)
+	// Load AWS configuration
+	awsCfg, err := awsconfig.LoadDefaultConfig(ctx, opts...)
 	if err != nil {
-		return nil, fmt.Errorf("while creating an AWS session: %w", err)
+		return nil, fmt.Errorf("while loading AWS config: %w", err)
 	}
 
-	return sess, err
+	// Create S3 client options
+	var s3Opts []func(*s3.Options)
+
+	// Set custom endpoint and force path style if endpoint is defined
+	if cfg.S3.Endpoint != "" {
+		s3Opts = append(s3Opts, func(o *s3.Options) {
+			o.BaseEndpoint = aws.String(cfg.S3.Endpoint)
+			o.UsePathStyle = true
+		})
+	}
+
+	s3Client := s3.NewFromConfig(awsCfg, s3Opts...)
+
+	return s3Client, nil
 }
 
-// ConnectBase creates a FS abstraction to look into the file system where
+// ConnectBase creates an FS abstraction to look into the file system where
 // we allocated the Kopia tier 2 storage.
 func ConnectBase(ctx context.Context, cfg *config.Tier2Config) (afero.Fs, error) {
-	sess, err := CreateAWSSession(ctx, cfg)
+	client, err := CreateAWSS3Client(ctx, cfg)
 	if err != nil {
 		return nil, err
 	}
 
 	return afero.NewBasePathFs(
-		s3.NewFs(cfg.S3.BucketName, sess),
+		aferoS3.NewFsFromClient(cfg.S3.BucketName, client),
 		path.Join(cfg.S3.Prefix, "base"),
 	), nil
 }
 
-// ConnectWAL creates a FS abstraction to store WAL files over a tier 2 configuration.
+// ConnectWAL creates an FS abstraction to store WAL files over a tier 2 configuration.
 func ConnectWAL(ctx context.Context, cfg *config.Tier2Config) (afero.Fs, error) {
-	sess, err := CreateAWSSession(ctx, cfg)
+	client, err := CreateAWSS3Client(ctx, cfg)
 	if err != nil {
 		return nil, err
 	}
 
 	return afero.NewBasePathFs(
-		s3.NewFs(cfg.S3.BucketName, sess),
+		aferoS3.NewFsFromClient(cfg.S3.BucketName, client),
 		path.Join(cfg.S3.Prefix, "wals"),
 	), nil
 }

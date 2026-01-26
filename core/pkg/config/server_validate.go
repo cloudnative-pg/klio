@@ -122,11 +122,11 @@ func (c *WalServerConfig) Validate() error {
 
 // Validate implements a custom validation function for S3Configuration.
 func (c *S3Configuration) Validate() error {
-	var errs error
-
 	if !c.Enabled {
 		return nil
 	}
+
+	var errs error
 	if c.BucketName == "" {
 		errs = errors.Join(errs, errors.New("invalid s3 config: bucket_name is empty"))
 	}
@@ -134,7 +134,29 @@ func (c *S3Configuration) Validate() error {
 		errs = errors.Join(errs, errors.New("invalid s3 config: region is empty"))
 	}
 
+	errs = errors.Join(errs, c.validateAWSCredentials())
+
 	return errs
+}
+
+// validateAWSCredentials validates AWS authentication methods.
+// Credentials are optional; when not provided, the AWS SDK will automatically
+// use IAM role credentials (EKS IRSA, or Pod Identity).
+// If credentials are partially provided, an error is returned.
+func (c *S3Configuration) validateAWSCredentials() error {
+	// If both access key ID and secret are provided, that's valid
+	if c.AccessKeyID != "" && c.SecretAccessKey != "" {
+		return nil
+	}
+
+	// If neither is provided, that's valid (will use IAM role)
+	if c.AccessKeyID == "" && c.SecretAccessKey == "" {
+		return nil
+	}
+
+	// If only one is provided, that's an error
+	return errors.New(
+		"invalid s3 config: when using AWS credentials both access_key_id and secret_access_key must be provided")
 }
 
 // RequireTier1 checks if the configuration settings

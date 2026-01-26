@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net/url"
+	"os"
 	"os/exec"
 	"path"
 	"strings"
@@ -58,6 +59,7 @@ func InitializeS3(ctx context.Context, cfg S3RepoOpts) error {
 	args = append(args, backendArgs...)
 
 	kopiaRepositoryInitialize := exec.CommandContext(ctx, cfg.KopiaBinary, args...) //nolint:gosec
+	kopiaRepositoryInitialize.Env = append(kopiaRepositoryInitialize.Env, os.Environ()...)
 	kopiaRepositoryInitialize.Env = append(kopiaRepositoryInitialize.Env, getCommonS3Env(cfg)...)
 
 	contextLogger.Info("Kopia repository initialize", "args", kopiaRepositoryInitialize.Args)
@@ -91,6 +93,7 @@ func ConnectS3(ctx context.Context, configFileName string, opts S3RepoOpts) erro
 	args = append(args, backendArgs...)
 
 	kopiaRepositoryConnect := exec.CommandContext(ctx, opts.KopiaBinary, args...) //nolint:gosec
+	kopiaRepositoryConnect.Env = append(kopiaRepositoryConnect.Env, os.Environ()...)
 	kopiaRepositoryConnect.Env = append(kopiaRepositoryConnect.Env, getCommonS3Env(opts)...)
 
 	contextLogger.Info("Kopia repository connect", "args", kopiaRepositoryConnect.Args)
@@ -127,6 +130,7 @@ func getCommonS3Args(cfg S3RepoOpts) ([]string, error) {
 		args = append(args, "--region="+cfg.Region)
 	}
 
+	// Pass the S3 endpoint if provided (used for S3-compatible storage).
 	if shortenedEndpoint != "" {
 		args = append(args, "--endpoint="+shortenedEndpoint)
 	}
@@ -137,16 +141,38 @@ func getCommonS3Args(cfg S3RepoOpts) ([]string, error) {
 		args = append(args, "--root-ca-pem-path="+cfg.CustomCABundleFile)
 	}
 
+	// Kopia requires these flags, so we're passing them even if they're empty.
+	// If we're using the IAM role kopia will ignore empty credentials.
+	// If they're not empty they will be set as an environment variable.
+	if cfg.AccessKeyID == "" && cfg.SecretAccessKey == "" {
+		args = append(args,
+			"--access-key="+cfg.AccessKeyID,
+			"--secret-access-key="+cfg.SecretAccessKey,
+		)
+	}
+
 	return args, nil
 }
 
 func getCommonS3Env(cfg S3RepoOpts) []string {
-	return []string{
+	env := []string{
 		"KOPIA_LOG_DIR=" + cfg.CacheDirectory,
 		"KOPIA_PASSWORD=" + cfg.EncryptionPassword,
-		"AWS_ACCESS_KEY_ID=" + cfg.AccessKeyID,
-		"AWS_SECRET_ACCESS_KEY=" + cfg.SecretAccessKey,
-		"AWS_SESSION_TOKEN=" + cfg.SessionToken,
 		"KOPIA_CHECK_FOR_UPDATES=false",
 	}
+
+	// When credentials are provided, set AWS credential environment variables.
+	// When credentials are not provided, the AWS SDK will automatically use
+	// the pod's IAM role credentials (EC2 instance profile, ECS task role, or EKS IRSA).
+	if cfg.AccessKeyID != "" && cfg.SecretAccessKey != "" {
+		env = append(env,
+			"AWS_ACCESS_KEY_ID="+cfg.AccessKeyID,
+			"AWS_SECRET_ACCESS_KEY="+cfg.SecretAccessKey,
+		)
+		if cfg.SessionToken != "" {
+			env = append(env, "AWS_SESSION_TOKEN="+cfg.SessionToken)
+		}
+	}
+
+	return env
 }

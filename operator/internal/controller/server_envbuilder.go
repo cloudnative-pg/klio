@@ -160,6 +160,8 @@ func (e *envBuilder) getTier2EnvVars() []corev1.EnvVar {
 		})
 	}
 
+	// Inject explicit credentials if provided. When credentials are not provided,
+	// the AWS SDK will automatically use IAM role credentials (EKS IRSA, or Pod Identity).
 	if e.tier2.S3.AccessKeyID != nil {
 		result = append(result, corev1.EnvVar{
 			Name:      "TIER2_S3_ACCESS_KEY_ID",

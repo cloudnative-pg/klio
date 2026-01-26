@@ -65,7 +65,14 @@ func TestTierConfigs_Validate(t *testing.T) {
 			{
 				name: "S3 Enabled but Missing Fields",
 				config: Tier2Config{
-					S3: S3Configuration{Enabled: true, BucketName: "b", Endpoint: "e", Region: "r"},
+					S3: S3Configuration{
+						Enabled:         true,
+						BucketName:      "b",
+						Endpoint:        "e",
+						Region:          "r",
+						AccessKeyID:     "key",
+						SecretAccessKey: "secret",
+					},
 					// Missing encryption password and addresses
 				},
 				wantErr: true,
@@ -86,9 +93,71 @@ func TestS3Configuration_Validate(t *testing.T) {
 		wantErr bool
 	}{
 		{"Disabled (Empty allowed)", S3Configuration{Enabled: false}, false},
-		{"Enabled and Valid", S3Configuration{Enabled: true, BucketName: "b", Endpoint: "e", Region: "r"}, false},
-		{"Enabled and Valid without Endpoint", S3Configuration{Enabled: true, BucketName: "b", Region: "r"}, false},
-		{"Enabled and Missing Fields", S3Configuration{Enabled: true, BucketName: "b"}, true},
+		{
+			"Enabled with explicit credentials (Valid)",
+			S3Configuration{
+				Enabled:         true,
+				BucketName:      "b",
+				Endpoint:        "e",
+				Region:          "r",
+				AccessKeyID:     "key",
+				SecretAccessKey: "secret",
+			},
+			false,
+		},
+		{"Enabled but missing bucket and region", S3Configuration{Enabled: true}, true},
+		{
+			"Enabled without credentials - uses IAM role (Valid)",
+			S3Configuration{
+				Enabled:    true,
+				BucketName: "b",
+				Region:     "r",
+			},
+			false,
+		},
+		{
+			"Partial credentials - only access key (Invalid)",
+			S3Configuration{
+				Enabled:     true,
+				BucketName:  "b",
+				Endpoint:    "e",
+				Region:      "r",
+				AccessKeyID: "key",
+			},
+			true,
+		},
+		{
+			"Partial credentials - only secret key (Invalid)",
+			S3Configuration{
+				Enabled:         true,
+				BucketName:      "b",
+				Endpoint:        "e",
+				Region:          "r",
+				SecretAccessKey: "secret",
+			},
+			true,
+		},
+		{
+			"Without credentials with endpoint (Valid)",
+			S3Configuration{
+				Enabled:    true,
+				BucketName: "b",
+				Endpoint:   "e",
+				Region:     "r",
+			},
+			false,
+		},
+		{
+			"Explicit credentials without endpoint (Valid - endpoint optional)",
+			S3Configuration{
+				Enabled:         true,
+				BucketName:      "b",
+				Region:          "r",
+				AccessKeyID:     "key",
+				SecretAccessKey: "secret",
+			},
+			false,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -106,7 +175,7 @@ func TestServerConfig_RequireTier2(t *testing.T) {
 		wantErr bool
 	}{
 		{
-			name: "Valid - Different cache directories",
+			name: "Valid - Different cache directories with explicit credentials",
 			config: ServerConfig{
 				TLS: TLSConfig{
 					TLSCert:          "cert",

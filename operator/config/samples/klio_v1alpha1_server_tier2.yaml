@@ -49,6 +49,7 @@ spec:
       bucketName: klio-bucket
       endpoint: https://minio:9000
       region: us-east-1
+      # Use explicit credentials (when not using IAM roles)
       accessKeyId:
         name: minio
         key: ACCESS_KEY_ID

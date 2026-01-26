@@ -5,7 +5,10 @@ go 1.25.0
 toolchain go1.25.6
 
 require (
-	github.com/aws/aws-sdk-go v1.55.8
+	github.com/aws/aws-sdk-go-v2 v1.41.1
+	github.com/aws/aws-sdk-go-v2/config v1.32.7
+	github.com/aws/aws-sdk-go-v2/credentials v1.19.7
+	github.com/aws/aws-sdk-go-v2/service/s3 v1.95.1
 	github.com/ccoveille/go-safecast/v2 v2.0.0
 	github.com/cloudnative-pg/api v1.28.0
 	github.com/cloudnative-pg/cloudnative-pg v1.28.0
@@ -55,15 +58,17 @@ require (
 	github.com/GoogleCloudPlatform/opentelemetry-operations-go/detectors/gcp v1.31.0 // indirect
 	github.com/Masterminds/semver/v3 v3.4.0 // indirect
 	github.com/antithesishq/antithesis-sdk-go v0.5.0-default-no-op // indirect
-	github.com/aws/aws-sdk-go-v2 v1.41.1 // indirect
-	github.com/aws/aws-sdk-go-v2/config v1.32.7 // indirect
-	github.com/aws/aws-sdk-go-v2/credentials v1.19.7 // indirect
+	github.com/aws/aws-sdk-go-v2/aws/protocol/eventstream v1.7.4 // indirect
 	github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.18.17 // indirect
+	github.com/aws/aws-sdk-go-v2/feature/s3/manager v1.20.19 // indirect
 	github.com/aws/aws-sdk-go-v2/internal/configsources v1.4.17 // indirect
 	github.com/aws/aws-sdk-go-v2/internal/endpoints/v2 v2.7.17 // indirect
 	github.com/aws/aws-sdk-go-v2/internal/ini v1.8.4 // indirect
+	github.com/aws/aws-sdk-go-v2/internal/v4a v1.4.17 // indirect
 	github.com/aws/aws-sdk-go-v2/service/internal/accept-encoding v1.13.4 // indirect
+	github.com/aws/aws-sdk-go-v2/service/internal/checksum v1.9.8 // indirect
 	github.com/aws/aws-sdk-go-v2/service/internal/presigned-url v1.13.17 // indirect
+	github.com/aws/aws-sdk-go-v2/service/internal/s3shared v1.19.17 // indirect
 	github.com/aws/aws-sdk-go-v2/service/signin v1.0.5 // indirect
 	github.com/aws/aws-sdk-go-v2/service/sso v1.30.9 // indirect
 	github.com/aws/aws-sdk-go-v2/service/ssooidc v1.35.13 // indirect
@@ -113,7 +118,6 @@ require (
 	github.com/jackc/pgio v1.0.0 // indirect
 	github.com/jackc/pgpassfile v1.0.0 // indirect
 	github.com/jackc/pgservicefile v0.0.0-20240606120523-5a60cdf6a761 // indirect
-	github.com/jmespath/go-jmespath v0.4.0 // indirect
 	github.com/json-iterator/go v1.1.12 // indirect
 	github.com/kubernetes-csi/external-snapshotter/client/v8 v8.4.0 // indirect
 	github.com/lib/pq v1.10.9 // indirect
@@ -196,5 +200,3 @@ require (
 )
 
 replace github.com/kopia/kopia => github.com/leonardoce/kopia v0.0.0-20251030090917-b431b8266095
-
-replace github.com/fclairamb/afero-s3 => github.com/leonardoce/afero-s3 v0.0.0-20251106141136-dba2dbe22312
