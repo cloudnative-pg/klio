@@ -1,0 +1,40 @@
+---
+title: klio backup
+---
+
+## klio backup
+
+Manage physical backups
+
+### Options
+
+```
+  -h, --help   help for backup
+```
+
+### Options inherited from parent commands
+
+```
+      --config string                     config file (default is $HOME/.klio.yaml)
+      --debug                             enable debug logging
+      --log-destination string            where the log stream will be written
+      --log-field-level string            JSON log field to report severity in (default: level)
+      --log-field-timestamp string        JSON log field to report timestamp in (default: ts)
+      --log-level string                  the desired log level, one of error, info, debug and trace (default "info")
+      --pprof-server string               enable the PPROF server using the specified address
+      --zap-devel                         Development Mode defaults(encoder=consoleEncoder,logLevel=Debug,stackTraceLevel=Warn). Production Mode defaults(encoder=jsonEncoder,logLevel=Info,stackTraceLevel=Error)
+      --zap-encoder encoder               Zap log encoding (one of 'json' or 'console')
+      --zap-log-level level               Zap Level to configure the verbosity of logging. Can be one of 'debug', 'info', 'error', 'panic'or any integer value > 0 which corresponds to custom debug levels of increasing verbosity
+      --zap-stacktrace-level level        Zap Level at and above which stacktraces are captured (one of 'info', 'error', 'panic').
+      --zap-time-encoding time-encoding   Zap time encoding (one of 'epoch', 'millis', 'nano', 'iso8601', 'rfc3339' or 'rfc3339nano'). Defaults to 'epoch'.
+```
+
+### SEE ALSO
+
+* [klio](klio.md)	 - Klio is a Cloud Native Backup & Recovery solution
+* [klio backup delete](klio_backup_delete.md)	 - Deletes the metadata with the provided name
+* [klio backup get-metadata](klio_backup_get-metadata.md)	 - Gets the metadata of the backup with the provided name
+* [klio backup list](klio_backup_list.md)	 - Gets the metadata of all backups
+* [klio backup maintenance](klio_backup_maintenance.md)	 - Gets the metadata of all backups
+* [klio backup run](klio_backup_run.md)	 - Backup the PostgreSQL cluster to the opened Klio server
+
