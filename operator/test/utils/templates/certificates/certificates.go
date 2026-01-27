@@ -115,7 +115,7 @@ func GetCertificateObject(
 			CommonName: name,
 			DNSNames:   requestedDNS,
 			SecretName: name + "-tls",
-			IssuerRef: cmmeta.ObjectReference{
+			IssuerRef: cmmeta.IssuerReference{
 				Name:  issuer.Name,
 				Kind:  issuer.Kind,
 				Group: issuer.GroupVersionKind().Group,

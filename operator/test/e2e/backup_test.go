@@ -6,9 +6,10 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	machineryFeatures "github.com/cloudnative-pg/klio/operator/test/machinery/pkg/features"
-	"github.com/cloudnative-pg/klio/operator/test/utils/certificates"
-	"github.com/cloudnative-pg/klio/operator/test/utils/secrets"
-	"github.com/cloudnative-pg/klio/operator/test/utils/templates"
+	"github.com/cloudnative-pg/klio/operator/test/utils/templates/certificates"
+	"github.com/cloudnative-pg/klio/operator/test/utils/templates/cnpg"
+	"github.com/cloudnative-pg/klio/operator/test/utils/templates/klio"
+	"github.com/cloudnative-pg/klio/operator/test/utils/templates/secrets"
 )
 
 func newBackupFeature(
@@ -24,23 +25,29 @@ func newBackupFeature(
 	caCertificate := certificates.GetCACertificateObject("test-ca", namespace, issuer)
 	caIssuer := certificates.GetCAIssuerObject("test-ca-issuer", namespace, caCertificate.Spec.SecretName)
 
-	cnpgCluster := templates.GetCnpgClusterObject("test-cluster", namespace, instances, "klio-plugin-configuration")
+	cnpgCluster := cnpg.GetCnpgClusterObject("test-cluster", namespace, instances, "klio-plugin-configuration")
 
 	userCertificate := certificates.GetUserCertificateObject("klio-user", namespace, "klio-user@test-cluster", caIssuer)
-	klioPluginConfiguration := templates.GetKlioPluginConfigurationObject(
-		"klio-plugin-configuration", namespace, certificate, userCertificate)
+	klioPluginConfiguration := klio.GetPluginConfigurationObject(
+		"klio-plugin-configuration",
+		namespace,
+		klio.PluginConfigurationTemplateOptions{
+			ServerCertificate: certificate,
+			ClientCertificate: userCertificate,
+		},
+	)
 	encryptionSecret := secrets.GetKlioEncryptionSecret("encryption", namespace, "testencryptionpassword123")
-	klioServer := templates.GetKlioServerObject(
+	klioServer := klio.GetServerObject(
 		klioServerName,
 		namespace,
-		templates.KlioServerTemplateOptions{
+		klio.ServerTemplateOptions{
 			TLSSecretName:        certificate.Spec.SecretName,
 			ClientCASecretName:   caCertificate.Spec.SecretName,
 			EncryptionSecretName: encryptionSecret.Name,
 		},
 	)
 
-	backup := templates.GetCnpgBackupObject("test-backup", namespace, backupTarget, cnpgCluster)
+	backup := cnpg.GetCnpgBackupObject("test-backup", namespace, backupTarget, cnpgCluster)
 
 	c := commonBackupRestoreScenario{
 		namespace:                     namespaceObj,

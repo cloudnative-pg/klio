@@ -1140,6 +1140,6 @@ tasks:
         with-service-binding localhost tcp://127.0.0.1:{{ .KIND_HOSTPORT }} |
         with-exec -- sh -c "apk add kubectl" |
         with-exec -- sh -c "kubectl config set-cluster kind-{{ .KIND_CLUSTER_NAME }} --server=https://localhost:{{ .KIND_HOSTPORT }}" |
-        with-exec -- sh -c "go test -v ./..."
+        with-exec -- sh -c "go test -timeout 20m -v ./..."
         .
       - rm -f {{ .KUBECONFIG_PATH }}

@@ -8,10 +8,11 @@ import (
 
 	"github.com/cloudnative-pg/klio/operator/internal/cnpgi"
 	machineryFeatures "github.com/cloudnative-pg/klio/operator/test/machinery/pkg/features"
-	"github.com/cloudnative-pg/klio/operator/test/utils/certificates"
 	"github.com/cloudnative-pg/klio/operator/test/utils/mutators"
-	"github.com/cloudnative-pg/klio/operator/test/utils/secrets"
-	"github.com/cloudnative-pg/klio/operator/test/utils/templates"
+	"github.com/cloudnative-pg/klio/operator/test/utils/templates/certificates"
+	"github.com/cloudnative-pg/klio/operator/test/utils/templates/cnpg"
+	"github.com/cloudnative-pg/klio/operator/test/utils/templates/klio"
+	"github.com/cloudnative-pg/klio/operator/test/utils/templates/secrets"
 )
 
 func NewRecoveryFeatureConfig(
@@ -33,25 +34,31 @@ func NewRecoveryFeatureConfig(
 	caCertificate := certificates.GetCACertificateObject("test-ca", namespace, issuer)
 	caIssuer := certificates.GetCAIssuerObject("test-ca-issuer", namespace, caCertificate.Spec.SecretName)
 
-	cnpgCluster := templates.GetCnpgClusterObject(cnpgSourceClusterName, namespace, instances,
+	cnpgCluster := cnpg.GetCnpgClusterObject(cnpgSourceClusterName, namespace, instances,
 		"klio-plugin-configuration")
 
 	userCertificate := certificates.GetUserCertificateObject("klio-user", namespace,
 		"klio-user@"+cnpgSourceClusterName, caIssuer)
-	klioPluginConfigurationSource := templates.GetKlioPluginConfigurationObject(
-		"klio-plugin-configuration", namespace, certificate, userCertificate)
+	klioPluginConfigurationSource := klio.GetPluginConfigurationObject(
+		"klio-plugin-configuration",
+		namespace,
+		klio.PluginConfigurationTemplateOptions{
+			ServerCertificate: certificate,
+			ClientCertificate: userCertificate,
+		},
+	)
 	encryptionSecret := secrets.GetKlioEncryptionSecret("encryption", namespace, "testencryptionpassword123")
-	klioServer := templates.GetKlioServerObject(
+	klioServer := klio.GetServerObject(
 		klioServerName,
 		namespace,
-		templates.KlioServerTemplateOptions{
+		klio.ServerTemplateOptions{
 			TLSSecretName:        certificate.Spec.SecretName,
 			ClientCASecretName:   caCertificate.Spec.SecretName,
 			EncryptionSecretName: encryptionSecret.Name,
 		},
 	)
 
-	backup := templates.GetCnpgBackupObject("test-backup", namespace, cnpgv1.DefaultBackupTarget, cnpgCluster)
+	backup := cnpg.GetCnpgBackupObject("test-backup", namespace, cnpgv1.DefaultBackupTarget, cnpgCluster)
 
 	// Generate the recovery Cluster object
 	recoveryCluster := cnpgCluster.DeepCopy()
