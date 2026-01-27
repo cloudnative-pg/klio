@@ -53,14 +53,22 @@ var getWalCmd = &cobra.Command{
 		}
 
 		var downloadPartial bool
-
 		downloadPartial, _ = cmd.Flags().GetBool("partial")
-		tier2, _ := cmd.Flags().GetBool("tier2")
 
-		address := configuration.Client.Wal.Address
-		if tier2 {
+		tier, _ := cmd.Flags().GetString("tier")
+
+		var address string
+		switch tier {
+		case "tier1":
+			address = configuration.Client.Wal.Address
+
+		case "tier2":
 			address = configuration.Client.Wal.Tier2Address
+
+		default:
+			return fmt.Errorf("unknown tier %q", tier)
 		}
+
 		if address == "" {
 			os.Exit(4)
 		}
@@ -129,10 +137,10 @@ func init() {
 		"Use a partial WAL file if a the completed WAL file is not present. Defaults to false",
 	)
 
-	getWalCmd.Flags().Bool(
-		"tier2",
-		false,
-		"Look in tier2 instead of in tier1, if tier2 is available.",
+	getWalCmd.Flags().String(
+		"tier",
+		"tier1",
+		"The tier where we should look for WAL. Accepted values: 'tier1' and 'tier2'",
 	)
 
 	// Here you will define your flags and configuration settings.

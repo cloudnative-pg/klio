@@ -83,13 +83,11 @@ func generateKlioConfigForPlugin(
 		},
 		Client: config.ClientConfig{
 			Base: config.BaseRepositoryClientConfig{
-				URL:            "https://" + net.JoinHostPort(klioPluginConfigurationSpec.ServerAddress, KlioTier1HTTPPort),
 				ServerCertPath: path.Join(serverCertPath, "tls.crt"),
 				ClientCertPath: path.Join(clientCertPath, "tls.crt"),
 				ClientKeyPath:  path.Join(clientCertPath, "tls.key"),
 			},
 			Wal: config.WalRepositoryClientConfig{
-				Address:        net.JoinHostPort(klioPluginConfigurationSpec.ServerAddress, KlioTier1GRPCPort),
 				ClusterName:    klioPluginConfigurationSpec.ClusterName,
 				ServerCertPath: path.Join(serverCertPath, "tls.crt"),
 				ClientCertPath: path.Join(clientCertPath, "tls.crt"),
@@ -98,6 +96,13 @@ func generateKlioConfigForPlugin(
 		},
 		Tier1RetentionPolicy: klioTier1RetentionPolicy,
 		Tier2RetentionPolicy: klioTier2RetentionPolicy,
+	}
+
+	if !klioPluginConfigurationSpec.ReadOnly {
+		klioConfig.Client.Base.URL = "https://" + net.JoinHostPort(
+			klioPluginConfigurationSpec.ServerAddress, KlioTier1HTTPPort)
+		klioConfig.Client.Wal.Address = net.JoinHostPort(
+			klioPluginConfigurationSpec.ServerAddress, KlioTier1GRPCPort)
 	}
 
 	if klioPluginConfigurationSpec.Tier2.EnableBackup || klioPluginConfigurationSpec.Tier2.EnableRecovery {

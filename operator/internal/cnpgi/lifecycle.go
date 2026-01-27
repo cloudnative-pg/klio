@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"strconv"
 	"strings"
 
 	cnpgv1 "github.com/cloudnative-pg/cloudnative-pg/api/v1"
@@ -184,9 +185,8 @@ func (impl LifecycleImplementation) reconcileJob(
 		"cnpgi",
 		"restore",
 		pgdata,
-	}
-	if clusterPC.Spec.Tier2.EnableRecovery {
-		restoreSidecar.Args = append(restoreSidecar.Args, "--include-tier2")
+		"--tier1=" + strconv.FormatBool(!clusterPC.Spec.ReadOnly),
+		"--tier2=" + strconv.FormatBool(clusterPC.Spec.Tier2.EnableRecovery),
 	}
 	restoreSidecar.Env = ensureEnvVar(restoreSidecar.Env, corev1.EnvVar{
 		Name:  "CONTAINER_NAME",
@@ -345,6 +345,8 @@ func buildInstanceSidecarTemplate(
 
 	if clusterPC != nil {
 		sidecar = findUserContainer("klio-plugin", clusterPC.Spec.Containers)
+
+		args = append(args, "--tier1="+strconv.FormatBool(!clusterPC.Spec.ReadOnly))
 
 		if clusterPC.Spec.Tier2.EnableBackup {
 			args = append(args, "--enable-tier2-backup")

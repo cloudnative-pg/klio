@@ -26,15 +26,6 @@ resources:
   controller: true
   domain: cnpg.io
   group: klio
-  kind: RecoverySource
-  path: github.com/cloudnative-pg/klio/pkg/operator/api/v1alpha1
-  version: v1alpha1
-- api:
-    crdVersion: v1
-    namespaced: true
-  controller: true
-  domain: cnpg.io
-  group: klio
   kind: PluginConfiguration
   path: github.com/cloudnative-pg/klio/pkg/operator/api/v1alpha1
   version: v1alpha1

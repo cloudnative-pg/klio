@@ -137,7 +137,14 @@ func runServer(ctx context.Context, opts serverOpts) error {
 		tier2.Add(&server.Tier2WALServer{
 			Config: opts.cfg,
 		})
-		tier2.Add(&server.Tier2BackupConsumer{
+		klio.Add(tier2)
+	}
+
+	if opts.tier1 && opts.tier2 {
+		// We can skip the validation here:
+		// both tier1 and tier2 have been already validated, if existing
+		relay := suture.NewSimple("relay")
+		relay.Add(&server.Tier2BackupConsumer{
 			Config:               opts.cfg,
 			Tier1KopiaConfigFile: tier1ConfigFileName,
 			Tier2KopiaConfigFile: tier2ConfigFileName,
@@ -145,11 +152,11 @@ func runServer(ctx context.Context, opts serverOpts) error {
 			RunID:                opts.runID,
 			RunSecret:            opts.runSecret,
 		})
-		tier2.Add(&server.Tier2WALConsumer{
+		relay.Add(&server.Tier2WALConsumer{
 			Config:   opts.cfg,
 			QueueURL: queueURL,
 		})
-		klio.Add(tier2)
+		klio.Add(relay)
 	}
 
 	return klio.Serve(ctx)

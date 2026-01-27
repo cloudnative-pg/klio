@@ -3,6 +3,7 @@ kind: Job
 metadata:
   name: create-bucket
 spec:
+  ttlSecondsAfterFinished: 100
   template:
     spec:
       containers:

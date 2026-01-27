@@ -49,7 +49,6 @@ rules:
 - apiGroups:
   - klio.cnpg.io
   resources:
-  - recoverysources
   - servers
   verbs:
   - create
@@ -62,15 +61,14 @@ rules:
 - apiGroups:
   - klio.cnpg.io
   resources:
-  - recoverysources/status
-  - servers/status
+  - servers/finalizers
   verbs:
-  - get
-  - patch
   - update
 - apiGroups:
   - klio.cnpg.io
   resources:
-  - servers/finalizers
+  - servers/status
   verbs:
+  - get
+  - patch
   - update

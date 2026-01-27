@@ -127,6 +127,7 @@ QueueResources
 RBAC
 RPO
 RTO
+ReadOnly
 RequestWALStart
 RequestWALStartRequest
 RequestWALStartResult

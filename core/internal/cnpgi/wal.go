@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"sync"
 
 	cnpgv1 "github.com/cloudnative-pg/cloudnative-pg/api/v1"
 	"github.com/cloudnative-pg/cnpg-i/pkg/wal"
@@ -22,9 +23,12 @@ var errWALNotFound = errors.New("wal not found")
 type walServiceImplementation struct {
 	wal.UnimplementedWALServer
 
+	mu sync.Mutex
+
 	opts WALCapabilityOptions
 
-	lastWALTier2 bool
+	availableTiers   []string
+	currentTierIndex int
 }
 
 // GetCapabilities implements the WALService interface.
@@ -77,11 +81,7 @@ func (w *walServiceImplementation) Restore(
 		return nil, errors.New("no WAL repository found for the cluster")
 	}
 
-	if w.opts.IncludeTier2 {
-		err = w.restoreIncludingTier2(ctx, walName, destinationPath, confPath)
-	} else {
-		err = w.restoreFromTier1(ctx, walName, destinationPath, confPath)
-	}
+	err = w.restoreWAL(ctx, walName, destinationPath, confPath)
 	if errors.Is(err, errWALNotFound) {
 		return &wal.WALRestoreResult{}, status.Errorf(codes.NotFound, "WAL file not found: %q", walName)
 	}
@@ -92,23 +92,18 @@ func (w *walServiceImplementation) Restore(
 	return &wal.WALRestoreResult{}, nil
 }
 
-func (w *walServiceImplementation) restoreFromTier1(
-	ctx context.Context,
-	walName, destinationPath string,
-	configPath string,
-) error {
-	err := internalRestoreWAL(ctx, restoreWALOptions{
-		walName:         walName,
-		destinationPath: destinationPath,
-		configFile:      configPath,
-		debug:           w.opts.Debug,
-		tier2:           false,
-	})
-
-	return err
+func (w *walServiceImplementation) getCurrentTier() string {
+	return w.availableTiers[w.currentTierIndex]
 }
 
-func (w *walServiceImplementation) restoreIncludingTier2(
+func (w *walServiceImplementation) skipCurrentTier() {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+
+	w.currentTierIndex = (w.currentTierIndex + 1) % len(w.availableTiers)
+}
+
+func (w *walServiceImplementation) restoreWAL(
 	ctx context.Context,
 	walName, destinationPath string,
 	configPath string,
@@ -118,21 +113,23 @@ func (w *walServiceImplementation) restoreIncludingTier2(
 		destinationPath: destinationPath,
 		configFile:      configPath,
 		debug:           w.opts.Debug,
-		tier2:           w.lastWALTier2,
+		tier:            w.getCurrentTier(),
 	})
-	if errors.Is(err, errWALNotFound) {
-		// We didn't find the WAL in the current tier, let's
-		// switch to the other one and test it.
-		w.lastWALTier2 = !w.lastWALTier2
 
-		err = internalRestoreWAL(ctx, restoreWALOptions{
-			walName:         walName,
-			destinationPath: destinationPath,
-			configFile:      configPath,
-			debug:           w.opts.Debug,
-			tier2:           w.lastWALTier2,
-		})
+	// Only try the alternate tier if the WAL was not found and we have multiple tiers
+	if !errors.Is(err, errWALNotFound) || len(w.availableTiers) == 1 {
+		return err
 	}
+
+	// Let's try the other tier
+	w.skipCurrentTier()
+	err = internalRestoreWAL(ctx, restoreWALOptions{
+		walName:         walName,
+		destinationPath: destinationPath,
+		configFile:      configPath,
+		debug:           w.opts.Debug,
+		tier:            w.getCurrentTier(),
+	})
 
 	return err
 }
@@ -143,16 +140,19 @@ type restoreWALOptions struct {
 	configFile      string
 
 	debug bool
-	tier2 bool
+	tier  string
 }
 
 func internalRestoreWAL(ctx context.Context, opts restoreWALOptions) error {
-	args := []string{"get-wal", opts.walName, opts.destinationPath, "--partial=true"}
+	args := []string{
+		"get-wal",
+		opts.walName,
+		opts.destinationPath,
+		"--partial=true",
+		"--tier=" + opts.tier,
+	}
 	if opts.debug {
 		args = append(args, "--debug")
-	}
-	if opts.tier2 {
-		args = append(args, "--tier2")
 	}
 
 	// We need to find out the WAL repository to use

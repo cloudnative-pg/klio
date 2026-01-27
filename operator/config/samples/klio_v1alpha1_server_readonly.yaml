@@ -1,26 +1,28 @@
 ---
+# Apply these steps to set up MinIO for Tier 2 testing
+# kubectl apply -k operator/config/samples/minio
+# kubectl wait --for=condition=available deployment/minio --timeout=300s
+# kubectl apply -f operator/config/samples/minio/minio-job-create-bucket.yaml
+#
+# Then apply the Klio Server with Tier 2 sample
 apiVersion: klio.cnpg.io/v1alpha1
-kind: RecoverySource
+kind: Server
 metadata:
-  name: rs-sample
+  name: server-ro
   annotations:
     klio.cnpg.io/pprof: "true"
 spec:
-  storage:
+  readOnly: true
+  tier2:
     cache:
       pvcTemplate:
         resources:
           requests:
             storage: 1Gi
         accessModes:
-        - ReadWriteOnce
-
-  tlsSecretName: rs-sample-tls
-  caSecretName: rs-sample-ca
-
-  tier2:
-    encryptionPassword:
-      name: rs-sample-encryption
+          - ReadWriteOnce
+    encryptionKey:
+      name: server-ro-encryption
       key: password
     s3:
       prefix: klio
@@ -36,24 +38,19 @@ spec:
       customCaBundle:
         name: minio-server-tls
         key: tls.crt
-      
+
+  tlsSecretName: server-ro-tls
+  caSecretName: server-ro-ca
+
   image: registry.dev:5000/klio-testing:dev
   imagePullPolicy: Always
----
-apiVersion: v1
-data:
-  password: cGlwcG9waXBwbw==
-  username: a29waWE=
-kind: Secret
-metadata:
-  name: rs-sample-adm
 ---
 apiVersion: v1
 data:
   password: dGhpc3Bhc3N3b3Jk
 kind: Secret
 metadata:
-  name: rs-sample-encryption
+  name: server-ro-encryption
 ---
 apiVersion: cert-manager.io/v1
 kind: Issuer
@@ -65,14 +62,14 @@ spec:
 apiVersion: cert-manager.io/v1
 kind: Certificate
 metadata:
-  name: rs-sample-tls
+  name: server-ro-tls
 spec:
-  secretName: rs-sample-tls
-  commonName: rs-sample
+  secretName: server-ro-tls
+  commonName: server-ro
   dnsNames:
-    - rs-sample
-    - rs-sample.default
-    - rs-sample.default.svc
+    - server-ro
+    - server-ro.default
+    - server-ro.default.svc
 
   duration: 2160h # 90d
   renewBefore: 360h # 15d
@@ -89,10 +86,10 @@ spec:
 apiVersion: cert-manager.io/v1
 kind: Certificate
 metadata:
-  name: rs-sample-ca
+  name: server-ro-ca
 spec:
-  commonName: rs-sample
-  secretName: rs-sample-ca
+  commonName: server-ro
+  secretName: server-ro-ca
 
   duration: 2160h # 90d
   renewBefore: 360h # 15d
@@ -109,7 +106,7 @@ spec:
 apiVersion: cert-manager.io/v1
 kind: Issuer
 metadata:
-  name: rs-sample-ca
+  name: server-ro-ca
 spec:
   ca:
-    secretName: rs-sample-ca
+    secretName: server-ro-ca

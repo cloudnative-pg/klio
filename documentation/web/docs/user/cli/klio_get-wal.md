@@ -13,9 +13,9 @@ klio get-wal [wal-name] [target-file] [flags]
 ### Options
 
 ```
-  -h, --help      help for get-wal
-      --partial   Use a partial WAL file if a the completed WAL file is not present. Defaults to false
-      --tier2     Look in tier2 instead of in tier1, if tier2 is available.
+  -h, --help          help for get-wal
+      --partial       Use a partial WAL file if a the completed WAL file is not present. Defaults to false
+      --tier string   The tier where we should look for WAL. Accepted values: 'tier1' and 'tier2' (default "tier1")
 ```
 
 ### Options inherited from parent commands

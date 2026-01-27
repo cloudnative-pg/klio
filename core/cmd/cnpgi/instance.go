@@ -19,6 +19,7 @@ var instanceCmd = &cobra.Command{
 		configFile, _ := cmd.Root().PersistentFlags().GetString("config")
 		pluginPath, _ := cmd.Flags().GetString("plugin-path")
 
+		tier1, _ := cmd.Flags().GetBool("tier1")
 		enableTier2Backup, _ := cmd.Flags().GetBool("enable-tier2-backup")
 		enableTier2Recovery, _ := cmd.Flags().GetBool("enable-tier2-recovery")
 		debug, _ := cmd.PersistentFlags().GetBool("debug")
@@ -32,8 +33,9 @@ var instanceCmd = &cobra.Command{
 			})
 			server.AddMetricsCapability()
 			server.AddWALCapability(cnpgi.WALCapabilityOptions{
-				Debug:        debug,
-				IncludeTier2: enableTier2Recovery,
+				Debug: debug,
+				Tier1: tier1,
+				Tier2: enableTier2Recovery,
 			})
 		}
 
@@ -82,6 +84,11 @@ func init() {
 		"pod-name",
 		"",
 		"The name of the current instance",
+	)
+	instanceCmd.Flags().Bool(
+		"tier1",
+		true,
+		"Enabled when the cluster is connected to tier1",
 	)
 	instanceCmd.Flags().Bool(
 		"enable-tier2-backup",

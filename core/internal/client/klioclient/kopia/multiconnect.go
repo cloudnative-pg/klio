@@ -18,6 +18,10 @@ const (
 	presentAnnotationValue = "present"
 )
 
+// ErrUnsupportedWriteOperation is raised when a write operation is attempted against
+// a client having only tier2.
+var ErrUnsupportedWriteOperation = errors.New("write operations require tier1 connection (server is read-only)")
+
 // MultiConnection is composed by two clients: one for tier1
 // and one for tier2.
 type MultiConnection struct {
@@ -33,13 +37,14 @@ func MultiConnect(
 	ctx context.Context,
 	kopiaClientConfig *config.BaseRepositoryClientConfig,
 ) (*MultiConnection, error) {
-	tier1, err := ConnectTier1(ctx, kopiaClientConfig)
-	if err != nil {
-		return nil, fmt.Errorf("connecting to tier1: %w", err)
-	}
+	var mc MultiConnection
 
-	mc := &MultiConnection{
-		Tier1: tier1,
+	if kopiaClientConfig.URL != "" {
+		tier1, err := ConnectTier1(ctx, kopiaClientConfig)
+		if err != nil {
+			return nil, fmt.Errorf("connecting to tier1: %w", err)
+		}
+		mc.Tier1 = tier1
 	}
 
 	if kopiaClientConfig.Tier2URL != "" {
@@ -50,7 +55,11 @@ func MultiConnect(
 		mc.Tier2 = tier2
 	}
 
-	return mc, nil
+	if mc.Tier1 == nil && mc.Tier2 == nil {
+		return nil, errors.New("at least one of tier1 and tier2 is required")
+	}
+
+	return &mc, nil
 }
 
 // Close closes the connections to tier1 and tier2 repositories and cleans up temporary files.
@@ -66,16 +75,20 @@ func (s *MultiConnection) Close(ctx context.Context) {
 
 // GetUsername implements the Client interface.
 func (s *MultiConnection) GetUsername() string {
-	return s.Tier1.GetUsername()
+	return s.getReadClient().GetUsername()
 }
 
 // GetHostname implements the Client interface.
 func (s *MultiConnection) GetHostname() string {
-	return s.Tier1.GetHostname()
+	return s.getReadClient().GetHostname()
 }
 
 // DeleteBackup implements the Client interface.
 func (s *MultiConnection) DeleteBackup(ctx context.Context, hostname string, name string) error {
+	if s.Tier1 == nil {
+		return ErrUnsupportedWriteOperation
+	}
+
 	return s.Tier1.DeleteBackup(ctx, hostname, name)
 }
 
@@ -85,6 +98,10 @@ func (s *MultiConnection) SetRetentionPolicy(
 	t kopia.Target,
 	p kopia.RetentionPolicy,
 ) error {
+	if s.Tier1 == nil {
+		return ErrUnsupportedWriteOperation
+	}
+
 	return s.Tier1.SetRetentionPolicy(ctx, t, p)
 }
 
@@ -93,7 +110,7 @@ func (s *MultiConnection) GetRetentionPolicy(
 	ctx context.Context,
 	t kopia.Target,
 ) (*kopia.RetentionPolicy, error) {
-	return s.Tier1.GetRetentionPolicy(ctx, t)
+	return s.getReadClient().GetRetentionPolicy(ctx, t)
 }
 
 // GetMetadata implements the BackupRestoreSupport interface.
@@ -102,21 +119,23 @@ func (s *MultiConnection) GetMetadata(
 	hostname string,
 	name string,
 ) (*klioclient.BackupMetadata, error) {
-	meta, err := s.Tier1.GetMetadata(ctx, hostname, name)
-	if err == nil {
-		return markTier1(meta), nil
-	}
+	if s.Tier1 != nil {
+		meta, err := s.Tier1.GetMetadata(ctx, hostname, name)
+		if err == nil {
+			return markTier1(meta), nil
+		}
 
-	var noBackup NoBackupFoundError
-	if !errors.As(err, &noBackup) {
-		return nil, fmt.Errorf("while getting metadata from tier1: %w", err)
+		var noBackup NoBackupFoundError
+		if !errors.As(err, &noBackup) {
+			return nil, fmt.Errorf("while getting metadata from tier1: %w", err)
+		}
 	}
 
 	if s.Tier2 == nil {
 		return nil, newNoBackupFoundError(hostname, name)
 	}
 
-	meta, err = s.Tier2.GetMetadata(ctx, hostname, name)
+	meta, err := s.Tier2.GetMetadata(ctx, hostname, name)
 	if err != nil {
 		return nil, fmt.Errorf("while getting metadata from tier2: %w", err)
 	}
@@ -126,16 +145,28 @@ func (s *MultiConnection) GetMetadata(
 
 // ApplyRetentionPolicy implements the Client interface.
 func (s *MultiConnection) ApplyRetentionPolicy(ctx context.Context, t kopia.Target) error {
+	if s.Tier1 == nil {
+		return ErrUnsupportedWriteOperation
+	}
+
 	return s.Tier1.ApplyRetentionPolicy(ctx, t)
 }
 
 // ListBackups implements the BackupRestoreSupport interface.
-func (s *MultiConnection) ListBackups(ctx context.Context, hostname string) (klioclient.BackupList, error) {
+//
+//nolint:cyclop
+func (s *MultiConnection) ListBackups(
+	ctx context.Context,
+	hostname string,
+) (klioclient.BackupList, error) {
 	var tier1List, tier2List klioclient.BackupList
+	var err error
 
-	tier1List, err := s.Tier1.ListBackups(ctx, hostname)
-	if err != nil {
-		return nil, fmt.Errorf("while listing backups from tier1: %w", err)
+	if s.Tier1 != nil {
+		tier1List, err = s.Tier1.ListBackups(ctx, hostname)
+		if err != nil {
+			return nil, fmt.Errorf("while listing backups from tier1: %w", err)
+		}
 	}
 
 	if s.Tier2 != nil {
@@ -216,6 +247,10 @@ func (s *MultiConnection) UploadTablespace(
 	backupName string,
 	tbl klioclient.TablespaceLayout,
 ) error {
+	if s.Tier1 == nil {
+		return ErrUnsupportedWriteOperation
+	}
+
 	return s.Tier1.UploadTablespace(ctx, backupName, tbl)
 }
 
@@ -225,6 +260,10 @@ func (s *MultiConnection) UploadPgData(
 	backupName string,
 	pgData string,
 ) error {
+	if s.Tier1 == nil {
+		return ErrUnsupportedWriteOperation
+	}
+
 	return s.Tier1.UploadPgData(ctx, backupName, pgData)
 }
 
@@ -234,6 +273,10 @@ func (s *MultiConnection) UploadControlFile(
 	backupName string,
 	controlDataFileName string,
 ) error {
+	if s.Tier1 == nil {
+		return ErrUnsupportedWriteOperation
+	}
+
 	return s.Tier1.UploadControlFile(ctx, backupName, controlDataFileName)
 }
 
@@ -243,6 +286,10 @@ func (s *MultiConnection) UploadBackupMetadata(
 	backupName string,
 	metadata *klioclient.BackupMetadata,
 ) error {
+	if s.Tier1 == nil {
+		return ErrUnsupportedWriteOperation
+	}
+
 	return s.Tier1.UploadBackupMetadata(ctx, backupName, metadata)
 }
 
@@ -268,4 +315,16 @@ func markTier2(meta *klioclient.BackupMetadata) *klioclient.BackupMetadata {
 	meta.SetAnnotation(tier2AnnotationName, presentAnnotationValue)
 
 	return meta
+}
+
+func (s *MultiConnection) getReadClient() klioclient.Client {
+	if s.Tier1 != nil {
+		return s.Tier1
+	}
+
+	if s.Tier2 != nil {
+		return s.Tier2
+	}
+
+	return nil
 }

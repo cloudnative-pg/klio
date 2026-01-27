@@ -6,6 +6,7 @@ import (
 )
 
 // PluginConfigurationSpec defines the desired state of client configuration.
+// +kubebuilder:validation:XValidation:rule="!self.readOnly || (has(self.tier2) && (!has(self.tier2.enableBackup) || !self.tier2.enableBackup) && self.tier2.enableRecovery && !has(self.tier1))",message="when readOnly is true, tier2.enableRecovery must be true, tier2.enableBackup must be false, and tier1 must not exist"
 type PluginConfigurationSpec struct {
 	// ServerAddress is the address of the Klio server
 	// +kubebuilder:validation:Required
@@ -38,6 +39,11 @@ type PluginConfigurationSpec struct {
 	// +optional
 	Pprof bool `json:"pprof,omitempty"`
 
+	// ReadOnly is true when you can only read from the server.
+	// In this case, tier1 should not be configured.
+	// +kubebuilder:default=false
+	ReadOnly bool `json:"readOnly"`
+
 	// Containers allows defining a list of containers that will be merged with the Klio sidecar containers.
 	// This enables users to customize the sidecars with additional environment variables, volume mounts,
 	// resource limits, and other container settings without polluting the PostgreSQL container environment.
@@ -65,6 +71,7 @@ type Tier1PluginConfiguration struct {
 }
 
 // Tier2PluginConfiguration configures tier2 backup and recovery settings.
+// +kubebuilder:validation:XValidation:rule="self.enableBackup || self.enableRecovery",message="at least one of enableBackup or enableRecovery must be true"
 type Tier2PluginConfiguration struct {
 	// EnableBackup controls whether WAL and base backups should be stored in tier2
 	// +optional

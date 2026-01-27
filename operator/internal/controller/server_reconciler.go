@@ -106,7 +106,7 @@ func (r *ServerReconciler) reconcileStatefulSet(ctx context.Context, server *kli
 							Args: []string{
 								"server",
 								"start",
-								"--tier1=true",
+								"--tier1=" + strconv.FormatBool(server.Spec.Tier1 != nil),
 								"--tier2=" + strconv.FormatBool(server.Spec.Tier2 != nil),
 							},
 							Image:           server.Spec.Image,
@@ -414,10 +414,6 @@ func (r *ServerReconciler) buildVolumes(server *kliov1alpha1.Server) []corev1.Vo
 func (r *ServerReconciler) buildVolumeMounts(server *kliov1alpha1.Server) []corev1.VolumeMount {
 	volumeMounts := []corev1.VolumeMount{
 		{
-			Name:      "data",
-			MountPath: kopiaDataMountPath,
-		},
-		{
 			Name:      "tls",
 			MountPath: "/certs",
 		},
@@ -434,6 +430,10 @@ func (r *ServerReconciler) buildVolumeMounts(server *kliov1alpha1.Server) []core
 	if server.Spec.Tier1 != nil {
 		volumeMounts = append(
 			volumeMounts,
+			corev1.VolumeMount{
+				Name:      "data",
+				MountPath: kopiaDataMountPath,
+			},
 			corev1.VolumeMount{
 				Name:      "cachetier1",
 				MountPath: kopiaCacheTier1MountPath,

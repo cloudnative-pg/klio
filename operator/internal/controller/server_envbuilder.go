@@ -25,13 +25,6 @@ func newServerEnvBuilder(server *kliov1alpha1.Server) *envBuilder {
 	}
 }
 
-func newRecoverySourceEnvBuilder(recoverySource *kliov1alpha1.RecoverySource) *envBuilder {
-	return &envBuilder{
-		tier1: nil,
-		tier2: &recoverySource.Spec.Tier2,
-	}
-}
-
 func (e *envBuilder) build() []corev1.EnvVar {
 	return e.builtEnvs
 }
