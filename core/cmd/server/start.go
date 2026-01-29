@@ -3,6 +3,8 @@ package server
 import (
 	"errors"
 	"fmt"
+	"os"
+	"path"
 
 	"github.com/cloudnative-pg/machinery/pkg/log"
 	"github.com/google/uuid"
@@ -43,16 +45,22 @@ var startCmd = &cobra.Command{
 			return fmt.Errorf("failed to read tier2 flag: %w", err)
 		}
 
+		adminSocketPath, err := cmd.Flags().GetString("socketPath")
+		if err != nil {
+			return fmt.Errorf("failed to read socketPath flag: %w", err)
+		}
+
 		if !tier1Enabled && !tier2Enabled {
 			return errors.New("at least one of --tier1 or --tier2 must be enabled")
 		}
 
 		opts := serverOpts{
-			tier1:     tier1Enabled,
-			tier2:     tier2Enabled,
-			cfg:       &configuration,
-			runID:     runID.String(),
-			runSecret: runSecret.String(),
+			tier1:           tier1Enabled,
+			tier2:           tier2Enabled,
+			cfg:             &configuration,
+			runID:           runID.String(),
+			runSecret:       runSecret.String(),
+			adminSocketPath: adminSocketPath,
 		}
 
 		// Phase 1: initialize
@@ -67,8 +75,10 @@ var startCmd = &cobra.Command{
 
 //nolint:gochecknoinits
 func init() {
+	socketPath := path.Join(os.TempDir(), ".klio-admin")
 	startCmd.Flags().Bool("tier1", true, "Enables Tier1 server components")
 	startCmd.Flags().Bool("tier2", false, "Enables Tier2 server components")
+	startCmd.Flags().String("socketPath", socketPath, "Unix socket used by the administration server")
 
 	ServerCmd.AddCommand(startCmd)
 }

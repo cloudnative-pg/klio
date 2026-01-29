@@ -3,6 +3,14 @@
 
 ## Table of Contents
 
+- [klio_admin.proto](#klio_admin-proto)
+    - [ListBackupsRequest](#klio-wal-v1-ListBackupsRequest)
+    - [ListBackupsResult](#klio-wal-v1-ListBackupsResult)
+    - [RefreshRequest](#klio-wal-v1-RefreshRequest)
+    - [RefreshResult](#klio-wal-v1-RefreshResult)
+  
+    - [Admin](#klio-wal-v1-Admin)
+  
 - [klio_wal.proto](#klio_wal-proto)
     - [CloseBackupRequest](#klio-wal-v1-CloseBackupRequest)
     - [CloseBackupResult](#klio-wal-v1-CloseBackupResult)
@@ -24,6 +32,78 @@
     - [WAL](#klio-wal-v1-WAL)
   
 - [Scalar Value Types](#scalar-value-types)
+
+
+
+<a name="klio_admin-proto"></a>
+<p align="right"><a href="#top">Top</a></p>
+
+## klio_admin.proto
+
+
+
+<a name="klio-wal-v1-ListBackupsRequest"></a>
+
+### ListBackupsRequest
+
+
+
+
+
+
+
+<a name="klio-wal-v1-ListBackupsResult"></a>
+
+### ListBackupsResult
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| backup_manifests | [bytes](#bytes) |  | JSON-serialized array of backup manifests. Each manifest contains fields like: - id: string - cluster_name: string - timestamp: RFC3339 string - size_bytes: number See klioclient.BackupManifest for the canonical structure. We use JSON bytes here to avoid duplicating the internal type definition and conversion logic, as this is a local admin API. |
+
+
+
+
+
+
+<a name="klio-wal-v1-RefreshRequest"></a>
+
+### RefreshRequest
+
+
+
+
+
+
+
+<a name="klio-wal-v1-RefreshResult"></a>
+
+### RefreshResult
+
+
+
+
+
+
+ 
+
+ 
+
+ 
+
+
+<a name="klio-wal-v1-Admin"></a>
+
+### Admin
+
+
+| Method Name | Request Type | Response Type | Description |
+| ----------- | ------------ | ------------- | ------------|
+| Refresh | [RefreshRequest](#klio-wal-v1-RefreshRequest) | [RefreshResult](#klio-wal-v1-RefreshResult) | Invoked to refresh the policies and the cache of the Kopia server |
+| ListBackups | [ListBackupsRequest](#klio-wal-v1-ListBackupsRequest) | [ListBackupsResult](#klio-wal-v1-ListBackupsResult) | List every backup on the server |
+
+ 
 
 
 

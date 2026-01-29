@@ -43,12 +43,35 @@ func CleanupConfigFile(ctx context.Context, configFile string) {
 	removeIfExists(configFile + ".kopia-password")
 }
 
+// FromKopiaConfig creates a new Klio connection from an existing Kopia configuration file.
+func FromKopiaConfig(configFile string) (*Connection, error) {
+	kopiaBinary, err := kopia.LookupBinary()
+	if err != nil {
+		return nil, err
+	}
+
+	configInfo, err := kopia.ParseConfigFile(configFile)
+	if err != nil {
+		return nil, err
+	}
+
+	return &Connection{
+		kopiaBinary: kopiaBinary,
+		hostName:    configInfo.HostName,
+		userName:    configInfo.UserName,
+		kopia: &kopia.Client{
+			ConfigFile:  configFile,
+			KopiaBinary: kopiaBinary,
+		},
+	}, nil
+}
+
 // ConnectTier1 creates a new Kopia client to the tier1 kopia repository and opens a connection to it.
 func ConnectTier1(
 	ctx context.Context,
 	kopiaClientConfig *config.BaseRepositoryClientConfig,
 ) (*Connection, error) {
-	return internalConnect(ctx, kopiaClientConfig, kopiaClientConfig.URL)
+	return connectToKopiaServer(ctx, kopiaClientConfig, kopiaClientConfig.URL)
 }
 
 // ConnectTier2 creates a new Kopia client and opens a connection to it.
@@ -56,10 +79,10 @@ func ConnectTier2(
 	ctx context.Context,
 	kopiaClientConfig *config.BaseRepositoryClientConfig,
 ) (*Connection, error) {
-	return internalConnect(ctx, kopiaClientConfig, kopiaClientConfig.Tier2URL)
+	return connectToKopiaServer(ctx, kopiaClientConfig, kopiaClientConfig.Tier2URL)
 }
 
-func internalConnect(
+func connectToKopiaServer(
 	ctx context.Context,
 	kopiaClientConfig *config.BaseRepositoryClientConfig,
 	kopiaURL string,

@@ -1,23 +1,27 @@
 ---
-title: klio
+title: klio admin
 ---
 
-## klio
+## klio admin
 
-Klio is a Cloud Native Backup & Recovery solution
+Server administration commands
 
 ### Options
 
 ```
+  -h, --help   help for admin
+```
+
+### Options inherited from parent commands
+
+```
       --config string                     config file (default is $HOME/.klio.yaml)
       --debug                             enable debug logging
-  -h, --help                              help for klio
       --log-destination string            where the log stream will be written
       --log-field-level string            JSON log field to report severity in (default: level)
       --log-field-timestamp string        JSON log field to report timestamp in (default: ts)
       --log-level string                  the desired log level, one of error, info, debug and trace (default "info")
       --pprof-server string               enable the PPROF server using the specified address
-  -t, --toggle                            Help message for toggle
       --zap-devel                         Development Mode defaults(encoder=consoleEncoder,logLevel=Debug,stackTraceLevel=Warn). Production Mode defaults(encoder=jsonEncoder,logLevel=Info,stackTraceLevel=Error)
       --zap-encoder encoder               Zap log encoding (one of 'json' or 'console')
       --zap-log-level level               Zap Level to configure the verbosity of logging. Can be one of 'debug', 'info', 'error', 'panic'or any integer value > 0 which corresponds to custom debug levels of increasing verbosity
@@ -27,14 +31,7 @@ Klio is a Cloud Native Backup & Recovery solution
 
 ### SEE ALSO
 
-* [klio admin](klio_admin.md)	 - Server administration commands
-* [klio backup](klio_backup.md)	 - Manage physical backups
-* [klio get-metadata](klio_get-metadata.md)	 - Get the metadata of a cluster from the target Klio server
-* [klio get-wal](klio_get-wal.md)	 - Get a WAL from the target Klio server
-* [klio reset-lsn](klio_reset-lsn.md)	 - Reset the replication status to the latest flush LSN
-* [klio restore](klio_restore.md)	 - Restore a PostgreSQL cluster from a Klio server
-* [klio retention](klio_retention.md)	 - Manage the retention policy
-* [klio send-wal](klio_send-wal.md)	 - Upload the cluster's WALs to the target Klio server
-* [klio server](klio_server.md)	 - Starts and manage a Klio server
-* [klio wal-player](klio_wal-player.md)	 - WAL Player Commands
+* [klio](klio.md)	 - Klio is a Cloud Native Backup & Recovery solution
+* [klio admin list-backups](klio_admin_list-backups.md)	 - List the backups available in the Klio server
+* [klio admin refresh](klio_admin_refresh.md)	 - Refresh the Kopia cache and policies
 

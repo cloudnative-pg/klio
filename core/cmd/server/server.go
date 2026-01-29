@@ -18,9 +18,10 @@ type serverOpts struct {
 	tier1 bool
 	tier2 bool
 
-	cfg       *config.ServerConfig
-	runID     string
-	runSecret string
+	cfg             *config.ServerConfig
+	adminSocketPath string
+	runID           string
+	runSecret       string
 }
 
 //nolint:cyclop
@@ -158,6 +159,17 @@ func runServer(ctx context.Context, opts serverOpts) error {
 		})
 		klio.Add(relay)
 	}
+
+	// Configure administration server
+	adminServer := server.AdminServer{
+		Tier1KopiaConfigFile: tier1ConfigFileName,
+		Tier2KopiaConfigFile: tier2ConfigFileName,
+		SocketPath:           opts.adminSocketPath,
+		Config:               opts.cfg,
+		RunID:                opts.runID,
+		RunSecret:            opts.runSecret,
+	}
+	klio.Add(&adminServer)
 
 	return klio.Serve(ctx)
 }

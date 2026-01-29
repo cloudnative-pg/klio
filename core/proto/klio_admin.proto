@@ -1,0 +1,35 @@
+syntax = "proto3";
+
+package klio.wal.v1;
+
+option go_package = "github.com/cloudnative-pg/klio/core/internal/grpc";
+
+service Admin {
+  // Invoked to refresh the policies and the cache of the Kopia server
+  rpc Refresh(RefreshRequest) returns (RefreshResult) {}
+
+  // List every backup on the server
+  rpc ListBackups(ListBackupsRequest) returns (ListBackupsResult) {}
+}
+
+message RefreshRequest{
+}
+
+message RefreshResult{
+}
+
+message ListBackupsRequest {
+}
+
+message ListBackupsResult {
+  // JSON-serialized array of backup manifests.
+  // Each manifest contains fields like:
+  //   - id: string
+  //   - cluster_name: string
+  //   - timestamp: RFC3339 string
+  //   - size_bytes: number
+  // See klioclient.BackupManifest for the canonical structure.
+  // We use JSON bytes here to avoid duplicating the internal type definition
+  // and conversion logic, as this is a local admin API.
+  bytes backup_manifests = 1;
+}

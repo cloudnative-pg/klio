@@ -11,6 +11,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 
+	"github.com/cloudnative-pg/klio/core/cmd/admin"
 	"github.com/cloudnative-pg/klio/core/cmd/backup"
 	"github.com/cloudnative-pg/klio/core/cmd/cnpgi"
 	"github.com/cloudnative-pg/klio/core/cmd/retention"
@@ -93,6 +94,7 @@ func init() {
 	rootCmd.AddCommand(walplayer.WalPlayerCmd)
 	rootCmd.AddCommand(cnpgi.CnpgiCmd)
 	rootCmd.AddCommand(retention.RetentionCmd)
+	rootCmd.AddCommand(admin.AdminCmd)
 }
 
 // initConfig reads in config file and ENV variables if set.

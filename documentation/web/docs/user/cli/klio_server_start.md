@@ -13,9 +13,10 @@ klio server start [flags]
 ### Options
 
 ```
-  -h, --help    help for start
-      --tier1   Enables Tier1 server components (default true)
-      --tier2   Enables Tier2 server components
+  -h, --help                help for start
+      --socketPath string   Unix socket used by the administration server (default "/tmp/.klio-admin")
+      --tier1               Enables Tier1 server components (default true)
+      --tier2               Enables Tier2 server components
 ```
 
 ### Options inherited from parent commands
