@@ -87,6 +87,7 @@ func TestS3Configuration_Validate(t *testing.T) {
 	}{
 		{"Disabled (Empty allowed)", S3Configuration{Enabled: false}, false},
 		{"Enabled and Valid", S3Configuration{Enabled: true, BucketName: "b", Endpoint: "e", Region: "r"}, false},
+		{"Enabled and Valid without Endpoint", S3Configuration{Enabled: true, BucketName: "b", Region: "r"}, false},
 		{"Enabled and Missing Fields", S3Configuration{Enabled: true, BucketName: "b"}, true},
 	}
 	for _, tt := range tests {

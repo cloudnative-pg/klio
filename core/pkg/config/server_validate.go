@@ -130,9 +130,6 @@ func (c *S3Configuration) Validate() error {
 	if c.BucketName == "" {
 		errs = errors.Join(errs, errors.New("invalid s3 config: bucket_name is empty"))
 	}
-	if c.Endpoint == "" {
-		errs = errors.Join(errs, errors.New("invalid s3 config: endpoint is empty"))
-	}
 	if c.Region == "" {
 		errs = errors.Join(errs, errors.New("invalid s3 config: region is empty"))
 	}
