@@ -136,20 +136,8 @@ func (e *envBuilder) getTier2EnvVars() []corev1.EnvVar {
 			Value: e.tier2.S3.BucketName,
 		},
 		{
-			Name:  "TIER2_S3_ENDPOINT",
-			Value: e.tier2.S3.Endpoint,
-		},
-		{
-			Name:  "TIER2_S3_PREFIX",
-			Value: e.tier2.S3.Prefix,
-		},
-		{
 			Name:      "TIER2_ENCRYPTION_KEY",
 			ValueFrom: secretKeySelectorToEnvVarSource(e.tier2.EncryptionKey),
-		},
-		{
-			Name:  "TIER2_S3_REGION",
-			Value: e.tier2.S3.Region,
 		},
 		{
 			Name:  "TIER2_CACHE",
@@ -197,7 +185,20 @@ func (e *envBuilder) getTier2EnvVars() []corev1.EnvVar {
 		})
 	}
 
+	// Add optional S3 configuration environment variables.
+	result = appendEnvIfNotEmpty(result, "TIER2_S3_ENDPOINT", e.tier2.S3.Endpoint)
+	result = appendEnvIfNotEmpty(result, "TIER2_S3_PREFIX", e.tier2.S3.Prefix)
+	result = appendEnvIfNotEmpty(result, "TIER2_S3_REGION", e.tier2.S3.Region)
+
 	return result
+}
+
+func appendEnvIfNotEmpty(envs []corev1.EnvVar, name, value string) []corev1.EnvVar {
+	if value != "" {
+		return append(envs, corev1.EnvVar{Name: name, Value: value})
+	}
+
+	return envs
 }
 
 func secretKeySelectorToEnvVarSource(src *machineryapi.SecretKeySelector) *corev1.EnvVarSource {
