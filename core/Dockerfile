@@ -10,6 +10,8 @@ RUN cd / && \
 FROM ${BASE_IMAGE} AS base
 ARG TARGETARCH
 ARG TARGETOS
+# Copy CA certificates from builder image to support TLS connections
+COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
 COPY --from=builder /kopia/kopia /usr/bin/kopia
 COPY dist/klio_${TARGETOS}_${TARGETARCH}*/klio /usr/bin/klio
 COPY licenses /licenses
