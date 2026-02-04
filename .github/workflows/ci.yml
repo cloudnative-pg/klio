@@ -40,13 +40,11 @@ jobs:
             core-changed:
               - 'core/!(licenses)**'
               - 'Taskfile.yml'
-              - '.github/**'
               - '.github/actions/**'
               - '.github/workflows/ci.yml'
             operator-changed:
               - 'operator/!(licenses)**'
               - 'Taskfile.yml'
-              - '.github/**'
               - '.github/actions/**'
               - '.github/workflows/ci.yml'
             renovate-changed:
