@@ -10,16 +10,17 @@ import (
 	"github.com/cloudnative-pg/klio/core/internal/client/klioclient"
 )
 
-// GetMetadata implements the RestoreExecutor interface.
+// GetMetadata implements the BackupRestoreSupport interface.
 func (s *Connection) GetMetadata(
 	ctx context.Context,
 	hostname string,
 	name string,
 ) (*klioclient.BackupMetadata, error) {
+	contextLogger := log.FromContext(ctx)
 	entries, err := s.kopia.ListSnapshots(ctx, map[string]string{
 		klioclient.BackupNameTagName:    name,
 		klioclient.BackupContentTagName: "metadata",
-	})
+	}, contextLogger.Debug)
 	if err != nil {
 		return nil, fmt.Errorf("while executing Kopia command: %w", err)
 	}
@@ -39,7 +40,7 @@ func (s *Connection) ListBackups(ctx context.Context, hostname string) (klioclie
 
 	entries, err := s.kopia.ListSnapshots(ctx, map[string]string{
 		klioclient.BackupContentTagName: "metadata",
-	})
+	}, contextLogger.Info)
 	if err != nil {
 		return nil, fmt.Errorf("while executing Kopia command: %w", err)
 	}

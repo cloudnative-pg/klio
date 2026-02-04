@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/cloudnative-pg/machinery/pkg/log"
+
 	"github.com/cloudnative-pg/klio/core/internal/client/klioclient"
 )
 
@@ -65,7 +67,8 @@ func (s *Connection) getSnapshotID(
 	ctx context.Context,
 	tags map[string]string,
 ) (string, error) {
-	entries, err := s.kopia.ListSnapshots(ctx, tags)
+	contextLogger := log.FromContext(ctx)
+	entries, err := s.kopia.ListSnapshots(ctx, tags, contextLogger.Info)
 	if err != nil {
 		return "", fmt.Errorf("while executing Kopia command: %w", err)
 	}

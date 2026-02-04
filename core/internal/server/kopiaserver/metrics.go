@@ -166,7 +166,7 @@ func (c *SnapshotMetricsCollector) Stop() {
 // collectMetrics executes kopia snapshot list and extracts metrics.
 func (c *SnapshotMetricsCollector) collectMetrics(ctx context.Context) {
 	c.logger.Debug("Collecting Kopia snapshot metrics")
-	snapshots, err := c.kopia.ListSnapshots(ctx, nil)
+	snapshots, err := c.kopia.ListSnapshots(ctx, nil, c.logger.Debug)
 	if err != nil {
 		c.logger.Warning("Failed to get Kopia snapshots", "error", err)
 		return

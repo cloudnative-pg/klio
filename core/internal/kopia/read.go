@@ -13,10 +13,19 @@ import (
 	"github.com/cloudnative-pg/machinery/pkg/log"
 )
 
-// ListSnapshots returns a list of snapshots, optionally filtered by tags.
-func (s *Client) ListSnapshots(ctx context.Context, tags map[string]string) ([]Manifest, error) {
-	contextLogger := log.FromContext(ctx)
+// LogFunc is a function type for logging messages with key-value pairs.
+// It matches the signature of log.Logger.Info and log.Logger.Debug methods.
+type LogFunc func(msg string, keysAndValues ...any)
 
+// ListSnapshots returns a list of snapshots, optionally filtered by tags.
+// The logFn parameter controls how the operation is logged - callers should pass
+// contextLogger.Info for user-facing operations or contextLogger.Debug for
+// internal/periodic operations.
+func (s *Client) ListSnapshots(
+	ctx context.Context,
+	tags map[string]string,
+	logFn LogFunc,
+) ([]Manifest, error) {
 	args := make([]string, 0, 6+len(tags))
 	args = append(args,
 		"snapshot",
@@ -35,7 +44,8 @@ func (s *Client) ListSnapshots(ctx context.Context, tags map[string]string) ([]M
 	snapshotList := exec.CommandContext(ctx, s.KopiaBinary, args...) //nolint:gosec
 	snapshotList.Env = s.envPassword()
 
-	contextLogger.Info("Looking for Kopia snapshots", "args", snapshotList.Args)
+	logFn("Looking for Kopia snapshots", "args", snapshotList.Args)
+
 	if err := RunWithLogCapture(ctx, snapshotList, &stdout); err != nil {
 		return nil, fmt.Errorf("while executing Kopia command: %w", err)
 	}

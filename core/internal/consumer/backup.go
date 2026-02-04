@@ -142,7 +142,8 @@ func (d *Backup) backupHandler(ctx context.Context, task *queue.BackupTask) erro
 
 // ListBackups list all Kopia sources for a specified cluster.
 func (d *Backup) sourcesForCluster(ctx context.Context, cluster string) ([]kopia.SourceInfo, error) {
-	entries, err := d.tier1Kopia.ListSnapshots(ctx, nil)
+	contextLogger := log.FromContext(ctx)
+	entries, err := d.tier1Kopia.ListSnapshots(ctx, nil, contextLogger.Info)
 	if err != nil {
 		return nil, fmt.Errorf("while executing Kopia command: %w", err)
 	}
