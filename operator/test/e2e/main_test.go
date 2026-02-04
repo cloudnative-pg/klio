@@ -20,6 +20,7 @@ func TestMain(m *testing.M) {
 	runner.RegisterFeatures(RecoverClusterWithTablespaces(envconf.RandomName("recovery-tablespace", 32)))
 	runner.RegisterFeatures(RecoverClusterFromPitr(envconf.RandomName("recovery-from-pitr", 32)))
 	runner.RegisterFeatures(RecoverClusterFromTier2(envconf.RandomName("recovery-from-tier2", 32)))
+	runner.RegisterFeature(Tier2Retention(envconf.RandomName("tier2-retention", 32)))
 	runner.RegisterSetup(
 		func(ctx context.Context, config *envconf.Config) (context.Context, error) {
 			if err := certmanagerv1.AddToScheme(config.Client().Resources().GetScheme()); err != nil {

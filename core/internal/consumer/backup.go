@@ -10,15 +10,18 @@ import (
 	"github.com/cloudnative-pg/machinery/pkg/stringset"
 
 	"github.com/cloudnative-pg/klio/core/internal/client/klioclient"
+	klioclientkopia "github.com/cloudnative-pg/klio/core/internal/client/klioclient/kopia"
 	"github.com/cloudnative-pg/klio/core/internal/kopia"
 	"github.com/cloudnative-pg/klio/core/internal/queue"
+	"github.com/cloudnative-pg/klio/core/internal/repository"
 )
 
 // Backup represents a Backup consumer.
 type Backup struct {
-	opts       *BackupOptions
-	tier1Kopia *kopia.Client
-	tier2Kopia *kopia.Client
+	opts        *BackupOptions
+	tier1Kopia  *kopia.Client
+	tier2Kopia  *kopia.Client
+	tier2Client *klioclientkopia.Connection
 }
 
 // BackupOptions are the configuration of the WAL consumer.
@@ -46,6 +49,10 @@ type BackupOptions struct {
 
 	// Tier2ServerCertificateFingerprint is the SHA256 fingerprint of the tier 2 server certificate.
 	Tier2ServerCertificateFingerprint string
+
+	// Tier2WALRepository is the connection to the tier 2 WAL repository.
+	// Used to apply WAL retention after backup retention is applied.
+	Tier2WALRepository *repository.Connection
 }
 
 // NewBackup creates a new Backup consumer.
@@ -53,6 +60,11 @@ func NewBackup(opts *BackupOptions) (*Backup, error) {
 	kopiaBinary, err := kopia.LookupBinary()
 	if err != nil {
 		return nil, err
+	}
+
+	tier2Client, err := klioclientkopia.FromKopiaConfig(opts.Tier2KopiaConfig)
+	if err != nil {
+		return nil, fmt.Errorf("while creating tier2 client: %w", err)
 	}
 
 	return &Backup{
@@ -65,6 +77,7 @@ func NewBackup(opts *BackupOptions) (*Backup, error) {
 			KopiaBinary: kopiaBinary,
 			ConfigFile:  opts.Tier2KopiaConfig,
 		},
+		tier2Client: tier2Client,
 	}, nil
 }
 
@@ -130,11 +143,22 @@ func (d *Backup) backupHandler(ctx context.Context, task *queue.BackupTask) erro
 	}
 
 	// Refresh the tier 2 server cache to ensure it has the latest manifests.
-	// Note: We log but don't fail on refresh errors because the backup migration
+	// After applying retention policies, the manifest list may have changed,
+	// so we need to notify the Kopia server to update its cache.
+	// Note: We log but don't fail on this error because the backup migration
 	// has already succeeded. Failing here would cause unnecessary retries of the
 	// entire migration, which is wasteful since the data is already safe.
 	if err := d.refreshTier2KopiaServer(ctx); err != nil {
 		contextLogger.Error(err, "Error while refreshing Kopia server cache, skipping")
+	}
+
+	// Apply WAL retention to tier2 based on remaining backups.
+	// This ensures tier2 WAL files are cleaned up according to tier2's own retention policy,
+	// not tier1's policy.
+	if d.opts.Tier2WALRepository != nil {
+		if err := d.applyTier2WALRetention(ctx, task.ClusterName); err != nil {
+			contextLogger.Error(err, "Error while applying tier2 WAL retention, skipping")
+		}
 	}
 
 	return nil
@@ -178,4 +202,56 @@ func (d *Backup) refreshTier2KopiaServer(ctx context.Context) error {
 		ServerCertFingerprint: d.opts.Tier2ServerCertificateFingerprint,
 		Address:               d.opts.Tier2ServerAddress,
 	})
+}
+
+// applyTier2WALRetention applies WAL retention to tier2 based on the remaining backups.
+// After Kopia retention policy is applied (which may delete old backups), this function
+// finds the oldest remaining backup and removes WAL files that are no longer needed.
+func (d *Backup) applyTier2WALRetention(ctx context.Context, clusterName string) error {
+	contextLogger := log.FromContext(ctx)
+
+	// List remaining backups in tier2 for this cluster
+	backups, err := d.tier2Client.ListBackups(ctx, clusterName)
+	if err != nil {
+		return fmt.Errorf("while listing tier2 backups for cluster %q: %w", clusterName, err)
+	}
+
+	// Early exit if no backups exist
+	if len(backups) == 0 {
+		contextLogger.Info("No backups found in tier2; skipping WAL retention")
+		return nil
+	}
+
+	oldestWAL := findOldestWAL(backups)
+
+	// No oldest WAL found, nothing to do
+	if oldestWAL == "" {
+		contextLogger.Info("Backups exist but none contain a StartWAL; skipping WAL retention")
+		return nil
+	}
+
+	contextLogger.Info("Applying tier2 WAL retention", "clusterName", clusterName, "oldestWAL", oldestWAL)
+
+	// Apply WAL retention
+	if err := d.opts.Tier2WALRepository.SetFirstRequiredOnCluster(ctx, clusterName, oldestWAL); err != nil {
+		return fmt.Errorf("while applying WAL retention on tier2: %w", err)
+	}
+
+	return nil
+}
+
+func findOldestWAL(backups klioclient.BackupList) string {
+	var oldestWAL string
+
+	for _, b := range backups {
+		if b.StartWAL == "" {
+			continue
+		}
+		// If oldestWAL is empty, or the current backup's WAL is lexicographically smaller
+		if oldestWAL == "" || b.StartWAL < oldestWAL {
+			oldestWAL = b.StartWAL
+		}
+	}
+
+	return oldestWAL
 }

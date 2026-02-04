@@ -134,6 +134,19 @@ func (s *Tier2BackupConsumer) Serve(ctx context.Context) error {
 		return fmt.Errorf("error while extracting fingerprint of the kopia server certificate: %w", err)
 	}
 
+	// Connect to the tier 2 WAL repository for WAL retention
+	tier2WALFS, err := tier2.ConnectWAL(ctx, &s.Config.Tier2)
+	if err != nil {
+		return fmt.Errorf("error while connecting to tier2 WAL storage: %w", err)
+	}
+	tier2WALRepository, err := repository.Open(repository.Options{
+		FS:       tier2WALFS,
+		Password: s.Config.Tier2.EncryptionKey,
+	})
+	if err != nil {
+		return fmt.Errorf("failed to open tier2 WAL repository: %w", err)
+	}
+
 	// Starts the consumer
 	c, err := consumer.NewBackup(&consumer.BackupOptions{
 		Queue:                             queueConnection,
@@ -144,6 +157,7 @@ func (s *Tier2BackupConsumer) Serve(ctx context.Context) error {
 		RunSecret:                         s.RunSecret,
 		Tier2ServerAddress:                "https://" + s.Config.Tier2.BaseListenAddress,
 		Tier2ServerCertificateFingerprint: certificateFingerprint,
+		Tier2WALRepository:                tier2WALRepository,
 	})
 	if err != nil {
 		return fmt.Errorf("error while creating backup consumer: %w", err)

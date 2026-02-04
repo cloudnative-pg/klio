@@ -159,6 +159,8 @@ type PluginConfigurationTemplateOptions struct {
 	EnableTier2Backup bool
 	// EnableTier2Recovery enables tier2 recovery.
 	EnableTier2Recovery bool
+	// Tier2RetentionPolicy is the retention policy for tier2.
+	Tier2RetentionPolicy *kliov1alpha1.RetentionPolicy
 }
 
 // GetPluginConfigurationObject returns a Klio PluginConfiguration Object.
@@ -177,8 +179,9 @@ func GetPluginConfigurationObject(
 	// Only populate Tier2 if either backup or recovery is enabled
 	if opts.EnableTier2Backup || opts.EnableTier2Recovery {
 		spec.Tier2 = kliov1alpha1.Tier2PluginConfiguration{
-			EnableBackup:   opts.EnableTier2Backup,
-			EnableRecovery: opts.EnableTier2Recovery,
+			EnableBackup:    opts.EnableTier2Backup,
+			EnableRecovery:  opts.EnableTier2Recovery,
+			RetentionPolicy: opts.Tier2RetentionPolicy,
 		}
 	}
 

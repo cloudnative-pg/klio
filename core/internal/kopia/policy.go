@@ -97,6 +97,7 @@ func (s *Client) ApplyKopiaPolicy(ctx context.Context, t Target) error {
 		"expire",
 		"--config-file=" + s.ConfigFile,
 		"--disable-file-logging",
+		"--delete",
 		t.String(),
 	}
 
