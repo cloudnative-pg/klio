@@ -96,6 +96,7 @@ spec:
             - name: client-cert
               mountPath: /certs/client
               readOnly: true
+      automountServiceAccountToken: false
       volumes:
         - name: data
           persistentVolumeClaim:

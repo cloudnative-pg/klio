@@ -17,6 +17,7 @@ spec:
       labels:
         app: jaeger
     spec:
+      automountServiceAccountToken: false
       containers:
       - image: cr.jaegertracing.io/jaegertracing/jaeger:2.14.1
         name: all-in-one
