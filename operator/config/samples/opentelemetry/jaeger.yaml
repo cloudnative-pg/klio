@@ -18,7 +18,7 @@ spec:
         app: jaeger
     spec:
       containers:
-      - image: cr.jaegertracing.io/jaegertracing/jaeger:2.10.0
+      - image: cr.jaegertracing.io/jaegertracing/jaeger:2.14.1
         name: all-in-one
         ports:
           - containerPort: 16686
