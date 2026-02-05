@@ -9,6 +9,7 @@ import (
 	"os"
 
 	"github.com/cloudnative-pg/machinery/pkg/log"
+	"github.com/nats-io/nats.go"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -17,6 +18,7 @@ import (
 	"github.com/cloudnative-pg/klio/core/internal/client/klioclient/kopia"
 	klioGRPC "github.com/cloudnative-pg/klio/core/internal/grpc"
 	kopiaWrapper "github.com/cloudnative-pg/klio/core/internal/kopia"
+	"github.com/cloudnative-pg/klio/core/internal/queue"
 )
 
 // Options contains configuration options for the admin server.
@@ -31,6 +33,8 @@ type Options struct {
 	CertificateFingerprint string
 
 	Tier2ServerAddress string
+
+	QueueURL string
 }
 
 // Server is the gRPC admin server implementation.
@@ -42,6 +46,8 @@ type Server struct {
 	tier1KopiaClient *kopiaWrapper.Client
 	tier2KopiaClient *kopiaWrapper.Client
 	klio             klioclient.Client
+	queueConn        *queue.Conn
+	natsConn         *nats.Conn
 }
 
 // New creates a new admin server instance with the provided options.
@@ -83,6 +89,28 @@ func New(opts Options) (*Server, error) {
 // Start starts the admin server and listens for gRPC connections.
 func (s *Server) Start(ctx context.Context) error {
 	contextLogger := log.FromContext(ctx)
+
+	// Connect to NATS queue if QueueURL is provided
+	if s.opts.QueueURL != "" {
+		natsConn, err := nats.Connect(s.opts.QueueURL)
+		if err != nil {
+			return fmt.Errorf("while connecting to NATS: %w", err)
+		}
+		s.natsConn = natsConn
+
+		// Ensure NATS connection is closed when Start() finishes
+		defer func() {
+			if s.natsConn != nil {
+				s.natsConn.Close()
+			}
+		}()
+
+		queueConn, err := queue.New(ctx, natsConn)
+		if err != nil {
+			return fmt.Errorf("while creating queue connection: %w", err)
+		}
+		s.queueConn = queueConn
+	}
 
 	// Remove any stale socket file
 	if err := os.Remove(s.opts.SocketPath); err != nil && !os.IsNotExist(err) {
@@ -167,4 +195,29 @@ func (s *Server) Refresh(
 	}
 
 	return &klioGRPC.RefreshResult{}, nil
+}
+
+// QueueStatus implements [grpc.AdminServer].
+func (s *Server) QueueStatus(
+	ctx context.Context,
+	_ *klioGRPC.QueueStatusRequest,
+) (*klioGRPC.QueueStatusResponse, error) {
+	// Check if queue connection is available
+	if s.queueConn == nil {
+		return nil, status.Errorf(
+			codes.Unavailable,
+			"queue status not available: server not configured with queue URL",
+		)
+	}
+
+	// Get queue status
+	queueStatus, err := s.queueConn.GetStatus(ctx)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "while getting queue status: %s", err.Error())
+	}
+
+	return &klioGRPC.QueueStatusResponse{
+		PendingBackups: queueStatus.PendingBackups,
+		PendingWals:    queueStatus.PendingWALs,
+	}, nil
 }

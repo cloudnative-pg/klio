@@ -183,6 +183,96 @@ func (x *ListBackupsResult) GetBackupManifests() []byte {
 	return nil
 }
 
+type QueueStatusRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *QueueStatusRequest) Reset() {
+	*x = QueueStatusRequest{}
+	mi := &file_proto_klio_admin_proto_msgTypes[4]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *QueueStatusRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*QueueStatusRequest) ProtoMessage() {}
+
+func (x *QueueStatusRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_klio_admin_proto_msgTypes[4]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use QueueStatusRequest.ProtoReflect.Descriptor instead.
+func (*QueueStatusRequest) Descriptor() ([]byte, []int) {
+	return file_proto_klio_admin_proto_rawDescGZIP(), []int{4}
+}
+
+type QueueStatusResponse struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Number of backup synchronization tasks pending in the queue
+	PendingBackups uint64 `protobuf:"varint,1,opt,name=pending_backups,json=pendingBackups,proto3" json:"pending_backups,omitempty"`
+	// Number of WAL relay tasks pending in the queue
+	PendingWals   uint64 `protobuf:"varint,2,opt,name=pending_wals,json=pendingWals,proto3" json:"pending_wals,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *QueueStatusResponse) Reset() {
+	*x = QueueStatusResponse{}
+	mi := &file_proto_klio_admin_proto_msgTypes[5]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *QueueStatusResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*QueueStatusResponse) ProtoMessage() {}
+
+func (x *QueueStatusResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_klio_admin_proto_msgTypes[5]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use QueueStatusResponse.ProtoReflect.Descriptor instead.
+func (*QueueStatusResponse) Descriptor() ([]byte, []int) {
+	return file_proto_klio_admin_proto_rawDescGZIP(), []int{5}
+}
+
+func (x *QueueStatusResponse) GetPendingBackups() uint64 {
+	if x != nil {
+		return x.PendingBackups
+	}
+	return 0
+}
+
+func (x *QueueStatusResponse) GetPendingWals() uint64 {
+	if x != nil {
+		return x.PendingWals
+	}
+	return 0
+}
+
 var File_proto_klio_admin_proto protoreflect.FileDescriptor
 
 const file_proto_klio_admin_proto_rawDesc = "" +
@@ -192,10 +282,15 @@ const file_proto_klio_admin_proto_rawDesc = "" +
 	"\rRefreshResult\"\x14\n" +
 	"\x12ListBackupsRequest\">\n" +
 	"\x11ListBackupsResult\x12)\n" +
-	"\x10backup_manifests\x18\x01 \x01(\fR\x0fbackupManifests2\x9f\x01\n" +
+	"\x10backup_manifests\x18\x01 \x01(\fR\x0fbackupManifests\"\x14\n" +
+	"\x12QueueStatusRequest\"a\n" +
+	"\x13QueueStatusResponse\x12'\n" +
+	"\x0fpending_backups\x18\x01 \x01(\x04R\x0ependingBackups\x12!\n" +
+	"\fpending_wals\x18\x02 \x01(\x04R\vpendingWals2\xf3\x01\n" +
 	"\x05Admin\x12D\n" +
 	"\aRefresh\x12\x1b.klio.wal.v1.RefreshRequest\x1a\x1a.klio.wal.v1.RefreshResult\"\x00\x12P\n" +
-	"\vListBackups\x12\x1f.klio.wal.v1.ListBackupsRequest\x1a\x1e.klio.wal.v1.ListBackupsResult\"\x00B1Z/github.com/cloudnative-pg/klio/core/internal/grpcb\x06proto3"
+	"\vListBackups\x12\x1f.klio.wal.v1.ListBackupsRequest\x1a\x1e.klio.wal.v1.ListBackupsResult\"\x00\x12R\n" +
+	"\vQueueStatus\x12\x1f.klio.wal.v1.QueueStatusRequest\x1a .klio.wal.v1.QueueStatusResponse\"\x00B1Z/github.com/cloudnative-pg/klio/core/internal/grpcb\x06proto3"
 
 var (
 	file_proto_klio_admin_proto_rawDescOnce sync.Once
@@ -209,20 +304,24 @@ func file_proto_klio_admin_proto_rawDescGZIP() []byte {
 	return file_proto_klio_admin_proto_rawDescData
 }
 
-var file_proto_klio_admin_proto_msgTypes = make([]protoimpl.MessageInfo, 4)
+var file_proto_klio_admin_proto_msgTypes = make([]protoimpl.MessageInfo, 6)
 var file_proto_klio_admin_proto_goTypes = []any{
-	(*RefreshRequest)(nil),     // 0: klio.wal.v1.RefreshRequest
-	(*RefreshResult)(nil),      // 1: klio.wal.v1.RefreshResult
-	(*ListBackupsRequest)(nil), // 2: klio.wal.v1.ListBackupsRequest
-	(*ListBackupsResult)(nil),  // 3: klio.wal.v1.ListBackupsResult
+	(*RefreshRequest)(nil),      // 0: klio.wal.v1.RefreshRequest
+	(*RefreshResult)(nil),       // 1: klio.wal.v1.RefreshResult
+	(*ListBackupsRequest)(nil),  // 2: klio.wal.v1.ListBackupsRequest
+	(*ListBackupsResult)(nil),   // 3: klio.wal.v1.ListBackupsResult
+	(*QueueStatusRequest)(nil),  // 4: klio.wal.v1.QueueStatusRequest
+	(*QueueStatusResponse)(nil), // 5: klio.wal.v1.QueueStatusResponse
 }
 var file_proto_klio_admin_proto_depIdxs = []int32{
 	0, // 0: klio.wal.v1.Admin.Refresh:input_type -> klio.wal.v1.RefreshRequest
 	2, // 1: klio.wal.v1.Admin.ListBackups:input_type -> klio.wal.v1.ListBackupsRequest
-	1, // 2: klio.wal.v1.Admin.Refresh:output_type -> klio.wal.v1.RefreshResult
-	3, // 3: klio.wal.v1.Admin.ListBackups:output_type -> klio.wal.v1.ListBackupsResult
-	2, // [2:4] is the sub-list for method output_type
-	0, // [0:2] is the sub-list for method input_type
+	4, // 2: klio.wal.v1.Admin.QueueStatus:input_type -> klio.wal.v1.QueueStatusRequest
+	1, // 3: klio.wal.v1.Admin.Refresh:output_type -> klio.wal.v1.RefreshResult
+	3, // 4: klio.wal.v1.Admin.ListBackups:output_type -> klio.wal.v1.ListBackupsResult
+	5, // 5: klio.wal.v1.Admin.QueueStatus:output_type -> klio.wal.v1.QueueStatusResponse
+	3, // [3:6] is the sub-list for method output_type
+	0, // [0:3] is the sub-list for method input_type
 	0, // [0:0] is the sub-list for extension type_name
 	0, // [0:0] is the sub-list for extension extendee
 	0, // [0:0] is the sub-list for field type_name
@@ -239,7 +338,7 @@ func file_proto_klio_admin_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_proto_klio_admin_proto_rawDesc), len(file_proto_klio_admin_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   4,
+			NumMessages:   6,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

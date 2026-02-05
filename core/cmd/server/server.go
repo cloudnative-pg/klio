@@ -168,6 +168,7 @@ func runServer(ctx context.Context, opts serverOpts) error {
 		Config:               opts.cfg,
 		RunID:                opts.runID,
 		RunSecret:            opts.runSecret,
+		QueueURL:             queueURL,
 	}
 	klio.Add(&adminServer)
 

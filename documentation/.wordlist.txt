@@ -128,6 +128,9 @@ PutRequest
 PutResult
 QueueConfiguration
 QueueResources
+QueueStatus
+QueueStatusRequest
+QueueStatusResponse
 RBAC
 RPO
 RTO
@@ -293,6 +296,7 @@ uint
 ulong
 unicode
 wal
+wals
 webhook
 webhooks
 yaml

@@ -10,6 +10,9 @@ service Admin {
 
   // List every backup on the server
   rpc ListBackups(ListBackupsRequest) returns (ListBackupsResult) {}
+
+  // Get the status of the task queue (pending backups and WALs)
+  rpc QueueStatus(QueueStatusRequest) returns (QueueStatusResponse) {}
 }
 
 message RefreshRequest{
@@ -32,4 +35,15 @@ message ListBackupsResult {
   // We use JSON bytes here to avoid duplicating the internal type definition
   // and conversion logic, as this is a local admin API.
   bytes backup_manifests = 1;
+}
+
+message QueueStatusRequest {
+}
+
+message QueueStatusResponse {
+  // Number of backup synchronization tasks pending in the queue
+  uint64 pending_backups = 1;
+
+  // Number of WAL relay tasks pending in the queue
+  uint64 pending_wals = 2;
 }

@@ -18,6 +18,7 @@ type AdminServer struct {
 	SocketPath           string
 	RunID                string
 	RunSecret            string
+	QueueURL             string
 }
 
 // Serve starts the admin server and blocks until the context is canceled.
@@ -36,6 +37,7 @@ func (a *AdminServer) Serve(ctx context.Context) error {
 		RunSecret:              a.RunSecret,
 		CertificateFingerprint: certificateFingerprint,
 		Tier2ServerAddress:     "https://" + a.Config.Tier2.BaseListenAddress,
+		QueueURL:               a.QueueURL,
 	}
 
 	server, err := admin.New(opts)

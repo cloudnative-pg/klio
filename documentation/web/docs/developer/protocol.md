@@ -6,6 +6,8 @@
 - [klio_admin.proto](#klio_admin-proto)
     - [ListBackupsRequest](#klio-wal-v1-ListBackupsRequest)
     - [ListBackupsResult](#klio-wal-v1-ListBackupsResult)
+    - [QueueStatusRequest](#klio-wal-v1-QueueStatusRequest)
+    - [QueueStatusResponse](#klio-wal-v1-QueueStatusResponse)
     - [RefreshRequest](#klio-wal-v1-RefreshRequest)
     - [RefreshResult](#klio-wal-v1-RefreshResult)
   
@@ -67,6 +69,32 @@
 
 
 
+<a name="klio-wal-v1-QueueStatusRequest"></a>
+
+### QueueStatusRequest
+
+
+
+
+
+
+
+<a name="klio-wal-v1-QueueStatusResponse"></a>
+
+### QueueStatusResponse
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| pending_backups | [uint64](#uint64) |  | Number of backup synchronization tasks pending in the queue |
+| pending_wals | [uint64](#uint64) |  | Number of WAL relay tasks pending in the queue |
+
+
+
+
+
+
 <a name="klio-wal-v1-RefreshRequest"></a>
 
 ### RefreshRequest
@@ -102,6 +130,7 @@
 | ----------- | ------------ | ------------- | ------------|
 | Refresh | [RefreshRequest](#klio-wal-v1-RefreshRequest) | [RefreshResult](#klio-wal-v1-RefreshResult) | Invoked to refresh the policies and the cache of the Kopia server |
 | ListBackups | [ListBackupsRequest](#klio-wal-v1-ListBackupsRequest) | [ListBackupsResult](#klio-wal-v1-ListBackupsResult) | List every backup on the server |
+| QueueStatus | [QueueStatusRequest](#klio-wal-v1-QueueStatusRequest) | [QueueStatusResponse](#klio-wal-v1-QueueStatusResponse) | Get the status of the task queue (pending backups and WALs) |
 
  
 

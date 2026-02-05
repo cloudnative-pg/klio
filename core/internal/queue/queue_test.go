@@ -2,11 +2,13 @@ package queue
 
 import (
 	"context"
+	"errors"
 	"testing"
 	"time"
 
 	"github.com/nats-io/nats-server/v2/server"
 	"github.com/nats-io/nats.go"
+	"github.com/nats-io/nats.go/jetstream"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -303,4 +305,88 @@ func TestGetOldestPendingWAL_DifferentTimelines(t *testing.T) {
 	require.NoError(t, err)
 	// Lexicographically, "000000010000000000000001" < "000000010000000000000005" < "000000020000000000000001"
 	assert.Equal(t, "000000010000000000000001", oldestWAL, "should return lexicographically smallest WAL")
+}
+
+func TestGetStatus(t *testing.T) {
+	tests := []struct {
+		name        string
+		walInfo     *jetstream.ConsumerInfo
+		walErr      error
+		backupInfo  *jetstream.ConsumerInfo
+		backupErr   error
+		expectedRes *Status
+		expectErr   bool
+	}{
+		{
+			name:        "Happy path",
+			walInfo:     &jetstream.ConsumerInfo{NumPending: 10},
+			backupInfo:  &jetstream.ConsumerInfo{NumPending: 5},
+			expectedRes: &Status{PendingWALs: 10, PendingBackups: 5},
+			expectErr:   false,
+		},
+		{
+			name:      "WAL Info Error",
+			walErr:    errors.New("connection failed"),
+			expectErr: true,
+		},
+		{
+			name:      "WAL Info Nil Return",
+			walInfo:   nil,
+			expectErr: true,
+		},
+		{
+			name:      "Backup Info Error",
+			walInfo:   &jetstream.ConsumerInfo{NumPending: 1},
+			backupErr: errors.New("disk full"),
+			expectErr: true,
+		},
+		{
+			name:       "Backup Info Nil Return",
+			backupInfo: nil,
+			expectErr:  true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Setup mocks
+			mockWal := &MockConsumer{info: tt.walInfo, err: tt.walErr}
+			mockBackup := &MockConsumer{info: tt.backupInfo, err: tt.backupErr}
+
+			q := &Conn{
+				walConsumer:    mockWal,
+				backupConsumer: mockBackup,
+			}
+
+			status, err := q.GetStatus(context.Background())
+
+			if tt.expectErr {
+				require.Error(t, err)
+				assert.Nil(t, status)
+				return
+			}
+
+			require.NoError(t, err)
+			require.NotNil(t, status)
+			assert.Equal(t, tt.expectedRes.PendingWALs, status.PendingWALs)
+			assert.Equal(t, tt.expectedRes.PendingBackups, status.PendingBackups)
+		})
+	}
+}
+
+// MockConsumer uses embedding to satisfy the jetstream.Consumer interface
+// without explicitly defining every method, bypassing ireturn issues.
+type MockConsumer struct {
+	jetstream.Consumer
+
+	info *jetstream.ConsumerInfo
+	err  error
+}
+
+func (m *MockConsumer) Info(_ context.Context) (*jetstream.ConsumerInfo, error) {
+	return m.info, m.err
+}
+
+func (m *MockConsumer) CachedInfo() *jetstream.ConsumerInfo {
+	return m.info
 }

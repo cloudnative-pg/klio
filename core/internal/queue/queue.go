@@ -3,6 +3,7 @@ package queue
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 
 	"github.com/cloudnative-pg/machinery/pkg/log"
@@ -74,6 +75,41 @@ func New(ctx context.Context, natsConnection *nats.Conn) (*Conn, error) {
 	}
 
 	return result, nil
+}
+
+// Status contains statistics about the task queue.
+type Status struct {
+	// PendingBackups is the number of backup synchronization tasks pending in the queue.
+	PendingBackups uint64
+
+	// PendingWALs is the number of WAL relay tasks pending in the queue.
+	PendingWALs uint64
+}
+
+// GetStatus returns the current status of the task queue.
+func (q *Conn) GetStatus(ctx context.Context) (*Status, error) {
+	walInfo, err := q.walConsumer.Info(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("while getting WAL consumer info: %w", err)
+	}
+
+	if walInfo == nil {
+		return nil, errors.New("WAL consumer info is nil")
+	}
+
+	backupInfo, err := q.backupConsumer.Info(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("while getting backup consumer info: %w", err)
+	}
+
+	if backupInfo == nil {
+		return nil, errors.New("backup consumer info is nil")
+	}
+
+	return &Status{
+		PendingBackups: backupInfo.NumPending,
+		PendingWALs:    walInfo.NumPending,
+	}, nil
 }
 
 // notifyMessage is called to send a message on the queue.

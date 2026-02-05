@@ -21,6 +21,7 @@ const _ = grpc.SupportPackageIsVersion9
 const (
 	Admin_Refresh_FullMethodName     = "/klio.wal.v1.Admin/Refresh"
 	Admin_ListBackups_FullMethodName = "/klio.wal.v1.Admin/ListBackups"
+	Admin_QueueStatus_FullMethodName = "/klio.wal.v1.Admin/QueueStatus"
 )
 
 // AdminClient is the client API for Admin service.
@@ -31,6 +32,8 @@ type AdminClient interface {
 	Refresh(ctx context.Context, in *RefreshRequest, opts ...grpc.CallOption) (*RefreshResult, error)
 	// List every backup on the server
 	ListBackups(ctx context.Context, in *ListBackupsRequest, opts ...grpc.CallOption) (*ListBackupsResult, error)
+	// Get the status of the task queue (pending backups and WALs)
+	QueueStatus(ctx context.Context, in *QueueStatusRequest, opts ...grpc.CallOption) (*QueueStatusResponse, error)
 }
 
 type adminClient struct {
@@ -61,6 +64,16 @@ func (c *adminClient) ListBackups(ctx context.Context, in *ListBackupsRequest, o
 	return out, nil
 }
 
+func (c *adminClient) QueueStatus(ctx context.Context, in *QueueStatusRequest, opts ...grpc.CallOption) (*QueueStatusResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(QueueStatusResponse)
+	err := c.cc.Invoke(ctx, Admin_QueueStatus_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // AdminServer is the server API for Admin service.
 // All implementations must embed UnimplementedAdminServer
 // for forward compatibility.
@@ -69,6 +82,8 @@ type AdminServer interface {
 	Refresh(context.Context, *RefreshRequest) (*RefreshResult, error)
 	// List every backup on the server
 	ListBackups(context.Context, *ListBackupsRequest) (*ListBackupsResult, error)
+	// Get the status of the task queue (pending backups and WALs)
+	QueueStatus(context.Context, *QueueStatusRequest) (*QueueStatusResponse, error)
 	mustEmbedUnimplementedAdminServer()
 }
 
@@ -84,6 +99,9 @@ func (UnimplementedAdminServer) Refresh(context.Context, *RefreshRequest) (*Refr
 }
 func (UnimplementedAdminServer) ListBackups(context.Context, *ListBackupsRequest) (*ListBackupsResult, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ListBackups not implemented")
+}
+func (UnimplementedAdminServer) QueueStatus(context.Context, *QueueStatusRequest) (*QueueStatusResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method QueueStatus not implemented")
 }
 func (UnimplementedAdminServer) mustEmbedUnimplementedAdminServer() {}
 func (UnimplementedAdminServer) testEmbeddedByValue()               {}
@@ -142,6 +160,24 @@ func _Admin_ListBackups_Handler(srv interface{}, ctx context.Context, dec func(i
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Admin_QueueStatus_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(QueueStatusRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AdminServer).QueueStatus(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Admin_QueueStatus_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AdminServer).QueueStatus(ctx, req.(*QueueStatusRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // Admin_ServiceDesc is the grpc.ServiceDesc for Admin service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -156,6 +192,10 @@ var Admin_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "ListBackups",
 			Handler:    _Admin_ListBackups_Handler,
+		},
+		{
+			MethodName: "QueueStatus",
+			Handler:    _Admin_QueueStatus_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
