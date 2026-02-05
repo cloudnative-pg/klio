@@ -1,35 +1,36 @@
----
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: controller-manager
-  namespace: system
-spec:
-  template:
-    spec:
-      imagePullSecrets:
-      - name: klio-pull-secret
-      securityContext:
-        runAsNonRoot: true
-        seccompProfile:
-        runAsUser:
-        runAsGroup:
-      serviceAccountName: klio-manager
-      containers:
-      - name: manager
-        resources:
-        env:
-          - name: WATCH_NAMESPACE
-            valueFrom:
-              fieldRef:
-                fieldPath: metadata.annotations['olm.targetNamespaces']
-          - name: WEBHOOK_CERT_DIR
-            value: /apiserver.local.config/certificates
-        securityContext:
-          allowPrivilegeEscalation: false
-          capabilities:
-            drop:
-            - ALL
-          readOnlyRootFilesystem: true
-          runAsUser:
-          runAsGroup:
+#---
+#apiVersion: apps/v1
+#kind: Deployment
+#metadata:
+#  name: controller-manager
+#  namespace: system
+#spec:
+#  template:
+#    spec:
+#      imagePullSecrets:
+#      - name: klio-pull-secret
+#      securityContext:
+#        runAsNonRoot: true
+#        seccompProfile:
+#        runAsUser:
+#        runAsGroup:
+#      serviceAccountName: klio-manager
+#      containers:
+#      - name: manager
+#        resources:
+#        env:
+#          - name: WATCH_NAMESPACE
+#            valueFrom:
+#              fieldRef:
+#                fieldPath: metadata.annotations['olm.targetNamespaces']
+#          - name: WEBHOOK_CERT_DIR
+#            value: /apiserver.local.config/certificates
+#        securityContext:
+#          allowPrivilegeEscalation: false
+#          capabilities:
+#            drop:
+#            - ALL
+#          readOnlyRootFilesystem: true
+#          runAsUser:
+#          runAsGroup:
+#
