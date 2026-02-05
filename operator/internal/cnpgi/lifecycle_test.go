@@ -271,6 +271,7 @@ func TestBuildInstanceSidecarTemplate(t *testing.T) {
 			"--cluster-name", "test-cluster",
 			"--cluster-namespace", "test-namespace",
 			"--config", "/var/lib/postgresql/klio/klio-archive",
+			"--tier1=true",
 		}, result.Args)
 		assertContainerNameEnvVar(t, result)
 
@@ -384,6 +385,7 @@ func TestBuildInstanceSidecarTemplate(t *testing.T) {
 			"--cluster-name", "test-cluster",
 			"--cluster-namespace", "test-namespace",
 			"--config", "/var/lib/postgresql/klio/klio-archive",
+			"--tier1=true",
 		}, result.Args)
 		assert.Empty(t, result.Image, "Image should not be set from non-matching container")
 		assert.Nil(t, result.Resources.Limits, "Resources should not be set from non-matching container")
