@@ -56,6 +56,11 @@ func (impl restoreImpl) Restore(
 		}
 	}
 
+	klioPath, err := os.Executable()
+	if err != nil {
+		return nil, fmt.Errorf("failed to determine klio path: %w", err)
+	}
+
 	args := []string{
 		"restore",
 		"--config",
@@ -69,7 +74,7 @@ func (impl restoreImpl) Restore(
 	}
 	args = append(args, impl.PgDataPath)
 
-	cmd := exec.CommandContext(ctx, "klio", args...) //nolint:gosec
+	cmd := exec.CommandContext(ctx, klioPath, args...) //nolint:gosec
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 

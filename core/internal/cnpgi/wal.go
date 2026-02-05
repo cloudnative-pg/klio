@@ -144,6 +144,11 @@ type restoreWALOptions struct {
 }
 
 func internalRestoreWAL(ctx context.Context, opts restoreWALOptions) error {
+	klioPath, err := os.Executable()
+	if err != nil {
+		return fmt.Errorf("failed to determine klio path: %w", err)
+	}
+
 	args := []string{
 		"get-wal",
 		opts.walName,
@@ -160,7 +165,7 @@ func internalRestoreWAL(ctx context.Context, opts restoreWALOptions) error {
 
 	cmd := exec.CommandContext( //nolint: gosec
 		ctx,
-		"klio",
+		klioPath,
 		args...)
 
 	var stdout, stderr bytes.Buffer
@@ -171,7 +176,7 @@ func internalRestoreWAL(ctx context.Context, opts restoreWALOptions) error {
 	contextLogger.Info("Starting get-wal", "args", args, "opts", opts)
 
 	var exitError *exec.ExitError
-	err := cmd.Run()
+	err = cmd.Run()
 	switch {
 	case errors.As(err, &exitError) && exitError.ExitCode() == 4:
 		return errWALNotFound

@@ -135,8 +135,12 @@ func (b backupServiceImplementation) runBackup(
 
 	contextLogger.Info("Starting Klio backup", "backupName", backupName, "args", args)
 
+	klioPath, err := os.Executable()
+	if err != nil {
+		return nil, fmt.Errorf("failed to determine klioPath path: %w", err)
+	}
 	//nolint:gosec
-	cmd := exec.CommandContext(ctx, "klio", args...)
+	cmd := exec.CommandContext(ctx, klioPath, args...)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	if err := cmd.Run(); err != nil {
@@ -144,9 +148,10 @@ func (b backupServiceImplementation) runBackup(
 	}
 	contextLogger.Info("Backup completed, getting metadata", "backupName", backupName)
 
+	//nolint:gosec
 	cmd = exec.CommandContext(
 		ctx,
-		"klio",
+		klioPath,
 		"backup",
 		"get-metadata",
 		"--config",
@@ -171,8 +176,15 @@ func (b backupServiceImplementation) runBackup(
 func (b backupServiceImplementation) triggerMaintenance(ctx context.Context) {
 	contextLogger := log.FromContext(ctx)
 
+	klioPath, err := os.Executable()
+	if err != nil {
+		contextLogger.Error(err, "failed to determine klio path, skipping maintenance")
+		return
+	}
+
 	contextLogger.Info("Starting Klio backup maintenance")
-	cmd := exec.CommandContext(ctx, "klio", "backup", "maintenance", "--config", backupRepositoryConfigPath)
+	//nolint:gosec
+	cmd := exec.CommandContext(ctx, klioPath, "backup", "maintenance", "--config", backupRepositoryConfigPath)
 
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
@@ -181,12 +193,18 @@ func (b backupServiceImplementation) triggerMaintenance(ctx context.Context) {
 	}
 }
 
+//nolint:cyclop
 func (b backupServiceImplementation) setRetentionPolicy(ctx context.Context, r *Retention) error {
 	contextLogger := log.FromContext(ctx)
 
 	if r.IsEmpty() {
 		contextLogger.Info("Skipping retention policy creation")
 		return nil
+	}
+
+	klioPath, err := os.Executable()
+	if err != nil {
+		return fmt.Errorf("failed to determine klio path: %w", err)
 	}
 
 	klioArgs := []string{
@@ -212,7 +230,8 @@ func (b backupServiceImplementation) setRetentionPolicy(ctx context.Context, r *
 	}
 
 	contextLogger.Info("Executing klio retention set", "args", klioArgs)
-	cmd := exec.CommandContext(ctx, "klio", klioArgs...)
+	//nolint:gosec
+	cmd := exec.CommandContext(ctx, klioPath, klioArgs...)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	if err := cmd.Run(); err != nil {
@@ -220,7 +239,8 @@ func (b backupServiceImplementation) setRetentionPolicy(ctx context.Context, r *
 	}
 
 	contextLogger.Info("Executing klio retention get")
-	cmd = exec.CommandContext(ctx, "klio", "retention", "get", "--config", backupRepositoryConfigPath)
+	//nolint:gosec
+	cmd = exec.CommandContext(ctx, klioPath, "retention", "get", "--config", backupRepositoryConfigPath)
 	var stdout bytes.Buffer
 	cmd.Stdout = &stdout
 	cmd.Stderr = os.Stderr
