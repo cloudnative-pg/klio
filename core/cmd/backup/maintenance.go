@@ -51,7 +51,10 @@ var maintenanceCmd = &cobra.Command{
 			return fmt.Errorf("configuration validation error: %w", err)
 		}
 
-		kopiaClient, err := kopia.MultiConnect(
+		// Connect only to tier1 for WAL retention calculation.
+		// Using MultiConnect would include tier2 backups, which would
+		// incorrectly keep WAL files on tier1 that are only needed by tier2.
+		kopiaClient, err := kopia.ConnectTier1(
 			cmd.Context(),
 			&configuration.Client.Base,
 		)
