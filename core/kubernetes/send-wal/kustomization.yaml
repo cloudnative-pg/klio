@@ -1,4 +1,0 @@
-secretGenerator:
-- name: klio-send-wal
-  files:
-  - klio.yaml
