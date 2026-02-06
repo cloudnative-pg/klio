@@ -127,12 +127,12 @@ Given the following configuration file in `/var/lib/postgresql/.klio.yaml`:
 
 ```yaml
 client:
+  cluster_name: pg-dev-1
   wal:
     server_cert_path: /home/klio/server.crt
     client_cert_path: /home/klio/client-cert.pem
     client_key_path: /home/klio/client-key.pem
     address: klio-server:52000
-    cluster_name: pg-dev-1
 
   base:
     url: https://klio-server:52001

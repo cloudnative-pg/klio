@@ -101,9 +101,9 @@ Example configuration:
 ```yaml
 # klio-config.yaml
 client:
+  cluster_name: walplayer
   wal:
     address: localhost:52000
-    cluster_name: walplayer
     server_cert_path: "/path/to/server.crt"
     client_cert_path: "/path/to/client/tls.crt"
     client_key_path: "/path/to/client/tls.key"
@@ -193,9 +193,9 @@ data:
   # Address your klio server
   klio-config.yaml: |
     client:
+      cluster_name: walplayer
       wal:
         address: server-sample.default:52000
-        cluster_name: walplayer
         server_cert_path: /certs/server/ca.crt
         client_cert_path: /certs/client/tls.crt
         client_key_path: /certs/client/tls.key

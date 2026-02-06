@@ -110,16 +110,16 @@ type Player struct {
 	BlockSize int
 
 	// The configuration to be used to connect to the Klio server.
-	Config *config.WalRepositoryClientConfig
+	ClientConfig *config.ClientConfig
 }
 
 // NewPlayer creates a new Player instance with the given parameters.
-func NewPlayer(workers int, targetDir string, blockSize int, config *config.WalRepositoryClientConfig) *Player {
+func NewPlayer(workers int, targetDir string, blockSize int, clientConfig *config.ClientConfig) *Player {
 	return &Player{
-		Workers:   workers,
-		DirName:   targetDir,
-		BlockSize: blockSize,
-		Config:    config,
+		Workers:      workers,
+		DirName:      targetDir,
+		BlockSize:    blockSize,
+		ClientConfig: clientConfig,
 	}
 }
 
@@ -161,7 +161,7 @@ func (p *Player) runWorker(
 ) {
 	contextLogger := log.FromContext(ctx)
 
-	client, err := grpcclient.Connect(p.Config, p.Config.Address)
+	client, err := grpcclient.Connect(p.ClientConfig, p.ClientConfig.Wal.Address)
 	if err != nil {
 		contextLogger.Error(err, "While connecting to Klio")
 		return

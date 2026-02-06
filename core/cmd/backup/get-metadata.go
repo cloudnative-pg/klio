@@ -49,7 +49,7 @@ var getMetadataCmd = &cobra.Command{
 
 		client, err := kopia.MultiConnect(
 			cmd.Context(),
-			&configuration.Client.Base,
+			&configuration.Client,
 		)
 		if err != nil {
 			return fmt.Errorf("while connecting to the Klio server: %w %q", err, configuration.Client.Base.URL)

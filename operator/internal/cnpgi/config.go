@@ -82,13 +82,13 @@ func generateKlioConfigForPlugin(
 			BufferSize:                   0,
 		},
 		Client: config.ClientConfig{
+			ClusterName: klioPluginConfigurationSpec.ClusterName,
 			Base: config.BaseRepositoryClientConfig{
 				ServerCertPath: path.Join(serverCertPath, "tls.crt"),
 				ClientCertPath: path.Join(clientCertPath, "tls.crt"),
 				ClientKeyPath:  path.Join(clientCertPath, "tls.key"),
 			},
 			Wal: config.WalRepositoryClientConfig{
-				ClusterName:    klioPluginConfigurationSpec.ClusterName,
 				ServerCertPath: path.Join(serverCertPath, "tls.crt"),
 				ClientCertPath: path.Join(clientCertPath, "tls.crt"),
 				ClientKeyPath:  path.Join(clientCertPath, "tls.key"),

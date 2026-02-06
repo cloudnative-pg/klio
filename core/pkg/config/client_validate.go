@@ -56,6 +56,10 @@ func (s *SourceConfig) Validate() error {
 func (c *ClientConfig) Validate() error {
 	var errs error
 
+	if c.ClusterName == "" {
+		errs = errors.Join(errs, errors.New("invalid client config: cluster_name is empty"))
+	}
+
 	if c.Base != (BaseRepositoryClientConfig{}) {
 		if err := c.Base.Validate(); err != nil {
 			errs = errors.Join(errs, err)
@@ -80,9 +84,6 @@ func (c *WalRepositoryClientConfig) Validate() error {
 			"invalid wal repository client config: at least one of address or tier2_address must be specified"))
 	}
 
-	if c.ClusterName == "" {
-		errs = errors.Join(errs, errors.New("invalid wal repository client config: cluster_name is empty"))
-	}
 	if c.ServerCertPath == "" {
 		errs = errors.Join(errs, errors.New("invalid wal repository client config: server_cert_path is empty"))
 	}

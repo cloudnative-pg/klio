@@ -88,8 +88,31 @@ KIND_CLUSTER_NAME=$(kind get clusters  | grep pg-operator-e2e) task integration:
 # Important notes
 
 - These files must be kept in sync:
-  - `operator/pkg/config/server.go` ↔ `client/pkg/config/server.go`
-  - `operator/pkg/config/client.go` ↔ `client/pkg/config/client.go`
+  - `operator/pkg/config/server.go` ↔ `core/pkg/config/server.go`
+  - `operator/pkg/config/client.go` ↔ `core/pkg/config/client.go`
+
+## Architecture notes
+
+### Client configuration
+
+The `ClientConfig` struct contains configuration for both Kopia (base backups)
+and gRPC (WAL streaming) clients:
+
+- `ClientConfig.ClusterName` - shared cluster identifier (must match certificate
+  CN hostname)
+- `ClientConfig.Base` - Kopia repository client config (for base backups)
+- `ClientConfig.Wal` - gRPC WAL client config (for WAL streaming)
+
+The Kopia client validates that `ClusterName` matches the hostname in the client
+certificate's Common Name (format: `userName@hostName`). This prevents silent
+failures where backups would be stored under a wrong hostname.
+
+### Dagger caching issues
+
+When running e2e tests, Dagger may cache Helm repo indexes. If a new version of
+a dependency (e.g., cert-manager) is released but not yet in the cached index,
+tests will fail. Workaround: temporarily use an older version that exists in the
+cached index, run tests, then revert.
 
 ## PR instructions
 

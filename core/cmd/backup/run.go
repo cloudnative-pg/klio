@@ -62,7 +62,7 @@ var runCmd = &cobra.Command{
 
 		kopiaClient, err := kopia.MultiConnect(
 			cmd.Context(),
-			&configuration.Client.Base,
+			&configuration.Client,
 		)
 		if err != nil {
 			return fmt.Errorf("while connecting to the Klio server: %w %q", err, configuration.Client.Base.URL)
@@ -97,7 +97,7 @@ var runCmd = &cobra.Command{
 			return fmt.Errorf("while closing the backup: %w", err)
 		}
 
-		grpcClient, err := grpcclient.Connect(&configuration.Client.Wal, configuration.Client.Wal.Address)
+		grpcClient, err := grpcclient.Connect(&configuration.Client, configuration.Client.Wal.Address)
 		if err != nil {
 			return fmt.Errorf("while connecting to the Klio server: %w", err)
 		}

@@ -18,6 +18,6 @@
 //
 // Example usage for playing WAL files:
 //
-//	player := walplayer.NewPlayer(workers, targetDirectory, blockSize*1024, &configuration.Client.Wal)
+//	player := walplayer.NewPlayer(workers, targetDirectory, blockSize*1024, &configuration.Client)
 //	results := player.Play(ctx)
 package walplayer

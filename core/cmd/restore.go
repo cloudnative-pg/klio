@@ -78,7 +78,7 @@ var restoreCmd = &cobra.Command{
 			tablespaces[splitOption[0]] = splitOption[1]
 		}
 
-		client, err := kopia.MultiConnect(cmd.Context(), &configuration.Client.Base)
+		client, err := kopia.MultiConnect(cmd.Context(), &configuration.Client)
 		if err != nil {
 			return fmt.Errorf("while connecting to the Klio server: %w", err)
 		}

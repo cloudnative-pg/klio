@@ -30,7 +30,7 @@ func (c *Connection) StoreWALStreaming(
 	return klioclient.NewWALUploader(&grpcWALStream{
 		innerStream: stream,
 		segmentSize: segmentSize,
-		clusterName: c.cfg.ClusterName,
+		clusterName: c.clientConfig.ClusterName,
 		walName:     name,
 		sendToTier2: sendToTier2,
 	}), nil
@@ -39,7 +39,7 @@ func (c *Connection) StoreWALStreaming(
 // GetWALStreaming get a WAL from a remote connection.
 func (c *Connection) GetWALStreaming(ctx context.Context, walName string, out io.Writer) error { //nolint:cyclop
 	client, err := c.Get(ctx, &klioGRPC.GetRequest{
-		ClusterName: c.cfg.ClusterName,
+		ClusterName: c.clientConfig.ClusterName,
 		WalName:     walName,
 	})
 	if err != nil {

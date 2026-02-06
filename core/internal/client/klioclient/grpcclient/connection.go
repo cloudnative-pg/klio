@@ -45,13 +45,13 @@ func (g *grpcWALStream) Close(_ context.Context) error {
 type Connection struct {
 	klioGRPC.WALClient
 
-	cfg            *config.WalRepositoryClientConfig
+	clientConfig   *config.ClientConfig
 	grpcConnection *grpc.ClientConn
 }
 
 // Connect opens a connection to a Klio server.
-func Connect(cfg *config.WalRepositoryClientConfig, address string) (*Connection, error) {
-	certPEMBlock, err := os.ReadFile(cfg.ServerCertPath)
+func Connect(clientConfig *config.ClientConfig, address string) (*Connection, error) {
+	certPEMBlock, err := os.ReadFile(clientConfig.Wal.ServerCertPath)
 	if err != nil {
 		return nil, fmt.Errorf("while reading the server certificate: %w", err)
 	}
@@ -61,7 +61,7 @@ func Connect(cfg *config.WalRepositoryClientConfig, address string) (*Connection
 		return nil, ErrInconsistentCertificate
 	}
 
-	clientCertificate, err := tls.LoadX509KeyPair(cfg.ClientCertPath, cfg.ClientKeyPath)
+	clientCertificate, err := tls.LoadX509KeyPair(clientConfig.Wal.ClientCertPath, clientConfig.Wal.ClientKeyPath)
 	if err != nil {
 		return nil, fmt.Errorf("while parsing the client certificate: %w", err)
 	}
@@ -90,7 +90,7 @@ func Connect(cfg *config.WalRepositoryClientConfig, address string) (*Connection
 	walClient := klioGRPC.NewWALClient(conn)
 
 	return &Connection{
-		cfg:            cfg,
+		clientConfig:   clientConfig,
 		WALClient:      walClient,
 		grpcConnection: conn,
 	}, nil

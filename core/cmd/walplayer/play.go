@@ -46,7 +46,7 @@ var playCmd = &cobra.Command{
 			return cli.ErrKlioClientSectionIsRequired
 		}
 
-		if err := configuration.Client.Wal.Validate(); err != nil {
+		if err := configuration.Client.Validate(); err != nil {
 			return fmt.Errorf("configuration validation error: %w", err)
 		}
 
@@ -60,7 +60,7 @@ var playCmd = &cobra.Command{
 			)
 		}
 
-		cfg := walplayer.NewPlayer(workers, targetDirectory, blockSize*bytesInKB, &configuration.Client.Wal)
+		cfg := walplayer.NewPlayer(workers, targetDirectory, blockSize*bytesInKB, &configuration.Client)
 
 		results := cfg.Play(cmd.Context())
 

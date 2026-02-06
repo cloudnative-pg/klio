@@ -73,7 +73,7 @@ var getWalCmd = &cobra.Command{
 			os.Exit(4)
 		}
 
-		client, err := grpcclient.Connect(&configuration.Client.Wal, address)
+		client, err := grpcclient.Connect(&configuration.Client, address)
 		if err != nil {
 			return fmt.Errorf("while connecting to the Klio server: %w", err)
 		}

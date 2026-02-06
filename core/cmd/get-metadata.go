@@ -45,13 +45,13 @@ var getMetadataCmd = &cobra.Command{
 			return fmt.Errorf("configuration validation error: %w", err)
 		}
 
-		client, err := grpcclient.Connect(&configuration.Client.Wal, configuration.Client.Wal.Address)
+		client, err := grpcclient.Connect(&configuration.Client, configuration.Client.Wal.Address)
 		if err != nil {
 			return fmt.Errorf("while connecting to the Klio server: %w", err)
 		}
 
 		metadata, err := client.GetMetadata(cmd.Context(), &klioGRPC.GetMetadataRequest{
-			ClusterName: configuration.Client.Wal.ClusterName,
+			ClusterName: configuration.Client.ClusterName,
 		})
 		if err != nil {
 			return fmt.Errorf("while downloading metadata: %w", err)

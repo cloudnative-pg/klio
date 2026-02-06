@@ -54,6 +54,11 @@ type SourceConfig struct {
 
 // ClientConfig is the configuration of the Klio client.
 type ClientConfig struct {
+	// ClusterName is the name of the PostgreSQL cluster.
+	// This must match the hostname portion of the client certificate's Common Name
+	// (format: userName@clusterName).
+	ClusterName string `json:"cluster_name" mapstructure:"cluster_name"`
+
 	// Base is the configuration of the target Base repository
 	Base BaseRepositoryClientConfig `json:"base" mapstructure:"base"`
 
@@ -69,9 +74,6 @@ type WalRepositoryClientConfig struct {
 
 	// Address of the Tier 2 Klio server
 	Tier2Address string `json:"tier2_address" mapstructure:"tier2_address"`
-
-	// ClusterName is the name of the target cluster where to upload WALs
-	ClusterName string `json:"cluster_name" mapstructure:"cluster_name"`
 
 	// ServerCertPath is the path to the server public key
 	ServerCertPath string `json:"server_cert_path" mapstructure:"server_cert_path"`

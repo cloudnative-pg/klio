@@ -30,7 +30,7 @@ type TemporaryConnection struct {
 func ConnectTemporary(
 	ctx context.Context,
 	logger log.Logger,
-	cfg *config.WalRepositoryClientConfig,
+	clientConfig *config.ClientConfig,
 	opts repository.Options,
 ) (*TemporaryConnection, error) {
 	//nolint:gosec
@@ -81,7 +81,7 @@ func ConnectTemporary(
 
 	return &TemporaryConnection{
 		Connection: Connection{
-			cfg:            cfg,
+			clientConfig:   clientConfig,
 			WALClient:      walClient,
 			grpcConnection: conn,
 		},

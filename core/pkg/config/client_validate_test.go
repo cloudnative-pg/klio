@@ -109,7 +109,6 @@ func TestWalRepositoryClientConfig_Validate(t *testing.T) {
 			name: "Valid with Primary Address",
 			config: WalRepositoryClientConfig{
 				Address:        "127.0.0.1:5432",
-				ClusterName:    "my-cluster",
 				ServerCertPath: "/certs/ca.crt",
 				ClientCertPath: "/certs/client.crt",
 				ClientKeyPath:  "/certs/client.key",
@@ -120,7 +119,6 @@ func TestWalRepositoryClientConfig_Validate(t *testing.T) {
 			name: "Valid with Tier2 Address only",
 			config: WalRepositoryClientConfig{
 				Tier2Address:   "10.0.0.5:5432",
-				ClusterName:    "my-cluster",
 				ServerCertPath: "/certs/ca.crt",
 				ClientCertPath: "/certs/client.crt",
 				ClientKeyPath:  "/certs/client.key",
@@ -130,7 +128,6 @@ func TestWalRepositoryClientConfig_Validate(t *testing.T) {
 		{
 			name: "Invalid: Both Addresses missing",
 			config: WalRepositoryClientConfig{
-				ClusterName:    "my-cluster",
 				ServerCertPath: "/certs/ca.crt",
 				ClientCertPath: "/certs/client.crt",
 				ClientKeyPath:  "/certs/client.key",
@@ -139,21 +136,9 @@ func TestWalRepositoryClientConfig_Validate(t *testing.T) {
 			expectedMsgs: []string{"at least one of address or tier2_address must be specified"},
 		},
 		{
-			name: "Invalid: ClusterName empty",
-			config: WalRepositoryClientConfig{
-				Address:        "127.0.0.1:5432",
-				ServerCertPath: "/certs/ca.crt",
-				ClientCertPath: "/certs/client.crt",
-				ClientKeyPath:  "/certs/client.key",
-			},
-			wantErr:      true,
-			expectedMsgs: []string{"cluster_name is empty"},
-		},
-		{
 			name: "Invalid: Missing all certificate paths",
 			config: WalRepositoryClientConfig{
-				Address:     "127.0.0.1:5432",
-				ClusterName: "my-cluster",
+				Address: "127.0.0.1:5432",
 			},
 			wantErr: true,
 			expectedMsgs: []string{
@@ -168,7 +153,6 @@ func TestWalRepositoryClientConfig_Validate(t *testing.T) {
 			wantErr: true,
 			expectedMsgs: []string{
 				"at least one of address or tier2_address must be specified",
-				"cluster_name is empty",
 				"server_cert_path is empty",
 			},
 		},
@@ -255,6 +239,67 @@ func TestBaseRepositoryClientConfig_Validate(t *testing.T) {
 				"client_cert_path is empty",
 				"client_key_path is empty",
 			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := tt.config.Validate()
+
+			if (err != nil) != tt.wantErr {
+				t.Fatalf("Validate() error = %v, wantErr %v", err, tt.wantErr)
+			}
+
+			if tt.wantErr && err != nil {
+				errMsg := err.Error()
+				for _, expected := range tt.expectedMsgs {
+					if !strings.Contains(errMsg, expected) {
+						t.Errorf("expected error message to contain %q, but got %q", expected, errMsg)
+					}
+				}
+			}
+		})
+	}
+}
+
+func TestClientConfig_Validate(t *testing.T) {
+	tests := []struct {
+		name         string
+		config       ClientConfig
+		wantErr      bool
+		expectedMsgs []string
+	}{
+		{
+			name: "Valid config",
+			config: ClientConfig{
+				ClusterName: "my-cluster",
+				Base: BaseRepositoryClientConfig{
+					URL:            "https://my.url.com",
+					ServerCertPath: "/certs/ca.crt",
+					ClientCertPath: "/certs/client.crt",
+					ClientKeyPath:  "/certs/client.key",
+				},
+				Wal: WalRepositoryClientConfig{
+					Address:        "127.0.0.1:5432",
+					ServerCertPath: "/certs/ca.crt",
+					ClientCertPath: "/certs/client.crt",
+					ClientKeyPath:  "/certs/client.key",
+				},
+			},
+			wantErr: false,
+		},
+		{
+			name: "Invalid: ClusterName empty",
+			config: ClientConfig{
+				Base: BaseRepositoryClientConfig{
+					URL:            "https://my.url.com",
+					ServerCertPath: "/certs/ca.crt",
+					ClientCertPath: "/certs/client.crt",
+					ClientKeyPath:  "/certs/client.key",
+				},
+			},
+			wantErr:      true,
+			expectedMsgs: []string{"cluster_name is empty"},
 		},
 	}
 

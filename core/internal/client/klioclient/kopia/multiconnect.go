@@ -35,20 +35,20 @@ type MultiConnection struct {
 // not been found, they are tried against tier2.
 func MultiConnect(
 	ctx context.Context,
-	kopiaClientConfig *config.BaseRepositoryClientConfig,
+	clientConfig *config.ClientConfig,
 ) (*MultiConnection, error) {
 	var mc MultiConnection
 
-	if kopiaClientConfig.URL != "" {
-		tier1, err := ConnectTier1(ctx, kopiaClientConfig)
+	if clientConfig.Base.URL != "" {
+		tier1, err := ConnectTier1(ctx, clientConfig)
 		if err != nil {
 			return nil, fmt.Errorf("connecting to tier1: %w", err)
 		}
 		mc.Tier1 = tier1
 	}
 
-	if kopiaClientConfig.Tier2URL != "" {
-		tier2, err := ConnectTier2(ctx, kopiaClientConfig)
+	if clientConfig.Base.Tier2URL != "" {
+		tier2, err := ConnectTier2(ctx, clientConfig)
 		if err != nil {
 			return nil, fmt.Errorf("connecting to tier2: %w", err)
 		}

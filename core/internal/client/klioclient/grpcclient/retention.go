@@ -9,7 +9,7 @@ import (
 // SetFirstRequiredWAL drops every WAL file older than the passed WAL file name.
 func (c *Connection) SetFirstRequiredWAL(ctx context.Context, walName string) error {
 	_, err := c.WALClient.SetFirstRequiredWAL(ctx, &grpc.SetFirstRequiredWALRequest{
-		ClusterName:      c.cfg.ClusterName,
+		ClusterName:      c.clientConfig.ClusterName,
 		FirstRequiredWal: walName,
 	})
 

@@ -3,6 +3,7 @@ package kopia
 import (
 	"context"
 	"crypto/tls"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -13,6 +14,10 @@ import (
 	"github.com/cloudnative-pg/klio/core/internal/kopia"
 	"github.com/cloudnative-pg/klio/core/pkg/config"
 )
+
+// ErrClusterCertificateMismatch is returned when the configured cluster name
+// does not match the hostname in the client certificate's Common Name.
+var ErrClusterCertificateMismatch = errors.New("cluster name does not match certificate")
 
 // Connection represent a connection to a Klio server.
 type Connection struct {
@@ -69,38 +74,40 @@ func FromKopiaConfig(configFile string) (*Connection, error) {
 // ConnectTier1 creates a new Kopia client to the tier1 kopia repository and opens a connection to it.
 func ConnectTier1(
 	ctx context.Context,
-	kopiaClientConfig *config.BaseRepositoryClientConfig,
+	clientConfig *config.ClientConfig,
 ) (*Connection, error) {
-	return connectToKopiaServer(ctx, kopiaClientConfig, kopiaClientConfig.URL)
+	return connectToKopiaServer(ctx, clientConfig, clientConfig.Base.URL)
 }
 
 // ConnectTier2 creates a new Kopia client and opens a connection to it.
 func ConnectTier2(
 	ctx context.Context,
-	kopiaClientConfig *config.BaseRepositoryClientConfig,
+	clientConfig *config.ClientConfig,
 ) (*Connection, error) {
-	return connectToKopiaServer(ctx, kopiaClientConfig, kopiaClientConfig.Tier2URL)
+	return connectToKopiaServer(ctx, clientConfig, clientConfig.Base.Tier2URL)
 }
 
 func connectToKopiaServer(
 	ctx context.Context,
-	kopiaClientConfig *config.BaseRepositoryClientConfig,
+	clientConfig *config.ClientConfig,
 	kopiaURL string,
 ) (*Connection, error) {
+	contextLogger := log.FromContext(ctx)
+
 	configFile, err := os.CreateTemp("", "kopiaconfig_*")
 	if err != nil {
 		return nil, fmt.Errorf("while writing a temporary Kopia config: %w", err)
 	}
 
 	certificateFingerprint, err := kopia.ExtractSHA256CertificateFingerprint(
-		kopiaClientConfig.ServerCertPath)
+		clientConfig.Base.ServerCertPath)
 	if err != nil {
 		return nil, fmt.Errorf("error while extracting fingerprint of the kopia server certificate: %w", err)
 	}
 
 	clientCertificate, err := tls.LoadX509KeyPair(
-		kopiaClientConfig.ClientCertPath,
-		kopiaClientConfig.ClientKeyPath,
+		clientConfig.Base.ClientCertPath,
+		clientConfig.Base.ClientKeyPath,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("error while parsing client certificate: %w", err)
@@ -110,16 +117,29 @@ func connectToKopiaServer(
 		return nil, fmt.Errorf("error: no leaf found in client certificate %+v", clientCertificate)
 	}
 
-	// Normalize the hostname by eventually removing
-	// the '@<hostname>' suffix, which is already been
-	// appended by Kopia.
-	//
-	// We should have a debate about
-	// this. Should we really do it? Should we just
-	// drop the suffix?
-	userName, hostName, err := extractUserNameAndHostName(clientCertificate.Leaf.Subject.CommonName)
+	// Extract username and hostname from certificate Common Name.
+	// The CN must be in the format: userName@hostName
+	userName, certHostName, err := extractUserNameAndHostName(clientCertificate.Leaf.Subject.CommonName)
 	if err != nil {
-		return nil, fmt.Errorf("error while extracting userName and HostName from client certificate: %w", err)
+		return nil, fmt.Errorf("error while extracting userName and hostName from client certificate: %w", err)
+	}
+
+	// Validate that the configured cluster name matches the certificate hostname.
+	// This prevents silent failures where backups would be stored under a different
+	// hostname and restore operations would fail to find them.
+	if clientConfig.ClusterName != certHostName {
+		contextLogger.Error(ErrClusterCertificateMismatch,
+			"CONFIGURATION ERROR: cluster name and certificate mismatch",
+			"configured_cluster_name", clientConfig.ClusterName,
+			"certificate_hostname", certHostName,
+			"certificate_CN", clientCertificate.Leaf.Subject.CommonName,
+			"how_to_fix", fmt.Sprintf(
+				"set 'cluster_name' to %q in your config, or use a certificate with CN '%s@%s'",
+				certHostName, userName, clientConfig.ClusterName),
+		)
+
+		return nil, fmt.Errorf("%w: configured cluster %q but certificate has hostname %q",
+			ErrClusterCertificateMismatch, clientConfig.ClusterName, certHostName)
 	}
 
 	kopiaBinary, err := kopia.LookupBinary()
@@ -139,11 +159,11 @@ func connectToKopiaServer(
 			CacheDirectory:     cacheDirectory,
 		},
 		URL:                   kopiaURL,
-		ClientCertPath:        kopiaClientConfig.ClientCertPath,
-		ClientKeyPath:         kopiaClientConfig.ClientKeyPath,
+		ClientCertPath:        clientConfig.Base.ClientCertPath,
+		ClientKeyPath:         clientConfig.Base.ClientKeyPath,
 		ServerCertFingerprint: certificateFingerprint,
 		Username:              userName,
-		Hostname:              hostName,
+		Hostname:              certHostName,
 	}); err != nil {
 		return nil, fmt.Errorf("while executing Kopia command: %w", err)
 	}
@@ -151,7 +171,7 @@ func connectToKopiaServer(
 	return &Connection{
 		kopiaBinary: kopiaBinary,
 		userName:    userName,
-		hostName:    hostName,
+		hostName:    certHostName,
 		kopia: &kopia.Client{
 			KopiaBinary: kopiaBinary,
 			ConfigFile:  configFile.Name(),

@@ -56,7 +56,7 @@ var maintenanceCmd = &cobra.Command{
 		// incorrectly keep WAL files on tier1 that are only needed by tier2.
 		kopiaClient, err := kopia.ConnectTier1(
 			cmd.Context(),
-			&configuration.Client.Base,
+			&configuration.Client,
 		)
 		if err != nil {
 			return fmt.Errorf("while connecting to the Klio server: %w %q", err, configuration.Client.Base.URL)
@@ -72,7 +72,7 @@ var maintenanceCmd = &cobra.Command{
 			return fmt.Errorf("while applying the retention policy: %w", err)
 		}
 
-		klioClient, err := grpcclient.Connect(&configuration.Client.Wal, configuration.Client.Wal.Address)
+		klioClient, err := grpcclient.Connect(&configuration.Client, configuration.Client.Wal.Address)
 		if err != nil {
 			return fmt.Errorf("while connecting to the Klio server: %w", err)
 		}

@@ -28,7 +28,7 @@ func (c *Connection) StoreWAL(ctx context.Context, name string, content []byte) 
 		}
 
 		if err := stream.Send(&klioGRPC.PutRequest{
-			ClusterName: c.cfg.ClusterName,
+			ClusterName: c.clientConfig.ClusterName,
 			WalName:     name,
 			SegmentSize: uint64(len(content)),
 			WalBlock:    buffer[:readBytes],
