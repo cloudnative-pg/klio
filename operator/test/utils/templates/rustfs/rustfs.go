@@ -16,7 +16,7 @@ import (
 
 const (
 	// RustFSImage is the RustFS container image.
-	RustFSImage = "rustfs/rustfs:1.0.0-alpha.80"
+	RustFSImage = "rustfs/rustfs:1.0.0-alpha.82"
 
 	// RustFSAccessKey is the access key for RustFS.
 	RustFSAccessKey = "rustfsaccesskey1234567890"

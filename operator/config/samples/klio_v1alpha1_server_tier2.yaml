@@ -1,8 +1,8 @@
 ---
-# Apply these steps to set up MinIO for Tier 2 testing
-# kubectl apply -k operator/config/samples/minio
-# kubectl wait --for=condition=available deployment/minio --timeout=300s
-# kubectl apply -f operator/config/samples/minio/minio-job-create-bucket.yaml
+# Apply these steps to set up RustFS for Tier 2 testing
+# kubectl apply -k operator/config/samples/rustfs
+# kubectl wait --for=condition=ready pod -l app.kubernetes.io/name=rustfs --timeout=120s
+# kubectl apply -f operator/config/samples/rustfs/rustfs-job-create-bucket.yaml
 #
 # Then apply the Klio Server with Tier 2 sample
 apiVersion: klio.cnpg.io/v1alpha1
@@ -47,17 +47,17 @@ spec:
     s3:
       prefix: klio
       bucketName: klio-bucket
-      endpoint: https://minio:9000
+      endpoint: https://rustfs:9000
       region: us-east-1
       # Use explicit credentials (when not using IAM roles)
       accessKeyId:
-        name: minio
-        key: ACCESS_KEY_ID
+        name: rustfs-secret
+        key: RUSTFS_ACCESS_KEY
       secretAccessKey:
-        name: minio
-        key: ACCESS_SECRET_KEY
+        name: rustfs-secret
+        key: RUSTFS_SECRET_KEY
       customCaBundle:
-        name: minio-server-tls
+        name: rustfs-tls
         key: tls.crt
 
   queue:

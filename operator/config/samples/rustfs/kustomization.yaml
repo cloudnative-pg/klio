@@ -1,0 +1,9 @@
+resources:
+- rustfs-deployment.yaml
+- rustfs-pvc.yaml
+- rustfs-logs-pvc.yaml
+- rustfs-configmap.yaml
+- rustfs-secret.yaml
+- rustfs-service.yaml
+- rustfs-certificate.yaml
+- selfsigned-issuer.yaml

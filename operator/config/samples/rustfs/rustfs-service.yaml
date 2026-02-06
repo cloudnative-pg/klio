@@ -1,16 +1,17 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: minio
+  name: rustfs
 spec:
   selector:
-    app: minio
+    app.kubernetes.io/instance: rustfs
+    app.kubernetes.io/name: rustfs
   ports:
     - protocol: TCP
       port: 9000
       targetPort: 9000
       name: api
     - protocol: TCP
-      port: 36261
-      targetPort: 36261
-      name: webui
+      port: 9001
+      targetPort: 9001
+      name: console

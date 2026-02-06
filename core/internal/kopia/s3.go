@@ -19,7 +19,7 @@ type S3RepoOpts struct {
 	// BucketName is the name of the S3 bucket where the repository is stored.
 	BucketName string
 
-	// Endpoint is the S3 endpoint URL (e.g., for MinIO or custom S3-compatible storage).
+	// Endpoint is the S3 endpoint URL for S3-compatible storage or custom AWS endpoints.
 	Endpoint string
 
 	// Region is the AWS region where the S3 bucket is located.

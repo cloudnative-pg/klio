@@ -1,12 +1,14 @@
 apiVersion: cert-manager.io/v1
 kind: Certificate
 metadata:
-  name: minio-server
+  name: rustfs-server
 spec:
-  secretName: minio-server-tls
-  commonName: minio
+  secretName: rustfs-tls
+  commonName: rustfs
   dnsNames:
-    - minio
+    - rustfs
+    - rustfs.default
+    - rustfs.default.svc
 
   duration: 2160h # 90d
   renewBefore: 360h # 15d

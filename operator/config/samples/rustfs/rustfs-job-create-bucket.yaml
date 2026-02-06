@@ -1,0 +1,43 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: create-bucket
+spec:
+  ttlSecondsAfterFinished: 100
+  template:
+    spec:
+      automountServiceAccountToken: false
+      containers:
+        - name: rustfs-aws-cli-client
+          image: amazon/aws-cli:2.22.31
+          command: ["/bin/sh", "-c"]
+          args:
+            - |
+              aws s3 mb s3://klio-bucket --endpoint-url https://rustfs:9000 --no-verify-ssl
+          env:
+          - name: AWS_ACCESS_KEY_ID
+            valueFrom:
+              secretKeyRef:
+                name: rustfs-secret
+                key: RUSTFS_ACCESS_KEY
+          - name: AWS_SECRET_ACCESS_KEY
+            valueFrom:
+              secretKeyRef:
+                name: rustfs-secret
+                key: RUSTFS_SECRET_KEY
+          - name: AWS_CA_BUNDLE
+            value: /certs/ca.crt
+          volumeMounts:
+          - name: certs
+            mountPath: /certs/ca.crt
+            subPath: ca.crt
+            readOnly: true
+      volumes:
+      - name: certs
+        secret:
+          secretName: rustfs-tls
+          items:
+          - key: tls.crt
+            path: ca.crt
+      restartPolicy: OnFailure
+  backoffLimit: 4

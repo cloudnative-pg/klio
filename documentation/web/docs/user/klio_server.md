@@ -329,16 +329,16 @@ spec:
     s3:
       prefix: klio
       bucketName: klio-bucket
-      endpoint: https://minio:9000
+      endpoint: https://rustfs:9000
       region: us-east-1
       accessKeyId:
-        name: minio
-        key: ACCESS_KEY_ID
+        name: rustfs
+        key: RUSTFS_ACCESS_KEY
       secretAccessKey:
-        name: minio
-        key: ACCESS_SECRET_KEY
+        name: rustfs
+        key: RUSTFS_SECRET_KEY
       customCaBundle:
-        name: minio-server-tls
+        name: rustfs-tls
         key: tls.crt
 ```
 <!-- x-release-please-end -->
@@ -541,4 +541,3 @@ spec:
   ca:
     secretName: server-sample-ca
 ```
-

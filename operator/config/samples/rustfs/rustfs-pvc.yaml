@@ -1,7 +1,7 @@
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
-  name: minio
+  name: rustfs-data
 spec:
   accessModes:
     - ReadWriteOnce

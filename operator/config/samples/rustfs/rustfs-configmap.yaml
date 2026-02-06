@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: rustfs-config
+data:
+  RUSTFS_ADDRESS: ":9000"
+  RUSTFS_CONSOLE_ADDRESS: ":9001"
+  RUSTFS_CONSOLE_ENABLE: "true"
+  RUSTFS_OBS_ENVIRONMENT: develop
+  RUSTFS_OBS_LOG_DIRECTORY: /logs
+  RUSTFS_OBS_LOGGER_LEVEL: debug
+  RUSTFS_REGION: us-east-1
+  RUSTFS_VOLUMES: /data
+  RUSTFS_TLS_PATH: /certs
