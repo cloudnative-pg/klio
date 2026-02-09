@@ -1590,14 +1590,15 @@ spec:
                 - message: 'container name must be one of: klio-plugin, klio-wal,
                     klio-restore'
                   rule: self.all(c, c.name in ['klio-plugin', 'klio-wal', 'klio-restore'])
+              mode:
+                default: standard
+                description: Mode selects the operation mode of the plugin.
+                enum:
+                - standard
+                - read-only
+                type: string
               pprof:
                 description: Pprof enables the pprof endpoint for performance profiling
-                type: boolean
-              readOnly:
-                default: false
-                description: |-
-                  ReadOnly is true when you can only read from the server.
-                  In this case, tier1 should not be configured.
                 type: boolean
               serverAddress:
                 description: ServerAddress is the address of the Klio server
@@ -1700,15 +1701,15 @@ spec:
                   rule: self.enableBackup || self.enableRecovery
             required:
             - clientSecretName
-            - readOnly
+            - mode
             - serverAddress
             - serverSecretName
             type: object
             x-kubernetes-validations:
-            - message: when readOnly is true, tier2.enableRecovery must be true, tier2.enableBackup
-                must be false, and tier1 must not exist
-              rule: '!self.readOnly || (has(self.tier2) && (!has(self.tier2.enableBackup)
-                || !self.tier2.enableBackup) && self.tier2.enableRecovery && !has(self.tier1))'
+            - message: when mode is read-only, tier2.enableRecovery must be true,
+                tier2.enableBackup must be false, and tier1 must not exist
+              rule: self.mode != 'read-only' || (has(self.tier2) && (!has(self.tier2.enableBackup)
+                || !self.tier2.enableBackup) && self.tier2.enableRecovery && !has(self.tier1))
           status:
             description: PluginConfigurationStatus defines the observed state of ClientConfig.
             type: object

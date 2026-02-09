@@ -92,6 +92,8 @@ LocalObjectReference
 MaxItems
 MetricsConfiguration
 MinLength
+ModeReadOnly
+ModeStandard
 NATS
 Namespaces
 NetworkPolicies
@@ -151,6 +153,7 @@ SHA
 SecretKeySelector
 ServerAddress
 ServerCertificate
+ServerMode
 ServerSecretName
 ServerSpec
 ServerStatus

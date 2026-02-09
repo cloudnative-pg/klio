@@ -6,7 +6,7 @@ import (
 )
 
 // PluginConfigurationSpec defines the desired state of client configuration.
-// +kubebuilder:validation:XValidation:rule="!self.readOnly || (has(self.tier2) && (!has(self.tier2.enableBackup) || !self.tier2.enableBackup) && self.tier2.enableRecovery && !has(self.tier1))",message="when readOnly is true, tier2.enableRecovery must be true, tier2.enableBackup must be false, and tier1 must not exist"
+// +kubebuilder:validation:XValidation:rule="self.mode != 'read-only' || (has(self.tier2) && (!has(self.tier2.enableBackup) || !self.tier2.enableBackup) && self.tier2.enableRecovery && !has(self.tier1))",message="when mode is read-only, tier2.enableRecovery must be true, tier2.enableBackup must be false, and tier1 must not exist"
 type PluginConfigurationSpec struct {
 	// ServerAddress is the address of the Klio server
 	// +kubebuilder:validation:Required
@@ -39,10 +39,10 @@ type PluginConfigurationSpec struct {
 	// +optional
 	Pprof bool `json:"pprof,omitempty"`
 
-	// ReadOnly is true when you can only read from the server.
-	// In this case, tier1 should not be configured.
-	// +kubebuilder:default=false
-	ReadOnly bool `json:"readOnly"`
+	// Mode selects the operation mode of the plugin.
+	// +kubebuilder:validation:Enum=standard;read-only
+	// +kubebuilder:default=standard
+	Mode ServerMode `json:"mode"`
 
 	// Containers allows defining a list of containers that will be merged with the Klio sidecar containers.
 	// This enables users to customize the sidecars with additional environment variables, volume mounts,

@@ -665,7 +665,7 @@ func newWALRetentionScenario(name string, namespace string) *walRetentionScenari
 			ClientCertificate:   userCertificate,
 			EnableTier2Backup:   true,
 			EnableTier2Recovery: false,
-			ReadOnly:            false,
+			Mode:                kliov1alpha1.ModeStandard,
 		},
 	)
 

@@ -115,6 +115,7 @@ func GetServerObject(
 	opts ServerTemplateOptions,
 ) *kliov1alpha1.Server {
 	server := newBaseServer(name, namespace, opts)
+	server.Spec.Mode = kliov1alpha1.ModeStandard
 	server.Spec.Tier1 = &kliov1alpha1.Tier1Configuration{
 		Cache: kliov1alpha1.Cache{
 			PersistentVolumeClaimTemplate: corev1.PersistentVolumeClaimSpec{
@@ -153,8 +154,8 @@ type PluginConfigurationTemplateOptions struct {
 	ServerCertificate *certmanagerv1.Certificate
 	// ClientCertificate is the client certificate for authentication.
 	ClientCertificate *certmanagerv1.Certificate
-	// ReadOnly indicates whether this is a read-only configuration.
-	ReadOnly bool
+	// Mode indicates the operation mode of the plugin.
+	Mode kliov1alpha1.ServerMode
 	// EnableTier2Backup enables tier2 backup.
 	EnableTier2Backup bool
 	// EnableTier2Recovery enables tier2 recovery.
@@ -169,11 +170,15 @@ func GetPluginConfigurationObject(
 	namespace string,
 	opts PluginConfigurationTemplateOptions,
 ) *kliov1alpha1.PluginConfiguration {
+	mode := opts.Mode
+	if mode == "" {
+		mode = kliov1alpha1.ModeStandard
+	}
 	spec := kliov1alpha1.PluginConfigurationSpec{
 		ServerAddress:    opts.ServerCertificate.Spec.DNSNames[0],
 		ClientSecretName: opts.ClientCertificate.Spec.SecretName,
 		ServerSecretName: opts.ServerCertificate.Spec.SecretName,
-		ReadOnly:         opts.ReadOnly,
+		Mode:             mode,
 	}
 
 	// Only populate Tier2 if either backup or recovery is enabled
@@ -239,7 +244,7 @@ func GetReadOnlyTier2ServerObject(
 	opts ServerWithTier2TemplateOptions,
 ) *kliov1alpha1.Server {
 	server := newBaseServer(name, namespace, opts.ServerTemplateOptions)
-	server.Spec.ReadOnly = true
+	server.Spec.Mode = kliov1alpha1.ModeReadOnly
 	tier2Config := buildTier2Configuration(opts.S3, opts.Tier2EncryptionSecretName)
 	server.Spec.Tier2 = &tier2Config
 

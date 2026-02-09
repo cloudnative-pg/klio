@@ -98,7 +98,7 @@ func generateKlioConfigForPlugin(
 		Tier2RetentionPolicy: klioTier2RetentionPolicy,
 	}
 
-	if !klioPluginConfigurationSpec.ReadOnly {
+	if klioPluginConfigurationSpec.Mode != kliov1alpha1.ModeReadOnly {
 		klioConfig.Client.Base.URL = "https://" + net.JoinHostPort(
 			klioPluginConfigurationSpec.ServerAddress, KlioTier1HTTPPort)
 		klioConfig.Client.Wal.Address = net.JoinHostPort(

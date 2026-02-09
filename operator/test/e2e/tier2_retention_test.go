@@ -304,7 +304,7 @@ func NewTier2RetentionFeatureConfig(
 			ClientCertificate:   userCertificate,
 			EnableTier2Backup:   true,
 			EnableTier2Recovery: false,
-			ReadOnly:            false,
+			Mode:                kliov1alpha1.ModeStandard,
 			Tier2RetentionPolicy: &kliov1alpha1.RetentionPolicy{
 				KeepLatest:  ptr.To(tier2RetentionKeepNum),
 				KeepHourly:  ptr.To(0),

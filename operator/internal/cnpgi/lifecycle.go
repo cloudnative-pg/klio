@@ -185,7 +185,7 @@ func (impl LifecycleImplementation) reconcileJob(
 		"cnpgi",
 		"restore",
 		pgdata,
-		"--tier1=" + strconv.FormatBool(!clusterPC.Spec.ReadOnly),
+		"--tier1=" + strconv.FormatBool(clusterPC.Spec.Mode != kliov1alpha1.ModeReadOnly),
 		"--tier2=" + strconv.FormatBool(clusterPC.Spec.Tier2.EnableRecovery),
 	}
 	restoreSidecar.Env = ensureEnvVar(restoreSidecar.Env, corev1.EnvVar{
@@ -346,7 +346,7 @@ func buildInstanceSidecarTemplate(
 	if clusterPC != nil {
 		sidecar = findUserContainer("klio-plugin", clusterPC.Spec.Containers)
 
-		args = append(args, "--tier1="+strconv.FormatBool(!clusterPC.Spec.ReadOnly))
+		args = append(args, "--tier1="+strconv.FormatBool(clusterPC.Spec.Mode != kliov1alpha1.ModeReadOnly))
 
 		if clusterPC.Spec.Tier2.EnableBackup {
 			args = append(args, "--enable-tier2-backup")

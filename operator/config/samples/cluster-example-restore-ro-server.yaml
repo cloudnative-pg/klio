@@ -50,6 +50,6 @@ spec:
   clientSecretName: cluster-restore-klio-user
   serverSecretName: server-ro-tls
   clusterName: cluster-example
-  readOnly: true
+  mode: read-only
   tier2:
     enableRecovery: true

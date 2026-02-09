@@ -103,7 +103,7 @@ _Appears in:_
 | `serverSecretName` _string_ | ServerSecretName is the name of the secret containing the server TLS certificate | True |  | MinLength: 1 <br />Required: \{\} <br /> |
 | `clusterName` _string_ | ClusterName is the name of the PostgreSQL cluster we are connecting to |  |  | Optional: \{\} <br /> |
 | `pprof` _boolean_ | Pprof enables the pprof endpoint for performance profiling |  |  | Optional: \{\} <br /> |
-| `readOnly` _boolean_ | ReadOnly is true when you can only read from the server.<br />In this case, tier1 should not be configured. | True | false |  |
+| `mode` _[ServerMode](#servermode)_ | Mode selects the operation mode of the plugin. | True | standard | Enum: [standard read-only] <br /> |
 | `containers` _[Container](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#container-v1-core) array_ | Containers allows defining a list of containers that will be merged with the Klio sidecar containers.<br />This enables users to customize the sidecars with additional environment variables, volume mounts,<br />resource limits, and other container settings without polluting the PostgreSQL container environment.<br />Merge behavior:<br />- Containers are matched by name (klio-plugin, klio-wal, klio-restore)<br />- User customizations serve as the base<br />- Klio required values (name, args, CONTAINER_NAME env var) always override user values<br />- User-defined environment variables and volume mounts are preserved<br />- Template defaults are applied only for fields not set by the user or Klio |  |  | MaxItems: 3 <br />Optional: \{\} <br /> |
 
 
@@ -201,6 +201,24 @@ Server is the Schema for the servers API.
 | `status` _[ServerStatus](#serverstatus)_ |  |  |  | Optional: \{\} <br /> |
 
 
+#### ServerMode
+
+_Underlying type:_ _string_
+
+ServerMode defines the operation mode of the Server.
+
+
+
+_Appears in:_
+- [PluginConfigurationSpec](#pluginconfigurationspec)
+- [ServerSpec](#serverspec)
+
+| Field | Description |
+| --- | --- |
+| `standard` | ModeStandard corresponds to server with standard read/write permissions.<br /> |
+| `read-only` | ModeReadOnly corresponds to a server with read-only permissions.<br /> |
+
+
 #### ServerSpec
 
 
@@ -219,7 +237,7 @@ _Appears in:_
 | `imagePullSecrets` _[LocalObjectReference](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#localobjectreference-v1-core) array_ | ImagePullSecrets is an optional list of references to secrets in the same namespace to use for pulling any of the<br />images |  |  | Optional: \{\} <br /> |
 | `tlsSecretName` _string_ | TLSSecretName is the name of the Kubernetes secret containing the server-side certificate<br />to be used for the Klio server. | True |  |  |
 | `caSecretName` _string_ | ClientCASecretName is the name of the Kubernetes secret containing the CA certificate<br />to be used by the Klio server to validate the users. | True |  |  |
-| `readOnly` _boolean_ | ReadOnly is true when you can only read from this server.<br />In this case, tier1 should not be configured. | True | false |  |
+| `mode` _[ServerMode](#servermode)_ | Mode selects the operation mode of the server. | True | standard | Enum: [standard read-only] <br /> |
 | `tier1` _[Tier1Configuration](#tier1configuration)_ | Tier1 is the Tier 1 configuration | True |  |  |
 | `tier2` _[Tier2Configuration](#tier2configuration)_ | Tier2 is the Tier 2 configuration | True |  |  |
 | `queue` _[Queue](#queue)_ | Queue is the configuration of the PVC that should host<br />the task queue. |  |  | Optional: \{\} <br /> |

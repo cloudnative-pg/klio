@@ -6,10 +6,20 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+// ServerMode defines the operation mode of the Server.
+type ServerMode string
+
+const (
+	// ModeStandard corresponds to server with standard read/write permissions.
+	ModeStandard ServerMode = "standard"
+	// ModeReadOnly corresponds to a server with read-only permissions.
+	ModeReadOnly ServerMode = "read-only"
+)
+
 // ServerSpec defines the desired state of Server.
-// +kubebuilder:validation:XValidation:rule="self.readOnly || has(self.tier1)",message="tier1 is required"
-// +kubebuilder:validation:XValidation:rule="!self.readOnly || has(self.tier2)",message="tier2 is required when readOnly is set"
-// +kubebuilder:validation:XValidation:rule="!(self.readOnly && has(self.tier1))",message="tier1 cannot be set when readOnly is true"
+// +kubebuilder:validation:XValidation:rule="self.mode == 'read-only' || has(self.tier1)",message="tier1 is required"
+// +kubebuilder:validation:XValidation:rule="self.mode != 'read-only' || has(self.tier2)",message="tier2 is required when mode is read-only"
+// +kubebuilder:validation:XValidation:rule="!(self.mode == 'read-only' && has(self.tier1))",message="tier1 cannot be set when mode is read-only"
 // +kubebuilder:validation:XValidation:rule="!has(self.queue) || (has(self.tier1) && has(self.tier2))",message="queue requires both tier1 and tier2"
 // +kubebuilder:validation:XValidation:rule="!(has(self.tier1) && has(self.tier2)) || has(self.queue)",message="queue is required when tier1 and tier2 are both configured"
 type ServerSpec struct {
@@ -21,10 +31,10 @@ type ServerSpec struct {
 	// certificate.
 	TLSConfiguration `json:",inline"`
 
-	// ReadOnly is true when you can only read from this server.
-	// In this case, tier1 should not be configured.
-	// +kubebuilder:default=false
-	ReadOnly bool `json:"readOnly"`
+	// Mode selects the operation mode of the server.
+	// +kubebuilder:validation:Enum=standard;read-only
+	// +kubebuilder:default=standard
+	Mode ServerMode `json:"mode"`
 
 	// Tier1 is the Tier 1 configuration
 	Tier1 *Tier1Configuration `json:"tier1,omitempty"`

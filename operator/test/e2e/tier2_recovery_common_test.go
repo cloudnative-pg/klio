@@ -341,7 +341,7 @@ func buildTier2ScenarioResources(namespace string, instances int) *tier2Scenario
 			ClientCertificate:   userCertificate,
 			EnableTier2Backup:   true,
 			EnableTier2Recovery: false,
-			ReadOnly:            false,
+			Mode:                kliov1alpha1.ModeStandard,
 		},
 	)
 
@@ -389,7 +389,7 @@ func buildTier2ScenarioResources(namespace string, instances int) *tier2Scenario
 			ClientCertificate:   recoveryUserCertificate,
 			EnableTier2Backup:   false,
 			EnableTier2Recovery: true,
-			ReadOnly:            true,
+			Mode:                kliov1alpha1.ModeReadOnly,
 		},
 	)
 	klioPluginConfigurationRecovery.Spec.ClusterName = cnpgCluster.Name
