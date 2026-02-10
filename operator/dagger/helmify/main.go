@@ -16,7 +16,7 @@ func (m *Helmify) Run(
 	source *dagger.Directory,
 	// Version of the kustomize image to use
 	// renovate image: datasource=docker depName=registry.k8s.io/kustomize/kustomize versioning=docker
-	// +default="registry.k8s.io/kustomize/kustomize:v5.8.0@sha256:98424842862ed35fa666dbaac02159623567e1e9e184d91382fa665e89023258"
+	// +default="registry.k8s.io/kustomize/kustomize:v5.8.1@sha256:899fcd3bc898160e62bcaf82932b0cb29ba38d16272353db2e7acbba82129429"
 	// +optional
 	kustomizeImage string,
 	// Version of Helmify to use.
