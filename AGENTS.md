@@ -79,6 +79,33 @@ cd operator && go test -v -run TestFunctionName ./path/to/package
 KIND_CLUSTER_NAME=$(kind get clusters  | grep pg-operator-e2e) task integration:e2e
 ```
 
+#### E2E Test Feature Registration
+
+Features can be registered with execution mode options:
+
+```go
+// Parallel execution (default)
+runner.RegisterFeature(BackupFromPrimary(ns))
+
+// Serial execution (for tests sharing resources)
+runner.RegisterFeature(
+    Tier2Retention(ns),
+    runner.WithSerialExecution(),
+)
+
+// Register multiple features with same configuration
+runner.RegisterFeatures(
+    []runner.FeatureOption{runner.WithSerialExecution()},
+    feat1,
+    feat2,
+)
+```
+
+**Execution Order:**
+1. All parallel features run concurrently.
+2. Serial features run sequentially after parallel features complete.
+3. Use serial execution for tests that share infrastructure.
+
 ## Code Style
 
 - Avoid inline error strings; define error variables instead

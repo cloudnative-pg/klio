@@ -16,20 +16,34 @@ import (
 )
 
 var (
-	testEnv            env.Environment             //nolint:gochecknoglobals
-	registeredFeatures []machineryFeatures.Feature //nolint:gochecknoglobals
-	additionalSetup    types.EnvFunc               //nolint:gochecknoglobals
-	additionalTeardown types.EnvFunc               //nolint:gochecknoglobals
+	testEnv            env.Environment  //nolint:gochecknoglobals
+	registeredFeatures []*FeatureConfig //nolint:gochecknoglobals
+	additionalSetup    types.EnvFunc    //nolint:gochecknoglobals
+	additionalTeardown types.EnvFunc    //nolint:gochecknoglobals
 )
 
-// RegisterFeature registers a single feature to be run in the test environment.
-func RegisterFeature(f machineryFeatures.Feature) {
-	registeredFeatures = append(registeredFeatures, f)
+// RegisterFeature registers a single feature with optional configuration.
+// By default, features run in parallel. Use WithSerialExecution() for serial execution.
+//
+// Examples:
+//
+//	RegisterFeature(BackupFromPrimary(ns))                              // Parallel (default)
+//	RegisterFeature(Tier2Retention(ns), WithSerialExecution())          // Serial
+func RegisterFeature(f machineryFeatures.Feature, opts ...FeatureOption) {
+	cfg := newFeatureConfig(f, opts...)
+	registeredFeatures = append(registeredFeatures, cfg)
 }
 
-// RegisterFeatures registers multiple features to be run in the test environment.
-func RegisterFeatures(features ...machineryFeatures.Feature) {
-	registeredFeatures = append(registeredFeatures, features...)
+// RegisterFeatures registers multiple features with the same configuration.
+//
+// Examples:
+//
+//	RegisterFeatures(nil, feat1, feat2, feat3)                              // All parallel
+//	RegisterFeatures([]FeatureOption{WithSerialExecution()}, feat1, feat2)  // All serial
+func RegisterFeatures(opts []FeatureOption, features ...machineryFeatures.Feature) {
+	for _, f := range features {
+		RegisterFeature(f, opts...)
+	}
 }
 
 // RegisterSetup registers a setup function to be executed before all features run.
@@ -42,17 +56,62 @@ func RegisterTeardown(teardownFunc types.EnvFunc) {
 	additionalTeardown = teardownFunc
 }
 
-// RunAllFeatures runs all registered features in the test environment.
+// RunAllFeatures runs all registered features in two phases:
+// 1. Parallel phase: All features marked ExecutionModeParallel run concurrently.
+// 2. Serial phase: All features marked ExecutionModeSerial run sequentially.
 func RunAllFeatures(t *testing.T) {
 	t.Helper()
-	for _, registeredFeature := range registeredFeatures {
-		f := e2eFrameworkFeatures.New(registeredFeature.Name()).
-			Setup(registeredFeature.Setup()).
-			Assess(registeredFeature.Name(), registeredFeature.Run()).
-			Teardown(registeredFeature.Teardown()).
-			Feature()
 
-		testEnv.Test(t, f)
+	// Separate features by execution mode
+	var parallelFeatures []*FeatureConfig
+	var serialFeatures []*FeatureConfig
+
+	for _, cfg := range registeredFeatures {
+		switch cfg.ExecutionMode {
+		case ExecutionModeParallel:
+			parallelFeatures = append(parallelFeatures, cfg)
+		case ExecutionModeSerial:
+			serialFeatures = append(serialFeatures, cfg)
+		}
+	}
+
+	// Phase 1: Run parallel features concurrently
+	if len(parallelFeatures) > 0 {
+		t.Run("Parallel Features", func(t *testing.T) {
+			for _, cfg := range parallelFeatures {
+				featureCfg := cfg // Capture for closure
+
+				t.Run(featureCfg.Feature.Name(), func(t *testing.T) {
+					t.Parallel() // Enable parallel execution
+
+					f := e2eFrameworkFeatures.New(featureCfg.Feature.Name()).
+						Setup(featureCfg.Feature.Setup()).
+						Assess(featureCfg.Feature.Name(), featureCfg.Feature.Run()).
+						Teardown(featureCfg.Feature.Teardown()).
+						Feature()
+
+					testEnv.Test(t, f)
+				})
+			}
+		})
+	}
+
+	// Phase 2: Run serial features sequentially
+	// Each runs in its own t.Run() WITHOUT t.Parallel()
+	for _, cfg := range serialFeatures {
+		featureCfg := cfg // Capture for closure
+
+		t.Run(featureCfg.Feature.Name(), func(t *testing.T) {
+			// NO t.Parallel() - runs sequentially
+
+			f := e2eFrameworkFeatures.New(featureCfg.Feature.Name()).
+				Setup(featureCfg.Feature.Setup()).
+				Assess(featureCfg.Feature.Name(), featureCfg.Feature.Run()).
+				Teardown(featureCfg.Feature.Teardown()).
+				Feature()
+
+			testEnv.Test(t, f)
+		})
 	}
 }
 

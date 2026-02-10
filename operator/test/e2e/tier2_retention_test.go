@@ -19,9 +19,9 @@ import (
 	"sigs.k8s.io/e2e-framework/pkg/envconf"
 
 	kliov1alpha1 "github.com/cloudnative-pg/klio/operator/api/v1alpha1"
+	klioFeatures "github.com/cloudnative-pg/klio/operator/test/klio/features"
+	"github.com/cloudnative-pg/klio/operator/test/klio/infra"
 	machineryConditions "github.com/cloudnative-pg/klio/operator/test/machinery/pkg/conditions"
-	machineryFeatures "github.com/cloudnative-pg/klio/operator/test/machinery/pkg/features"
-	klioConditions "github.com/cloudnative-pg/klio/operator/test/utils/conditions"
 	"github.com/cloudnative-pg/klio/operator/test/utils/templates/certificates"
 	"github.com/cloudnative-pg/klio/operator/test/utils/templates/cnpg"
 	"github.com/cloudnative-pg/klio/operator/test/utils/templates/klio"
@@ -77,91 +77,27 @@ func (s *tier2RetentionScenario) Setup(
 	// Create namespace
 	require.NoError(t, r.Create(ctx, s.namespace), "failed to create namespace")
 
-	// Deploy RustFS infrastructure
-	t.Logf("Deploying RustFS infrastructure...")
-	require.NoError(t, r.Create(ctx, s.rustfsSecret), "failed to create RustFS secret")
-	require.NoError(t, r.Create(ctx, s.rustfsConfigMap), "failed to create RustFS configmap")
-	require.NoError(t, r.Create(ctx, s.rustfsPVC), "failed to create RustFS data PVC")
-	require.NoError(t, r.Create(ctx, s.rustfsLogsPVC), "failed to create RustFS logs PVC")
-	require.NoError(t, r.Create(ctx, s.issuer), "failed to create issuer")
+	// Set scenario infra
+	scenario := infra.Tier2{
+		Issuer:                s.issuer,
+		RustfsSecret:          s.rustfsSecret,
+		RustfsConfigMap:       s.rustfsConfigMap,
+		RustfsPVC:             s.rustfsPVC,
+		RustfsLogsPVC:         s.rustfsLogsPVC,
+		RustfsCertificate:     s.rustfsCertificate,
+		RustfsService:         s.rustfsService,
+		RustfsDeployment:      s.rustfsDeployment,
+		RustfsCreateBucketJob: s.rustfsCreateBucketJob,
+		ServerCertificate:     s.serverCertificate,
+		CaCertificate:         s.caCertificate,
+		CaIssuer:              s.caIssuer,
+		UserCertificate:       s.userCertificate,
+		EncryptionSecret:      s.encryptionSecret,
+		KlioServer:            s.klioServer,
+	}
 
-	// Wait for issuer to be ready before creating certificates
-	err = wait.For(
-		klioConditions.IssuerIsReady(r, s.issuer),
-		wait.WithTimeout(1*time.Minute),
-		wait.WithInterval(5*time.Second),
-	)
-	require.NoError(t, err, "issuer not ready")
-
-	require.NoError(t, r.Create(ctx, s.rustfsCertificate), "failed to create RustFS certificate")
-
-	// Wait for RustFS certificate to be ready
-	err = wait.For(
-		klioConditions.CertificateIsReady(r, s.rustfsCertificate),
-		wait.WithTimeout(5*time.Minute),
-		wait.WithInterval(10*time.Second),
-	)
-	require.NoError(t, err, "RustFS certificate not ready")
-
-	require.NoError(t, r.Create(ctx, s.rustfsService), "failed to create RustFS service")
-	require.NoError(t, r.Create(ctx, s.rustfsDeployment), "failed to create RustFS deployment")
-
-	// Wait for RustFS deployment to be ready
-	t.Logf("Waiting for RustFS deployment to be ready...")
-	err = wait.For(
-		klioConditions.DeploymentIsReady(r, s.rustfsDeployment),
-		wait.WithTimeout(2*time.Minute),
-		wait.WithInterval(10*time.Second),
-	)
-	require.NoError(t, err, "RustFS deployment not ready")
-
-	// Create bucket
-	t.Logf("Creating S3 bucket in RustFS...")
-	require.NoError(t, r.Create(ctx, s.rustfsCreateBucketJob), "failed to create bucket creation job")
-
-	// Wait for bucket creation to complete
-	err = wait.For(
-		klioConditions.JobIsComplete(r, s.rustfsCreateBucketJob),
-		wait.WithTimeout(2*time.Minute),
-		wait.WithInterval(10*time.Second),
-	)
-	require.NoError(t, err, "bucket creation job not complete")
-
-	// Deploy Klio Server with tier2
-	t.Logf("Deploying Klio Server with tier2...")
-	require.NoError(t, r.Create(ctx, s.caCertificate), "failed to create CA certificate")
-	require.NoError(t, r.Create(ctx, s.caIssuer), "failed to create CA issuer")
-
-	// Wait for CA certificate to be ready
-	err = wait.For(
-		klioConditions.CertificateIsReady(r, s.caCertificate),
-		wait.WithTimeout(1*time.Minute),
-		wait.WithInterval(5*time.Second),
-	)
-	require.NoError(t, err, "CA certificate not ready")
-
-	require.NoError(t, r.Create(ctx, s.serverCertificate), "failed to create server certificate")
-	require.NoError(t, r.Create(ctx, s.userCertificate), "failed to create user certificate")
-
-	// Wait for certificates to be ready
-	err = wait.For(
-		klioConditions.CertificateIsReady(r, s.serverCertificate),
-		wait.WithTimeout(1*time.Minute),
-		wait.WithInterval(5*time.Second),
-	)
-	require.NoError(t, err, "server certificate not ready")
-
-	require.NoError(t, r.Create(ctx, s.encryptionSecret), "failed to create encryption secret")
-	require.NoError(t, r.Create(ctx, s.klioServer), "failed to create Klio server")
-
-	// Wait for Klio Server to be ready
-	t.Logf("Waiting for Klio Server to be ready...")
-	err = wait.For(
-		klioConditions.KlioServerIsReady(r, s.klioServer),
-		wait.WithTimeout(2*time.Minute),
-		wait.WithInterval(10*time.Second),
-	)
-	require.NoError(t, err, "Klio server not ready")
+	// Parallel setup of RustFS and Klio Server for Tier2 scenario
+	scenario.ParallelSetup(ctx, t, r)
 
 	// Deploy CNPG cluster
 	t.Logf("Deploying CNPG cluster...")
@@ -204,7 +140,7 @@ func (s *tier2RetentionScenario) Teardown(
 // This configures a test that validates both backup retention and WAL retention in tier2.
 func NewTier2RetentionFeatureConfig(
 	name string, namespace string, tier2RetentionKeepNum int,
-) machineryFeatures.Tier2RetentionFeatureConfig {
+) klioFeatures.Tier2RetentionFeatureConfig {
 	const (
 		// Cluster names
 		cnpgClusterName = "pg-retention"
@@ -347,7 +283,7 @@ func NewTier2RetentionFeatureConfig(
 		tier2RetentionKeepNum: tier2RetentionKeepNum,
 	}
 
-	return machineryFeatures.Tier2RetentionFeatureConfig{
+	return klioFeatures.Tier2RetentionFeatureConfig{
 		Name:        name,
 		Setup:       scenario.Setup,
 		Teardown:    scenario.Teardown,
@@ -363,7 +299,7 @@ func NewTier2RetentionFeatureConfig(
 // Tier2Retention returns a Tier2RetentionFeature for testing tier2 retention.
 // This test validates both backup retention (Kopia snapshots kept to keepLatest=1)
 // and WAL retention (cleanup of WALs older than the oldest remaining backup).
-func Tier2Retention(namespace string) *machineryFeatures.Tier2RetentionFeature {
-	return machineryFeatures.NewTier2RetentionFeature(
+func Tier2Retention(namespace string) *klioFeatures.Tier2RetentionFeature {
+	return klioFeatures.NewTier2RetentionFeature(
 		NewTier2RetentionFeatureConfig("Tier2Retention", namespace, 1))
 }
