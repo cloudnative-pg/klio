@@ -111,6 +111,12 @@ func (e *envBuilder) getCoreEnvVars() []corev1.EnvVar {
 				Name:      "TIER1_ENCRYPTION_KEY",
 				ValueFrom: secretKeySelectorToEnvVarSource(e.tier1.EncryptionKey),
 			},
+			// The queue is always required when tier1 is enabled to support
+			// retention policy enforcement.
+			{
+				Name:  "QUEUE_DIRECTORY",
+				Value: "/queue",
+			},
 		}
 		result = append(result, tier1Envs...)
 	}
@@ -151,13 +157,6 @@ func (e *envBuilder) getTier2EnvVars() []corev1.EnvVar {
 			Name:  "TIER2_WAL_LISTEN_ADDRESS",
 			Value: "0.0.0.0:52001",
 		},
-	}
-
-	if e.tier1 != nil {
-		result = append(result, corev1.EnvVar{
-			Name:  "QUEUE_DIRECTORY",
-			Value: "/queue",
-		})
 	}
 
 	// Inject explicit credentials if provided. When credentials are not provided,

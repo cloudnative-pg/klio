@@ -45,8 +45,8 @@ the asynchronous transfer of data from the local environment to the cloud.
 
 ### The Work Queue
 
-If both Tier 1 and Tier 2 are configured, it is mandatory to configure
-a work queue in the klio Server resource.
+If Tier 1 is configured, it is mandatory to configure a work queue in
+the klio Server resource.
 The work queue is backed by NATS JetStream with file storage on a separate
 `PersistentVolume mounted` at `/queue`.
 When a WAL file is received, the server publishes a notification to the queue,
@@ -88,9 +88,9 @@ This limitation will be removed in a future version.
 
 ### Queue PVC
 
-The queue PVC is only required when both Tier 1 and Tier 2 are configured.
-It stores the NATS JetStream work queue used for asynchronous Tier 2
-replication.
+The queue PVC is required when Tier 1 is configured. It stores the NATS
+JetStream work queue used for retention policy enforcement and asynchronous
+Tier 2 replication.
 
 ## Setting up a new Klio server
 
@@ -301,7 +301,7 @@ spec:
       key: encryptionKey
 
   # Queue storage configuration (for NATS work queue)
-  # It can be added only if both tier1 and tier2 are configured
+  # Required when tier1 is configured
   queue:
     pvcTemplate:
       storageClassName: standard  # Adjust to your storage class

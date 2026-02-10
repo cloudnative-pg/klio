@@ -35,10 +35,13 @@ func runServer(ctx context.Context, opts serverOpts) error {
 	})
 
 	// Configure NATS
+	// The queue is always required when tier1 is enabled to support retention policy
+	// enforcement. Retention needs to check for pending tier2 transfers even when
+	// tier2 is not configured, to allow consistent behavior across configurations.
 	var queueURL string
-	if opts.tier1 && opts.tier2 {
+	if opts.tier1 {
 		if opts.cfg.QueueDirectory == "" {
-			return errors.New("queue is required when both tier1 and tier2 are enabled")
+			return errors.New("queue is required when tier1 is enabled")
 		}
 
 		nats, err := server.NewNatsService(opts.cfg.QueueDirectory)

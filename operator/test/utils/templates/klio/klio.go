@@ -108,7 +108,7 @@ func newBaseServer(name, namespace string, opts ServerTemplateOptions) *kliov1al
 	}
 }
 
-// GetServerObject returns a Klio server Object with tier1 configuration.
+// GetServerObject returns a Klio server Object with tier1 and queue configuration.
 func GetServerObject(
 	name,
 	namespace string,
@@ -142,6 +142,18 @@ func GetServerObject(
 				Name: opts.EncryptionSecretName,
 			},
 			Key: "password",
+		},
+	}
+
+	// Queue is mandatory when tier1 is configured
+	server.Spec.Queue = &kliov1alpha1.Queue{
+		PersistentVolumeClaimTemplate: corev1.PersistentVolumeClaimSpec{
+			AccessModes: []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOncePod},
+			Resources: corev1.VolumeResourceRequirements{
+				Requests: corev1.ResourceList{
+					corev1.ResourceStorage: resource.MustParse("100Mi"),
+				},
+			},
 		},
 	}
 
@@ -215,23 +227,12 @@ func GetServerWithTier2Object(
 	namespace string,
 	opts ServerWithTier2TemplateOptions,
 ) *kliov1alpha1.Server {
+	// GetServerObject already includes tier1 and queue configuration
 	server := GetServerObject(name, namespace, opts.ServerTemplateOptions)
 
 	// Add tier2 configuration
 	tier2Config := buildTier2Configuration(opts.S3, opts.Tier2EncryptionSecretName)
 	server.Spec.Tier2 = &tier2Config
-
-	// Add queue configuration (mandatory when tier1 and tier2 are both configured)
-	server.Spec.Queue = &kliov1alpha1.Queue{
-		PersistentVolumeClaimTemplate: corev1.PersistentVolumeClaimSpec{
-			AccessModes: []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOncePod},
-			Resources: corev1.VolumeResourceRequirements{
-				Requests: corev1.ResourceList{
-					corev1.ResourceStorage: resource.MustParse("100Mi"),
-				},
-			},
-		},
-	}
 
 	return server
 }
