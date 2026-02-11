@@ -2018,10 +2018,10 @@
     cssesc "^3.0.0"
     immediate "^3.2.3"
 
-"@easyops-cn/docusaurus-search-local@^0.53.0":
-  version "0.53.0"
-  resolved "https://registry.yarnpkg.com/@easyops-cn/docusaurus-search-local/-/docusaurus-search-local-0.53.0.tgz#c636097fd1b929dc4d1acbd15e43c8364e775724"
-  integrity sha512-j6MaVNk3Wlyiwsn+4/5yCTdAWL0zIYf8vReOe3SDSvt7iISReSwQ6m6n3py5ORO2y4TQz+2NGzk1/pE3Cla9xQ==
+"@easyops-cn/docusaurus-search-local@^0.54.0":
+  version "0.54.1"
+  resolved "https://registry.yarnpkg.com/@easyops-cn/docusaurus-search-local/-/docusaurus-search-local-0.54.1.tgz#6a99e0d29dd55fdb5837d0a6f5b9d85184cde696"
+  integrity sha512-CexWCS1ktR7ZtvKWvbBhY7+NBRzQPVCAReBed6k5U9M2hdAARI3cK+NBUCegbd4F8VV54Re1HpIb2+GZwl8zEQ==
   dependencies:
     "@docusaurus/plugin-content-docs" "^2 || ^3"
     "@docusaurus/theme-translations" "^2 || ^3"
@@ -2039,8 +2039,9 @@
     lunr "^2.3.9"
     lunr-languages "^1.4.0"
     mark.js "^8.11.1"
-    open-ask-ai "^0.7.3"
     tslib "^2.4.0"
+  optionalDependencies:
+    open-ask-ai "^0.7.3"
 
 "@emnapi/core@^1.4.3":
   version "1.8.1"
