@@ -9505,11 +9505,11 @@ spec:
             x-kubernetes-validations:
             - message: tier1 is required
               rule: self.mode == 'read-only' || has(self.tier1)
-            - message: tier2 is required when readOnly is set
+            - message: tier2 is required when mode is read-only
               rule: self.mode != 'read-only' || has(self.tier2)
-            - message: tier1 cannot be set when readOnly is true
+            - message: tier1 cannot be set when mode is read-only
               rule: '!(self.mode == ''read-only'' && has(self.tier1))'
-            - message: queue cannot be set when readOnly is true
+            - message: queue cannot be set when mode is read-only
               rule: '!(self.mode == ''read-only'' && has(self.queue))'
             - message: queue is required when tier1 is configured
               rule: self.mode == 'read-only' || has(self.queue)

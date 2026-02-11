@@ -13,6 +13,7 @@ Benchmarking
 Bignum
 BucketName
 ByteString
+CAs
 CNPG
 CRDs
 CRs
@@ -34,6 +35,7 @@ DNS
 DataConfiguration
 Docusaurus
 EDB
+EKS
 EnableBackup
 EnableRecovery
 EncryptionKey
@@ -59,6 +61,8 @@ GetResult
 GetWAL
 GetWALRequest
 GetWALResult
+IAM
+IRSA
 Idempotency
 IfNotPresent
 ImageConfiguration
@@ -149,6 +153,7 @@ ResourceAttributes
 ResourceDetectors
 ResourceRequirements
 RetentionPolicy
+SDK
 SHA
 SecretKeySelector
 ServerAddress
@@ -219,6 +224,8 @@ createPluginServerCertificate
 cryptographically
 customizable
 customizations
+datacenter
+datacenters
 deduplication
 dev
 dropdown
