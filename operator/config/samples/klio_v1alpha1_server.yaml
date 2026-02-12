@@ -26,6 +26,14 @@ spec:
       name: server-sample-encryption
       key: password
 
+  queue:
+    pvcTemplate:
+      resources:
+        requests:
+          storage: 100Mi
+      accessModes:
+        - ReadWriteOnce
+
   tlsSecretName: server-sample-tls
   caSecretName: server-sample-ca
 
