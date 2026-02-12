@@ -1,5 +1,59 @@
 # Changelog
 
+## [0.0.12](https://github.com/EnterpriseDB/klio/compare/v0.0.11...v0.0.12) (2026-02-12)
+
+
+### ⚠ BREAKING CHANGES
+
+* **operator:** replace boolean ReadOnly with string Mode ([#790](https://github.com/EnterpriseDB/klio/issues/790))
+* **operator:** RecoverySource CRD has been removed. Migrate to using Server with readOnly: true for recovery-only scenarios.
+
+### Features
+
+* **core:** Add admin server with Unix socket security ([#709](https://github.com/EnterpriseDB/klio/issues/709)) ([668c025](https://github.com/cloudnative-pg/klio/commit/668c02582ad7961eb1dc3b788453be65e336f639))
+* **core:** Add Kopia server control authentication and cache refresh ([#643](https://github.com/EnterpriseDB/klio/issues/643)) ([32d14f2](https://github.com/cloudnative-pg/klio/commit/32d14f20f99c480e7446c73b4a1fa9185fec7c72))
+* **core:** Add queue-status admin command ([#768](https://github.com/EnterpriseDB/klio/issues/768)) ([38bbaf9](https://github.com/cloudnative-pg/klio/commit/38bbaf937ec1d7b44cd278d5bff47ff111a096df))
+* **core:** Add structured logging for Kopia command output ([#644](https://github.com/EnterpriseDB/klio/issues/644)) ([dc6e96a](https://github.com/cloudnative-pg/klio/commit/dc6e96a6c102e98692f10a572e0d8f037b39cf42))
+* **core:** Validate cluster name matches certificate CN ([#780](https://github.com/EnterpriseDB/klio/issues/780)) ([d880147](https://github.com/cloudnative-pg/klio/commit/d88014769e9f5f637ab0ff7975813483682f6be5))
+* **docs:** Add automated CLI documentation generation ([#708](https://github.com/EnterpriseDB/klio/issues/708)) ([9baec3a](https://github.com/cloudnative-pg/klio/commit/9baec3a8ec0f31f7d4ec12291b6958c43c241f42))
+* **e2e:** Add tier2 PITR recovery test ([#781](https://github.com/EnterpriseDB/klio/issues/781)) ([8520c22](https://github.com/cloudnative-pg/klio/commit/8520c22c0c2e6c85fa71faed8c802e9018838e9a))
+* Ensure retention policies are applied on WALs ([#731](https://github.com/EnterpriseDB/klio/issues/731)) ([a9a9468](https://github.com/cloudnative-pg/klio/commit/a9a946824c9afc6d01db7a73e27efbee7a982388))
+* **kopia:** Add option to disable Kopia UI ([#673](https://github.com/EnterpriseDB/klio/issues/673)) ([9f8ed01](https://github.com/cloudnative-pg/klio/commit/9f8ed013d4b9eaaf5a4597d2df1784acbb5c0cc0))
+* **operator:** Replace boolean ReadOnly with string Mode ([#790](https://github.com/EnterpriseDB/klio/issues/790)) ([500bec1](https://github.com/cloudnative-pg/klio/commit/500bec118f65ab31ab10f78e43aaa413c390d10a))
+
+
+### Bug Fixes
+
+* Handle graceful shutdown for restore job sidecar ([#676](https://github.com/EnterpriseDB/klio/issues/676)) ([252cbbb](https://github.com/cloudnative-pg/klio/commit/252cbbbc4c5d57de0b1c71a3e1864ccabe5ad420))
+* **cnpgi:** Respect debug flag in WAL capability ([#698](https://github.com/EnterpriseDB/klio/issues/698)) ([99a070c](https://github.com/cloudnative-pg/klio/commit/99a070ca80882feab99bb8fb6c18f0d8e599b69e))
+* **core:** Include CA certificates in container image ([#766](https://github.com/EnterpriseDB/klio/issues/766)) ([096a0fd](https://github.com/cloudnative-pg/klio/commit/096a0fdeabc7973cf78a703c243945bb4f9dc1da))
+* **core:** Make S3 endpoint optional in validation ([#767](https://github.com/EnterpriseDB/klio/issues/767)) ([a540b7d](https://github.com/cloudnative-pg/klio/commit/a540b7de815114e78ea2cf21058484f1f73012d8))
+* **core:** Restore ServerControlCredential struct for Kopia server authentication ([#685](https://github.com/EnterpriseDB/klio/issues/685)) ([edbac7d](https://github.com/cloudnative-pg/klio/commit/edbac7d24ead8863ff81df257d2bbca3ef29d413))
+* **core:** Tier1 WAL retention no longer considers tier2 backups ([#752](https://github.com/EnterpriseDB/klio/issues/752)) ([967b6be](https://github.com/cloudnative-pg/klio/commit/967b6bead82522a35345c79b8d52318a8fd4b9c9))
+* **core:** Wal server graceful termination ([#706](https://github.com/EnterpriseDB/klio/issues/706)) ([aa1393e](https://github.com/cloudnative-pg/klio/commit/aa1393ea3d97f465638e66ca423951cb81521f5c))
+* **deps:** Update all non-major go dependencies ([#751](https://github.com/EnterpriseDB/klio/issues/751)) ([455198f](https://github.com/cloudnative-pg/klio/commit/455198f67b8112fcd9b121522b5695fccfe4d9eb))
+* **deps:** Update all non-major go dependencies ([#772](https://github.com/EnterpriseDB/klio/issues/772)) ([caec5bf](https://github.com/cloudnative-pg/klio/commit/caec5bfa85af1e15065226b24fc865d56e60d6af))
+* **deps:** Update all non-major go dependencies ([#813](https://github.com/EnterpriseDB/klio/issues/813)) ([8c0f17b](https://github.com/cloudnative-pg/klio/commit/8c0f17b03be2271e48bed1b1c8e45387d81e774a))
+* **deps:** Update dependency @easyops-cn/docusaurus-search-local to ^0.53.0 ([#814](https://github.com/EnterpriseDB/klio/issues/814)) ([e9e8808](https://github.com/cloudnative-pg/klio/commit/e9e88080fc1baa1c46528ac59a31aa6ba6bd7e43))
+* **deps:** Update dependency @easyops-cn/docusaurus-search-local to ^0.54.0 ([#835](https://github.com/EnterpriseDB/klio/issues/835)) ([3bd3c31](https://github.com/cloudnative-pg/klio/commit/3bd3c31c2ba586ebef2fc6e26d9c8ad608467adf))
+* **deps:** Update k8s.io/utils digest to b8788ab ([#826](https://github.com/EnterpriseDB/klio/issues/826)) ([78cd7ac](https://github.com/cloudnative-pg/klio/commit/78cd7ac2fa77f6207b066bff5c72a16527bf00ba))
+* **deps:** Update kubernetes packages to v0.35.1 ([#831](https://github.com/EnterpriseDB/klio/issues/831)) ([f97f318](https://github.com/cloudnative-pg/klio/commit/f97f3185999eda30be15e2e55da72128d5971a9a))
+* **deps:** Update module github.com/aws/aws-sdk-go-v2/service/s3 to v1.96.0 ([#788](https://github.com/EnterpriseDB/klio/issues/788)) ([7bee981](https://github.com/cloudnative-pg/klio/commit/7bee981378181fb70b84715d4954722113ce157c))
+* **deps:** Update module github.com/cert-manager/cert-manager to v1.19.3 [security] ([#774](https://github.com/EnterpriseDB/klio/issues/774)) ([6fca766](https://github.com/cloudnative-pg/klio/commit/6fca7664312c651c2ccb59b65fa38ea992e3da23))
+* **deps:** Update module github.com/cloudnative-pg/cloudnative-pg to v1.28.1 ([#794](https://github.com/EnterpriseDB/klio/issues/794)) ([e4f87f6](https://github.com/cloudnative-pg/klio/commit/e4f87f691a8371c2bdcd7c83bbe73432d002d810))
+* **deps:** Update module github.com/klauspost/compress to v1.18.3 ([#656](https://github.com/EnterpriseDB/klio/issues/656)) ([ca6e3cc](https://github.com/cloudnative-pg/klio/commit/ca6e3ccca2e0ea80618343217db55a71b3cedb20))
+* **deps:** Update module github.com/nats-io/nats-server/v2 to v2.12.4 ([#735](https://github.com/EnterpriseDB/klio/issues/735)) ([424d430](https://github.com/cloudnative-pg/klio/commit/424d4302b4d52d3702648a4237a9b605bd2b5fa6))
+* **deps:** Update module sigs.k8s.io/controller-runtime to v0.23.0 ([#683](https://github.com/EnterpriseDB/klio/issues/683)) ([800b897](https://github.com/cloudnative-pg/klio/commit/800b89793fe70408f320f2c3dbcec2e47469dedc))
+* **deps:** Update module sigs.k8s.io/controller-runtime to v0.23.1 ([#728](https://github.com/EnterpriseDB/klio/issues/728)) ([3d9c62a](https://github.com/cloudnative-pg/klio/commit/3d9c62a7dcc808c98ae582285638be0cab0f60ad))
+* Enable fsync for JetStream to ensure durability ([#653](https://github.com/EnterpriseDB/klio/issues/653)) ([e6132f0](https://github.com/cloudnative-pg/klio/commit/e6132f0f20b5b3469d887e12f59552c17239e7e5))
+* **operator:** Only set optional S3 env vars when non-empty ([#764](https://github.com/EnterpriseDB/klio/issues/764)) ([8c6d47b](https://github.com/cloudnative-pg/klio/commit/8c6d47b8cb06d1b26271835709f5fc4cb985234b))
+* **security:** Avoid PATH dependency for klio command invocations ([caa6b4a](https://github.com/cloudnative-pg/klio/commit/caa6b4afbb217358c07dca53c367073ed1318d61))
+
+
+### Code Refactoring
+
+* **operator:** Consolidate RecoverySource into read-only Server support ([#696](https://github.com/EnterpriseDB/klio/issues/696)) ([034051b](https://github.com/cloudnative-pg/klio/commit/034051bc6b14f4225b43514b7124da9b565bf79c))
+
 ## [0.0.11](https://github.com/EnterpriseDB/klio/compare/v0.0.10...v0.0.11) (2026-01-16)
 
 
