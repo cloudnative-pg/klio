@@ -1102,7 +1102,7 @@ tasks:
       OPERAND_IMAGE_REPOSITORY: '{{ .OPERAND_IMAGE_REPOSITORY | default (printf "%s:%s/klio-testing" .REGISTRY_NAME .REGISTRY_PORT) }}'
       OPERAND_IMAGE_TAG: '{{ .OPERAND_IMAGE_TAG | default "dev" }}'
       # renovate: datasource=docker depName=alpine/k8s versioning=docker
-      ALPINE_K8S_VERSION: 1.35.0@sha256:18bc02c1e0df04451f4f9194eb7b7341c1165da5495459b52f85f72fb9545032
+      ALPINE_K8S_VERSION: 1.35.1@sha256:e752c7a4f6a42d9662e37ff5a04d0dac1004df05dbd3ef95467123414d988be7
       # renovate: datasource=github-tags depName=cert-manager/cert-manager versioning=semver
       CERT_MANAGER_VERSION: 'v1.19.3'
       # Cache busting timestamp to prevent Dagger from caching helm deployments
