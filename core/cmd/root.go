@@ -126,4 +126,7 @@ func initConfig() {
 			log.Error(err, "Failed reading config file")
 		}
 	}
+
+	_ = viper.BindEnv("custom-cnpg-group", "CUSTOM_CNPG_GROUP")
+	_ = viper.BindEnv("custom-cnpg-version", "CUSTOM_CNPG_VERSION")
 }
