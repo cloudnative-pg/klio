@@ -54,4 +54,9 @@ type CommonRepoOpts struct {
 
 	// CacheDirectory is the directory used for caching repository data.
 	CacheDirectory string
+
+	// ReadOnly indicates whether the repository connection should be read-only.
+	// When true, the --readonly flag is passed to `kopia repository connect`,
+	// which is the correct way to enforce read-only access at the repository level.
+	ReadOnly bool
 }

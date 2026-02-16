@@ -33,7 +33,9 @@ func CreateTier1KopiaConfigFile(ctx context.Context, fileName string, cfg *confi
 }
 
 // CreateTier2KopiaConfigFile creates a Kopia config file for tier2.
-func CreateTier2KopiaConfigFile(ctx context.Context, fileName string, cfg *config.Tier2Config) error {
+// When readOnly is true, the repository connection is configured as read-only,
+// which prevents any write operations through this config file.
+func CreateTier2KopiaConfigFile(ctx context.Context, fileName string, cfg *config.Tier2Config, readOnly bool) error {
 	cacheDir := cfg.CacheDirectory
 
 	kopiaBinary, err := kopia.LookupBinary()
@@ -47,6 +49,7 @@ func CreateTier2KopiaConfigFile(ctx context.Context, fileName string, cfg *confi
 			EncryptionPassword: cfg.EncryptionKey,
 			PersistCredentials: true,
 			CacheDirectory:     cacheDir,
+			ReadOnly:           readOnly,
 		},
 		BucketName:         cfg.S3.BucketName,
 		Endpoint:           cfg.S3.Endpoint,

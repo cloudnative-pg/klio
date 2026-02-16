@@ -74,23 +74,10 @@ func InitializeS3(ctx context.Context, cfg S3RepoOpts) error {
 func ConnectS3(ctx context.Context, configFileName string, opts S3RepoOpts) error {
 	contextLogger := log.FromContext(ctx)
 
-	args := []string{
-		"repository", "connect", "s3",
-		"--config-file=" + configFileName,
-		"--override-username=klio",
-		"--override-hostname=klio",
-	}
-
-	if opts.PersistCredentials {
-		args = append(args, "--persist-credentials")
-	}
-
-	backendArgs, err := getCommonS3Args(opts)
+	args, err := buildConnectS3Args(configFileName, opts)
 	if err != nil {
 		return err
 	}
-
-	args = append(args, backendArgs...)
 
 	kopiaRepositoryConnect := exec.CommandContext(ctx, opts.KopiaBinary, args...) //nolint:gosec
 	kopiaRepositoryConnect.Env = append(kopiaRepositoryConnect.Env, os.Environ()...)
@@ -102,6 +89,33 @@ func ConnectS3(ctx context.Context, configFileName string, opts S3RepoOpts) erro
 	}
 
 	return nil
+}
+
+// buildConnectS3Args builds the argument list for the `kopia repository connect s3` command.
+func buildConnectS3Args(configFileName string, opts S3RepoOpts) ([]string, error) {
+	args := []string{
+		"repository", "connect", "s3",
+		"--config-file=" + configFileName,
+		"--override-username=klio",
+		"--override-hostname=klio",
+	}
+
+	if opts.PersistCredentials {
+		args = append(args, "--persist-credentials")
+	}
+
+	if opts.ReadOnly {
+		args = append(args, "--readonly")
+	}
+
+	backendArgs, err := getCommonS3Args(opts)
+	if err != nil {
+		return nil, err
+	}
+
+	args = append(args, backendArgs...)
+
+	return args, nil
 }
 
 func getCommonS3Args(cfg S3RepoOpts) ([]string, error) {

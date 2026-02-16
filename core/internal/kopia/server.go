@@ -23,9 +23,6 @@ type ServerOptions struct {
 	// ListenAddress is the address and port the server should listen on (e.g., "0.0.0.0:51515").
 	ListenAddress string
 
-	// ReadOnly indicates whether the server should operate in read-only mode.
-	ReadOnly bool
-
 	// ServerControlUser is the username for server control operations.
 	ServerControlUser string
 
@@ -49,10 +46,6 @@ func (s *Client) RunServer(ctx context.Context, opts ServerOptions) error {
 		"--config-file=" + s.ConfigFile,
 		"--address=" + opts.ListenAddress,
 		"--disable-file-logging",
-	}
-
-	if opts.ReadOnly {
-		args = append(args, "--readonly")
 	}
 
 	env := os.Environ()

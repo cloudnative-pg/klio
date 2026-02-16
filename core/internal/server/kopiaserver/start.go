@@ -20,10 +20,6 @@ type Config struct {
 	// used to create the listening socket.
 	ListenAddress string
 
-	// ReadOnly is true when the server should deny write access,
-	// avoiding accidental changes.
-	ReadOnly bool
-
 	// Kopia server control username. This credential can be used
 	// to access the REST control API.
 	ServerControlUser string
@@ -82,7 +78,6 @@ func start(ctx context.Context, configFile string, cfg *Config, tls *config.TLSC
 		TLSKey:                tls.TLSKey,
 		ClientCACertFile:      tls.ClientCACertFile,
 		ListenAddress:         cfg.ListenAddress,
-		ReadOnly:              cfg.ReadOnly,
 		ServerControlUser:     cfg.ServerControlUser,
 		ServerControlPassword: cfg.ServerControlPassword,
 	}); err != nil {

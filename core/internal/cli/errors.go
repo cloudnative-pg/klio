@@ -10,7 +10,7 @@ var (
 	// source specification.
 	ErrSourceSectionIsRequired = errors.New("'source' configuration section is required")
 
-	// ErrClientSectionIsRequired is raired when the WAL pusher is started without a
+	// ErrClientSectionIsRequired is raised when the WAL pusher is started without a
 	// client specification.
 	ErrClientSectionIsRequired = errors.New("'client' configuration section is required")
 

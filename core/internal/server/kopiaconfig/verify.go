@@ -19,7 +19,7 @@ func VerifyTier1KopiaRepository(ctx context.Context, cfg *config.Tier1Config) er
 // VerifyTier2KopiaRepository verifies that a Tier2 Kopia repository can be accessed with the provided credentials.
 func VerifyTier2KopiaRepository(ctx context.Context, cfg *config.Tier2Config) error {
 	return verifyKopiaRepository(ctx, "tier2", func(tmpName string) error {
-		return CreateTier2KopiaConfigFile(ctx, tmpName, cfg)
+		return CreateTier2KopiaConfigFile(ctx, tmpName, cfg, false)
 	})
 }
 

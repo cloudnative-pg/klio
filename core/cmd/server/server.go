@@ -123,10 +123,17 @@ func runServer(ctx context.Context, opts serverOpts) error {
 			}
 		}()
 
+		// When tier1 is disabled, the server operates in read-only mode.
+		// The CRD validation enforces that mode: read-only requires no tier1 and
+		// must have tier2, so !tier1 is equivalent to read-only mode.
+		// Read-only is enforced at the repository connection level via
+		// `kopia repository connect --readonly`.
+		tier2ReadOnly := !opts.tier1
 		if err := kopiaconfig.CreateTier2KopiaConfigFile(
 			ctx,
 			tier2ConfigFileName,
 			&opts.cfg.Tier2,
+			tier2ReadOnly,
 		); err != nil {
 			return fmt.Errorf("error creating tier2 kopia config file: %w", err)
 		}

@@ -18,7 +18,6 @@ func StartTier2(
 ) error {
 	kopiaServerConfig := Config{
 		ListenAddress:         listenAddress,
-		ReadOnly:              true,
 		ServerControlUser:     serverControl.User,
 		ServerControlPassword: serverControl.Password,
 	}

@@ -45,6 +45,24 @@ func InitializeFilesystem(ctx context.Context, opts FSRepoOpts) error {
 func ConnectFileSystem(ctx context.Context, configFileName string, opts FSRepoOpts) error {
 	contextLogger := log.FromContext(ctx)
 
+	args := buildConnectFSArgs(configFileName, opts)
+
+	kopiaRepositoryConnect := exec.CommandContext(ctx, opts.KopiaBinary, args...) //nolint:gosec
+	kopiaRepositoryConnect.Env = append(kopiaRepositoryConnect.Env,
+		"KOPIA_PASSWORD="+opts.EncryptionPassword,
+		"KOPIA_CHECK_FOR_UPDATES=false",
+	)
+
+	contextLogger.Info("Kopia repository connect", "args", kopiaRepositoryConnect.Args)
+	if err := RunWithLogCapture(ctx, kopiaRepositoryConnect, nil); err != nil {
+		return fmt.Errorf("while connecting to Kopia repository: %w", err)
+	}
+
+	return nil
+}
+
+// buildConnectFSArgs builds the argument list for the `kopia repository connect filesystem` command.
+func buildConnectFSArgs(configFileName string, opts FSRepoOpts) []string {
 	args := []string{
 		"repository", "connect", "filesystem",
 		"--config-file=" + configFileName,
@@ -59,16 +77,9 @@ func ConnectFileSystem(ctx context.Context, configFileName string, opts FSRepoOp
 		args = append(args, "--persist-credentials")
 	}
 
-	kopiaRepositoryConnect := exec.CommandContext(ctx, opts.KopiaBinary, args...) //nolint:gosec
-	kopiaRepositoryConnect.Env = append(kopiaRepositoryConnect.Env,
-		"KOPIA_PASSWORD="+opts.EncryptionPassword,
-		"KOPIA_CHECK_FOR_UPDATES=false",
-	)
-
-	contextLogger.Info("Kopia repository connect", "args", kopiaRepositoryConnect.Args)
-	if err := RunWithLogCapture(ctx, kopiaRepositoryConnect, nil); err != nil {
-		return fmt.Errorf("while connecting to Kopia repository: %w", err)
+	if opts.ReadOnly {
+		args = append(args, "--readonly")
 	}
 
-	return nil
+	return args
 }
