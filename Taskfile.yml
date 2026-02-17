@@ -396,7 +396,7 @@ tasks:
     cmds:
       - >
         echo $(pwd);
-        GITHUB_REF= dagger -sc
+        GITHUB_REF= dagger -c
         "github.com/sagikazarmark/daggerverse/golangci-lint@${DAGGER_GOLANGCI_LINT_SHA}
         --version ${GOLANGCI_LINT_VERSION} | run . --config .golangci.yml | stdout"
 
