@@ -38,9 +38,6 @@ func start(ctx context.Context, configFile string, cfg *Config, tls *config.TLSC
 		return err
 	}
 
-	// Enable ACLs
-	enableACLs(ctx, kopiaBinary, configFile)
-
 	// Create observable uptime metric
 	serverStartTime := time.Now()
 	_, err = otel.Meter(opentelemetry.Meter).Float64ObservableGauge(
