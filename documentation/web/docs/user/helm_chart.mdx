@@ -33,10 +33,10 @@ Before installing the Klio Operator, ensure you have:
 First, authenticate with the EDB registry where the Helm chart is hosted:
 
 ```sh
-helm registry login ghcr.io -u <USERNAME> -p <TOKEN>
+helm registry login ghcr.io -u <GITHUB_USERNAME> -p <GITHUB_TOKEN>
 ```
 
-Replace `<USERNAME>`, and `<TOKEN>` with the required credentials.
+Replace `<TOKEN>` with the required credentials.
 
 ### Step 2: Create an Image Pull Secret
 
@@ -46,7 +46,7 @@ the registry:
 ```sh
 kubectl create secret docker-registry klio-registry-secret \
   --docker-server=ghcr.io \
-  --docker-username=<USERNAME> \
+  --docker-username=k8s \
   --docker-password=<TOKEN> \
   --namespace <NAMESPACE>
 ```
@@ -65,7 +65,7 @@ Deploy the Klio Operator to your cluster:
 helm install klio-operator oci://ghcr.io/enterprisedb/klio-operator-chart \
   --version 0.0.12 \
   --namespace <NAMESPACE> \
-  --set controllerManager.manager.image.pullSecrets[0].name=klio-registry-secret
+  --set 'controllerManager.manager.image.pullSecrets[0].name=klio-registry-secret'
 ```
 <!-- x-release-please-end -->
 
