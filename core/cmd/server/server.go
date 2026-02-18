@@ -24,6 +24,101 @@ type serverOpts struct {
 	runSecret       string
 }
 
+type tier2ConfigFiles struct {
+	rwConfigFileName string
+	roConfigFileName string
+}
+
+// setupTier2ConfigFiles creates the RW and RO config files for tier2.
+// It returns a cleanup function that should be deferred by the caller.
+func setupTier2ConfigFiles(
+	ctx context.Context,
+	cfg *config.Tier2Config,
+) (*tier2ConfigFiles, func(), error) {
+	contextLogger := log.FromContext(ctx)
+
+	// We need two tier2 repository configurations: one allowing writes and
+	// a different one disallowing them.
+	//
+	// The read-only configuration file is used for the Kopia server and
+	// will prevent clients from writing to the repository.
+	//
+	// The read-write configuration file is used to migrate new snapshots
+	// to tier2 and to invoke the maintenance.
+
+	tier2RWConfigFile, err := os.CreateTemp("", "kopiaconfig_tier2_rw_*")
+	if err != nil {
+		return nil, nil, fmt.Errorf("while writing a temporary Kopia config: %w", err)
+	}
+
+	rwConfigFileName := tier2RWConfigFile.Name()
+	if err := tier2RWConfigFile.Close(); err != nil {
+		contextLogger.Warning(
+			"Error while closing temporary Tier 2 RW config file",
+			"err", err,
+			"configFile", rwConfigFileName,
+		)
+	}
+
+	tier2ROConfigFile, err := os.CreateTemp("", "kopiaconfig_tier2_ro_*")
+	if err != nil {
+		// Clean up the RW file we already created.
+		_ = os.Remove(rwConfigFileName)
+		return nil, nil, fmt.Errorf("while writing a temporary Kopia config: %w", err)
+	}
+
+	roConfigFileName := tier2ROConfigFile.Name()
+	if err := tier2ROConfigFile.Close(); err != nil {
+		contextLogger.Warning(
+			"Error while closing temporary Tier 2 RO config file",
+			"err", err,
+			"configFile", roConfigFileName,
+		)
+	}
+
+	cleanup := func() {
+		if err := os.Remove(rwConfigFileName); err != nil {
+			contextLogger.Warning(
+				"Error while removing temporary Tier 2 RW config file",
+				"err", err,
+				"configFile", rwConfigFileName,
+			)
+		}
+		if err := os.Remove(roConfigFileName); err != nil {
+			contextLogger.Warning(
+				"Error while removing temporary Tier 2 RO config file",
+				"err", err,
+				"configFile", roConfigFileName,
+			)
+		}
+	}
+
+	if err := kopiaconfig.CreateTier2KopiaConfigFile(
+		ctx,
+		rwConfigFileName,
+		cfg,
+		false,
+	); err != nil {
+		cleanup()
+		return nil, nil, fmt.Errorf("error creating tier2 RW kopia config file: %w", err)
+	}
+
+	if err := kopiaconfig.CreateTier2KopiaConfigFile(
+		ctx,
+		roConfigFileName,
+		cfg,
+		true,
+	); err != nil {
+		cleanup()
+		return nil, nil, fmt.Errorf("error creating tier2 RO kopia config file: %w", err)
+	}
+
+	return &tier2ConfigFiles{
+		rwConfigFileName: rwConfigFileName,
+		roConfigFileName: roConfigFileName,
+	}, cleanup, nil
+}
+
 //nolint:cyclop
 func runServer(ctx context.Context, opts serverOpts) error {
 	contextLogger := log.FromContext(ctx)
@@ -53,7 +148,7 @@ func runServer(ctx context.Context, opts serverOpts) error {
 		klio.Add(nats)
 	}
 
-	var tier1ConfigFileName, tier2ConfigFileName string
+	var tier1ConfigFileName, tier2RWConfigFileName, tier2ROConfigFileName string
 
 	// Configure tier1
 	if opts.tier1 {
@@ -106,42 +201,19 @@ func runServer(ctx context.Context, opts serverOpts) error {
 			return fmt.Errorf("tier 2 opts.cfg validation error: %w", err)
 		}
 
-		tier2ConfigFile, err := os.CreateTemp("", "kopiaconfig_tier2_*")
+		tier2Configs, tier2Cleanup, err := setupTier2ConfigFiles(ctx, &opts.cfg.Tier2)
 		if err != nil {
-			return fmt.Errorf("while writing a temporary Kopia config: %w", err)
+			return err
 		}
+		defer tier2Cleanup()
 
-		tier2ConfigFileName = tier2ConfigFile.Name()
-
-		defer func() {
-			if err := os.Remove(tier2ConfigFileName); err != nil {
-				contextLogger.Warning(
-					"Error while removing temporary Tier 2 opts.cfg file",
-					"err", err,
-					"configFile", tier2ConfigFileName,
-				)
-			}
-		}()
-
-		// When tier1 is disabled, the server operates in read-only mode.
-		// The CRD validation enforces that mode: read-only requires no tier1 and
-		// must have tier2, so !tier1 is equivalent to read-only mode.
-		// Read-only is enforced at the repository connection level via
-		// `kopia repository connect --readonly`.
-		tier2ReadOnly := !opts.tier1
-		if err := kopiaconfig.CreateTier2KopiaConfigFile(
-			ctx,
-			tier2ConfigFileName,
-			&opts.cfg.Tier2,
-			tier2ReadOnly,
-		); err != nil {
-			return fmt.Errorf("error creating tier2 kopia config file: %w", err)
-		}
+		tier2RWConfigFileName = tier2Configs.rwConfigFileName
+		tier2ROConfigFileName = tier2Configs.roConfigFileName
 
 		tier2 := suture.NewSimple("tier2")
 		tier2.Add(&server.Tier2KopiaServer{
 			Config:      opts.cfg,
-			KopiaConfig: tier2ConfigFileName,
+			KopiaConfig: tier2ROConfigFileName,
 			RunID:       opts.runID,
 			RunSecret:   opts.runSecret,
 		})
@@ -158,7 +230,7 @@ func runServer(ctx context.Context, opts serverOpts) error {
 		relay.Add(&server.Tier2BackupConsumer{
 			Config:               opts.cfg,
 			Tier1KopiaConfigFile: tier1ConfigFileName,
-			Tier2KopiaConfigFile: tier2ConfigFileName,
+			Tier2KopiaConfigFile: tier2RWConfigFileName,
 			QueueURL:             queueURL,
 			RunID:                opts.runID,
 			RunSecret:            opts.runSecret,
@@ -173,7 +245,7 @@ func runServer(ctx context.Context, opts serverOpts) error {
 	// Configure administration server
 	adminServer := server.AdminServer{
 		Tier1KopiaConfigFile: tier1ConfigFileName,
-		Tier2KopiaConfigFile: tier2ConfigFileName,
+		Tier2KopiaConfigFile: tier2RWConfigFileName,
 		SocketPath:           opts.adminSocketPath,
 		Config:               opts.cfg,
 		RunID:                opts.runID,

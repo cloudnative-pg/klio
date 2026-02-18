@@ -33,7 +33,7 @@ const (
 	// tier2KopiaConfigPattern is the glob pattern for finding the tier2 Kopia config file.
 	// Used by verifyTier2RetentionPolicySet to run kopia policy commands.
 	// The file ending in .kopia-password contains the path to the actual config.
-	tier2KopiaConfigPattern = "/tmp/kopiaconfig_tier2_*.kopia-password"
+	tier2KopiaConfigPattern = "/tmp/kopiaconfig_tier2_rw_*.kopia-password"
 )
 
 // Tier2RetentionFeature defines a feature for testing tier2 backup and WAL retention.

@@ -35,6 +35,20 @@ type RemoteRepoOpts struct {
 func ConnectRemote(ctx context.Context, configFileName string, opts RemoteRepoOpts) error {
 	contextLogger := log.FromContext(ctx)
 
+	args := buildConnectRemoteArgs(configFileName, opts)
+
+	repositoryConnectCmd := exec.CommandContext(ctx, opts.KopiaBinary, args...) //nolint:gosec
+
+	contextLogger.Info("Connecting to Kopia repository", "args", args)
+	if err := RunWithLogCapture(ctx, repositoryConnectCmd, nil); err != nil {
+		return fmt.Errorf("while executing Kopia command: %w", err)
+	}
+
+	return nil
+}
+
+// buildConnectRemoteArgs builds the argument list for the `kopia repository connect server` command.
+func buildConnectRemoteArgs(configFileName string, opts RemoteRepoOpts) []string {
 	args := []string{
 		"repository",
 		"connect",
@@ -50,12 +64,9 @@ func ConnectRemote(ctx context.Context, configFileName string, opts RemoteRepoOp
 		"--override-hostname=" + opts.Hostname,
 	}
 
-	repositoryConnectCmd := exec.CommandContext(ctx, opts.KopiaBinary, args...) //nolint:gosec
-
-	contextLogger.Info("Connecting to Kopia repository", "args", args)
-	if err := RunWithLogCapture(ctx, repositoryConnectCmd, nil); err != nil {
-		return fmt.Errorf("while executing Kopia command: %w", err)
+	if opts.ReadOnly {
+		args = append(args, "--readonly")
 	}
 
-	return nil
+	return args
 }

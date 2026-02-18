@@ -76,21 +76,22 @@ func ConnectTier1(
 	ctx context.Context,
 	clientConfig *config.ClientConfig,
 ) (*Connection, error) {
-	return connectToKopiaServer(ctx, clientConfig, clientConfig.Base.URL)
+	return connectToKopiaServer(ctx, clientConfig, clientConfig.Base.URL, false)
 }
 
-// ConnectTier2 creates a new Kopia client and opens a connection to it.
+// ConnectTier2 creates a new read-only Kopia client to the tier2 kopia repository and opens a connection to it.
 func ConnectTier2(
 	ctx context.Context,
 	clientConfig *config.ClientConfig,
 ) (*Connection, error) {
-	return connectToKopiaServer(ctx, clientConfig, clientConfig.Base.Tier2URL)
+	return connectToKopiaServer(ctx, clientConfig, clientConfig.Base.Tier2URL, true)
 }
 
 func connectToKopiaServer(
 	ctx context.Context,
 	clientConfig *config.ClientConfig,
 	kopiaURL string,
+	readOnly bool,
 ) (*Connection, error) {
 	contextLogger := log.FromContext(ctx)
 
@@ -157,6 +158,7 @@ func connectToKopiaServer(
 			KopiaBinary:        kopiaBinary,
 			PersistCredentials: false,
 			CacheDirectory:     cacheDirectory,
+			ReadOnly:           readOnly,
 		},
 		URL:                   kopiaURL,
 		ClientCertPath:        clientConfig.Base.ClientCertPath,
