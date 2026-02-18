@@ -20,7 +20,8 @@
     "documentation/web/docs/user/klio_server.md",
     "documentation/web/docs/user/api_service.md",
     "documentation/web/docs/user/helm_chart.mdx",
-    "documentation/web/docs/user/walplayer.md"
+    "documentation/web/docs/user/walplayer.md",
+    "documentation/web/docs/developer/release.md"
   ],
   "prerelease": false,
   "packages": {
