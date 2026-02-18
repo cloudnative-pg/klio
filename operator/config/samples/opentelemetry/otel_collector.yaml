@@ -10,7 +10,7 @@ kind: OpenTelemetryCollector
 metadata:
   name: otel
 spec:
-  image: "otel/opentelemetry-collector-contrib:latest"
+  image: "otel/opentelemetry-collector-contrib:0.145.0"
   config:
     receivers:
       # otlp receiver to receive data in OTLP format over gRPC. TLS is enabled.

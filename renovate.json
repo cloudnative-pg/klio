@@ -21,6 +21,9 @@
       "core/kubernetes/klio/overlays/**/kustomization.yaml"
     ]
   },
+  "kubernetes": {
+    "managerFilePatterns": ["/operator/config/samples/.+\\.yaml$/"]
+  },
   "ignoreDeps": [
     "ghcr.io/enterprisedb/klio-operator",
     "ghcr.io/enterprisedb/klio",

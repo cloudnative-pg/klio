@@ -47,7 +47,7 @@ spec:
           name: logs
       containers:
       - name: rustfs
-        image: rustfs/rustfs:1.0.0-alpha.82
+        image: rustfs/rustfs:1.0.0-alpha.83
         imagePullPolicy: IfNotPresent
         command:
         - /usr/bin/rustfs
@@ -87,6 +87,7 @@ spec:
             memory: 128Mi
           limits:
             cpu: 200m
+            memory: 2Gi
         securityContext:
           runAsNonRoot: true
           readOnlyRootFilesystem: true
@@ -108,7 +109,8 @@ spec:
           subPath: rustfs_key.pem
       volumes:
       - name: tmp
-        emptyDir: {}
+        emptyDir:
+          sizeLimit: 1Gi
       - name: logs
         persistentVolumeClaim:
           claimName: rustfs-logs

@@ -32,6 +32,9 @@ spec:
             mountPath: /certs/ca.crt
             subPath: ca.crt
             readOnly: true
+          resources:
+            limits:
+              memory: 256Mi
       volumes:
       - name: certs
         secret:
