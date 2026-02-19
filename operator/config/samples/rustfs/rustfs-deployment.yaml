@@ -29,7 +29,7 @@ spec:
         runAsUser: 10001
       initContainers:
       - name: init-step
-        image: busybox:1.37.0-musl
+        image: busybox:1.37.0-musl@sha256:19b646668802469d968a05342a601e78da4322a414a7c09b1c9ee25165042138
         imagePullPolicy: IfNotPresent
         command:
         - sh
@@ -47,7 +47,7 @@ spec:
           name: logs
       containers:
       - name: rustfs
-        image: rustfs/rustfs:1.0.0-alpha.83
+        image: rustfs/rustfs:1.0.0-alpha.83@sha256:1cfa82fb394a7c6a4ffc24f5333b52afee608d258503f94b37fcce5cc965c896
         imagePullPolicy: IfNotPresent
         command:
         - /usr/bin/rustfs
