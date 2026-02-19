@@ -77,6 +77,7 @@ func TestCreateAWSS3Client(t *testing.T) {
 		{
 			name: "Explicit credentials with endpoint",
 			cfg: config.Tier2Config{
+				//nolint:gosec // keys are examples and not an issue
 				S3: config.S3Configuration{
 					BucketName:      "test-bucket",
 					Region:          "us-east-1",
@@ -85,6 +86,7 @@ func TestCreateAWSS3Client(t *testing.T) {
 					SecretAccessKey: "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY",
 				},
 			},
+			//nolint:gosec // keys are examples and not an issue
 			verifier: clientVerifier{
 				region:           "us-east-1",
 				endpoint:         "https://s3.us-east-1.amazonaws.com",
@@ -111,6 +113,7 @@ func TestCreateAWSS3Client(t *testing.T) {
 		{
 			name: "Session token with credentials",
 			cfg: config.Tier2Config{
+				//nolint:gosec // keys are examples and not an issue
 				S3: config.S3Configuration{
 					BucketName:      "test-bucket",
 					Region:          "us-east-1",
@@ -119,6 +122,7 @@ func TestCreateAWSS3Client(t *testing.T) {
 					SessionToken:    "session-token-example",
 				},
 			},
+			//nolint:gosec // keys are examples and not an issue
 			verifier: clientVerifier{
 				region:           "us-east-1",
 				accessKeyID:      "AKIAIOSFODNN7EXAMPLE",
@@ -130,6 +134,7 @@ func TestCreateAWSS3Client(t *testing.T) {
 		{
 			name: "Explicit credentials without endpoint",
 			cfg: config.Tier2Config{
+				//nolint:gosec // keys are examples and not an issue
 				S3: config.S3Configuration{
 					BucketName:      "test-bucket",
 					Region:          "us-east-1",
@@ -137,6 +142,7 @@ func TestCreateAWSS3Client(t *testing.T) {
 					SecretAccessKey: "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY",
 				},
 			},
+			//nolint:gosec // keys are examples and not an issue
 			verifier: clientVerifier{
 				region:              "us-east-1",
 				expectPathStyle:     false,
@@ -149,12 +155,14 @@ func TestCreateAWSS3Client(t *testing.T) {
 		{
 			name: "Without region - uses SDK defaults",
 			cfg: config.Tier2Config{
+				//nolint:gosec // keys are examples and not an issue
 				S3: config.S3Configuration{
 					BucketName:      "test-bucket",
 					AccessKeyID:     "AKIAIOSFODNN7EXAMPLE",
 					SecretAccessKey: "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY",
 				},
 			},
+			//nolint:gosec // keys are examples and not an issue
 			verifier: clientVerifier{
 				region:              "",
 				expectPathStyle:     false,
@@ -226,6 +234,7 @@ func TestConnectBase(t *testing.T) {
 		{
 			name: "With explicit credentials",
 			cfg: config.Tier2Config{
+				//nolint:gosec // keys are examples and not an issue
 				S3: config.S3Configuration{
 					BucketName:      "test-bucket",
 					Region:          "us-east-1",
@@ -270,6 +279,7 @@ func TestConnectWAL(t *testing.T) {
 		{
 			name: "With explicit credentials",
 			cfg: config.Tier2Config{
+				//nolint:gosec // keys are examples and not an issue
 				S3: config.S3Configuration{
 					BucketName:      "test-bucket",
 					Region:          "us-east-1",

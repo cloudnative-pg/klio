@@ -14,7 +14,7 @@ type ServerControlCredential struct {
 	User string
 
 	// Password is the password for server control authentication.
-	Password string
+	Password string //nolint:gosec
 }
 
 // StartTier1 runs a Tier 1 Kopia server.

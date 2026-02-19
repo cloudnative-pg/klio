@@ -35,7 +35,7 @@ type S3RepoOpts struct {
 	SecretAccessKey string
 
 	// SessionToken is the AWS session token for temporary credentials.
-	SessionToken string
+	SessionToken string //nolint:gosec
 
 	// CustomCABundleFile is the path to a custom CA certificate bundle for TLS verification.
 	CustomCABundleFile string

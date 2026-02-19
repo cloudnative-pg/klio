@@ -107,7 +107,7 @@ type S3Configuration struct {
 	SecretAccessKey string `json:"secret_access_key" mapstructure:"secret_access_key"`
 
 	// SessionToken is the session token
-	SessionToken string `json:"session_token" mapstructure:"session_token"`
+	SessionToken string `json:"session_token" mapstructure:"session_token"` //nolint:gosec
 
 	// CustomCABundleFile is the file where we should read the custom CA bundle
 	CustomCABundleFile string `json:"custom_ca_bundle_file" mapstructure:"custom_ca_bundle_file"`

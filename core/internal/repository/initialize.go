@@ -15,7 +15,7 @@ const repositoryConfigFileName = "repository.config"
 // Klio repository.
 type Options struct {
 	FS       afero.Fs
-	Password string
+	Password string //nolint:gosec
 }
 
 // FileExists checks if a file exists in a Afero-based FS.

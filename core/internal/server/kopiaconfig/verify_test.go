@@ -19,7 +19,7 @@ func TestVerifyKopiaRepository(t *testing.T) {
 
 			capturedPath = tmpPath
 			// Verify the file exists while inside the callback
-			if _, statErr := os.Stat(tmpPath); os.IsNotExist(statErr) {
+			if _, statErr := os.Stat(tmpPath); os.IsNotExist(statErr) { //nolint:gosec
 				t.Errorf("expected temp file %s to exist during callback", tmpPath)
 			}
 
