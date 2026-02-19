@@ -19,7 +19,7 @@ spec:
     spec:
       automountServiceAccountToken: false
       containers:
-      - image: cr.jaegertracing.io/jaegertracing/jaeger:2.14.1
+      - image: cr.jaegertracing.io/jaegertracing/jaeger:2.15.1@sha256:a7dd965687d45507072676db81e6903706ba334dfc92f0c248125cfd9a70c483
         name: all-in-one
         ports:
           - containerPort: 16686
@@ -32,7 +32,11 @@ spec:
             protocol: TCP
           - containerPort: 9411
             protocol: TCP
-        resources: {}
+        resources:
+          requests:
+            cpu: 100m
+            memory: 128Mi
+            ephemeral-storage: 100Mi
 status: {}
 ---
 apiVersion: v1
