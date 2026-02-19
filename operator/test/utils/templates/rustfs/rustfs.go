@@ -16,7 +16,19 @@ import (
 
 const (
 	// RustFSImage is the RustFS container image.
-	RustFSImage = "rustfs/rustfs:1.0.0-alpha.82"
+	//nolint:godot
+	// renovate image: datasource=docker depName=rustfs/rustfs versioning=docker
+	RustFSImage = "rustfs/rustfs:1.0.0-alpha.83@sha256:1cfa82fb394a7c6a4ffc24f5333b52afee608d258503f94b37fcce5cc965c896"
+
+	// BusyboxImage is the busybox container image used for init containers.
+	//nolint:godot
+	// renovate image: datasource=docker depName=busybox versioning=docker
+	BusyboxImage = "busybox:1.37.0@sha256:b3255e7dfbcd10cb367af0d409747d511aeb66dfac98cf30e97e87e4207dd76f"
+
+	// AWSCLIImage is the AWS CLI container image used for S3 operations.
+	//nolint:godot
+	// renovate image: datasource=docker depName=amazon/aws-cli versioning=docker
+	AWSCLIImage = "amazon/aws-cli:2.33.25@sha256:5b5e45b2dd31d950a08450df8ac276314b8e5104ce86dd415f52ebf40efcf7f0"
 
 	// RustFSAccessKey is the access key for RustFS.
 	RustFSAccessKey = "rustfsaccesskey1234567890"
@@ -29,6 +41,14 @@ const (
 
 	// RustFSRegion is the default region.
 	RustFSRegion = "us-east-1"
+
+	// Kubernetes label keys.
+	labelName     = "app.kubernetes.io/name"
+	labelInstance = "app.kubernetes.io/instance"
+
+	// Secret and resource names.
+	rustfsSecretName = "rustfs-secret"
+	rustfsTLSSecret  = "rustfs-tls" //nolint:gosec
 )
 
 // GetRustFSSecret returns a Secret with RustFS credentials.
@@ -116,7 +136,7 @@ func GetRustFSCertificate(name, namespace string, issuer *certmanagerv1.Issuer) 
 				"rustfs." + namespace,
 				"rustfs." + namespace + ".svc",
 			},
-			SecretName: "rustfs-tls",
+			SecretName: rustfsTLSSecret,
 			IssuerRef: cmmeta.IssuerReference{
 				Name:  issuer.Name,
 				Kind:  issuer.Kind,
@@ -139,8 +159,8 @@ func GetRustFSService(name, namespace string) *corev1.Service {
 		},
 		Spec: corev1.ServiceSpec{
 			Selector: map[string]string{
-				"app.kubernetes.io/name":     name,
-				"app.kubernetes.io/instance": name,
+				labelName:     name,
+				labelInstance: name,
 			},
 			Ports: []corev1.ServicePort{
 				{
@@ -167,8 +187,8 @@ func GetRustFSDeployment(name, namespace string) *appsv1.Deployment {
 			Name:      name,
 			Namespace: namespace,
 			Labels: map[string]string{
-				"app.kubernetes.io/name":     name,
-				"app.kubernetes.io/instance": name,
+				labelName:     name,
+				labelInstance: name,
 			},
 		},
 		Spec: appsv1.DeploymentSpec{
@@ -182,15 +202,15 @@ func GetRustFSDeployment(name, namespace string) *appsv1.Deployment {
 			},
 			Selector: &metav1.LabelSelector{
 				MatchLabels: map[string]string{
-					"app.kubernetes.io/name":     name,
-					"app.kubernetes.io/instance": name,
+					labelName:     name,
+					labelInstance: name,
 				},
 			},
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
 					Labels: map[string]string{
-						"app.kubernetes.io/name":     name,
-						"app.kubernetes.io/instance": name,
+						labelName:     name,
+						labelInstance: name,
 					},
 				},
 				Spec: corev1.PodSpec{
@@ -202,7 +222,7 @@ func GetRustFSDeployment(name, namespace string) *appsv1.Deployment {
 					InitContainers: []corev1.Container{
 						{
 							Name:  "init-step",
-							Image: "busybox:1.36",
+							Image: BusyboxImage,
 							Command: []string{
 								"sh",
 								"-c",
@@ -254,7 +274,7 @@ func GetRustFSDeployment(name, namespace string) *appsv1.Deployment {
 								{
 									SecretRef: &corev1.SecretEnvSource{
 										LocalObjectReference: corev1.LocalObjectReference{
-											Name: "rustfs-secret",
+											Name: rustfsSecretName,
 										},
 									},
 								},
@@ -347,7 +367,7 @@ func GetRustFSDeployment(name, namespace string) *appsv1.Deployment {
 							Name: "certs",
 							VolumeSource: corev1.VolumeSource{
 								Secret: &corev1.SecretVolumeSource{
-									SecretName: "rustfs-tls",
+									SecretName: rustfsTLSSecret,
 									Items: []corev1.KeyToPath{
 										{
 											Key:  "tls.crt",
@@ -382,7 +402,7 @@ func GetRustFSCreateBucketJob(name, namespace, bucketName string) *batchv1.Job {
 					Containers: []corev1.Container{
 						{
 							Name:  "create-bucket",
-							Image: "amazon/aws-cli:2.22.31",
+							Image: AWSCLIImage,
 							Command: []string{
 								"/bin/sh",
 								"-c",
@@ -399,7 +419,7 @@ func GetRustFSCreateBucketJob(name, namespace, bucketName string) *batchv1.Job {
 									ValueFrom: &corev1.EnvVarSource{
 										SecretKeyRef: &corev1.SecretKeySelector{
 											LocalObjectReference: corev1.LocalObjectReference{
-												Name: "rustfs-secret",
+												Name: rustfsSecretName,
 											},
 											Key: "RUSTFS_ACCESS_KEY",
 										},
@@ -410,7 +430,7 @@ func GetRustFSCreateBucketJob(name, namespace, bucketName string) *batchv1.Job {
 									ValueFrom: &corev1.EnvVarSource{
 										SecretKeyRef: &corev1.SecretKeySelector{
 											LocalObjectReference: corev1.LocalObjectReference{
-												Name: "rustfs-secret",
+												Name: rustfsSecretName,
 											},
 											Key: "RUSTFS_SECRET_KEY",
 										},
@@ -436,7 +456,7 @@ func GetRustFSCreateBucketJob(name, namespace, bucketName string) *batchv1.Job {
 							Name: "certs",
 							VolumeSource: corev1.VolumeSource{
 								Secret: &corev1.SecretVolumeSource{
-									SecretName: "rustfs-tls",
+									SecretName: rustfsTLSSecret,
 									Items: []corev1.KeyToPath{
 										{
 											Key:  "tls.crt",

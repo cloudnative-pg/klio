@@ -11,6 +11,15 @@
   ],
   "enabled": true,
   "prConcurrentLimit": 5,
+  "ignorePaths": [
+    "**/node_modules/**",
+    "**/bower_components/**",
+    "**/vendor/**",
+    "**/examples/**",
+    "**/__tests__/**",
+    "**/tests/**",
+    "**/__fixtures__/**"
+  ],
   "gomod": {
     "ignorePaths": [
       "**/dagger/**"
@@ -53,7 +62,8 @@
       "customType": "regex",
       "managerFilePatterns": [
         "*/dagger/*/main.go",
-        "*/docker-bake.hcl"
+        "*/docker-bake.hcl",
+        "operator/test/utils/templates/rustfs/rustfs.go"
       ],
       "matchStrings": [
         "\\/\\/ renovate image: datasource=(?<datasource>[a-z-.]+?) depName=(?<depName>[^\\s]+?)(?: (?:lookupName|packageName)=(?<packageName>[^\\s]+?))?(?: versioning=(?<versioning>[^\\s]+?))?(?: extractVersion=(?<extractVersion>[^\\s]+?))?\\s+[^=]+=\\s*[\"']?[^:]+:(?<currentValue>[^@]+?)(@(?<currentDigest>sha256:[a-f0-9]+))?[\"']\\s",
