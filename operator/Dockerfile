@@ -6,8 +6,6 @@ ARG BASE_IMAGE=registry.access.redhat.com/ubi10/ubi-micro:10.1-1769518576@sha256
 FROM --platform=${BUILDPLATFORM} golang:1.26.0@sha256:c83e68f3ebb6943a2904fa66348867d108119890a2c6a2e6f07b38d0eb6c25c5 AS builder
 WORKDIR /workspace
 
-ARG TARGETPLATFORM
-ARG BUILDPLATFORM
 ARG TARGETOS
 ARG TARGETARCH
 
@@ -15,8 +13,8 @@ ARG TARGETARCH
 COPY go.mod go.mod
 COPY go.sum go.sum
 
-# Download dependencies with cache mount for go mod cache
-RUN --mount=type=cache,target=/go/pkg/mod \
+# Download dependencies with architecture-specific cache
+RUN --mount=type=cache,target=/go/pkg/mod,id=operator-mod-${TARGETARCH} \
     go mod download
 
 # Copy the go source
@@ -25,10 +23,10 @@ COPY api/ api/
 COPY internal/ internal/
 COPY pkg/ pkg/
 
-# Build the binary for the target platform with cache mounts
-RUN --mount=type=cache,target=/go/pkg/mod \
-    --mount=type=cache,target=/root/.cache/go-build \
-    CGO_ENABLED=0 GOOS=${TARGETOS} GOARCH=${TARGETARCH} \
+# Build the binary for the target platform with architecture-specific caches
+RUN --mount=type=cache,target=/go/pkg/mod,id=operator-mod-${TARGETARCH} \
+    --mount=type=cache,target=/root/.cache/go-build,id=operator-build-${TARGETARCH} \
+    CGO_ENABLED=0 GOOS="${TARGETOS}" GOARCH="${TARGETARCH}" \
     go build -o manager cmd/main.go
 
 FROM ${BASE_IMAGE}
