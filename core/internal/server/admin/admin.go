@@ -45,6 +45,8 @@ type Server struct {
 
 	tier1KopiaClient *kopiaWrapper.Client
 	tier2KopiaClient *kopiaWrapper.Client
+	tier1            klioclient.Client
+	tier2            klioclient.Client
 	klio             klioclient.Client
 	queueConn        *queue.Conn
 	natsConn         *nats.Conn
@@ -68,6 +70,8 @@ func New(opts Options) (*Server, error) {
 	}
 
 	return &Server{
+		tier1: tier1,
+		tier2: tier2,
 		klio: &kopia.MultiConnection{
 			Tier1: tier1,
 			Tier2: tier2,
@@ -220,4 +224,63 @@ func (s *Server) QueueStatus(
 		PendingBackups: queueStatus.PendingBackups,
 		PendingWals:    queueStatus.PendingWALs,
 	}, nil
+}
+
+// DeleteBackup implements [grpc.AdminServer].
+func (s *Server) DeleteBackup(
+	ctx context.Context,
+	req *klioGRPC.DeleteBackupRequest,
+) (*klioGRPC.DeleteBackupResponse, error) {
+	if req.GetBackupName() == "" {
+		return nil, status.Errorf(codes.InvalidArgument, "backup_name must be specified")
+	}
+
+	if req.GetClusterName() == "" {
+		return nil, status.Errorf(codes.InvalidArgument, "cluster_name must be specified")
+	}
+
+	if len(req.GetTiers()) == 0 {
+		return nil, status.Errorf(codes.InvalidArgument, "at least one tier must be specified")
+	}
+
+	for _, tier := range req.GetTiers() {
+		if err := s.deleteBackupFromTier(ctx, tier, req.GetClusterName(), req.GetBackupName()); err != nil {
+			return nil, err
+		}
+	}
+
+	return &klioGRPC.DeleteBackupResponse{}, nil
+}
+
+func (s *Server) deleteBackupFromTier(
+	ctx context.Context,
+	tier klioGRPC.Tier,
+	clusterName string,
+	backupName string,
+) error {
+	switch tier {
+	case klioGRPC.Tier_TIER_1:
+		if s.tier1 == nil {
+			return status.Errorf(codes.FailedPrecondition, "tier1 is not configured")
+		}
+		if err := s.tier1.DeleteBackup(ctx, clusterName, backupName); err != nil {
+			return status.Errorf(codes.Internal, "while deleting backup from tier1: %s", err.Error())
+		}
+
+	case klioGRPC.Tier_TIER_2:
+		if s.tier2 == nil {
+			return status.Errorf(codes.FailedPrecondition, "tier2 is not configured")
+		}
+		if err := s.tier2.DeleteBackup(ctx, clusterName, backupName); err != nil {
+			return status.Errorf(codes.Internal, "while deleting backup from tier2: %s", err.Error())
+		}
+
+	case klioGRPC.Tier_TIER_UNSPECIFIED:
+		return status.Errorf(codes.InvalidArgument, "TIER_UNSPECIFIED is not a valid tier")
+
+	default:
+		return status.Errorf(codes.InvalidArgument, "unknown tier: %v", tier)
+	}
+
+	return nil
 }

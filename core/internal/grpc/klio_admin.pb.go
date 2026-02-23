@@ -21,6 +21,59 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
+// Tier represents a storage tier in the backup system.
+type Tier int32
+
+const (
+	// TIER_UNSPECIFIED is the default value and should not be used.
+	Tier_TIER_UNSPECIFIED Tier = 0
+	// TIER_1 represents the local cache storage.
+	Tier_TIER_1 Tier = 1
+	// TIER_2 represents the object storage.
+	Tier_TIER_2 Tier = 2
+)
+
+// Enum value maps for Tier.
+var (
+	Tier_name = map[int32]string{
+		0: "TIER_UNSPECIFIED",
+		1: "TIER_1",
+		2: "TIER_2",
+	}
+	Tier_value = map[string]int32{
+		"TIER_UNSPECIFIED": 0,
+		"TIER_1":           1,
+		"TIER_2":           2,
+	}
+)
+
+func (x Tier) Enum() *Tier {
+	p := new(Tier)
+	*p = x
+	return p
+}
+
+func (x Tier) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (Tier) Descriptor() protoreflect.EnumDescriptor {
+	return file_proto_klio_admin_proto_enumTypes[0].Descriptor()
+}
+
+func (Tier) Type() protoreflect.EnumType {
+	return &file_proto_klio_admin_proto_enumTypes[0]
+}
+
+func (x Tier) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use Tier.Descriptor instead.
+func (Tier) EnumDescriptor() ([]byte, []int) {
+	return file_proto_klio_admin_proto_rawDescGZIP(), []int{0}
+}
+
 type RefreshRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	unknownFields protoimpl.UnknownFields
@@ -273,6 +326,108 @@ func (x *QueueStatusResponse) GetPendingWals() uint64 {
 	return 0
 }
 
+// DeleteBackupRequest is the request to delete a backup from the server.
+type DeleteBackupRequest struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// The name of the backup to delete.
+	BackupName string `protobuf:"bytes,1,opt,name=backup_name,json=backupName,proto3" json:"backup_name,omitempty"`
+	// The storage tiers from which to delete the backup.
+	// At least one tier must be specified.
+	Tiers []Tier `protobuf:"varint,2,rep,packed,name=tiers,proto3,enum=klio.wal.v1.Tier" json:"tiers,omitempty"`
+	// The name of the cluster that owns the backup.
+	ClusterName   string `protobuf:"bytes,3,opt,name=cluster_name,json=clusterName,proto3" json:"cluster_name,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DeleteBackupRequest) Reset() {
+	*x = DeleteBackupRequest{}
+	mi := &file_proto_klio_admin_proto_msgTypes[6]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DeleteBackupRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DeleteBackupRequest) ProtoMessage() {}
+
+func (x *DeleteBackupRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_klio_admin_proto_msgTypes[6]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DeleteBackupRequest.ProtoReflect.Descriptor instead.
+func (*DeleteBackupRequest) Descriptor() ([]byte, []int) {
+	return file_proto_klio_admin_proto_rawDescGZIP(), []int{6}
+}
+
+func (x *DeleteBackupRequest) GetBackupName() string {
+	if x != nil {
+		return x.BackupName
+	}
+	return ""
+}
+
+func (x *DeleteBackupRequest) GetTiers() []Tier {
+	if x != nil {
+		return x.Tiers
+	}
+	return nil
+}
+
+func (x *DeleteBackupRequest) GetClusterName() string {
+	if x != nil {
+		return x.ClusterName
+	}
+	return ""
+}
+
+// DeleteBackupResponse is the response to a backup deletion request.
+type DeleteBackupResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DeleteBackupResponse) Reset() {
+	*x = DeleteBackupResponse{}
+	mi := &file_proto_klio_admin_proto_msgTypes[7]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DeleteBackupResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DeleteBackupResponse) ProtoMessage() {}
+
+func (x *DeleteBackupResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_klio_admin_proto_msgTypes[7]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DeleteBackupResponse.ProtoReflect.Descriptor instead.
+func (*DeleteBackupResponse) Descriptor() ([]byte, []int) {
+	return file_proto_klio_admin_proto_rawDescGZIP(), []int{7}
+}
+
 var File_proto_klio_admin_proto protoreflect.FileDescriptor
 
 const file_proto_klio_admin_proto_rawDesc = "" +
@@ -286,11 +441,24 @@ const file_proto_klio_admin_proto_rawDesc = "" +
 	"\x12QueueStatusRequest\"a\n" +
 	"\x13QueueStatusResponse\x12'\n" +
 	"\x0fpending_backups\x18\x01 \x01(\x04R\x0ependingBackups\x12!\n" +
-	"\fpending_wals\x18\x02 \x01(\x04R\vpendingWals2\xf3\x01\n" +
+	"\fpending_wals\x18\x02 \x01(\x04R\vpendingWals\"\x82\x01\n" +
+	"\x13DeleteBackupRequest\x12\x1f\n" +
+	"\vbackup_name\x18\x01 \x01(\tR\n" +
+	"backupName\x12'\n" +
+	"\x05tiers\x18\x02 \x03(\x0e2\x11.klio.wal.v1.TierR\x05tiers\x12!\n" +
+	"\fcluster_name\x18\x03 \x01(\tR\vclusterName\"\x16\n" +
+	"\x14DeleteBackupResponse*4\n" +
+	"\x04Tier\x12\x14\n" +
+	"\x10TIER_UNSPECIFIED\x10\x00\x12\n" +
+	"\n" +
+	"\x06TIER_1\x10\x01\x12\n" +
+	"\n" +
+	"\x06TIER_2\x10\x022\xca\x02\n" +
 	"\x05Admin\x12D\n" +
 	"\aRefresh\x12\x1b.klio.wal.v1.RefreshRequest\x1a\x1a.klio.wal.v1.RefreshResult\"\x00\x12P\n" +
 	"\vListBackups\x12\x1f.klio.wal.v1.ListBackupsRequest\x1a\x1e.klio.wal.v1.ListBackupsResult\"\x00\x12R\n" +
-	"\vQueueStatus\x12\x1f.klio.wal.v1.QueueStatusRequest\x1a .klio.wal.v1.QueueStatusResponse\"\x00B1Z/github.com/cloudnative-pg/klio/core/internal/grpcb\x06proto3"
+	"\vQueueStatus\x12\x1f.klio.wal.v1.QueueStatusRequest\x1a .klio.wal.v1.QueueStatusResponse\"\x00\x12U\n" +
+	"\fDeleteBackup\x12 .klio.wal.v1.DeleteBackupRequest\x1a!.klio.wal.v1.DeleteBackupResponse\"\x00B1Z/github.com/cloudnative-pg/klio/core/internal/grpcb\x06proto3"
 
 var (
 	file_proto_klio_admin_proto_rawDescOnce sync.Once
@@ -304,27 +472,34 @@ func file_proto_klio_admin_proto_rawDescGZIP() []byte {
 	return file_proto_klio_admin_proto_rawDescData
 }
 
-var file_proto_klio_admin_proto_msgTypes = make([]protoimpl.MessageInfo, 6)
+var file_proto_klio_admin_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
+var file_proto_klio_admin_proto_msgTypes = make([]protoimpl.MessageInfo, 8)
 var file_proto_klio_admin_proto_goTypes = []any{
-	(*RefreshRequest)(nil),      // 0: klio.wal.v1.RefreshRequest
-	(*RefreshResult)(nil),       // 1: klio.wal.v1.RefreshResult
-	(*ListBackupsRequest)(nil),  // 2: klio.wal.v1.ListBackupsRequest
-	(*ListBackupsResult)(nil),   // 3: klio.wal.v1.ListBackupsResult
-	(*QueueStatusRequest)(nil),  // 4: klio.wal.v1.QueueStatusRequest
-	(*QueueStatusResponse)(nil), // 5: klio.wal.v1.QueueStatusResponse
+	(Tier)(0),                    // 0: klio.wal.v1.Tier
+	(*RefreshRequest)(nil),       // 1: klio.wal.v1.RefreshRequest
+	(*RefreshResult)(nil),        // 2: klio.wal.v1.RefreshResult
+	(*ListBackupsRequest)(nil),   // 3: klio.wal.v1.ListBackupsRequest
+	(*ListBackupsResult)(nil),    // 4: klio.wal.v1.ListBackupsResult
+	(*QueueStatusRequest)(nil),   // 5: klio.wal.v1.QueueStatusRequest
+	(*QueueStatusResponse)(nil),  // 6: klio.wal.v1.QueueStatusResponse
+	(*DeleteBackupRequest)(nil),  // 7: klio.wal.v1.DeleteBackupRequest
+	(*DeleteBackupResponse)(nil), // 8: klio.wal.v1.DeleteBackupResponse
 }
 var file_proto_klio_admin_proto_depIdxs = []int32{
-	0, // 0: klio.wal.v1.Admin.Refresh:input_type -> klio.wal.v1.RefreshRequest
-	2, // 1: klio.wal.v1.Admin.ListBackups:input_type -> klio.wal.v1.ListBackupsRequest
-	4, // 2: klio.wal.v1.Admin.QueueStatus:input_type -> klio.wal.v1.QueueStatusRequest
-	1, // 3: klio.wal.v1.Admin.Refresh:output_type -> klio.wal.v1.RefreshResult
-	3, // 4: klio.wal.v1.Admin.ListBackups:output_type -> klio.wal.v1.ListBackupsResult
-	5, // 5: klio.wal.v1.Admin.QueueStatus:output_type -> klio.wal.v1.QueueStatusResponse
-	3, // [3:6] is the sub-list for method output_type
-	0, // [0:3] is the sub-list for method input_type
-	0, // [0:0] is the sub-list for extension type_name
-	0, // [0:0] is the sub-list for extension extendee
-	0, // [0:0] is the sub-list for field type_name
+	0, // 0: klio.wal.v1.DeleteBackupRequest.tiers:type_name -> klio.wal.v1.Tier
+	1, // 1: klio.wal.v1.Admin.Refresh:input_type -> klio.wal.v1.RefreshRequest
+	3, // 2: klio.wal.v1.Admin.ListBackups:input_type -> klio.wal.v1.ListBackupsRequest
+	5, // 3: klio.wal.v1.Admin.QueueStatus:input_type -> klio.wal.v1.QueueStatusRequest
+	7, // 4: klio.wal.v1.Admin.DeleteBackup:input_type -> klio.wal.v1.DeleteBackupRequest
+	2, // 5: klio.wal.v1.Admin.Refresh:output_type -> klio.wal.v1.RefreshResult
+	4, // 6: klio.wal.v1.Admin.ListBackups:output_type -> klio.wal.v1.ListBackupsResult
+	6, // 7: klio.wal.v1.Admin.QueueStatus:output_type -> klio.wal.v1.QueueStatusResponse
+	8, // 8: klio.wal.v1.Admin.DeleteBackup:output_type -> klio.wal.v1.DeleteBackupResponse
+	5, // [5:9] is the sub-list for method output_type
+	1, // [1:5] is the sub-list for method input_type
+	1, // [1:1] is the sub-list for extension type_name
+	1, // [1:1] is the sub-list for extension extendee
+	0, // [0:1] is the sub-list for field type_name
 }
 
 func init() { file_proto_klio_admin_proto_init() }
@@ -337,13 +512,14 @@ func file_proto_klio_admin_proto_init() {
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_proto_klio_admin_proto_rawDesc), len(file_proto_klio_admin_proto_rawDesc)),
-			NumEnums:      0,
-			NumMessages:   6,
+			NumEnums:      1,
+			NumMessages:   8,
 			NumExtensions: 0,
 			NumServices:   1,
 		},
 		GoTypes:           file_proto_klio_admin_proto_goTypes,
 		DependencyIndexes: file_proto_klio_admin_proto_depIdxs,
+		EnumInfos:         file_proto_klio_admin_proto_enumTypes,
 		MessageInfos:      file_proto_klio_admin_proto_msgTypes,
 	}.Build()
 	File_proto_klio_admin_proto = out.File

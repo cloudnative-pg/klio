@@ -13,6 +13,9 @@ service Admin {
 
   // Get the status of the task queue (pending backups and WALs)
   rpc QueueStatus(QueueStatusRequest) returns (QueueStatusResponse) {}
+
+  // Delete a backup from the server
+  rpc DeleteBackup(DeleteBackupRequest) returns (DeleteBackupResponse) {}
 }
 
 message RefreshRequest{
@@ -46,4 +49,33 @@ message QueueStatusResponse {
 
   // Number of WAL relay tasks pending in the queue
   uint64 pending_wals = 2;
+}
+
+// Tier represents a storage tier in the backup system.
+enum Tier {
+  // TIER_UNSPECIFIED is the default value and should not be used.
+  TIER_UNSPECIFIED = 0;
+
+  // TIER_1 represents the local cache storage.
+  TIER_1 = 1;
+
+  // TIER_2 represents the object storage.
+  TIER_2 = 2;
+}
+
+// DeleteBackupRequest is the request to delete a backup from the server.
+message DeleteBackupRequest {
+  // The name of the backup to delete.
+  string backup_name = 1;
+
+  // The storage tiers from which to delete the backup.
+  // At least one tier must be specified.
+  repeated Tier tiers = 2;
+
+  // The name of the cluster that owns the backup.
+  string cluster_name = 3;
+}
+
+// DeleteBackupResponse is the response to a backup deletion request.
+message DeleteBackupResponse {
 }

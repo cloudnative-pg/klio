@@ -34,6 +34,9 @@ ClusterName
 ControllerManager
 DNS
 DataConfiguration
+DeleteBackup
+DeleteBackupRequest
+DeleteBackupResponse
 Docusaurus
 EDB
 EKS

@@ -4,12 +4,16 @@
 ## Table of Contents
 
 - [klio_admin.proto](#klio_admin-proto)
+    - [DeleteBackupRequest](#klio-wal-v1-DeleteBackupRequest)
+    - [DeleteBackupResponse](#klio-wal-v1-DeleteBackupResponse)
     - [ListBackupsRequest](#klio-wal-v1-ListBackupsRequest)
     - [ListBackupsResult](#klio-wal-v1-ListBackupsResult)
     - [QueueStatusRequest](#klio-wal-v1-QueueStatusRequest)
     - [QueueStatusResponse](#klio-wal-v1-QueueStatusResponse)
     - [RefreshRequest](#klio-wal-v1-RefreshRequest)
     - [RefreshResult](#klio-wal-v1-RefreshResult)
+  
+    - [Tier](#klio-wal-v1-Tier)
   
     - [Admin](#klio-wal-v1-Admin)
   
@@ -41,6 +45,33 @@
 <p align="right"><a href="#top">Top</a></p>
 
 ## klio_admin.proto
+
+
+
+<a name="klio-wal-v1-DeleteBackupRequest"></a>
+
+### DeleteBackupRequest
+DeleteBackupRequest is the request to delete a backup from the server.
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| backup_name | [string](#string) |  | The name of the backup to delete. |
+| tiers | [Tier](#klio-wal-v1-Tier) | repeated | The storage tiers from which to delete the backup. At least one tier must be specified. |
+| cluster_name | [string](#string) |  | The name of the cluster that owns the backup. |
+
+
+
+
+
+
+<a name="klio-wal-v1-DeleteBackupResponse"></a>
+
+### DeleteBackupResponse
+DeleteBackupResponse is the response to a backup deletion request.
+
+
+
 
 
 
@@ -116,6 +147,19 @@
 
  
 
+
+<a name="klio-wal-v1-Tier"></a>
+
+### Tier
+Tier represents a storage tier in the backup system.
+
+| Name | Number | Description |
+| ---- | ------ | ----------- |
+| TIER_UNSPECIFIED | 0 | TIER_UNSPECIFIED is the default value and should not be used. |
+| TIER_1 | 1 | TIER_1 represents the local cache storage. |
+| TIER_2 | 2 | TIER_2 represents the object storage. |
+
+
  
 
  
@@ -131,6 +175,7 @@
 | Refresh | [RefreshRequest](#klio-wal-v1-RefreshRequest) | [RefreshResult](#klio-wal-v1-RefreshResult) | Invoked to refresh the policies and the cache of the Kopia server |
 | ListBackups | [ListBackupsRequest](#klio-wal-v1-ListBackupsRequest) | [ListBackupsResult](#klio-wal-v1-ListBackupsResult) | List every backup on the server |
 | QueueStatus | [QueueStatusRequest](#klio-wal-v1-QueueStatusRequest) | [QueueStatusResponse](#klio-wal-v1-QueueStatusResponse) | Get the status of the task queue (pending backups and WALs) |
+| DeleteBackup | [DeleteBackupRequest](#klio-wal-v1-DeleteBackupRequest) | [DeleteBackupResponse](#klio-wal-v1-DeleteBackupResponse) | Delete a backup from the server |
 
  
 
