@@ -173,6 +173,7 @@ SetFirstRequiredWALRequest
 SetFirstRequiredWALResult
 StartWALFile
 StatefulSet
+StatefulSets
 TLS
 TLSConfiguration
 TLSSecretName

@@ -144,7 +144,10 @@ cached index, run tests, then revert.
 ## PR instructions
 
 - Title format: conventional commit
+- The body should be informative of the content of the PR, without describing
+  every single change
 - Commits must have a `Signed-off-by` footer as the **last line** of the commit message
+  - It should be signed off at least by the user doing the commit
   - If using `Co-Authored-By`, it must come before `Signed-off-by`
   - Example order:
     ```
