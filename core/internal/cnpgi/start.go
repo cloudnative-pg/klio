@@ -91,6 +91,7 @@ func (c *CNPGI) AddWALCapability(opts WALCapabilityOptions) {
 		walService := walServiceImplementation{
 			opts:           opts,
 			availableTiers: availableTiers,
+			mgr:            newGRPCClientManager(),
 		}
 		wal.RegisterWALServer(server, &walService)
 

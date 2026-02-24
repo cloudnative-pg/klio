@@ -32,7 +32,6 @@ type backupServiceImplementation struct {
 func (b backupServiceImplementation) GetCapabilities(
 	_ context.Context, _ *backup.BackupCapabilitiesRequest,
 ) (*backup.BackupCapabilitiesResult, error) {
-	log.Info("receiving backup capabilities call")
 	return &backup.BackupCapabilitiesResult{
 		Capabilities: []*backup.BackupCapability{
 			{

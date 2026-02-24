@@ -1,21 +1,24 @@
 package cnpgi
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"sync"
+	"time"
 
 	cnpgv1 "github.com/cloudnative-pg/cloudnative-pg/api/v1"
 	"github.com/cloudnative-pg/cnpg-i/pkg/wal"
 	"github.com/cloudnative-pg/machinery/pkg/log"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+
+	"github.com/cloudnative-pg/klio/core/internal/client/klioclient"
+	"github.com/cloudnative-pg/klio/core/internal/client/klioclient/grpcclient"
+	"github.com/cloudnative-pg/klio/core/pkg/config"
 )
 
 var errWALNotFound = errors.New("wal not found")
@@ -29,6 +32,8 @@ type walServiceImplementation struct {
 
 	availableTiers   []string
 	currentTierIndex int
+
+	mgr *grpcClientManager
 }
 
 // GetCapabilities implements the WALService interface.
@@ -108,13 +113,10 @@ func (w *walServiceImplementation) restoreWAL(
 	walName, destinationPath string,
 	configPath string,
 ) error {
-	err := internalRestoreWAL(ctx, restoreWALOptions{
-		walName:         walName,
-		destinationPath: destinationPath,
-		configFile:      configPath,
-		debug:           w.opts.Debug,
-		tier:            w.getCurrentTier(),
-	})
+	err := w.mgr.restoreWAL(ctx, restoreWALOptions{
+		configFile: configPath,
+		tier:       w.getCurrentTier(),
+	}, walName, destinationPath)
 
 	// Only try the alternate tier if the WAL was not found and we have multiple tiers
 	if !errors.Is(err, errWALNotFound) || len(w.availableTiers) == 1 {
@@ -123,75 +125,155 @@ func (w *walServiceImplementation) restoreWAL(
 
 	// Let's try the other tier
 	w.skipCurrentTier()
-	err = internalRestoreWAL(ctx, restoreWALOptions{
-		walName:         walName,
-		destinationPath: destinationPath,
-		configFile:      configPath,
-		debug:           w.opts.Debug,
-		tier:            w.getCurrentTier(),
-	})
+	err = w.mgr.restoreWAL(ctx, restoreWALOptions{
+		configFile: configPath,
+		tier:       w.getCurrentTier(),
+	}, walName, destinationPath)
 
 	return err
 }
 
 type restoreWALOptions struct {
-	walName         string
-	destinationPath string
-	configFile      string
-
-	debug bool
-	tier  string
+	configFile string
+	tier       string
 }
 
-func internalRestoreWAL(ctx context.Context, opts restoreWALOptions) error {
-	klioPath, err := os.Executable()
+type grpcClientManager struct {
+	m           sync.Mutex
+	connections map[restoreWALOptions]*grpcclient.Connection
+}
+
+func newGRPCClientManager() *grpcClientManager {
+	return &grpcClientManager{
+		connections: make(map[restoreWALOptions]*grpcclient.Connection),
+	}
+}
+
+func (mgr *grpcClientManager) getConnection(opts restoreWALOptions) (*grpcclient.Connection, error) {
+	mgr.m.Lock()
+	defer mgr.m.Unlock()
+
+	if c, ok := mgr.connections[opts]; ok {
+		return c, nil
+	}
+
+	configFile, err := os.Open(opts.configFile)
 	if err != nil {
-		return fmt.Errorf("failed to determine klio path: %w", err)
+		return nil, fmt.Errorf("while loading config file %q: %w", opts.configFile, err)
+	}
+	defer func() {
+		_ = configFile.Close()
+	}()
+
+	configuration, err := config.DecodeYAML(configFile)
+	if err != nil {
+		return nil, fmt.Errorf("while decoding config file %q: %w", opts.configFile, err)
 	}
 
-	args := []string{
-		"get-wal",
-		opts.walName,
-		opts.destinationPath,
-		"--partial=true",
-		"--tier=" + opts.tier,
+	var address string
+	switch opts.tier {
+	case "tier1":
+		address = configuration.Client.Wal.Address
+
+	case "tier2":
+		address = configuration.Client.Wal.Tier2Address
+
+	default:
+		return nil, fmt.Errorf("unknown tier %q", opts.tier)
 	}
-	if opts.debug {
-		args = append(args, "--debug")
+
+	client, err := grpcclient.Connect(&configuration.Client, address)
+	if err != nil {
+		return nil, fmt.Errorf("while connecting to the Klio server: %w", err)
 	}
 
-	// We need to find out the WAL repository to use
-	args = append(args, "--config", opts.configFile)
+	mgr.connections[opts] = client
 
-	cmd := exec.CommandContext( //nolint: gosec
-		ctx,
-		klioPath,
-		args...)
+	return client, nil
+}
 
-	var stdout, stderr bytes.Buffer
-	cmd.Stdout = &stdout
-	cmd.Stderr = &stderr
+func (mgr *grpcClientManager) restoreWAL(
+	ctx context.Context,
+	opts restoreWALOptions,
+	walName string,
+	targetFileName string,
+) error {
+	contextLogger := log.FromContext(ctx).
+		WithValues(
+			"configFile", opts.configFile,
+			"tier", opts.tier,
+			"walName", walName,
+			"targetFileName", targetFileName,
+		)
 
-	contextLogger := log.FromContext(ctx).WithName("wal_restore")
-	contextLogger.Info("Starting get-wal", "args", args, "opts", opts)
+	contextLogger.Debug("Restoring WAL file")
+	start := time.Now()
+	err := mgr.internalRestoreWAL(ctx, opts, walName, targetFileName)
+	duration := time.Since(start)
 
-	var exitError *exec.ExitError
-	err = cmd.Run()
+	if err != nil {
+		contextLogger.Info("Error while restoring WAL File", "duration", duration, "err", err)
+	} else {
+		contextLogger.Info("Restored WAL File", "duration", duration)
+	}
+
+	return err
+}
+
+func (mgr *grpcClientManager) internalRestoreWAL(
+	ctx context.Context,
+	opts restoreWALOptions,
+	walName string,
+	targetFileName string,
+) error {
+	contextLogger := log.FromContext(ctx)
+
+	client, err := mgr.getConnection(opts)
+	if err != nil {
+		return err
+	}
+
+	output, err := os.OpenFile(targetFileName, os.O_TRUNC|os.O_CREATE|os.O_WRONLY, 0o600) //nolint:gosec
+	if err != nil {
+		return fmt.Errorf("cannot open file %s: %w", targetFileName, err)
+	}
+	defer func() {
+		if closeErr := output.Close(); closeErr != nil {
+			contextLogger.Error(closeErr, "While closing WAL file")
+		}
+	}()
+
+	// Try to download the requested WAL file. If we did it, everything
+	// is fine.
+	err = client.GetWALStreaming(ctx, walName, output)
 	switch {
-	case errors.As(err, &exitError) && exitError.ExitCode() == 4:
-		return errWALNotFound
+	case errors.Is(err, klioclient.ErrMissingWALFile):
+		// Let's try downloading the partial file
 
 	case err != nil:
-		return fmt.Errorf(
-			"failed to execute klio get-wal command: %w, stdout: %q, stderr: %q",
-			err,
-			stdout.String(),
-			stderr.String(),
-		)
+		return fmt.Errorf("unknown error: %w", err)
 
 	default:
 		return nil
 	}
+
+	// Let's try downloading the partial file
+	walName += ".partial"
+	err = client.GetWALStreaming(ctx, walName, output)
+
+	var incompleteError klioclient.IncompleteTransmissionError
+	switch {
+	case errors.As(err, &incompleteError):
+		return err
+
+	case errors.Is(err, klioclient.ErrMissingWALFile):
+		return errWALNotFound
+
+	case err != nil:
+		return fmt.Errorf("while downloading WAL %q: %w", walName, err)
+	}
+
+	return nil
 }
 
 func getWalRepositoryConfigurationPath(cluster *cnpgv1.Cluster, instanceName string) (string, error) {
