@@ -127,6 +127,20 @@ as the WAL are streamed directly to the Klio server. Thus, you must not set
 `isWALArchiver: true` in the plugin configuration.
 :::
 
+## Applying configuration changes
+
+Changes to a `PluginConfiguration` resource are not automatically propagated
+to running cluster pods. The Klio operator reads the `PluginConfiguration`
+only when CloudNativePG creates or recreates a pod.
+
+To apply changes immediately, perform a rolling restart of the cluster pods
+using the [`kubectl cnpg restart`
+command](https://cloudnative-pg.io/docs/current/kubectl-plugin/#restart):
+
+```bash
+kubectl cnpg restart <cluster-name>
+```
+
 ## Advanced configuration options
 
 The `PluginConfiguration` resource supports several advanced options to
