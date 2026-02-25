@@ -120,7 +120,7 @@ tasks:
       - core:protoc-gen-go-grpc
     env:
       # renovate: datasource=docker depName=golang versioning=docker
-      GOLANG_IMAGE_VERSION: 1.26.0@sha256:c83e68f3ebb6943a2904fa66348867d108119890a2c6a2e6f07b38d0eb6c25c5
+      GOLANG_IMAGE_VERSION: 1.26.0@sha256:b75179794e029c128d4496f695325a4c23b29986574ad13dd52a0d3ee9f72a6f
       # renovate: datasource=custom.envtest depName=kubernetes packageName=https://github.com/kubernetes/kubernetes versioning=semver
       K8S_VERSION: 1.35.0
       # renovate: datasource=git-refs depName=controller-runtime packageName=https://github.com/kubernetes-sigs/controller-runtime versioning=semver
@@ -144,7 +144,7 @@ tasks:
       # renovate: datasource=github-tags depName=goreleaser/goreleaser versioning=semver
       GORELEASER_VERSION: v2.14.0
       # renovate: datasource=docker depName=golang versioning=docker
-      GOLANG_IMAGE_VERSION: 1.26.0@sha256:c83e68f3ebb6943a2904fa66348867d108119890a2c6a2e6f07b38d0eb6c25c5
+      GOLANG_IMAGE_VERSION: 1.26.0@sha256:b75179794e029c128d4496f695325a4c23b29986574ad13dd52a0d3ee9f72a6f
     run: once
     cmds:
       # Goreleaser needs the .git directory to figure out the version from the tags.
@@ -195,7 +195,7 @@ tasks:
       # renovate: datasource=github-tags depName=goreleaser/goreleaser versioning=semver
       GORELEASER_VERSION: v2.14.0
       # renovate: datasource=docker depName=golang versioning=docker
-      GOLANG_IMAGE_VERSION: 1.26.0@sha256:c83e68f3ebb6943a2904fa66348867d108119890a2c6a2e6f07b38d0eb6c25c5
+      GOLANG_IMAGE_VERSION: 1.26.0@sha256:b75179794e029c128d4496f695325a4c23b29986574ad13dd52a0d3ee9f72a6f
     cmds:
       # Goreleaser needs the .git directory to figure out the version from the tags.
       # Given that it is easier to have .goreleaser.yaml in the core directory, we
