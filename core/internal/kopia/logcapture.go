@@ -62,16 +62,26 @@ func RunWithLogCapture(ctx context.Context, cmd *exec.Cmd, captureStdout io.Writ
 	contextLogger := log.FromContext(ctx)
 
 	// streamLogs reads from a pipe line-by-line and logs each line with structured logging.
+	// If the scanner fails (e.g., due to a line exceeding the buffer limit), we create a new
+	// scanner and continue reading. This ensures the pipe keeps being drained and prevents the
+	// subprocess from blocking on write.
 	streamLogs := func(pipe io.Reader, stream string) {
-		scanner := bufio.NewScanner(pipe)
+		for {
+			scanner := bufio.NewScanner(pipe)
+			scanner.Buffer(make([]byte, 0, 4096), 1024*1024)
 
-		for scanner.Scan() {
-			line := scanner.Text()
-			contextLogger.Info(line, "stream", stream)
-		}
+			for scanner.Scan() {
+				line := scanner.Text()
+				contextLogger.Info(line, "stream", stream)
+			}
 
-		if err := scanner.Err(); err != nil {
-			contextLogger.Error(err, "Error reading from pipe", "stream", stream)
+			if err := scanner.Err(); err != nil {
+				contextLogger.Error(err, "Error reading from pipe, retrying", "stream", stream)
+				continue
+			}
+
+			// scanner.Err() is nil means we reached EOF
+			break
 		}
 	}
 
