@@ -39,7 +39,12 @@ var pprofServerAddress string
 var rootCmd = &cobra.Command{
 	Use:   "klio",
 	Short: "Klio is a Cloud Native Backup & Recovery solution",
-	PersistentPreRunE: func(_ *cobra.Command, _ []string) error {
+	PersistentPreRunE: func(cmd *cobra.Command, _ []string) error {
+		// Silence usage for runtime errors.
+		// Usage is still shown for flag parsing and args validation errors
+		// because those occur before PersistentPreRunE is called.
+		cmd.SilenceUsage = true
+
 		// TODO: fix, it is for backward compatibility
 		if debug {
 			log.SetLogLevel(log.DebugLevelString)
