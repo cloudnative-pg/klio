@@ -119,6 +119,8 @@ func (s *Client) RestoreSnapshot(
 		"restore",
 		"--config-file=" + s.ConfigFile,
 		"--disable-file-logging",
+		"--progress",
+		"--progress-update-interval=60s",
 		snapshotID,
 		destinationDirectory,
 	}

@@ -2,6 +2,7 @@ package kopia
 
 import (
 	"bufio"
+	"bytes"
 	"context"
 	"fmt"
 	"io"
@@ -10,6 +11,29 @@ import (
 
 	"github.com/cloudnative-pg/machinery/pkg/log"
 )
+
+// scanLinesOrCR is a split function for bufio.Scanner that splits on both
+// '\n' and '\r'. This handles Kopia's progress output which uses '\r' for
+// in-place updates. Based on bufio.ScanLines.
+func scanLinesOrCR(data []byte, atEOF bool) (int, []byte, error) {
+	if atEOF && len(data) == 0 {
+		return 0, nil, nil
+	}
+	if i := bytes.IndexAny(data, "\r\n"); i >= 0 {
+		// Handle \r\n as a single line ending
+		if data[i] == '\r' && i+1 < len(data) && data[i+1] == '\n' {
+			return i + 2, data[0:i], nil
+		}
+
+		return i + 1, data[0:i], nil
+	}
+	// If we're at EOF, we have a final, non-terminated line. Return it.
+	if atEOF {
+		return len(data), data, nil
+	}
+	// Request more data.
+	return 0, nil, nil
+}
 
 // RunWithLogCapture executes a command with structured logging for stderr.
 // Stderr output is logged line-by-line using structured logging.
@@ -69,6 +93,7 @@ func RunWithLogCapture(ctx context.Context, cmd *exec.Cmd, captureStdout io.Writ
 		for {
 			scanner := bufio.NewScanner(pipe)
 			scanner.Buffer(make([]byte, 0, 4096), 1024*1024)
+			scanner.Split(scanLinesOrCR)
 
 			for scanner.Scan() {
 				line := scanner.Text()

@@ -1,6 +1,7 @@
 package kopia
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	"os/exec"
@@ -101,4 +102,159 @@ func TestRunWithLogCapture_InvalidCommand(t *testing.T) {
 	err := RunWithLogCapture(ctx, cmd, nil)
 	require.Error(t, err)
 	assert.Contains(t, strings.ToLower(err.Error()), "failed to start")
+}
+
+func TestScanLinesOrCR(t *testing.T) {
+	testCases := []struct {
+		name        string
+		input       []byte
+		atEOF       bool
+		wantAdvance int
+		wantToken   string
+		wantMore    bool // true if we expect (0, nil, nil) - requesting more data
+	}{
+		{
+			name:        "line ending with LF",
+			input:       []byte("hello\nworld"),
+			atEOF:       false,
+			wantAdvance: 6,
+			wantToken:   "hello",
+		},
+		{
+			name:        "line ending with CR",
+			input:       []byte("hello\rworld"),
+			atEOF:       false,
+			wantAdvance: 6,
+			wantToken:   "hello",
+		},
+		{
+			name:        "line ending with CRLF",
+			input:       []byte("hello\r\nworld"),
+			atEOF:       false,
+			wantAdvance: 7,
+			wantToken:   "hello",
+		},
+		{
+			name:        "empty input at EOF",
+			input:       []byte{},
+			atEOF:       true,
+			wantAdvance: 0,
+			wantToken:   "",
+		},
+		{
+			name:        "empty input not at EOF",
+			input:       []byte{},
+			atEOF:       false,
+			wantAdvance: 0,
+			wantToken:   "",
+			wantMore:    true,
+		},
+		{
+			name:        "no line ending at EOF returns final line",
+			input:       []byte("final"),
+			atEOF:       true,
+			wantAdvance: 5,
+			wantToken:   "final",
+		},
+		{
+			name:        "no line ending not at EOF requests more data",
+			input:       []byte("partial"),
+			atEOF:       false,
+			wantAdvance: 0,
+			wantToken:   "",
+			wantMore:    true,
+		},
+		{
+			name:        "only LF",
+			input:       []byte("\n"),
+			atEOF:       false,
+			wantAdvance: 1,
+			wantToken:   "",
+		},
+		{
+			name:        "only CR",
+			input:       []byte("\r"),
+			atEOF:       false,
+			wantAdvance: 1,
+			wantToken:   "",
+		},
+		{
+			name:        "only CRLF",
+			input:       []byte("\r\n"),
+			atEOF:       false,
+			wantAdvance: 2,
+			wantToken:   "",
+		},
+		{
+			name:        "CR at end of buffer not at EOF",
+			input:       []byte("hello\r"),
+			atEOF:       false,
+			wantAdvance: 6,
+			wantToken:   "hello",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			advance, token, err := scanLinesOrCR(tc.input, tc.atEOF)
+			require.NoError(t, err)
+
+			if tc.wantMore {
+				assert.Equal(t, 0, advance, "expected request for more data")
+				assert.Nil(t, token, "expected nil token when requesting more data")
+			} else {
+				assert.Equal(t, tc.wantAdvance, advance)
+				assert.Equal(t, tc.wantToken, string(token))
+			}
+		})
+	}
+}
+
+func TestScanLinesOrCR_FullScan(t *testing.T) {
+	// Test scanning a complete input with mixed line endings using bufio.Scanner.
+	testCases := []struct {
+		name      string
+		input     string
+		wantLines []string
+	}{
+		{
+			name:      "mixed LF and CR",
+			input:     "line1\nline2\rline3\n",
+			wantLines: []string{"line1", "line2", "line3"},
+		},
+		{
+			name:      "all CR (progress-style output)",
+			input:     "progress 10%\rprogress 50%\rprogress 100%\r",
+			wantLines: []string{"progress 10%", "progress 50%", "progress 100%"},
+		},
+		{
+			name:      "CRLF line endings",
+			input:     "line1\r\nline2\r\nline3\r\n",
+			wantLines: []string{"line1", "line2", "line3"},
+		},
+		{
+			name:      "mixed endings with final line without terminator",
+			input:     "line1\nline2\rline3",
+			wantLines: []string{"line1", "line2", "line3"},
+		},
+		{
+			name:      "empty lines",
+			input:     "line1\n\nline2\r\rline3",
+			wantLines: []string{"line1", "", "line2", "", "line3"},
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			var lines []string
+			scanner := bufio.NewScanner(strings.NewReader(tc.input))
+			scanner.Split(scanLinesOrCR)
+
+			for scanner.Scan() {
+				lines = append(lines, scanner.Text())
+			}
+			require.NoError(t, scanner.Err())
+			assert.Equal(t, tc.wantLines, lines)
+		})
+	}
 }
