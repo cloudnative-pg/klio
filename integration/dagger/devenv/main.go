@@ -45,7 +45,7 @@ func (m *Devenv) Kubernetes(
 	registryImage string,
 // +optional
 // renovate image: datasource=docker depName=skopeo lookupName=quay.io/skopeo/stable versioning=docker
-// +default="quay.io/skopeo/stable:v1.21.0@sha256:43e05f7fd4768a0ad7c5a294d34bc77eff77ca36aaccc107037dcc9b4c7e888f"
+// +default="quay.io/skopeo/stable:v1.21.0@sha256:d2f8c582e4f500f56db439a7b2916fbda81db763ef6ad8537b6c648932d24f0f"
 	skopeoImage string,
 // renovate image: datasource=docker depName=k3s lookupName=rancher/k3s versioning=docker
 // +default="rancher/k3s:v1.35.1-k3s1@sha256:634920385dc89133d80060b3a3b2b547e734d711ef8c050e6b5c6341800d53fd"
