@@ -52,7 +52,40 @@ type ServerSpec struct {
 	// This field is primarily intended for advanced configuration such as telemetry setup.
 	// Use at your own risk and ensure thorough testing before applying changes.
 	// +optional
-	Template *corev1.PodTemplateSpec `json:"template,omitempty"`
+	Template *PodTemplateSpec `json:"template,omitempty"`
+}
+
+// EmbeddedObjectMeta contains metadata for embedded objects.
+type EmbeddedObjectMeta struct {
+	// +optional
+	Labels map[string]string `json:"labels,omitempty"`
+
+	// +optional
+	Annotations map[string]string `json:"annotations,omitempty"`
+}
+
+// PodTemplateSpec describes the data a pod should have when created from a template.
+type PodTemplateSpec struct {
+	// +optional
+	Metadata EmbeddedObjectMeta `json:"metadata,omitempty"`
+
+	// +optional
+	Spec corev1.PodSpec `json:"spec,omitempty"`
+}
+
+// ToCoreV1 converts the custom PodTemplateSpec to corev1.PodTemplateSpec.
+func (p *PodTemplateSpec) ToCoreV1() *corev1.PodTemplateSpec {
+	if p == nil {
+		return nil
+	}
+
+	return &corev1.PodTemplateSpec{
+		ObjectMeta: metav1.ObjectMeta{
+			Labels:      p.Metadata.Labels,
+			Annotations: p.Metadata.Annotations,
+		},
+		Spec: p.Spec,
+	}
 }
 
 // ImageConfiguration contains the information needed to download

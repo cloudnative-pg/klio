@@ -6,6 +6,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 func TestMergeDoNotDeleteContainers(t *testing.T) {
@@ -151,4 +152,60 @@ func TestMergeEnv(t *testing.T) {
 		},
 		result.Spec.Containers[0].Env[2],
 	)
+}
+
+func TestMergeLabels(t *testing.T) {
+	base := corev1.PodTemplateSpec{
+		ObjectMeta: metav1.ObjectMeta{
+			Labels: map[string]string{
+				"base-label": "base-value",
+			},
+		},
+		Spec: corev1.PodSpec{
+			Containers: []corev1.Container{{Name: "test", Image: "test"}},
+		},
+	}
+
+	overlay := corev1.PodTemplateSpec{
+		ObjectMeta: metav1.ObjectMeta{
+			Labels: map[string]string{
+				"overlay-label": "overlay-value",
+			},
+		},
+	}
+
+	result, err := Merge(&base, &overlay)
+	require.NoError(t, err)
+	require.NotNil(t, result)
+
+	assert.Equal(t, "base-value", result.Labels["base-label"])
+	assert.Equal(t, "overlay-value", result.Labels["overlay-label"])
+}
+
+func TestMergeAnnotations(t *testing.T) {
+	base := corev1.PodTemplateSpec{
+		ObjectMeta: metav1.ObjectMeta{
+			Annotations: map[string]string{
+				"base-annotation": "base-value",
+			},
+		},
+		Spec: corev1.PodSpec{
+			Containers: []corev1.Container{{Name: "test", Image: "test"}},
+		},
+	}
+
+	overlay := corev1.PodTemplateSpec{
+		ObjectMeta: metav1.ObjectMeta{
+			Annotations: map[string]string{
+				"overlay-annotation": "overlay-value",
+			},
+		},
+	}
+
+	result, err := Merge(&base, &overlay)
+	require.NoError(t, err)
+	require.NotNil(t, result)
+
+	assert.Equal(t, "base-value", result.Annotations["base-annotation"])
+	assert.Equal(t, "overlay-value", result.Annotations["overlay-annotation"])
 }

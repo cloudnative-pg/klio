@@ -137,7 +137,7 @@ func (r *ServerReconciler) reconcileStatefulSet(ctx context.Context, server *kli
 	}
 
 	if server.Spec.Template != nil {
-		merged, err := podtemplate.Merge(&expected.Spec.Template, server.Spec.Template)
+		merged, err := podtemplate.Merge(&expected.Spec.Template, server.Spec.Template.ToCoreV1())
 		if err != nil {
 			return fmt.Errorf("failed to merge pod templates: %w", err)
 		}

@@ -45,6 +45,23 @@ _Appears in:_
 | `pvcTemplate` _[PersistentVolumeClaimSpec](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#persistentvolumeclaimspec-v1-core)_ | Template to be used to generate the Persistent Volume Claim needed for the data folder,<br />containing base backups and WAL files. | True |  |  |
 
 
+#### EmbeddedObjectMeta
+
+
+
+EmbeddedObjectMeta contains metadata for embedded objects.
+
+
+
+_Appears in:_
+- [PodTemplateSpec](#podtemplatespec)
+
+| Field | Description | Required | Default | Validation |
+| --- | --- | --- | --- | --- |
+| `labels` _object (keys:string, values:string)_ |  |  |  | Optional: \{\} <br /> |
+| `annotations` _object (keys:string, values:string)_ |  |  |  | Optional: \{\} <br /> |
+
+
 #### ImageConfiguration
 
 
@@ -118,6 +135,23 @@ PluginConfigurationStatus defines the observed state of ClientConfig.
 _Appears in:_
 - [PluginConfiguration](#pluginconfiguration)
 
+
+
+#### PodTemplateSpec
+
+
+
+PodTemplateSpec describes the data a pod should have when created from a template.
+
+
+
+_Appears in:_
+- [ServerSpec](#serverspec)
+
+| Field | Description | Required | Default | Validation |
+| --- | --- | --- | --- | --- |
+| `metadata` _[EmbeddedObjectMeta](#embeddedobjectmeta)_ | Refer to Kubernetes API documentation for fields of `metadata`. |  |  | Optional: \{\} <br /> |
+| `spec` _[PodSpec](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#podspec-v1-core)_ |  |  |  | Optional: \{\} <br /> |
 
 
 #### Queue
@@ -241,7 +275,7 @@ _Appears in:_
 | `tier1` _[Tier1Configuration](#tier1configuration)_ | Tier1 is the Tier 1 configuration | True |  |  |
 | `tier2` _[Tier2Configuration](#tier2configuration)_ | Tier2 is the Tier 2 configuration | True |  |  |
 | `queue` _[Queue](#queue)_ | Queue is the configuration of the PVC that should host<br />the task queue. |  |  | Optional: \{\} <br /> |
-| `template` _[PodTemplateSpec](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#podtemplatespec-v1-core)_ | Template to override the default StatefulSet of the Klio server.<br />WARNING: Modifying this template may break the server functionality if not done carefully.<br />This field is primarily intended for advanced configuration such as telemetry setup.<br />Use at your own risk and ensure thorough testing before applying changes. |  |  | Optional: \{\} <br /> |
+| `template` _[PodTemplateSpec](#podtemplatespec)_ | Template to override the default StatefulSet of the Klio server.<br />WARNING: Modifying this template may break the server functionality if not done carefully.<br />This field is primarily intended for advanced configuration such as telemetry setup.<br />Use at your own risk and ensure thorough testing before applying changes. |  |  | Optional: \{\} <br /> |
 
 
 #### ServerStatus
