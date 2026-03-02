@@ -17,6 +17,8 @@ type CNPGI struct {
 	ServerKeyPath  string
 	ClientCertPath string
 	ServerAddress  string
+	CNPGGroup      string
+	CNPGVersion    string
 }
 
 // Start the GRPC server of the operator.
@@ -26,7 +28,9 @@ func (c *CNPGI) Start(ctx context.Context) error {
 			Client: c.Client,
 		})
 		lifecycle.RegisterOperatorLifecycleServer(server, LifecycleImplementation{
-			Client: c.Client,
+			Client:      c.Client,
+			CNPGGroup:   c.CNPGGroup,
+			CNPGVersion: c.CNPGVersion,
 		})
 
 		return nil

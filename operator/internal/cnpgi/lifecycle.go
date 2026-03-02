@@ -33,7 +33,9 @@ const (
 type LifecycleImplementation struct {
 	lifecycle.UnimplementedOperatorLifecycleServer
 
-	Client client.Client
+	Client      client.Client
+	CNPGGroup   string
+	CNPGVersion string
 }
 
 // GetCapabilities exposes the lifecycle capabilities.
@@ -203,6 +205,8 @@ func (impl LifecycleImplementation) reconcileJob(
 		jobRole,
 		reconcilePodSpecConfiguration{
 			sidecarsToEnrich: sidecarsToEnrich,
+			cnpgGroup:        impl.CNPGGroup,
+			cnpgVersion:      impl.CNPGVersion,
 		}); err != nil {
 		contextLogger.Error(err, "Failed to reconcile pod spec for job")
 		return nil, fmt.Errorf("while reconciling pod spec for job: %w", err)
@@ -305,6 +309,8 @@ func (impl LifecycleImplementation) reconcilePod(
 		"postgres",
 		reconcilePodSpecConfiguration{
 			sidecarsToEnrich: sidecarsToEnrich,
+			cnpgGroup:        impl.CNPGGroup,
+			cnpgVersion:      impl.CNPGVersion,
 		}); err != nil {
 		contextLogger.Error(err, "Failed to reconcile pod spec")
 		return nil, fmt.Errorf("failed to reconcile pod spec: %w", err)
@@ -369,6 +375,8 @@ func buildInstanceSidecarTemplate(
 type reconcilePodSpecConfiguration struct {
 	sidecarsToEnrich []corev1.Container
 	enablePPROF      bool
+	cnpgGroup        string
+	cnpgVersion      string
 }
 
 // reconcilePodSpec reconciles the pod spec to include the klio server sidecar and its configuration.
@@ -442,11 +450,11 @@ func reconcilePodSpec(
 			},
 			{
 				Name:  "CUSTOM_CNPG_GROUP",
-				Value: cluster.GetObjectKind().GroupVersionKind().Group,
+				Value: cfg.cnpgGroup,
 			},
 			{
 				Name:  "CUSTOM_CNPG_VERSION",
-				Value: cluster.GetObjectKind().GroupVersionKind().Version,
+				Value: cfg.cnpgVersion,
 			},
 		},
 		VolumeMounts: volumeMounts,

@@ -212,6 +212,8 @@ func main() {
 		ServerKeyPath:  pluginServerKey,
 		ClientCertPath: pluginClientCert,
 		ServerAddress:  pluginServerAddress,
+		CNPGGroup:      cnpgGroup,
+		CNPGVersion:    cnpgVersion,
 	}); err != nil {
 		setupLog.Error(err, "unable to create CNPGI runnable")
 		os.Exit(1)

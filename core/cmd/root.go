@@ -122,6 +122,15 @@ func initConfig() {
 	viper.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
 	viper.AutomaticEnv()
 
+	// Bind AWS_REGION as a fallback for the S3 region configuration.
+	// This allows the AWS SDK's standard environment variable to be used.
+	_ = viper.BindEnv("tier2.s3.region", "TIER2_S3_REGION", "AWS_REGION")
+
+	// Bind CUSTOM_CNPG_GROUP and CUSTOM_CNPG_VERSION for the sidecar.
+	// The operator sets these env vars with underscores, but viper keys use dashes.
+	_ = viper.BindEnv("custom-cnpg-group", "CUSTOM_CNPG_GROUP")
+	_ = viper.BindEnv("custom-cnpg-version", "CUSTOM_CNPG_VERSION")
+
 	// If a config file is found, read it in.
 	if err := viper.ReadInConfig(); err != nil {
 		var configFileNotFoundError viper.ConfigFileNotFoundError
@@ -131,7 +140,4 @@ func initConfig() {
 			log.Error(err, "Failed reading config file")
 		}
 	}
-
-	_ = viper.BindEnv("custom-cnpg-group", "CUSTOM_CNPG_GROUP")
-	_ = viper.BindEnv("custom-cnpg-version", "CUSTOM_CNPG_VERSION")
 }
