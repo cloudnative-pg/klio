@@ -62,6 +62,8 @@ func buildConnectRemoteArgs(configFileName string, opts RemoteRepoOpts) []string
 		"--server-cert-fingerprint=" + opts.ServerCertFingerprint,
 		"--override-username=" + opts.Username,
 		"--override-hostname=" + opts.Hostname,
+		"--metadata-cache-size-mb=0",
+		"--content-cache-size-mb=0",
 	}
 
 	if opts.ReadOnly {
