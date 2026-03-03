@@ -42,7 +42,7 @@ func (s *Client) ListSnapshots(
 
 	var stdout bytes.Buffer
 	snapshotList := exec.CommandContext(ctx, s.KopiaBinary, args...) //nolint:gosec
-	snapshotList.Env = s.envPassword()
+	snapshotList.Env = s.kopiaEnvironmentVariables()
 
 	logFn("Looking for Kopia snapshots", "args", snapshotList.Args)
 
@@ -85,7 +85,7 @@ func (s *Client) RestoreSingleFile(ctx context.Context, snapshotID string, fileN
 	contextLogger.Info("Restoring Kopia snapshot (single file)", "args", args)
 
 	restoreCmd := exec.CommandContext(ctx, s.KopiaBinary, args...) //nolint:gosec
-	restoreCmd.Env = s.envPassword()
+	restoreCmd.Env = s.kopiaEnvironmentVariables()
 
 	if err := RunWithLogCapture(ctx, restoreCmd, nil); err != nil {
 		return nil, fmt.Errorf("while restoring Kopia snapshot: %w", err)
@@ -128,7 +128,7 @@ func (s *Client) RestoreSnapshot(
 	contextLogger.Info("Restoring Kopia snapshot", "args", args)
 
 	restoreCmd := exec.CommandContext(ctx, s.KopiaBinary, args...) //nolint:gosec
-	restoreCmd.Env = s.envPassword()
+	restoreCmd.Env = s.kopiaEnvironmentVariables()
 
 	if err := RunWithLogCapture(ctx, restoreCmd, nil); err != nil {
 		return fmt.Errorf("while restoring Kopia snapshot: %w", err)

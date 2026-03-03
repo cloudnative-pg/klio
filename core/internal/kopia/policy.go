@@ -32,7 +32,7 @@ func (s *Client) GetCurrentKopiaPolicy(
 	var buffer bytes.Buffer
 
 	showPolicyCmd := exec.CommandContext(ctx, s.KopiaBinary, args...) //nolint:gosec
-	showPolicyCmd.Env = s.envPassword()
+	showPolicyCmd.Env = s.kopiaEnvironmentVariables()
 
 	if err := RunWithLogCapture(ctx, showPolicyCmd, &buffer); err != nil {
 		return nil, fmt.Errorf("error while getting Kopia policy: %w", err)
@@ -79,7 +79,7 @@ func (s *Client) SetKopiaPolicy(
 	contextLogger.Info("Setting Kopia policy", "args", args, "target", t)
 
 	setPolicyCmd := exec.CommandContext(ctx, s.KopiaBinary, args...) //nolint:gosec
-	setPolicyCmd.Env = s.envPassword()
+	setPolicyCmd.Env = s.kopiaEnvironmentVariables()
 
 	if err := RunWithLogCapture(ctx, setPolicyCmd, nil); err != nil {
 		return fmt.Errorf("error while setting Kopia policy: %w", err)
@@ -104,7 +104,7 @@ func (s *Client) ApplyKopiaPolicy(ctx context.Context, t Target) error {
 	contextLogger.Info("Applying Kopia policy", "args", args, "target", t)
 
 	snapshotExpireCmd := exec.CommandContext(ctx, s.KopiaBinary, args...) //nolint:gosec
-	snapshotExpireCmd.Env = s.envPassword()
+	snapshotExpireCmd.Env = s.kopiaEnvironmentVariables()
 
 	if err := RunWithLogCapture(ctx, snapshotExpireCmd, nil); err != nil {
 		return fmt.Errorf("error while applying Kopia policy: %w", err)

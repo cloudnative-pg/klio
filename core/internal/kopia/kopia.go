@@ -31,14 +31,15 @@ type Client struct {
 	Password string //nolint:gosec
 }
 
-func (s *Client) envPassword() []string {
-	if s.Password == "" {
-		return nil
+func (s *Client) kopiaEnvironmentVariables() []string {
+	result := make([]string, 0, 2)
+
+	result = append(result, "KOPIA_CHECK_FOR_UPDATES=false")
+	if s.Password != "" {
+		result = append(result, "KOPIA_PASSWORD="+s.Password)
 	}
 
-	return []string{
-		"KOPIA_PASSWORD=" + s.Password,
-	}
+	return result
 }
 
 // CommonRepoOpts contains common options for repository operations.

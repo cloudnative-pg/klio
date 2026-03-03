@@ -5,6 +5,8 @@ import (
 	"testing"
 )
 
+const kopiaCheckForUpdatesEnv = "KOPIA_CHECK_FOR_UPDATES=false"
+
 func TestEnvPassword(t *testing.T) {
 	cases := []struct {
 		name     string
@@ -16,14 +18,14 @@ func TestEnvPassword(t *testing.T) {
 			client: Client{
 				Password: "password",
 			},
-			expected: []string{"KOPIA_PASSWORD=password"},
+			expected: []string{kopiaCheckForUpdatesEnv, "KOPIA_PASSWORD=password"}, // NOSONAR
 		},
 		{
-			name: "Empty password returns nil",
+			name: "Empty password",
 			client: Client{
 				Password: "",
 			},
-			expected: nil,
+			expected: []string{kopiaCheckForUpdatesEnv},
 		},
 		{
 			name: "Other fields set but no password",
@@ -32,13 +34,13 @@ func TestEnvPassword(t *testing.T) {
 				KopiaBinary: "/path/to/kopia",
 				Password:    "",
 			},
-			expected: nil,
+			expected: []string{kopiaCheckForUpdatesEnv},
 		},
 	}
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			got := tc.client.envPassword()
+			got := tc.client.kopiaEnvironmentVariables()
 
 			if !slices.Equal(got, tc.expected) {
 				t.Errorf("envPassword() = %v, want %v", got, tc.expected)

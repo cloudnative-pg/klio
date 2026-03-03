@@ -25,7 +25,7 @@ func (s *Client) DeleteSnapshot(ctx context.Context, id string) error {
 	contextLogger.Info("Deleting Kopia snapshot", "args", args)
 
 	deleteSnapshotCmd := exec.CommandContext(ctx, s.KopiaBinary, args...) //nolint:gosec
-	deleteSnapshotCmd.Env = s.envPassword()
+	deleteSnapshotCmd.Env = s.kopiaEnvironmentVariables()
 
 	if err := RunWithLogCapture(ctx, deleteSnapshotCmd, nil); err != nil {
 		return fmt.Errorf("while deleting Kopia snapshot: %w", err)
@@ -71,7 +71,7 @@ func (s *Client) MigrateSnapshots(
 	}
 
 	kopiaMigrate := exec.CommandContext(ctx, s.KopiaBinary, args...) //nolint:gosec
-	kopiaMigrate.Env = s.envPassword()
+	kopiaMigrate.Env = s.kopiaEnvironmentVariables()
 
 	contextLogger.Info("Starting Kopia migration", "args", kopiaMigrate.Args)
 
@@ -119,7 +119,7 @@ func (s *Client) SnapshotDirectory(
 	args = append(args, opts.Directory)
 
 	snapshotCreateCommand := exec.CommandContext(ctx, s.KopiaBinary, args...) //nolint:gosec
-	snapshotCreateCommand.Env = s.envPassword()
+	snapshotCreateCommand.Env = s.kopiaEnvironmentVariables()
 
 	contextLogger.Info("Saving Kopia snapshot", "args", snapshotCreateCommand.Args)
 	if err := RunWithLogCapture(ctx, snapshotCreateCommand, nil); err != nil {
@@ -175,7 +175,7 @@ func (s *Client) SnapshotFileContent(
 
 	snapshotCreateCommand := exec.CommandContext(ctx, s.KopiaBinary, args...) //nolint:gosec
 	snapshotCreateCommand.Stdin = buffer
-	snapshotCreateCommand.Env = s.envPassword()
+	snapshotCreateCommand.Env = s.kopiaEnvironmentVariables()
 
 	contextLogger.Info("Saving Kopia snapshot", "args", snapshotCreateCommand.Args)
 	if err := RunWithLogCapture(ctx, snapshotCreateCommand, nil); err != nil {
