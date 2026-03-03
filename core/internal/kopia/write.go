@@ -59,6 +59,7 @@ func (s *Client) MigrateSnapshots(
 		"--source-config="+opts.SourceConfig,
 		"--config-file="+s.ConfigFile,
 		"--disable-file-logging",
+		"--progress-update-interval=60s",
 	)
 
 	for _, source := range opts.Sources {
