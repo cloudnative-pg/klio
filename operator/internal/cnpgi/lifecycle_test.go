@@ -295,7 +295,7 @@ func TestBuildInstanceSidecarTemplate(t *testing.T) {
 	t.Run("with tier2 backup enabled", func(t *testing.T) {
 		clusterPC := &kliov1alpha1.PluginConfiguration{
 			Spec: kliov1alpha1.PluginConfigurationSpec{
-				Tier2: kliov1alpha1.Tier2PluginConfiguration{
+				Tier2: &kliov1alpha1.Tier2PluginConfiguration{
 					EnableBackup: true,
 				},
 			},
@@ -311,7 +311,7 @@ func TestBuildInstanceSidecarTemplate(t *testing.T) {
 	t.Run("with tier2 recovery enabled", func(t *testing.T) {
 		clusterPC := &kliov1alpha1.PluginConfiguration{
 			Spec: kliov1alpha1.PluginConfigurationSpec{
-				Tier2: kliov1alpha1.Tier2PluginConfiguration{
+				Tier2: &kliov1alpha1.Tier2PluginConfiguration{
 					EnableRecovery: true,
 				},
 			},
@@ -327,7 +327,7 @@ func TestBuildInstanceSidecarTemplate(t *testing.T) {
 	t.Run("with both tier2 backup and recovery enabled", func(t *testing.T) {
 		clusterPC := &kliov1alpha1.PluginConfiguration{
 			Spec: kliov1alpha1.PluginConfigurationSpec{
-				Tier2: kliov1alpha1.Tier2PluginConfiguration{
+				Tier2: &kliov1alpha1.Tier2PluginConfiguration{
 					EnableBackup:   true,
 					EnableRecovery: true,
 				},
@@ -339,6 +339,19 @@ func TestBuildInstanceSidecarTemplate(t *testing.T) {
 		assert.Equal(t, "klio-plugin", result.Name)
 		assert.Contains(t, result.Args, "--enable-tier2-backup")
 		assert.Contains(t, result.Args, "--enable-tier2-recovery")
+	})
+
+	t.Run("with nil tier2", func(t *testing.T) {
+		clusterPC := &kliov1alpha1.PluginConfiguration{
+			Spec: kliov1alpha1.PluginConfigurationSpec{},
+		}
+
+		result := buildInstanceSidecarTemplate(pod, cluster, clusterPC)
+
+		assert.Equal(t, "klio-plugin", result.Name)
+		assert.Contains(t, result.Args, "--tier1=true")
+		assert.NotContains(t, result.Args, "--enable-tier2-backup")
+		assert.NotContains(t, result.Args, "--enable-tier2-recovery")
 	})
 
 	t.Run("with nil clusterPC", func(t *testing.T) {

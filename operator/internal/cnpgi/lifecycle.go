@@ -183,12 +183,13 @@ func (impl LifecycleImplementation) reconcileJob(
 	// 2. Apply Klio required values (name, args, essential env vars)
 	// 3. Template defaults will be merged later in reconcilePodSpec
 	restoreSidecar := findUserContainer("klio-restore", clusterPC.Spec.Containers)
+	tier2EnableRecovery := clusterPC.Spec.Tier2 != nil && clusterPC.Spec.Tier2.EnableRecovery
 	restoreSidecar.Args = []string{
 		"cnpgi",
 		"restore",
 		pgdata,
 		"--tier1=" + strconv.FormatBool(clusterPC.Spec.Mode != kliov1alpha1.ModeReadOnly),
-		"--tier2=" + strconv.FormatBool(clusterPC.Spec.Tier2.EnableRecovery),
+		"--tier2=" + strconv.FormatBool(tier2EnableRecovery),
 	}
 	restoreSidecar.Env = ensureEnvVar(restoreSidecar.Env, corev1.EnvVar{
 		Name:  "CONTAINER_NAME",
@@ -354,11 +355,11 @@ func buildInstanceSidecarTemplate(
 
 		args = append(args, "--tier1="+strconv.FormatBool(clusterPC.Spec.Mode != kliov1alpha1.ModeReadOnly))
 
-		if clusterPC.Spec.Tier2.EnableBackup {
+		if clusterPC.Spec.Tier2 != nil && clusterPC.Spec.Tier2.EnableBackup {
 			args = append(args, "--enable-tier2-backup")
 		}
 
-		if clusterPC.Spec.Tier2.EnableRecovery {
+		if clusterPC.Spec.Tier2 != nil && clusterPC.Spec.Tier2.EnableRecovery {
 			args = append(args, "--enable-tier2-recovery")
 		}
 	}

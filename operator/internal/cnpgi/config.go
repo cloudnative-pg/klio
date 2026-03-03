@@ -52,24 +52,9 @@ func generateKlioConfigForPlugin(
 		return nil, nil, errors.New("missing client parameters configuration for klio plugin")
 	}
 
-	convertRetentionPolicy := func(p *kliov1alpha1.RetentionPolicy) *config.RetentionPolicy {
-		if p == nil {
-			return nil
-		}
-
-		return &config.RetentionPolicy{
-			KeepLatest:  p.KeepLatest,
-			KeepAnnual:  p.KeepAnnual,
-			KeepMonthly: p.KeepMonthly,
-			KeepWeekly:  p.KeepWeekly,
-			KeepDaily:   p.KeepDaily,
-			KeepHourly:  p.KeepHourly,
-		}
-	}
-
 	klioPluginConfigurationSpec := rawConfiguration.klioPluginConfiguration.Spec
-	klioTier1RetentionPolicy := convertRetentionPolicy(klioPluginConfigurationSpec.Tier1.RetentionPolicy)
-	klioTier2RetentionPolicy := convertRetentionPolicy(klioPluginConfigurationSpec.Tier2.RetentionPolicy)
+	klioTier1RetentionPolicy := convertTier1RetentionPolicy(klioPluginConfigurationSpec.Tier1)
+	klioTier2RetentionPolicy := convertTier2RetentionPolicy(klioPluginConfigurationSpec.Tier2)
 
 	klioConfig := &config.Data{
 		Source: config.SourceConfig{
@@ -105,7 +90,8 @@ func generateKlioConfigForPlugin(
 			klioPluginConfigurationSpec.ServerAddress, KlioTier1GRPCPort)
 	}
 
-	if klioPluginConfigurationSpec.Tier2.EnableBackup || klioPluginConfigurationSpec.Tier2.EnableRecovery {
+	if klioPluginConfigurationSpec.Tier2 != nil &&
+		(klioPluginConfigurationSpec.Tier2.EnableBackup || klioPluginConfigurationSpec.Tier2.EnableRecovery) {
 		klioConfig.Client.Base.Tier2URL = "https://" + net.JoinHostPort(
 			klioPluginConfigurationSpec.ServerAddress, KlioTier2HTTPPort)
 		klioConfig.Client.Wal.Tier2Address = net.JoinHostPort(
@@ -113,6 +99,37 @@ func generateKlioConfigForPlugin(
 	}
 
 	return klioConfig, rawConfiguration.klioPluginConfiguration, nil
+}
+
+func convertRetentionPolicy(p *kliov1alpha1.RetentionPolicy) *config.RetentionPolicy {
+	if p == nil {
+		return nil
+	}
+
+	return &config.RetentionPolicy{
+		KeepLatest:  p.KeepLatest,
+		KeepAnnual:  p.KeepAnnual,
+		KeepMonthly: p.KeepMonthly,
+		KeepWeekly:  p.KeepWeekly,
+		KeepDaily:   p.KeepDaily,
+		KeepHourly:  p.KeepHourly,
+	}
+}
+
+func convertTier1RetentionPolicy(tier1 *kliov1alpha1.Tier1PluginConfiguration) *config.RetentionPolicy {
+	if tier1 == nil {
+		return nil
+	}
+
+	return convertRetentionPolicy(tier1.RetentionPolicy)
+}
+
+func convertTier2RetentionPolicy(tier2 *kliov1alpha1.Tier2PluginConfiguration) *config.RetentionPolicy {
+	if tier2 == nil {
+		return nil
+	}
+
+	return convertRetentionPolicy(tier2.RetentionPolicy)
 }
 
 type configuration struct {

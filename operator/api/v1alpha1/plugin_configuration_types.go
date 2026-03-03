@@ -15,11 +15,11 @@ type PluginConfigurationSpec struct {
 
 	// Tier1 is the Tier 1 configuration
 	// +optional
-	Tier1 Tier1PluginConfiguration `json:"tier1,omitzero"`
+	Tier1 *Tier1PluginConfiguration `json:"tier1,omitempty"`
 
 	// Tier2 is the Tier 2 configuration
 	// +optional
-	Tier2 Tier2PluginConfiguration `json:"tier2,omitzero"`
+	Tier2 *Tier2PluginConfiguration `json:"tier2,omitempty"`
 
 	// ClientSecretName is the name of the secret containing the client credentials
 	// +kubebuilder:validation:Required

@@ -195,7 +195,7 @@ func GetPluginConfigurationObject(
 
 	// Only populate Tier2 if either backup or recovery is enabled
 	if opts.EnableTier2Backup || opts.EnableTier2Recovery {
-		spec.Tier2 = kliov1alpha1.Tier2PluginConfiguration{
+		spec.Tier2 = &kliov1alpha1.Tier2PluginConfiguration{
 			EnableBackup:    opts.EnableTier2Backup,
 			EnableRecovery:  opts.EnableTier2Recovery,
 			RetentionPolicy: opts.Tier2RetentionPolicy,
