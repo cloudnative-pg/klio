@@ -1700,6 +1700,29 @@ spec:
                 - message: at least one of enableBackup or enableRecovery must be
                     true
                   rule: self.enableBackup || self.enableRecovery
+              walPrefetch:
+                description: WALPrefetch configures WAL prefetching behavior during
+                  recovery operations.
+                properties:
+                  count:
+                    default: 2
+                    description: |-
+                      Count is the number of WAL files to prefetch ahead during recovery.
+                      A value of 0 disables prefetching.
+                    maximum: 64
+                    minimum: 0
+                    type: integer
+                  maxConcurrentDownloads:
+                    default: 4
+                    description: MaxConcurrentDownloads is the maximum number of concurrent
+                      WAL downloads.
+                    maximum: 64
+                    minimum: 1
+                    type: integer
+                required:
+                - count
+                - maxConcurrentDownloads
+                type: object
             required:
             - clientSecretName
             - mode

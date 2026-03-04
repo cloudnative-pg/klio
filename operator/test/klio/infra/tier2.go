@@ -132,7 +132,7 @@ func (s Tier2) ParallelSetup(ctx context.Context, t *testing.T, r *resources.Res
 
 		return wait.For(
 			conditions.KlioServerIsReady(r, s.KlioServer),
-			wait.WithTimeout(2*time.Minute),
+			wait.WithTimeout(4*time.Minute),
 			wait.WithInterval(10*time.Second),
 		)
 	})

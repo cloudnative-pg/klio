@@ -86,6 +86,7 @@ func TestCreateAWSS3Client(t *testing.T) {
 					SecretAccessKey: "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY",
 				},
 			},
+
 			//nolint:gosec // keys are examples and not an issue
 			verifier: clientVerifier{
 				region:           "us-east-1",
@@ -122,6 +123,7 @@ func TestCreateAWSS3Client(t *testing.T) {
 					SessionToken:    "session-token-example",
 				},
 			},
+
 			//nolint:gosec // keys are examples and not an issue
 			verifier: clientVerifier{
 				region:           "us-east-1",
@@ -142,6 +144,7 @@ func TestCreateAWSS3Client(t *testing.T) {
 					SecretAccessKey: "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY",
 				},
 			},
+
 			//nolint:gosec // keys are examples and not an issue
 			verifier: clientVerifier{
 				region:              "us-east-1",
@@ -162,6 +165,7 @@ func TestCreateAWSS3Client(t *testing.T) {
 					SecretAccessKey: "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY",
 				},
 			},
+
 			//nolint:gosec // keys are examples and not an issue
 			verifier: clientVerifier{
 				region:              "",

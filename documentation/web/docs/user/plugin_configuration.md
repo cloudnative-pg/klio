@@ -307,6 +307,28 @@ spec:
 See the [Architecture documentation](./architectures.md#tier-2-secondary-storage-object-storage)
 for more details on Tier 2 storage.
 
+### WAL Prefetch Configuration
+
+During recovery operations, Klio can prefetch WAL files ahead of PostgreSQL's
+requests to speed up recovery. Configure prefetching using the `walPrefetch`
+section:
+
+```yaml
+spec:
+  walPrefetch:
+    count: 8
+    maxConcurrentDownloads: 16
+```
+
+#### Options
+
+- **`count`**: The number of WAL files to prefetch ahead during recovery.
+  Set to `0` to disable prefetching. Default is `2`.
+
+- **`maxConcurrentDownloads`**: The maximum number of concurrent WAL
+  downloads. Higher values can improve recovery speed on high-bandwidth
+  connections but use more resources. Default is `4`.
+
 ### Observability
 
 See the [OpenTelemetry observability](./opentelemetry.md) section for more

@@ -98,6 +98,7 @@ ListBackupsResult
 ListMeta
 Liveness
 LocalObjectReference
+MaxConcurrentDownloads
 MaxItems
 MetricsConfiguration
 MinLength
@@ -200,6 +201,8 @@ Velero
 WAL
 WALFileBlock
 WALGap
+WALPrefetch
+WALPrefetchConfiguration
 WALs
 YAML
 api
@@ -290,6 +293,8 @@ postgres
 postgresql
 pprof
 pre
+prefetch
+prefetching
 priorityClassName
 prometheus
 proto

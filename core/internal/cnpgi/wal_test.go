@@ -1,6 +1,7 @@
 package cnpgi
 
 import (
+	"context"
 	"os"
 	"path/filepath"
 	"strings"
@@ -54,10 +55,13 @@ client:
 				}
 			}
 
-			_, err := mgr.getConnection(restoreWALOptions{
-				configFile: configPath,
-				tier:       tt.tier,
-			})
+			_, err := mgr.getClient(
+				context.Background(),
+				walRestoreOptions{
+					configFile: configPath,
+					tier:       tt.tier,
+				},
+			)
 			if err == nil {
 				t.Fatal("expected error, got nil")
 			}

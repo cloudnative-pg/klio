@@ -16,7 +16,6 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
-	"github.com/cloudnative-pg/klio/core/internal/client/klioclient"
 	"github.com/cloudnative-pg/klio/core/internal/client/klioclient/grpcclient"
 	"github.com/cloudnative-pg/klio/core/pkg/config"
 )
@@ -60,6 +59,7 @@ func (w *walServiceImplementation) Restore(
 	request *wal.WALRestoreRequest,
 ) (*wal.WALRestoreResult, error) {
 	contextLogger := log.FromContext(ctx).WithName("wal_restore")
+	startCall := time.Now()
 	walName := request.GetSourceWalName()
 	destinationPath := request.GetDestinationFileName()
 
@@ -94,6 +94,8 @@ func (w *walServiceImplementation) Restore(
 		return nil, err
 	}
 
+	contextLogger.Info("WAL.Restore", "walName", request.GetSourceWalName(), "duration", time.Since(startCall))
+
 	return &wal.WALRestoreResult{}, nil
 }
 
@@ -113,7 +115,7 @@ func (w *walServiceImplementation) restoreWAL(
 	walName, destinationPath string,
 	configPath string,
 ) error {
-	err := w.mgr.restoreWAL(ctx, restoreWALOptions{
+	err := w.mgr.restoreWAL(ctx, walRestoreOptions{
 		configFile: configPath,
 		tier:       w.getCurrentTier(),
 	}, walName, destinationPath)
@@ -125,7 +127,7 @@ func (w *walServiceImplementation) restoreWAL(
 
 	// Let's try the other tier
 	w.skipCurrentTier()
-	err = w.mgr.restoreWAL(ctx, restoreWALOptions{
+	err = w.mgr.restoreWAL(ctx, walRestoreOptions{
 		configFile: configPath,
 		tier:       w.getCurrentTier(),
 	}, walName, destinationPath)
@@ -133,29 +135,37 @@ func (w *walServiceImplementation) restoreWAL(
 	return err
 }
 
-type restoreWALOptions struct {
+type walRestoreOptions struct {
 	configFile string
 	tier       string
 }
 
+// walRestoreClient holds the connection and prefetcher for WAL restoration.
+type walRestoreClient struct {
+	connection *grpcclient.Connection
+	prefetcher *walPrefetcher
+}
+
 type grpcClientManager struct {
-	m           sync.Mutex
-	connections map[restoreWALOptions]*grpcclient.Connection
+	m       sync.Mutex
+	clients map[walRestoreOptions]*walRestoreClient
 }
 
 func newGRPCClientManager() *grpcClientManager {
 	return &grpcClientManager{
-		connections: make(map[restoreWALOptions]*grpcclient.Connection),
+		clients: make(map[walRestoreOptions]*walRestoreClient),
 	}
 }
 
-func (mgr *grpcClientManager) getConnection(opts restoreWALOptions) (*grpcclient.Connection, error) {
+func (mgr *grpcClientManager) getClient(ctx context.Context, opts walRestoreOptions) (*walRestoreClient, error) {
 	mgr.m.Lock()
 	defer mgr.m.Unlock()
 
-	if c, ok := mgr.connections[opts]; ok {
+	if c, ok := mgr.clients[opts]; ok {
 		return c, nil
 	}
+
+	contextLogger := log.FromContext(ctx)
 
 	configFile, err := os.Open(opts.configFile)
 	if err != nil {
@@ -182,98 +192,75 @@ func (mgr *grpcClientManager) getConnection(opts restoreWALOptions) (*grpcclient
 		return nil, fmt.Errorf("unknown tier %q", opts.tier)
 	}
 
-	client, err := grpcclient.Connect(&configuration.Client, address)
+	connection, err := grpcclient.Connect(&configuration.Client, address)
 	if err != nil {
 		return nil, fmt.Errorf("while connecting to the Klio server: %w", err)
 	}
 
-	mgr.connections[opts] = client
+	// Set up spool directory for this configuration.
+	spoolDir, err := mgr.setupSpoolDir(ctx, opts)
+	if err != nil {
+		return nil, fmt.Errorf("while setting up spool directory: %w", err)
+	}
+
+	// Read prefetch settings from the loaded configuration.
+	prefetchCount := configuration.WALPrefetch.Count
+	maxConcurrentDownloads := configuration.WALPrefetch.MaxConcurrentDownloads
+
+	client := &walRestoreClient{
+		connection: connection,
+		//nolint:contextcheck // prefetcher creates its own internal context for the download pool
+		prefetcher: newWALPrefetcher(spoolDir, connection, prefetchCount, maxConcurrentDownloads),
+	}
+	mgr.clients[opts] = client
+
+	contextLogger.Info("Created WAL restore client",
+		"tier", opts.tier,
+		"configFile", opts.configFile,
+		"spoolDir", spoolDir,
+		"prefetchCount", prefetchCount,
+		"maxConcurrentDownloads", maxConcurrentDownloads,
+	)
 
 	return client, nil
 }
 
-func (mgr *grpcClientManager) restoreWAL(
-	ctx context.Context,
-	opts restoreWALOptions,
-	walName string,
-	targetFileName string,
-) error {
-	contextLogger := log.FromContext(ctx).
-		WithValues(
-			"configFile", opts.configFile,
-			"tier", opts.tier,
-			"walName", walName,
-			"targetFileName", targetFileName,
-		)
-
-	contextLogger.Debug("Restoring WAL file")
-	start := time.Now()
-	err := mgr.internalRestoreWAL(ctx, opts, walName, targetFileName)
-	duration := time.Since(start)
-
-	if err != nil {
-		contextLogger.Info("Error while restoring WAL File", "duration", duration, "err", err)
-	} else {
-		contextLogger.Info("Restored WAL File", "duration", duration)
+// setupSpoolDir creates and cleans the spool directory for a configuration.
+func (mgr *grpcClientManager) setupSpoolDir(ctx context.Context, opts walRestoreOptions) (string, error) {
+	pgdata := os.Getenv("PGDATA")
+	if pgdata == "" {
+		return "", errors.New("PGDATA environment variable is not set")
 	}
 
-	return err
+	spoolBase := filepath.Join(pgdata, "pg_wal", spoolDirName)
+	spoolDir := filepath.Join(spoolBase, spoolSubdir(opts))
+
+	// Create the spool directory if it doesn't exist.
+	if err := os.MkdirAll(spoolDir, 0o700); err != nil { //nolint:gosec
+		return "", fmt.Errorf("creating spool directory %q: %w", spoolDir, err)
+	}
+
+	// Clean up any leftover files from previous runs.
+	if err := cleanupSpoolDir(spoolDir); err != nil {
+		log.FromContext(ctx).Error(err, "Failed to clean up spool directory", "spoolDir", spoolDir)
+		// Continue anyway - leftover files shouldn't prevent operation.
+	}
+
+	return spoolDir, nil
 }
 
-func (mgr *grpcClientManager) internalRestoreWAL(
+func (mgr *grpcClientManager) restoreWAL(
 	ctx context.Context,
-	opts restoreWALOptions,
+	opts walRestoreOptions,
 	walName string,
 	targetFileName string,
 ) error {
-	contextLogger := log.FromContext(ctx)
-
-	client, err := mgr.getConnection(opts)
+	client, err := mgr.getClient(ctx, opts)
 	if err != nil {
 		return err
 	}
 
-	output, err := os.OpenFile(targetFileName, os.O_TRUNC|os.O_CREATE|os.O_WRONLY, 0o600) //nolint:gosec
-	if err != nil {
-		return fmt.Errorf("cannot open file %s: %w", targetFileName, err)
-	}
-	defer func() {
-		if closeErr := output.Close(); closeErr != nil {
-			contextLogger.Error(closeErr, "While closing WAL file")
-		}
-	}()
-
-	// Try to download the requested WAL file. If we did it, everything
-	// is fine.
-	err = client.GetWALStreaming(ctx, walName, output)
-	switch {
-	case errors.Is(err, klioclient.ErrMissingWALFile):
-		// Let's try downloading the partial file
-
-	case err != nil:
-		return fmt.Errorf("unknown error: %w", err)
-
-	default:
-		return nil
-	}
-
-	// Let's try downloading the partial file
-	walName += ".partial"
-	err = client.GetWALStreaming(ctx, walName, output)
-
-	var incompleteError klioclient.IncompleteTransmissionError
-	switch {
-	case errors.As(err, &incompleteError):
-		return err
-
-	case errors.Is(err, klioclient.ErrMissingWALFile):
-		return errWALNotFound
-
-	case err != nil:
-		return fmt.Errorf("while downloading WAL %q: %w", walName, err)
-	}
-
-	return nil
+	return client.prefetcher.Request(ctx, walName, targetFileName)
 }
 
 func getWalRepositoryConfigurationPath(cluster *cnpgv1.Cluster, instanceName string) (string, error) {

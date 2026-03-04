@@ -55,6 +55,7 @@ func generateKlioConfigForPlugin(
 	klioPluginConfigurationSpec := rawConfiguration.klioPluginConfiguration.Spec
 	klioTier1RetentionPolicy := convertTier1RetentionPolicy(klioPluginConfigurationSpec.Tier1)
 	klioTier2RetentionPolicy := convertTier2RetentionPolicy(klioPluginConfigurationSpec.Tier2)
+	walPrefetch := klioPluginConfigurationSpec.GetWALPrefetch()
 
 	klioConfig := &config.Data{
 		Source: config.SourceConfig{
@@ -81,6 +82,10 @@ func generateKlioConfigForPlugin(
 		},
 		Tier1RetentionPolicy: klioTier1RetentionPolicy,
 		Tier2RetentionPolicy: klioTier2RetentionPolicy,
+		WALPrefetch: config.WALPrefetchConfig{
+			Count:                  walPrefetch.Count,
+			MaxConcurrentDownloads: walPrefetch.MaxConcurrentDownloads,
+		},
 	}
 
 	if klioPluginConfigurationSpec.Mode != kliov1alpha1.ModeReadOnly {

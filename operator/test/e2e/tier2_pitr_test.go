@@ -1,6 +1,8 @@
 package e2e
 
 import (
+	"time"
+
 	machineryFeatures "github.com/cloudnative-pg/klio/operator/test/machinery/pkg/features"
 )
 
@@ -51,6 +53,7 @@ func NewTier2PitrFeatureConfig(
 		RecoveryCluster:  res.RecoveryCluster,
 		// Inject tier2-specific logic: wait for tier2 replication + deploy recovery server
 		MutateRecoveryCluster: []machineryFeatures.RecoveryClusterMutateFunc{scenario.deployRecoveryServer},
+		BackupTimeout:         5 * time.Minute,
 	}
 }
 

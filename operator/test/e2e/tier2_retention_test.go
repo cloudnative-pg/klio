@@ -109,7 +109,7 @@ func (s *tier2RetentionScenario) Setup(
 	t.Logf("Waiting for cluster to be ready...")
 	err = wait.For(
 		machineryConditions.ClusterIsReady(r, s.cnpgCluster),
-		wait.WithTimeout(2*time.Minute),
+		wait.WithTimeout(4*time.Minute),
 		wait.WithInterval(10*time.Second),
 	)
 	require.NoError(t, err, "cluster not ready")

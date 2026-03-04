@@ -18,6 +18,9 @@ type Data struct {
 
 	// Tier2RetentionPolicy is the retention policy to be applied to tier2.
 	Tier2RetentionPolicy *RetentionPolicy `json:"tier2_retention,omitempty" mapstructure:"tier2_retention"`
+
+	// WALPrefetch is the WAL prefetching configuration.
+	WALPrefetch WALPrefetchConfig `json:"wal_prefetch" mapstructure:"wal_prefetch"`
 }
 
 // SetDefaults sets the default values of the configuration.
@@ -102,6 +105,15 @@ type BaseRepositoryClientConfig struct {
 
 	// ClientKeyPath is the path to the client private key
 	ClientKeyPath string `json:"client_key_path" mapstructure:"client_key_path"`
+}
+
+// WALPrefetchConfig configures WAL prefetching during recovery.
+type WALPrefetchConfig struct {
+	// Count is the number of WAL files to prefetch ahead during recovery.
+	Count int `json:"count" mapstructure:"count"`
+
+	// MaxConcurrentDownloads is the maximum number of concurrent WAL downloads.
+	MaxConcurrentDownloads int `json:"max_concurrent_downloads" mapstructure:"max_concurrent_downloads"`
 }
 
 // SetDefaults sets the default values of the configuration.

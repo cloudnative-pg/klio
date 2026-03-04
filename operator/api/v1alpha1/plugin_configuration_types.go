@@ -21,6 +21,10 @@ type PluginConfigurationSpec struct {
 	// +optional
 	Tier2 *Tier2PluginConfiguration `json:"tier2,omitempty"`
 
+	// WALPrefetch configures WAL prefetching behavior during recovery operations.
+	// +optional
+	WALPrefetch *WALPrefetchConfiguration `json:"walPrefetch,omitempty"`
+
 	// ClientSecretName is the name of the secret containing the client credentials
 	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:MinLength=1
@@ -84,6 +88,45 @@ type Tier2PluginConfiguration struct {
 	// RetentionPolicy defines how many backups we should keep
 	// +optional
 	RetentionPolicy *RetentionPolicy `json:"retention,omitempty" mapstructure:"retention"`
+}
+
+// WALPrefetchConfiguration configures WAL prefetching during recovery.
+type WALPrefetchConfiguration struct {
+	// Count is the number of WAL files to prefetch ahead during recovery.
+	// A value of 0 disables prefetching.
+	// +kubebuilder:validation:Minimum=0
+	// +kubebuilder:validation:Maximum=64
+	// +kubebuilder:default=2
+	Count int `json:"count"`
+
+	// MaxConcurrentDownloads is the maximum number of concurrent WAL downloads.
+	// +kubebuilder:validation:Minimum=1
+	// +kubebuilder:validation:Maximum=64
+	// +kubebuilder:default=4
+	MaxConcurrentDownloads int `json:"maxConcurrentDownloads"`
+}
+
+// GetWALPrefetch returns the WAL prefetch configuration with defaults applied.
+func (s *PluginConfigurationSpec) GetWALPrefetch() WALPrefetchConfiguration {
+	const (
+		defaultCount                  = 2
+		defaultMaxConcurrentDownloads = 4
+	)
+
+	if s.WALPrefetch == nil {
+		return WALPrefetchConfiguration{
+			Count:                  defaultCount,
+			MaxConcurrentDownloads: defaultMaxConcurrentDownloads,
+		}
+	}
+
+	result := *s.WALPrefetch
+	if result.MaxConcurrentDownloads == 0 {
+		result.MaxConcurrentDownloads = defaultMaxConcurrentDownloads
+	}
+	// Note: Count=0 is valid (disables prefetching), so we don't default it
+
+	return result
 }
 
 // RetentionPolicy defines how many backups we should keep.

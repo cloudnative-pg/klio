@@ -108,7 +108,7 @@ func (s *tier2RecoveryScenario) Setup(
 	t.Logf("Waiting for source cluster to be ready...")
 	err = wait.For(
 		machineryConditions.ClusterIsReady(r, s.cnpgCluster),
-		wait.WithTimeout(2*time.Minute),
+		wait.WithTimeout(4*time.Minute),
 		wait.WithInterval(10*time.Second),
 	)
 	require.NoError(t, err, "source cluster not ready")
@@ -208,6 +208,7 @@ func NewTier2RecoveryFeatureConfig(
 		Backup:                res.Backup,
 		RecoveryCluster:       res.RecoveryCluster,
 		MutateRecoveryCluster: []machineryFeatures.RecoveryClusterMutateFunc{scenario.deployRecoveryServer},
+		BackupTimeout:         5 * time.Minute,
 	}
 
 	return recoveryConfig

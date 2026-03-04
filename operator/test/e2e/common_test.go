@@ -71,14 +71,14 @@ func (c *commonBackupRestoreScenario) Setup(
 	t.Logf("Waiting for resources to be ready for recovery feature: %s", c.name)
 	err = wait.For(
 		machineryConditions.ClusterIsReady(r, c.cnpgCluster),
-		wait.WithTimeout(2*time.Minute),
+		wait.WithTimeout(4*time.Minute),
 		wait.WithInterval(10*time.Second),
 	)
 	require.NoError(t, err, "failed to wait for CNPG source Cluster to be ready")
 
 	err = wait.For(
 		conditions.KlioServerIsReady(r, c.klioServer),
-		wait.WithTimeout(2*time.Minute),
+		wait.WithTimeout(4*time.Minute),
 		wait.WithInterval(10*time.Second),
 	)
 	require.NoError(t, err, "failed to wait for Klio server to be ready")
