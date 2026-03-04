@@ -2,6 +2,7 @@ package kopia
 
 import (
 	"fmt"
+	"os"
 	"os/exec"
 )
 
@@ -32,8 +33,7 @@ type Client struct {
 }
 
 func (s *Client) kopiaEnvironmentVariables() []string {
-	result := make([]string, 0, 2)
-
+	result := os.Environ()
 	result = append(result, "KOPIA_CHECK_FOR_UPDATES=false")
 	if s.Password != "" {
 		result = append(result, "KOPIA_PASSWORD="+s.Password)
