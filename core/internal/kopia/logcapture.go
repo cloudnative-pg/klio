@@ -97,7 +97,9 @@ func RunWithLogCapture(ctx context.Context, cmd *exec.Cmd, captureStdout io.Writ
 
 			for scanner.Scan() {
 				line := scanner.Text()
-				contextLogger.Info(line, "stream", stream)
+				if line != "" {
+					contextLogger.Info(line, "stream", stream)
+				}
 			}
 
 			if err := scanner.Err(); err != nil {
