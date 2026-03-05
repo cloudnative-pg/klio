@@ -53,6 +53,7 @@ func New(ctx context.Context, natsConnection *nats.Conn) (*Conn, error) {
 		"KLIO",
 		jetstream.ConsumerConfig{
 			Name:          "klio-wal",
+			Durable:       "klio-wal",
 			AckPolicy:     jetstream.AckExplicitPolicy,
 			FilterSubject: "klio.*.wal",
 		},
@@ -66,6 +67,7 @@ func New(ctx context.Context, natsConnection *nats.Conn) (*Conn, error) {
 		"KLIO",
 		jetstream.ConsumerConfig{
 			Name:          "klio-backup",
+			Durable:       "klio-backup",
 			AckPolicy:     jetstream.AckExplicitPolicy,
 			FilterSubject: "klio.*.backup",
 		},
