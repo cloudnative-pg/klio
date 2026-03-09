@@ -24,9 +24,8 @@ var _ = Describe("Server Controller", func() {
 		ctx := context.Background()
 
 		typeNamespacedName := types.NamespacedName{
-			Name: resourceName,
-			//nolint:godox
-			Namespace: "default", // TODO(user):Modify as needed
+			Name:      resourceName,
+			Namespace: "default",
 		}
 		server := &kliov1alpha1.Server{}
 
@@ -57,14 +56,20 @@ var _ = Describe("Server Controller", func() {
 						},
 						Mode: kliov1alpha1.ModeStandard,
 						Tier1: &kliov1alpha1.Tier1Configuration{
-							Cache: kliov1alpha1.Cache{PersistentVolumeClaimTemplate: pvcTemplate},
-							Data:  kliov1alpha1.Data{PersistentVolumeClaimTemplate: pvcTemplate},
+							Cache: kliov1alpha1.Cache{
+								PersistentVolumeClaimTemplate: pvcTemplate,
+							},
+							Data: kliov1alpha1.Data{
+								PersistentVolumeClaimTemplate: pvcTemplate,
+							},
 							EncryptionKey: &machineryapi.SecretKeySelector{
 								LocalObjectReference: machineryapi.LocalObjectReference{Name: "enc-secret"},
-								Key:                  "key",
+								Key:                  "password",
 							},
 						},
-						Queue: &kliov1alpha1.Queue{PersistentVolumeClaimTemplate: pvcTemplate},
+						Queue: &kliov1alpha1.Queue{
+							PersistentVolumeClaimTemplate: pvcTemplate,
+						},
 					},
 				}
 				Expect(k8sClient.Create(ctx, resource)).To(Succeed())
@@ -72,8 +77,6 @@ var _ = Describe("Server Controller", func() {
 		})
 
 		AfterEach(func() {
-			//nolint:godox
-			// TODO(user): Cleanup logic after each test, like removing the resource instance.
 			resource := &kliov1alpha1.Server{}
 			err := k8sClient.Get(ctx, typeNamespacedName, resource)
 			Expect(err).NotTo(HaveOccurred())
@@ -92,9 +95,6 @@ var _ = Describe("Server Controller", func() {
 				NamespacedName: typeNamespacedName,
 			})
 			Expect(err).NotTo(HaveOccurred())
-			//nolint:godox
-			// TODO(user): Add more specific assertions depending on your controller's reconciliation logic.
-			// Example: If you expect a certain status condition after reconciliation, verify it here.
 		})
 	})
 })

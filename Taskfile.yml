@@ -115,26 +115,14 @@ tasks:
 
   core:go-test:
     desc: Run go test
-    dir: core
     deps:
       - core:protoc-gen-go-grpc
-    env:
-      # renovate: datasource=docker depName=golang versioning=docker
-      GOLANG_IMAGE_VERSION: 1.26.1@sha256:e2ddb153f786ee6210bf8c40f7f35490b3ff7d38be70d1a0d358ba64225f6428
-      # renovate: datasource=custom.envtest depName=kubernetes packageName=https://github.com/kubernetes/kubernetes versioning=semver
-      K8S_VERSION: 1.35.0
-      # renovate: datasource=git-refs depName=controller-runtime packageName=https://github.com/kubernetes-sigs/controller-runtime versioning=semver
-      SETUP_ENVTEST_VERSION: 0.23.3
     cmds:
-      # TODO: move this out of the plugin repo and into the daggerverse
-      - >
-        GITHUB_REF= dagger -s call -m github.com/cloudnative-pg/plugin-barman-cloud/dagger/gotest
-        --go-version ${GOLANG_IMAGE_VERSION}
-        --kube-version ${K8S_VERSION}
-        --setup-envtest-version ${SETUP_ENVTEST_VERSION}
-        unit-test --src .
+      - task: internal:go-test
+        vars:
+          WORKDIR: "core"
     sources:
-      - ./**/*.go
+      - core/**/*.go
 
   core:goreleaser-snapshot:
     desc: Build snapshot packages
@@ -400,6 +388,26 @@ tasks:
         "github.com/sagikazarmark/daggerverse/golangci-lint@${DAGGER_GOLANGCI_LINT_SHA}
         --version ${GOLANGCI_LINT_VERSION} | run . --config .golangci.yml | stdout"
 
+  internal:go-test:
+    desc: Run go test
+    internal: true
+    dir: '{{ .WORKDIR }}'
+    env:
+      # renovate: datasource=docker depName=golang versioning=docker
+      GOLANG_IMAGE_VERSION: 1.26.1@sha256:e2ddb153f786ee6210bf8c40f7f35490b3ff7d38be70d1a0d358ba64225f6428
+      # renovate: datasource=custom.envtest depName=kubernetes packageName=https://github.com/kubernetes/kubernetes versioning=semver
+      K8S_VERSION: 1.35.0
+      # renovate: datasource=git-refs depName=controller-runtime packageName=https://github.com/kubernetes-sigs/controller-runtime versioning=semver
+      SETUP_ENVTEST_VERSION: 0.23.3
+    cmds:
+      # TODO: move this out of the plugin repo and into the daggerverse
+      - >
+        GITHUB_REF= dagger -s call -m github.com/cloudnative-pg/plugin-barman-cloud/dagger/gotest
+        --go-version ${GOLANG_IMAGE_VERSION}
+        --kube-version ${K8S_VERSION}
+        --setup-envtest-version ${SETUP_ENVTEST_VERSION}
+        unit-test --src .
+
   internal:uncommitted:
     desc: Check for uncommitted changes
     internal: true
@@ -433,6 +441,7 @@ tasks:
     desc: Run the operator CI pipeline
     deps:
       - operator:lint
+      - operator:go-test
       - operator:controller-gen
       - operator:containerize-snapshot
       - operator:helm-chart
@@ -447,6 +456,17 @@ tasks:
           WORKDIR: "operator"
     sources:
       - ./**/*.go
+
+  operator:go-test:
+    desc: Run go test
+    deps:
+      - operator:controller-gen
+    cmds:
+      - task: internal:go-test
+        vars:
+          WORKDIR: "operator"
+    sources:
+      - operator/**/*.go
 
   operator:containerize-snapshot:
     desc: Snapshot container images
