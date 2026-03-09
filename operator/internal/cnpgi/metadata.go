@@ -9,7 +9,7 @@ import (
 // data is the metadata of this plugin.
 var data = identity.GetPluginMetadataResponse{ //nolint: gochecknoglobals
 	Name:          klioconfig.PluginName,
-	Version:       "0.0.12", // x-release-please-version
+	Version:       "0.0.13", // x-release-please-version
 	DisplayName:   "Klio",
 	ProjectUrl:    "",
 	RepositoryUrl: "",

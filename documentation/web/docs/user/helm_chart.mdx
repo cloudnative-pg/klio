@@ -95,7 +95,7 @@ Deploy the Klio Operator to your cluster:
 ```sh
 helm install klio-operator \
   oci://ghcr.io/enterprisedb/klio-operator-chart \
-  --version 0.0.12 \
+  --version 0.0.13 \
   --namespace cnpg-system \
   -f values.yaml
 ```
@@ -135,7 +135,7 @@ default values, and understand what resources it will create:
 <!-- x-release-please-start-version -->
 ```sh
 helm pull oci://ghcr.io/enterprisedb/klio-operator-chart \
-  --version 0.0.12 \
+  --version 0.0.13 \
   --untar
 ```
 <!-- x-release-please-end -->
@@ -211,7 +211,7 @@ manifests:
 <!-- x-release-please-start-version -->
 ```sh
 helm pull oci://ghcr.io/enterprisedb/klio-operator-chart \
-  --version 0.0.12 \
+  --version 0.0.13 \
   --untar
 ```
 <!-- x-release-please-end -->
@@ -250,7 +250,7 @@ Helm upgrade command:
 ```sh
 helm upgrade klio-operator \
   oci://ghcr.io/enterprisedb/klio-operator-chart \
-  --version 0.0.12 \
+  --version 0.0.13 \
   --namespace cnpg-system \
   -f values.yaml
 ```
@@ -281,7 +281,7 @@ released. Update the `spec.image` field with the new image reference:
 ```sh
 kubectl patch server <server-name> -n <namespace> \
   --type merge \
-  -p '{"spec":{"image":"ghcr.io/enterprisedb/klio:v0.0.12"}}'
+  -p '{"spec":{"image":"ghcr.io/enterprisedb/klio:v0.0.13"}}'
 ```
 <!-- x-release-please-end -->
 
