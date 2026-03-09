@@ -49,6 +49,15 @@ rules:
 - apiGroups:
   - klio.cnpg.io
   resources:
+  - pluginconfigurations/status
+  - servers/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - klio.cnpg.io
+  resources:
   - servers
   verbs:
   - create
@@ -63,12 +72,4 @@ rules:
   resources:
   - servers/finalizers
   verbs:
-  - update
-- apiGroups:
-  - klio.cnpg.io
-  resources:
-  - servers/status
-  verbs:
-  - get
-  - patch
   - update

@@ -53,8 +53,6 @@ Wait for the primary cluster to be ready before proceeding.
 kubectl apply -f backup-dc-a.yaml
 ```
 
-Take note of the backupID and set it in the `cluster-dc-b.yaml` file.
-
 ### Step 4: Deploy Replica Cluster (DC-B)
 
 ```bash

@@ -238,6 +238,7 @@ func NewTier2RetentionFeatureConfig(
 		klio.PluginConfigurationTemplateOptions{
 			ServerCertificate:   serverCertificate,
 			ClientCertificate:   userCertificate,
+			ClusterName:         cnpgClusterName,
 			EnableTier2Backup:   true,
 			EnableTier2Recovery: false,
 			Mode:                kliov1alpha1.ModeStandard,

@@ -6,7 +6,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/ptr"
 
-	"github.com/cloudnative-pg/klio/operator/internal/cnpgi"
+	"github.com/cloudnative-pg/klio/operator/internal/klioconfig"
 	machineryFeatures "github.com/cloudnative-pg/klio/operator/test/machinery/pkg/features"
 	"github.com/cloudnative-pg/klio/operator/test/utils/templates/certificates"
 	"github.com/cloudnative-pg/klio/operator/test/utils/templates/cnpg"
@@ -64,6 +64,7 @@ func NewTablespaceRecoveryFeatureConfig(
 		klio.PluginConfigurationTemplateOptions{
 			ServerCertificate: certificate,
 			ClientCertificate: userCertificate,
+			ClusterName:       cnpgSourceClusterName,
 		},
 	)
 	encryptionSecret := secrets.GetKlioEncryptionSecret("encryption", namespace, "testencryptionpassword123")
@@ -88,7 +89,7 @@ func NewTablespaceRecoveryFeatureConfig(
 			Name:    "klio.cnpg.io",
 			Enabled: ptr.To(true),
 			Parameters: map[string]string{
-				cnpgi.PluginConfigurationRefParam: "klio-plugin-configuration-recovery",
+				klioconfig.PluginConfigurationRefParam: "klio-plugin-configuration-recovery",
 			},
 		},
 	}}

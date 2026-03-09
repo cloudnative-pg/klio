@@ -21,6 +21,7 @@ import (
 	"sigs.k8s.io/e2e-framework/pkg/types"
 
 	kliov1alpha1 "github.com/cloudnative-pg/klio/operator/api/v1alpha1"
+	"github.com/cloudnative-pg/klio/operator/internal/cnpgi"
 	"github.com/cloudnative-pg/klio/operator/test/klio/infra"
 	machineryConditions "github.com/cloudnative-pg/klio/operator/test/machinery/pkg/conditions"
 	machineryPostgres "github.com/cloudnative-pg/klio/operator/test/machinery/pkg/postgres"
@@ -201,10 +202,7 @@ func (s *walRetentionScenario) runBackupMaintenance(
 ) error {
 	// The klio config is at /var/lib/postgresql/klio/klio-archive on the PostgreSQL pod.
 	// The klio binary is in the klio-plugin sidecar container.
-	const (
-		klioConfigPath   = "/var/lib/postgresql/klio/klio-archive"
-		sidecarContainer = "klio-plugin"
-	)
+	const klioConfigPath = "/var/lib/postgresql/klio/klio-archive"
 
 	var stdout, stderr bytes.Buffer
 	maintenanceCmd := []string{
@@ -216,7 +214,7 @@ func (s *walRetentionScenario) runBackupMaintenance(
 	}
 
 	err := r.ExecInPod(
-		ctx, s.namespace.Name, s.sourcePrimaryPod.Name, sidecarContainer, maintenanceCmd, &stdout, &stderr)
+		ctx, s.namespace.Name, s.sourcePrimaryPod.Name, cnpgi.KlioPluginContainerName, maintenanceCmd, &stdout, &stderr)
 	if err != nil {
 		return fmt.Errorf(
 			"failed to run backup maintenance: %w; stdout: %s; stderr: %s", err, stdout.String(), stderr.String())
@@ -231,10 +229,7 @@ func (s *walRetentionScenario) deleteBackup(
 	r *resources.Resources,
 	backupName string,
 ) error {
-	const (
-		klioConfigPath   = "/var/lib/postgresql/klio/klio-archive"
-		sidecarContainer = "klio-plugin"
-	)
+	const klioConfigPath = "/var/lib/postgresql/klio/klio-archive"
 
 	var stdout, stderr bytes.Buffer
 	deleteCmd := []string{
@@ -247,7 +242,7 @@ func (s *walRetentionScenario) deleteBackup(
 	}
 
 	err := r.ExecInPod(
-		ctx, s.namespace.Name, s.sourcePrimaryPod.Name, sidecarContainer, deleteCmd, &stdout, &stderr)
+		ctx, s.namespace.Name, s.sourcePrimaryPod.Name, cnpgi.KlioPluginContainerName, deleteCmd, &stdout, &stderr)
 	if err != nil {
 		return fmt.Errorf(
 			"failed to delete backup %s: %w; stdout: %s; stderr: %s",
@@ -264,10 +259,7 @@ func (s *walRetentionScenario) listBackups(
 	ctx context.Context,
 	r *resources.Resources,
 ) ([]string, error) {
-	const (
-		klioConfigPath   = "/var/lib/postgresql/klio/klio-archive"
-		sidecarContainer = "klio-plugin"
-	)
+	const klioConfigPath = "/var/lib/postgresql/klio/klio-archive"
 
 	var stdout, stderr bytes.Buffer
 	listCmd := []string{
@@ -279,7 +271,7 @@ func (s *walRetentionScenario) listBackups(
 	}
 
 	err := r.ExecInPod(
-		ctx, s.namespace.Name, s.sourcePrimaryPod.Name, sidecarContainer, listCmd, &stdout, &stderr)
+		ctx, s.namespace.Name, s.sourcePrimaryPod.Name, cnpgi.KlioPluginContainerName, listCmd, &stdout, &stderr)
 	if err != nil {
 		return nil, fmt.Errorf(
 			"failed to list backups: %w; stdout: %s; stderr: %s",
@@ -599,6 +591,7 @@ func newWALRetentionScenario(name string, namespace string) *walRetentionScenari
 		klio.PluginConfigurationTemplateOptions{
 			ServerCertificate:   serverCertificate,
 			ClientCertificate:   userCertificate,
+			ClusterName:         cnpgClusterName,
 			EnableTier2Backup:   true,
 			EnableTier2Recovery: false,
 			Mode:                kliov1alpha1.ModeStandard,

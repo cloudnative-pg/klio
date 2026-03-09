@@ -73,9 +73,7 @@ var sendWalCmd = &cobra.Command{
 			return fmt.Errorf("while connecting to the Klio server: %w", err)
 		}
 
-		sendToTier2, _ := cmd.Flags().GetBool("enable-tier2-backup")
-
-		err = sendwal.New(&configuration, logger, client, sendToTier2).
+		err = sendwal.New(&configuration, logger, client, configuration.Tier2BackupEnabled).
 			Start(ctx)
 		if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
 			logger.Info("send-wal stopped due to context cancellation, exiting gracefully")
@@ -142,8 +140,6 @@ func waitForPostgreSQLInstance(ctx context.Context, dsn string, waitForPrimary b
 func init() {
 	sendWalCmd.Flags().Bool(
 		"primary", true, "Wait for the current instance to become a primary")
-
-	sendWalCmd.Flags().Bool("enable-tier2-backup", false, "Send WALs to tier2")
 
 	rootCmd.AddCommand(sendWalCmd)
 }

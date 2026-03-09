@@ -5,6 +5,19 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+// Condition types for PluginConfiguration.
+const (
+	// PluginConfigurationConditionConfigurationApplied indicates whether the
+	// configuration has been successfully applied to the Secret.
+	PluginConfigurationConditionConfigurationApplied = "ConfigurationApplied"
+)
+
+// Condition reasons for ConfigurationApplied.
+const (
+	// ReasonSecretUpdated means the Secret was successfully created or updated.
+	ReasonSecretUpdated = "SecretUpdated"
+)
+
 // PluginConfigurationSpec defines the desired state of client configuration.
 // +kubebuilder:validation:XValidation:rule="self.mode != 'read-only' || (has(self.tier2) && (!has(self.tier2.enableBackup) || !self.tier2.enableBackup) && self.tier2.enableRecovery && !has(self.tier1))",message="when mode is read-only, tier2.enableRecovery must be true, tier2.enableBackup must be false, and tier1 must not exist"
 type PluginConfigurationSpec struct {
@@ -36,8 +49,9 @@ type PluginConfigurationSpec struct {
 	ServerSecretName string `json:"serverSecretName"`
 
 	// ClusterName is the name of the PostgreSQL cluster we are connecting to
-	// +optional
-	ClusterName string `json:"clusterName,omitempty"`
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:MinLength=1
+	ClusterName string `json:"clusterName"`
 
 	// Pprof enables the pprof endpoint for performance profiling
 	// +optional
@@ -158,8 +172,12 @@ type RetentionPolicy struct {
 
 // PluginConfigurationStatus defines the observed state of ClientConfig.
 type PluginConfigurationStatus struct {
-	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
-	// Important: Run "make" to regenerate code after modifying this file
+	// Conditions represent the latest available observations of the
+	// PluginConfiguration's state.
+	// +optional
+	// +listType=map
+	// +listMapKey=type
+	Conditions []metav1.Condition `json:"conditions,omitempty"`
 }
 
 // +kubebuilder:object:root=true

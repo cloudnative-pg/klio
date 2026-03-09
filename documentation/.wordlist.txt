@@ -129,6 +129,7 @@ PersistentVolumeClaimSpec
 PersistentVolumeClaimTemplate
 PersistentVolumeClaims
 PluginConfiguration
+PluginConfiguration's
 PluginConfigurationList
 PluginConfigurationSpec
 PluginConfigurationStatus

@@ -34,6 +34,7 @@ func newBackupFeature(
 		klio.PluginConfigurationTemplateOptions{
 			ServerCertificate: certificate,
 			ClientCertificate: userCertificate,
+			ClusterName:       "test-cluster",
 		},
 	)
 	encryptionSecret := secrets.GetKlioEncryptionSecret("encryption", namespace, "testencryptionpassword123")

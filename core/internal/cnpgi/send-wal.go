@@ -30,8 +30,6 @@ type SendWalClusterReconciler struct {
 
 	KlioConfigFile string
 
-	EnableTier2Backup bool
-
 	// supervisor is the supervisor that is managing the send-wal process
 	supervisor *supervisor.Service
 }
@@ -43,9 +41,6 @@ func (r *SendWalClusterReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	}
 	if r.KlioConfigFile != "" {
 		sendWALArgs = append(sendWALArgs, "--primary=false", "--config", r.KlioConfigFile)
-	}
-	if r.EnableTier2Backup {
-		sendWALArgs = append(sendWALArgs, "--enable-tier2-backup")
 	}
 
 	sendWal := supervisor.NewService(&supervisor.Definition{

@@ -1,11 +1,15 @@
 package cnpgi
 
 import (
+	"fmt"
+
 	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 
 	"github.com/cloudnative-pg/klio/core/internal/cnpgi"
+	"github.com/cloudnative-pg/klio/core/pkg/config"
 )
 
 // instanceCmd represents the `klio cnpgi instance` command
@@ -19,9 +23,11 @@ var instanceCmd = &cobra.Command{
 		configFile, _ := cmd.Root().PersistentFlags().GetString("config")
 		pluginPath, _ := cmd.Flags().GetString("plugin-path")
 
-		tier1, _ := cmd.Flags().GetBool("tier1")
-		enableTier2Backup, _ := cmd.Flags().GetBool("enable-tier2-backup")
-		enableTier2Recovery, _ := cmd.Flags().GetBool("enable-tier2-recovery")
+		var configuration config.Data
+		if err := viper.Unmarshal(&configuration); err != nil {
+			return fmt.Errorf("could not unmarshal configuration: %w", err)
+		}
+
 		debug, _ := cmd.PersistentFlags().GetBool("debug")
 		podName, _ := cmd.Flags().GetString("pod-name")
 		clusterName, _ := cmd.Flags().GetString("cluster-name")
@@ -29,22 +35,21 @@ var instanceCmd = &cobra.Command{
 
 		capabilities := func(server *cnpgi.CNPGI) {
 			server.AddBackupCapability(cnpgi.BackupCapabilityOptions{
-				Tier2: enableTier2Backup,
+				Tier2: configuration.Tier2BackupEnabled,
 			})
 			server.AddMetricsCapability()
 			server.AddWALCapability(cnpgi.WALCapabilityOptions{
 				Debug: debug,
-				Tier1: tier1,
-				Tier2: enableTier2Recovery,
+				Tier1: configuration.Tier1Enabled,
+				Tier2: configuration.Tier2RecoveryEnabled,
 			})
 		}
 
 		enrichManager := func(mgr manager.Manager) error {
 			sendWal := cnpgi.SendWalClusterReconciler{
-				Client:            mgr.GetClient(),
-				PodName:           podName,
-				KlioConfigFile:    configFile,
-				EnableTier2Backup: enableTier2Backup,
+				Client:         mgr.GetClient(),
+				PodName:        podName,
+				KlioConfigFile: configFile,
 			}
 
 			return sendWal.SetupWithManager(mgr)
@@ -53,6 +58,7 @@ var instanceCmd = &cobra.Command{
 		return runCNPGI(
 			cmd.Context(),
 			pluginPath,
+			configFile,
 			types.NamespacedName{
 				Namespace: clusterNamespace,
 				Name:      clusterName,
@@ -84,21 +90,6 @@ func init() {
 		"pod-name",
 		"",
 		"The name of the current instance",
-	)
-	instanceCmd.Flags().Bool(
-		"tier1",
-		true,
-		"Enabled when the cluster is connected to tier1",
-	)
-	instanceCmd.Flags().Bool(
-		"enable-tier2-backup",
-		false,
-		"Enabled when backups need to be sent to tier2",
-	)
-	instanceCmd.Flags().Bool(
-		"enable-tier2-recovery",
-		false,
-		"Enabled when WALs need to be read from both tier1 and tier2",
 	)
 
 	CnpgiCmd.AddCommand(instanceCmd)

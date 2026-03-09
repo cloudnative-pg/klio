@@ -6,6 +6,7 @@ spec:
   serverAddress: klio.default
   clientSecretName: cluster-example-klio-user
   serverSecretName: klio-server-tls
+  clusterName: cluster-example
   containers:
     - name: klio-plugin
       envFrom:

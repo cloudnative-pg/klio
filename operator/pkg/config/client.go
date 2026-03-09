@@ -19,6 +19,15 @@ type Data struct {
 	// Tier2RetentionPolicy is the retention policy to be applied to tier2.
 	Tier2RetentionPolicy *RetentionPolicy `json:"tier2_retention,omitempty" mapstructure:"tier2_retention"`
 
+	// Tier1Enabled controls whether tier1 backup/recovery is active.
+	Tier1Enabled bool `json:"tier1_enabled,omitempty" mapstructure:"tier1_enabled"`
+
+	// Tier2BackupEnabled controls whether backups are sent to tier2.
+	Tier2BackupEnabled bool `json:"tier2_backup_enabled,omitempty" mapstructure:"tier2_backup_enabled"`
+
+	// Tier2RecoveryEnabled controls whether tier2 is used for recovery.
+	Tier2RecoveryEnabled bool `json:"tier2_recovery_enabled,omitempty" mapstructure:"tier2_recovery_enabled"`
+
 	// WALPrefetch is the WAL prefetching configuration.
 	WALPrefetch WALPrefetchConfig `json:"wal_prefetch" mapstructure:"wal_prefetch"`
 }

@@ -3,7 +3,10 @@ package controller
 import (
 	"context"
 
+	machineryapi "github.com/cloudnative-pg/machinery/pkg/api"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -31,13 +34,38 @@ var _ = Describe("Server Controller", func() {
 			By("creating the custom resource for the Kind Server")
 			err := k8sClient.Get(ctx, typeNamespacedName, server)
 			if err != nil && errors.IsNotFound(err) {
+				pvcTemplate := corev1.PersistentVolumeClaimSpec{
+					AccessModes: []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce},
+					Resources: corev1.VolumeResourceRequirements{
+						Requests: corev1.ResourceList{
+							corev1.ResourceStorage: resource.MustParse("1Gi"),
+						},
+					},
+				}
 				resource := &kliov1alpha1.Server{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      resourceName,
 						Namespace: "default",
 					},
-					//nolint:godox
-					// TODO(user): Specify other spec details if needed.
+					Spec: kliov1alpha1.ServerSpec{
+						ImageConfiguration: kliov1alpha1.ImageConfiguration{
+							Image: "klio:test",
+						},
+						TLSConfiguration: kliov1alpha1.TLSConfiguration{
+							TLSSecretName:      "tls-secret",
+							ClientCASecretName: "ca-secret",
+						},
+						Mode: kliov1alpha1.ModeStandard,
+						Tier1: &kliov1alpha1.Tier1Configuration{
+							Cache: kliov1alpha1.Cache{PersistentVolumeClaimTemplate: pvcTemplate},
+							Data:  kliov1alpha1.Data{PersistentVolumeClaimTemplate: pvcTemplate},
+							EncryptionKey: &machineryapi.SecretKeySelector{
+								LocalObjectReference: machineryapi.LocalObjectReference{Name: "enc-secret"},
+								Key:                  "key",
+							},
+						},
+						Queue: &kliov1alpha1.Queue{PersistentVolumeClaimTemplate: pvcTemplate},
+					},
 				}
 				Expect(k8sClient.Create(ctx, resource)).To(Succeed())
 			}

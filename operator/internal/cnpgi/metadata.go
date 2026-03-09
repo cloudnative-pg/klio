@@ -1,14 +1,14 @@
 package cnpgi
 
-import "github.com/cloudnative-pg/cnpg-i/pkg/identity"
+import (
+	"github.com/cloudnative-pg/cnpg-i/pkg/identity"
 
-// PluginName is the name of the plugin from the instance manager
-// Point-of-view.
-const PluginName = "klio.cnpg.io"
+	"github.com/cloudnative-pg/klio/operator/internal/klioconfig"
+)
 
 // data is the metadata of this plugin.
 var data = identity.GetPluginMetadataResponse{ //nolint: gochecknoglobals
-	Name:          PluginName,
+	Name:          klioconfig.PluginName,
 	Version:       "0.0.12", // x-release-please-version
 	DisplayName:   "Klio",
 	ProjectUrl:    "",

@@ -32,8 +32,8 @@ import (
 
 var setupLog = ctrl.Log.WithName("setup") //nolint:gochecknoglobals
 
-//nolint:cyclop
-func main() {
+//nolint:cyclop,maintidx
+func main() { // NOSONAR
 	var metricsAddr string
 	var metricsCertPath, metricsCertName, metricsCertKey string
 	var webhookCertPath, webhookCertName, webhookCertKey string
@@ -224,6 +224,14 @@ func main() {
 		Scheme: mgr.GetScheme(),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "Server")
+		os.Exit(1)
+	}
+
+	if err := (&controller.PluginConfigurationReconciler{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "PluginConfiguration")
 		os.Exit(1)
 	}
 

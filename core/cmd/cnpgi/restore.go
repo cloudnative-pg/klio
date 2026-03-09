@@ -1,11 +1,15 @@
 package cnpgi
 
 import (
+	"fmt"
+
 	"github.com/cloudnative-pg/machinery/pkg/log"
 	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
 	"k8s.io/apimachinery/pkg/types"
 
 	"github.com/cloudnative-pg/klio/core/internal/cnpgi"
+	"github.com/cloudnative-pg/klio/core/pkg/config"
 )
 
 // restoreJobCmd represents the job run command
@@ -17,13 +21,17 @@ var restoreJobCmd = &cobra.Command{
 	Hidden: true,
 	Args:   cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
+		configFile, _ := cmd.Root().PersistentFlags().GetString("config")
 		pluginPath, _ := cmd.Flags().GetString("plugin-path")
 		clusterName, _ := cmd.Flags().GetString("cluster-name")
 		clusterNamespace, _ := cmd.Flags().GetString("cluster-namespace")
-		tier1, _ := cmd.Flags().GetBool("tier1")
-		tier2, _ := cmd.Flags().GetBool("tier2")
 		debug, _ := cmd.PersistentFlags().GetBool("debug")
 		destination := args[0]
+
+		var configuration config.Data
+		if err := viper.Unmarshal(&configuration); err != nil {
+			return fmt.Errorf("could not unmarshal configuration: %w", err)
+		}
 
 		contextLogger := log.FromContext(cmd.Context())
 		contextLogger.Info("Starting CNPG-I job restore server",
@@ -34,14 +42,15 @@ var restoreJobCmd = &cobra.Command{
 			server.AddRestoreCapability(destination)
 			server.AddWALCapability(cnpgi.WALCapabilityOptions{
 				Debug: debug,
-				Tier1: tier1,
-				Tier2: tier2,
+				Tier1: configuration.Tier1Enabled,
+				Tier2: configuration.Tier2RecoveryEnabled,
 			})
 		}
 
 		return runCNPGI(
 			cmd.Context(),
 			pluginPath,
+			configFile,
 			types.NamespacedName{
 				Namespace: clusterNamespace,
 				Name:      clusterName,
@@ -68,16 +77,6 @@ func init() {
 		"plugin-path",
 		"/plugins",
 		"The directory where the Unix domain socket should be created",
-	)
-	restoreJobCmd.Flags().Bool(
-		"tier1",
-		true,
-		"If enabled, look for backup and WALs in tier1",
-	)
-	restoreJobCmd.Flags().Bool(
-		"tier2",
-		false,
-		"If enabled, look for backup and WALs in tier2",
 	)
 	CnpgiCmd.AddCommand(restoreJobCmd)
 }

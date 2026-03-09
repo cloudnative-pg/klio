@@ -19,7 +19,7 @@ import (
 	"sigs.k8s.io/e2e-framework/klient/wait"
 
 	kliov1alpha1 "github.com/cloudnative-pg/klio/operator/api/v1alpha1"
-	"github.com/cloudnative-pg/klio/operator/internal/cnpgi"
+	"github.com/cloudnative-pg/klio/operator/internal/klioconfig"
 	"github.com/cloudnative-pg/klio/operator/test/utils/conditions"
 	"github.com/cloudnative-pg/klio/operator/test/utils/templates/certificates"
 	"github.com/cloudnative-pg/klio/operator/test/utils/templates/cnpg"
@@ -339,6 +339,7 @@ func buildTier2ScenarioResources(namespace string, instances int) *tier2Scenario
 		klio.PluginConfigurationTemplateOptions{
 			ServerCertificate:   serverCertificate,
 			ClientCertificate:   userCertificate,
+			ClusterName:         tier2SourceClusterName,
 			EnableTier2Backup:   true,
 			EnableTier2Recovery: false,
 			Mode:                kliov1alpha1.ModeStandard,
@@ -387,12 +388,12 @@ func buildTier2ScenarioResources(namespace string, instances int) *tier2Scenario
 		klio.PluginConfigurationTemplateOptions{
 			ServerCertificate:   recoveryServerCertificate,
 			ClientCertificate:   recoveryUserCertificate,
+			ClusterName:         tier2SourceClusterName,
 			EnableTier2Backup:   false,
 			EnableTier2Recovery: true,
 			Mode:                kliov1alpha1.ModeReadOnly,
 		},
 	)
-	klioPluginConfigurationRecovery.Spec.ClusterName = cnpgCluster.Name
 
 	// Recovery cluster configuration
 	recoveryCluster := cnpgCluster.DeepCopy()
@@ -403,7 +404,7 @@ func buildTier2ScenarioResources(namespace string, instances int) *tier2Scenario
 			Name:    "klio.cnpg.io",
 			Enabled: ptr.To(true),
 			Parameters: map[string]string{
-				cnpgi.PluginConfigurationRefParam: klioPluginConfigurationRecovery.Name,
+				klioconfig.PluginConfigurationRefParam: klioPluginConfigurationRecovery.Name,
 			},
 		},
 	}}

@@ -5,7 +5,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/ptr"
 
-	"github.com/cloudnative-pg/klio/operator/internal/cnpgi"
+	"github.com/cloudnative-pg/klio/operator/internal/klioconfig"
 )
 
 // GetCnpgClusterObject returns a CNPG Cluster Object.
@@ -34,7 +34,7 @@ func GetCnpgClusterObject(
 				Enabled:       ptr.To(true),
 				IsWALArchiver: ptr.To(true),
 				Parameters: map[string]string{
-					cnpgi.PluginConfigurationRefParam: pluginConfigurationRef,
+					klioconfig.PluginConfigurationRefParam: pluginConfigurationRef,
 				},
 			}},
 		},

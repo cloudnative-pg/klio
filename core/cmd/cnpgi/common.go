@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	cnpgv1 "github.com/cloudnative-pg/cloudnative-pg/api/v1"
 	"github.com/cloudnative-pg/machinery/pkg/log"
@@ -28,9 +29,11 @@ import (
 	"github.com/cloudnative-pg/klio/core/internal/cnpgi"
 )
 
+//nolint:cyclop
 func runCNPGI(
 	ctx context.Context,
 	pluginPath string,
+	configFile string,
 	clusterKey types.NamespacedName,
 	addCapabilities func(server *cnpgi.CNPGI),
 	enrichManager func(m manager.Manager) error,
@@ -91,10 +94,24 @@ func runCNPGI(
 		}
 	}
 
+	// Add config file watcher so the sidecar restarts when the config changes
+	if configFile != "" {
+		if err := mgr.Add(
+			cnpgi.NewConfigFileWatcher(configFile, 10*time.Second),
+		); err != nil {
+			return fmt.Errorf("while adding config watcher: %w", err)
+		}
+	}
+
 	// Start the manager and handle graceful shutdown
 	if err := mgr.Start(ctx); err != nil {
 		if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
 			logger.Info("Manager stopped due to context cancellation, exiting gracefully")
+			return nil
+		}
+
+		if errors.Is(err, cnpgi.ErrConfigFileChanged) {
+			logger.Info("Manager stopped due to configuration file change, exiting gracefully")
 			return nil
 		}
 

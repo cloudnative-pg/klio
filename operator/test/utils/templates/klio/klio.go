@@ -166,6 +166,8 @@ type PluginConfigurationTemplateOptions struct {
 	ServerCertificate *certmanagerv1.Certificate
 	// ClientCertificate is the client certificate for authentication.
 	ClientCertificate *certmanagerv1.Certificate
+	// ClusterName is the name of the PostgreSQL cluster.
+	ClusterName string
 	// Mode indicates the operation mode of the plugin.
 	Mode kliov1alpha1.ServerMode
 	// EnableTier2Backup enables tier2 backup.
@@ -190,6 +192,7 @@ func GetPluginConfigurationObject(
 		ServerAddress:    opts.ServerCertificate.Spec.DNSNames[0],
 		ClientSecretName: opts.ClientCertificate.Spec.SecretName,
 		ServerSecretName: opts.ServerCertificate.Spec.SecretName,
+		ClusterName:      opts.ClusterName,
 		Mode:             mode,
 	}
 

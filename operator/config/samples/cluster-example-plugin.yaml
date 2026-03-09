@@ -47,6 +47,7 @@ spec:
   serverAddress: server-sample.default
   clientSecretName: cluster-example-klio-user
   serverSecretName: server-sample-tls
+  clusterName: cluster-example
   pprof: true
   tier1:
     retention:

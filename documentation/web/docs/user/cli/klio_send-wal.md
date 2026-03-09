@@ -13,9 +13,8 @@ klio send-wal [flags]
 ### Options
 
 ```
-      --enable-tier2-backup   Send WALs to tier2
-  -h, --help                  help for send-wal
-      --primary               Wait for the current instance to become a primary (default true)
+  -h, --help      help for send-wal
+      --primary   Wait for the current instance to become a primary (default true)
 ```
 
 ### Options inherited from parent commands

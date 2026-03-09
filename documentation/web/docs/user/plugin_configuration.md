@@ -129,17 +129,41 @@ as the WAL are streamed directly to the Klio server. Thus, you must not set
 
 ## Applying configuration changes
 
-Changes to a `PluginConfiguration` resource are not automatically propagated
-to running cluster pods. The Klio operator reads the `PluginConfiguration`
-only when CloudNativePG creates or recreates a pod.
+Most changes to the `PluginConfiguration` resource are applied
+automatically. When you update a `PluginConfiguration`, the Klio
+operator detects the change and updates the corresponding
+`klio-config` Secret. The Klio sidecar containers monitor their
+configuration file for changes and **restart automatically** to apply
+the new configuration. This restart is intentional and expected.
 
-To apply changes immediately, perform a rolling restart of the cluster pods
-using the [`kubectl cnpg restart`
-command](https://cloudnative-pg.io/docs/current/kubectl-plugin/#restart):
+**What to expect during configuration updates:**
 
-```bash
-kubectl cnpg restart <cluster-name>
-```
+- The `klio-plugin`, `klio-wal`, and `klio-restore` sidecar containers
+  will restart to pick up the new configuration
+- Container restart counts will increment - this is normal behavior and
+  indicates the configuration was successfully applied
+- Restarts are graceful and brief (typically 5-10 seconds)
+- No data loss occurs - PostgreSQL continues running and WAL streaming
+  resumes automatically after restart
+- You can verify the configuration was applied by checking the
+  `ConfigurationApplied` condition in the PluginConfiguration status
+
+This automatic propagation applies to all configuration fields
+stored in the config file, including:
+
+- Server address
+- Tier 1 and Tier 2 settings (backup, recovery, retention)
+- Operation mode (`standard` or `read-only`)
+- Cluster name override
+- WAL prefetch configuration
+
+:::note
+Changes to container customizations (such as `image`,
+`resources`, or `securityContext`) and the `pprof` setting are
+not applied automatically. These fields affect the pod spec,
+which is managed by CloudNativePG. To apply these changes, use
+`kubectl cnpg restart` to roll the cluster pods.
+:::
 
 ## Advanced configuration options
 

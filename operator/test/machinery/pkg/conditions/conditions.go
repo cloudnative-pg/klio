@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	cnpgv1 "github.com/cloudnative-pg/api/pkg/api/v1"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"sigs.k8s.io/e2e-framework/klient/k8s"
 	"sigs.k8s.io/e2e-framework/klient/k8s/resources"
@@ -48,5 +49,35 @@ func BackupIsCompleted(r *resources.Resources, backup k8s.Object) wait.Condition
 		}
 
 		return false, nil
+	}
+}
+
+// InitContainerHasRestarted checks if an init container has restarted
+// by comparing the current restart count against the initial count.
+func InitContainerHasRestarted(
+	r *resources.Resources,
+	podName string,
+	namespace string,
+	containerName string,
+	initialRestartCount int32,
+) wait.ConditionWithContextFunc {
+	return func(ctx context.Context) (bool, error) {
+		var pod corev1.Pod
+		if err := r.Get(ctx, podName, namespace, &pod); err != nil {
+			return false, fmt.Errorf("failed to get pod: %w", err)
+		}
+
+		// Find the specified init container
+		for _, containerStatus := range pod.Status.InitContainerStatuses {
+			if containerStatus.Name == containerName {
+				if containerStatus.RestartCount > initialRestartCount {
+					return true, nil
+				}
+
+				return false, nil
+			}
+		}
+
+		return false, fmt.Errorf("init container %s not found in pod", containerName)
 	}
 }
