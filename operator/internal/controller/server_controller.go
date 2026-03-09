@@ -61,8 +61,8 @@ func (r *ServerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 		return ctrl.Result{}, nil
 	}
 
-	if err := r.reconcile(ctx, &server); err != nil {
-		return ctrl.Result{}, err
+	if result, err := r.reconcile(ctx, &server); err != nil || !result.IsZero() {
+		return result, err
 	}
 
 	return ctrl.Result{}, nil

@@ -5,13 +5,17 @@ import (
 	"fmt"
 	"maps"
 	"strconv"
+	"time"
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/ptr"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+	logf "sigs.k8s.io/controller-runtime/pkg/log"
 
 	kliov1alpha1 "github.com/cloudnative-pg/klio/operator/api/v1alpha1"
 	"github.com/cloudnative-pg/klio/operator/internal/podtemplate"
@@ -30,20 +34,18 @@ const (
 	kopiaCacheTier2MountPath = "/cache_tier2"
 )
 
-func (r *ServerReconciler) reconcile(ctx context.Context, server *kliov1alpha1.Server) error {
+func (r *ServerReconciler) reconcile(ctx context.Context, server *kliov1alpha1.Server) (ctrl.Result, error) {
 	if err := r.reconcileService(ctx, server); err != nil {
-		return fmt.Errorf("failed to reconcile Service: %w", err)
+		return ctrl.Result{}, fmt.Errorf("failed to reconcile Service: %w", err)
 	}
 
-	if err := r.reconcileStatefulSet(ctx, server); err != nil {
-		return fmt.Errorf("failed to reconcile StatefulSet: %w", err)
-	}
-
-	return nil
+	return r.reconcileStatefulSet(ctx, server)
 }
 
 //nolint:cyclop
-func (r *ServerReconciler) reconcileStatefulSet(ctx context.Context, server *kliov1alpha1.Server) error {
+func (r *ServerReconciler) reconcileStatefulSet(
+	ctx context.Context, server *kliov1alpha1.Server,
+) (ctrl.Result, error) {
 	klioName := server.Name + "-klio"
 
 	pprof, _ := strconv.ParseBool(server.GetAnnotations()["klio.cnpg.io/pprof"])
@@ -76,6 +78,13 @@ func (r *ServerReconciler) reconcileStatefulSet(ctx context.Context, server *kli
 		Spec: appsv1.StatefulSetSpec{
 			ServiceName: server.GetServiceName(),
 			Replicas:    ptr.To(int32(1)),
+			// Explicitly retain PVCs on StatefulSet deletion and scale-down
+			// to prevent data loss when the StatefulSet is recreated due to
+			// immutable field changes (e.g. VolumeClaimTemplates).
+			PersistentVolumeClaimRetentionPolicy: &appsv1.StatefulSetPersistentVolumeClaimRetentionPolicy{
+				WhenDeleted: appsv1.RetainPersistentVolumeClaimRetentionPolicyType,
+				WhenScaled:  appsv1.RetainPersistentVolumeClaimRetentionPolicyType,
+			},
 			Selector: &metav1.LabelSelector{
 				MatchLabels: map[string]string{
 					klioServerLabel: server.Name,
@@ -139,7 +148,7 @@ func (r *ServerReconciler) reconcileStatefulSet(ctx context.Context, server *kli
 	if server.Spec.Template != nil {
 		merged, err := podtemplate.Merge(&expected.Spec.Template, server.Spec.Template.ToCoreV1())
 		if err != nil {
-			return fmt.Errorf("failed to merge pod templates: %w", err)
+			return ctrl.Result{}, fmt.Errorf("failed to merge pod templates: %w", err)
 		}
 		expected.Spec.Template = *merged
 
@@ -165,7 +174,7 @@ func (r *ServerReconciler) reconcileStatefulSet(ctx context.Context, server *kli
 
 	hash, err := ComputeHash(hashBuilder{sts: expected, version: 1})
 	if err != nil {
-		return fmt.Errorf("failed to compute hash for Kopia configuration: %w", err)
+		return ctrl.Result{}, fmt.Errorf("failed to compute hash for Kopia configuration: %w", err)
 	}
 
 	expected.Annotations = map[string]string{
@@ -204,15 +213,34 @@ func (r *ServerReconciler) reconcileStatefulSet(ctx context.Context, server *kli
 
 		return nil
 	})
+	// Approach inspired by the Prometheus operator's ForceUpdateStatefulSet:
+	// when the API server rejects the update because of immutable fields
+	// (e.g. VolumeClaimTemplates changed), delete the StatefulSet and let
+	// the next reconciliation recreate it with the correct spec. PVCs are
+	// retained because PersistentVolumeClaimRetentionPolicy is set to Retain.
+	// ref: https://github.com/prometheus-operator/prometheus-operator/blob/main/pkg/k8s/statefulset.go
+	if apierrors.IsInvalid(err) {
+		contextLogger := logf.FromContext(ctx)
+		contextLogger.Info("StatefulSet update rejected due to immutable field change, deleting for recreation")
+
+		if deleteErr := r.Delete(ctx, statefulset, &client.DeleteOptions{
+			PropagationPolicy: ptr.To(metav1.DeletePropagationForeground),
+		}); deleteErr != nil {
+			return ctrl.Result{}, fmt.Errorf("failed to delete StatefulSet for recreation: %w", deleteErr)
+		}
+
+		return ctrl.Result{RequeueAfter: time.Second}, nil
+	}
+
 	if err != nil {
-		return fmt.Errorf("failed to reconcile statefulset (%s) %s/%s: %w",
+		return ctrl.Result{}, fmt.Errorf("failed to reconcile statefulset (%s) %s/%s: %w",
 			op,
 			statefulset.Namespace,
 			statefulset.Name,
 			err)
 	}
 
-	return nil
+	return ctrl.Result{}, nil
 }
 
 func injectQueueConfiguration(expected *appsv1.StatefulSet, server kliov1alpha1.Server) {

@@ -29,8 +29,8 @@ type Tier2S3Options struct {
 	S3CABundleSecretName string
 }
 
-// buildTier2Configuration creates a Tier2Configuration from S3 options and encryption secret.
-func buildTier2Configuration(s3Opts Tier2S3Options, encryptionSecretName string) kliov1alpha1.Tier2Configuration {
+// BuildTier2Configuration creates a Tier2Configuration from S3 options and encryption secret.
+func BuildTier2Configuration(s3Opts Tier2S3Options, encryptionSecretName string) kliov1alpha1.Tier2Configuration {
 	return kliov1alpha1.Tier2Configuration{
 		Cache: kliov1alpha1.Cache{
 			PersistentVolumeClaimTemplate: corev1.PersistentVolumeClaimSpec{
@@ -234,7 +234,7 @@ func GetServerWithTier2Object(
 	server := GetServerObject(name, namespace, opts.ServerTemplateOptions)
 
 	// Add tier2 configuration
-	tier2Config := buildTier2Configuration(opts.S3, opts.Tier2EncryptionSecretName)
+	tier2Config := BuildTier2Configuration(opts.S3, opts.Tier2EncryptionSecretName)
 	server.Spec.Tier2 = &tier2Config
 
 	return server
@@ -249,7 +249,7 @@ func GetReadOnlyTier2ServerObject(
 ) *kliov1alpha1.Server {
 	server := newBaseServer(name, namespace, opts.ServerTemplateOptions)
 	server.Spec.Mode = kliov1alpha1.ModeReadOnly
-	tier2Config := buildTier2Configuration(opts.S3, opts.Tier2EncryptionSecretName)
+	tier2Config := BuildTier2Configuration(opts.S3, opts.Tier2EncryptionSecretName)
 	server.Spec.Tier2 = &tier2Config
 
 	return server
