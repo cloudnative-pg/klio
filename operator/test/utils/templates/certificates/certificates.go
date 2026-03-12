@@ -36,7 +36,7 @@ func GetCACertificateObject(
 		Spec: certmanagerv1.CertificateSpec{
 			CommonName: name,
 			SecretName: name,
-			IssuerRef: cmmeta.ObjectReference{
+			IssuerRef: cmmeta.IssuerReference{
 				Name:  issuer.Name,
 				Kind:  issuer.Kind,
 				Group: issuer.GroupVersionKind().Group,
@@ -64,7 +64,7 @@ func GetUserCertificateObject(
 		Spec: certmanagerv1.CertificateSpec{
 			CommonName: username,
 			SecretName: name + "-auth",
-			IssuerRef: cmmeta.ObjectReference{
+			IssuerRef: cmmeta.IssuerReference{
 				Name:  issuer.Name,
 				Kind:  issuer.Kind,
 				Group: issuer.GroupVersionKind().Group,
