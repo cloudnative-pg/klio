@@ -9,7 +9,7 @@ spec:
       automountServiceAccountToken: false
       containers:
         - name: rustfs-aws-cli-client
-          image: amazon/aws-cli:2.34.8@sha256:729a53c70a0a12144055dea1255614f117af5e40e8926b68eb1b5cb41069fabc
+          image: amazon/aws-cli:2.34.9@sha256:19f21fa4e6bbeac6f6b1f9b167902578bbd8bf0a747cbaa92a892bffff540039
           command: ["/bin/sh", "-c"]
           args:
             - |
