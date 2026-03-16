@@ -29,7 +29,7 @@ type Client struct {
 	KopiaBinary string
 
 	// Password is the repository encryption password.
-	Password string //nolint:gosec
+	Password string
 }
 
 func (s *Client) kopiaEnvironmentVariables() []string {

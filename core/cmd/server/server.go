@@ -63,7 +63,7 @@ func setupTier2ConfigFiles(
 	tier2ROConfigFile, err := os.CreateTemp("", "kopiaconfig_tier2_ro_*")
 	if err != nil {
 		// Clean up the RW file we already created.
-		_ = os.Remove(rwConfigFileName) //nolint:gosec
+		_ = os.Remove(rwConfigFileName)
 		return nil, nil, fmt.Errorf("while writing a temporary Kopia config: %w", err)
 	}
 

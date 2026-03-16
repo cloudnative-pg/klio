@@ -58,6 +58,7 @@ func TestConfigFileWatcherContextCancelled(t *testing.T) {
 	watcher := NewConfigFileWatcher(configFile, 50*time.Millisecond)
 
 	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 
 	go func() {
 		time.Sleep(100 * time.Millisecond)
