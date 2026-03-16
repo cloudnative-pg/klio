@@ -921,7 +921,7 @@ tasks:
     cmds:
       - >
         GITHUB_REF= dagger -s call -m github.com/cloudnative-pg/daggerverse/protoc-gen-doc@${DAGGER_PROTOC_GEN_DOC_SHA}
-        generate --proto-dir core/proto --doc-opt "markdown,protocol.md" -o documentation/web/docs/developer/
+        generate --proto-dir core/proto --doc-opt "markdown,_protocol.md" -o documentation/web/docs/developer/
     sources:
       - core/proto/**/*.proto
 

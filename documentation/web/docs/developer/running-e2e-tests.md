@@ -1,3 +1,7 @@
+---
+sidebar_position: 2
+---
+
 # Running E2E tests
 
 This guide explains how to run the end-to-end (E2E) tests for the Klio project. The E2E tests validate the integration between Klio components and CloudNativePG in a real Kubernetes environment.
