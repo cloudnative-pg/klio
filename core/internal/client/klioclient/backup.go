@@ -107,19 +107,19 @@ func (b *BackupExecutor) Start(ctx context.Context, opts BackupOptions) error {
 }
 
 // Upload starts the uploading process.
-func (b *BackupExecutor) Upload(ctx context.Context) error {
+func (b *BackupExecutor) Upload(ctx context.Context, pinned bool) error {
 	for _, tbl := range b.tablespaces {
-		if err := b.uploader.UploadTablespace(ctx, b.name, tbl); err != nil {
+		if err := b.uploader.UploadTablespace(ctx, b.name, tbl, pinned); err != nil {
 			return err //nolint:wrapcheck
 		}
 	}
 
-	if err := b.uploader.UploadPgData(ctx, b.name, b.pgData); err != nil {
+	if err := b.uploader.UploadPgData(ctx, b.name, b.pgData, pinned); err != nil {
 		return err //nolint:wrapcheck
 	}
 
 	controlDataFileName := path.Join(b.pgData, controlDataPath)
-	if err := b.uploader.UploadControlFile(ctx, b.name, controlDataFileName); err != nil {
+	if err := b.uploader.UploadControlFile(ctx, b.name, controlDataFileName, pinned); err != nil {
 		return err //nolint:wrapcheck
 	}
 
@@ -127,7 +127,7 @@ func (b *BackupExecutor) Upload(ctx context.Context) error {
 }
 
 // Close finishes a backup.
-func (b *BackupExecutor) Close(ctx context.Context) (*BackupMetadata, error) {
+func (b *BackupExecutor) Close(ctx context.Context, pinned bool) (*BackupMetadata, error) {
 	contextLogger := log.FromContext(ctx)
 
 	var tli int
@@ -187,7 +187,7 @@ func (b *BackupExecutor) Close(ctx context.Context) (*BackupMetadata, error) {
 		}
 	}
 
-	if err := b.uploader.UploadBackupMetadata(ctx, b.name, metadata); err != nil {
+	if err := b.uploader.UploadBackupMetadata(ctx, b.name, metadata, pinned); err != nil {
 		return nil, fmt.Errorf("while uploading backup metadata: %w", err)
 	}
 

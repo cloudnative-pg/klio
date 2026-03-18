@@ -92,6 +92,9 @@ type SnapshotDirectoryOptions struct {
 
 	// Description is a user-provided description of the snapshot.
 	Description string
+
+	// A pinned snapshot will not expire automatically.
+	Pins []string
 }
 
 // SnapshotDirectory creates a snapshot of a directory.
@@ -110,6 +113,10 @@ func (s *Client) SnapshotDirectory(
 
 	for k, v := range opts.Tags {
 		args = append(args, fmt.Sprintf("--tags=%s:%s", k, v))
+	}
+
+	for _, p := range opts.Pins {
+		args = append(args, "--pin="+p)
 	}
 
 	if opts.Description != "" {
@@ -145,6 +152,9 @@ type SnapshotFileContentOptions struct {
 
 	// Description is a user-provided description of the snapshot.
 	Description string
+
+	// A pinned snapshot will not expire automatically.
+	Pins []string
 }
 
 // SnapshotFileContent creates a snapshot from in-memory file content.
@@ -165,6 +175,10 @@ func (s *Client) SnapshotFileContent(
 
 	for k, v := range opts.Tags {
 		args = append(args, fmt.Sprintf("--tags=%s:%s", k, v))
+	}
+
+	for _, p := range opts.Pins {
+		args = append(args, "--pin="+p)
 	}
 
 	if opts.Description != "" {

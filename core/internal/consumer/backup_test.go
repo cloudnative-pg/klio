@@ -8,38 +8,38 @@ import (
 	"github.com/cloudnative-pg/klio/core/internal/kopia"
 )
 
-func TestSourceInfoListToDescriptors(t *testing.T) {
+func TestManifestListToDescriptors(t *testing.T) {
 	cases := []struct {
 		name     string
-		entries  []kopia.SourceInfo
+		entries  []kopia.Manifest
 		expected []string
 	}{
 		{
 			name:     "Empty input returns empty slice",
-			entries:  []kopia.SourceInfo{},
+			entries:  []kopia.Manifest{},
 			expected: []string{},
 		},
 		{
 			name: "Single entry returns single descriptor",
-			entries: []kopia.SourceInfo{
-				{Host: "host", UserName: "postgres", Path: "/path"},
+			entries: []kopia.Manifest{
+				{Source: kopia.SourceInfo{Host: "host", UserName: "postgres", Path: "/path"}},
 			},
 			expected: []string{"postgres@host:/path"},
 		},
 		{
 			name: "Duplicate entries are de-duplicated",
-			entries: []kopia.SourceInfo{
-				{Host: "host", UserName: "postgres", Path: "/path"},
-				{Host: "host", UserName: "postgres", Path: "/path"},
+			entries: []kopia.Manifest{
+				{Source: kopia.SourceInfo{Host: "host", UserName: "postgres", Path: "/path"}},
+				{Source: kopia.SourceInfo{Host: "host", UserName: "postgres", Path: "/path"}},
 			},
 			expected: []string{"postgres@host:/path"},
 		},
 		{
 			name: "Multiple entries are sorted alphabetically",
-			entries: []kopia.SourceInfo{
-				{Host: "host-a", UserName: "user", Path: "/path"},
-				{Host: "host-b", UserName: "user", Path: "/path"},
-				{Host: "host-c", UserName: "user", Path: "/path"},
+			entries: []kopia.Manifest{
+				{Source: kopia.SourceInfo{Host: "host-a", UserName: "user", Path: "/path"}},
+				{Source: kopia.SourceInfo{Host: "host-b", UserName: "user", Path: "/path"}},
+				{Source: kopia.SourceInfo{Host: "host-c", UserName: "user", Path: "/path"}},
 			},
 			expected: []string{
 				"user@host-a:/path",
@@ -51,10 +51,83 @@ func TestSourceInfoListToDescriptors(t *testing.T) {
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			got := sourceInfoListToDescriptors(tc.entries)
+			got := manifestListToDescriptors(tc.entries)
 
 			if !slices.Equal(got, tc.expected) {
-				t.Errorf("sourceInfoListToDescriptors() = %v, want %v", got, tc.expected)
+				t.Errorf("manifestListToDescriptors() = %v, want %v", got, tc.expected)
+			}
+		})
+	}
+}
+
+func TestGetPinnedSnapshots(t *testing.T) {
+	cases := []struct {
+		name      string
+		manifests []kopia.Manifest
+		expected  []string
+	}{
+		{
+			name:      "Empty input returns empty slice",
+			manifests: []kopia.Manifest{},
+			expected:  []string{},
+		},
+		{
+			name: "No pinned snapshots returns empty slice",
+			manifests: []kopia.Manifest{
+				{ID: "snap1", RootEntry: &kopia.DirEntry{ObjID: "obj1"}},
+				{ID: "snap2", RootEntry: &kopia.DirEntry{ObjID: "obj2"}},
+			},
+			expected: []string{},
+		},
+		{
+			name: "Single pinned snapshot",
+			manifests: []kopia.Manifest{
+				{ID: "snap1", RootEntry: &kopia.DirEntry{ObjID: "obj1"}, Pins: []string{"pin1"}},
+				{ID: "snap2", RootEntry: &kopia.DirEntry{ObjID: "obj2"}},
+			},
+			expected: []string{"obj1"},
+		},
+		{
+			name: "Multiple pinned snapshots are sorted",
+			manifests: []kopia.Manifest{
+				{ID: "snap-c", RootEntry: &kopia.DirEntry{ObjID: "obj-c"}, Pins: []string{"pin1"}},
+				{ID: "snap-a", RootEntry: &kopia.DirEntry{ObjID: "obj-a"}, Pins: []string{"pin2"}},
+				{ID: "snap-b", RootEntry: &kopia.DirEntry{ObjID: "obj-b"}},
+			},
+			expected: []string{"obj-a", "obj-c"},
+		},
+		{
+			name: "Duplicate ObjIDs are de-duplicated",
+			manifests: []kopia.Manifest{
+				{ID: "snap1", RootEntry: &kopia.DirEntry{ObjID: "obj1"}, Pins: []string{"pin1"}},
+				{ID: "snap2", RootEntry: &kopia.DirEntry{ObjID: "obj1"}, Pins: []string{"pin2"}},
+			},
+			expected: []string{"obj1"},
+		},
+		{
+			name: "Nil RootEntry with pins is skipped",
+			manifests: []kopia.Manifest{
+				{ID: "snap1", RootEntry: nil, Pins: []string{"pin1"}},
+				{ID: "snap2", RootEntry: &kopia.DirEntry{ObjID: "obj2"}, Pins: []string{"pin2"}},
+			},
+			expected: []string{"obj2"},
+		},
+		{
+			name: "Empty ObjID with pins is skipped",
+			manifests: []kopia.Manifest{
+				{ID: "snap1", RootEntry: &kopia.DirEntry{ObjID: ""}, Pins: []string{"pin1"}},
+				{ID: "snap2", RootEntry: &kopia.DirEntry{ObjID: "obj2"}, Pins: []string{"pin2"}},
+			},
+			expected: []string{"obj2"},
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			got := getPinnedSnapshots(tc.manifests)
+
+			if !slices.Equal(got, tc.expected) {
+				t.Errorf("getPinnedSnapshots() = %v, want %v", got, tc.expected)
 			}
 		})
 	}

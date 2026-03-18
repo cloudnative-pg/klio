@@ -88,11 +88,11 @@ var runCmd = &cobra.Command{
 			return fmt.Errorf("while starting the backup: %w", err)
 		}
 
-		if err := backupExecutor.Upload(cmd.Context()); err != nil {
+		if err := backupExecutor.Upload(cmd.Context(), tier2); err != nil {
 			return fmt.Errorf("while uploading data: %w", err)
 		}
 
-		metadata, err := backupExecutor.Close(cmd.Context())
+		metadata, err := backupExecutor.Close(cmd.Context(), tier2)
 		if err != nil {
 			return fmt.Errorf("while closing the backup: %w", err)
 		}

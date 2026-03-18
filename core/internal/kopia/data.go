@@ -54,6 +54,9 @@ type DirEntry struct {
 
 	// DirSummary contains summary information for directories.
 	DirSummary *DirectorySummary `json:"summ,omitempty"`
+
+	// ObjID is the ID of the root object.
+	ObjID string `json:"obj,omitempty"`
 }
 
 // DirectorySummary represents summary information about a directory.

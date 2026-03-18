@@ -19,6 +19,7 @@ func (s *Connection) UploadTablespace(
 	ctx context.Context,
 	backupName string,
 	tbl klioclient.TablespaceLayout,
+	pinned bool,
 ) error {
 	tags := map[string]string{
 		klioclient.BackupContentTagName:  "tablespace",
@@ -26,10 +27,16 @@ func (s *Connection) UploadTablespace(
 		klioclient.BackupNameTagName:     backupName,
 	}
 
+	var pins []string
+	if pinned {
+		pins = []string{klioclient.Tier2Pin}
+	}
+
 	err := s.kopia.SnapshotDirectory(ctx, kopia.SnapshotDirectoryOptions{
 		Directory:   tbl.Path,
 		Tags:        tags,
 		Description: fmt.Sprintf("tablespace %s (%v)", tbl.Name, tbl.Oid),
+		Pins:        pins,
 	})
 	if err != nil {
 		return fmt.Errorf("unable to snapshot directory: %w", err)
@@ -39,7 +46,11 @@ func (s *Connection) UploadTablespace(
 }
 
 // UploadPgData implements common.BackupUploader.
-func (s *Connection) UploadPgData(ctx context.Context, backupName, pgData string) error {
+func (s *Connection) UploadPgData(
+	ctx context.Context,
+	backupName, pgData string,
+	pinned bool,
+) error {
 	contextLogger := log.FromContext(ctx)
 
 	// Step 1: add a .kopiaignore file to avoid backing up
@@ -59,10 +70,16 @@ func (s *Connection) UploadPgData(ctx context.Context, backupName, pgData string
 		klioclient.BackupNameTagName:    backupName,
 	}
 
+	var pins []string
+	if pinned {
+		pins = []string{klioclient.Tier2Pin}
+	}
+
 	err := s.kopia.SnapshotDirectory(ctx, kopia.SnapshotDirectoryOptions{
 		Directory:   pgData,
 		Tags:        tags,
 		Description: "pgdata",
+		Pins:        pins,
 	})
 	if err != nil {
 		return err
@@ -77,16 +94,26 @@ func (s *Connection) UploadPgData(ctx context.Context, backupName, pgData string
 }
 
 // UploadControlFile implements common.BackupUploader.
-func (s *Connection) UploadControlFile(ctx context.Context, backupName, controlDataFileName string) error {
+func (s *Connection) UploadControlFile(
+	ctx context.Context,
+	backupName, controlDataFileName string,
+	pinned bool,
+) error {
 	tags := map[string]string{
 		klioclient.BackupNameTagName:    backupName,
 		klioclient.BackupContentTagName: "controldata",
+	}
+
+	var pins []string
+	if pinned {
+		pins = []string{klioclient.Tier2Pin}
 	}
 
 	err := s.kopia.SnapshotDirectory(ctx, kopia.SnapshotDirectoryOptions{
 		Directory:   controlDataFileName,
 		Tags:        tags,
 		Description: "control data file",
+		Pins:        pins,
 	})
 	if err != nil {
 		return fmt.Errorf("while snapshotting control data file: %w", err)
@@ -100,6 +127,7 @@ func (s *Connection) UploadBackupMetadata(
 	ctx context.Context,
 	backupName string,
 	data *klioclient.BackupMetadata,
+	pinned bool,
 ) error {
 	metadataContent, err := json.Marshal(data)
 	if err != nil {
@@ -113,12 +141,18 @@ func (s *Connection) UploadBackupMetadata(
 
 	fakeMetadataDirectory := strings.TrimSuffix(data.PgData, "/") + "_meta"
 
+	var pins []string
+	if pinned {
+		pins = []string{klioclient.Tier2Pin}
+	}
+
 	opts := kopia.SnapshotFileContentOptions{
 		Content:       metadataContent,
 		FileName:      "metadata.json",
 		DirectoryName: fakeMetadataDirectory,
 		Description:   "metadata for " + backupName,
 		Tags:          tags,
+		Pins:          pins,
 	}
 
 	if err := s.kopia.SnapshotFileContent(ctx, opts); err != nil {

@@ -163,6 +163,27 @@ CloudNativePG topology, this allows a Klio server at a secondary site to use
 the shared Tier 2 storage to bootstrap a new cluster, enhancing DR
 capabilities.
 
+### Snapshot Pinning
+
+When Tier 2 is enabled, Klio automatically pins snapshots in Tier 1 with a
+`klio.io/tier2` pin. This mechanism prevents retention policies from
+automatically deleting snapshots before they have been successfully migrated
+to Tier 2.
+
+The pinning workflow operates as follows:
+
+1. When a backup is created with Tier 2 enabled, all snapshot components
+   (tablespaces, PGDATA, control file, and metadata) are tagged with the
+   `klio.io/tier2` pin.
+1. The pin protects the snapshot from being removed by retention policy
+   enforcement, even if it would otherwise be eligible for deletion.
+1. After the snapshot is successfully migrated to Tier 2, Klio removes the
+   pin, allowing normal retention policy management to resume.
+
+This ensures data integrity during the asynchronous migration process and
+guarantees that no backup is lost due to retention policies running before
+migration completes.
+
 ### Restoring from Tier 2
 
 When a backup is requested for restore, Klio will first look for it in Tier 1.

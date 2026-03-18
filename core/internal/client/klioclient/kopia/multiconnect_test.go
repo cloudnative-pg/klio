@@ -29,13 +29,13 @@ type MockKlioClient struct {
 		*kopia.RetentionPolicy, error)
 	ApplyRetentionPolicyFunc func(ctx context.Context, t kopia.Target) error
 	UploadTablespaceFunc     func(ctx context.Context, backupName string,
-		tbl klioclient.TablespaceLayout) error
+		tbl klioclient.TablespaceLayout, pinned bool) error
 	UploadPgDataFunc func(ctx context.Context, backupName string,
-		pgData string) error
+		pgData string, pinned bool) error
 	UploadControlFileFunc func(ctx context.Context, backupName string,
-		controlDataFileName string) error
+		controlDataFileName string, pinned bool) error
 	UploadBackupMetadataFunc func(ctx context.Context, backupName string,
-		metadata *klioclient.BackupMetadata) error
+		metadata *klioclient.BackupMetadata, pinned bool) error
 	RestoreTablespaceFunc func(ctx context.Context,
 		metadata *klioclient.BackupMetadata, tbl klioclient.TablespaceLayout,
 		destinationDirectory string) error
@@ -107,25 +107,28 @@ func (m *MockKlioClient) ApplyRetentionPolicy(ctx context.Context, t kopia.Targe
 
 func (m *MockKlioClient) UploadTablespace(
 	ctx context.Context, backupName string, tbl klioclient.TablespaceLayout,
+	pinned bool,
 ) error {
 	if m.UploadTablespaceFunc != nil {
-		return m.UploadTablespaceFunc(ctx, backupName, tbl)
+		return m.UploadTablespaceFunc(ctx, backupName, tbl, pinned)
 	}
 
 	return nil
 }
 
-func (m *MockKlioClient) UploadPgData(ctx context.Context, backupName string, pgData string) error {
+func (m *MockKlioClient) UploadPgData(ctx context.Context, backupName string, pgData string, pinned bool) error {
 	if m.UploadPgDataFunc != nil {
-		return m.UploadPgDataFunc(ctx, backupName, pgData)
+		return m.UploadPgDataFunc(ctx, backupName, pgData, pinned)
 	}
 
 	return nil
 }
 
-func (m *MockKlioClient) UploadControlFile(ctx context.Context, backupName string, controlDataFileName string) error {
+func (m *MockKlioClient) UploadControlFile(
+	ctx context.Context, backupName string, controlDataFileName string, pinned bool,
+) error {
 	if m.UploadControlFileFunc != nil {
-		return m.UploadControlFileFunc(ctx, backupName, controlDataFileName)
+		return m.UploadControlFileFunc(ctx, backupName, controlDataFileName, pinned)
 	}
 
 	return nil
@@ -133,9 +136,10 @@ func (m *MockKlioClient) UploadControlFile(ctx context.Context, backupName strin
 
 func (m *MockKlioClient) UploadBackupMetadata(
 	ctx context.Context, backupName string, metadata *klioclient.BackupMetadata,
+	pinned bool,
 ) error {
 	if m.UploadBackupMetadataFunc != nil {
-		return m.UploadBackupMetadataFunc(ctx, backupName, metadata)
+		return m.UploadBackupMetadataFunc(ctx, backupName, metadata, pinned)
 	}
 
 	return nil

@@ -246,12 +246,13 @@ func (s *MultiConnection) UploadTablespace(
 	ctx context.Context,
 	backupName string,
 	tbl klioclient.TablespaceLayout,
+	pinned bool,
 ) error {
 	if s.Tier1 == nil {
 		return ErrUnsupportedWriteOperation
 	}
 
-	return s.Tier1.UploadTablespace(ctx, backupName, tbl)
+	return s.Tier1.UploadTablespace(ctx, backupName, tbl, pinned)
 }
 
 // UploadPgData implements the BackupExecutorSupport interface.
@@ -259,12 +260,13 @@ func (s *MultiConnection) UploadPgData(
 	ctx context.Context,
 	backupName string,
 	pgData string,
+	pinned bool,
 ) error {
 	if s.Tier1 == nil {
 		return ErrUnsupportedWriteOperation
 	}
 
-	return s.Tier1.UploadPgData(ctx, backupName, pgData)
+	return s.Tier1.UploadPgData(ctx, backupName, pgData, pinned)
 }
 
 // UploadControlFile implements the BackupExecutorSupport interface.
@@ -272,12 +274,13 @@ func (s *MultiConnection) UploadControlFile(
 	ctx context.Context,
 	backupName string,
 	controlDataFileName string,
+	pinned bool,
 ) error {
 	if s.Tier1 == nil {
 		return ErrUnsupportedWriteOperation
 	}
 
-	return s.Tier1.UploadControlFile(ctx, backupName, controlDataFileName)
+	return s.Tier1.UploadControlFile(ctx, backupName, controlDataFileName, pinned)
 }
 
 // UploadBackupMetadata implements the BackupExecutorSupport interface.
@@ -285,12 +288,13 @@ func (s *MultiConnection) UploadBackupMetadata(
 	ctx context.Context,
 	backupName string,
 	metadata *klioclient.BackupMetadata,
+	pinned bool,
 ) error {
 	if s.Tier1 == nil {
 		return ErrUnsupportedWriteOperation
 	}
 
-	return s.Tier1.UploadBackupMetadata(ctx, backupName, metadata)
+	return s.Tier1.UploadBackupMetadata(ctx, backupName, metadata, pinned)
 }
 
 func (s *MultiConnection) getClientFromMetadata(meta *klioclient.BackupMetadata) klioclient.Client {

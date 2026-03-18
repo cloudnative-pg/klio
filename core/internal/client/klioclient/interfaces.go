@@ -10,16 +10,16 @@ import (
 type BackupExecutorSupport interface {
 	// UploadTablespace uploads the tablespace with the passed layout to
 	// the backup store.
-	UploadTablespace(ctx context.Context, backupName string, tbl TablespaceLayout) error
+	UploadTablespace(ctx context.Context, backupName string, tbl TablespaceLayout, pinned bool) error
 
 	// UploadPgData uploads the PGData to the backup store.
-	UploadPgData(ctx context.Context, backupName string, pgData string) error
+	UploadPgData(ctx context.Context, backupName string, pgData string, pinned bool) error
 
 	// UploadControlFile uploads the control file to the backup store.
-	UploadControlFile(ctx context.Context, backupName string, controlDataFileName string) error
+	UploadControlFile(ctx context.Context, backupName string, controlDataFileName string, pinned bool) error
 
 	// UploadBackupMetadata is called to upload the control file and to mark a backup successfully done.
-	UploadBackupMetadata(ctx context.Context, backupName string, metadata *BackupMetadata) error
+	UploadBackupMetadata(ctx context.Context, backupName string, metadata *BackupMetadata, pinned bool) error
 }
 
 // BackupRestoreSupport contains the functions needed to restore a backup.

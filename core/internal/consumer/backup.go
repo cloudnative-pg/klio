@@ -90,11 +90,12 @@ func (d *Backup) Run(ctx context.Context) error {
 	return d.opts.Queue.ConsumeBackupReceivedMessages(consumerCtx, d.backupHandler)
 }
 
+//nolint:cyclop
 func (d *Backup) backupHandler(ctx context.Context, task *queue.BackupTask) error {
 	contextLogger := log.FromContext(ctx)
 	contextLogger.Info("Synchronizing backup", "task", task)
 
-	entries, err := d.sourcesForCluster(ctx, task.ClusterName)
+	entries, err := d.manifestsForCluster(ctx, task.ClusterName)
 	if err != nil {
 		return err
 	}
@@ -103,7 +104,7 @@ func (d *Backup) backupHandler(ctx context.Context, task *queue.BackupTask) erro
 		return nil
 	}
 
-	sources := sourceInfoListToDescriptors(entries)
+	sources := manifestListToDescriptors(entries)
 
 	if err := d.tier2Kopia.MigrateSnapshots(ctx, kopia.SnapshotMigrateOpts{
 		SourceConfig: d.opts.Tier1KopiaConfig,
@@ -117,7 +118,7 @@ func (d *Backup) backupHandler(ctx context.Context, task *queue.BackupTask) erro
 		return err
 	}
 
-	userName := entries[0].UserName
+	userName := entries[0].Source.UserName
 
 	if task.Tier2RetentionPolicy != nil {
 		if err := d.tier2Kopia.SetKopiaPolicy(
@@ -142,6 +143,26 @@ func (d *Backup) backupHandler(ctx context.Context, task *queue.BackupTask) erro
 		return err
 	}
 
+	pinnedSnapshots := getPinnedSnapshots(entries)
+
+	// Unpin the pinned snapshots.
+	// Note: we log but don't fail on this error because the backup migration
+	// has already succeeded. The snapshots will be unpinned when migrating
+	// the next backup.
+	if len(pinnedSnapshots) > 0 {
+		if err := d.tier1Kopia.PinSnapshots(
+			ctx,
+			kopia.PinSnapshotOpts{
+				IDs: pinnedSnapshots,
+				RemovePins: []string{
+					klioclient.Tier2Pin,
+				},
+			},
+		); err != nil {
+			contextLogger.Error(err, "Error while unpinning snapshots")
+		}
+	}
+
 	// Refresh the tier 2 server cache to ensure it has the latest manifests.
 	// After applying retention policies, the manifest list may have changed,
 	// so we need to notify the Kopia server to update its cache.
@@ -164,30 +185,41 @@ func (d *Backup) backupHandler(ctx context.Context, task *queue.BackupTask) erro
 	return nil
 }
 
-// ListBackups list all Kopia sources for a specified cluster.
-func (d *Backup) sourcesForCluster(ctx context.Context, cluster string) ([]kopia.SourceInfo, error) {
+func (d *Backup) manifestsForCluster(ctx context.Context, cluster string) ([]kopia.Manifest, error) {
 	contextLogger := log.FromContext(ctx)
 	entries, err := d.tier1Kopia.ListSnapshots(ctx, nil, contextLogger.Info)
 	if err != nil {
 		return nil, fmt.Errorf("while executing Kopia command: %w", err)
 	}
 
-	result := make([]kopia.SourceInfo, 0, len(entries))
+	result := make([]kopia.Manifest, 0, len(entries))
 	for i := range entries {
 		if entries[i].Source.Host != cluster {
 			continue
 		}
 
-		result = append(result, entries[i].Source)
+		result = append(result, entries[i])
 	}
 
 	return result, nil
 }
 
-func sourceInfoListToDescriptors(entries []kopia.SourceInfo) []string {
+func manifestListToDescriptors(entries []kopia.Manifest) []string {
 	result := stringset.New()
 	for _, entry := range entries {
-		result.Put(entry.String())
+		result.Put(entry.Source.String())
+	}
+
+	return result.ToSortedList()
+}
+
+func getPinnedSnapshots(manifests []kopia.Manifest) []string {
+	result := stringset.New()
+
+	for i := range manifests {
+		if len(manifests[i].Pins) > 0 && manifests[i].RootEntry != nil && manifests[i].RootEntry.ObjID != "" {
+			result.Put(manifests[i].RootEntry.ObjID)
+		}
 	}
 
 	return result.ToSortedList()
