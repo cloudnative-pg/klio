@@ -1,6 +1,6 @@
 {
   "name": "devenv",
-  "engineVersion": "v0.18.5",
+  "engineVersion": "v0.20.1",
   "sdk": {
     "source": "go"
   },
@@ -8,12 +8,13 @@
     {
       "name": "go",
       "source": "github.com/sagikazarmark/daggerverse/go",
-      "pin": "ceffda4aebd349a24fc00e591b4ed9b801535b65"
+      "pin": "d9ba06776c4c1ccf6f329bd862b9b439c4582ab6"
     },
     {
       "name": "k3s",
       "source": "github.com/marcosnils/daggerverse/k3s",
-      "pin": "fe8f9ede8cf6afdb1b15adbfd0103ce86c141bbc"
+      "pin": "c07646d1bf7f6079dab47ba152c767e062aa0f58"
     }
-  ]
+  ],
+  "disableDefaultFunctionCaching": true
 }
