@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -15,6 +16,7 @@ import (
 	"github.com/cloudnative-pg/machinery/pkg/log"
 	pgTime "github.com/cloudnative-pg/machinery/pkg/postgres/time"
 	"github.com/cloudnative-pg/machinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/wait"
 
 	"github.com/cloudnative-pg/klio/core/internal/client/klioclient"
 )
@@ -86,7 +88,16 @@ func (b backupServiceImplementation) Backup(
 		return nil, err
 	}
 
-	// Step 3: trigger maintenance
+	// Step 3: verify the backup on tier1
+	corruption, verifyErr := b.runVerify(ctx, backupName)
+	if corruption {
+		recordVerificationFailure()
+		return nil, verifyErr
+	}
+
+	recordVerificationSuccess()
+
+	// Step 4: trigger maintenance
 	b.triggerMaintenance(ctx)
 
 	return &backup.BackupResult{
@@ -170,6 +181,74 @@ func (b backupServiceImplementation) runBackup(
 	}
 
 	return &metadata, nil
+}
+
+// corruptionExitCode is the exit code returned by "klio backup verify"
+// when actual corruption is detected (errorCount > 0).
+const corruptionExitCode = 2
+
+// ErrVerificationCorruption is returned when backup verification detects corruption.
+var ErrVerificationCorruption = errors.New("backup verification detected corruption")
+
+// verifyBackoff defines the retry strategy for backup verification.
+//
+//nolint:gochecknoglobals
+var verifyBackoff = wait.Backoff{
+	Duration: 5 * time.Second,
+	Factor:   2,
+	Steps:    3,
+}
+
+// runVerify runs backup verification on tier1 and returns whether corruption was
+// detected. Infrastructure errors are retried with exponential backoff.
+// On persistent infrastructure errors the backup continues (corruption=false)
+// with a logged warning.
+func (b backupServiceImplementation) runVerify(ctx context.Context, backupName string) (bool, error) {
+	contextLogger := log.FromContext(ctx)
+
+	klioPath, err := os.Executable()
+	if err != nil {
+		contextLogger.Error(err, "Failed to determine klio path, skipping verification")
+		return false, nil
+	}
+
+	var lastInfraErr error
+
+	retryErr := wait.ExponentialBackoffWithContext(ctx, verifyBackoff, func(ctx context.Context) (bool, error) {
+		cmd := exec.CommandContext( //nolint:gosec
+			ctx, klioPath, "backup", "verify", backupName, "--tiers=tier1", "--config", backupRepositoryConfigPath,
+		)
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
+
+		if runErr := cmd.Run(); runErr != nil {
+			var exitErr *exec.ExitError
+			if errors.As(runErr, &exitErr) && exitErr.ExitCode() == corruptionExitCode {
+				return false, fmt.Errorf("%w: %w", ErrVerificationCorruption, runErr)
+			}
+
+			lastInfraErr = runErr
+			contextLogger.Info("Backup verification encountered an infrastructure error, retrying",
+				"error", runErr,
+			)
+
+			return false, nil
+		}
+
+		return true, nil
+	})
+
+	if retryErr != nil {
+		if errors.Is(retryErr, ErrVerificationCorruption) {
+			return true, retryErr
+		}
+
+		contextLogger.Info("Backup verification failed after retries, backup will continue",
+			"error", lastInfraErr,
+		)
+	}
+
+	return false, nil
 }
 
 func (b backupServiceImplementation) triggerMaintenance(ctx context.Context) {

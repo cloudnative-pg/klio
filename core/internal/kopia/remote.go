@@ -3,6 +3,7 @@ package kopia
 import (
 	"context"
 	"fmt"
+	"os"
 	"os/exec"
 
 	"github.com/cloudnative-pg/machinery/pkg/log"
@@ -38,6 +39,7 @@ func ConnectRemote(ctx context.Context, configFileName string, opts RemoteRepoOp
 	args := buildConnectRemoteArgs(configFileName, opts)
 
 	repositoryConnectCmd := exec.CommandContext(ctx, opts.KopiaBinary, args...) //nolint:gosec
+	repositoryConnectCmd.Env = getKopiaRepositoryConnectServerEnv()
 
 	contextLogger.Info("Connecting to Kopia repository", "args", args)
 	if err := RunWithLogCapture(ctx, repositoryConnectCmd, nil); err != nil {
@@ -71,4 +73,15 @@ func buildConnectRemoteArgs(configFileName string, opts RemoteRepoOpts) []string
 	}
 
 	return args
+}
+
+// getKopiaRepositoryConnectServerEnv returns the environment variables
+// for the `kopia repository connect server` command.
+func getKopiaRepositoryConnectServerEnv() []string {
+	env := os.Environ()
+	env = append(env,
+		"KOPIA_CHECK_FOR_UPDATES=false",
+	)
+
+	return env
 }

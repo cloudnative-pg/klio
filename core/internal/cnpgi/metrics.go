@@ -2,10 +2,30 @@ package cnpgi
 
 import (
 	"context"
+	"sync/atomic"
 
 	"github.com/cloudnative-pg/cnpg-i/pkg/metrics"
 	"github.com/cloudnative-pg/machinery/pkg/log"
 )
+
+// verificationMetrics tracks backup verification outcomes.
+//
+//nolint:gochecknoglobals
+var verificationMetrics struct {
+	total    atomic.Int64
+	failures atomic.Int64
+}
+
+// recordVerificationSuccess records a successful verification.
+func recordVerificationSuccess() {
+	verificationMetrics.total.Add(1)
+}
+
+// recordVerificationFailure records a failed verification.
+func recordVerificationFailure() {
+	verificationMetrics.total.Add(1)
+	verificationMetrics.failures.Add(1)
+}
 
 type metricsImpl struct {
 	metrics.UnimplementedMetricsServer
@@ -41,11 +61,14 @@ func (m metricsImpl) Define(
 	return &metrics.DefineMetricsResult{
 		Metrics: []*metrics.Metric{
 			{
-				FqName:         "klio_test_metric",
-				Help:           "this is a test metric",
-				VariableLabels: nil,
-				ConstLabels:    map[string]string{"test": "value"},
-				ValueType:      &metrics.MetricType{Type: metrics.MetricType_TYPE_GAUGE},
+				FqName:    "klio_backup_verifications_total",
+				Help:      "Total number of backup verification attempts.",
+				ValueType: &metrics.MetricType{Type: metrics.MetricType_TYPE_COUNTER},
+			},
+			{
+				FqName:    "klio_backup_verification_failures_total",
+				Help:      "Total number of backup verification failures.",
+				ValueType: &metrics.MetricType{Type: metrics.MetricType_TYPE_COUNTER},
 			},
 		},
 	}, nil
@@ -61,9 +84,12 @@ func (m metricsImpl) Collect(
 	return &metrics.CollectMetricsResult{
 		Metrics: []*metrics.CollectMetric{
 			{
-				FqName:         "klio_test_metric",
-				VariableLabels: nil,
-				Value:          42.0,
+				FqName: "klio_backup_verifications_total",
+				Value:  float64(verificationMetrics.total.Load()),
+			},
+			{
+				FqName: "klio_backup_verification_failures_total",
+				Value:  float64(verificationMetrics.failures.Load()),
 			},
 		},
 	}, nil

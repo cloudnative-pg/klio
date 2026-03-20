@@ -2,6 +2,7 @@ package consumer
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"os/signal"
@@ -21,6 +22,7 @@ type Backup struct {
 	opts        *BackupOptions
 	tier1Kopia  *kopia.Client
 	tier2Kopia  *kopia.Client
+	tier1Client *klioclientkopia.Connection
 	tier2Client *klioclientkopia.Connection
 }
 
@@ -62,6 +64,11 @@ func NewBackup(opts *BackupOptions) (*Backup, error) {
 		return nil, err
 	}
 
+	tier1Client, err := klioclientkopia.FromKopiaConfig(opts.Tier1KopiaConfig)
+	if err != nil {
+		return nil, fmt.Errorf("while creating tier1 client: %w", err)
+	}
+
 	tier2Client, err := klioclientkopia.FromKopiaConfig(opts.Tier2KopiaConfig)
 	if err != nil {
 		return nil, fmt.Errorf("while creating tier2 client: %w", err)
@@ -77,6 +84,7 @@ func NewBackup(opts *BackupOptions) (*Backup, error) {
 			KopiaBinary: kopiaBinary,
 			ConfigFile:  opts.Tier2KopiaConfig,
 		},
+		tier1Client: tier1Client,
 		tier2Client: tier2Client,
 	}, nil
 }
@@ -115,6 +123,19 @@ func (d *Backup) backupHandler(ctx context.Context, task *queue.BackupTask) erro
 			klioclient.BackupNameTagName,
 		},
 	}); err != nil {
+		return err
+	}
+
+	// Verify tier1 backups (catches any issues since sidecar verification).
+	// We verify all backups for the cluster rather than a specific one because
+	// MigrateSnapshots works at the source level (cluster), not individual backups.
+	// The BackupTask doesn't include the backup name for this reason.
+	if err := d.verifyTier1Backups(ctx, task.ClusterName); err != nil {
+		return err
+	}
+
+	// Verify tier2 backups after migration
+	if err := d.verifyTier2Backups(ctx, task.ClusterName); err != nil {
 		return err
 	}
 
@@ -267,6 +288,54 @@ func (d *Backup) applyTier2WALRetention(ctx context.Context, clusterName string)
 	// Apply WAL retention
 	if err := d.opts.Tier2WALRepository.SetFirstRequiredOnCluster(ctx, clusterName, oldestWAL); err != nil {
 		return fmt.Errorf("while applying WAL retention on tier2: %w", err)
+	}
+
+	return nil
+}
+
+func (d *Backup) verifyTier1Backups(ctx context.Context, clusterName string) error {
+	contextLogger := log.FromContext(ctx)
+	contextLogger.Info("Verifying tier1 backups", "cluster", clusterName)
+
+	err := d.tier1Client.VerifyBackups(ctx, klioclientkopia.VerifyOpts{
+		Hostname: clusterName,
+		All:      true,
+	})
+	if err != nil {
+		var backupErr *klioclientkopia.BackupVerificationError
+		if errors.As(err, &backupErr) {
+			recordVerificationFailure(ctx, "tier1")
+
+			return fmt.Errorf("tier1 verification detected corruption: %w", err)
+		}
+		contextLogger.Error(err, "Tier1 verification encountered infrastructure error")
+
+		return err
+	}
+
+	recordVerificationSuccess(ctx, "tier1")
+
+	return nil
+}
+
+func (d *Backup) verifyTier2Backups(ctx context.Context, clusterName string) error {
+	contextLogger := log.FromContext(ctx)
+	contextLogger.Info("Verifying tier2 backups after migration", "cluster", clusterName)
+
+	err := d.tier2Client.VerifyBackups(ctx, klioclientkopia.VerifyOpts{
+		Hostname: clusterName,
+		All:      true,
+	})
+	if err != nil {
+		var backupErr *klioclientkopia.BackupVerificationError
+		if errors.As(err, &backupErr) {
+			recordVerificationFailure(ctx, "tier2")
+
+			return fmt.Errorf("tier2 verification detected corruption: %w", err)
+		}
+		contextLogger.Error(err, "Tier2 verification encountered infrastructure error, continuing")
+	} else {
+		recordVerificationSuccess(ctx, "tier2")
 	}
 
 	return nil

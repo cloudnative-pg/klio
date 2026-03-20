@@ -3,11 +3,29 @@ package kopia
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"os/exec"
 
 	"github.com/cloudnative-pg/machinery/pkg/log"
 )
+
+// VerifyResult contains the parsed output from "kopia snapshot verify --json".
+type VerifyResult struct {
+	ErrorCount   int      `json:"errorCount"`
+	ErrorStrings []string `json:"errorStrings,omitempty"`
+}
+
+// parseVerifyOutput parses the JSON output from "kopia snapshot verify --json".
+// Returns a zero VerifyResult if the output cannot be parsed.
+func parseVerifyOutput(stdout []byte) VerifyResult {
+	var result VerifyResult
+	if err := json.Unmarshal(stdout, &result); err != nil {
+		return VerifyResult{}
+	}
+
+	return result
+}
 
 // DeleteSnapshot deletes a snapshot by its ID.
 func (s *Client) DeleteSnapshot(ctx context.Context, id string) error {
@@ -197,4 +215,35 @@ func (s *Client) SnapshotFileContent(
 	}
 
 	return nil
+}
+
+// VerifySnapshots verifies snapshot integrity. When called with no
+// snapshotIDs, all snapshots in the repository are verified.
+// It uses --json output to distinguish corruption (errorCount > 0) from
+// infrastructure errors (command failed but no corruption detected).
+func (s *Client) VerifySnapshots(ctx context.Context, snapshotIDs ...string) (VerifyResult, error) {
+	contextLogger := log.FromContext(ctx)
+
+	args := make([]string, 0, 5+len(snapshotIDs))
+	args = append(args,
+		"snapshot",
+		"verify",
+		"--json",
+		"--disable-file-logging",
+		"--config-file="+s.ConfigFile,
+	)
+	args = append(args, snapshotIDs...)
+
+	contextLogger.Info("Verifying Kopia snapshots", "args", args)
+
+	var stdout bytes.Buffer
+
+	verifyCmd := exec.CommandContext(ctx, s.KopiaBinary, args...) //nolint:gosec
+	verifyCmd.Env = s.kopiaEnvironmentVariables()
+
+	if err := RunWithLogCapture(ctx, verifyCmd, &stdout); err != nil {
+		return parseVerifyOutput(stdout.Bytes()), fmt.Errorf("while verifying Kopia snapshots: %w", err)
+	}
+
+	return parseVerifyOutput(stdout.Bytes()), nil
 }

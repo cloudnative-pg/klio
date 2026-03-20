@@ -15,6 +15,9 @@ import (
 	machineryConditions "github.com/cloudnative-pg/klio/operator/test/machinery/pkg/conditions"
 )
 
+// BackupAssertFunc is a function that performs assertions after a backup completes.
+type BackupAssertFunc func(ctx context.Context, t *testing.T, cfg *envconf.Config, backup *cnpgv1.Backup)
+
 // BackupFeature defines a feature for testing backups in the CloudNativePG operator.
 type BackupFeature struct {
 	name                string
@@ -23,6 +26,7 @@ type BackupFeature struct {
 	backup              *cnpgv1.Backup
 	backupTimeout       time.Duration
 	backupCheckInterval time.Duration
+	postBackupAssert    BackupAssertFunc
 }
 
 // BackupFeatureConfig holds the configuration for creating a backup feature test.
@@ -39,6 +43,8 @@ type BackupFeatureConfig struct {
 	BackupTimeout time.Duration
 	// BackupCheckInterval is the interval for checking backup status (defaults to 10 seconds).
 	BackupCheckInterval time.Duration
+	// PostBackupAssert is an optional function to run assertions after backup completes.
+	PostBackupAssert BackupAssertFunc
 }
 
 // NewBackupFeature creates a new BackupFeature with the given configuration and default timeouts.
@@ -59,6 +65,7 @@ func NewBackupFeature(config BackupFeatureConfig) *BackupFeature {
 		backup:              config.Backup,
 		backupTimeout:       config.BackupTimeout,
 		backupCheckInterval: config.BackupCheckInterval,
+		postBackupAssert:    config.PostBackupAssert,
 	}
 }
 
@@ -86,6 +93,10 @@ func (f *BackupFeature) Run() types.StepFunc {
 			wait.WithInterval(f.backupCheckInterval),
 		)
 		require.NoError(t, err, "backup not completed")
+
+		if f.postBackupAssert != nil {
+			f.postBackupAssert(ctx, t, cfg, f.backup)
+		}
 
 		return ctx
 	}
