@@ -1,15 +1,29 @@
 ---
-title: klio backup
+title: klio backup verify
 ---
 
-## klio backup
+## klio backup verify
 
-Manage physical backups
+Verify the integrity of backups
+
+### Synopsis
+
+Verify the integrity of backups in the repository.
+
+By default, verifies only the backup names passed as arguments.
+Use --all to verify all backups in the repository.
+Use --tiers to select which tiers to verify (default: both).
+
+```
+klio backup verify [backup-names...] [flags]
+```
 
 ### Options
 
 ```
-  -h, --help   help for backup
+      --all            Verify all backups instead of specific names
+  -h, --help           help for verify
+      --tiers string   Tiers to verify (tier1, tier2, or tier1,tier2) (default "tier1,tier2")
 ```
 
 ### Options inherited from parent commands
@@ -31,11 +45,5 @@ Manage physical backups
 
 ### SEE ALSO
 
-* [klio](klio.md)	 - Klio is a Cloud Native Backup & Recovery solution
-* [klio backup delete](klio_backup_delete.md)	 - Deletes the metadata with the provided name
-* [klio backup get-metadata](klio_backup_get-metadata.md)	 - Gets the metadata of the backup with the provided name
-* [klio backup list](klio_backup_list.md)	 - Gets the metadata of all backups
-* [klio backup maintenance](klio_backup_maintenance.md)	 - Gets the metadata of all backups
-* [klio backup run](klio_backup_run.md)	 - Backup the PostgreSQL cluster to the opened Klio server
-* [klio backup verify](klio_backup_verify.md)	 - Verify the integrity of backups
+* [klio backup](klio_backup.md)	 - Manage physical backups
 

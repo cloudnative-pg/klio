@@ -14,6 +14,9 @@ operator/catalog
 operator/catalog.Dockerfile
 operator/klio-operator-template.yaml
 
+# E2E test logs
+e2e_cluster_logs/
+
 # Vendor directories
 core/vendor/
 operator/vendor/

@@ -219,6 +219,14 @@ jobs:
         run: |
           task integration:e2e
 
+      - name: Upload e2e logs
+        if: always()
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7
+        with:
+          name: e2e_cluster_logs
+          path: klio/e2e_cluster_logs/
+          if-no-files-found: ignore
+
   olm:
     name: OLM Bundle & Catalog
     env:

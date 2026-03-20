@@ -99,11 +99,36 @@ The E2E tests are located in `operator/test/e2e/` and include:
   - Backup from primary PostgreSQL instances
   - Backup from standby PostgreSQL instances
 
+## Log Collection
+
+During a test run, the test suite streams logs from all relevant pods in
+the cluster using stern. Logs are written to a directory on the local
+filesystem. The following components are covered:
+
+- Klio operator
+- CNPG operator
+- PostgreSQL instances
+- RustFS server and init-job pods
+- Klio server pods
+
+The log directory defaults to `e2e_cluster_logs/` relative to the
+working directory. You can override it with the `E2E_LOG_DIR`
+environment variable.
+
+When running via `task integration:e2e`, logs are exported to
+`e2e_cluster_logs/` in the repository root after the test run
+completes. In CI, that directory is uploaded as a workflow artifact
+named `e2e_cluster_logs` and is available for download from the
+GitHub Actions run page.
+
 ## Environment Variables
 
-The following environment variables can be used to customize the tasks execution:
+The following environment variables can be used to customize the tasks
+execution:
 
 - `KIND_CLUSTER_NAME` - Name of the Kind cluster to use (required)
+- `E2E_LOG_DIR` - Directory where cluster logs are written during the
+  test run (default: `e2e_cluster_logs/`)
 
 ## Writing New Tests
 
@@ -119,8 +144,12 @@ When adding new E2E tests:
 ## CI Integration
 
 The E2E tests are automatically run in CI when:
+
 - Changes are made to core components
 - Changes are made to operator components
 - Pull requests are submitted
 
 The CI environment automatically handles cluster setup and cleanup.
+After the run, cluster logs are uploaded as a workflow artifact named
+`e2e_cluster_logs` and can be downloaded from the GitHub Actions run
+page regardless of whether the tests passed or failed.
