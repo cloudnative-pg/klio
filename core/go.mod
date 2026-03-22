@@ -19,7 +19,7 @@ require (
 	github.com/go-viper/mapstructure/v2 v2.5.0
 	github.com/google/uuid v1.6.0
 	github.com/jackc/pglogrepl v0.0.0-20251213150135-2e8d0df862c1
-	github.com/jackc/pgx/v5 v5.8.0
+	github.com/jackc/pgx/v5 v5.9.0
 	github.com/klauspost/compress v1.18.5
 	github.com/minio/sio v0.4.3
 	github.com/nats-io/nats-server/v2 v2.12.5
