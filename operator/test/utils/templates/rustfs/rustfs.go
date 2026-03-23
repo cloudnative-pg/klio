@@ -28,7 +28,7 @@ const (
 	// AWSCLIImage is the AWS CLI container image used for S3 operations.
 	//nolint:godot
 	// renovate image: datasource=docker depName=amazon/aws-cli versioning=docker
-	AWSCLIImage = "amazon/aws-cli:2.34.14@sha256:0a8bbdb160cbb09e357ba24533204e90a97e2e56beadf1730739644c2d5f1bdb"
+	AWSCLIImage = "amazon/aws-cli:2.34.15@sha256:551ffe26bd1ba9dad04daae0dee04e440e7d5ea4540ff5af08e71f758be9b81d"
 
 	// RustFSAccessKey is the access key for RustFS.
 	RustFSAccessKey = "rustfsaccesskey1234567890"
