@@ -23,7 +23,7 @@ const (
 	// BusyboxImage is the busybox container image used for init containers.
 	//nolint:godot
 	// renovate image: datasource=docker depName=busybox versioning=docker
-	BusyboxImage = "busybox:1.37.0@sha256:b3255e7dfbcd10cb367af0d409747d511aeb66dfac98cf30e97e87e4207dd76f"
+	BusyboxImage = "busybox:1.37.0@sha256:1487d0af5f52b4ba31c7e465126ee2123fe3f2305d638e7827681e7cf6c83d5e"
 
 	// AWSCLIImage is the AWS CLI container image used for S3 operations.
 	//nolint:godot
