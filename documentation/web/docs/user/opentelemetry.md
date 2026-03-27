@@ -181,13 +181,14 @@ variable to one of the supported exporters:
 - `none`: No-op exporter (disables tracing)
 
 You can define the OTLP protocol using the `OTEL_EXPORTER_OTLP_TRACES_PROTOCOL`
-variable, or the general `OTEL_EXPORTER_OTLP_PROTOCOL`. Supported protocols include:
+variable, or the general `OTEL_EXPORTER_OTLP_PROTOCOL`. Supported protocols
+include:
 
 - `http/protobuf` (default)
 - `grpc`
 
-Additional configuration options for trace exporters can be found in the documentation
-of the respective exporters:
+Additional configuration options for trace exporters can be found in the
+documentation of the respective exporters:
 
 - [OTLP Trace gRPC Exporter](https://pkg.go.dev/go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc)
 - [OTLP Trace HTTP Exporter](https://pkg.go.dev/go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp)
@@ -203,13 +204,14 @@ variable to one of the supported exporters:
 - `none`: No-op exporter (disables metrics)
 
 You can define the OTLP protocol using the `OTEL_EXPORTER_OTLP_METRICS_PROTOCOL`
-variable, or the general `OTEL_EXPORTER_OTLP_PROTOCOL`. Supported protocols include:
+variable, or the general `OTEL_EXPORTER_OTLP_PROTOCOL`. Supported protocols
+include:
 
 - `http/protobuf` (default)
 - `grpc`
 
-Additional configuration options for metrics exporters can be found in the documentation
-of the respective exporters:
+Additional configuration options for metrics exporters can be found in the
+documentation of the respective exporters:
 
 - [OTLP Metric gRPC Exporter](https://pkg.go.dev/go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetricgrpc)
 - [OTLP Metric HTTP Exporter](https://pkg.go.dev/go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetrichttp)
@@ -230,138 +232,21 @@ the corresponding resource attributes (`k8s.container.name`, `k8s.pod.name`,
 independently - you don't need all three environment variables to be present.
 
 :::important
-If you have already defined any of these attributes in `OTEL_RESOURCE_ATTRIBUTES`,
-Klio will **not override** them. Only missing attributes will be added from the
-environment variables. This allows you to customize the values while still
-benefiting from automatic defaults for any attributes you don't explicitly set.
+If you have already defined any of these attributes in
+`OTEL_RESOURCE_ATTRIBUTES`, Klio will **not override** them. Only missing
+attributes will be added from the environment variables. This allows you to
+customize the values while still benefiting from automatic defaults for any
+attributes you don't explicitly set.
 :::
 
 ### Klio server with OpenTelemetry
 
-When deploying Klio `Server`, you can configure OpenTelemetry specifying the
-necessary environment variables in the `template` section of the `Server` spec,
-overriding the generated pod.
+When deploying a Klio `Server`, you can configure OpenTelemetry by specifying
+the necessary environment variables in the `template` section of the `Server`
+spec. The Server has a single container named `server`.
 
-```yaml
-apiVersion: klio.cnpg.io/v1alpha1
-kind: Server
-metadata:
-  name: server-sample
-spec:
-  # ... other configuration ...
-  template:
-    spec:
-      containers:
-        - name: base
-          env:
-            - name: OTEL_SERVICE_NAME
-              value: "klio-base"
-            - name: OTEL_RESOURCE_DETECTORS
-              value: "telemetry.sdk,host,os.type,process.executable.name"
-            - name: OTEL_TRACES_EXPORTER
-              value: "otlp"
-            - name: OTEL_EXPORTER_OTLP_TRACES_PROTOCOL
-              value: "grpc"
-            - name: OTEL_EXPORTER_OTLP_TRACES_ENDPOINT
-              value: "https://otel-collector:4317"
-            - name: OTEL_EXPORTER_OTLP_TRACES_COMPRESSION
-              value: "gzip"
-            - name: OTEL_EXPORTER_OTLP_TRACES_TIMEOUT
-              value: "10000"
-            - name: OTEL_EXPORTER_OTLP_TRACES_INSECURE
-              value: "false"
-            - name: OTEL_EXPORTER_OTLP_TRACES_CERTIFICATE
-              value: "/otel/ca.crt"
-            - name: OTEL_EXPORTER_OTLP_TRACES_CLIENT_CERTIFICATE
-              value: "/otel/tls.crt"
-            - name: OTEL_EXPORTER_OTLP_TRACES_CLIENT_KEY
-              value: "/otel/tls.key"
-            - name: OTEL_METRICS_EXPORTER
-              value: "otlp"
-            - name: OTEL_METRIC_EXPORT_INTERVAL
-              value: "60000"
-            - name: OTEL_EXPORTER_OTLP_METRICS_PROTOCOL
-              value: "grpc"
-            - name: OTEL_EXPORTER_OTLP_METRICS_ENDPOINT
-              value: "https://otel-collector:4317"
-            - name: OTEL_EXPORTER_OTLP_METRICS_TIMEOUT
-              value: "60000"
-            - name: OTEL_EXPORTER_OTLP_METRICS_INSECURE
-              value: "false"
-            - name: OTEL_EXPORTER_OTLP_METRICS_CERTIFICATE
-              value: "/otel/ca.crt"
-            - name: OTEL_EXPORTER_OTLP_METRICS_CLIENT_CERTIFICATE
-              value: "/otel/tls.crt"
-            - name: OTEL_EXPORTER_OTLP_METRICS_CLIENT_KEY
-              value: "/otel/tls.key"
-          volumeMounts:
-            - mountPath: /otel
-              name: otel
-        - name: wal
-          env:
-            - name: OTEL_SERVICE_NAME
-              value: "klio-wal"
-            - name: OTEL_RESOURCE_DETECTORS
-              value: "telemetry.sdk,host,os.type,process.executable.name"
-            - name: OTEL_TRACES_EXPORTER
-              value: "otlp"
-            - name: OTEL_EXPORTER_OTLP_TRACES_PROTOCOL
-              value: "grpc"
-            - name: OTEL_EXPORTER_OTLP_TRACES_ENDPOINT
-              value: "https://otel-collector:4317"
-            - name: OTEL_EXPORTER_OTLP_TRACES_COMPRESSION
-              value: "gzip"
-            - name: OTEL_EXPORTER_OTLP_TRACES_TIMEOUT
-              value: "10000"
-            - name: OTEL_EXPORTER_OTLP_TRACES_INSECURE
-              value: "false"
-            - name: OTEL_EXPORTER_OTLP_TRACES_CERTIFICATE
-              value: "/otel/ca.crt"
-            - name: OTEL_EXPORTER_OTLP_TRACES_CLIENT_CERTIFICATE
-              value: "/otel/tls.crt"
-            - name: OTEL_EXPORTER_OTLP_TRACES_CLIENT_KEY
-              value: "/otel/tls.key"
-            - name: OTEL_METRICS_EXPORTER
-              value: "otlp"
-            - name: OTEL_METRIC_EXPORT_INTERVAL
-              value: "60000"
-            - name: OTEL_EXPORTER_OTLP_METRICS_PROTOCOL
-              value: "grpc"
-            - name: OTEL_EXPORTER_OTLP_METRICS_ENDPOINT
-              value: "https://otel-collector:4317"
-            - name: OTEL_EXPORTER_OTLP_METRICS_TIMEOUT
-              value: "60000"
-            - name: OTEL_EXPORTER_OTLP_METRICS_INSECURE
-              value: "false"
-            - name: OTEL_EXPORTER_OTLP_METRICS_CERTIFICATE
-              value: "/otel/ca.crt"
-            - name: OTEL_EXPORTER_OTLP_METRICS_CLIENT_CERTIFICATE
-              value: "/otel/tls.crt"
-            - name: OTEL_EXPORTER_OTLP_METRICS_CLIENT_KEY
-              value: "/otel/tls.key"
-          volumeMounts:
-            - mountPath: /otel
-              name: otel
-      # Projected volume for OTEL certificates
-      volumes:
-        - name: otel
-          projected:
-            sources:
-              - secret:
-                  name: otel-collector-tls
-                  items:
-                    - key: ca.crt
-                      path: ca.crt
-              - secret:
-                  name: otel-client-cert
-                  items:
-                    - key: tls.crt
-                      path: tls.crt
-                    - key: tls.key
-                      path: tls.key
-```
-
-For simpler management, you can achieve the same results using a `ConfigMap`:
+For simpler management, use a `ConfigMap` to store the shared OpenTelemetry
+configuration:
 
 ```yaml
 apiVersion: v1
@@ -372,8 +257,6 @@ data:
   OTEL_RESOURCE_DETECTORS: "telemetry.sdk,host,os.type,process.executable.name"
   OTEL_TRACES_EXPORTER: "otlp"
   OTEL_METRICS_EXPORTER: "otlp"
-  # Use the same endpoint configuration for both traces and metrics
-  # to keep it DRY, if no substantial differences are needed.
   OTEL_EXPORTER_OTLP_PROTOCOL: "grpc"
   OTEL_EXPORTER_OTLP_ENDPOINT: "https://otel-collector:4317"
   OTEL_EXPORTER_OTLP_COMPRESSION: "gzip"
@@ -383,7 +266,7 @@ data:
   OTEL_EXPORTER_OTLP_CLIENT_CERTIFICATE: "/otel/tls.crt"
   OTEL_EXPORTER_OTLP_CLIENT_KEY: "/otel/tls.key"
 ---
-apiVersion: klio.edb.io/v1alpha1
+apiVersion: klio.cnpg.io/v1alpha1
 kind: Server
 metadata:
   name: my-klio-server
@@ -392,27 +275,16 @@ spec:
   template:
     spec:
       containers:
-        - name: base
+        - name: server
           env:
             - name: OTEL_SERVICE_NAME
-              value: "klio-base"
+              value: "klio-server"
           envFrom:
             - configMapRef:
                 name: klio-otel-config
           volumeMounts:
             - mountPath: /otel
               name: otel
-        - name: wal
-          env:
-            - name: OTEL_SERVICE_NAME
-              value: "klio-wal"
-          envFrom:
-            - configMapRef:
-                name: klio-otel-config
-          volumeMounts:
-            - mountPath: /otel
-              name: otel
-      # Projected volume for OTEL certificates
       volumes:
         - name: otel
           projected:
@@ -433,59 +305,83 @@ spec:
 
 ### Klio plugins with OpenTelemetry
 
-When deploying Klio as a CNPG Cluster plugin, you can configure OpenTelemetry
-by specifying the necessary environment variables in the `env` section of the
-`Cluster` spec.
+When deploying Klio as a CNPG Cluster plugin, configure OpenTelemetry by
+specifying the necessary environment variables in the `containers` section of
+the `PluginConfiguration` spec. The available container names are:
+
+- `klio-plugin`: Main plugin sidecar for backup management
+- `klio-wal`: WAL streaming sidecar
+- `klio-restore`: Restore operations sidecar
+
+Create a `ConfigMap` for the shared OpenTelemetry configuration:
 
 ```yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: cluster-klio-otel-config
+data:
+  OTEL_RESOURCE_DETECTORS: "telemetry.sdk,host,os.type,process.executable.name"
+  OTEL_TRACES_EXPORTER: "otlp"
+  OTEL_METRICS_EXPORTER: "otlp"
+  OTEL_EXPORTER_OTLP_PROTOCOL: "grpc"
+  OTEL_EXPORTER_OTLP_ENDPOINT: "https://otel-collector:4317"
+  OTEL_EXPORTER_OTLP_COMPRESSION: "gzip"
+  OTEL_EXPORTER_OTLP_TIMEOUT: "10000"
+  OTEL_EXPORTER_OTLP_INSECURE: "false"
+  OTEL_EXPORTER_OTLP_CERTIFICATE: "/projected/ca.crt"
+  OTEL_EXPORTER_OTLP_CLIENT_CERTIFICATE: "/projected/tls.crt"
+  OTEL_EXPORTER_OTLP_CLIENT_KEY: "/projected/tls.key"
+```
 
+Configure the `PluginConfiguration` to inject the environment variables into
+each sidecar container:
+
+```yaml
+apiVersion: klio.cnpg.io/v1alpha1
+kind: PluginConfiguration
+metadata:
+  name: client-config-cluster-example
+spec:
+  serverAddress: klio.default
+  clientSecretName: cluster-example-klio-user
+  serverSecretName: klio-server-tls
+  clusterName: cluster-example
+  containers:
+    - name: klio-plugin
+      env:
+        - name: OTEL_SERVICE_NAME
+          value: "klio-plugin"
+      envFrom:
+        - configMapRef:
+            name: cluster-klio-otel-config
+    - name: klio-wal
+      env:
+        - name: OTEL_SERVICE_NAME
+          value: "klio-wal"
+      envFrom:
+        - configMapRef:
+            name: cluster-klio-otel-config
+    - name: klio-restore
+      env:
+        - name: OTEL_SERVICE_NAME
+          value: "klio-restore"
+      envFrom:
+        - configMapRef:
+            name: cluster-klio-otel-config
+```
+
+Mount the OpenTelemetry certificates using the Cluster's `projectedVolumeTemplate`.
+The projected volume is mounted at `/projected/` and is accessible to all
+sidecar containers:
+
+```yaml
 apiVersion: postgresql.cnpg.io/v1
 kind: Cluster
 metadata:
   name: cluster-example
 spec:
-  # ... other configuration ...
-  env:
-    - name: OTEL_TRACES_EXPORTER
-      value: "otlp"
-    - name: OTEL_EXPORTER_OTLP_TRACES_PROTOCOL
-      value: "grpc"
-    - name: OTEL_EXPORTER_OTLP_TRACES_ENDPOINT
-      value: "https://otel-collector:4317"
-    - name: OTEL_EXPORTER_OTLP_TRACES_INSECURE
-      value: "false"
-    - name: OTEL_EXPORTER_OTLP_TRACES_TIMEOUT
-      value: "10000"
-    - name: OTEL_EXPORTER_OTLP_TRACES_COMPRESSION
-      value: "gzip"
-    - name: OTEL_EXPORTER_OTLP_TRACES_CERTIFICATE
-      value: "/projected/ca.crt"
-    - name: OTEL_EXPORTER_OTLP_TRACES_CLIENT_CERTIFICATE
-      value: "/projected/tls.crt"
-    - name: OTEL_EXPORTER_OTLP_TRACES_CLIENT_KEY
-      value: "/projected/tls.key"
-    - name: OTEL_METRIC_EXPORT_INTERVAL
-      value: "60000"
-    - name: OTEL_RESOURCE_DETECTORS
-      value: "telemetry.sdk,host,os.type,process.executable.name"
-    - name: OTEL_SERVICE_NAME
-      value: "klio-walsender"
-    - name: OTEL_METRICS_EXPORTER
-      value: "otlp"
-    - name: OTEL_EXPORTER_OTLP_METRICS_ENDPOINT
-      value: "https://otel-collector:4317"
-    - name: OTEL_EXPORTER_OTLP_METRICS_PROTOCOL
-      value: "grpc"
-    - name: OTEL_EXPORTER_OTLP_METRICS_INSECURE
-      value: "false"
-    - name: OTEL_EXPORTER_OTLP_METRICS_TIMEOUT
-      value: "60000"
-    - name: OTEL_EXPORTER_OTLP_METRICS_CERTIFICATE
-      value: "/projected/ca.crt"
-    - name: OTEL_EXPORTER_OTLP_METRICS_CLIENT_CERTIFICATE
-      value: "/projected/tls.crt"
-    - name: OTEL_EXPORTER_OTLP_METRICS_CLIENT_KEY
-      value: "/projected/tls.key"
+  instances: 3
 
   projectedVolumeTemplate:
     sources:
@@ -495,7 +391,7 @@ spec:
             - key: ca.crt
               path: ca.crt
       - secret:
-          name: otel-walsender-client-cert
+          name: otel-client-cert
           items:
             - key: tls.crt
               path: tls.crt
@@ -507,13 +403,144 @@ spec:
       enabled: true
       parameters:
         pluginConfigurationRef: client-config-cluster-example
----
-apiVersion: klio.cnpg.io/v1alpha1
-kind: PluginConfiguration
-metadata:
-  name: client-config-cluster-example
-spec:
-  serverAddress: klio.default
-  clientSecretName: klio-client
-  serverSecretName: klio-server-tls
+
+  storage:
+    size: 10Gi
 ```
+
+## Visualizing Metrics
+
+Klio uses the OTLP push model to send telemetry data to an OpenTelemetry
+Collector. The collector then exports the data to your preferred backend.
+
+### Telemetry Pipeline
+
+```
+┌─────────────────┐                    ┌─────────────────┐
+│   Klio Server   │     OTLP/gRPC      │   OpenTelemetry │
+│   & Plugins     │ ─────────────────► │    Collector    │
+└─────────────────┘                    └────────┬────────┘
+                                                │
+                              ┌─────────────────┼─────────────────┐
+                              │                 │                 │
+                              ▼                 ▼                 ▼
+                       ┌────────────┐   ┌────────────┐   ┌────────────┐
+                       │ Prometheus │   │   Jaeger   │   │   Other    │
+                       │  (metrics) │   │  (traces)  │   │  backends  │
+                       └────────────┘   └────────────┘   └────────────┘
+```
+
+### Prometheus + Grafana
+
+To visualize metrics with Prometheus, configure the OpenTelemetry Collector to
+expose a Prometheus endpoint:
+
+```yaml
+exporters:
+  prometheus:
+    endpoint: "0.0.0.0:9464"
+    send_timestamps: true
+    resource_to_telemetry_conversion:
+      enabled: true
+service:
+  pipelines:
+    metrics:
+      receivers: [otlp]
+      processors: [batch]
+      exporters: [prometheus]
+```
+
+Create a `ServiceMonitor` so Prometheus can scrape the collector:
+
+```yaml
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: otel-collector
+  labels:
+    release: prometheus-community
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: otel-collector
+  endpoints:
+    - port: prometheus
+      interval: 30s
+```
+
+### Jaeger
+
+To visualize traces with Jaeger, configure the OpenTelemetry Collector to
+export to Jaeger:
+
+```yaml
+exporters:
+  otlp/jaeger:
+    endpoint: jaeger:4317
+    tls:
+      insecure: true
+service:
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: [batch]
+      exporters: [otlp/jaeger]
+```
+
+### Klio Metrics Reference
+
+| Metric | Description |
+|--------|-------------|
+| `klio_snapshot_count` | Number of snapshots |
+| `klio_snapshot_latest_size_bytes` | Size of the latest snapshot |
+| `klio_snapshot_latest_age_seconds` | Age of the latest snapshot |
+| `klio_snapshot_oldest_age_seconds` | Age of the oldest snapshot |
+| `klio_wal_files_written_total` | Number of WAL files written |
+| `klio_wal_bytes_written_total` | Bytes written |
+| `rpc_*` | gRPC metrics (latency, requests) |
+
+## Troubleshooting
+
+### Verify OpenTelemetry is configured
+
+Check that the environment variables are set in the container:
+
+```bash
+# For the Server
+kubectl exec -it <klio-server-pod> -c server -- env | grep OTEL
+
+# For the Plugin
+kubectl exec -it <cluster-pod> -c klio-plugin -- env | grep OTEL
+```
+
+If no variables are returned, the ConfigMap is not being injected properly.
+
+### Check Klio logs for OpenTelemetry initialization
+
+```bash
+kubectl logs <klio-pod> -c server 2>&1 | grep -i otel
+```
+
+If you see:
+
+```
+OpenTelemetry not configured, setting noop meter provider
+```
+
+This means no `OTEL_*` environment variables were detected.
+
+### Check OpenTelemetry Collector logs
+
+```bash
+kubectl logs -l app.kubernetes.io/name=otel-collector
+```
+
+If using the `debug` exporter, you should see incoming telemetry data logged.
+
+### Verify TLS certificates are mounted
+
+```bash
+kubectl exec -it <klio-pod> -c server -- ls -la /otel/
+```
+
+Should show `ca.crt`, `tls.crt`, and `tls.key`.
