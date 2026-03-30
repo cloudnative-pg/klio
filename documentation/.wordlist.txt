@@ -178,7 +178,9 @@ SetFirstRequiredWALRequest
 SetFirstRequiredWALResult
 StartWALFile
 StatefulSet
+StatefulSet's
 StatefulSets
+StorageClass
 TLS
 TLSConfiguration
 TLSSecretName
@@ -200,6 +202,7 @@ VM
 VMs
 Veeam
 Velero
+VolumeClaimTemplates
 WAL
 WALFileBlock
 WALGap
@@ -301,11 +304,13 @@ priorityClassName
 prometheus
 proto
 protobuf
+provisioner
 pullPolicy
 pullSecrets
 rbac
 readinessProbe
 renewBefore
+requeues
 rollout
 securityContext
 serverSecret

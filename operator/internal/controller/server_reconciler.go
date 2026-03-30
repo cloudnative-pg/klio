@@ -39,6 +39,17 @@ func (r *ServerReconciler) reconcile(ctx context.Context, server *kliov1alpha1.S
 		return ctrl.Result{}, fmt.Errorf("failed to reconcile Service: %w", err)
 	}
 
+	// Reconcile PVC resizes before StatefulSet to ensure PVCs are expanded
+	// before the StatefulSet is recreated. VolumeClaimTemplates only define
+	// specs for new PVCs, so explicit patching is required to resize existing ones.
+	if result, err := r.reconcilePVCResizes(ctx, server); err != nil || !result.IsZero() {
+		if err != nil {
+			return ctrl.Result{}, fmt.Errorf("failed to reconcile PVC resizes: %w", err)
+		}
+
+		return result, nil
+	}
+
 	return r.reconcileStatefulSet(ctx, server)
 }
 
@@ -249,7 +260,7 @@ func injectQueueConfiguration(expected *appsv1.StatefulSet, server kliov1alpha1.
 			Name: "queue",
 			Labels: map[string]string{
 				klioServerLabel: server.Name,
-				pvcTypeLabel:    "queue",
+				pvcTypeLabel:    pvcTypeQueue,
 			},
 		},
 		Spec: server.Spec.Queue.PersistentVolumeClaimTemplate,
@@ -279,7 +290,7 @@ func injectTier1VolumeClaimTemplates(
 				Name: "data",
 				Labels: map[string]string{
 					klioServerLabel: server.Name,
-					pvcTypeLabel:    "data",
+					pvcTypeLabel:    pvcTypeData,
 				},
 			},
 			Spec: server.Spec.Tier1.Data.PersistentVolumeClaimTemplate,
@@ -289,7 +300,7 @@ func injectTier1VolumeClaimTemplates(
 				Name: "cachetier1",
 				Labels: map[string]string{
 					klioServerLabel: server.Name,
-					pvcTypeLabel:    "cachetier1",
+					pvcTypeLabel:    pvcTypeCacheTier1,
 				},
 			},
 			Spec: server.Spec.Tier1.Cache.PersistentVolumeClaimTemplate,
@@ -306,7 +317,7 @@ func injectTier2VolumeClaimTemplates(
 				Name: "cachetier2",
 				Labels: map[string]string{
 					klioServerLabel: server.Name,
-					pvcTypeLabel:    "cachetier2",
+					pvcTypeLabel:    pvcTypeCacheTier2,
 				},
 			},
 			Spec: server.Spec.Tier2.Cache.PersistentVolumeClaimTemplate,

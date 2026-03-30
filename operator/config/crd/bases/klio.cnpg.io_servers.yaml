@@ -9526,6 +9526,23 @@ spec:
         - metadata
         - spec
         type: object
+        x-kubernetes-validations:
+        - message: tier1.data PVC size cannot be decreased
+          rule: '!has(oldSelf.spec.tier1) || !has(self.spec.tier1) || !(''storage''
+            in oldSelf.spec.tier1.data.pvcTemplate.resources.requests) || !(''storage''
+            in self.spec.tier1.data.pvcTemplate.resources.requests) || !quantity(self.spec.tier1.data.pvcTemplate.resources.requests[''storage'']).isLessThan(quantity(oldSelf.spec.tier1.data.pvcTemplate.resources.requests[''storage'']))'
+        - message: tier1.cache PVC size cannot be decreased
+          rule: '!has(oldSelf.spec.tier1) || !has(self.spec.tier1) || !(''storage''
+            in oldSelf.spec.tier1.cache.pvcTemplate.resources.requests) || !(''storage''
+            in self.spec.tier1.cache.pvcTemplate.resources.requests) || !quantity(self.spec.tier1.cache.pvcTemplate.resources.requests[''storage'']).isLessThan(quantity(oldSelf.spec.tier1.cache.pvcTemplate.resources.requests[''storage'']))'
+        - message: tier2.cache PVC size cannot be decreased
+          rule: '!has(oldSelf.spec.tier2) || !has(self.spec.tier2) || !(''storage''
+            in oldSelf.spec.tier2.cache.pvcTemplate.resources.requests) || !(''storage''
+            in self.spec.tier2.cache.pvcTemplate.resources.requests) || !quantity(self.spec.tier2.cache.pvcTemplate.resources.requests[''storage'']).isLessThan(quantity(oldSelf.spec.tier2.cache.pvcTemplate.resources.requests[''storage'']))'
+        - message: queue PVC size cannot be decreased
+          rule: '!has(oldSelf.spec.queue) || !has(self.spec.queue) || !(''storage''
+            in oldSelf.spec.queue.pvcTemplate.resources.requests) || !(''storage''
+            in self.spec.queue.pvcTemplate.resources.requests) || !quantity(self.spec.queue.pvcTemplate.resources.requests[''storage'']).isLessThan(quantity(oldSelf.spec.queue.pvcTemplate.resources.requests[''storage'']))'
     served: true
     storage: true
     subresources:

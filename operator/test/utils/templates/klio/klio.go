@@ -7,6 +7,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/utils/ptr"
 
 	kliov1alpha1 "github.com/cloudnative-pg/klio/operator/api/v1alpha1"
 )
@@ -34,7 +35,8 @@ func BuildTier2Configuration(s3Opts Tier2S3Options, encryptionSecretName string)
 	return kliov1alpha1.Tier2Configuration{
 		Cache: kliov1alpha1.Cache{
 			PersistentVolumeClaimTemplate: corev1.PersistentVolumeClaimSpec{
-				AccessModes: []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOncePod},
+				StorageClassName: ptr.To("csi-hostpath-sc"),
+				AccessModes:      []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOncePod},
 				Resources: corev1.VolumeResourceRequirements{
 					Requests: corev1.ResourceList{
 						corev1.ResourceStorage: resource.MustParse("1Gi"),
@@ -119,7 +121,8 @@ func GetServerObject(
 	server.Spec.Tier1 = &kliov1alpha1.Tier1Configuration{
 		Cache: kliov1alpha1.Cache{
 			PersistentVolumeClaimTemplate: corev1.PersistentVolumeClaimSpec{
-				AccessModes: []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOncePod},
+				StorageClassName: ptr.To("csi-hostpath-sc"),
+				AccessModes:      []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOncePod},
 				Resources: corev1.VolumeResourceRequirements{
 					Requests: corev1.ResourceList{
 						corev1.ResourceStorage: resource.MustParse("1Gi"),
@@ -129,7 +132,8 @@ func GetServerObject(
 		},
 		Data: kliov1alpha1.Data{
 			PersistentVolumeClaimTemplate: corev1.PersistentVolumeClaimSpec{
-				AccessModes: []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOncePod},
+				StorageClassName: ptr.To("csi-hostpath-sc"),
+				AccessModes:      []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOncePod},
 				Resources: corev1.VolumeResourceRequirements{
 					Requests: corev1.ResourceList{
 						corev1.ResourceStorage: resource.MustParse("1Gi"),
@@ -148,7 +152,8 @@ func GetServerObject(
 	// Queue is mandatory when tier1 is configured
 	server.Spec.Queue = &kliov1alpha1.Queue{
 		PersistentVolumeClaimTemplate: corev1.PersistentVolumeClaimSpec{
-			AccessModes: []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOncePod},
+			StorageClassName: ptr.To("csi-hostpath-sc"),
+			AccessModes:      []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOncePod},
 			Resources: corev1.VolumeResourceRequirements{
 				Requests: corev1.ResourceList{
 					corev1.ResourceStorage: resource.MustParse("100Mi"),

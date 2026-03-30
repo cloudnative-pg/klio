@@ -5,12 +5,17 @@ import (
 	"fmt"
 
 	appsv1 "k8s.io/api/apps/v1"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/client-go/tools/events"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
+	"sigs.k8s.io/controller-runtime/pkg/handler"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/controller-runtime/pkg/predicate"
 
 	kliov1alpha1 "github.com/cloudnative-pg/klio/operator/api/v1alpha1"
 )
@@ -19,7 +24,8 @@ import (
 type ServerReconciler struct {
 	client.Client
 
-	Scheme *runtime.Scheme
+	Scheme   *runtime.Scheme
+	Recorder events.EventRecorder
 }
 
 // +kubebuilder:rbac:groups=klio.cnpg.io,resources=pluginconfigurations,verbs=get;list;watch
@@ -29,6 +35,8 @@ type ServerReconciler struct {
 // +kubebuilder:rbac:groups=apps,resources=statefulsets,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups="",resources=services,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups="",resources=secrets,verbs=get;list;watch;create;update
+// +kubebuilder:rbac:groups="",resources=events,verbs=create
+// +kubebuilder:rbac:groups="",resources=persistentvolumeclaims,verbs=get;list;watch;patch
 
 //nolint:godox
 // TODO(user): Modify the Reconcile function to compare the state specified by
@@ -77,6 +85,14 @@ func (r *ServerReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		For(&kliov1alpha1.Server{}).
 		Named("server").
 		Owns(&appsv1.StatefulSet{}).
+		Watches(
+			&corev1.PersistentVolumeClaim{},
+			handler.EnqueueRequestsFromMapFunc(r.findServerForPVC),
+			builder.WithPredicates(predicate.NewPredicateFuncs(func(obj client.Object) bool {
+				_, exists := obj.GetLabels()[klioServerLabel]
+				return exists
+			})),
+		).
 		//nolint:godox
 		// TODO: we should probably add a way for the user to let the secrets passed to be watched
 		Complete(r)
