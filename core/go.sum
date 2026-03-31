@@ -36,8 +36,8 @@ github.com/aws/aws-sdk-go-v2/service/internal/presigned-url v1.13.21 h1:c31//R3x
 github.com/aws/aws-sdk-go-v2/service/internal/presigned-url v1.13.21/go.mod h1:r6+pf23ouCB718FUxaqzZdbpYFyDtehyZcmP5KL9FkA=
 github.com/aws/aws-sdk-go-v2/service/internal/s3shared v1.19.21 h1:ZlvrNcHSFFWURB8avufQq9gFsheUgjVD9536obIknfM=
 github.com/aws/aws-sdk-go-v2/service/internal/s3shared v1.19.21/go.mod h1:cv3TNhVrssKR0O/xxLJVRfd2oazSnZnkUeTf6ctUwfQ=
-github.com/aws/aws-sdk-go-v2/service/s3 v1.97.3 h1:HwxWTbTrIHm5qY+CAEur0s/figc3qwvLWsNkF4RPToo=
-github.com/aws/aws-sdk-go-v2/service/s3 v1.97.3/go.mod h1:uoA43SdFwacedBfSgfFSjjCvYe8aYBS7EnU5GZ/YKMM=
+github.com/aws/aws-sdk-go-v2/service/s3 v1.98.0 h1:foqo/ocQ7WqKwy3FojGtZQJo0FR4vto9qnz9VaumbCo=
+github.com/aws/aws-sdk-go-v2/service/s3 v1.98.0/go.mod h1:uoA43SdFwacedBfSgfFSjjCvYe8aYBS7EnU5GZ/YKMM=
 github.com/aws/aws-sdk-go-v2/service/signin v1.0.9 h1:QKZH0S178gCmFEgst8hN0mCX1KxLgHBKKY/CLqwP8lg=
 github.com/aws/aws-sdk-go-v2/service/signin v1.0.9/go.mod h1:7yuQJoT+OoH8aqIxw9vwF+8KpvLZ8AWmvmUWHsGQZvI=
 github.com/aws/aws-sdk-go-v2/service/sso v1.30.14 h1:GcLE9ba5ehAQma6wlopUesYg/hbcOhFNWTjELkiWkh4=
@@ -64,8 +64,8 @@ github.com/cloudnative-pg/barman-cloud v0.4.1-0.20260108104508-ced266c145f5 h1:w
 github.com/cloudnative-pg/barman-cloud v0.4.1-0.20260108104508-ced266c145f5/go.mod h1:qD0NtJOllNQbRB0MaleuHsZjFYaXtXfdg0HbFTbuHn0=
 github.com/cloudnative-pg/cloudnative-pg v1.28.1 h1:HdOUWgFhta558uHfXeO/199qCApxaj5yi05x6nWNmgs=
 github.com/cloudnative-pg/cloudnative-pg v1.28.1/go.mod h1:yhRa4GqJAjNd0tT9AiRgk1KdqLhMjo/JmGGoASRl2CU=
-github.com/cloudnative-pg/cnpg-i v0.4.0 h1:yt5qOBUtFasTSDayOydljYjcTypBqJ8LDcxtet8teuk=
-github.com/cloudnative-pg/cnpg-i v0.4.0/go.mod h1:7Gh4+UzhBpGhr4DreB1GN9wGYfvxwXCXZUyVt3zE/3I=
+github.com/cloudnative-pg/cnpg-i v0.5.0 h1:/TOzpNT6cwNgrpftTtrnLKdoHgMwd+88vZgXjlVgXeE=
+github.com/cloudnative-pg/cnpg-i v0.5.0/go.mod h1:7Gh4+UzhBpGhr4DreB1GN9wGYfvxwXCXZUyVt3zE/3I=
 github.com/cloudnative-pg/cnpg-i-machinery v0.4.2 h1:0reS9MtyLYINHXQ/MfxJ9jp39hhBf8e3Qdj+T5Nsq6I=
 github.com/cloudnative-pg/cnpg-i-machinery v0.4.2/go.mod h1:gvrKabgxXq0zGthXGucemDdsxakLEQDMxn43M4HLW30=
 github.com/cloudnative-pg/machinery v0.3.3 h1:CaqXqLTJH9RrVv3R/YU0NmFaI/F18HLg2JfH3mQLcDk=
