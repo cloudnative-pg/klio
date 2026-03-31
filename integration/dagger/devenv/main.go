@@ -48,7 +48,7 @@ func (m *Devenv) Kubernetes(
 // +default="quay.io/skopeo/stable:v1.22.0@sha256:a03fd3ed476352f84039c7b1b9d55276f6617cf0e0eeb025ab0214a2e707456a"
 	skopeoImage string,
 // renovate image: datasource=docker depName=k3s lookupName=rancher/k3s versioning=docker
-// +default="rancher/k3s:v1.35.2-k3s1@sha256:c3184157c3048112bab0c3e17405991da486cb3413511eba23f7650efd70776b"
+// +default="rancher/k3s:v1.35.3-k3s1@sha256:4607083d3cac07e1ccde7317297271d13ed5f60f35a78f33fcef84858a9f1d69"
 	k3SImage string,
 // renovate image: datasource=docker depName=alpine/k8s versioning=docker
 // +default="alpine/k8s:1.35.0@sha256:b01ed7ee5807e1abce433fba29447595b6157851054a649c2aafd6c22a3aa16c
