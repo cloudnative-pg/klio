@@ -18,6 +18,7 @@ CNPG
 CRDs
 CRs
 CacheConfiguration
+CheckpointTime
 ClientCASecretName
 ClientCertificate
 ClientConfig
@@ -51,6 +52,7 @@ Envs
 FailedPrecondition
 FalseClass
 Fixnum
+GC
 GCM
 GRPC
 GetLatest
@@ -105,9 +107,11 @@ MinLength
 ModeReadOnly
 ModeStandard
 NATS
+NTP
 Namespaces
 NetworkPolicies
 NodeSelector
+NumCPU
 OCI
 OTEL
 OTLP
@@ -123,6 +127,8 @@ PITR
 PKI
 PV
 PVCs
+PackBlobID
+PackDeleteMinAge
 PersistentVolume
 PersistentVolumeClaim
 PersistentVolumeClaimSpec
@@ -164,6 +170,8 @@ RetentionPolicy
 RustFS
 SDK
 SHA
+SafetyFull
+SafetyNone
 SecretKeySelector
 ServerAddress
 ServerCertificate
@@ -173,6 +181,7 @@ ServerSpec
 ServerStatus
 ServiceMonitor
 ServiceName
+SessionExpirationAge
 SetFirstRequiredWAL
 SetFirstRequiredWALRequest
 SetFirstRequiredWALResult
@@ -191,6 +200,7 @@ TopoLVM
 TrueClass
 UTF
 UnDeploy
+Unreferenced
 UploadHistory
 UploadHistoryRequest
 UploadHistoryResult
@@ -244,6 +254,7 @@ customizable
 customizations
 datacenter
 datacenters
+decrypted
 deduplication
 dev
 docusaurus
@@ -282,6 +293,7 @@ makefile
 md
 metricsService
 metricsServiceSecret
+misconfiguration
 nameOverride
 namespace
 namespaces
@@ -311,6 +323,7 @@ rbac
 readinessProbe
 renewBefore
 requeues
+restorable
 rollout
 securityContext
 serverSecret
@@ -330,6 +343,8 @@ ubuntu
 uint
 ulong
 unicode
+unreferenced
+unrestorable
 wal
 wals
 webhook
