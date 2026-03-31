@@ -1,6 +1,6 @@
 {
   "name": "helmify",
-  "engineVersion": "v0.19.6",
+  "engineVersion": "v0.20.1",
   "sdk": {
     "source": "go"
   },
