@@ -3,6 +3,13 @@ kind: Server
 metadata:
   name: klio
 spec:
+  queue:
+      pvcTemplate:
+        resources:
+          requests:
+            storage: 1Gi
+        accessModes:
+        - ReadWriteOnce
   tier1:
     cache:
       pvcTemplate:
@@ -33,7 +40,7 @@ spec:
   template:
     spec:
       containers:
-        - name: base
+        - name: server
           env:
             # Use the downward API to get pod and node information
             # These environment variables will be used in the OTEL_RESOURCE_ATTRIBUTES
@@ -49,31 +56,6 @@ spec:
             # OTEL_SERVICE_NAME and OTEL_RESOURCE_ATTRIBUTES are set specifically for each container
             - name: OTEL_SERVICE_NAME
               value: "klio-base"
-            - name: OTEL_RESOURCE_ATTRIBUTES
-              value: "k8s.node.name=$(NODE_NAME),k8s.pod.uid=$(POD_UID)"
-          envFrom:
-            # Use a common config map for all shared OTEL settings
-            - configMapRef:
-                name: klio-server-otel-config
-          volumeMounts:
-            - mountPath: /otel
-              name: otel
-        - name: wal
-          env:
-            # Use the downward API to get pod and node information
-            # These environment variables will be used in the OTEL_RESOURCE_ATTRIBUTES
-            # to provide more context about the telemetry data for the otel collector k8sattributes processor
-            - name: NODE_NAME
-              valueFrom:
-                fieldRef:
-                  fieldPath: spec.nodeName
-            - name: POD_UID
-              valueFrom:
-                fieldRef:
-                  fieldPath: metadata.uid
-            # OTEL_SERVICE_NAME and OTEL_RESOURCE_ATTRIBUTES are set specifically for each container
-            - name: OTEL_SERVICE_NAME
-              value: "klio-wal"
             - name: OTEL_RESOURCE_ATTRIBUTES
               value: "k8s.node.name=$(NODE_NAME),k8s.pod.uid=$(POD_UID)"
           envFrom:
