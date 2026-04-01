@@ -7,6 +7,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/sdk/resource"
 	semconv "go.opentelemetry.io/otel/semconv/v1.40.0"
 )
 
@@ -252,4 +253,64 @@ func extractK8sAttributes(attrs []attribute.KeyValue) map[attribute.Key]string {
 	}
 
 	return found
+}
+
+func TestCreateResourceSchemaURLCompatibility(t *testing.T) {
+	// This test verifies that resources created by createResource() can be
+	// merged with SDK-detected resources without schema URL conflicts.
+	//
+	// Background: The SDK's built-in resource detectors (e.g., fromEnv) use
+	// a specific semconv version. If createResource() uses a different version,
+	// resource.Merge() will fail due to schema URL mismatch, causing silent
+	// failures in meter provider initialization.
+
+	t.Setenv("OTEL_SERVICE_NAME", "klio-test")
+	t.Setenv("CONTAINER_NAME", "test-container")
+
+	ctx := context.Background()
+	res, err := createResource(ctx)
+	require.NoError(t, err, "resource creation should succeed without schema URL conflicts")
+	require.NotNil(t, res)
+
+	// Verify the resource has a valid schema URL (not empty, which would
+	// indicate a merge failure that dropped the schema)
+	assert.NotEmpty(t, res.SchemaURL(),
+		"resource should have a schema URL after merging")
+}
+
+func TestCreateResourceMergeWithSDKResource(t *testing.T) {
+	// Verify that our resource can be merged with a fresh SDK resource
+	// using the same schema URL. This would fail if semconv versions mismatch.
+	t.Setenv("OTEL_SERVICE_NAME", "klio-merge-test")
+
+	ctx := context.Background()
+	klioRes, err := createResource(ctx)
+	require.NoError(t, err)
+
+	// Create another resource with the same semconv version
+	otherRes, err := resource.New(ctx,
+		resource.WithAttributes(semconv.ServiceVersion("1.0.0")),
+		resource.WithSchemaURL(semconv.SchemaURL),
+	)
+	require.NoError(t, err)
+
+	// This merge should succeed if schema URLs are compatible
+	merged, err := resource.Merge(klioRes, otherRes)
+	require.NoError(t, err, "merging resources with aligned semconv versions should succeed")
+	require.NotNil(t, merged)
+
+	// Verify merged resource contains attributes from both
+	attrs := merged.Attributes()
+	foundServiceName := false
+	foundServiceVersion := false
+	for _, attr := range attrs {
+		if string(attr.Key) == string(semconv.ServiceNameKey) {
+			foundServiceName = true
+		}
+		if string(attr.Key) == string(semconv.ServiceVersionKey) {
+			foundServiceVersion = true
+		}
+	}
+	assert.True(t, foundServiceName, "merged resource should contain service.name")
+	assert.True(t, foundServiceVersion, "merged resource should contain service.version")
 }
