@@ -11,14 +11,14 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/s3 v1.98.0
 	github.com/ccoveille/go-safecast/v2 v2.0.0
 	github.com/cloudnative-pg/api v1.28.1
-	github.com/cloudnative-pg/cloudnative-pg v1.28.1
+	github.com/cloudnative-pg/cloudnative-pg v1.29.0
 	github.com/cloudnative-pg/cnpg-i v0.5.0
 	github.com/cloudnative-pg/cnpg-i-machinery v0.4.2
 	github.com/cloudnative-pg/machinery v0.3.3
 	github.com/fclairamb/afero-s3 v0.4.0
 	github.com/go-viper/mapstructure/v2 v2.5.0
 	github.com/google/uuid v1.6.0
-	github.com/jackc/pglogrepl v0.0.0-20251213150135-2e8d0df862c1
+	github.com/jackc/pglogrepl v0.0.0-20260401131349-e37c41485510
 	github.com/jackc/pgx/v5 v5.9.1
 	github.com/klauspost/compress v1.18.5
 	github.com/minio/sio v0.4.3
@@ -47,7 +47,7 @@ require (
 	go.opentelemetry.io/otel/trace v1.42.0
 	go.yaml.in/yaml/v3 v3.0.4
 	golang.org/x/crypto v0.49.0
-	google.golang.org/grpc v1.79.3
+	google.golang.org/grpc v1.80.0
 	google.golang.org/protobuf v1.36.11
 	k8s.io/api v0.35.3
 	k8s.io/apimachinery v0.35.3
@@ -61,6 +61,7 @@ require (
 	github.com/GoogleCloudPlatform/opentelemetry-operations-go/detectors/gcp v1.31.0 // indirect
 	github.com/Masterminds/semver/v3 v3.4.0 // indirect
 	github.com/antithesishq/antithesis-sdk-go v0.6.0-default-no-op // indirect
+	github.com/avast/retry-go/v5 v5.0.0 // indirect
 	github.com/aws/aws-sdk-go-v2/aws/protocol/eventstream v1.7.8 // indirect
 	github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.18.21 // indirect
 	github.com/aws/aws-sdk-go-v2/feature/s3/manager v1.20.19 // indirect
@@ -81,7 +82,7 @@ require (
 	github.com/brunoscheufler/aws-ecs-metadata-go v0.0.0-20221221133751-67e37ae746cd // indirect
 	github.com/cenkalti/backoff/v5 v5.0.3 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
-	github.com/cloudnative-pg/barman-cloud v0.4.1-0.20260108104508-ced266c145f5 // indirect
+	github.com/cloudnative-pg/barman-cloud v0.5.0 // indirect
 	github.com/cpuguy83/go-md2man/v2 v2.0.6 // indirect
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc // indirect
 	github.com/ebitengine/purego v0.10.0 // indirect
@@ -122,7 +123,7 @@ require (
 	github.com/jackc/pgservicefile v0.0.0-20240606120523-5a60cdf6a761 // indirect
 	github.com/json-iterator/go v1.1.12 // indirect
 	github.com/kubernetes-csi/external-snapshotter/client/v8 v8.4.0 // indirect
-	github.com/lib/pq v1.11.1 // indirect
+	github.com/lib/pq v1.12.0 // indirect
 	github.com/lufia/plan9stats v0.0.0-20260216142805-b3301c5f2a88 // indirect
 	github.com/minio/highwayhash v1.0.4-0.20251030100505-070ab1a87a76 // indirect
 	github.com/moby/spdystream v0.5.0 // indirect
@@ -190,7 +191,7 @@ require (
 	gopkg.in/evanphx/json-patch.v4 v4.13.0 // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
-	k8s.io/apiextensions-apiserver v0.35.0 // indirect
+	k8s.io/apiextensions-apiserver v0.35.3 // indirect
 	k8s.io/klog/v2 v2.130.1 // indirect
 	k8s.io/kube-openapi v0.0.0-20260304202019-5b3e3fdb0acf // indirect
 	k8s.io/utils v0.0.0-20260210185600-b8788abfbbc2 // indirect
