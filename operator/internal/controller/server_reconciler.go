@@ -57,6 +57,7 @@ func (r *ServerReconciler) reconcile(ctx context.Context, server *kliov1alpha1.S
 func (r *ServerReconciler) reconcileStatefulSet(
 	ctx context.Context, server *kliov1alpha1.Server,
 ) (ctrl.Result, error) {
+	contextLogger := logf.FromContext(ctx)
 	klioName := server.Name + "-klio"
 
 	pprof, _ := strconv.ParseBool(server.GetAnnotations()["klio.cnpg.io/pprof"])
@@ -231,8 +232,12 @@ func (r *ServerReconciler) reconcileStatefulSet(
 	// retained because PersistentVolumeClaimRetentionPolicy is set to Retain.
 	// ref: https://github.com/prometheus-operator/prometheus-operator/blob/main/pkg/k8s/statefulset.go
 	if apierrors.IsInvalid(err) {
-		contextLogger := logf.FromContext(ctx)
-		contextLogger.Info("StatefulSet update rejected due to immutable field change, deleting for recreation")
+		if statefulset.CreationTimestamp.IsZero() {
+			return ctrl.Result{}, err
+		}
+
+		contextLogger.Info("StatefulSet update rejected due to immutable field change, deleting for recreation",
+			"reason", err.Error())
 
 		if deleteErr := r.Delete(ctx, statefulset, &client.DeleteOptions{
 			PropagationPolicy: ptr.To(metav1.DeletePropagationForeground),
