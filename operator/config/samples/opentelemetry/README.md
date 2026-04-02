@@ -33,6 +33,10 @@ You can install Prometheus using the Prometheus community Helm chart and
 the CloudNativePG example configuration:
 
 ```shell
+helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
+```
+
+```shell
 helm upgrade --install \
   -f https://raw.githubusercontent.com/cloudnative-pg/cloudnative-pg/main/docs/src/samples/monitoring/kube-stack-config.yaml \
   prometheus-community prometheus-community/kube-prometheus-stack
