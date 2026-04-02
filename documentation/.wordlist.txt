@@ -103,6 +103,7 @@ LocalObjectReference
 MaxConcurrentDownloads
 MaxItems
 MetricsConfiguration
+MiB
 MinLength
 ModeReadOnly
 ModeStandard
@@ -113,6 +114,7 @@ NetworkPolicies
 NodeSelector
 NumCPU
 OCI
+OLTP
 OTEL
 OTLP
 ObjectMeta

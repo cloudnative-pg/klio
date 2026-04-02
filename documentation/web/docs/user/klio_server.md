@@ -97,6 +97,62 @@ The queue PVC is required when Tier 1 is configured. It stores the NATS
 JetStream work queue used for retention policy enforcement and asynchronous
 Tier 2 replication.
 
+#### Queue Sizing Guidelines
+
+The queue stores only task metadata (cluster name and WAL filename), not the
+actual WAL content. This means queue size depends on the **number of WAL
+segments** generated, not the size of your database.
+
+**Sizing formula:**
+
+```
+Queue Size = WAL_segments_per_hour × max_backlog_hours × 300 bytes × 2
+```
+
+Where:
+
+- **WAL_segments_per_hour**: How many WAL segments your database generates per
+  hour (check with `pg_stat_archiver` or monitor WAL production)
+- **max_backlog_hours**: Maximum duration the Tier 2 WAL replication backlog
+  can grow before the queue fills up and tasks are lost. Backlog builds up
+  when Tier 2 replication falls behind Tier 1 ingestion — for example, during
+  Tier 2 outages or when object storage uploads are slower than local disk writes.
+- **300 bytes**: Approximate storage per WAL task (message + JetStream overhead)
+- **2**: Safety factor
+
+**Recommended sizes:**
+
+| Workload | WAL Rate | Recommended Size |
+|----------|----------|------------------|
+| Low write (OLTP) | ~60 segments/hour | **10 MiB** |
+| Medium write | ~120 segments/hour | **25 MiB** |
+| High write | ~360 segments/hour | **50 MiB** |
+| Very high write | >500 segments/hour | **100 MiB** |
+
+These recommendations assume a 24-hour backlog tolerance and include an
+additional **~10x safety margin** beyond the formula result. This margin accounts
+for:
+
+- **Burst workloads**: WAL production can spike significantly above average rates
+- **Multiple clusters**: A single Klio server may handle several CNPG clusters
+- **Low cost of headroom**: Storage is cheap relative to the risk of queue
+  overflow, which causes WAL loss
+
+For shorter tolerance windows, you can reduce the queue size proportionally, but
+keep the safety margin.
+
+:::tip
+Start with 50 MiB as a conservative default. Monitor queue usage with the
+`klio admin queue-status` command and adjust based on actual WAL production
+rates in your environment.
+:::
+
+:::note
+Large transactions that modify significant amounts of data will automatically
+generate multiple WAL segments (PostgreSQL rotates WAL files at ~16 MB by
+default). Account for this when estimating your WAL segment rate.
+:::
+
 ## Setting up a new Klio server
 
 Setting up a Klio server involves creating a `Server` resource along with the
@@ -312,6 +368,7 @@ spec:
 
   # Queue storage configuration (for NATS work queue)
   # Required when tier1 is configured
+  # See "Queue Sizing Guidelines" section for recommendations
   queue:
     pvcTemplate:
       storageClassName: standard  # Adjust to your storage class
@@ -319,7 +376,7 @@ spec:
         - ReadWriteOnce
       resources:
         requests:
-          storage: 10Gi  # Adjust based on queue volume needs
+          storage: 50Mi  # See Queue Sizing Guidelines; 50Mi suits most workloads
 
   # tier 2 configuration
   tier2:
