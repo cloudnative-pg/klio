@@ -62,7 +62,7 @@ func Start(
 	// Create TLS configuration
 	tlsConfig := &tls.Config{
 		Certificates: []tls.Certificate{cert},
-		MinVersion:   tls.VersionTLS13,
+		MinVersion:   tls.VersionTLS12,
 		ClientAuth:   tls.RequireAndVerifyClientCert,
 		ClientCAs:    clientCAPool,
 	}

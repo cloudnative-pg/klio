@@ -68,7 +68,7 @@ func Connect(clientConfig *config.ClientConfig, address string) (*Connection, er
 
 	tlsConfig := &tls.Config{
 		RootCAs:    serverCertificatePool,
-		MinVersion: tls.VersionTLS13,
+		MinVersion: tls.VersionTLS12,
 		Certificates: []tls.Certificate{
 			clientCertificate,
 		},

@@ -111,7 +111,7 @@ func newHTTPClient(ctx context.Context, filename string) (*http.Client, error) {
 		Transport: &http.Transport{
 			TLSClientConfig: &tls.Config{
 				RootCAs:    tlsCertPool,
-				MinVersion: tls.VersionTLS13,
+				MinVersion: tls.VersionTLS12,
 			},
 		},
 	}, nil
