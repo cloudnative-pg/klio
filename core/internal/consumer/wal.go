@@ -10,6 +10,7 @@ import (
 
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
+	"github.com/cloudnative-pg/klio/core/internal/opentelemetry"
 	"github.com/cloudnative-pg/klio/core/internal/queue"
 	"github.com/cloudnative-pg/klio/core/internal/repository"
 )
@@ -35,8 +36,11 @@ type WALOptions struct {
 // NewWAL creates a new WAL consumer.
 func NewWAL(opts *WALOptions) *WAL {
 	return &WAL{
-		metrics: NewMetrics(),
-		opts:    opts,
+		metrics: &repository.Metrics{
+			WalWrittenBytes: opentelemetry.Consumer.WalWrittenBytes,
+			WalWritten:      opentelemetry.Consumer.WalWritten,
+		},
+		opts: opts,
 	}
 }
 

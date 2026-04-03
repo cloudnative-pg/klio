@@ -1,4 +1,4 @@
-package walserver
+package cnpgi
 
 import (
 	"go.opentelemetry.io/otel"
@@ -6,4 +6,4 @@ import (
 	"github.com/cloudnative-pg/klio/core/internal/opentelemetry"
 )
 
-var tracer = otel.Tracer(opentelemetry.TracerWalServer) //nolint:gochecknoglobals
+var tracer = otel.Tracer(opentelemetry.TracerBackup) //nolint:gochecknoglobals

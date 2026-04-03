@@ -105,7 +105,7 @@ func (w *Implementation) Put(req grpc.WAL_PutServer) error {
 
 	logger := log.FromContext(req.Context())
 
-	ctx, span := tracer.Start(req.Context(), "put_wal")
+	ctx, span := tracer.Start(req.Context(), opentelemetry.PutWalSpan)
 	defer span.End()
 
 	for {

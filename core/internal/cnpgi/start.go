@@ -7,7 +7,6 @@ import (
 	"github.com/cloudnative-pg/cnpg-i-machinery/pkg/pluginhelper/http"
 	"github.com/cloudnative-pg/cnpg-i/pkg/backup"
 	"github.com/cloudnative-pg/cnpg-i/pkg/identity"
-	"github.com/cloudnative-pg/cnpg-i/pkg/metrics"
 	restore "github.com/cloudnative-pg/cnpg-i/pkg/restore/job"
 	"github.com/cloudnative-pg/cnpg-i/pkg/wal"
 	"github.com/cloudnative-pg/machinery/pkg/log"
@@ -103,24 +102,6 @@ func (c *CNPGI) AddWALCapability(opts WALCapabilityOptions) {
 		Type: &identity.PluginCapability_Service_{
 			Service: &identity.PluginCapability_Service{
 				Type: identity.PluginCapability_Service_TYPE_WAL_SERVICE,
-			},
-		},
-	})
-}
-
-// AddMetricsCapability adds the backup capability to the CNPGI service.
-func (c *CNPGI) AddMetricsCapability() {
-	enricher := func(server *grpc.Server) error {
-		metrics.RegisterMetricsServer(server, metricsImpl{})
-
-		return nil
-	}
-
-	c.enrichers = append(c.enrichers, enricher)
-	c.capabilities = append(c.capabilities, &identity.PluginCapability{
-		Type: &identity.PluginCapability_Service_{
-			Service: &identity.PluginCapability_Service{
-				Type: identity.PluginCapability_Service_TYPE_METRICS,
 			},
 		},
 	})

@@ -41,7 +41,7 @@ func start(ctx context.Context, configFile string, cfg *Config, tls *config.TLSC
 	// Create observable uptime metric
 	serverStartTime := time.Now()
 	_, err = otel.Meter(opentelemetry.Meter).Float64ObservableGauge(
-		kopiaServerUptimeMetricName,
+		opentelemetry.KopiaServerUptimeMetric,
 		metric.WithDescription("Kopia server uptime in seconds"),
 		metric.WithUnit("s"),
 		metric.WithFloat64Callback(func(_ context.Context, o metric.Float64Observer) error {

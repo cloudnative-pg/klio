@@ -37,7 +37,6 @@ var instanceCmd = &cobra.Command{
 			server.AddBackupCapability(cnpgi.BackupCapabilityOptions{
 				Tier2: configuration.Tier2BackupEnabled,
 			})
-			server.AddMetricsCapability()
 			server.AddWALCapability(cnpgi.WALCapabilityOptions{
 				Debug: debug,
 				Tier1: configuration.Tier1Enabled,

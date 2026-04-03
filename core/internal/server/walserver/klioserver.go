@@ -2,6 +2,7 @@ package walserver
 
 import (
 	"github.com/cloudnative-pg/klio/core/internal/grpc"
+	"github.com/cloudnative-pg/klio/core/internal/opentelemetry"
 	"github.com/cloudnative-pg/klio/core/internal/queue"
 	"github.com/cloudnative-pg/klio/core/internal/repository"
 )
@@ -36,7 +37,10 @@ func New(
 	return &Implementation{
 		conn:       opts.Connection,
 		isReadOnly: opts.ReadOnly,
-		metrics:    NewMetrics(),
-		queue:      opts.Queue,
+		metrics: &repository.Metrics{
+			WalWrittenBytes: opentelemetry.WalServer.WalWrittenBytes,
+			WalWritten:      opentelemetry.WalServer.WalWritten,
+		},
+		queue: opts.Queue,
 	}
 }

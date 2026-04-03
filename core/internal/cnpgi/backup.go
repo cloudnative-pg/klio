@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/exec"
 	"strconv"
+	"strings"
 	"time"
 
 	cnpgv1 "github.com/cloudnative-pg/api/pkg/api/v1"
@@ -16,9 +17,12 @@ import (
 	"github.com/cloudnative-pg/machinery/pkg/log"
 	pgTime "github.com/cloudnative-pg/machinery/pkg/postgres/time"
 	"github.com/cloudnative-pg/machinery/pkg/types"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/codes"
 	"k8s.io/apimachinery/pkg/util/wait"
 
 	"github.com/cloudnative-pg/klio/core/internal/client/klioclient"
+	"github.com/cloudnative-pg/klio/core/internal/opentelemetry"
 )
 
 // backupServiceImplementation is the implementation
@@ -52,6 +56,9 @@ func (b backupServiceImplementation) Backup(
 	ctx context.Context,
 	request *backup.BackupRequest,
 ) (*backup.BackupResult, error) {
+	ctx, span := tracer.Start(ctx, opentelemetry.BackupSpan)
+	defer span.End()
+
 	// Step 1: get and apply the retention policies
 	var cluster cnpgv1.Cluster
 	if err := json.Unmarshal(request.GetClusterDefinition(), &cluster); err != nil {
@@ -78,6 +85,10 @@ func (b backupServiceImplementation) Backup(
 	// Step 2: starting the backup
 	backupName := fmt.Sprintf("backup-%v", pgTime.ToCompactISO8601(time.Now()))
 	targetStandby := cnpgBackup.Spec.Target == cnpgv1.BackupTargetStandby
+	span.SetAttributes(attribute.String("backup.name", backupName))
+
+	backupStart := time.Now()
+	recordBackupStart(ctx)
 
 	metadata, err := b.runBackup(
 		ctx,
@@ -85,17 +96,26 @@ func (b backupServiceImplementation) Backup(
 		targetStandby,
 	)
 	if err != nil {
+		recordBackupFailure(ctx)
+		span.RecordError(err)
+		span.SetStatus(codes.Error, "backup failed")
+
 		return nil, err
 	}
 
 	// Step 3: verify the backup on tier1
 	corruption, verifyErr := b.runVerify(ctx, backupName)
 	if corruption {
-		recordVerificationFailure()
+		recordVerificationFailure(ctx)
+		recordBackupFailure(ctx)
+		span.RecordError(verifyErr)
+		span.SetStatus(codes.Error, "verification detected corruption")
+
 		return nil, verifyErr
 	}
 
-	recordVerificationSuccess()
+	recordVerificationSuccess(ctx)
+	recordBackupSuccess(ctx, time.Since(backupStart))
 
 	// Step 4: trigger maintenance
 	b.triggerMaintenance(ctx)
@@ -122,6 +142,9 @@ func (b backupServiceImplementation) runBackup(
 	backupName string,
 	targetStandby bool,
 ) (*klioclient.BackupMetadata, error) {
+	ctx, span := tracer.Start(ctx, opentelemetry.BackupRunSpan)
+	defer span.End()
+
 	contextLogger := log.FromContext(ctx)
 
 	waitForWals := "--wait-for-wals=true"
@@ -171,6 +194,7 @@ func (b backupServiceImplementation) runBackup(
 	var stdout bytes.Buffer
 	cmd.Stdout = &stdout
 	cmd.Stderr = os.Stderr
+	cmd.Env = filterOTelEnv(os.Environ())
 	if err := cmd.Run(); err != nil {
 		return nil, fmt.Errorf("failed to execute klio backup get-metadata command: %w", err)
 	}
@@ -204,6 +228,9 @@ var verifyBackoff = wait.Backoff{
 // On persistent infrastructure errors the backup continues (corruption=false)
 // with a logged warning.
 func (b backupServiceImplementation) runVerify(ctx context.Context, backupName string) (bool, error) {
+	ctx, span := tracer.Start(ctx, opentelemetry.BackupVerifySpan)
+	defer span.End()
+
 	contextLogger := log.FromContext(ctx)
 
 	klioPath, err := os.Executable()
@@ -252,6 +279,9 @@ func (b backupServiceImplementation) runVerify(ctx context.Context, backupName s
 }
 
 func (b backupServiceImplementation) triggerMaintenance(ctx context.Context) {
+	ctx, span := tracer.Start(ctx, opentelemetry.BackupMaintenanceSpan)
+	defer span.End()
+
 	contextLogger := log.FromContext(ctx)
 
 	klioPath, err := os.Executable()
@@ -329,4 +359,19 @@ func (b backupServiceImplementation) setRetentionPolicy(ctx context.Context, r *
 	contextLogger.Info("Effective retention policy", "effectivePolicy", stdout.String())
 
 	return nil
+}
+
+// filterOTelEnv returns a copy of env with all OTEL_ variables removed.
+// This prevents subprocesses from inheriting OpenTelemetry configuration
+// (e.g. OTEL_METRICS_EXPORTER=console) that could write to stdout and
+// corrupt captured command output.
+func filterOTelEnv(env []string) []string {
+	filtered := make([]string, 0, len(env))
+	for _, e := range env {
+		if !strings.HasPrefix(e, "OTEL_") {
+			filtered = append(filtered, e)
+		}
+	}
+
+	return filtered
 }
