@@ -40,9 +40,10 @@ func newTestServerForStatefulSet() *kliov1alpha1.Server {
 			},
 			Mode: kliov1alpha1.ModeStandard,
 			Tier1: &kliov1alpha1.Tier1Configuration{
-				Data:          kliov1alpha1.Data{PersistentVolumeClaimTemplate: newPVCSpec("10Gi")},
-				Cache:         kliov1alpha1.Cache{PersistentVolumeClaimTemplate: newPVCSpec("5Gi")},
-				EncryptionKey: testEncryptionKey(),
+				Data:              kliov1alpha1.Data{PersistentVolumeClaimTemplate: newPVCSpec("10Gi")},
+				Cache:             kliov1alpha1.Cache{PersistentVolumeClaimTemplate: newPVCSpec("5Gi")},
+				EncryptionKeyFile: newTestFileSource("enc-secret", "encryption-key.age"),
+				IdentityFile:      newTestFileSource("id-secret", "identity.txt"),
 			},
 			Queue: &kliov1alpha1.Queue{
 				PersistentVolumeClaimTemplate: newPVCSpec("1Gi"),

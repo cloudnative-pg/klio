@@ -26,6 +26,7 @@ type commonBackupRestoreScenario struct {
 	namespace                       *corev1.Namespace
 	userCertificate                 *certmanagerv1.Certificate
 	encryptionSecret                *corev1.Secret
+	identitySecret                  *corev1.Secret
 	cnpgCluster                     *cnpgv1.Cluster
 	issuer                          *certmanagerv1.Issuer
 	certificate                     *certmanagerv1.Certificate
@@ -56,6 +57,7 @@ func (c *commonBackupRestoreScenario) Setup(
 		"failed to create Klio plugin configuration for source cluster")
 	require.NoError(t, r.Create(ctx, c.userCertificate), "failed to create user secret")
 	require.NoError(t, r.Create(ctx, c.encryptionSecret), "failed to create encryption secret")
+	require.NoError(t, r.Create(ctx, c.identitySecret), "failed to create identity secret")
 	require.NoError(t, r.Create(ctx, c.issuer), "failed to create issuer")
 	require.NoError(t, r.Create(ctx, c.caIssuer), "failed to create CA issuer")
 	require.NoError(t, r.Create(ctx, c.caCertificate), "failed to create CA certificate")

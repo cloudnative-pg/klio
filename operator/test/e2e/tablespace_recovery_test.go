@@ -67,14 +67,19 @@ func NewTablespaceRecoveryFeatureConfig(
 			ClusterName:       cnpgSourceClusterName,
 		},
 	)
-	encryptionSecret := secrets.GetKlioEncryptionSecret("encryption", namespace, "testencryptionpassword123")
+	ageSecrets := secrets.GetKlioAgeEncryptionSecrets("encryption", namespace, "testencryptionpassword123")
 	klioServer := klio.GetServerObject(
 		klioServerName,
 		namespace,
 		klio.ServerTemplateOptions{
-			TLSSecretName:        certificate.Spec.SecretName,
-			ClientCASecretName:   caCertificate.Spec.SecretName,
-			EncryptionSecretName: encryptionSecret.Name,
+			TLSSecretName:      certificate.Spec.SecretName,
+			ClientCASecretName: caCertificate.Spec.SecretName,
+			Encryption: klio.EncryptionOptions{
+				EncryptionKeySecretName: ageSecrets.EncryptionKeySecret.Name,
+				EncryptionKeyFileName:   "encryption-key.age",
+				IdentitySecretName:      ageSecrets.IdentitySecret.Name,
+				IdentityFileName:        "identity.txt",
+			},
 		},
 	)
 
@@ -110,7 +115,8 @@ func NewTablespaceRecoveryFeatureConfig(
 		namespace:                       namespaceObj,
 		cnpgCluster:                     cnpgCluster,
 		userCertificate:                 userCertificate,
-		encryptionSecret:                encryptionSecret,
+		encryptionSecret:                ageSecrets.EncryptionKeySecret,
+		identitySecret:                  ageSecrets.IdentitySecret,
 		issuer:                          issuer,
 		certificate:                     certificate,
 		caCertificate:                   caCertificate,

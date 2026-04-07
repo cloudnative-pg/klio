@@ -33,7 +33,7 @@ func TestTierConfigs_Validate(t *testing.T) {
 			{
 				name: "Valid",
 				config: Tier1Config{
-					EncryptionKey: "p",
+					EncryptionKeyFile: "/path/to/key",
 					Base: BaseServerConfig{
 						CacheDirectory:      "cache",
 						RepositoryDirectory: "repo",
@@ -46,7 +46,7 @@ func TestTierConfigs_Validate(t *testing.T) {
 				},
 				wantErr: false,
 			},
-			{"Missing EncryptionPassword", Tier1Config{}, true},
+			{"Missing EncryptionKeyFile", Tier1Config{}, true},
 		}
 		for _, tt := range tests {
 			if err := tt.config.Validate(); (err != nil) != tt.wantErr {
@@ -188,7 +188,7 @@ func TestServerConfig_RequireTier2(t *testing.T) {
 					},
 				},
 				Tier2: Tier2Config{
-					EncryptionKey:     "key",
+					EncryptionKeyFile: "/path/to/key",
 					BaseListenAddress: "localhost:8080",
 					WALListenAddress:  "localhost:8081",
 					CacheDirectory:    "/cache/tier2",
@@ -216,7 +216,7 @@ func TestServerConfig_RequireTier2(t *testing.T) {
 					},
 				},
 				Tier2: Tier2Config{
-					EncryptionKey:     "key",
+					EncryptionKeyFile: "/path/to/key",
 					BaseListenAddress: "localhost:8080",
 					WALListenAddress:  "localhost:8081",
 					CacheDirectory:    "/cache/shared",

@@ -30,8 +30,33 @@ type Tier2S3Options struct {
 	S3CABundleSecretName string
 }
 
-// BuildTier2Configuration creates a Tier2Configuration from S3 options and encryption secret.
-func BuildTier2Configuration(s3Opts Tier2S3Options, encryptionSecretName string) kliov1alpha1.Tier2Configuration {
+// EncryptionOptions contains the secret names for encryption key and identity files.
+type EncryptionOptions struct {
+	// EncryptionKeySecretName is the secret containing the Age-encrypted key file.
+	EncryptionKeySecretName string
+	// EncryptionKeyFileName is the key within the secret.
+	EncryptionKeyFileName string
+	// IdentitySecretName is the secret containing the Age identity file.
+	IdentitySecretName string
+	// IdentityFileName is the key within the secret.
+	IdentityFileName string
+}
+
+func newFileSource(secretName, fileName string) kliov1alpha1.FileSource {
+	return kliov1alpha1.FileSource{
+		FileReference: &kliov1alpha1.FileReference{
+			Volume: corev1.VolumeSource{
+				Secret: &corev1.SecretVolumeSource{
+					SecretName: secretName,
+				},
+			},
+			Path: fileName,
+		},
+	}
+}
+
+// BuildTier2Configuration creates a Tier2Configuration from S3 options and encryption options.
+func BuildTier2Configuration(s3Opts Tier2S3Options, encOpts EncryptionOptions) kliov1alpha1.Tier2Configuration {
 	return kliov1alpha1.Tier2Configuration{
 		Cache: kliov1alpha1.Cache{
 			PersistentVolumeClaimTemplate: corev1.PersistentVolumeClaimSpec{
@@ -68,12 +93,8 @@ func BuildTier2Configuration(s3Opts Tier2S3Options, encryptionSecretName string)
 				Key: "ca.crt",
 			},
 		},
-		EncryptionKey: &cnpgv1.SecretKeySelector{
-			LocalObjectReference: api.LocalObjectReference{
-				Name: encryptionSecretName,
-			},
-			Key: "password",
-		},
+		EncryptionKeyFile: newFileSource(encOpts.EncryptionKeySecretName, encOpts.EncryptionKeyFileName),
+		IdentityFile:      newFileSource(encOpts.IdentitySecretName, encOpts.IdentityFileName),
 	}
 }
 
@@ -86,8 +107,8 @@ type ServerTemplateOptions struct {
 	// the Klio WAL server to authenticate users.
 	ClientCASecretName string
 
-	// EncryptionSecretName contains the encryption key.
-	EncryptionSecretName string
+	// Encryption contains the encryption key and identity file options.
+	Encryption EncryptionOptions
 }
 
 // newBaseServer creates a server with common fields (metadata, image, TLS) but no tier configuration.
@@ -141,12 +162,8 @@ func GetServerObject(
 				},
 			},
 		},
-		EncryptionKey: &cnpgv1.SecretKeySelector{
-			LocalObjectReference: api.LocalObjectReference{
-				Name: opts.EncryptionSecretName,
-			},
-			Key: "password",
-		},
+		EncryptionKeyFile: newFileSource(opts.Encryption.EncryptionKeySecretName, opts.Encryption.EncryptionKeyFileName),
+		IdentityFile:      newFileSource(opts.Encryption.IdentitySecretName, opts.Encryption.IdentityFileName),
 	}
 
 	// Queue is mandatory when tier1 is configured
@@ -223,8 +240,8 @@ func GetPluginConfigurationObject(
 type ServerWithTier2TemplateOptions struct {
 	ServerTemplateOptions
 
-	// Tier2EncryptionSecretName contains the tier2 encryption key.
-	Tier2EncryptionSecretName string
+	// Tier2Encryption contains the tier2 encryption key and identity file options.
+	Tier2Encryption EncryptionOptions
 	// S3 contains the S3 configuration parameters for tier2 storage.
 	S3 Tier2S3Options
 }
@@ -239,7 +256,7 @@ func GetServerWithTier2Object(
 	server := GetServerObject(name, namespace, opts.ServerTemplateOptions)
 
 	// Add tier2 configuration
-	tier2Config := BuildTier2Configuration(opts.S3, opts.Tier2EncryptionSecretName)
+	tier2Config := BuildTier2Configuration(opts.S3, opts.Tier2Encryption)
 	server.Spec.Tier2 = &tier2Config
 
 	return server
@@ -254,7 +271,7 @@ func GetReadOnlyTier2ServerObject(
 ) *kliov1alpha1.Server {
 	server := newBaseServer(name, namespace, opts.ServerTemplateOptions)
 	server.Spec.Mode = kliov1alpha1.ModeReadOnly
-	tier2Config := BuildTier2Configuration(opts.S3, opts.Tier2EncryptionSecretName)
+	tier2Config := BuildTier2Configuration(opts.S3, opts.Tier2Encryption)
 	server.Spec.Tier2 = &tier2Config
 
 	return server

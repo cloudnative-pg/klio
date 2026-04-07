@@ -137,31 +137,57 @@ type Queue struct {
 	PersistentVolumeClaimTemplate corev1.PersistentVolumeClaimSpec `json:"pvcTemplate"`
 }
 
+// FileReference specifies a file from a volume source.
+type FileReference struct {
+	// Volume is the volume source to mount.
+	Volume corev1.VolumeSource `json:"volume"`
+
+	// Path is the file path within the mounted volume.
+	Path string `json:"path"`
+}
+
+// FileSource specifies a source for a file. This wrapper allows future
+// alternatives to be added without breaking the API.
+// +kubebuilder:validation:ExactlyOneOf=fileReference
+type FileSource struct {
+	// FileReference specifies a file from a volume source.
+	// +optional
+	FileReference *FileReference `json:"fileReference,omitempty"`
+}
+
 // Tier1Configuration is the tier 1 configuration.
 type Tier1Configuration struct {
 	// Cache is the configuration of the PVC that should be
-	// used for the cache
+	// used for the cache.
 	Cache Cache `json:"cache"`
 
 	// Data is the configuration of the PVC that should be used
-	// for the base backups
+	// for the base backups.
 	Data Data `json:"data"`
 
-	// EncryptionKey is a reference to a secret containing the Klio password
-	EncryptionKey *machineryapi.SecretKeySelector `json:"encryptionKey"`
+	// EncryptionKeyFile specifies the Age-encrypted encryption key file.
+	EncryptionKeyFile FileSource `json:"encryptionKeyFile"`
+
+	// IdentityFile specifies the Age identity (private key) file used to
+	// decrypt the encryption key.
+	IdentityFile FileSource `json:"identityFile"`
 }
 
 // Tier2Configuration is the tier 2 configuration.
 type Tier2Configuration struct {
 	// Cache is the configuration of the PVC that should be
-	// used for the cache
+	// used for the cache.
 	Cache Cache `json:"cache"`
 
-	// S3 contains the configuration parameters for an S3-based tier 2
+	// S3 contains the configuration parameters for an S3-based tier 2.
 	S3 *S3Configuration `json:"s3"`
 
-	// EncryptionKey is a reference to a secret containing the Klio password
-	EncryptionKey *machineryapi.SecretKeySelector `json:"encryptionKey"`
+	// EncryptionKeyFile specifies the Age-encrypted encryption key file.
+	EncryptionKeyFile FileSource `json:"encryptionKeyFile"`
+
+	// IdentityFile specifies the Age identity (private key) file used to
+	// decrypt the encryption key.
+	IdentityFile FileSource `json:"identityFile"`
 }
 
 // S3Configuration is the configuration to a S3 defined tier 2.

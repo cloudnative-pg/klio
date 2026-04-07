@@ -32,9 +32,20 @@ type TLSConfig struct {
 
 // Tier1Config is the configuration of tier 1.
 type Tier1Config struct {
-	// EncryptionKey is the encryption key that is used to
-	// operate on the Kopia repository and on the WAL directory.
-	EncryptionKey string `mapstructure:"encryption_key"`
+	// EncryptionKeyFile is the path to the file containing the encryption
+	// key used to operate on the Kopia repository and on the WAL directory.
+	// When IdentityFile is set, this file is Age-encrypted and will be
+	// decrypted at startup. Otherwise it is read as plaintext.
+	EncryptionKeyFile string `mapstructure:"encryption_key_file"`
+
+	// IdentityFile is the path to the Age identity file used to decrypt
+	// the encryption key file. When empty, EncryptionKeyFile is read as
+	// plaintext.
+	IdentityFile string `mapstructure:"identity_file"`
+
+	// EncryptionKey is the encryption key loaded from EncryptionKeyFile at startup.
+	// Populated by LoadEncryptionKey; not read from configuration.
+	EncryptionKey string `mapstructure:"-"`
 
 	// Base is the configuration of the Base server
 	Base BaseServerConfig `mapstructure:"base"`
@@ -45,8 +56,19 @@ type Tier1Config struct {
 
 // Tier2Config is the configuration of tier 2.
 type Tier2Config struct {
-	// EncryptionKey is the encryption key
-	EncryptionKey string `json:"encryption_key" mapstructure:"encryption_key"`
+	// EncryptionKeyFile is the path to the file containing the encryption key.
+	// When IdentityFile is set, this file is Age-encrypted and will be
+	// decrypted at startup. Otherwise it is read as plaintext.
+	EncryptionKeyFile string `mapstructure:"encryption_key_file"`
+
+	// IdentityFile is the path to the Age identity file used to decrypt
+	// the encryption key file. When empty, EncryptionKeyFile is read as
+	// plaintext.
+	IdentityFile string `mapstructure:"identity_file"`
+
+	// EncryptionKey is the encryption key loaded from EncryptionKeyFile at startup.
+	// Populated by LoadEncryptionKey; not read from configuration.
+	EncryptionKey string `mapstructure:"-"`
 
 	// BaseListenAddress is the address where the tier2 base server will listen
 	BaseListenAddress string `mapstructure:"base_listen_address"`

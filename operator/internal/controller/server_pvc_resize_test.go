@@ -5,7 +5,6 @@ import (
 	"errors"
 	"testing"
 
-	machineryapi "github.com/cloudnative-pg/machinery/pkg/api"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
@@ -22,13 +21,6 @@ import (
 )
 
 // --- test factories ---
-
-func testEncryptionKey() *machineryapi.SecretKeySelector {
-	return &machineryapi.SecretKeySelector{
-		LocalObjectReference: machineryapi.LocalObjectReference{Name: "secret"},
-		Key:                  "key",
-	}
-}
 
 func newTestScheme() *runtime.Scheme {
 	scheme := runtime.NewScheme()
@@ -82,9 +74,8 @@ func newTestServerTier1(dataSize, cacheSize string) *kliov1alpha1.Server {
 		ObjectMeta: metav1.ObjectMeta{Name: "test-server", Namespace: "default"},
 		Spec: kliov1alpha1.ServerSpec{
 			Tier1: &kliov1alpha1.Tier1Configuration{
-				Data:          kliov1alpha1.Data{PersistentVolumeClaimTemplate: newPVCSpec(dataSize)},
-				Cache:         kliov1alpha1.Cache{PersistentVolumeClaimTemplate: newPVCSpec(cacheSize)},
-				EncryptionKey: testEncryptionKey(),
+				Data:  kliov1alpha1.Data{PersistentVolumeClaimTemplate: newPVCSpec(dataSize)},
+				Cache: kliov1alpha1.Cache{PersistentVolumeClaimTemplate: newPVCSpec(cacheSize)},
 			},
 		},
 	}
@@ -109,9 +100,8 @@ func TestBuildDesiredPVCSizes_Tier2Only(t *testing.T) {
 		Spec: kliov1alpha1.ServerSpec{
 			Mode: kliov1alpha1.ModeReadOnly,
 			Tier2: &kliov1alpha1.Tier2Configuration{
-				Cache:         kliov1alpha1.Cache{PersistentVolumeClaimTemplate: newPVCSpec("20Gi")},
-				S3:            &kliov1alpha1.S3Configuration{BucketName: "test-bucket"},
-				EncryptionKey: testEncryptionKey(),
+				Cache: kliov1alpha1.Cache{PersistentVolumeClaimTemplate: newPVCSpec("20Gi")},
+				S3:    &kliov1alpha1.S3Configuration{BucketName: "test-bucket"},
 			},
 		},
 	}
@@ -125,9 +115,8 @@ func TestBuildDesiredPVCSizes_Tier2Only(t *testing.T) {
 func TestBuildDesiredPVCSizes_BothTiers(t *testing.T) {
 	server := newTestServerTier1("100Gi", "10Gi")
 	server.Spec.Tier2 = &kliov1alpha1.Tier2Configuration{
-		Cache:         kliov1alpha1.Cache{PersistentVolumeClaimTemplate: newPVCSpec("20Gi")},
-		S3:            &kliov1alpha1.S3Configuration{BucketName: "test-bucket"},
-		EncryptionKey: testEncryptionKey(),
+		Cache: kliov1alpha1.Cache{PersistentVolumeClaimTemplate: newPVCSpec("20Gi")},
+		S3:    &kliov1alpha1.S3Configuration{BucketName: "test-bucket"},
 	}
 	server.Spec.Queue = &kliov1alpha1.Queue{PersistentVolumeClaimTemplate: newPVCSpec("5Gi")}
 
@@ -148,9 +137,7 @@ func TestBuildDesiredPVCSizes_EmptyServer(t *testing.T) {
 func TestBuildDesiredPVCSizes_NoStorageRequests(t *testing.T) {
 	server := &kliov1alpha1.Server{
 		Spec: kliov1alpha1.ServerSpec{
-			Tier1: &kliov1alpha1.Tier1Configuration{
-				EncryptionKey: testEncryptionKey(),
-			},
+			Tier1: &kliov1alpha1.Tier1Configuration{},
 		},
 	}
 

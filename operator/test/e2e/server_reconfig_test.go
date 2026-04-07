@@ -51,13 +51,14 @@ type serverReconfigScenario struct {
 	caIssuer          *certmanagerv1.Issuer
 	userCertificate   *certmanagerv1.Certificate
 	encryptionSecret  *corev1.Secret
+	identitySecret    *corev1.Secret
 
 	// Klio Server (initially tier1+queue only, no tier2)
 	klioServer *kliov1alpha1.Server
 
 	// Tier2 configuration to add during Run
-	s3Opts                    klio.Tier2S3Options
-	tier2EncryptionSecretName string
+	s3Opts          klio.Tier2S3Options
+	tier2Encryption klio.EncryptionOptions
 }
 
 // Setup creates all resources for the server reconfiguration test.
@@ -91,6 +92,7 @@ func (s *serverReconfigScenario) Setup(
 		CaIssuer:              s.caIssuer,
 		UserCertificate:       s.userCertificate,
 		EncryptionSecret:      s.encryptionSecret,
+		IdentitySecret:        s.identitySecret,
 		KlioServer:            s.klioServer,
 	}
 	scenario.ParallelSetup(ctx, t, r)
@@ -179,7 +181,7 @@ func (f *serverReconfigFeature) Run() types.StepFunc {
 		)
 
 		tier2Config := klio.BuildTier2Configuration(
-			f.scenario.s3Opts, f.scenario.tier2EncryptionSecretName)
+			f.scenario.s3Opts, f.scenario.tier2Encryption)
 		currentServer.Spec.Tier2 = &tier2Config
 		require.NoError(t, r.Update(ctx, currentServer), "failed to update Server with tier2")
 		t.Log("Server updated with tier2 configuration")
@@ -291,7 +293,7 @@ func ServerTierReconfiguration(namespace string) *serverReconfigFeature {
 		serverCertificateName, namespace, []string{klioServerName}, issuer)
 	userCertificate := certificates.GetUserCertificateObject(
 		clientCertName, namespace, clientCertName+"@reconfig", caIssuer)
-	encryptionSecret := secrets.GetKlioEncryptionSecret(encryptionSecretName, namespace, encryptionPassword)
+	ageSecrets := secrets.GetKlioAgeEncryptionSecrets(encryptionSecretName, namespace, encryptionPassword)
 
 	// S3 options for tier2 (used during Run to add tier2)
 	s3Opts := klio.Tier2S3Options{
@@ -309,32 +311,43 @@ func ServerTierReconfiguration(namespace string) *serverReconfigFeature {
 		klioServerName,
 		namespace,
 		klio.ServerTemplateOptions{
-			TLSSecretName:        serverCertificate.Spec.SecretName,
-			ClientCASecretName:   caCertificate.Spec.SecretName,
-			EncryptionSecretName: encryptionSecret.Name,
+			TLSSecretName:      serverCertificate.Spec.SecretName,
+			ClientCASecretName: caCertificate.Spec.SecretName,
+			Encryption: klio.EncryptionOptions{
+				EncryptionKeySecretName: ageSecrets.EncryptionKeySecret.Name,
+				EncryptionKeyFileName:   "encryption-key.age",
+				IdentitySecretName:      ageSecrets.IdentitySecret.Name,
+				IdentityFileName:        "identity.txt",
+			},
 		},
 	)
 
 	scenario := &serverReconfigScenario{
-		name:                      "ServerTierReconfiguration",
-		namespace:                 namespaceObj,
-		issuer:                    issuer,
-		rustfsSecret:              rustfsSecret,
-		rustfsConfigMap:           rustfsConfigMap,
-		rustfsPVC:                 rustfsPVC,
-		rustfsLogsPVC:             rustfsLogsPVC,
-		rustfsCertificate:         rustfsCertificate,
-		rustfsService:             rustfsService,
-		rustfsDeployment:          rustfsDeployment,
-		rustfsCreateBucketJob:     rustfsCreateBucketJob,
-		serverCertificate:         serverCertificate,
-		caCertificate:             caCertificate,
-		caIssuer:                  caIssuer,
-		userCertificate:           userCertificate,
-		encryptionSecret:          encryptionSecret,
-		klioServer:                klioServer,
-		s3Opts:                    s3Opts,
-		tier2EncryptionSecretName: encryptionSecret.Name,
+		name:                  "ServerTierReconfiguration",
+		namespace:             namespaceObj,
+		issuer:                issuer,
+		rustfsSecret:          rustfsSecret,
+		rustfsConfigMap:       rustfsConfigMap,
+		rustfsPVC:             rustfsPVC,
+		rustfsLogsPVC:         rustfsLogsPVC,
+		rustfsCertificate:     rustfsCertificate,
+		rustfsService:         rustfsService,
+		rustfsDeployment:      rustfsDeployment,
+		rustfsCreateBucketJob: rustfsCreateBucketJob,
+		serverCertificate:     serverCertificate,
+		caCertificate:         caCertificate,
+		caIssuer:              caIssuer,
+		userCertificate:       userCertificate,
+		encryptionSecret:      ageSecrets.EncryptionKeySecret,
+		identitySecret:        ageSecrets.IdentitySecret,
+		klioServer:            klioServer,
+		s3Opts:                s3Opts,
+		tier2Encryption: klio.EncryptionOptions{
+			EncryptionKeySecretName: ageSecrets.EncryptionKeySecret.Name,
+			EncryptionKeyFileName:   "encryption-key.age",
+			IdentitySecretName:      ageSecrets.IdentitySecret.Name,
+			IdentityFileName:        "identity.txt",
+		},
 	}
 
 	return &serverReconfigFeature{

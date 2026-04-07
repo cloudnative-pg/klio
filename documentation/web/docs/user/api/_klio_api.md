@@ -62,6 +62,42 @@ _Appears in:_
 | `annotations` _object (keys:string, values:string)_ |  |  |  | Optional: \{\} <br /> |
 
 
+#### FileReference
+
+
+
+FileReference specifies a file from a volume source.
+
+
+
+_Appears in:_
+- [FileSource](#filesource)
+
+| Field | Description | Required | Default | Validation |
+| --- | --- | --- | --- | --- |
+| `volume` _[VolumeSource](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#volumesource-v1-core)_ | Volume is the volume source to mount. | True |  |  |
+| `path` _string_ | Path is the file path within the mounted volume. | True |  |  |
+
+
+#### FileSource
+
+
+
+FileSource specifies a source for a file. This wrapper allows future
+alternatives to be added without breaking the API.
+
+_Validation:_
+- ExactlyOneOf: [fileReference]
+
+_Appears in:_
+- [Tier1Configuration](#tier1configuration)
+- [Tier2Configuration](#tier2configuration)
+
+| Field | Description | Required | Default | Validation |
+| --- | --- | --- | --- | --- |
+| `fileReference` _[FileReference](#filereference)_ | FileReference specifies a file from a volume source. |  |  | Optional: \{\} <br /> |
+
+
 #### ImageConfiguration
 
 
@@ -326,9 +362,10 @@ _Appears in:_
 
 | Field | Description | Required | Default | Validation |
 | --- | --- | --- | --- | --- |
-| `cache` _[Cache](#cache)_ | Cache is the configuration of the PVC that should be<br />used for the cache | True |  |  |
-| `data` _[Data](#data)_ | Data is the configuration of the PVC that should be used<br />for the base backups | True |  |  |
-| `encryptionKey` _[SecretKeySelector](#secretkeyselector)_ | EncryptionKey is a reference to a secret containing the Klio password | True |  |  |
+| `cache` _[Cache](#cache)_ | Cache is the configuration of the PVC that should be<br />used for the cache. | True |  |  |
+| `data` _[Data](#data)_ | Data is the configuration of the PVC that should be used<br />for the base backups. | True |  |  |
+| `encryptionKeyFile` _[FileSource](#filesource)_ | EncryptionKeyFile specifies the Age-encrypted encryption key file. | True |  | ExactlyOneOf: [fileReference] <br /> |
+| `identityFile` _[FileSource](#filesource)_ | IdentityFile specifies the Age identity (private key) file used to<br />decrypt the encryption key. | True |  | ExactlyOneOf: [fileReference] <br /> |
 
 
 #### Tier1PluginConfiguration
@@ -360,9 +397,10 @@ _Appears in:_
 
 | Field | Description | Required | Default | Validation |
 | --- | --- | --- | --- | --- |
-| `cache` _[Cache](#cache)_ | Cache is the configuration of the PVC that should be<br />used for the cache | True |  |  |
-| `s3` _[S3Configuration](#s3configuration)_ | S3 contains the configuration parameters for an S3-based tier 2 | True |  |  |
-| `encryptionKey` _[SecretKeySelector](#secretkeyselector)_ | EncryptionKey is a reference to a secret containing the Klio password | True |  |  |
+| `cache` _[Cache](#cache)_ | Cache is the configuration of the PVC that should be<br />used for the cache. | True |  |  |
+| `s3` _[S3Configuration](#s3configuration)_ | S3 contains the configuration parameters for an S3-based tier 2. | True |  |  |
+| `encryptionKeyFile` _[FileSource](#filesource)_ | EncryptionKeyFile specifies the Age-encrypted encryption key file. | True |  | ExactlyOneOf: [fileReference] <br /> |
+| `identityFile` _[FileSource](#filesource)_ | IdentityFile specifies the Age identity (private key) file used to<br />decrypt the encryption key. | True |  | ExactlyOneOf: [fileReference] <br /> |
 
 
 #### Tier2PluginConfiguration

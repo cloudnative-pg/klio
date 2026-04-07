@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"maps"
+	"path"
 	"strconv"
 	"time"
 
@@ -32,6 +33,12 @@ const (
 	kopiaDataMountPath       = "/data"
 	kopiaCacheTier1MountPath = "/cache_tier1"
 	kopiaCacheTier2MountPath = "/cache_tier2"
+
+	fileSourceBasePath     = "/files"
+	tier1EncKeyFileVolName = "tier1-enc-key-file"
+	tier1IdentityVolName   = "tier1-identity"
+	tier2EncKeyFileVolName = "tier2-enc-key-file"
+	tier2IdentityVolName   = "tier2-identity"
 )
 
 func (r *ServerReconciler) reconcile(ctx context.Context, server *kliov1alpha1.Server) (ctrl.Result, error) {
@@ -395,6 +402,41 @@ func (r *ServerReconciler) reconcileService(ctx context.Context, server *kliov1a
 	return nil
 }
 
+func buildFileSourceVolMount(volName string, src kliov1alpha1.FileSource) (corev1.Volume, corev1.VolumeMount) {
+	mountPath := path.Join(fileSourceBasePath, volName)
+
+	return corev1.Volume{
+			Name:         volName,
+			VolumeSource: src.FileReference.Volume,
+		}, corev1.VolumeMount{
+			Name:      volName,
+			MountPath: mountPath,
+			ReadOnly:  true,
+		}
+}
+
+// identityVolumeDefaultMode is the file mode for identity file volumes.
+// The core refuses to start if the identity file is group/other-readable.
+var identityVolumeDefaultMode = ptr.To(int32(0o400)) //nolint:gochecknoglobals // constant-like value
+
+// buildIdentityVolMount builds a volume and mount for an identity file,
+// forcing DefaultMode 0400 on volume sources that support it so the
+// core's permission check passes.
+func buildIdentityVolMount(volName string, src kliov1alpha1.FileSource) (corev1.Volume, corev1.VolumeMount) {
+	vol, mount := buildFileSourceVolMount(volName, src)
+
+	switch {
+	case vol.Secret != nil:
+		vol.Secret.DefaultMode = identityVolumeDefaultMode
+	case vol.ConfigMap != nil:
+		vol.ConfigMap.DefaultMode = identityVolumeDefaultMode
+	case vol.Projected != nil:
+		vol.Projected.DefaultMode = identityVolumeDefaultMode
+	}
+
+	return vol, mount
+}
+
 func (r *ServerReconciler) buildVolumes(server *kliov1alpha1.Server) []corev1.Volume {
 	volumes := []corev1.Volume{
 		{
@@ -421,7 +463,21 @@ func (r *ServerReconciler) buildVolumes(server *kliov1alpha1.Server) []corev1.Vo
 		},
 	}
 
+	if server.Spec.Tier1 != nil {
+		vol, _ := buildFileSourceVolMount(tier1EncKeyFileVolName, server.Spec.Tier1.EncryptionKeyFile)
+		volumes = append(volumes, vol)
+
+		vol, _ = buildIdentityVolMount(tier1IdentityVolName, server.Spec.Tier1.IdentityFile)
+		volumes = append(volumes, vol)
+	}
+
 	if server.Spec.Tier2 != nil {
+		vol, _ := buildFileSourceVolMount(tier2EncKeyFileVolName, server.Spec.Tier2.EncryptionKeyFile)
+		volumes = append(volumes, vol)
+
+		vol, _ = buildIdentityVolMount(tier2IdentityVolName, server.Spec.Tier2.IdentityFile)
+		volumes = append(volumes, vol)
+
 		var sources []corev1.VolumeProjection
 
 		if server.Spec.Tier2.S3 != nil && server.Spec.Tier2.S3.CustomCABundle != nil {
@@ -483,6 +539,11 @@ func (r *ServerReconciler) buildVolumeMounts(server *kliov1alpha1.Server) []core
 				MountPath: kopiaCacheTier1MountPath,
 			},
 		)
+		_, mount := buildFileSourceVolMount(tier1EncKeyFileVolName, server.Spec.Tier1.EncryptionKeyFile)
+		volumeMounts = append(volumeMounts, mount)
+
+		_, mount = buildIdentityVolMount(tier1IdentityVolName, server.Spec.Tier1.IdentityFile)
+		volumeMounts = append(volumeMounts, mount)
 	}
 
 	if server.Spec.Queue != nil {
@@ -507,6 +568,11 @@ func (r *ServerReconciler) buildVolumeMounts(server *kliov1alpha1.Server) []core
 				MountPath: kopiaCacheTier2MountPath,
 			},
 		)
+		_, mount := buildFileSourceVolMount(tier2EncKeyFileVolName, server.Spec.Tier2.EncryptionKeyFile)
+		volumeMounts = append(volumeMounts, mount)
+
+		_, mount = buildIdentityVolMount(tier2IdentityVolName, server.Spec.Tier2.IdentityFile)
+		volumeMounts = append(volumeMounts, mount)
 	}
 
 	return volumeMounts

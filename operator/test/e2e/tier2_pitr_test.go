@@ -31,6 +31,7 @@ func NewTier2PitrFeatureConfig(
 		caIssuer:                        res.CAIssuer,
 		userCertificate:                 res.UserCertificate,
 		encryptionSecret:                res.EncryptionSecret,
+		identitySecret:                  res.IdentitySecret,
 		klioServer:                      res.KlioServer,
 		cnpgCluster:                     res.CNPGCluster,
 		klioPluginConfigurationSource:   res.KlioPluginConfigurationSource,

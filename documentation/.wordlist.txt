@@ -14,6 +14,7 @@ Bignum
 BucketName
 ByteString
 CAs
+CLI
 CNPG
 CRDs
 CRs
@@ -45,12 +46,16 @@ EmbeddedObjectMeta
 EnableBackup
 EnableRecovery
 EncryptionKey
+EncryptionKeyFile
 Enum
 EnvConfiguration
 EnvVar
 Envs
+ExactlyOneOf
 FailedPrecondition
 FalseClass
+FileReference
+FileSource
 Fixnum
 GC
 GCM
@@ -71,6 +76,7 @@ GetWALResult
 IAM
 IRSA
 Idempotency
+IdentityFile
 IfNotPresent
 ImageConfiguration
 ImagePullPolicy
@@ -215,6 +221,7 @@ VMs
 Veeam
 Velero
 VolumeClaimTemplates
+VolumeSource
 WAL
 WALFileBlock
 WALGap
@@ -256,6 +263,7 @@ customizable
 customizations
 datacenter
 datacenters
+decrypt
 decrypted
 deduplication
 dev
@@ -264,6 +272,7 @@ dropdown
 enablement
 enterprisedb
 env
+fileReference
 filesystem
 fullnameOverride
 gRPC
@@ -280,6 +289,7 @@ imagePullPolicy
 imagePullSecrets
 init
 io
+keychain
 klio
 klioclient
 kopia
@@ -306,6 +316,7 @@ opentelemetry
 otel
 otlp
 pgdata
+plaintext
 pluginConfigurationRef
 podSecurityContext
 postgres

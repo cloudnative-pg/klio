@@ -166,6 +166,8 @@ Before setting up a Klio server, ensure you have:
 - `kubectl` configured to access your cluster
 - [cert-manager](https://cert-manager.io/) installed for certificate
   management (recommended)
+- [Age](https://github.com/FiloSottile/age) CLI installed locally
+  (for encrypting the backup encryption key)
 - Enough storage resources for the data and cache PersistentVolumeClaims
 - Enough storage resources for the queue PersistentVolumeClaim
 
@@ -175,36 +177,31 @@ A Klio server setup requires the following components:
 
 1. **Server Resource**: The main `Server` custom resource
 1. **TLS Certificate**: For secure communication
-1. **Encryption Password**: For encrypting backup data at rest
+1. **Encryption Key**: Age-encrypted key for backup data at rest
 1. **CA Certificate**: For client authentication via mTLS
 1. **Storage**: PersistentVolumeClaims for data, cache, and queue
 
 ### Step-by-step setup
 
-#### 1. Create the Encryption Key Secret
+#### 1. Create the Encryption Key
 
-The encryption key is used to encrypt backup data at rest:
+The encryption key is used to encrypt backup data at rest.
+Klio uses [Age](https://github.com/FiloSottile/age) encryption
+to protect the key, enabling credential rotation without
+touching the Kopia repository.
 
-```yaml
-apiVersion: v1
-kind: Secret
-metadata:
-  name: my-server-encryption
-  namespace: default
-type: Opaque
-data:
-  encryptionKey: "bXktc2VjdXJlLWtleQ==" # my-secure-key
-```
+See the [Age Encryption](#age-encryption) section for full
+setup details. In summary:
 
-Apply the secret:
-
-```bash
-kubectl apply -f encryption-secret.yaml
-```
+1. Generate an Age key pair (`age-keygen -o identity.txt`)
+2. Generate and encrypt a random key
+   (`openssl rand -hex 32 | age -r <pubkey> -o key.age`)
+3. Create Kubernetes Secrets for both files
+4. Reference them in the Server spec
 
 :::tip
-Use a strong, randomly generated key. This key is critical for
-data security and recovery.
+Use a strong, randomly generated key. This key is critical
+for data security and recovery.
 :::
 
 #### 2. Create CA Certificate
@@ -361,10 +358,20 @@ spec:
         resources:
           requests:
             storage: 100Gi  # Adjust based on your backup needs
-    # Encryption key reference
-    encryptionKey:
-      name: my-server-encryption
-      key: encryptionKey
+    # Age-encrypted encryption key file
+    encryptionKeyFile:
+      fileReference:
+        volume:
+          secret:
+            secretName: my-server-encryption-key
+        path: encryption-key.age
+    # Age identity file for decryption
+    identityFile:
+      fileReference:
+        volume:
+          secret:
+            secretName: my-server-age-identity
+        path: identity.txt
 
   # Queue storage configuration (for NATS work queue)
   # Required when tier1 is configured
@@ -388,10 +395,20 @@ spec:
             storage: 1Gi
         accessModes:
           - ReadWriteOnce
-    # Encryption key reference. Can differ from tier1 encryption key.
-    encryptionKey:
-      name: my-server-encryption
-      key: encryptionKey
+    # Age-encrypted encryption key file
+    encryptionKeyFile:
+      fileReference:
+        volume:
+          secret:
+            secretName: my-server-encryption-key
+        path: encryption-key.age
+    # Age identity file for decryption
+    identityFile:
+      fileReference:
+        volume:
+          secret:
+            secretName: my-server-age-identity
+        path: identity.txt
     # S3 access configuration
     s3:
       prefix: klio
@@ -500,10 +517,20 @@ spec:
           requests:
             storage: 10Gi  # Only cache needed, no data storage
 
-    # Encryption key reference
-    encryptionKey:
-      name: dr-server-encryption
-      key: encryptionKey
+    # Age-encrypted encryption key file
+    encryptionKeyFile:
+      fileReference:
+        volume:
+          secret:
+            secretName: dr-server-encryption-key
+        path: encryption-key.age
+    # Age identity file for decryption
+    identityFile:
+      fileReference:
+        volume:
+          secret:
+            secretName: dr-server-age-identity
+        path: identity.txt
 
     # S3 access configuration
     # See Object Store section for authentication options
@@ -847,8 +874,9 @@ ensure data security throughout the backup lifecycle.
 
 ### Base Backups Encryption
 
-Base backups are encrypted by Kopia using the encryption password provided in
-the `encryptionKey` secret references. Kopia handles encryption transparently.
+Base backups are encrypted by Kopia using the encryption key
+decrypted from the Age-encrypted key file. Kopia handles
+encryption transparently.
 
 The encryption key is set during repository initialization and is required
 for all subsequent backup and restore operations.
@@ -876,19 +904,24 @@ then encrypted to ensure both space efficiency and security.
 The same encryption key used for base backups encrypts the WAL files,
 ensuring a unified security model across all backup artifacts.
 
-### Encryption Password Rotation
+### Encryption Credential Rotation
 
-Currently, encryption key rotation is not supported. To change the
-encryption key, you would need to:
+The underlying encryption key (used by Kopia and the WAL keychain)
+cannot be changed once set. However, you can rotate the Age identity
+without touching the encryption key or the repository:
 
-1. Create a new Klio server with a new encryption key
-1. Perform new base backups to the new server
-1. Migrate to using the new server
+1. Generate a new Age key pair
+1. Re-encrypt the encryption key file with the new public key
+1. Deploy the new identity file and re-encrypted key file
+
+This rotation only changes how the encryption key is protected,
+not the key itself. See [Rotating Age Credentials](#rotating-age-credentials)
+for step-by-step instructions.
 
 :::tip
-Choose a strong encryption key from the start. Use a password manager or
-key management system to generate and store a cryptographically secure key
-(recommended: 32+ random characters).
+Choose a strong encryption key from the start. Use a password
+manager or key management system to generate and store a
+cryptographically secure key (recommended: 32+ random characters).
 :::
 
 ### Encryption in Transit
@@ -909,6 +942,134 @@ The TLS certificate is configured via the `.spec.tlsSecretName` field in the
 Server resource, which references a Kubernetes secret containing the TLS
 certificate and private key. This provides end-to-end encryption, ensuring that
 backup data is protected both at rest and in transit.
+
+### Age Encryption
+
+[Age](https://github.com/FiloSottile/age) is a modern file
+encryption tool that Klio supports for protecting the encryption
+key. Instead of storing the plaintext encryption key in a
+Kubernetes Secret, you encrypt it with an Age public key and
+provide the corresponding Age identity (private key) to Klio.
+
+This enables:
+
+- **Credential rotation** without touching the Kopia repository
+  or WAL data.
+- **Multiple recipients** for disaster recovery or team access.
+- **Offline operations** — re-encryption can be done with the
+  standard `age` CLI.
+
+#### Setup
+
+1. Generate an Age key pair:
+
+```bash
+age-keygen -o identity.txt
+# Public key: age1ql3z7hjy54pw3hyww5ayyfg7zqgvc7w3j2elw8zmrj2kg5sfn9aqmcac8p
+```
+
+2. Generate a random encryption key and encrypt it:
+
+```bash
+openssl rand -hex 32 | age \
+    -r age1ql3z7hjy54pw3hyww5ayyfg7zqgvc7w3j2elw8zmrj2kg5sfn9aqmcac8p \
+    -o encryption-key.age
+```
+
+3. Create Kubernetes Secrets for both files:
+
+```bash
+kubectl create secret generic klio-encryption-key-age \
+    --from-file=encryption-key.age
+kubectl create secret generic klio-age-identity \
+    --from-file=identity.txt
+```
+
+4. Reference them in the Server spec:
+
+```yaml
+tier1:
+  encryptionKeyFile:
+    fileReference:
+      volume:
+        secret:
+          secretName: klio-encryption-key-age
+      path: encryption-key.age
+  identityFile:
+    fileReference:
+      volume:
+        secret:
+          secretName: klio-age-identity
+      path: identity.txt
+```
+
+The same configuration applies to `tier2`.
+
+:::note
+Only standard Age identities (X25519 keys) are supported.
+Age plugins (e.g., `age-plugin-yubikey`) are not supported
+directly, but you can encrypt the key file to both a
+plugin-based recipient and a standard X25519 recipient.
+:::
+
+#### Using External Secret Managers
+
+The `encryptionKeyFile` and `identityFile` fields accept any
+Kubernetes `VolumeSource`, not just Secrets. This enables
+integration with external secret management systems:
+
+```yaml
+tier1:
+  encryptionKeyFile:
+    fileReference:
+      volume:
+        csi:
+          driver: secrets-store.csi.k8s.io
+          readOnly: true
+          volumeAttributes:
+            secretProviderClass: klio-aws-secrets
+      path: encryption-key.age
+```
+
+#### Rotating Age Credentials
+
+To rotate the Age identity without touching the encryption key
+or the repository:
+
+1. Generate a new Age key pair:
+
+```bash
+age-keygen -o new-identity.txt
+```
+
+2. Re-encrypt the key file with the new public key:
+
+```bash
+age -d -i identity.txt encryption-key.age | \
+    age -r <new-public-key> -o encryption-key-new.age
+```
+
+3. Update the Kubernetes Secrets:
+
+```bash
+kubectl create secret generic klio-encryption-key-age \
+    --from-file=encryption-key.age=encryption-key-new.age \
+    --dry-run=client -o yaml | kubectl apply -f -
+kubectl create secret generic klio-age-identity \
+    --from-file=identity.txt=new-identity.txt \
+    --dry-run=client -o yaml | kubectl apply -f -
+```
+
+4. Restart the Klio server pod to pick up the new files.
+
+5. Securely delete the old identity and plaintext files.
+
+:::note
+If you are upgrading from a version that used the
+`encryptionKey` field (`SecretKeySelector`), see the
+[Upgrade Notes](upgrade_notes.md#encryption-key-management-breaking-change)
+for migration instructions.
+:::
 
 ## Authentication
 

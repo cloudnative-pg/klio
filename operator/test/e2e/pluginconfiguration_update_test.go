@@ -35,6 +35,7 @@ type pluginConfigurationUpdateScenario struct {
 	certificate             *certmanagerv1.Certificate
 	userCertificate         *certmanagerv1.Certificate
 	encryptionSecret        *corev1.Secret
+	identitySecret          *corev1.Secret
 	klioServer              *kliov1alpha1.Server
 	cnpgCluster             *cnpgv1.Cluster
 	klioPluginConfiguration *kliov1alpha1.PluginConfiguration
@@ -61,6 +62,7 @@ func (c *pluginConfigurationUpdateScenario) Setup(
 	require.NoError(t, r.Create(ctx, c.certificate), "failed to create certificate")
 	require.NoError(t, r.Create(ctx, c.userCertificate), "failed to create user certificate")
 	require.NoError(t, r.Create(ctx, c.encryptionSecret), "failed to create encryption secret")
+	require.NoError(t, r.Create(ctx, c.identitySecret), "failed to create identity secret")
 	require.NoError(t, r.Create(ctx, c.klioServer), "failed to create Klio server")
 	require.NoError(t, r.Create(ctx, c.klioPluginConfiguration),
 		"failed to create Klio plugin configuration")
@@ -243,14 +245,19 @@ func PluginConfigurationUpdate(namespace string) *klioFeatures.PluginConfigurati
 
 	cnpgCluster := cnpg.GetCnpgClusterObject("test-cluster", namespace, 1, "klio-plugin-configuration")
 
-	encryptionSecret := secrets.GetKlioEncryptionSecret("encryption", namespace, "testencryptionpassword123")
+	ageSecrets := secrets.GetKlioAgeEncryptionSecrets("encryption", namespace, "testencryptionpassword123")
 	klioServer := klio.GetServerObject(
 		klioServerName,
 		namespace,
 		klio.ServerTemplateOptions{
-			TLSSecretName:        certificate.Spec.SecretName,
-			ClientCASecretName:   caCertificate.Spec.SecretName,
-			EncryptionSecretName: encryptionSecret.Name,
+			TLSSecretName:      certificate.Spec.SecretName,
+			ClientCASecretName: caCertificate.Spec.SecretName,
+			Encryption: klio.EncryptionOptions{
+				EncryptionKeySecretName: ageSecrets.EncryptionKeySecret.Name,
+				EncryptionKeyFileName:   "encryption-key.age",
+				IdentitySecretName:      ageSecrets.IdentitySecret.Name,
+				IdentityFileName:        "identity.txt",
+			},
 		},
 	)
 
@@ -261,7 +268,8 @@ func PluginConfigurationUpdate(namespace string) *klioFeatures.PluginConfigurati
 		caCertificate:           caCertificate,
 		certificate:             certificate,
 		userCertificate:         userCertificate,
-		encryptionSecret:        encryptionSecret,
+		encryptionSecret:        ageSecrets.EncryptionKeySecret,
+		identitySecret:          ageSecrets.IdentitySecret,
 		klioServer:              klioServer,
 		cnpgCluster:             cnpgCluster,
 		klioPluginConfiguration: klioPluginConfiguration,

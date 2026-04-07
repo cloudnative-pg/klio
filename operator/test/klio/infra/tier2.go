@@ -38,6 +38,7 @@ type Tier2 struct {
 	CaIssuer          *certmanagerv1.Issuer
 	UserCertificate   *certmanagerv1.Certificate
 	EncryptionSecret  *corev1.Secret
+	IdentitySecret    *corev1.Secret
 	KlioServer        *kliov1alpha1.Server
 }
 
@@ -125,6 +126,7 @@ func (s Tier2) ParallelSetup(ctx context.Context, t *testing.T, r *resources.Res
 		require.NoError(t, err, "server certificate not ready")
 
 		require.NoError(t, r.Create(gCtx, s.EncryptionSecret), "failed to create encryption secret")
+		require.NoError(t, r.Create(gCtx, s.IdentitySecret), "failed to create identity secret")
 		require.NoError(t, r.Create(gCtx, s.KlioServer), "failed to create Klio server")
 
 		// Wait for Klio Server to be ready

@@ -251,6 +251,7 @@ type tier2ScenarioResources struct {
 	CAIssuer          *certmanagerv1.Issuer
 	UserCertificate   *certmanagerv1.Certificate
 	EncryptionSecret  *corev1.Secret
+	IdentitySecret    *corev1.Secret
 	KlioServer        *kliov1alpha1.Server
 
 	// Source cluster
@@ -303,19 +304,26 @@ func buildTier2ScenarioResources(namespace string, instances int) *tier2Scenario
 		tier2SourceClientCertName, namespace, tier2SourceClientCertName+"@"+tier2SourceClusterName, caIssuer)
 
 	// Encryption secret (MUST be same for tier1 and tier2)
-	encryptionSecret := secrets.GetKlioEncryptionSecret(tier2EncryptionSecretName, namespace, tier2EncryptionPassword)
+	ageSecrets := secrets.GetKlioAgeEncryptionSecrets(tier2EncryptionSecretName, namespace, tier2EncryptionPassword)
 
 	// Klio Server with tier2
+	encOpts := klio.EncryptionOptions{
+		EncryptionKeySecretName: ageSecrets.EncryptionKeySecret.Name,
+		EncryptionKeyFileName:   "encryption-key.age",
+		IdentitySecretName:      ageSecrets.IdentitySecret.Name,
+		IdentityFileName:        "identity.txt",
+	}
+
 	klioServer := klio.GetServerWithTier2Object(
 		tier2KlioServerName,
 		namespace,
 		klio.ServerWithTier2TemplateOptions{
 			ServerTemplateOptions: klio.ServerTemplateOptions{
-				TLSSecretName:        serverCertificate.Spec.SecretName,
-				ClientCASecretName:   caCertificate.Spec.SecretName,
-				EncryptionSecretName: encryptionSecret.Name,
+				TLSSecretName:      serverCertificate.Spec.SecretName,
+				ClientCASecretName: caCertificate.Spec.SecretName,
+				Encryption:         encOpts,
 			},
-			Tier2EncryptionSecretName: encryptionSecret.Name, // Same encryption key for tier1 and tier2
+			Tier2Encryption: encOpts, // Same encryption key for tier1 and tier2
 			S3: klio.Tier2S3Options{
 				S3BucketName:          rustfs.RustFSBucketName,
 				S3Prefix:              tier2S3Prefix,
@@ -364,11 +372,11 @@ func buildTier2ScenarioResources(namespace string, instances int) *tier2Scenario
 		namespace,
 		klio.ServerWithTier2TemplateOptions{
 			ServerTemplateOptions: klio.ServerTemplateOptions{
-				TLSSecretName:        recoveryServerCertificate.Spec.SecretName,
-				ClientCASecretName:   recoveryServerCACertificate.Spec.SecretName,
-				EncryptionSecretName: encryptionSecret.Name, // SAME as first server
+				TLSSecretName:      recoveryServerCertificate.Spec.SecretName,
+				ClientCASecretName: recoveryServerCACertificate.Spec.SecretName,
+				Encryption:         encOpts, // SAME as first server
 			},
-			Tier2EncryptionSecretName: encryptionSecret.Name, // SAME as first server
+			Tier2Encryption: encOpts, // SAME as first server
 			S3: klio.Tier2S3Options{
 				S3BucketName:          rustfs.RustFSBucketName,
 				S3Prefix:              tier2S3Prefix, // SAME as first server
@@ -430,7 +438,8 @@ func buildTier2ScenarioResources(namespace string, instances int) *tier2Scenario
 		CACertificate:                   caCertificate,
 		CAIssuer:                        caIssuer,
 		UserCertificate:                 userCertificate,
-		EncryptionSecret:                encryptionSecret,
+		EncryptionSecret:                ageSecrets.EncryptionKeySecret,
+		IdentitySecret:                  ageSecrets.IdentitySecret,
 		KlioServer:                      klioServer,
 		CNPGCluster:                     cnpgCluster,
 		KlioPluginConfigurationSource:   klioPluginConfigurationSource,

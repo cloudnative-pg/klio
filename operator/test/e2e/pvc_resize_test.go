@@ -30,6 +30,7 @@ type pvcResizeScenario struct {
 	caCertificate    *certmanagerv1.Certificate
 	caIssuer         *certmanagerv1.Issuer
 	encryptionSecret *corev1.Secret
+	identitySecret   *corev1.Secret
 	klioServer       *kliov1alpha1.Server
 	name             string
 }
@@ -87,6 +88,8 @@ func (s *pvcResizeScenario) Setup(
 	require.NoError(t, err, "certificate not ready")
 
 	require.NoError(t, r.Create(ctx, s.encryptionSecret), "failed to create encryption secret")
+
+	require.NoError(t, r.Create(ctx, s.identitySecret), "failed to create identity secret")
 
 	// Create Klio server
 	require.NoError(t, r.Create(ctx, s.klioServer), "failed to create Klio server")
@@ -149,16 +152,21 @@ func NewPVCResizeFeatureConfig(name string, namespace string) klioFeatures.PVCRe
 		serverCertificateName, namespace, []string{klioServerName}, issuer)
 
 	// Encryption secret
-	encryptionSecret := secrets.GetKlioEncryptionSecret(encryptionSecretName, namespace, encryptionPassword)
+	ageSecrets := secrets.GetKlioAgeEncryptionSecrets("encryption", namespace, "testencryptionpassword123")
 
 	// Klio Server with tier1 and queue
 	klioServer := klio.GetServerObject(
 		klioServerName,
 		namespace,
 		klio.ServerTemplateOptions{
-			TLSSecretName:        serverCertificate.Spec.SecretName,
-			ClientCASecretName:   caCertificate.Spec.SecretName,
-			EncryptionSecretName: encryptionSecret.Name,
+			TLSSecretName:      serverCertificate.Spec.SecretName,
+			ClientCASecretName: caCertificate.Spec.SecretName,
+			Encryption: klio.EncryptionOptions{
+				EncryptionKeySecretName: ageSecrets.EncryptionKeySecret.Name,
+				EncryptionKeyFileName:   "encryption-key.age",
+				IdentitySecretName:      ageSecrets.IdentitySecret.Name,
+				IdentityFileName:        "identity.txt",
+			},
 		},
 	)
 
@@ -168,7 +176,8 @@ func NewPVCResizeFeatureConfig(name string, namespace string) klioFeatures.PVCRe
 		certificate:      serverCertificate,
 		caCertificate:    caCertificate,
 		caIssuer:         caIssuer,
-		encryptionSecret: encryptionSecret,
+		encryptionSecret: ageSecrets.EncryptionKeySecret,
+		identitySecret:   ageSecrets.IdentitySecret,
 		klioServer:       klioServer,
 		name:             name,
 	}

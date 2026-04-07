@@ -27,9 +27,19 @@ spec:
         accessModes:
         - ReadWriteOnce
 
-    encryptionKey:
-      name: klio-encryption
-      key: password
+    encryptionKeyFile:
+      fileReference:
+        volume:
+          secret:
+            secretName: klio-encryption
+        path: encryption-key
+
+    identityFile:
+      fileReference:
+        volume:
+          secret:
+            secretName: klio-encryption
+        path: secret-key
 
   caSecretName: klio-server-ca
   tlsSecretName: klio-server-tls

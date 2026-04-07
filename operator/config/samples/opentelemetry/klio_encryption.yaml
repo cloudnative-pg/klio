@@ -1,6 +1,15 @@
 apiVersion: v1
-data:
-  password: ZW5jcnlwdGlvbnBhc3N3b3Jk
+stringData:
+  secret-key: AGE-SECRET-KEY-1P7TWJ8H837DPVLSRVHAP0ZCZVHXJRTUS7S0A5VZAR49URW0Z9Q0SFW4HVM
+  public-key: age16y2zu5qptkzateyuarcahs0am75qjpu0xd2ty2dvm5jusnfzxg0scjh5uu
+  encryption-key: |
+    -----BEGIN AGE ENCRYPTED FILE-----
+    YWdlLWVuY3J5cHRpb24ub3JnL3YxCi0+IFgyNTUxOSAyMzJERW1QTUhjNGdlNmdi
+    WmFLZ3FLL1lZclduUWEvZkJncGdJZmtVd1FzCmZwSHVTcWNMRFN6a2xpY0NHNVRv
+    MlltSlNRY1B4bmNoOUxuZzZ5RENSSmsKLS0tIGNYUUNzSGVqNUZhS3VodnZ1cXNP
+    T3JHS3JRSUNkR1RyeEROYnZYNnNSV00KUd3HyxvvqCyW6hC1sWNDn/xeptHsoz/e
+    hxCgWoSJvfSfNk174njMwEeW+ic=
+    -----END AGE ENCRYPTED FILE-----
 kind: Secret
 metadata:
   name: klio-encryption

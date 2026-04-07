@@ -5,6 +5,7 @@ go 1.25.0
 toolchain go1.26.1
 
 require (
+	filippo.io/age v1.3.1
 	github.com/cert-manager/cert-manager v1.20.1
 	github.com/cloudnative-pg/api v1.28.1
 	github.com/cloudnative-pg/cloudnative-pg v1.29.0
@@ -28,6 +29,7 @@ require (
 
 require (
 	cel.dev/expr v0.25.1 // indirect
+	filippo.io/hpke v0.4.0 // indirect
 	github.com/Masterminds/semver/v3 v3.4.0 // indirect
 	github.com/antlr4-go/antlr/v4 v4.13.1 // indirect
 	github.com/avast/retry-go/v5 v5.0.0 // indirect
@@ -114,6 +116,7 @@ require (
 	go.uber.org/zap v1.27.1 // indirect
 	go.yaml.in/yaml/v2 v2.4.3 // indirect
 	go.yaml.in/yaml/v3 v3.0.4 // indirect
+	golang.org/x/crypto v0.49.0 // indirect
 	golang.org/x/exp v0.0.0-20250718183923-645b1fa84792 // indirect
 	golang.org/x/mod v0.33.0 // indirect
 	golang.org/x/net v0.52.0 // indirect

@@ -43,6 +43,7 @@ type tier2RecoveryScenario struct {
 	caIssuer          *certmanagerv1.Issuer
 	userCertificate   *certmanagerv1.Certificate
 	encryptionSecret  *corev1.Secret
+	identitySecret    *corev1.Secret
 	klioServer        *kliov1alpha1.Server
 
 	// Source cluster
@@ -92,6 +93,7 @@ func (s *tier2RecoveryScenario) Setup(
 		CaIssuer:              s.caIssuer,
 		UserCertificate:       s.userCertificate,
 		EncryptionSecret:      s.encryptionSecret,
+		IdentitySecret:        s.identitySecret,
 		KlioServer:            s.klioServer,
 	}
 
@@ -188,6 +190,7 @@ func NewTier2RecoveryFeatureConfig(
 		caIssuer:                        res.CAIssuer,
 		userCertificate:                 res.UserCertificate,
 		encryptionSecret:                res.EncryptionSecret,
+		identitySecret:                  res.IdentitySecret,
 		klioServer:                      res.KlioServer,
 		cnpgCluster:                     res.CNPGCluster,
 		klioPluginConfigurationSource:   res.KlioPluginConfigurationSource,

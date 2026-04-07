@@ -66,6 +66,11 @@ func (e *envBuilder) getKubernetesDownwardAPIEnvVars() []corev1.EnvVar {
 	}
 }
 
+// fileSourcePath computes the container file path for a FileSource volume.
+func fileSourcePath(volName string, src kliov1alpha1.FileSource) string {
+	return path.Join(fileSourceBasePath, volName, src.FileReference.Path)
+}
+
 func (e *envBuilder) getCoreEnvVars() []corev1.EnvVar {
 	basePath := path.Join(kopiaDataMountPath, "base")
 	walPath := path.Join(kopiaDataMountPath, "wal")
@@ -86,38 +91,48 @@ func (e *envBuilder) getCoreEnvVars() []corev1.EnvVar {
 	}
 
 	if e.tier1 != nil {
-		tier1Envs := []corev1.EnvVar{
-			{
+		tier1Envs := make([]corev1.EnvVar, 0, 8) //nolint:mnd
+		tier1Envs = append(tier1Envs,
+			corev1.EnvVar{
 				Name:  "TIER1_BASE_CACHE",
 				Value: path.Join(kopiaCacheTier1MountPath, kopiaCacheSubdirectory),
 			},
-			{
+			corev1.EnvVar{
 				Name:  "TIER1_BASE_REPOSITORY",
 				Value: basePath,
 			},
-			{
+			corev1.EnvVar{
 				Name:  "TIER1_BASE_LISTEN_ADDRESS",
 				Value: "0.0.0.0:51515",
 			},
-			{
+			corev1.EnvVar{
 				Name:  "TIER1_WAL_LISTEN_ADDRESS",
 				Value: "0.0.0.0:52000",
 			},
-			{
+			corev1.EnvVar{
 				Name:  "TIER1_WAL_PATH",
 				Value: walPath,
 			},
-			{
-				Name:      "TIER1_ENCRYPTION_KEY",
-				ValueFrom: secretKeySelectorToEnvVarSource(e.tier1.EncryptionKey),
+		)
+
+		tier1Envs = append(tier1Envs,
+			corev1.EnvVar{
+				Name:  "TIER1_ENCRYPTION_KEY_FILE",
+				Value: fileSourcePath(tier1EncKeyFileVolName, e.tier1.EncryptionKeyFile),
 			},
-			// The queue is always required when tier1 is enabled to support
-			// retention policy enforcement.
-			{
-				Name:  "QUEUE_DIRECTORY",
-				Value: "/queue",
+			corev1.EnvVar{
+				Name:  "TIER1_IDENTITY_FILE",
+				Value: fileSourcePath(tier1IdentityVolName, e.tier1.IdentityFile),
 			},
-		}
+		)
+
+		// The queue is always required when tier1 is enabled to support
+		// retention policy enforcement.
+		tier1Envs = append(tier1Envs, corev1.EnvVar{
+			Name:  "QUEUE_DIRECTORY",
+			Value: "/queue",
+		})
+
 		result = append(result, tier1Envs...)
 	}
 
@@ -142,10 +157,6 @@ func (e *envBuilder) getTier2EnvVars() []corev1.EnvVar {
 			Value: e.tier2.S3.BucketName,
 		},
 		{
-			Name:      "TIER2_ENCRYPTION_KEY",
-			ValueFrom: secretKeySelectorToEnvVarSource(e.tier2.EncryptionKey),
-		},
-		{
 			Name:  "TIER2_CACHE",
 			Value: path.Join(kopiaCacheTier2MountPath, kopiaCacheSubdirectory),
 		},
@@ -158,6 +169,17 @@ func (e *envBuilder) getTier2EnvVars() []corev1.EnvVar {
 			Value: "0.0.0.0:52001",
 		},
 	}
+
+	result = append(result,
+		corev1.EnvVar{
+			Name:  "TIER2_ENCRYPTION_KEY_FILE",
+			Value: fileSourcePath(tier2EncKeyFileVolName, e.tier2.EncryptionKeyFile),
+		},
+		corev1.EnvVar{
+			Name:  "TIER2_IDENTITY_FILE",
+			Value: fileSourcePath(tier2IdentityVolName, e.tier2.IdentityFile),
+		},
+	)
 
 	// Inject explicit credentials if provided. When credentials are not provided,
 	// the AWS SDK will automatically use IAM role credentials (EKS IRSA, or Pod Identity).

@@ -3,7 +3,6 @@ package controller
 import (
 	"context"
 
-	machineryapi "github.com/cloudnative-pg/machinery/pkg/api"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -63,9 +62,21 @@ var _ = Describe("Server Controller", func() {
 							Data: kliov1alpha1.Data{
 								PersistentVolumeClaimTemplate: pvcTemplate,
 							},
-							EncryptionKey: &machineryapi.SecretKeySelector{
-								LocalObjectReference: machineryapi.LocalObjectReference{Name: "enc-secret"},
-								Key:                  "password",
+							EncryptionKeyFile: kliov1alpha1.FileSource{
+								FileReference: &kliov1alpha1.FileReference{
+									Volume: corev1.VolumeSource{
+										Secret: &corev1.SecretVolumeSource{SecretName: "enc-secret"},
+									},
+									Path: "encryption-key.age",
+								},
+							},
+							IdentityFile: kliov1alpha1.FileSource{
+								FileReference: &kliov1alpha1.FileReference{
+									Volume: corev1.VolumeSource{
+										Secret: &corev1.SecretVolumeSource{SecretName: "id-secret"},
+									},
+									Path: "identity.txt",
+								},
 							},
 						},
 						Queue: &kliov1alpha1.Queue{

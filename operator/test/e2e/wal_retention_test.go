@@ -54,6 +54,7 @@ type walRetentionScenario struct {
 	caIssuer          *certmanagerv1.Issuer
 	userCertificate   *certmanagerv1.Certificate
 	encryptionSecret  *corev1.Secret
+	identitySecret    *corev1.Secret
 	klioServer        *kliov1alpha1.Server
 
 	// Source cluster
@@ -96,6 +97,7 @@ func (s *walRetentionScenario) Setup(
 		CaIssuer:              s.caIssuer,
 		UserCertificate:       s.userCertificate,
 		EncryptionSecret:      s.encryptionSecret,
+		IdentitySecret:        s.identitySecret,
 		KlioServer:            s.klioServer,
 	}
 
@@ -555,7 +557,7 @@ func newWALRetentionScenario(name string, namespace string) *walRetentionScenari
 		cnpgClientCertName, namespace, cnpgClientCertName+"@"+cnpgClusterName, caIssuer)
 
 	// Encryption secret
-	encryptionSecret := secrets.GetKlioEncryptionSecret(encryptionSecretName, namespace, encryptionPassword)
+	ageSecrets := secrets.GetKlioAgeEncryptionSecrets(encryptionSecretName, namespace, encryptionPassword)
 
 	// Klio Server with tier2
 	klioServer := klio.GetServerWithTier2Object(
@@ -563,11 +565,21 @@ func newWALRetentionScenario(name string, namespace string) *walRetentionScenari
 		namespace,
 		klio.ServerWithTier2TemplateOptions{
 			ServerTemplateOptions: klio.ServerTemplateOptions{
-				TLSSecretName:        serverCertificate.Spec.SecretName,
-				ClientCASecretName:   caCertificate.Spec.SecretName,
-				EncryptionSecretName: encryptionSecret.Name,
+				TLSSecretName:      serverCertificate.Spec.SecretName,
+				ClientCASecretName: caCertificate.Spec.SecretName,
+				Encryption: klio.EncryptionOptions{
+					EncryptionKeySecretName: ageSecrets.EncryptionKeySecret.Name,
+					EncryptionKeyFileName:   "encryption-key.age",
+					IdentitySecretName:      ageSecrets.IdentitySecret.Name,
+					IdentityFileName:        "identity.txt",
+				},
 			},
-			Tier2EncryptionSecretName: encryptionSecret.Name,
+			Tier2Encryption: klio.EncryptionOptions{
+				EncryptionKeySecretName: ageSecrets.EncryptionKeySecret.Name,
+				EncryptionKeyFileName:   "encryption-key.age",
+				IdentitySecretName:      ageSecrets.IdentitySecret.Name,
+				IdentityFileName:        "identity.txt",
+			},
 			S3: klio.Tier2S3Options{
 				S3BucketName:          rustfs.RustFSBucketName,
 				S3Prefix:              s3Prefix,
@@ -616,7 +628,8 @@ func newWALRetentionScenario(name string, namespace string) *walRetentionScenari
 		caCertificate:           caCertificate,
 		caIssuer:                caIssuer,
 		userCertificate:         userCertificate,
-		encryptionSecret:        encryptionSecret,
+		encryptionSecret:        ageSecrets.EncryptionKeySecret,
+		identitySecret:          ageSecrets.IdentitySecret,
 		klioServer:              klioServer,
 		cnpgCluster:             cnpgCluster,
 		klioPluginConfiguration: klioPluginConfiguration,

@@ -54,6 +54,18 @@ var startCmd = &cobra.Command{
 			return errors.New("at least one of --tier1 or --tier2 must be enabled")
 		}
 
+		if tier1Enabled {
+			if err := configuration.Tier1.LoadEncryptionKey(); err != nil {
+				return fmt.Errorf("could not load tier1 encryption key: %w", err)
+			}
+		}
+
+		if tier2Enabled {
+			if err := configuration.Tier2.LoadEncryptionKey(); err != nil {
+				return fmt.Errorf("could not load tier2 encryption key: %w", err)
+			}
+		}
+
 		opts := serverOpts{
 			tier1:           tier1Enabled,
 			tier2:           tier2Enabled,
