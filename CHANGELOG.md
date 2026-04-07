@@ -1,5 +1,49 @@
 # Changelog
 
+## [0.0.14](https://github.com/EnterpriseDB/klio/compare/v0.0.13...v0.0.14) (2026-04-07)
+
+
+### ⚠ BREAKING CHANGES
+
+* **core,operator:** The encryptionKey field has been removed from Server CRD. Users must migrate to encryptionKeyFile and identityFile with Age-encrypted keys. See documentation for migration steps.
+
+### Features
+
+* **backup:** Add snapshot pinning support for tier2 backups ([#1078](https://github.com/EnterpriseDB/klio/issues/1078)) ([ff2abab](https://github.com/cloudnative-pg/klio/commit/ff2abab52142eaaed20168e809ed73c860b5e173))
+* **backup:** Add kopia snapshot verification after backup ([#1068](https://github.com/EnterpriseDB/klio/issues/1068)) ([a2dc6f5](https://github.com/cloudnative-pg/klio/commit/a2dc6f5c732fcf6e562800aada4ee76ad6090b65))
+* **core,operator:** Use Age encryption for backup encryption keys ([#1087](https://github.com/EnterpriseDB/klio/issues/1087)) ([06604a9](https://github.com/cloudnative-pg/klio/commit/06604a90b441eb3981dd01fa52dd8c46fb9b9546))
+* **core:** Add backup lifecycle metrics to CNPG plugin ([#1042](https://github.com/EnterpriseDB/klio/issues/1042)) ([f2841d2](https://github.com/cloudnative-pg/klio/commit/f2841d20d1d076106824c80de6d8173abdb60113))
+* **operator:** Support online PVC expansion for Server resources ([#1030](https://github.com/EnterpriseDB/klio/issues/1030)) ([f3a6063](https://github.com/cloudnative-pg/klio/commit/f3a60631ba7cfa0cad892a6ca00ca37ec7cb3511))
+
+
+### Bug Fixes
+
+* Add LICENSE file to licenses root for preflight check ([#1138](https://github.com/EnterpriseDB/klio/issues/1138)) ([791bb9e](https://github.com/cloudnative-pg/klio/commit/791bb9e68b4fe922ddf7af0ef96efb344019779a))
+* **core:** Lower minimum TLS version to 1.2 ([#1175](https://github.com/EnterpriseDB/klio/issues/1175)) ([725e7ac](https://github.com/cloudnative-pg/klio/commit/725e7ac02ef6d5f205e5cc16a34656ce0e260dcc))
+* **deps:** Update all non-major go dependencies ([#1048](https://github.com/EnterpriseDB/klio/issues/1048)) ([12da898](https://github.com/cloudnative-pg/klio/commit/12da898bbb7a3a3dd2f53f560e6e9709c0384f61))
+* **deps:** Update all non-major go dependencies ([#1056](https://github.com/EnterpriseDB/klio/issues/1056)) ([ac3c739](https://github.com/cloudnative-pg/klio/commit/ac3c7391bf3ca9c4f20308b81f7e1fe74571c8f9))
+* **deps:** Update all non-major go dependencies ([#1147](https://github.com/EnterpriseDB/klio/issues/1147)) ([06630cd](https://github.com/cloudnative-pg/klio/commit/06630cd404e5daa5736590623350528c32ff8fad))
+* **deps:** Update all non-major go dependencies ([#1158](https://github.com/EnterpriseDB/klio/issues/1158)) ([f97a988](https://github.com/cloudnative-pg/klio/commit/f97a9888b4938fd609e45258a916f4fa99c5f064))
+* **deps:** Update all non-major go dependencies ([#1165](https://github.com/EnterpriseDB/klio/issues/1165)) ([999c4ee](https://github.com/cloudnative-pg/klio/commit/999c4ee2d081a926ee4f0dc0058efbf9b8bce695))
+* **deps:** Update all non-major go dependencies ([#1174](https://github.com/EnterpriseDB/klio/issues/1174)) ([8332088](https://github.com/cloudnative-pg/klio/commit/8332088b1efb39aa5dbbd2f83624f12942e204fd))
+* **deps:** Update all non-major go dependencies ([#1201](https://github.com/EnterpriseDB/klio/issues/1201)) ([fc8350e](https://github.com/cloudnative-pg/klio/commit/fc8350e808d156453b3fab969be8676687b84cab))
+* **deps:** Update all non-major go dependencies to v1.43.0 ([#1178](https://github.com/EnterpriseDB/klio/issues/1178)) ([32ddabf](https://github.com/cloudnative-pg/klio/commit/32ddabf8d201634b5f5e03a4686dd51d09434920))
+* **deps:** Update k8s.io/utils digest to 28399d8 ([#1097](https://github.com/EnterpriseDB/klio/issues/1097)) ([7b38dd6](https://github.com/cloudnative-pg/klio/commit/7b38dd62cdf62a891d5d7f23614d49a018e60f94))
+* **deps:** Update Kopia fork to klio-20260407 ([#1198](https://github.com/EnterpriseDB/klio/issues/1198)) ([7a4f5c4](https://github.com/cloudnative-pg/klio/commit/7a4f5c403e2dcdd651de414274a3612fe8c380e6))
+* **deps:** Update kubernetes monorepo to v0.35.3 ([#1096](https://github.com/EnterpriseDB/klio/issues/1096)) ([40d30f3](https://github.com/cloudnative-pg/klio/commit/40d30f3271481147c663acdc94c2aced0ca00978))
+* **deps:** Update module github.com/aws/aws-sdk-go-v2/service/s3 to v1.97.2 ([#1123](https://github.com/EnterpriseDB/klio/issues/1123)) ([81620f7](https://github.com/cloudnative-pg/klio/commit/81620f77de6735c6ee3eed640c7adbaf92de7d5e))
+* **deps:** Update module github.com/cert-manager/cert-manager to v1.20.0 ([#1036](https://github.com/EnterpriseDB/klio/issues/1036)) ([550e8c2](https://github.com/cloudnative-pg/klio/commit/550e8c277b0a31d879984099f1b520eb733fc40f))
+* **deps:** Update module github.com/jackc/pgx/v5 to v5.9.0 ([#1109](https://github.com/EnterpriseDB/klio/issues/1109)) ([0fa0024](https://github.com/cloudnative-pg/klio/commit/0fa0024da63fae2cbd5b69dbabea20856ecfe616))
+* **deps:** Update module github.com/jackc/pgx/v5 to v5.9.1 ([#1113](https://github.com/EnterpriseDB/klio/issues/1113)) ([fdbf675](https://github.com/cloudnative-pg/klio/commit/fdbf675ab0ecea988d5291f80a46e05a5ddf3b5c))
+* **deps:** Update module github.com/klauspost/compress to v1.18.5 ([#1105](https://github.com/EnterpriseDB/klio/issues/1105)) ([661aed4](https://github.com/cloudnative-pg/klio/commit/661aed48c6f5df4c8796fa34e96dab76c27939cb))
+* **deps:** Update module github.com/nats-io/nats-server/v2 to v2.12.5 ([#1024](https://github.com/EnterpriseDB/klio/issues/1024)) ([674f814](https://github.com/cloudnative-pg/klio/commit/674f814f5cb27afa1d131ff0063a78ed5e242169))
+* **deps:** Update module github.com/nats-io/nats-server/v2 to v2.12.6 ([#1127](https://github.com/EnterpriseDB/klio/issues/1127)) ([3854f53](https://github.com/cloudnative-pg/klio/commit/3854f535d1b8d8518d7e2de63dbf0d238030369f))
+* **deps:** Update module github.com/nats-io/nats.go to v1.50.0 ([#1132](https://github.com/EnterpriseDB/klio/issues/1132)) ([ba23127](https://github.com/cloudnative-pg/klio/commit/ba23127577fddc388edcf3b6859f58c941d2d4db))
+* **deps:** Update module google.golang.org/grpc to v1.79.3 ([#1084](https://github.com/EnterpriseDB/klio/issues/1084)) ([ea73248](https://github.com/cloudnative-pg/klio/commit/ea73248b5d2c353cc44b628a3934f7f6b340c161))
+* **operator:** Handle StatefulSet recreation when object never existed ([#1153](https://github.com/EnterpriseDB/klio/issues/1153)) ([ffd0b1d](https://github.com/cloudnative-pg/klio/commit/ffd0b1db20b93ebfd70272c6047bd6a61d0a19ba))
+* **otel:** Align semconv version to otel v1.42.0 ([b00f667](https://github.com/cloudnative-pg/klio/commit/b00f667e27025a08d1c3dde2137f143e50ae920a))
+* **otel:** Initialize OpenTelemetry after logging is configured ([bf90cbb](https://github.com/cloudnative-pg/klio/commit/bf90cbb91f4c7ecdda250fd4aff3c9118bbe2fac))
+
 ## [0.0.13](https://github.com/EnterpriseDB/klio/compare/v0.0.12...v0.0.13) (2026-03-09)
 
 
