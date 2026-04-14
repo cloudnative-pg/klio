@@ -106,6 +106,11 @@ runner.RegisterFeatures(
 2. Serial features run sequentially after parallel features complete.
 3. Use serial execution for tests that share infrastructure.
 
+> **Important:** When adding a new e2e test, update the "Test
+> Structure" section in
+> `documentation/web/docs/developer/running-e2e-tests.md` to list the
+> new file and its feature function(s).
+
 ## Code Style
 
 - Avoid inline error strings; define error variables instead

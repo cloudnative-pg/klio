@@ -94,10 +94,38 @@ go test -v ./...
 
 The E2E tests are located in `operator/test/e2e/` and include:
 
-- **`main_test.go`** - Test setup and configuration
-- **`backup_test.go`** - Backup functionality tests, including:
-  - Backup from primary PostgreSQL instances
-  - Backup from standby PostgreSQL instances
+- **`main_test.go`** - Test setup, configuration, and feature
+  registration
+- **`common_test.go`** - Shared test utilities and helpers
+- **`backup_test.go`** - Backup functionality tests:
+  - `BackupFromPrimary`: backup from a single-instance cluster
+  - `BackupFromStandby`: backup from a standby in a multi-instance
+    cluster
+- **`recovery_test.go`** - Cluster recovery tests:
+  - `RecoverClusterFromBackupID`: recovery using a specific backup ID
+  - `RecoverClusterFromLatestBackup`: recovery from the latest backup
+  - `RecoverClusterFromPitr`: point-in-time recovery (tier1)
+  - `RecoverReplicaCluster`: replica cluster creation from backup
+- **`tablespace_recovery_test.go`** - Recovery preserving PostgreSQL
+  tablespaces (`RecoverClusterWithTablespaces`)
+- **`tier2_recovery_test.go`** - Recovery from tier2 S3 storage
+  (`RecoverClusterFromTier2`)
+- **`tier2_pitr_test.go`** - Point-in-time recovery from tier2 storage
+  (`RecoverClusterFromTier2Pitr`)
+- **`tier2_retention_test.go`** - Backup and WAL retention policy
+  enforcement in tier2 storage (`Tier2Retention`)
+- **`wal_retention_test.go`** - WAL retention queue-awareness: verifies
+  WALs pending tier2 transfer are not prematurely deleted
+  (`WALRetentionQueueAwareness`)
+- **`server_reconfig_test.go`** - Adding tier2 storage to an existing
+  tier1+queue server (`ServerTierReconfiguration`)
+- **`pluginconfiguration_update_test.go`** - PluginConfiguration updates
+  and sidecar restart behavior (`PluginConfigurationUpdate`)
+- **`pvc_resize_test.go`** - PVC resize for data, cache, and queue
+  volumes (`PVCResize`)
+- **`otel_test.go`** - OpenTelemetry metrics and traces export: deploys
+  an OTEL Collector and verifies that backup lifecycle metrics and
+  traces are correctly exported via OTLP (`OTELMetricsAndTraces`)
 
 ## Log Collection
 
@@ -134,7 +162,8 @@ execution:
 
 When adding new E2E tests:
 
-1. Follow the existing pattern in `backup_test.go`
+1. Follow the existing patterns in `backup_test.go` or
+   `recovery_test.go`
 2. Use the machinery framework for test setup
     1. Add new feature types if needed. Everything in the framework must be
        plugin-agnostic, and can be tested only through CloudNativePG APIs.
