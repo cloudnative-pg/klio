@@ -76,8 +76,8 @@ github.com/cloudnative-pg/cnpg-i v0.5.0 h1:/TOzpNT6cwNgrpftTtrnLKdoHgMwd+88vZgXj
 github.com/cloudnative-pg/cnpg-i v0.5.0/go.mod h1:7Gh4+UzhBpGhr4DreB1GN9wGYfvxwXCXZUyVt3zE/3I=
 github.com/cloudnative-pg/cnpg-i-machinery v0.4.2 h1:0reS9MtyLYINHXQ/MfxJ9jp39hhBf8e3Qdj+T5Nsq6I=
 github.com/cloudnative-pg/cnpg-i-machinery v0.4.2/go.mod h1:gvrKabgxXq0zGthXGucemDdsxakLEQDMxn43M4HLW30=
-github.com/cloudnative-pg/machinery v0.3.3 h1:CaqXqLTJH9RrVv3R/YU0NmFaI/F18HLg2JfH3mQLcDk=
-github.com/cloudnative-pg/machinery v0.3.3/go.mod h1:RYAYlVKBF5pH4mg+Q8wHjNDyENV9ajbkG41zOEf8DEs=
+github.com/cloudnative-pg/machinery v0.4.0 h1:3sfqrBptH4QQSVB4g10Z+7aiQRnh4g+6AsqsK0ibKaQ=
+github.com/cloudnative-pg/machinery v0.4.0/go.mod h1:OIwaTYAnLv8PmBmBvEf0BvMK2JBX6J+naTMg9UgV1FQ=
 github.com/cpuguy83/go-md2man/v2 v2.0.6 h1:XJtiaUW6dEEqVuZiMTn1ldk455QWwEIsMIJlo5vtkx0=
 github.com/cpuguy83/go-md2man/v2 v2.0.6/go.mod h1:oOW0eioCTA6cOiMLiUPZOpcVxMig6NIQQ7OS05n1F4g=
 github.com/davecgh/go-spew v1.1.0/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
@@ -207,8 +207,8 @@ github.com/kubernetes-csi/external-snapshotter/client/v8 v8.4.0 h1:bMqrb3UHgHbP+
 github.com/kubernetes-csi/external-snapshotter/client/v8 v8.4.0/go.mod h1:E3vdYxHj2C2q6qo8/Da4g7P+IcwqRZyy3gJBzYybV9Y=
 github.com/kylelemons/godebug v1.1.0 h1:RPNrshWIDI6G2gRW9EHilWtl7Z6Sb1BR0xunSBf0SNc=
 github.com/kylelemons/godebug v1.1.0/go.mod h1:9/0rRGxNHcop5bhtWyNeEfOS8JIWk580+fNqagV/RAw=
-github.com/lib/pq v1.12.0 h1:mC1zeiNamwKBecjHarAr26c/+d8V5w/u4J0I/yASbJo=
-github.com/lib/pq v1.12.0/go.mod h1:/p+8NSbOcwzAEI7wiMXFlgydTwcgTr3OSKMsD2BitpA=
+github.com/lib/pq v1.12.3 h1:tTWxr2YLKwIvK90ZXEw8GP7UFHtcbTtty8zsI+YjrfQ=
+github.com/lib/pq v1.12.3/go.mod h1:/p+8NSbOcwzAEI7wiMXFlgydTwcgTr3OSKMsD2BitpA=
 github.com/lufia/plan9stats v0.0.0-20260330125221-c963978e514e h1:Q6MvJtQK/iRcRtzAscm/zF23XxJlbECiGPyRicsX+Ak=
 github.com/lufia/plan9stats v0.0.0-20260330125221-c963978e514e/go.mod h1:autxFIvghDt3jPTLoqZ9OZ7s9qTGNAWmYCjVFWPX/zg=
 github.com/maruel/natural v1.1.1 h1:Hja7XhhmvEFhcByqDoHz9QZbkWey+COd9xWfCfn1ioo=

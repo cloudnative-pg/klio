@@ -15,7 +15,7 @@ require (
 	github.com/cloudnative-pg/cloudnative-pg v1.29.0
 	github.com/cloudnative-pg/cnpg-i v0.5.0
 	github.com/cloudnative-pg/cnpg-i-machinery v0.4.2
-	github.com/cloudnative-pg/machinery v0.3.3
+	github.com/cloudnative-pg/machinery v0.4.0
 	github.com/fclairamb/afero-s3 v0.4.0
 	github.com/go-viper/mapstructure/v2 v2.5.0
 	github.com/google/uuid v1.6.0
@@ -125,7 +125,7 @@ require (
 	github.com/jackc/pgservicefile v0.0.0-20240606120523-5a60cdf6a761 // indirect
 	github.com/json-iterator/go v1.1.12 // indirect
 	github.com/kubernetes-csi/external-snapshotter/client/v8 v8.4.0 // indirect
-	github.com/lib/pq v1.12.0 // indirect
+	github.com/lib/pq v1.12.3 // indirect
 	github.com/lufia/plan9stats v0.0.0-20260330125221-c963978e514e // indirect
 	github.com/minio/highwayhash v1.0.4-0.20251030100505-070ab1a87a76 // indirect
 	github.com/moby/spdystream v0.5.0 // indirect
