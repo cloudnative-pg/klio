@@ -2,6 +2,7 @@ package controller
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"maps"
 	"path"
@@ -28,6 +29,32 @@ const (
 	baseTypeLabelValue = "base"
 	klioServerLabel    = "klio.cnpg.io/klio-server"
 )
+
+var errNilFileReference = errors.New("fileReference is not set in FileSource")
+
+// validateFileSources checks that all FileSource fields that will be used have
+// a non-nil FileReference, returning an error before any dereference occurs.
+func validateFileSources(server *kliov1alpha1.Server) error {
+	if server.Spec.Tier1 != nil {
+		if server.Spec.Tier1.EncryptionKeyFile.FileReference == nil {
+			return fmt.Errorf("tier1 encryptionKeyFile: %w", errNilFileReference)
+		}
+		if server.Spec.Tier1.IdentityFile.FileReference == nil {
+			return fmt.Errorf("tier1 identityFile: %w", errNilFileReference)
+		}
+	}
+
+	if server.Spec.Tier2 != nil {
+		if server.Spec.Tier2.EncryptionKeyFile.FileReference == nil {
+			return fmt.Errorf("tier2 encryptionKeyFile: %w", errNilFileReference)
+		}
+		if server.Spec.Tier2.IdentityFile.FileReference == nil {
+			return fmt.Errorf("tier2 identityFile: %w", errNilFileReference)
+		}
+	}
+
+	return nil
+}
 
 const (
 	kopiaDataMountPath       = "/data"
@@ -68,6 +95,10 @@ func (r *ServerReconciler) reconcileStatefulSet(
 	klioName := server.Name + "-klio"
 
 	pprof, _ := strconv.ParseBool(server.GetAnnotations()["klio.cnpg.io/pprof"])
+
+	if err := validateFileSources(server); err != nil {
+		return ctrl.Result{}, fmt.Errorf("invalid server spec: %w", err)
+	}
 
 	volumes := r.buildVolumes(server)
 	volumeMounts := r.buildVolumeMounts(server)
