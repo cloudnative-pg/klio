@@ -313,7 +313,7 @@ tasks:
       - internal:start-build-network
     env:
       # renovate: datasource=docker depName=registry versioning=docker
-      REGISTRY_VERSION: 3.1.0@sha256:b0f3668eb14daa3089aee66b4afd65bf2c2065439d6b5b6357bd3ba711fcf5bd
+      REGISTRY_VERSION: 3.1.0@sha256:8a7c1aae9db5028cbc1cfe83e5969d270a50e8bc0b72eef3cc5657542ec383c9
     cmds:
       - >
         docker run -d --name {{ .REGISTRY_NAME }}
