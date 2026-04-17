@@ -1,13 +1,23 @@
 package cnpgi
 
 import (
+	"context"
+	"encoding/json"
+	"errors"
 	"testing"
 
 	cnpgv1 "github.com/cloudnative-pg/cloudnative-pg/api/v1"
+	"github.com/cloudnative-pg/cnpg-i/pkg/lifecycle"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/utils/ptr"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/client/fake"
+	"sigs.k8s.io/controller-runtime/pkg/client/interceptor"
 
 	kliov1alpha1 "github.com/cloudnative-pg/klio/operator/api/v1alpha1"
 	"github.com/cloudnative-pg/klio/operator/internal/klioconfig"
@@ -482,6 +492,213 @@ func TestUserContainerCustomizationsPreserved(t *testing.T) {
 		assert.Len(t, result.Ports, 1)
 		assert.Equal(t, "metrics", result.Ports[0].Name)
 		assert.Equal(t, int32(9090), result.Ports[0].ContainerPort)
+	})
+}
+
+func newTestScheme(t *testing.T) *runtime.Scheme {
+	t.Helper()
+	s := runtime.NewScheme()
+	require.NoError(t, kliov1alpha1.AddToScheme(s))
+	require.NoError(t, cnpgv1.AddToScheme(s))
+	require.NoError(t, corev1.AddToScheme(s))
+
+	return s
+}
+
+func buildLifecycleRequest(
+	t *testing.T,
+	cluster *cnpgv1.Cluster,
+	obj metav1.Object,
+) *lifecycle.OperatorLifecycleRequest {
+	t.Helper()
+	clusterJSON, err := json.Marshal(cluster)
+	require.NoError(t, err)
+	objJSON, err := json.Marshal(obj)
+	require.NoError(t, err)
+
+	return &lifecycle.OperatorLifecycleRequest{
+		OperationType: &lifecycle.OperatorOperationType{
+			Type: lifecycle.OperatorOperationType_TYPE_CREATE,
+		},
+		ClusterDefinition: clusterJSON,
+		ObjectDefinition:  objJSON,
+	}
+}
+
+// clusterWithKlioPlugin returns a cluster with the Klio archive plugin
+// referencing a PluginConfiguration named testPluginConfigName.
+func clusterWithKlioPlugin() *cnpgv1.Cluster {
+	const testPluginConfigName = "missing-plugin-config"
+	return &cnpgv1.Cluster{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: "postgresql.cnpg.io/v1",
+			Kind:       "Cluster",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      testClusterName,
+			Namespace: testClusterNamespace,
+		},
+		Spec: cnpgv1.ClusterSpec{
+			Plugins: []cnpgv1.PluginConfiguration{
+				{
+					Name:    klioconfig.PluginName,
+					Enabled: ptr.To(true),
+					Parameters: map[string]string{
+						klioconfig.PluginConfigurationRefParam: testPluginConfigName,
+					},
+				},
+			},
+		},
+	}
+}
+
+func TestReconcilePodRequeue(t *testing.T) {
+	scheme := newTestScheme(t)
+
+	t.Run("returns error when PluginConfiguration does not exist", func(t *testing.T) {
+		cluster := clusterWithKlioPlugin()
+		fakeClient := fake.NewClientBuilder().
+			WithScheme(scheme).
+			Build()
+
+		impl := LifecycleImplementation{Client: fakeClient}
+		pod := &corev1.Pod{
+			TypeMeta: metav1.TypeMeta{Kind: "Pod", APIVersion: "v1"},
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "my-cluster-1",
+				Namespace: testClusterNamespace,
+			},
+		}
+		req := buildLifecycleRequest(t, cluster, pod)
+
+		resp, err := impl.reconcilePod(context.Background(), cluster, req)
+
+		require.Error(t, err, "missing PluginConfiguration must return an error")
+		assert.Nil(t, resp)
+		assert.True(t, klioconfig.IsPluginConfigurationNotFound(err))
+	})
+
+	t.Run("propagates non-NotFound errors instead of requeuing", func(t *testing.T) {
+		cluster := clusterWithKlioPlugin()
+		injectedErr := errors.New("simulated API server unavailable")
+		fakeClient := interceptor.NewClient(
+			fake.NewClientBuilder().WithScheme(scheme).Build(),
+			interceptor.Funcs{
+				Get: func(
+					ctx context.Context, c client.WithWatch,
+					key client.ObjectKey, obj client.Object,
+					opts ...client.GetOption,
+				) error {
+					if _, ok := obj.(*kliov1alpha1.PluginConfiguration); ok {
+						return injectedErr
+					}
+
+					return c.Get(ctx, key, obj, opts...)
+				},
+			},
+		)
+
+		impl := LifecycleImplementation{Client: fakeClient}
+		pod := &corev1.Pod{
+			TypeMeta: metav1.TypeMeta{Kind: "Pod", APIVersion: "v1"},
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "my-cluster-1",
+				Namespace: testClusterNamespace,
+			},
+		}
+		req := buildLifecycleRequest(t, cluster, pod)
+
+		resp, err := impl.reconcilePod(context.Background(), cluster, req)
+
+		require.Error(t, err, "non-NotFound errors must propagate")
+		assert.Nil(t, resp)
+		assert.ErrorContains(t, err, "simulated API server unavailable")
+	})
+
+	t.Run("cluster without Klio plugin returns nil (no requeue)", func(t *testing.T) {
+		cluster := &cnpgv1.Cluster{
+			TypeMeta: metav1.TypeMeta{
+				APIVersion: "postgresql.cnpg.io/v1",
+				Kind:       "Cluster",
+			},
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "no-plugin-cluster",
+				Namespace: testClusterNamespace,
+			},
+			Spec: cnpgv1.ClusterSpec{},
+		}
+		fakeClient := fake.NewClientBuilder().WithScheme(scheme).Build()
+
+		impl := LifecycleImplementation{Client: fakeClient}
+		pod := &corev1.Pod{
+			TypeMeta: metav1.TypeMeta{Kind: "Pod", APIVersion: "v1"},
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "no-plugin-cluster-1",
+				Namespace: testClusterNamespace,
+			},
+		}
+		req := buildLifecycleRequest(t, cluster, pod)
+
+		resp, err := impl.reconcilePod(context.Background(), cluster, req)
+
+		require.NoError(t, err)
+		assert.Nil(t, resp, "cluster without Klio plugin should return nil response")
+	})
+}
+
+func TestReconcileJobRequeue(t *testing.T) {
+	scheme := newTestScheme(t)
+
+	t.Run("returns error when archive PluginConfiguration is missing", func(t *testing.T) {
+		cluster := clusterWithKlioPlugin()
+		fakeClient := fake.NewClientBuilder().
+			WithScheme(scheme).
+			Build()
+
+		impl := LifecycleImplementation{Client: fakeClient}
+		req := buildLifecycleRequest(t, cluster, &corev1.Pod{
+			TypeMeta:   metav1.TypeMeta{Kind: "Pod", APIVersion: "v1"},
+			ObjectMeta: metav1.ObjectMeta{Name: "dummy", Namespace: testClusterNamespace},
+		})
+
+		resp, err := impl.reconcileJob(context.Background(), cluster, req)
+
+		require.Error(t, err, "missing PluginConfiguration must return an error")
+		assert.Nil(t, resp)
+		assert.True(t, klioconfig.IsPluginConfigurationNotFound(err))
+	})
+
+	t.Run("propagates non-NotFound errors instead of requeuing", func(t *testing.T) {
+		cluster := clusterWithKlioPlugin()
+		injectedErr := errors.New("simulated etcd timeout")
+		fakeClient := interceptor.NewClient(
+			fake.NewClientBuilder().WithScheme(scheme).Build(),
+			interceptor.Funcs{
+				Get: func(
+					ctx context.Context, c client.WithWatch,
+					key client.ObjectKey, obj client.Object,
+					opts ...client.GetOption,
+				) error {
+					if _, ok := obj.(*kliov1alpha1.PluginConfiguration); ok {
+						return injectedErr
+					}
+
+					return c.Get(ctx, key, obj, opts...)
+				},
+			},
+		)
+
+		impl := LifecycleImplementation{Client: fakeClient}
+		req := buildLifecycleRequest(t, cluster, &corev1.Pod{
+			TypeMeta:   metav1.TypeMeta{Kind: "Pod", APIVersion: "v1"},
+			ObjectMeta: metav1.ObjectMeta{Name: "dummy", Namespace: testClusterNamespace},
+		})
+
+		resp, err := impl.reconcileJob(context.Background(), cluster, req)
+
+		require.Error(t, err, "non-NotFound errors must propagate")
+		assert.Nil(t, resp)
+		assert.ErrorContains(t, err, "simulated etcd timeout")
 	})
 }
 

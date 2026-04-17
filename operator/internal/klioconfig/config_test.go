@@ -1,6 +1,8 @@
 package klioconfig
 
 import (
+	"errors"
+	"fmt"
 	"net"
 	"path"
 	"testing"
@@ -395,5 +397,58 @@ func TestConvertTier2RetentionPolicy(t *testing.T) {
 		assert.NotNil(t, result)
 		assert.Equal(t, ptr.To(7), result.KeepDaily)
 		assert.Equal(t, ptr.To(4), result.KeepWeekly)
+	})
+}
+
+func TestPluginConfigurationNotFoundError(t *testing.T) {
+	t.Run("error message includes name", func(t *testing.T) {
+		err := &PluginConfigurationNotFoundError{Name: "my-config"}
+		assert.Equal(t, `PluginConfiguration "my-config" not found`, err.Error())
+	})
+
+	t.Run("error message with empty name", func(t *testing.T) {
+		err := &PluginConfigurationNotFoundError{Name: ""}
+		assert.Equal(t, `PluginConfiguration "" not found`, err.Error())
+	})
+}
+
+func TestIsPluginConfigurationNotFound(t *testing.T) {
+	t.Run("returns false for nil error", func(t *testing.T) {
+		result := IsPluginConfigurationNotFound(nil)
+		assert.False(t, result)
+	})
+
+	t.Run("returns true for direct PluginConfigurationNotFoundError", func(t *testing.T) {
+		err := &PluginConfigurationNotFoundError{Name: "test-config"}
+		result := IsPluginConfigurationNotFound(err)
+		assert.True(t, result)
+	})
+
+	t.Run("returns true for wrapped PluginConfigurationNotFoundError", func(t *testing.T) {
+		innerErr := &PluginConfigurationNotFoundError{Name: "test-config"}
+		wrappedErr := fmt.Errorf("context: %w", innerErr)
+		result := IsPluginConfigurationNotFound(wrappedErr)
+		assert.True(t, result)
+	})
+
+	t.Run("returns true for deeply wrapped PluginConfigurationNotFoundError", func(t *testing.T) {
+		innerErr := &PluginConfigurationNotFoundError{Name: "test-config"}
+		wrappedOnce := fmt.Errorf("level 1: %w", innerErr)
+		wrappedTwice := fmt.Errorf("level 2: %w", wrappedOnce)
+		result := IsPluginConfigurationNotFound(wrappedTwice)
+		assert.True(t, result)
+	})
+
+	t.Run("returns false for regular error", func(t *testing.T) {
+		err := errors.New("some other error")
+		result := IsPluginConfigurationNotFound(err)
+		assert.False(t, result)
+	})
+
+	t.Run("returns false for wrapped regular error", func(t *testing.T) {
+		innerErr := errors.New("base error")
+		wrappedErr := fmt.Errorf("context: %w", innerErr)
+		result := IsPluginConfigurationNotFound(wrappedErr)
+		assert.False(t, result)
 	})
 }

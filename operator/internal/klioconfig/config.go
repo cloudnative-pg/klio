@@ -11,6 +11,7 @@ import (
 
 	cnpgv1 "github.com/cloudnative-pg/cloudnative-pg/api/v1"
 	"github.com/cloudnative-pg/machinery/pkg/log"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	kliov1alpha1 "github.com/cloudnative-pg/klio/operator/api/v1alpha1"
@@ -223,7 +224,12 @@ func addExternalClusterConfiguration(
 	if err := cli.Get(ctx,
 		client.ObjectKey{Namespace: cluster.Namespace, Name: ref},
 		klioPluginConfiguration); err != nil {
+		if apierrors.IsNotFound(err) {
+			return &PluginConfigurationNotFoundError{Name: ref}
+		}
+
 		logger.Error(err, "failed to get client configuration")
+
 		return fmt.Errorf("failed to get '%s' configuration, error: %w", ref, err)
 	}
 
@@ -279,7 +285,12 @@ func getArchivePluginConfigurations(
 		client.ObjectKey{Namespace: cluster.Namespace, Name: ref},
 		klioPluginConfiguration)
 	if err != nil {
+		if apierrors.IsNotFound(err) {
+			return configurations, &PluginConfigurationNotFoundError{Name: ref}
+		}
+
 		logger.Error(err, "failed to get client configuration")
+
 		return configurations, fmt.Errorf("failed to get '%s' configuration, error: %w", ref, err)
 	}
 	if klioPluginConfiguration.Spec.ClusterName == "" {
@@ -353,6 +364,22 @@ type parameterMissingError struct {
 
 func (p *parameterMissingError) Error() string {
 	return fmt.Sprintf("plugin configuration does not contain %q parameter", p.name)
+}
+
+// PluginConfigurationNotFoundError is returned when a PluginConfiguration does not exist.
+type PluginConfigurationNotFoundError struct {
+	Name string
+}
+
+func (e *PluginConfigurationNotFoundError) Error() string {
+	return fmt.Sprintf("PluginConfiguration %q not found", e.Name)
+}
+
+// IsPluginConfigurationNotFound checks if the error indicates a missing PluginConfiguration.
+func IsPluginConfigurationNotFound(err error) bool {
+	var notFoundErr *PluginConfigurationNotFoundError
+
+	return errors.As(err, &notFoundErr)
 }
 
 // GetServerSecretVolumeMountPath returns the volume mount path for server secrets.

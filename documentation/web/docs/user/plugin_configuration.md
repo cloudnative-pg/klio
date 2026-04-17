@@ -127,6 +127,25 @@ as the WAL are streamed directly to the Klio server. Thus, you must not set
 `isWALArchiver: true` in the plugin configuration.
 :::
 
+:::important
+If you add the Klio plugin to an **existing** cluster, you must
+restart the cluster to inject the sidecar containers. Use
+[`kubectl cnpg restart`][cnpg-restart] or set the
+`kubectl.kubernetes.io/restartedAt` annotation on the cluster.
+
+[cnpg-restart]: https://cloudnative-pg.io/docs/current/kubectl-plugin/#restart
+:::
+
+:::warning
+The `PluginConfiguration` resource referenced in the `Cluster` should exist
+before creating or updating the cluster. If it doesn't exist, the Klio plugin
+uses the PreReconcile hook to gate reconciliation, causing the cluster to wait
+at the start of the reconciliation loop (before any object creation or status
+changes) until the `PluginConfiguration` is created. This avoids unrecoverable
+error states, but the cluster will not progress until the dependency is
+satisfied. Ensure the `PluginConfiguration` is created with the correct name.
+:::
+
 ## Applying configuration changes
 
 Most changes to the `PluginConfiguration` resource are applied

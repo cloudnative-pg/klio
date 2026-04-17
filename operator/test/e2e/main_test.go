@@ -34,6 +34,7 @@ func TestMain(m *testing.M) {
 	runner.RegisterFeature(ServerTierReconfiguration(envconf.RandomName("server-reconfig", 32)))
 	runner.RegisterFeature(PVCResize(envconf.RandomName("pvc-resize", 32)))
 	runner.RegisterFeature(OTELMetricsAndTraces(envconf.RandomName("otel", 32)))
+	runner.RegisterFeature(MissingPluginConfiguration(envconf.RandomName("missing-plugin-config", 32)))
 
 	runner.RegisterSetup(
 		func(ctx context.Context, config *envconf.Config) (context.Context, error) {

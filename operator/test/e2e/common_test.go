@@ -9,6 +9,7 @@ import (
 	cnpgv1 "github.com/cloudnative-pg/api/pkg/api/v1"
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/e2e-framework/klient/k8s/resources"
 	"sigs.k8s.io/e2e-framework/klient/wait"
 	"sigs.k8s.io/e2e-framework/pkg/envconf"
@@ -16,11 +17,89 @@ import (
 	kliov1alpha1 "github.com/cloudnative-pg/klio/operator/api/v1alpha1"
 	machineryConditions "github.com/cloudnative-pg/klio/operator/test/machinery/pkg/conditions"
 	"github.com/cloudnative-pg/klio/operator/test/utils/conditions"
+	"github.com/cloudnative-pg/klio/operator/test/utils/templates/certificates"
+	"github.com/cloudnative-pg/klio/operator/test/utils/templates/cnpg"
+	"github.com/cloudnative-pg/klio/operator/test/utils/templates/klio"
+	"github.com/cloudnative-pg/klio/operator/test/utils/templates/secrets"
 )
 
 const (
 	klioServerName = "test-klio-server"
 )
+
+// pluginTestResources holds the common Kubernetes resources needed by
+// plugin-level e2e tests (PluginConfiguration update, missing PC, etc.).
+type pluginTestResources struct {
+	namespace               *corev1.Namespace
+	issuer                  *certmanagerv1.Issuer
+	caIssuer                *certmanagerv1.Issuer
+	caCertificate           *certmanagerv1.Certificate
+	certificate             *certmanagerv1.Certificate
+	userCertificate         *certmanagerv1.Certificate
+	encryptionSecret        *corev1.Secret
+	identitySecret          *corev1.Secret
+	klioServer              *kliov1alpha1.Server
+	cnpgCluster             *cnpgv1.Cluster
+	klioPluginConfiguration *kliov1alpha1.PluginConfiguration
+}
+
+// newPluginTestResources creates the standard set of resources for a
+// single-instance cluster with a Klio plugin configuration.
+func newPluginTestResources(namespace string) pluginTestResources {
+	namespaceObj := &corev1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{Name: namespace},
+	}
+
+	issuer := certificates.GetSelfSignedIssuerObject("selfsigned-issuer", namespace)
+	certificate := certificates.GetCertificateObject("test", namespace, []string{klioServerName}, issuer)
+
+	caCertificate := certificates.GetCACertificateObject("test-ca", namespace, issuer)
+	caIssuer := certificates.GetCAIssuerObject("test-ca-issuer", namespace, caCertificate.Spec.SecretName)
+
+	userCertificate := certificates.GetUserCertificateObject(
+		"klio-user", namespace, "klio-user@test-cluster", caIssuer)
+	klioPluginConfiguration := klio.GetPluginConfigurationObject(
+		"klio-plugin-configuration",
+		namespace,
+		klio.PluginConfigurationTemplateOptions{
+			ServerCertificate: certificate,
+			ClientCertificate: userCertificate,
+			ClusterName:       "test-cluster",
+		},
+	)
+
+	cnpgCluster := cnpg.GetCnpgClusterObject("test-cluster", namespace, 1, "klio-plugin-configuration")
+
+	ageSecrets := secrets.GetKlioAgeEncryptionSecrets("encryption", namespace, "testencryptionpassword123")
+	klioServer := klio.GetServerObject(
+		klioServerName,
+		namespace,
+		klio.ServerTemplateOptions{
+			TLSSecretName:      certificate.Spec.SecretName,
+			ClientCASecretName: caCertificate.Spec.SecretName,
+			Encryption: klio.EncryptionOptions{
+				EncryptionKeySecretName: ageSecrets.EncryptionKeySecret.Name,
+				EncryptionKeyFileName:   "encryption-key.age",
+				IdentitySecretName:      ageSecrets.IdentitySecret.Name,
+				IdentityFileName:        "identity.txt",
+			},
+		},
+	)
+
+	return pluginTestResources{
+		namespace:               namespaceObj,
+		issuer:                  issuer,
+		caIssuer:                caIssuer,
+		caCertificate:           caCertificate,
+		certificate:             certificate,
+		userCertificate:         userCertificate,
+		encryptionSecret:        ageSecrets.EncryptionKeySecret,
+		identitySecret:          ageSecrets.IdentitySecret,
+		klioServer:              klioServer,
+		cnpgCluster:             cnpgCluster,
+		klioPluginConfiguration: klioPluginConfiguration,
+	}
+}
 
 type commonBackupRestoreScenario struct {
 	namespace                       *corev1.Namespace

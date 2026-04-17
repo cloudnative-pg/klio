@@ -5,8 +5,6 @@ import (
 	"testing"
 	"time"
 
-	certmanagerv1 "github.com/cert-manager/cert-manager/pkg/apis/certmanager/v1"
-	cnpgv1 "github.com/cloudnative-pg/api/pkg/api/v1"
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -21,24 +19,10 @@ import (
 	klioFeatures "github.com/cloudnative-pg/klio/operator/test/klio/features"
 	machineryConditions "github.com/cloudnative-pg/klio/operator/test/machinery/pkg/conditions"
 	"github.com/cloudnative-pg/klio/operator/test/utils/conditions"
-	"github.com/cloudnative-pg/klio/operator/test/utils/templates/certificates"
-	"github.com/cloudnative-pg/klio/operator/test/utils/templates/cnpg"
-	"github.com/cloudnative-pg/klio/operator/test/utils/templates/klio"
-	"github.com/cloudnative-pg/klio/operator/test/utils/templates/secrets"
 )
 
 type pluginConfigurationUpdateScenario struct {
-	namespace               *corev1.Namespace
-	issuer                  *certmanagerv1.Issuer
-	caIssuer                *certmanagerv1.Issuer
-	caCertificate           *certmanagerv1.Certificate
-	certificate             *certmanagerv1.Certificate
-	userCertificate         *certmanagerv1.Certificate
-	encryptionSecret        *corev1.Secret
-	identitySecret          *corev1.Secret
-	klioServer              *kliov1alpha1.Server
-	cnpgCluster             *cnpgv1.Cluster
-	klioPluginConfiguration *kliov1alpha1.PluginConfiguration
+	pluginTestResources
 
 	name string
 }
@@ -220,68 +204,16 @@ func (c *pluginConfigurationUpdateScenario) Teardown(
 
 // PluginConfigurationUpdate creates a feature that tests PluginConfiguration updates
 // and verifies that sidecar containers restart when the configuration changes.
-func PluginConfigurationUpdate(namespace string) *klioFeatures.PluginConfigurationUpdateFeature {
-	// Create all resource objects
-	namespaceObj := &corev1.Namespace{
-		ObjectMeta: metav1.ObjectMeta{Name: namespace},
-	}
-
-	issuer := certificates.GetSelfSignedIssuerObject("selfsigned-issuer", namespace)
-	certificate := certificates.GetCertificateObject("test", namespace, []string{klioServerName}, issuer)
-
-	caCertificate := certificates.GetCACertificateObject("test-ca", namespace, issuer)
-	caIssuer := certificates.GetCAIssuerObject("test-ca-issuer", namespace, caCertificate.Spec.SecretName)
-
-	userCertificate := certificates.GetUserCertificateObject("klio-user", namespace, "klio-user@test-cluster", caIssuer)
-	klioPluginConfiguration := klio.GetPluginConfigurationObject(
-		"klio-plugin-configuration",
-		namespace,
-		klio.PluginConfigurationTemplateOptions{
-			ServerCertificate: certificate,
-			ClientCertificate: userCertificate,
-			ClusterName:       "test-cluster",
-		},
-	)
-
-	cnpgCluster := cnpg.GetCnpgClusterObject("test-cluster", namespace, 1, "klio-plugin-configuration")
-
-	ageSecrets := secrets.GetKlioAgeEncryptionSecrets("encryption", namespace, "testencryptionpassword123")
-	klioServer := klio.GetServerObject(
-		klioServerName,
-		namespace,
-		klio.ServerTemplateOptions{
-			TLSSecretName:      certificate.Spec.SecretName,
-			ClientCASecretName: caCertificate.Spec.SecretName,
-			Encryption: klio.EncryptionOptions{
-				EncryptionKeySecretName: ageSecrets.EncryptionKeySecret.Name,
-				EncryptionKeyFileName:   "encryption-key.age",
-				IdentitySecretName:      ageSecrets.IdentitySecret.Name,
-				IdentityFileName:        "identity.txt",
-			},
-		},
-	)
-
+func PluginConfigurationUpdate(namespace string) *klioFeatures.SimpleFeature {
 	scenario := &pluginConfigurationUpdateScenario{
-		namespace:               namespaceObj,
-		issuer:                  issuer,
-		caIssuer:                caIssuer,
-		caCertificate:           caCertificate,
-		certificate:             certificate,
-		userCertificate:         userCertificate,
-		encryptionSecret:        ageSecrets.EncryptionKeySecret,
-		identitySecret:          ageSecrets.IdentitySecret,
-		klioServer:              klioServer,
-		cnpgCluster:             cnpgCluster,
-		klioPluginConfiguration: klioPluginConfiguration,
-		name:                    "PluginConfigurationUpdate",
+		pluginTestResources: newPluginTestResources(namespace),
+		name:                "PluginConfigurationUpdate",
 	}
 
-	return klioFeatures.NewPluginConfigurationUpdateFeature(
-		klioFeatures.PluginConfigurationUpdateFeatureConfig{
-			Name:     "PluginConfigurationUpdate",
-			Setup:    scenario.Setup,
-			Run:      scenario.Run,
-			Teardown: scenario.Teardown,
-		},
-	)
+	return klioFeatures.NewSimpleFeature(klioFeatures.SimpleFeatureConfig{
+		Name:     "PluginConfigurationUpdate",
+		Setup:    scenario.Setup,
+		Run:      scenario.Run,
+		Teardown: scenario.Teardown,
+	})
 }

@@ -152,6 +152,7 @@ PluginConfigurationStatus
 PluginConfigurations
 PodSpec
 PodTemplateSpec
+PreReconcile
 ProjectedVolumeSource
 PullPolicy
 PutRequest
