@@ -222,6 +222,22 @@ server using the following environment variables:
 - `OTEL_EXPORTER_PROMETHEUS_HOST` (default: `localhost`)
 - `OTEL_EXPORTER_PROMETHEUS_PORT` (default: `9464`)
 
+### Exporters and receivers
+
+The OTLP exporter pushes telemetry to any OTLP-compatible receiver. Common
+options include:
+
+- An [OpenTelemetry Collector](https://opentelemetry.io/docs/collector/),
+  which can receive OTLP data and fan it out to multiple backends
+  (Prometheus, Jaeger, Grafana, etc.). In Kubernetes, the
+  [OpenTelemetry Operator](https://opentelemetry.io/docs/platforms/kubernetes/operator/)
+  manages collectors via the `OpenTelemetryCollector` CRD and can expose
+  a stable in-cluster OTLP endpoint for Klio to target.
+- Any backend with native OTLP support.
+
+The Prometheus exporter starts a local HTTP server that Prometheus scrapes
+directly, with no intermediate collector required.
+
 ## Configuring Klio with OpenTelemetry in Kubernetes
 
 When running in a Kubernetes environment, Klio will automatically define
@@ -242,11 +258,14 @@ attributes you don't explicitly set.
 ### Klio server with OpenTelemetry
 
 When deploying a Klio `Server`, you can configure OpenTelemetry by specifying
-the necessary environment variables in the `template` section of the `Server`
-spec. The Server has a single container named `server`.
+the necessary settings in the `template` section of the `Server` spec:
 
-For simpler management, use a `ConfigMap` to store the shared OpenTelemetry
-configuration:
+1. Set the required environment variables for OpenTelemetry configuration in
+   the `server` container.
+2. Mount any necessary TLS certificates for secure communication with the
+   OpenTelemetry Collector.
+
+For simpler management, use a `ConfigMap` to store the OpenTelemetry configuration:
 
 ```yaml
 apiVersion: v1
@@ -254,6 +273,7 @@ kind: ConfigMap
 metadata:
   name: klio-otel-config
 data:
+  OTEL_SERVICE_NAME: "klio-server"
   OTEL_RESOURCE_DETECTORS: "telemetry.sdk,host,os.type,process.executable.name"
   OTEL_TRACES_EXPORTER: "otlp"
   OTEL_METRICS_EXPORTER: "otlp"
@@ -276,9 +296,6 @@ spec:
     spec:
       containers:
         - name: server
-          env:
-            - name: OTEL_SERVICE_NAME
-              value: "klio-server"
           envFrom:
             - configMapRef:
                 name: klio-otel-config
@@ -310,7 +327,6 @@ specifying the necessary environment variables in the `containers` section of
 the `PluginConfiguration` spec. The available container names are:
 
 - `klio-plugin`: Main plugin sidecar for backup management
-- `klio-wal`: WAL streaming sidecar
 - `klio-restore`: Restore operations sidecar
 
 Create a `ConfigMap` for the shared OpenTelemetry configuration:
@@ -352,13 +368,6 @@ spec:
       env:
         - name: OTEL_SERVICE_NAME
           value: "klio-plugin"
-      envFrom:
-        - configMapRef:
-            name: cluster-klio-otel-config
-    - name: klio-wal
-      env:
-        - name: OTEL_SERVICE_NAME
-          value: "klio-wal"
       envFrom:
         - configMapRef:
             name: cluster-klio-otel-config
@@ -407,140 +416,3 @@ spec:
   storage:
     size: 10Gi
 ```
-
-## Visualizing Metrics
-
-Klio uses the OTLP push model to send telemetry data to an OpenTelemetry
-Collector. The collector then exports the data to your preferred backend.
-
-### Telemetry Pipeline
-
-```
-┌─────────────────┐                    ┌─────────────────┐
-│   Klio Server   │     OTLP/gRPC      │   OpenTelemetry │
-│   & Plugins     │ ─────────────────► │    Collector    │
-└─────────────────┘                    └────────┬────────┘
-                                                │
-                              ┌─────────────────┼─────────────────┐
-                              │                 │                 │
-                              ▼                 ▼                 ▼
-                       ┌────────────┐   ┌────────────┐   ┌────────────┐
-                       │ Prometheus │   │   Jaeger   │   │   Other    │
-                       │  (metrics) │   │  (traces)  │   │  backends  │
-                       └────────────┘   └────────────┘   └────────────┘
-```
-
-### Prometheus + Grafana
-
-To visualize metrics with Prometheus, configure the OpenTelemetry Collector to
-expose a Prometheus endpoint:
-
-```yaml
-exporters:
-  prometheus:
-    endpoint: "0.0.0.0:9464"
-    send_timestamps: true
-    resource_to_telemetry_conversion:
-      enabled: true
-service:
-  pipelines:
-    metrics:
-      receivers: [otlp]
-      processors: [batch]
-      exporters: [prometheus]
-```
-
-Create a `ServiceMonitor` so Prometheus can scrape the collector:
-
-```yaml
-apiVersion: monitoring.coreos.com/v1
-kind: ServiceMonitor
-metadata:
-  name: otel-collector
-  labels:
-    release: prometheus-community
-spec:
-  selector:
-    matchLabels:
-      app.kubernetes.io/name: otel-collector
-  endpoints:
-    - port: prometheus
-      interval: 30s
-```
-
-### Jaeger
-
-To visualize traces with Jaeger, configure the OpenTelemetry Collector to
-export to Jaeger:
-
-```yaml
-exporters:
-  otlp/jaeger:
-    endpoint: jaeger:4317
-    tls:
-      insecure: true
-service:
-  pipelines:
-    traces:
-      receivers: [otlp]
-      processors: [batch]
-      exporters: [otlp/jaeger]
-```
-
-### Klio Metrics Reference
-
-| Metric | Description |
-|--------|-------------|
-| `klio_snapshot_count` | Number of snapshots |
-| `klio_snapshot_latest_size_bytes` | Size of the latest snapshot |
-| `klio_snapshot_latest_age_seconds` | Age of the latest snapshot |
-| `klio_snapshot_oldest_age_seconds` | Age of the oldest snapshot |
-| `klio_wal_files_written_total` | Number of WAL files written |
-| `klio_wal_bytes_written_total` | Bytes written |
-| `rpc_*` | gRPC metrics (latency, requests) |
-
-## Troubleshooting
-
-### Verify OpenTelemetry is configured
-
-Check that the environment variables are set in the container:
-
-```bash
-# For the Server
-kubectl exec -it <klio-server-pod> -c server -- env | grep OTEL
-
-# For the Plugin
-kubectl exec -it <cluster-pod> -c klio-plugin -- env | grep OTEL
-```
-
-If no variables are returned, the ConfigMap is not being injected properly.
-
-### Check Klio logs for OpenTelemetry initialization
-
-```bash
-kubectl logs <klio-pod> -c server 2>&1 | grep -i otel
-```
-
-If you see:
-
-```
-OpenTelemetry not configured, setting noop meter provider
-```
-
-This means no `OTEL_*` environment variables were detected.
-
-### Check OpenTelemetry Collector logs
-
-```bash
-kubectl logs -l app.kubernetes.io/name=otel-collector
-```
-
-If using the `debug` exporter, you should see incoming telemetry data logged.
-
-### Verify TLS certificates are mounted
-
-```bash
-kubectl exec -it <klio-pod> -c server -- ls -la /otel/
-```
-
-Should show `ca.crt`, `tls.crt`, and `tls.key`.
