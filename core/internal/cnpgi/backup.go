@@ -65,11 +65,6 @@ func (b backupServiceImplementation) Backup(
 		return nil, fmt.Errorf("failed to unmarshal cluster definition: %w", err)
 	}
 
-	var cnpgBackup cnpgv1.Backup
-	if err := json.Unmarshal(request.GetBackupDefinition(), &cnpgBackup); err != nil {
-		return nil, fmt.Errorf("failed to unmarshal backup definition: %w", err)
-	}
-
 	r, err := extractTier1RetentionFromConfiguration()
 	if err != nil {
 		return nil, fmt.Errorf("failed to extract retention policy from configuration: %w", err)
@@ -84,8 +79,22 @@ func (b backupServiceImplementation) Backup(
 
 	// Step 2: starting the backup
 	backupName := fmt.Sprintf("backup-%v", pgTime.ToCompactISO8601(time.Now()))
-	targetStandby := cnpgBackup.Spec.Target == cnpgv1.BackupTargetStandby
-	span.SetAttributes(attribute.String("backup.name", backupName))
+	isPrimary := b.InstanceName == cluster.Status.CurrentPrimary
+
+	role := "standby"
+	if isPrimary {
+		role = "primary"
+	}
+	log.FromContext(ctx).Info("Detected pod role for backup",
+		"role", role,
+		"podName", b.InstanceName,
+		"currentPrimary", cluster.Status.CurrentPrimary,
+	)
+
+	span.SetAttributes(
+		attribute.String("backup.name", backupName),
+		attribute.String("backup.role", role),
+	)
 
 	backupStart := time.Now()
 	recordBackupStart(ctx)
@@ -93,7 +102,7 @@ func (b backupServiceImplementation) Backup(
 	metadata, err := b.runBackup(
 		ctx,
 		backupName,
-		targetStandby,
+		isPrimary,
 	)
 	if err != nil {
 		recordBackupFailure(ctx)
@@ -140,7 +149,7 @@ func (b backupServiceImplementation) Backup(
 func (b backupServiceImplementation) runBackup(
 	ctx context.Context,
 	backupName string,
-	targetStandby bool,
+	isPrimary bool,
 ) (*klioclient.BackupMetadata, error) {
 	ctx, span := tracer.Start(ctx, opentelemetry.BackupRunSpan)
 	defer span.End()
@@ -148,7 +157,7 @@ func (b backupServiceImplementation) runBackup(
 	contextLogger := log.FromContext(ctx)
 
 	waitForWals := "--wait-for-wals=true"
-	if targetStandby {
+	if !isPrimary {
 		waitForWals = "--wait-for-wals=false"
 	}
 
@@ -211,8 +220,13 @@ func (b backupServiceImplementation) runBackup(
 // when actual corruption is detected (errorCount > 0).
 const corruptionExitCode = 2
 
-// ErrVerificationCorruption is returned when backup verification detects corruption.
-var ErrVerificationCorruption = errors.New("backup verification detected corruption")
+var (
+	// ErrVerificationCorruption is returned when backup verification detects corruption.
+	ErrVerificationCorruption = errors.New("backup verification detected corruption")
+
+	// ErrPodNameNotSet is returned when the POD_NAME environment variable is not set.
+	ErrPodNameNotSet = errors.New("POD_NAME environment variable is not set")
+)
 
 // verifyBackoff defines the retry strategy for backup verification.
 //

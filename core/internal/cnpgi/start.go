@@ -51,8 +51,12 @@ type BackupCapabilityOptions struct {
 // AddBackupCapability adds the backup capability to the CNPGI service.
 func (c *CNPGI) AddBackupCapability(opts BackupCapabilityOptions) {
 	enricher := func(server *grpc.Server) error {
+		podName, ok := os.LookupEnv("POD_NAME")
+		if !ok {
+			return ErrPodNameNotSet
+		}
 		backup.RegisterBackupServer(server, backupServiceImplementation{
-			InstanceName: os.Getenv("POD_NAME"),
+			InstanceName: podName,
 			Tier2:        opts.Tier2,
 		})
 
