@@ -15,3 +15,8 @@ render:
   # Version of Kubernetes to use when generating links to Kubernetes API documentation.
   # renovate: datasource=github-releases depName=kubernetes/kubernetes versioning=loose extractVersion=^v(?<version>\d+\.\d+)\.\d+$
   kubernetesVersion: 1.35
+
+  knownTypes:
+    - name: SecretKeySelector
+      package: github.com/cloudnative-pg/machinery/pkg/api
+      link: https://pkg.go.dev/github.com/cloudnative-pg/machinery/pkg/api#SecretKeySelector
