@@ -1,6 +1,6 @@
 module github.com/cloudnative-pg/klio/operator
 
-go 1.25.0
+go 1.25.7
 
 toolchain go1.26.2
 
@@ -24,7 +24,7 @@ require (
 	k8s.io/client-go v0.35.4
 	k8s.io/utils v0.0.0-20260319190234-28399d86e0b5
 	sigs.k8s.io/controller-runtime v0.23.3
-	sigs.k8s.io/e2e-framework v0.6.0
+	sigs.k8s.io/e2e-framework v0.7.0
 	sigs.k8s.io/yaml v1.6.0
 )
 
