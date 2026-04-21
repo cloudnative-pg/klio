@@ -45,5 +45,9 @@
   },
   "engines": {
     "node": ">=18.0"
+  },
+  "resolutions": {
+    "//": "Pinning webpackbar to >=7 to fix a Docusaurus build failure caused by webpack 5 compatibility. See https://github.com/facebook/docusaurus/issues/11923 — can be removed once the upstream fix is released.",
+    "webpackbar": "^7.0.0"
   }
 }
