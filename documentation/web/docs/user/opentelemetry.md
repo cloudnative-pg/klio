@@ -262,7 +262,7 @@ the necessary settings in the `template` section of the `Server` spec:
 
 1. Set the required environment variables for OpenTelemetry configuration in
    the `server` container.
-2. Mount any necessary TLS certificates for secure communication with the
+1. Mount any necessary TLS certificates for secure communication with the
    OpenTelemetry Collector.
 
 For simpler management, use a `ConfigMap` to store the OpenTelemetry configuration:
