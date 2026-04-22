@@ -89,7 +89,7 @@ func (c *missingPluginConfigurationScenario) Run(
 		"cluster should NOT be in plugin failure state while waiting for PluginConfiguration")
 
 	// Verify no instances are ready yet (cluster is waiting for PluginConfiguration)
-	require.Equal(t, int32(0), cluster.Status.ReadyInstances,
+	require.Equal(t, 0, cluster.Status.ReadyInstances,
 		"no instances should be ready while PluginConfiguration is missing")
 
 	// Step 2: Create PluginConfiguration
