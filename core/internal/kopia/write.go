@@ -74,10 +74,11 @@ func (s *Client) MigrateSnapshots(
 	args := make([]string, 0, 6+len(opts.Sources)+len(opts.Tags))
 	args = append(args,
 		"snapshot", "migrate",
+		"--progress",
+		"--progress-update-interval=60s",
 		"--source-config="+opts.SourceConfig,
 		"--config-file="+s.ConfigFile,
 		"--disable-file-logging",
-		"--progress-update-interval=60s",
 	)
 
 	for _, source := range opts.Sources {
@@ -125,6 +126,8 @@ func (s *Client) SnapshotDirectory(
 	args := []string{
 		"snapshot",
 		"create",
+		"--progress",
+		"--progress-update-interval=60s",
 		"--disable-file-logging",
 		"--config-file=" + s.ConfigFile,
 	}
