@@ -1,0 +1,21 @@
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    control-plane: controller-manager
+    app.kubernetes.io/name: klio-operator
+    cnpg.io/pluginName: klio.cnpg.io
+  annotations:
+    cnpg.io/pluginClientSecret: klio-plugin-client-tls
+    cnpg.io/pluginServerSecret: klio-plugin-server-tls
+    cnpg.io/pluginPort: "9090"
+  name: klio-operator-plugin
+  namespace: system
+spec:
+  ports:
+  - port: 9090
+    protocol: TCP
+    targetPort: 9090
+  selector:
+    control-plane: controller-manager
+    app.kubernetes.io/name: klio-operator

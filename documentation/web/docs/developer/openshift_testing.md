@@ -1,0 +1,213 @@
+---
+sidebar_position: 4
+---
+
+# Testing on OpenShift with OLM
+
+This guide explains how to install a test build of the Klio operator
+on an OpenShift cluster using OLM (Operator Lifecycle Manager).
+
+:::important
+This procedure is for development and testing only. It requires
+a catalog image built from the branch under test and access to
+the `ghcr.io` container registry.
+:::
+
+## Prerequisites
+
+- An OpenShift cluster with `oc` CLI configured
+- Cluster admin privileges
+- cert-manager installed in the cluster (for TLS certificate
+  creation)
+- A GitHub personal access token with `read:packages` scope
+- A catalog image built with `task olm:catalog ENVIRONMENT=testing`
+
+## 1. Create the pull secret
+
+Test builds are hosted on `ghcr.io`. Create the pull secret
+in both the `openshift-marketplace` namespace (for OLM to pull
+the catalog image) and in `openshift-operators` (for the
+operator image itself).
+
+```bash
+oc create secret docker-registry klio-pull-secret \
+  --docker-server=ghcr.io \
+  --docker-username=<github-username> \
+  --docker-password=<github-token> \
+  -n openshift-marketplace
+
+oc create secret docker-registry klio-pull-secret \
+  --docker-server=ghcr.io \
+  --docker-username=<github-username> \
+  --docker-password=<github-token> \
+  -n openshift-operators
+```
+
+## 2. Apply the CatalogSource
+
+A CI run creates a catalog image, tagged with the branch name or the PR number:
+
+Examples:
+```
+ghcr.io/enterprisedb/klio-operator-testing:main-catalog
+ghcr.io/enterprisedb/klio-operator-testing:pr-1325-catalog
+```
+
+Create an `openshift_catalogsource.yaml` file pointing to the
+catalog image built from your branch:
+
+```yaml
+apiVersion: operators.coreos.com/v1alpha1
+kind: CatalogSource
+metadata:
+  name: klio-catalog
+  namespace: openshift-marketplace
+spec:
+  sourceType: grpc
+  image: <catalog-image>
+  secrets:
+    - klio-pull-secret
+```
+
+Then apply it:
+
+```bash
+oc apply -f openshift_catalogsource.yaml
+```
+
+Wait for the catalog pod to become ready:
+
+```bash
+oc get pods -n openshift-marketplace -w | grep klio
+```
+
+## 3. Subscribe to the operator
+
+Create an `openshift_subscription.yaml` file:
+
+```yaml
+apiVersion: operators.coreos.com/v1alpha1
+kind: Subscription
+metadata:
+  name: klio-operator
+  namespace: openshift-operators
+spec:
+  channel: stable-v0
+  name: klio-operator
+  source: klio-catalog
+  sourceNamespace: openshift-marketplace
+  installPlanApproval: Automatic
+```
+
+Apply it:
+
+```bash
+oc apply -f openshift_subscription.yaml
+```
+
+OLM will create an `InstallPlan` and deploy the operator into
+the `openshift-operators` namespace.
+
+## 4. Create TLS certificates
+
+The Klio plugin requires two TLS secrets to establish mutual
+TLS with the CNPG operator:
+
+- `klio-plugin-server-tls` — presented by the plugin gRPC server
+- `klio-plugin-client-tls` — used by CNPG to authenticate to
+  the plugin
+
+They can be created manually, but the recommended method is to use cert-manager to
+automatically generate and manage the certificates.
+
+Create a file `openshift_certificates.yaml` with the following
+content, adjusting the `namespace` if the operator was installed
+outside of `openshift-operators`:
+
+```yaml
+---
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  name: klio-operator-selfsigned-issuer
+  namespace: openshift-operators
+spec:
+  selfSigned: {}
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: klio-plugin-server
+  namespace: openshift-operators
+spec:
+  secretName: klio-plugin-server-tls
+  dnsNames:
+    - klio-operator-plugin
+  usages:
+    - server auth
+  issuerRef:
+    name: klio-operator-selfsigned-issuer
+    kind: Issuer
+    group: cert-manager.io
+  duration: 2160h
+  renewBefore: 360h
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: klio-plugin-client
+  namespace: openshift-operators
+spec:
+  secretName: klio-plugin-client-tls
+  commonName: klio-plugin-client
+  usages:
+    - client auth
+  issuerRef:
+    name: klio-operator-selfsigned-issuer
+    kind: Issuer
+    group: cert-manager.io
+  duration: 2160h
+  renewBefore: 360h
+```
+
+Apply it:
+
+```bash
+oc apply -f openshift_certificates.yaml
+```
+
+Verify that the secrets have been created by cert-manager:
+
+```bash
+oc get secrets -n openshift-operators \
+  klio-plugin-server-tls klio-plugin-client-tls
+```
+
+## 5. Link the pull secret to the service account
+
+The operator deployment pulls from the private registry.
+Link the pull secret to the operator's service account so
+that OpenShift injects it automatically:
+
+```bash
+oc secrets link klio-operator-controller-manager klio-pull-secret \
+  --for=pull \
+  -n openshift-operators
+```
+
+Then restart the operator pod to pick up the new pull
+credentials:
+
+```bash
+oc rollout restart deployment/klio-operator-controller-manager \
+  -n openshift-operators
+```
+
+## 6. Verify the installation
+
+The installation is complete when the CSV reaches the
+`Succeeded` phase. You can check its status with:
+
+```bash
+oc get csv -n openshift-operators -w
+```

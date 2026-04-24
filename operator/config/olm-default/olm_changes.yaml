@@ -7,8 +7,6 @@
 #spec:
 #  template:
 #    spec:
-#      imagePullSecrets:
-#      - name: klio-pull-secret
 #      securityContext:
 #        runAsNonRoot: true
 #        seccompProfile:
@@ -33,4 +31,4 @@
 #          readOnlyRootFilesystem: true
 #          runAsUser:
 #          runAsGroup:
-#
+

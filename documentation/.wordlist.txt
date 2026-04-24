@@ -18,7 +18,9 @@ CLI
 CNPG
 CRDs
 CRs
+CSV
 CacheConfiguration
+CatalogSource
 CheckpointTime
 ClientCASecretName
 ClientCertificate
@@ -122,6 +124,7 @@ NetworkPolicies
 NodeSelector
 NumCPU
 OCI
+OLM
 OLTP
 OTEL
 OTLP
