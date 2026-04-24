@@ -11,7 +11,9 @@ import (
 	cnpgv1 "github.com/cloudnative-pg/api/pkg/api/v1"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"golang.org/x/sync/errgroup"
 	appsv1 "k8s.io/api/apps/v1"
+	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -31,6 +33,7 @@ import (
 	"github.com/cloudnative-pg/klio/operator/test/utils/templates/cnpg"
 	"github.com/cloudnative-pg/klio/operator/test/utils/templates/klio"
 	"github.com/cloudnative-pg/klio/operator/test/utils/templates/otel"
+	"github.com/cloudnative-pg/klio/operator/test/utils/templates/rustfs"
 	"github.com/cloudnative-pg/klio/operator/test/utils/templates/secrets"
 )
 
@@ -39,8 +42,20 @@ type otelMetricsScenario struct {
 	namespace *corev1.Namespace
 	name      string
 
+	// Common issuer
+	issuer *certmanagerv1.Issuer
+
+	// RustFS infrastructure
+	rustfsSecret          *corev1.Secret
+	rustfsConfigMap       *corev1.ConfigMap
+	rustfsPVC             *corev1.PersistentVolumeClaim
+	rustfsLogsPVC         *corev1.PersistentVolumeClaim
+	rustfsCertificate     *certmanagerv1.Certificate
+	rustfsService         *corev1.Service
+	rustfsDeployment      *appsv1.Deployment
+	rustfsCreateBucketJob *batchv1.Job
+
 	// Certificates
-	issuer                *certmanagerv1.Issuer
 	caCertificate         *certmanagerv1.Certificate
 	caIssuer              *certmanagerv1.Issuer
 	serverCertificate     *certmanagerv1.Certificate
@@ -68,13 +83,32 @@ type otelMetricsScenario struct {
 	backup *cnpgv1.Backup
 }
 
+//nolint:funlen
 func newOTELMetricsScenario(namespace string) *otelMetricsScenario {
+	const (
+		rustfsName = "rustfs"
+		s3Prefix   = "tier2"
+	)
+
 	ns := &corev1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{Name: namespace},
 	}
 
-	// Certificates setup
+	// Common issuer
 	issuer := certificates.GetSelfSignedIssuerObject("selfsigned-issuer", namespace)
+
+	// RustFS infrastructure
+	rustfsSecret := rustfs.GetRustFSSecret(rustfsName+"-secret", namespace)
+	rustfsConfigMap := rustfs.GetRustFSConfigMap(rustfsName+"-config", namespace)
+	rustfsPVC := rustfs.GetRustFSPVC(rustfsName+"-data", namespace)
+	rustfsLogsPVC := rustfs.GetRustFSLogsPVC(rustfsName+"-logs", namespace)
+	rustfsCertificate := rustfs.GetRustFSCertificate(rustfsName, namespace, issuer)
+	rustfsService := rustfs.GetRustFSService(rustfsName, namespace)
+	rustfsDeployment := rustfs.GetRustFSDeployment(rustfsName, namespace)
+	rustfsCreateBucketJob := rustfs.GetRustFSCreateBucketJob(
+		rustfsName, namespace, rustfs.RustFSBucketName)
+
+	// Certificates setup
 	caCertificate := certificates.GetCACertificateObject("test-ca", namespace, issuer)
 	caIssuer := certificates.GetCAIssuerObject("test-ca-issuer", namespace, caCertificate.Spec.SecretName)
 	serverCertificate := certificates.GetCertificateObject("klio-server", namespace, []string{klioServerName}, issuer)
@@ -93,21 +127,35 @@ func newOTELMetricsScenario(namespace string) *otelMetricsScenario {
 	otelDeployment := otel.GetCollectorDeployment(namespace)
 	otelService := otel.GetCollectorService(namespace)
 
-	// Klio server with OTEL configuration
+	// Klio server with OTEL configuration and Tier 2
 	encryptionSecrets := secrets.GetKlioAgeEncryptionSecrets("encryption", namespace, "testencryptionpassword123")
 	klioServerOTELConfig := otel.GetKlioServerOTELConfigMap(namespace)
 
-	klioServer := klio.GetServerObject(
+	encOpts := klio.EncryptionOptions{
+		EncryptionKeySecretName: encryptionSecrets.EncryptionKeySecret.Name,
+		EncryptionKeyFileName:   "encryption-key.age",
+		IdentitySecretName:      encryptionSecrets.IdentitySecret.Name,
+		IdentityFileName:        "identity.txt",
+	}
+
+	klioServer := klio.GetServerWithTier2Object(
 		klioServerName,
 		namespace,
-		klio.ServerTemplateOptions{
-			TLSSecretName:      serverCertificate.Spec.SecretName,
-			ClientCASecretName: caCertificate.Spec.SecretName,
-			Encryption: klio.EncryptionOptions{
-				EncryptionKeySecretName: encryptionSecrets.EncryptionKeySecret.Name,
-				EncryptionKeyFileName:   "encryption-key.age",
-				IdentitySecretName:      encryptionSecrets.IdentitySecret.Name,
-				IdentityFileName:        "identity.txt",
+		klio.ServerWithTier2TemplateOptions{
+			ServerTemplateOptions: klio.ServerTemplateOptions{
+				TLSSecretName:      serverCertificate.Spec.SecretName,
+				ClientCASecretName: caCertificate.Spec.SecretName,
+				Encryption:         encOpts,
+			},
+			Tier2Encryption: encOpts,
+			S3: klio.Tier2S3Options{
+				S3BucketName:          rustfs.RustFSBucketName,
+				S3Prefix:              s3Prefix,
+				S3Endpoint:            rustfs.GetRustFSEndpoint(rustfsName, namespace),
+				S3Region:              rustfs.RustFSRegion,
+				S3AccessKeySecretName: rustfsSecret.Name,
+				S3SecretKeySecretName: rustfsSecret.Name,
+				S3CABundleSecretName:  rustfsCertificate.Spec.SecretName,
 			},
 		},
 	)
@@ -163,7 +211,7 @@ func newOTELMetricsScenario(namespace string) *otelMetricsScenario {
 		},
 	}
 
-	// Plugin configuration
+	// Plugin configuration with Tier 2 backup enabled
 	klioPluginConfiguration := klio.GetPluginConfigurationObject(
 		"klio-plugin-configuration",
 		namespace,
@@ -171,6 +219,7 @@ func newOTELMetricsScenario(namespace string) *otelMetricsScenario {
 			ServerCertificate: serverCertificate,
 			ClientCertificate: userCertificate,
 			ClusterName:       "test-cluster",
+			EnableTier2Backup: true,
 		},
 	)
 
@@ -213,6 +262,14 @@ func newOTELMetricsScenario(namespace string) *otelMetricsScenario {
 		namespace:               ns,
 		name:                    "OTELMetricsAndTraces",
 		issuer:                  issuer,
+		rustfsSecret:            rustfsSecret,
+		rustfsConfigMap:         rustfsConfigMap,
+		rustfsPVC:               rustfsPVC,
+		rustfsLogsPVC:           rustfsLogsPVC,
+		rustfsCertificate:       rustfsCertificate,
+		rustfsService:           rustfsService,
+		rustfsDeployment:        rustfsDeployment,
+		rustfsCreateBucketJob:   rustfsCreateBucketJob,
 		caCertificate:           caCertificate,
 		caIssuer:                caIssuer,
 		serverCertificate:       serverCertificate,
@@ -235,6 +292,7 @@ func newOTELMetricsScenario(namespace string) *otelMetricsScenario {
 	}
 }
 
+//nolint:funlen
 func (s *otelMetricsScenario) Setup(
 	ctx context.Context,
 	t *testing.T,
@@ -249,60 +307,118 @@ func (s *otelMetricsScenario) Setup(
 	// Create namespace
 	require.NoError(t, r.Create(ctx, s.namespace), "failed to create namespace")
 
-	// Create certificates
-	require.NoError(t, r.Create(ctx, s.issuer), "failed to create issuer")
-	require.NoError(t, r.Create(ctx, s.caCertificate), "failed to create CA certificate")
-	require.NoError(t, r.Create(ctx, s.caIssuer), "failed to create CA issuer")
-	require.NoError(t, r.Create(ctx, s.serverCertificate), "failed to create server certificate")
-	require.NoError(t, r.Create(ctx, s.userCertificate), "failed to create user certificate")
-	require.NoError(t, r.Create(ctx, s.otelCollectorCert), "failed to create OTEL collector certificate")
-	require.NoError(t, r.Create(ctx, s.otelServerClientCert), "failed to create OTEL server client certificate")
-	require.NoError(t, r.Create(ctx, s.otelClusterClientCert), "failed to create OTEL cluster client certificate")
-
-	// Create OTEL Collector resources
+	// Create resources that have no dependencies
 	require.NoError(t, r.Create(ctx, s.otelServiceAccount), "failed to create OTEL service account")
 	require.NoError(t, r.Create(ctx, s.otelClusterRole), "failed to create OTEL cluster role")
 	require.NoError(t, r.Create(ctx, s.otelClusterRoleBinding), "failed to create OTEL cluster role binding")
 	require.NoError(t, r.Create(ctx, s.otelConfigMap), "failed to create OTEL config map")
-	require.NoError(t, r.Create(ctx, s.otelDeployment), "failed to create OTEL deployment")
-	require.NoError(t, r.Create(ctx, s.otelService), "failed to create OTEL service")
-
-	// Create Klio resources
+	require.NoError(t, r.Create(ctx, s.klioServerOTELConfig), "failed to create Klio server OTEL config")
 	require.NoError(t, r.Create(ctx, s.encryptionSecrets.EncryptionKeySecret), "failed to create encryption key secret")
 	require.NoError(t, r.Create(ctx, s.encryptionSecrets.IdentitySecret), "failed to create identity secret")
-	require.NoError(t, r.Create(ctx, s.klioServerOTELConfig), "failed to create Klio server OTEL config")
-	require.NoError(t, r.Create(ctx, s.klioServer), "failed to create Klio server")
-	require.NoError(t, r.Create(ctx, s.klioPluginConfiguration), "failed to create Klio plugin configuration")
+	require.NoError(t, r.Create(ctx, s.rustfsSecret), "failed to create RustFS secret")
+	require.NoError(t, r.Create(ctx, s.rustfsConfigMap), "failed to create RustFS configmap")
+	require.NoError(t, r.Create(ctx, s.rustfsPVC), "failed to create RustFS data PVC")
+	require.NoError(t, r.Create(ctx, s.rustfsLogsPVC), "failed to create RustFS logs PVC")
 
-	// Create CNPG resources
-	require.NoError(t, r.Create(ctx, s.cnpgCluster), "failed to create CNPG cluster")
-
-	// Wait for OTEL Collector to be ready
-	t.Log("Waiting for OTEL Collector to be ready")
+	// Create and wait for the self-signed issuer
+	require.NoError(t, r.Create(ctx, s.issuer), "failed to create issuer")
 	err = wait.For(
-		func(ctx context.Context) (bool, error) {
-			var deployment appsv1.Deployment
-			if getErr := r.Get(ctx, s.otelDeployment.Name, s.namespace.Name, &deployment); getErr != nil {
-				return false, nil //nolint:nilerr // wait loop should retry on errors
-			}
-
-			return deployment.Status.ReadyReplicas == 1, nil
-		},
-		wait.WithTimeout(2*time.Minute),
+		conditions.IssuerIsReady(r, s.issuer),
+		wait.WithTimeout(1*time.Minute),
 		wait.WithInterval(5*time.Second),
 	)
-	require.NoError(t, err, "failed to wait for OTEL Collector to be ready")
+	require.NoError(t, err, "issuer not ready")
 
-	// Wait for Klio server to be ready
-	t.Log("Waiting for Klio server to be ready")
+	// Create all certificates that depend on the self-signed issuer
+	require.NoError(t, r.Create(ctx, s.caCertificate), "failed to create CA certificate")
+	require.NoError(t, r.Create(ctx, s.serverCertificate), "failed to create server certificate")
+	require.NoError(t, r.Create(ctx, s.rustfsCertificate), "failed to create RustFS certificate")
+	require.NoError(t, r.Create(ctx, s.otelCollectorCert), "failed to create OTEL collector certificate")
+	require.NoError(t, r.Create(ctx, s.otelServerClientCert), "failed to create OTEL server client certificate")
+	require.NoError(t, r.Create(ctx, s.otelClusterClientCert), "failed to create OTEL cluster client certificate")
+
+	// Wait for the CA certificate so we can create the CA issuer
+	err = wait.For(
+		conditions.CertificateIsReady(r, s.caCertificate),
+		wait.WithTimeout(1*time.Minute),
+		wait.WithInterval(5*time.Second),
+	)
+	require.NoError(t, err, "CA certificate not ready")
+
+	require.NoError(t, r.Create(ctx, s.caIssuer), "failed to create CA issuer")
+	require.NoError(t, r.Create(ctx, s.userCertificate), "failed to create user certificate")
+
+	// Wait for all remaining certificates before deploying pods
+	for _, cert := range []*certmanagerv1.Certificate{
+		s.serverCertificate,
+		s.userCertificate,
+		s.rustfsCertificate,
+		s.otelCollectorCert,
+		s.otelServerClientCert,
+		s.otelClusterClientCert,
+	} {
+		err = wait.For(
+			conditions.CertificateIsReady(r, cert),
+			wait.WithTimeout(5*time.Minute),
+			wait.WithInterval(5*time.Second),
+		)
+		require.NoError(t, err, "certificate %s not ready", cert.Name)
+	}
+
+	// Deploy RustFS and OTEL Collector in parallel
+	g, gCtx := errgroup.WithContext(ctx)
+
+	g.Go(func() error {
+		t.Log("Deploying RustFS infrastructure...")
+		require.NoError(t, r.Create(gCtx, s.rustfsService), "failed to create RustFS service")
+		require.NoError(t, r.Create(gCtx, s.rustfsDeployment), "failed to create RustFS deployment")
+
+		if err := wait.For(
+			conditions.DeploymentIsReady(r, s.rustfsDeployment),
+			wait.WithTimeout(2*time.Minute),
+			wait.WithInterval(10*time.Second),
+		); err != nil {
+			return fmt.Errorf("RustFS deployment not ready: %w", err)
+		}
+
+		t.Log("Creating S3 bucket in RustFS...")
+		require.NoError(t, r.Create(gCtx, s.rustfsCreateBucketJob), "failed to create bucket creation job")
+
+		return wait.For(
+			conditions.JobIsComplete(r, s.rustfsCreateBucketJob),
+			wait.WithTimeout(2*time.Minute),
+			wait.WithInterval(10*time.Second),
+		)
+	})
+
+	g.Go(func() error {
+		t.Log("Deploying OTEL Collector...")
+		require.NoError(t, r.Create(gCtx, s.otelDeployment), "failed to create OTEL deployment")
+		require.NoError(t, r.Create(gCtx, s.otelService), "failed to create OTEL service")
+
+		return wait.For(
+			conditions.DeploymentIsReady(r, s.otelDeployment),
+			wait.WithTimeout(2*time.Minute),
+			wait.WithInterval(5*time.Second),
+		)
+	})
+
+	require.NoError(t, g.Wait(), "parallel deployment failed")
+
+	// Deploy Klio Server after RustFS is ready to avoid S3 connection retries
+	t.Log("Deploying Klio Server...")
+	require.NoError(t, r.Create(ctx, s.klioServer), "failed to create Klio server")
 	err = wait.For(
 		conditions.KlioServerIsReady(r, s.klioServer),
 		wait.WithTimeout(4*time.Minute),
 		wait.WithInterval(10*time.Second),
 	)
-	require.NoError(t, err, "failed to wait for Klio server to be ready")
+	require.NoError(t, err, "Klio server not ready")
 
-	// Wait for CNPG cluster to be ready
+	// Deploy CNPG cluster
+	require.NoError(t, r.Create(ctx, s.klioPluginConfiguration), "failed to create Klio plugin configuration")
+	require.NoError(t, r.Create(ctx, s.cnpgCluster), "failed to create CNPG cluster")
+
 	t.Log("Waiting for CNPG cluster to be ready")
 	err = wait.For(
 		machineryConditions.ClusterIsReady(r, s.cnpgCluster),
@@ -460,10 +576,17 @@ func assertOTELMetricsReceived(
 			"completion time should be >= start time")
 	}
 
-	// Verify no failures
-	failures, found := promMetrics.GetValue("klio_backup_failures_total")
-	if found {
-		assert.InDelta(t, 0, failures, 0.001, "should have no backup failures")
+	// Verify no failures (GetValue returns 0 when the metric is absent).
+	failures, _ := promMetrics.GetValue("klio_backup_failures_total")
+	assert.InDelta(t, 0, failures, 0.001, "should have no backup failures")
+
+	// Verify consumer WAL written metric (tier2 WAL archiving)
+	t.Log("Verifying consumer WAL written metric")
+	consumerWritten, found := promMetrics.GetValue("klio_consumer_written_total")
+	t.Logf("klio_consumer_written_total = %v (found: %v)", consumerWritten, found)
+	if assert.True(t, found, "metric klio_consumer_written_total not found") {
+		assert.GreaterOrEqual(t, consumerWritten, float64(1),
+			"should have at least 1 WAL written by consumer")
 	}
 
 	t.Log("OTEL metrics verification completed successfully")

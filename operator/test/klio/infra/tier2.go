@@ -42,11 +42,12 @@ type Tier2 struct {
 	KlioServer        *kliov1alpha1.Server
 }
 
-// ParallelSetup is a function that sets up RustFs and Klio Server in parallel.
+// ParallelSetup sets up RustFS and Klio Server certificates in parallel,
+// then deploys the Klio Server after RustFS is ready to avoid S3 connection retries.
 func (s Tier2) ParallelSetup(ctx context.Context, t *testing.T, r *resources.Resources) {
 	t.Helper()
 
-	// Create an error group for independent infrastructure components
+	// Prepare RustFS and Klio certificates/secrets in parallel
 	g, gCtx := errgroup.WithContext(ctx)
 
 	// Deploy RustFS infrastructure
@@ -100,9 +101,9 @@ func (s Tier2) ParallelSetup(ctx context.Context, t *testing.T, r *resources.Res
 		)
 	})
 
-	// Deploy Klio Server with tier2
+	// Prepare Klio Server certificates and secrets
 	g.Go(func() error {
-		t.Logf("Deploying Klio Server with tier2...")
+		t.Logf("Preparing Klio Server certificates...")
 		require.NoError(t, r.Create(gCtx, s.CaCertificate), "failed to create CA certificate")
 		require.NoError(t, r.Create(gCtx, s.CaIssuer), "failed to create CA issuer")
 
@@ -127,18 +128,22 @@ func (s Tier2) ParallelSetup(ctx context.Context, t *testing.T, r *resources.Res
 
 		require.NoError(t, r.Create(gCtx, s.EncryptionSecret), "failed to create encryption secret")
 		require.NoError(t, r.Create(gCtx, s.IdentitySecret), "failed to create identity secret")
-		require.NoError(t, r.Create(gCtx, s.KlioServer), "failed to create Klio server")
 
-		// Wait for Klio Server to be ready
-		t.Logf("Waiting for Klio Server to be ready...")
-
-		return wait.For(
-			conditions.KlioServerIsReady(r, s.KlioServer),
-			wait.WithTimeout(4*time.Minute),
-			wait.WithInterval(10*time.Second),
-		)
+		return nil
 	})
 
-	// Wait for both RustFS and Klio to be deployed properly
-	require.NoError(t, g.Wait(), "Parallel setup of RustFS and Klio failed")
+	// Wait for both RustFS and certificates to be ready
+	require.NoError(t, g.Wait(), "Parallel setup of RustFS and Klio certificates failed")
+
+	// Deploy Klio Server after RustFS is ready to avoid S3 connection retries
+	t.Logf("Deploying Klio Server with tier2...")
+	require.NoError(t, r.Create(ctx, s.KlioServer), "failed to create Klio server")
+
+	t.Logf("Waiting for Klio Server to be ready...")
+	err := wait.For(
+		conditions.KlioServerIsReady(r, s.KlioServer),
+		wait.WithTimeout(4*time.Minute),
+		wait.WithInterval(10*time.Second),
+	)
+	require.NoError(t, err, "Klio server not ready")
 }

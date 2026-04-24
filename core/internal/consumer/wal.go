@@ -8,6 +8,8 @@ import (
 	"os"
 	"os/signal"
 
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/metric"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	"github.com/cloudnative-pg/klio/core/internal/opentelemetry"
@@ -105,6 +107,14 @@ func (d *WAL) walHandler(ctx context.Context, task *queue.WALTask) (returnErr er
 			break
 		}
 	}
+
+	d.metrics.WalWritten.Add(ctx,
+		1, metric.WithAttributeSet(
+			attribute.NewSet(
+				attribute.String("cluster_name", task.ClusterName),
+			),
+		),
+	)
 
 	return nil
 }
