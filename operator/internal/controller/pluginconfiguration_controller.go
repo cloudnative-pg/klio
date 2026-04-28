@@ -29,6 +29,7 @@ type PluginConfigurationReconciler struct {
 
 // +kubebuilder:rbac:groups=klio.cnpg.io,resources=pluginconfigurations,verbs=get;list;watch
 // +kubebuilder:rbac:groups=klio.cnpg.io,resources=pluginconfigurations/status,verbs=get;patch;update
+// +kubebuilder:rbac:groups=klio.cnpg.io,resources=pluginconfigurations/finalizers,verbs=update
 // +kubebuilder:rbac:groups="",resources=secrets,verbs=get;list;watch;create;update
 
 // Reconcile handles PluginConfiguration changes by creating or updating the
