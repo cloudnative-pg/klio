@@ -24,8 +24,9 @@ import (
 type ServerReconciler struct {
 	client.Client
 
-	Scheme   *runtime.Scheme
-	Recorder events.EventRecorder
+	Scheme                         *runtime.Scheme
+	Recorder                       events.EventRecorder
+	HaveSecurityContextConstraints bool
 }
 
 // +kubebuilder:rbac:groups=klio.cnpg.io,resources=pluginconfigurations,verbs=get;list;watch

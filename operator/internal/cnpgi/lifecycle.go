@@ -32,9 +32,10 @@ const KlioPluginContainerName = "klio-plugin"
 type LifecycleImplementation struct {
 	lifecycle.UnimplementedOperatorLifecycleServer
 
-	Client      client.Client
-	CNPGGroup   string
-	CNPGVersion string
+	Client                         client.Client
+	CNPGGroup                      string
+	CNPGVersion                    string
+	HaveSecurityContextConstraints bool
 }
 
 // GetCapabilities exposes the lifecycle capabilities.
@@ -203,6 +204,7 @@ func (impl LifecycleImplementation) reconcileJob(
 			cnpgGroup:        impl.CNPGGroup,
 			cnpgVersion:      impl.CNPGVersion,
 			plugins:          plugins,
+			haveSCC:          impl.HaveSecurityContextConstraints,
 		},
 	); err != nil {
 		contextLogger.Error(err, "Failed to reconcile pod spec for job")
@@ -280,6 +282,7 @@ func (impl LifecycleImplementation) reconcilePod(
 			cnpgGroup:        impl.CNPGGroup,
 			cnpgVersion:      impl.CNPGVersion,
 			plugins:          plugins,
+			haveSCC:          impl.HaveSecurityContextConstraints,
 		}); err != nil {
 		contextLogger.Error(err, "Failed to reconcile pod spec")
 		return nil, fmt.Errorf("failed to reconcile pod spec: %w", err)
@@ -337,6 +340,7 @@ type reconcilePodSpecConfiguration struct {
 	plugins          klioconfig.ClusterPlugins
 	cnpgGroup        string
 	cnpgVersion      string
+	haveSCC          bool
 }
 
 // reconcilePodSpec reconciles the pod spec to include the klio server sidecar and its configuration.
@@ -400,10 +404,7 @@ func reconcilePodSpec( // NOSONAR
 		Image:           os.Getenv("SIDECAR_IMAGE"),
 		RestartPolicy:   ptr.To(corev1.ContainerRestartPolicyAlways),
 		ImagePullPolicy: cluster.Spec.ImagePullPolicy,
-		SecurityContext: &corev1.SecurityContext{
-			RunAsUser:  ptr.To(int64(26)),
-			RunAsGroup: ptr.To(int64(26)),
-		},
+		SecurityContext: sidecarSecurityContext(cfg.haveSCC),
 		Env: []corev1.EnvVar{
 			{Name: "PGDATA", Value: pgdata},
 			{Name: "PGHOST", Value: "/controller/run"},
@@ -495,6 +496,20 @@ func reconcilePodSpec( // NOSONAR
 	}
 
 	return nil
+}
+
+// sidecarSecurityContext returns the SecurityContext for the Klio plugin
+// sidecar container. On OpenShift it returns nil so that the restricted SCC
+// can assign a namespace-allocated UID.
+func sidecarSecurityContext(haveSCC bool) *corev1.SecurityContext {
+	if haveSCC {
+		return nil
+	}
+
+	return &corev1.SecurityContext{
+		RunAsUser:  ptr.To(int64(26)),
+		RunAsGroup: ptr.To(int64(26)),
+	}
 }
 
 // mergeEnvironmentVariables merges environment variables from the giver container into the receiver container.

@@ -744,3 +744,17 @@ func TestKlioRequiredValuesOverride(t *testing.T) {
 		assert.True(t, customVarFound, "CUSTOM_VAR should be preserved")
 	})
 }
+
+func TestSidecarSecurityContext(t *testing.T) {
+	t.Run("returns UID/GID 26 on vanilla Kubernetes", func(t *testing.T) {
+		sc := sidecarSecurityContext(false)
+		require.NotNil(t, sc)
+		assert.Equal(t, int64(26), *sc.RunAsUser)
+		assert.Equal(t, int64(26), *sc.RunAsGroup)
+	})
+
+	t.Run("returns nil on OpenShift", func(t *testing.T) {
+		sc := sidecarSecurityContext(true)
+		assert.Nil(t, sc)
+	})
+}

@@ -11,6 +11,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
+	"k8s.io/client-go/discovery"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/certwatcher"
@@ -24,6 +25,7 @@ import (
 	kliov1alpha1 "github.com/cloudnative-pg/klio/operator/api/v1alpha1"
 	"github.com/cloudnative-pg/klio/operator/internal/cnpgi"
 	"github.com/cloudnative-pg/klio/operator/internal/controller"
+	kliodiscovery "github.com/cloudnative-pg/klio/operator/internal/discovery"
 
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	// to ensure that exec-entrypoint and run can make use of them.
@@ -206,23 +208,40 @@ func main() { // NOSONAR
 		os.Exit(1)
 	}
 
+	discoveryClient, err := discovery.NewDiscoveryClientForConfig(mgr.GetConfig())
+	if err != nil {
+		setupLog.Error(err, "unable to create discovery client")
+		os.Exit(1)
+	}
+
+	haveSCC, err := kliodiscovery.HaveSecurityContextConstraints(discoveryClient)
+	if err != nil {
+		setupLog.Error(err, "unable to detect OpenShift Security Context Constraints")
+		os.Exit(1)
+	}
+
+	setupLog.Info("Cluster capabilities detected",
+		"haveSecurityContextConstraints", haveSCC)
+
 	if err := mgr.Add(&cnpgi.CNPGI{
-		Client:         mgr.GetClient(),
-		ServerCertPath: pluginServerCert,
-		ServerKeyPath:  pluginServerKey,
-		ClientCertPath: pluginClientCert,
-		ServerAddress:  pluginServerAddress,
-		CNPGGroup:      cnpgGroup,
-		CNPGVersion:    cnpgVersion,
+		Client:                         mgr.GetClient(),
+		ServerCertPath:                 pluginServerCert,
+		ServerKeyPath:                  pluginServerKey,
+		ClientCertPath:                 pluginClientCert,
+		ServerAddress:                  pluginServerAddress,
+		CNPGGroup:                      cnpgGroup,
+		CNPGVersion:                    cnpgVersion,
+		HaveSecurityContextConstraints: haveSCC,
 	}); err != nil {
 		setupLog.Error(err, "unable to create CNPGI runnable")
 		os.Exit(1)
 	}
 
 	if err := (&controller.ServerReconciler{
-		Client:   mgr.GetClient(),
-		Scheme:   mgr.GetScheme(),
-		Recorder: mgr.GetEventRecorder("server-controller"),
+		Client:                         mgr.GetClient(),
+		Scheme:                         mgr.GetScheme(),
+		Recorder:                       mgr.GetEventRecorder("server-controller"),
+		HaveSecurityContextConstraints: haveSCC,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "Server")
 		os.Exit(1)

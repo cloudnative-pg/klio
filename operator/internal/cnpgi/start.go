@@ -12,13 +12,14 @@ import (
 
 // CNPGI implementation for the operator.
 type CNPGI struct {
-	Client         client.Client
-	ServerCertPath string
-	ServerKeyPath  string
-	ClientCertPath string
-	ServerAddress  string
-	CNPGGroup      string
-	CNPGVersion    string
+	Client                         client.Client
+	ServerCertPath                 string
+	ServerKeyPath                  string
+	ClientCertPath                 string
+	ServerAddress                  string
+	CNPGGroup                      string
+	CNPGVersion                    string
+	HaveSecurityContextConstraints bool
 }
 
 // Start the GRPC server of the operator.
@@ -28,9 +29,10 @@ func (c *CNPGI) Start(ctx context.Context) error {
 			Client: c.Client,
 		})
 		lifecycle.RegisterOperatorLifecycleServer(server, LifecycleImplementation{
-			Client:      c.Client,
-			CNPGGroup:   c.CNPGGroup,
-			CNPGVersion: c.CNPGVersion,
+			Client:                         c.Client,
+			CNPGGroup:                      c.CNPGGroup,
+			CNPGVersion:                    c.CNPGVersion,
+			HaveSecurityContextConstraints: c.HaveSecurityContextConstraints,
 		})
 
 		return nil

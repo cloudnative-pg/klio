@@ -150,15 +150,7 @@ func (r *ServerReconciler) reconcileStatefulSet(
 				},
 				Spec: corev1.PodSpec{
 					ImagePullSecrets: server.Spec.ImagePullSecrets,
-					SecurityContext: &corev1.PodSecurityContext{
-						FSGroup:      ptr.To(int64(1000)),
-						RunAsGroup:   ptr.To(int64(1000)),
-						RunAsNonRoot: ptr.To(true),
-						RunAsUser:    ptr.To(int64(1000)),
-						SeccompProfile: &corev1.SeccompProfile{
-							Type: corev1.SeccompProfileTypeRuntimeDefault,
-						},
-					},
+					SecurityContext:  r.serverPodSecurityContext(),
 					Containers: []corev1.Container{
 						{
 							Name: "server",
@@ -320,6 +312,25 @@ func enablePProf(containers []corev1.Container) {
 		containers[i].Args = append(
 			containers[i].Args,
 			"--pprof-server=:606"+strconv.Itoa(i))
+	}
+}
+
+// serverPodSecurityContext returns the PodSecurityContext for the Klio server
+// StatefulSet. On OpenShift it returns nil so that the restricted SCC can
+// assign a namespace-allocated UID.
+func (r *ServerReconciler) serverPodSecurityContext() *corev1.PodSecurityContext {
+	if r.HaveSecurityContextConstraints {
+		return nil
+	}
+
+	return &corev1.PodSecurityContext{
+		FSGroup:      ptr.To(int64(1000)),
+		RunAsGroup:   ptr.To(int64(1000)),
+		RunAsNonRoot: ptr.To(true),
+		RunAsUser:    ptr.To(int64(1000)),
+		SeccompProfile: &corev1.SeccompProfile{
+			Type: corev1.SeccompProfileTypeRuntimeDefault,
+		},
 	}
 }
 

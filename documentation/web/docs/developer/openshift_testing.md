@@ -2,7 +2,56 @@
 sidebar_position: 4
 ---
 
-# Testing on OpenShift with OLM
+# OpenShift
+
+## Security Context Constraints
+
+OpenShift enforces
+[Security Context Constraints](https://docs.redhat.com/en/documentation/openshift_container_platform/latest/html/authentication_and_authorization/managing-pod-security-policies)
+(SCCs) to control the actions that pods can perform and the resources
+they can access. Under the default **restricted** SCC, containers are
+not allowed to run as a fixed user ID. Instead, OpenShift assigns an
+arbitrary UID from a range that is unique to each namespace.
+
+As described in the OpenShift
+[image creation guidelines](https://docs.redhat.com/en/documentation/openshift_container_platform/latest/html/images/creating-images#use-uid_create-images):
+
+> By default, OpenShift Container Platform runs containers using an
+> arbitrarily assigned user ID. This provides additional security
+> against processes escaping the container due to a container engine
+> vulnerability and thereby achieving escalated permissions on the
+> host node.
+
+This means that specifying a fixed `runAsUser`, `runAsGroup`, or
+`fsGroup` in a pod's security context is rejected by the restricted
+SCC unless the value falls within the namespace's allocated range.
+
+### How Klio handles this
+
+The Klio Operator detects OpenShift at startup by querying the
+Kubernetes discovery API for the `securitycontextconstraints`
+resource in the `security.openshift.io/v1` API group.
+
+When running on OpenShift:
+
+- **Server pods**: The operator omits `runAsUser`, `runAsGroup`,
+  and `fsGroup` from the pod security context, allowing the
+  restricted SCC to assign a UID from the namespace's range.
+- **Plugin sidecar containers**: The operator omits `runAsUser`
+  and `runAsGroup` from the container security context for the
+  same reason.
+
+On vanilla Kubernetes, the operator continues to set explicit
+UIDs (1000 for server pods, 26 for plugin sidecars) as before.
+
+No user configuration is required. The detection is automatic and
+logged at startup:
+
+```
+INFO  setup  Cluster capabilities detected  {"haveSecurityContextConstraints": true}
+```
+
+## Testing on OpenShift with OLM
 
 This guide explains how to install a test build of the Klio operator
 on an OpenShift cluster using OLM (Operator Lifecycle Manager).

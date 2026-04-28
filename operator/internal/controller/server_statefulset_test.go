@@ -178,3 +178,22 @@ func TestReconcileStatefulSetInvalidSpecExistingStatefulSet(t *testing.T) {
 	assert.True(t, deleteWasCalled, "StatefulSet should have been deleted for recreation")
 	assert.Equal(t, time.Second, result.RequeueAfter, "should requeue after 1 second for recreation")
 }
+
+func TestServerPodSecurityContext(t *testing.T) {
+	t.Run("returns full security context on vanilla Kubernetes", func(t *testing.T) {
+		r := &ServerReconciler{HaveSecurityContextConstraints: false}
+		sc := r.serverPodSecurityContext()
+		require.NotNil(t, sc)
+		assert.Equal(t, int64(1000), *sc.RunAsUser)
+		assert.Equal(t, int64(1000), *sc.RunAsGroup)
+		assert.Equal(t, int64(1000), *sc.FSGroup)
+		assert.True(t, *sc.RunAsNonRoot)
+		assert.Equal(t, corev1.SeccompProfileTypeRuntimeDefault, sc.SeccompProfile.Type)
+	})
+
+	t.Run("returns nil on OpenShift", func(t *testing.T) {
+		r := &ServerReconciler{HaveSecurityContextConstraints: true}
+		sc := r.serverPodSecurityContext()
+		assert.Nil(t, sc)
+	})
+}
