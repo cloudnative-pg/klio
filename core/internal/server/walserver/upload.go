@@ -299,6 +299,16 @@ func (w *Implementation) Put(req grpc.WAL_PutServer) error {
 			),
 		)
 
+		w.metrics.LatestWrittenTime.Record(
+			req.Context(),
+			float64(time.Now().Unix()),
+			metric.WithAttributeSet(
+				attribute.NewSet(
+					attribute.String("cluster_name", blockMeta.clusterName),
+				),
+			),
+		)
+
 		logger.Info(
 			"Received completed WAL file",
 			"writtenSize", writtenSize,

@@ -71,9 +71,11 @@ const (
 	ConsumerVerificationFailureMetric = "klio.consumer.backup_verification_failure"
 	ConsumerWrittenSizeMetric         = "klio.consumer.written_size"
 	ConsumerWrittenMetric             = "klio.consumer.written"
+	ConsumerLatestWrittenTimeMetric   = "klio.consumer.latest_written_time"
 
-	WalServerWrittenSizeMetric = "klio.wal.written_size"
-	WalServerWrittenMetric     = "klio.wal.written"
+	WalServerWrittenSizeMetric       = "klio.wal.written_size"
+	WalServerWrittenMetric           = "klio.wal.written"
+	WalServerLatestWrittenTimeMetric = "klio.wal.latest_written_time"
 
 	KopiaServerUptimeMetric       = "klio.base.uptime"
 	SnapshotTotalMetric           = "klio.base.snapshots"
@@ -103,12 +105,14 @@ type ConsumerMetrics struct {
 	VerificationFailure metric.Int64Counter
 	WalWrittenBytes     metric.Int64Counter
 	WalWritten          metric.Int64Counter
+	LatestWrittenTime   metric.Float64Gauge
 }
 
 // WalServerMetrics holds OTel instruments for the WAL server.
 type WalServerMetrics struct {
-	WalWrittenBytes metric.Int64Counter
-	WalWritten      metric.Int64Counter
+	WalWrittenBytes   metric.Int64Counter
+	WalWritten        metric.Int64Counter
+	LatestWrittenTime metric.Float64Gauge
 }
 
 // SnapshotMetrics holds OTel instruments for Kopia snapshot gauges.
@@ -188,6 +192,10 @@ func InitConsumerMetrics() {
 		metric.WithDescription("Number of WAL files written."),
 		metric.WithUnit("{wals}"),
 	)
+	Consumer.LatestWrittenTime, _ = meter.Float64Gauge(ConsumerLatestWrittenTimeMetric,
+		metric.WithDescription("Unix epoch timestamp of the most recently written WAL file to Tier 2."),
+		metric.WithUnit("s"),
+	)
 }
 
 // InitWalServerMetrics creates OTel instruments for the WAL server.
@@ -201,6 +209,10 @@ func InitWalServerMetrics() {
 	WalServer.WalWritten, _ = meter.Int64Counter(WalServerWrittenMetric,
 		metric.WithDescription("Number of WAL files written."),
 		metric.WithUnit("{wals}"),
+	)
+	WalServer.LatestWrittenTime, _ = meter.Float64Gauge(WalServerLatestWrittenTimeMetric,
+		metric.WithDescription("Unix epoch timestamp of the most recently written WAL file to disk."),
+		metric.WithUnit("s"),
 	)
 }
 

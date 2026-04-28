@@ -7,6 +7,7 @@ import (
 	"io"
 	"os"
 	"os/signal"
+	"time"
 
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/metric"
@@ -39,8 +40,9 @@ type WALOptions struct {
 func NewWAL(opts *WALOptions) *WAL {
 	return &WAL{
 		metrics: &repository.Metrics{
-			WalWrittenBytes: opentelemetry.Consumer.WalWrittenBytes,
-			WalWritten:      opentelemetry.Consumer.WalWritten,
+			WalWrittenBytes:   opentelemetry.Consumer.WalWrittenBytes,
+			WalWritten:        opentelemetry.Consumer.WalWritten,
+			LatestWrittenTime: opentelemetry.Consumer.LatestWrittenTime,
 		},
 		opts: opts,
 	}
@@ -110,6 +112,16 @@ func (d *WAL) walHandler(ctx context.Context, task *queue.WALTask) (returnErr er
 
 	d.metrics.WalWritten.Add(ctx,
 		1, metric.WithAttributeSet(
+			attribute.NewSet(
+				attribute.String("cluster_name", task.ClusterName),
+			),
+		),
+	)
+
+	d.metrics.LatestWrittenTime.Record(
+		ctx,
+		float64(time.Now().Unix()),
+		metric.WithAttributeSet(
 			attribute.NewSet(
 				attribute.String("cluster_name", task.ClusterName),
 			),

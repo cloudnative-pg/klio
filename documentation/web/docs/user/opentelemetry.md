@@ -28,6 +28,7 @@ Klio automatically collects the following:
       - WAL processing metrics
          - Number of WAL files written
          - Bytes written
+         - Timestamp of the most recently written WAL file
       - [GRPC metrics](https://opentelemetry.io/docs/specs/semconv/rpc/rpc-metrics/)
       - [Go runtime statistics](https://pkg.go.dev/go.opentelemetry.io/contrib/instrumentation/runtime)
       - [Host metrics](https://pkg.go.dev/go.opentelemetry.io/contrib/instrumentation/host)
@@ -102,6 +103,7 @@ WAL file reception from PostgreSQL instances:
 |---|---|---|---|
 | `klio.wal.written_size` | Counter | By | Number of bytes written to disk for WAL files |
 | `klio.wal.written` | Counter | - | Number of WAL files written |
+| `klio.wal.latest_written_time` | Gauge | s | Unix epoch timestamp of the most recently written WAL file to disk |
 
 ### WAL consumer metrics (server)
 
@@ -112,8 +114,28 @@ WAL archival to Tier 2 storage:
 |---|---|---|---|
 | `klio.consumer.written_size` | Counter | By | Number of bytes written to Tier 2 for WAL files |
 | `klio.consumer.written` | Counter | - | Number of WAL files written to Tier 2 |
+| `klio.consumer.latest_written_time` | Gauge | s | Unix epoch timestamp of the most recently written WAL file to Tier 2 |
 | `klio.consumer.backup_verification_success` | Counter | - | Number of successful backup verifications |
 | `klio.consumer.backup_verification_failure` | Counter | - | Number of failed backup verifications (corruption detected) |
+
+### Alerting on stalled WAL processing
+
+Despite sharing a similar name, `klio.wal.latest_written_time` and
+`klio.consumer.latest_written_time` track two distinct stages of the
+WAL pipeline and signal different failure scenarios:
+
+- **`klio.wal.latest_written_time`** reflects when the Klio server
+  last received a WAL file from PostgreSQL streaming replication
+  (Tier 1). A stale value means PostgreSQL is no longer shipping
+  WALs to Klio, which may indicate a replication problem.
+
+- **`klio.consumer.latest_written_time`** reflects when the WAL
+  consumer last archived a WAL file to Tier 2 object storage (S3).
+  A stale value means the S3 backend is no longer receiving WALs,
+  even though PostgreSQL replication may still be working.
+
+Both metrics carry a `cluster_name` attribute label identifying the
+PostgreSQL cluster the WAL event belongs to.
 
 ### Base backup metrics (server)
 

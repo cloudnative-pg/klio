@@ -580,7 +580,23 @@ func assertOTELMetricsReceived(
 	failures, _ := promMetrics.GetValue("klio_backup_failures_total")
 	assert.InDelta(t, 0, failures, 0.001, "should have no backup failures")
 
-	// Verify consumer WAL written metric (tier2 WAL archiving)
+	// Verify WAL metrics (Tier 1 and Tier 2)
+	assertOTELWALMetrics(t, cfg, scenario, promMetrics, collectorPod)
+
+	t.Log("OTEL metrics verification completed successfully")
+}
+
+// assertOTELWALMetrics verifies WAL-related metrics from Tier 1 and Tier 2.
+func assertOTELWALMetrics(
+	t *testing.T,
+	cfg *envconf.Config,
+	scenario *otelMetricsScenario,
+	promMetrics metrics.PrometheusMetrics,
+	collectorPod *corev1.Pod,
+) {
+	t.Helper()
+
+	// Verify consumer WAL written metric (Tier 2 WAL archiving)
 	t.Log("Verifying consumer WAL written metric")
 	consumerWritten, found := promMetrics.GetValue("klio_consumer_written_total")
 	t.Logf("klio_consumer_written_total = %v (found: %v)", consumerWritten, found)
@@ -589,7 +605,40 @@ func assertOTELMetricsReceived(
 			"should have at least 1 WAL written by consumer")
 	}
 
-	t.Log("OTEL metrics verification completed successfully")
+	// Verify WAL server latest written time (Tier 1)
+	walLatestWritten, found := promMetrics.GetValue("klio_wal_latest_written_time_seconds")
+	t.Logf("klio_wal_latest_written_time_seconds = %v (found: %v)", walLatestWritten, found)
+	if assert.True(t, found, "metric klio_wal_latest_written_time_seconds not found") {
+		assert.Greater(t, walLatestWritten, float64(0),
+			"WAL latest written time should be a valid epoch")
+	}
+
+	// Verify consumer latest written time (Tier 2). The consumer processes
+	// WALs asynchronously so the metric may not be present yet; poll for it.
+	t.Log("Waiting for consumer latest written time metric")
+	err := wait.For(
+		func(ctx context.Context) (bool, error) {
+			freshMetrics, fetchErr := fetchCollectorMetrics(ctx, cfg.Client().RESTConfig(),
+				scenario.namespace.Name, collectorPod.Name)
+			if fetchErr != nil {
+				return false, nil //nolint:nilerr // retry on transient errors
+			}
+
+			consumerLatestWritten, found := freshMetrics.GetValue("klio_consumer_latest_written_time_seconds")
+			if !found {
+				return false, nil
+			}
+
+			t.Logf("  klio_consumer_latest_written_time_seconds = %v", consumerLatestWritten)
+			assert.Greater(t, consumerLatestWritten, float64(0),
+				"consumer latest written time should be a valid epoch")
+
+			return true, nil
+		},
+		wait.WithTimeout(90*time.Second),
+		wait.WithInterval(10*time.Second),
+	)
+	require.NoError(t, err, "metric klio_consumer_latest_written_time_seconds not found within timeout")
 }
 
 // assertOTELTracesReceived verifies that the OTEL Collector received expected traces.
