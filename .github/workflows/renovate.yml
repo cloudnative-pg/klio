@@ -26,6 +26,10 @@ jobs:
         env:
           RENOVATE_REPOSITORIES: ${{ github.repository }}
           LOG_LEVEL: ${{ inputs.logLevel || 'info' }}
+          RENOVATE_ALLOWED_COMMANDS: '["^task (core|operator|documentation):[a-z-]+$"]'
         with:
           configurationFile: renovate.json
           token: ${{ secrets.RENOVATE_TOKEN }}
+          docker-cmd-file: .github/renovate-entrypoint.sh
+          docker-user: root
+          mount-docker-socket: true
