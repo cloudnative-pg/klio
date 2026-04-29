@@ -119,7 +119,8 @@ type S3Configuration struct {
 	// Region is the AWS region to be used.
 	Region string `json:"region" mapstructure:"region"`
 
-	// Prefix is the prefix to be used for the stored files
+	// Prefix is the path within the bucket under which all Klio objects
+	// are stored, allowing a single bucket to be shared across multiple deployments.
 	Prefix string `json:"prefix" mapstructure:"prefix"`
 
 	// AccessKeyID is the access key ID

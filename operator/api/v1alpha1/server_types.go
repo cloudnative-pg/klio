@@ -195,7 +195,8 @@ type S3Configuration struct {
 	// BucketName is the name of the bucket
 	BucketName string `json:"bucketName"`
 
-	// Prefix is the prefix to be used for the stored files
+	// Prefix is the path within the bucket under which all Klio objects
+	// are stored, allowing a single bucket to be shared across multiple deployments.
 	// +optional
 	Prefix string `json:"prefix,omitempty"`
 

@@ -17195,8 +17195,9 @@ spec:
                         description: Endpoint is the endpoint to be used
                         type: string
                       prefix:
-                        description: Prefix is the prefix to be used for the stored
-                          files
+                        description: |-
+                          Prefix is the path within the bucket under which all Klio objects
+                          are stored, allowing a single bucket to be shared across multiple deployments.
                         type: string
                       region:
                         description: Region is the region to be used

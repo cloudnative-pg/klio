@@ -247,7 +247,7 @@ _Appears in:_
 | Field | Description | Required | Default | Validation |
 | --- | --- | --- | --- | --- |
 | `bucketName` _string_ | BucketName is the name of the bucket | True |  |  |
-| `prefix` _string_ | Prefix is the prefix to be used for the stored files |  |  | Optional: \{\} <br /> |
+| `prefix` _string_ | Prefix is the path within the bucket under which all Klio objects<br />are stored, allowing a single bucket to be shared across multiple deployments. |  |  | Optional: \{\} <br /> |
 | `endpoint` _string_ | Endpoint is the endpoint to be used |  |  | Optional: \{\} <br /> |
 | `region` _string_ | Region is the region to be used |  |  | Optional: \{\} <br /> |
 | `accessKeyId` _[SecretKeySelector](https://pkg.go.dev/github.com/cloudnative-pg/machinery/pkg/api#SecretKeySelector)_ | The S3 access key ID |  |  | Optional: \{\} <br /> |
