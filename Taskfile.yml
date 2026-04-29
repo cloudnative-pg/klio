@@ -646,11 +646,18 @@ tasks:
   ## OLM
   ####################################
 
+  olm:all:
+    desc: Generate the OLM bundle, catalog image, and CatalogSource YAML
+    requires:
+      vars:
+        - ENVIRONMENT
+    deps:
+      - olm:catalog
+      - olm:catalog-source
+
   olm:manifest:
     run: once
     internal: true
-    deps:
-      - olm:clean
     requires:
       vars:
         - ENVIRONMENT
@@ -680,6 +687,7 @@ tasks:
 
   olm:bundle:
     desc: Generate the OLM bundle for the operator
+    run: once
     deps:
       - olm:manifest
     env:
@@ -729,6 +737,8 @@ tasks:
   olm:catalog-file:
     internal: false
     run: once
+    deps:
+        - olm:build
     requires:
       vars:
         - ENVIRONMENT
@@ -796,9 +806,9 @@ tasks:
       insecure: '{{ if .GITHUB_ACTIONS }}false{{ else }}true{{ end }}'
       suffix: '{{ if ( ne .ENVIRONMENT "production" ) }}-testing{{end}}'
       tag: '{{ .TAG | default .IMAGE_TAG }}'
+    deps:
+      - olm:catalog-file
     cmds:
-      - task: olm:build
-      - task: olm:catalog-file
       - >
         docker buildx build
         --builder {{ .BUILDER_NAME }}
@@ -819,9 +829,8 @@ tasks:
       suffix: '{{ if ( ne .ENVIRONMENT "production" ) }}-testing{{end}}'
       tag: '{{ .TAG | default .IMAGE_TAG }}'
     cmds:
-      - task: olm:catalog
       - |
-        cat << EOF > operator/klio-operator-template.yaml
+        cat << EOF > operator/klio-operator-catalog-source.yaml
         apiVersion: operators.coreos.com/v1alpha1
         kind: CatalogSource
         metadata:

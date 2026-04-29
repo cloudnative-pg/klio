@@ -255,13 +255,14 @@ jobs:
 
       - name: Run OLM task
         run: |
-          task olm:catalog
+          task olm:all
 
       - name: Upload OLM catalog
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: klio-olm
           path: |
+            operator/klio-operator-catalog-source.yaml
             operator/klio-operator-template.yaml
             operator/bundle
 
