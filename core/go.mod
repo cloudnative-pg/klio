@@ -22,7 +22,7 @@ require (
 	github.com/jackc/pglogrepl v0.0.0-20260401131349-e37c41485510
 	github.com/jackc/pgx/v5 v5.9.2
 	github.com/klauspost/compress v1.18.5
-	github.com/minio/sio v0.5.0
+	github.com/minio/sio v0.5.1
 	github.com/nats-io/nats-server/v2 v2.12.8
 	github.com/nats-io/nats.go v1.51.0
 	github.com/onsi/ginkgo/v2 v2.28.3
