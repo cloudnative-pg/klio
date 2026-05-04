@@ -8,7 +8,7 @@ spec:
 
   postgresql:
     pg_hba:
-      - local replication all peer
+      - local replication all peer map=local
 
   plugins:
     - name: klio.cnpg.io

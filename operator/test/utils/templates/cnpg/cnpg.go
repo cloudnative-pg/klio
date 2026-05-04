@@ -27,7 +27,7 @@ func GetCnpgClusterObject(
 			},
 			LogLevel: "debug",
 			PostgresConfiguration: cnpgv1.PostgresConfiguration{
-				PgHBA: []string{"local replication all peer"},
+				PgHBA: []string{"local replication all peer map=local"},
 			},
 			Plugins: []cnpgv1.PluginConfiguration{{
 				Name:          "klio.cnpg.io",

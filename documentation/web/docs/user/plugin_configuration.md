@@ -96,7 +96,7 @@ spec:
 
   postgresql:
     pg_hba:
-      - local replication all peer # Allow replication connections locally
+      - local replication all peer map=local # Allow replication connections locally
 
   plugins:
     - name: klio.cnpg.io
