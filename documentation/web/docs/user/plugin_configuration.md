@@ -451,6 +451,56 @@ always override any conflicting values you set. All other customizations are
 respected.
 :::
 
+### Plugin configuration selection in replica clusters
+
+When a CloudNativePG `Cluster` has multiple `PluginConfiguration`
+resources — one for archiving and one or more for external clusters —
+Klio selects which configuration to apply to the sidecar containers
+using the following logic:
+
+1. **Archive plugin takes precedence**: if the `Cluster` has a Klio
+   plugin declared in `.spec.plugins` (the archive plugin), its
+   `PluginConfiguration` is used for the sidecar containers on every
+   pod.
+2. **Fallback to replica source**: if no archive plugin is configured
+   and the cluster is a replica (`.spec.replica` is set), the
+   designated primary pod uses the `PluginConfiguration` referenced
+   by the external cluster defined as the replica source
+   (`.spec.replica.source`). Non-primary pods do not receive a Klio
+   sidecar in this case.
+
+For example, consider a replica cluster that does not archive locally
+but restores WALs from an external source managed by Klio:
+
+```yaml
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+  name: cluster-dc-b
+spec:
+  instances: 3
+  # No archive plugin in .spec.plugins
+
+  replica:
+    self: cluster-dc-b
+    primary: cluster-dc-a
+    source: cluster-dc-a
+
+  externalClusters:
+    - name: cluster-dc-a
+      plugin:
+        name: klio.cnpg.io
+        parameters:
+          pluginConfigurationRef: source-plugin-config
+```
+
+In this setup, only the designated primary of `cluster-dc-b` gets a
+Klio sidecar, configured from the `source-plugin-config`
+`PluginConfiguration`. The container customizations defined in that
+`PluginConfiguration` (image, resources, environment variables, etc.)
+are applied to the sidecar following the same merging rules described
+above.
+
 ### Available sidecar containers
 
 The following containers can be customized:

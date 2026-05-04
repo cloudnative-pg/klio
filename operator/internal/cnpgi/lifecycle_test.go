@@ -8,6 +8,7 @@ import (
 
 	cnpgv1 "github.com/cloudnative-pg/cloudnative-pg/api/v1"
 	"github.com/cloudnative-pg/cnpg-i/pkg/lifecycle"
+	jsonpatch "github.com/evanphx/json-patch/v5"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
@@ -495,6 +496,40 @@ func TestUserContainerCustomizationsPreserved(t *testing.T) {
 	})
 }
 
+// applyPatch applies a JSON patch from a lifecycle response to the original
+// object and returns the patched result.
+//
+//nolint:ireturn
+func applyPatch[T client.Object](t *testing.T, resp *lifecycle.OperatorLifecycleResponse, original T) T {
+	t.Helper()
+
+	patch, err := jsonpatch.DecodePatch(resp.GetJsonPatch())
+	require.NoError(t, err, "failed to decode JSON patch")
+
+	originalJSON, err := json.Marshal(original)
+	require.NoError(t, err)
+
+	patchedJSON, err := patch.Apply(originalJSON)
+	require.NoError(t, err, "failed to apply JSON patch")
+
+	result, ok := original.DeepCopyObject().(T)
+	require.True(t, ok, "failed to cast patched object to original type")
+	require.NoError(t, json.Unmarshal(patchedJSON, result))
+
+	return result
+}
+
+// findInitContainer returns the init container with the given name, or nil.
+func findInitContainer(pod *corev1.Pod, name string) *corev1.Container {
+	for i := range pod.Spec.InitContainers {
+		if pod.Spec.InitContainers[i].Name == name {
+			return &pod.Spec.InitContainers[i]
+		}
+	}
+
+	return nil
+}
+
 func newTestScheme(t *testing.T) *runtime.Scheme {
 	t.Helper()
 	s := runtime.NewScheme()
@@ -531,7 +566,7 @@ func clusterWithKlioPlugin() *cnpgv1.Cluster {
 	const testPluginConfigName = "missing-plugin-config"
 	return &cnpgv1.Cluster{
 		TypeMeta: metav1.TypeMeta{
-			APIVersion: "postgresql.cnpg.io/v1",
+			APIVersion: cnpgv1.SchemeGroupVersion.String(),
 			Kind:       "Cluster",
 		},
 		ObjectMeta: metav1.ObjectMeta{
@@ -550,6 +585,220 @@ func clusterWithKlioPlugin() *cnpgv1.Cluster {
 			},
 		},
 	}
+}
+
+func TestReconcilePodPluginSelection(t *testing.T) {
+	scheme := newTestScheme(t)
+
+	const (
+		sourcePCName   = "source-pc"
+		sourceCluster  = "source-cluster"
+		targetPodName  = "replica-cluster-1"
+		replicaCluster = "replica-cluster"
+	)
+
+	makeReplicaCluster := func(withArchive bool) *cnpgv1.Cluster {
+		cluster := &cnpgv1.Cluster{
+			TypeMeta: metav1.TypeMeta{
+				APIVersion: cnpgv1.SchemeGroupVersion.String(),
+				Kind:       "Cluster",
+			},
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      replicaCluster,
+				Namespace: testClusterNamespace,
+			},
+			Spec: cnpgv1.ClusterSpec{
+				ReplicaCluster: &cnpgv1.ReplicaClusterConfiguration{
+					Enabled: ptr.To(true),
+					Source:  sourceCluster,
+				},
+				ExternalClusters: []cnpgv1.ExternalCluster{
+					{
+						Name: sourceCluster,
+						PluginConfiguration: &cnpgv1.PluginConfiguration{
+							Name:    klioconfig.PluginName,
+							Enabled: ptr.To(true),
+							Parameters: map[string]string{
+								klioconfig.PluginConfigurationRefParam: sourcePCName,
+							},
+						},
+					},
+				},
+			},
+			Status: cnpgv1.ClusterStatus{
+				TargetPrimary: targetPodName,
+			},
+		}
+
+		if withArchive {
+			cluster.Spec.Plugins = []cnpgv1.PluginConfiguration{
+				{
+					Name:    klioconfig.PluginName,
+					Enabled: ptr.To(true),
+					Parameters: map[string]string{
+						klioconfig.PluginConfigurationRefParam: "archive-pc",
+					},
+				},
+			}
+		}
+
+		return cluster
+	}
+
+	sourcePC := &kliov1alpha1.PluginConfiguration{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      sourcePCName,
+			Namespace: testClusterNamespace,
+		},
+		Spec: kliov1alpha1.PluginConfigurationSpec{
+			ClusterName:      sourceCluster,
+			ServerAddress:    "klio-server.example.com",
+			ClientSecretName: "client-secret",
+			ServerSecretName: "server-secret",
+			Containers: []corev1.Container{
+				{
+					Name:  KlioPluginContainerName,
+					Image: "source-image:latest",
+				},
+			},
+		},
+	}
+
+	makePod := func(name string) *corev1.Pod {
+		return &corev1.Pod{
+			TypeMeta: metav1.TypeMeta{Kind: "Pod", APIVersion: "v1"},
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      name,
+				Namespace: testClusterNamespace,
+			},
+			Spec: corev1.PodSpec{
+				Containers: []corev1.Container{
+					{Name: "postgres"},
+				},
+			},
+		}
+	}
+
+	t.Run("no archive plugin and not a replica cluster returns nil", func(t *testing.T) {
+		cluster := &cnpgv1.Cluster{
+			TypeMeta: metav1.TypeMeta{
+				APIVersion: cnpgv1.SchemeGroupVersion.String(),
+				Kind:       "Cluster",
+			},
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      testClusterName,
+				Namespace: testClusterNamespace,
+			},
+			Spec: cnpgv1.ClusterSpec{},
+		}
+		fakeClient := fake.NewClientBuilder().WithScheme(scheme).Build()
+		impl := LifecycleImplementation{Client: fakeClient}
+		req := buildLifecycleRequest(t, cluster, makePod("pod-1"))
+
+		resp, err := impl.reconcilePod(context.Background(), cluster, req)
+
+		require.NoError(t, err)
+		assert.Nil(t, resp)
+	})
+
+	t.Run("no archive plugin, replica cluster, non-designed-primary pod returns nil", func(t *testing.T) {
+		cluster := makeReplicaCluster(false)
+		fakeClient := fake.NewClientBuilder().
+			WithScheme(scheme).
+			WithObjects(sourcePC.DeepCopy()).
+			Build()
+		impl := LifecycleImplementation{Client: fakeClient}
+		req := buildLifecycleRequest(t, cluster, makePod("replica-cluster-2"))
+
+		resp, err := impl.reconcilePod(context.Background(), cluster, req)
+
+		require.NoError(t, err)
+		assert.Nil(t, resp, "non-primary pod should not get a sidecar")
+	})
+
+	t.Run("no archive plugin, replica cluster primary uses source plugin configuration", func(t *testing.T) {
+		cluster := makeReplicaCluster(false)
+		pod := makePod(targetPodName)
+		fakeClient := fake.NewClientBuilder().
+			WithScheme(scheme).
+			WithObjects(sourcePC.DeepCopy()).
+			Build()
+		impl := LifecycleImplementation{Client: fakeClient}
+		req := buildLifecycleRequest(t, cluster, pod)
+
+		resp, err := impl.reconcilePod(context.Background(), cluster, req)
+
+		require.NoError(t, err)
+		require.NotNil(t, resp, "primary pod of replica cluster should get a sidecar")
+
+		patchedPod := applyPatch(t, resp, pod)
+		sidecar := findInitContainer(patchedPod, KlioPluginContainerName)
+		require.NotNil(t, sidecar, "sidecar init container should be present")
+		assert.Equal(t, "source-image:latest", sidecar.Image,
+			"sidecar should use the image from the source PluginConfiguration")
+		assert.Contains(t, sidecar.Args, "--config",
+			"sidecar args should contain --config")
+		assert.Contains(t, sidecar.Args, "/var/lib/postgresql/klio/"+sourceCluster,
+			"sidecar config path should reference the source cluster key")
+	})
+
+	t.Run("no archive plugin, replica cluster primary, source plugin missing returns nil", func(t *testing.T) {
+		cluster := makeReplicaCluster(false)
+		// No external cluster klio plugin configured.
+		cluster.Spec.ExternalClusters = []cnpgv1.ExternalCluster{
+			{Name: sourceCluster},
+		}
+		fakeClient := fake.NewClientBuilder().WithScheme(scheme).Build()
+		impl := LifecycleImplementation{Client: fakeClient}
+		req := buildLifecycleRequest(t, cluster, makePod(targetPodName))
+
+		resp, err := impl.reconcilePod(context.Background(), cluster, req)
+
+		require.NoError(t, err)
+		assert.Nil(t, resp, "should return nil when replica source has no klio plugin")
+	})
+
+	t.Run("archive plugin present takes precedence over replica source", func(t *testing.T) {
+		cluster := makeReplicaCluster(true)
+		pod := makePod(targetPodName)
+		archivePC := &kliov1alpha1.PluginConfiguration{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "archive-pc",
+				Namespace: testClusterNamespace,
+			},
+			Spec: kliov1alpha1.PluginConfigurationSpec{
+				ClusterName:      replicaCluster,
+				ServerAddress:    "klio-server.example.com",
+				ClientSecretName: "client-secret",
+				ServerSecretName: "server-secret",
+				Containers: []corev1.Container{
+					{
+						Name:  KlioPluginContainerName,
+						Image: "archive-image:latest",
+					},
+				},
+			},
+		}
+		fakeClient := fake.NewClientBuilder().
+			WithScheme(scheme).
+			WithObjects(archivePC.DeepCopy(), sourcePC.DeepCopy()).
+			Build()
+		impl := LifecycleImplementation{Client: fakeClient}
+		req := buildLifecycleRequest(t, cluster, pod)
+
+		resp, err := impl.reconcilePod(context.Background(), cluster, req)
+
+		require.NoError(t, err)
+		require.NotNil(t, resp)
+
+		patchedPod := applyPatch(t, resp, pod)
+		sidecar := findInitContainer(patchedPod, KlioPluginContainerName)
+		require.NotNil(t, sidecar, "sidecar init container should be present")
+		assert.Equal(t, "archive-image:latest", sidecar.Image,
+			"sidecar should use the image from the archive PluginConfiguration, not the source")
+		assert.Contains(t, sidecar.Args, "/var/lib/postgresql/klio/"+klioconfig.ArchiveConfigKey,
+			"sidecar config path should reference the archive key")
+	})
 }
 
 func TestReconcilePodRequeue(t *testing.T) {
@@ -618,7 +867,7 @@ func TestReconcilePodRequeue(t *testing.T) {
 	t.Run("cluster without Klio plugin returns nil (no requeue)", func(t *testing.T) {
 		cluster := &cnpgv1.Cluster{
 			TypeMeta: metav1.TypeMeta{
-				APIVersion: "postgresql.cnpg.io/v1",
+				APIVersion: cnpgv1.SchemeGroupVersion.String(),
 				Kind:       "Cluster",
 			},
 			ObjectMeta: metav1.ObjectMeta{

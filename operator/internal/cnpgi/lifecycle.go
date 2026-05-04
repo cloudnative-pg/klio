@@ -247,9 +247,9 @@ func (impl LifecycleImplementation) reconcilePod(
 		WithValues("podName", pod.Name)
 
 	configKey := klioconfig.ArchiveConfigKey
-	archivePC := plugins.ArchivePluginConfiguration()
 
-	if archivePC == nil {
+	targetPC, ok := plugins[configKey]
+	if !ok {
 		// No archive plugin. The only case where the instance sidecar is
 		// still needed is the designated primary of a replica cluster,
 		// which restores WALs from the external source.
@@ -261,16 +261,18 @@ func (impl LifecycleImplementation) reconcilePod(
 		replicaSource := cluster.Spec.ReplicaCluster.Source
 		ext, _ := cluster.ExternalCluster(replicaSource)
 		configKey = ext.GetServerName()
-	}
 
-	if _, ok := plugins[configKey]; !ok {
-		return nil, fmt.Errorf("plugin %q not found in resolved plugins", configKey)
+		targetPC, ok = plugins[configKey]
+		if !ok {
+			// The cluster may be replicating using a different plugin
+			return nil, nil
+		}
 	}
 
 	mutatedPod := pod.DeepCopy()
 
 	sidecarsToEnrich := []corev1.Container{
-		buildInstanceSidecarTemplate(pod, cluster, archivePC, configKey),
+		buildInstanceSidecarTemplate(pod, cluster, targetPC, configKey),
 	}
 
 	if err := reconcilePodSpec(
