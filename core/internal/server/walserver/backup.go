@@ -105,7 +105,7 @@ func (w *Implementation) checkWALFiles(request *grpc.CloseBackupRequest) ([]stri
 
 		name, err := types.Int64ToLSN(pos).WALFileName(int(request.GetTimeline()), request.GetSegmentSize())
 		if err != nil {
-			return nil, status.Errorf(codes.InvalidArgument, "Invalid WAL position: (%q)", pos)
+			return nil, status.Errorf(codes.InvalidArgument, "Invalid WAL position: (%d)", pos)
 		}
 
 		exists, err := w.conn.IsWALFileExisting(request.GetClusterName(), name)

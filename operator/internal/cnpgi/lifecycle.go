@@ -15,7 +15,6 @@ import (
 	"github.com/cloudnative-pg/machinery/pkg/log"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	kliov1alpha1 "github.com/cloudnative-pg/klio/operator/api/v1alpha1"
@@ -404,7 +403,7 @@ func reconcilePodSpec( // NOSONAR
 
 	sidecarTemplate := corev1.Container{
 		Image:           os.Getenv("SIDECAR_IMAGE"),
-		RestartPolicy:   ptr.To(corev1.ContainerRestartPolicyAlways),
+		RestartPolicy:   new(corev1.ContainerRestartPolicyAlways),
 		ImagePullPolicy: cluster.Spec.ImagePullPolicy,
 		SecurityContext: sidecarSecurityContext(cfg.haveSCC),
 		Env: []corev1.EnvVar{
@@ -509,8 +508,8 @@ func sidecarSecurityContext(haveSCC bool) *corev1.SecurityContext {
 	}
 
 	return &corev1.SecurityContext{
-		RunAsUser:  ptr.To(int64(26)),
-		RunAsGroup: ptr.To(int64(26)),
+		RunAsUser:  new(int64(26)),
+		RunAsGroup: new(int64(26)),
 	}
 }
 

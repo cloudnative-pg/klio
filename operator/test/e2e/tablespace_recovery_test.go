@@ -4,7 +4,6 @@ import (
 	cnpgv1 "github.com/cloudnative-pg/api/pkg/api/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/utils/ptr"
 
 	"github.com/cloudnative-pg/klio/operator/internal/klioconfig"
 	machineryFeatures "github.com/cloudnative-pg/klio/operator/test/machinery/pkg/features"
@@ -92,7 +91,7 @@ func NewTablespaceRecoveryFeatureConfig(
 		Name: externalClusterName,
 		PluginConfiguration: &cnpgv1.PluginConfiguration{
 			Name:    "klio.cnpg.io",
-			Enabled: ptr.To(true),
+			Enabled: new(true),
 			Parameters: map[string]string{
 				klioconfig.PluginConfigurationRefParam: "klio-plugin-configuration-recovery",
 			},

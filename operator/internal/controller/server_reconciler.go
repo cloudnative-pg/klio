@@ -13,7 +13,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/utils/ptr"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -127,7 +126,7 @@ func (r *ServerReconciler) reconcileStatefulSet(
 		},
 		Spec: appsv1.StatefulSetSpec{
 			ServiceName: server.GetServiceName(),
-			Replicas:    ptr.To(int32(1)),
+			Replicas:    new(int32(1)),
 			// Explicitly retain PVCs on StatefulSet deletion and scale-down
 			// to prevent data loss when the StatefulSet is recreated due to
 			// immutable field changes (e.g. VolumeClaimTemplates).
@@ -270,7 +269,7 @@ func (r *ServerReconciler) reconcileStatefulSet(
 			"reason", err.Error())
 
 		if deleteErr := r.Delete(ctx, statefulset, &client.DeleteOptions{
-			PropagationPolicy: ptr.To(metav1.DeletePropagationForeground),
+			PropagationPolicy: new(metav1.DeletePropagationForeground),
 		}); deleteErr != nil {
 			return ctrl.Result{}, fmt.Errorf("failed to delete StatefulSet for recreation: %w", deleteErr)
 		}
@@ -324,10 +323,10 @@ func (r *ServerReconciler) serverPodSecurityContext() *corev1.PodSecurityContext
 	}
 
 	return &corev1.PodSecurityContext{
-		FSGroup:      ptr.To(int64(1000)),
-		RunAsGroup:   ptr.To(int64(1000)),
-		RunAsNonRoot: ptr.To(true),
-		RunAsUser:    ptr.To(int64(1000)),
+		FSGroup:      new(int64(1000)),
+		RunAsGroup:   new(int64(1000)),
+		RunAsNonRoot: new(true),
+		RunAsUser:    new(int64(1000)),
 		SeccompProfile: &corev1.SeccompProfile{
 			Type: corev1.SeccompProfileTypeRuntimeDefault,
 		},
@@ -459,7 +458,7 @@ func buildFileSourceVolMount(volName string, src kliov1alpha1.FileSource) (corev
 
 // identityVolumeDefaultMode is the file mode for identity file volumes.
 // The core refuses to start if the identity file is group/other-readable.
-var identityVolumeDefaultMode = ptr.To(int32(0o400)) //nolint:gochecknoglobals // constant-like value
+var identityVolumeDefaultMode = new(int32(0o400)) //nolint:gochecknoglobals // constant-like value
 
 // buildIdentityVolMount builds a volume and mount for an identity file,
 // forcing DefaultMode 0400 on volume sources that support it so the

@@ -5,7 +5,6 @@ import (
 	"fmt"
 
 	cnpgv1 "github.com/cloudnative-pg/api/pkg/api/v1"
-	"k8s.io/utils/ptr"
 	"sigs.k8s.io/e2e-framework/klient/k8s/resources"
 
 	machineryFeatures "github.com/cloudnative-pg/klio/operator/test/machinery/pkg/features"
@@ -31,7 +30,7 @@ func CreateBackupIDMutator(
 		}
 
 		cluster.Spec.Bootstrap.Recovery.RecoveryTarget = &cnpgv1.RecoveryTarget{
-			TargetImmediate: ptr.To(true),
+			TargetImmediate: new(true),
 			BackupID:        backupID,
 		}
 

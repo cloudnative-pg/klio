@@ -12,7 +12,6 @@ import (
 	"github.com/stretchr/testify/require"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/controller-runtime/pkg/client/interceptor"
@@ -57,7 +56,7 @@ func TestReconcilerPre(t *testing.T) {
 				Plugins: []cnpgv1.PluginConfiguration{
 					{
 						Name:    klioconfig.PluginName,
-						Enabled: ptr.To(true),
+						Enabled: new(true),
 						Parameters: map[string]string{
 							klioconfig.PluginConfigurationRefParam: "missing-plugin-config",
 						},
@@ -104,7 +103,7 @@ func TestReconcilerPre(t *testing.T) {
 				Plugins: []cnpgv1.PluginConfiguration{
 					{
 						Name:    klioconfig.PluginName,
-						Enabled: ptr.To(true),
+						Enabled: new(true),
 						Parameters: map[string]string{
 							klioconfig.PluginConfigurationRefParam: "existing-plugin-config",
 						},
@@ -190,7 +189,7 @@ func TestReconcilerPre(t *testing.T) {
 				Plugins: []cnpgv1.PluginConfiguration{
 					{
 						Name:    klioconfig.PluginName,
-						Enabled: ptr.To(true),
+						Enabled: new(true),
 						Parameters: map[string]string{
 							klioconfig.PluginConfigurationRefParam: "archive-plugin-config",
 						},
@@ -201,7 +200,7 @@ func TestReconcilerPre(t *testing.T) {
 						Name: "source-cluster",
 						PluginConfiguration: &cnpgv1.PluginConfiguration{
 							Name:    klioconfig.PluginName,
-							Enabled: ptr.To(true),
+							Enabled: new(true),
 							Parameters: map[string]string{
 								klioconfig.PluginConfigurationRefParam: "missing-source-config",
 							},
@@ -240,7 +239,7 @@ func TestReconcilerPre(t *testing.T) {
 				Plugins: []cnpgv1.PluginConfiguration{
 					{
 						Name:    klioconfig.PluginName,
-						Enabled: ptr.To(true),
+						Enabled: new(true),
 						Parameters: map[string]string{
 							klioconfig.PluginConfigurationRefParam: "some-config",
 						},

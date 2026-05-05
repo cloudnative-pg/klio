@@ -202,8 +202,3 @@ type PluginConfigurationList struct {
 
 	Items []PluginConfiguration `json:"items"`
 }
-
-//nolint:gochecknoinits
-func init() {
-	SchemeBuilder.Register(&PluginConfiguration{}, &PluginConfigurationList{})
-}

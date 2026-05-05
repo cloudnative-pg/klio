@@ -11,7 +11,6 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
-	"k8s.io/utils/ptr"
 )
 
 const (
@@ -192,12 +191,12 @@ func GetRustFSDeployment(name, namespace string) *appsv1.Deployment {
 			},
 		},
 		Spec: appsv1.DeploymentSpec{
-			Replicas: ptr.To(int32(1)),
+			Replicas: new(int32(1)),
 			Strategy: appsv1.DeploymentStrategy{
 				Type: appsv1.RollingUpdateDeploymentStrategyType,
 				RollingUpdate: &appsv1.RollingUpdateDeployment{
-					MaxUnavailable: ptr.To(intstr.FromInt32(1)),
-					MaxSurge:       ptr.To(intstr.FromInt32(0)),
+					MaxUnavailable: new(intstr.FromInt32(1)),
+					MaxSurge:       new(intstr.FromInt32(0)),
 				},
 			},
 			Selector: &metav1.LabelSelector{
@@ -215,9 +214,9 @@ func GetRustFSDeployment(name, namespace string) *appsv1.Deployment {
 				},
 				Spec: corev1.PodSpec{
 					SecurityContext: &corev1.PodSecurityContext{
-						FSGroup:    ptr.To(int64(10001)),
-						RunAsGroup: ptr.To(int64(10001)),
-						RunAsUser:  ptr.To(int64(10001)),
+						FSGroup:    new(int64(10001)),
+						RunAsGroup: new(int64(10001)),
+						RunAsUser:  new(int64(10001)),
 					},
 					InitContainers: []corev1.Container{
 						{
@@ -229,8 +228,8 @@ func GetRustFSDeployment(name, namespace string) *appsv1.Deployment {
 								"mkdir -p /data /logs && chown 10001:10001 /data /logs",
 							},
 							SecurityContext: &corev1.SecurityContext{
-								RunAsUser:  ptr.To(int64(0)),
-								RunAsGroup: ptr.To(int64(0)),
+								RunAsUser:  new(int64(0)),
+								RunAsGroup: new(int64(0)),
 							},
 							VolumeMounts: []corev1.VolumeMount{
 								{
@@ -308,8 +307,8 @@ func GetRustFSDeployment(name, namespace string) *appsv1.Deployment {
 								FailureThreshold:    3,
 							},
 							SecurityContext: &corev1.SecurityContext{
-								RunAsNonRoot:           ptr.To(true),
-								ReadOnlyRootFilesystem: ptr.To(true),
+								RunAsNonRoot:           new(true),
+								ReadOnlyRootFilesystem: new(true),
 								Capabilities: &corev1.Capabilities{
 									Drop: []corev1.Capability{"ALL"},
 								},
@@ -469,7 +468,7 @@ func GetRustFSCreateBucketJob(name, namespace, bucketName string) *batchv1.Job {
 					},
 				},
 			},
-			BackoffLimit: ptr.To(int32(4)),
+			BackoffLimit: new(int32(4)),
 		},
 	}
 }

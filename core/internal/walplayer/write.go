@@ -39,7 +39,7 @@ func (w *WALWriter) ToDirectory(ctx context.Context, dirname string, segmentsCou
 	for range segmentsCount {
 		name, err := types.Int64ToLSN(w.position).WALFileName(1, w.segmentSize)
 		if err != nil {
-			return fmt.Errorf("while formatting WAL file name (position %q): %w", w.position, err)
+			return fmt.Errorf("while formatting WAL file name (position %d): %w", w.position, err)
 		}
 
 		if err := w.writeWAL(ctx, path.Join(dirname, name)); err != nil {

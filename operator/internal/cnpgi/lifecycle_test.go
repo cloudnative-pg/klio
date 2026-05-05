@@ -15,7 +15,6 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/controller-runtime/pkg/client/interceptor"
@@ -457,8 +456,8 @@ func TestUserContainerCustomizationsPreserved(t *testing.T) {
 					},
 				},
 				SecurityContext: &corev1.SecurityContext{
-					RunAsUser:  ptr.To(int64(1000)),
-					RunAsGroup: ptr.To(int64(1000)),
+					RunAsUser:  new(int64(1000)),
+					RunAsGroup: new(int64(1000)),
 				},
 				Env: []corev1.EnvVar{
 					{Name: "CUSTOM_VAR", Value: "custom-value"},
@@ -577,7 +576,7 @@ func clusterWithKlioPlugin() *cnpgv1.Cluster {
 			Plugins: []cnpgv1.PluginConfiguration{
 				{
 					Name:    klioconfig.PluginName,
-					Enabled: ptr.To(true),
+					Enabled: new(true),
 					Parameters: map[string]string{
 						klioconfig.PluginConfigurationRefParam: testPluginConfigName,
 					},
@@ -609,7 +608,7 @@ func TestReconcilePodPluginSelection(t *testing.T) {
 			},
 			Spec: cnpgv1.ClusterSpec{
 				ReplicaCluster: &cnpgv1.ReplicaClusterConfiguration{
-					Enabled: ptr.To(true),
+					Enabled: new(true),
 					Source:  sourceCluster,
 				},
 				ExternalClusters: []cnpgv1.ExternalCluster{
@@ -617,7 +616,7 @@ func TestReconcilePodPluginSelection(t *testing.T) {
 						Name: sourceCluster,
 						PluginConfiguration: &cnpgv1.PluginConfiguration{
 							Name:    klioconfig.PluginName,
-							Enabled: ptr.To(true),
+							Enabled: new(true),
 							Parameters: map[string]string{
 								klioconfig.PluginConfigurationRefParam: sourcePCName,
 							},
@@ -634,7 +633,7 @@ func TestReconcilePodPluginSelection(t *testing.T) {
 			cluster.Spec.Plugins = []cnpgv1.PluginConfiguration{
 				{
 					Name:    klioconfig.PluginName,
-					Enabled: ptr.To(true),
+					Enabled: new(true),
 					Parameters: map[string]string{
 						klioconfig.PluginConfigurationRefParam: "archive-pc",
 					},

@@ -11,7 +11,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/utils/ptr"
 	"sigs.k8s.io/e2e-framework/klient/k8s/resources"
 	"sigs.k8s.io/e2e-framework/klient/wait"
 	"sigs.k8s.io/e2e-framework/pkg/envconf"
@@ -57,7 +56,7 @@ func (f *ReplicaClusterFeature) Run() types.StepFunc {
 		// Recovery
 		f.recoveryCluster.Spec.ReplicaCluster = &cnpgv1.ReplicaClusterConfiguration{
 			Source:  f.recoveryCluster.Spec.Bootstrap.Recovery.Source,
-			Enabled: ptr.To(true),
+			Enabled: new(true),
 		}
 
 		// Mutate recovery cluster

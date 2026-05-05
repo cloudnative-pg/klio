@@ -8,7 +8,6 @@ import (
 	rbacv1 "k8s.io/api/rbac/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
-	"k8s.io/utils/ptr"
 )
 
 const (
@@ -152,7 +151,7 @@ func GetCollectorDeployment(namespace string) *appsv1.Deployment {
 			Namespace: namespace,
 		},
 		Spec: appsv1.DeploymentSpec{
-			Replicas: ptr.To(int32(1)),
+			Replicas: new(int32(1)),
 			Selector: &metav1.LabelSelector{
 				MatchLabels: labels,
 			},

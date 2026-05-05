@@ -3,7 +3,6 @@ package cnpg
 import (
 	cnpgv1 "github.com/cloudnative-pg/api/pkg/api/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/utils/ptr"
 
 	"github.com/cloudnative-pg/klio/operator/internal/klioconfig"
 )
@@ -31,8 +30,8 @@ func GetCnpgClusterObject(
 			},
 			Plugins: []cnpgv1.PluginConfiguration{{
 				Name:          "klio.cnpg.io",
-				Enabled:       ptr.To(true),
-				IsWALArchiver: ptr.To(true),
+				Enabled:       new(true),
+				IsWALArchiver: new(true),
 				Parameters: map[string]string{
 					klioconfig.PluginConfigurationRefParam: pluginConfigurationRef,
 				},

@@ -13,7 +13,6 @@ import (
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/utils/ptr"
 	"sigs.k8s.io/e2e-framework/klient/k8s/resources"
 	"sigs.k8s.io/e2e-framework/klient/wait"
 	"sigs.k8s.io/e2e-framework/pkg/envconf"
@@ -255,12 +254,12 @@ func NewTier2RetentionFeatureConfig(
 			EnableTier2Recovery: false,
 			Mode:                kliov1alpha1.ModeStandard,
 			Tier2RetentionPolicy: &kliov1alpha1.RetentionPolicy{
-				KeepLatest:  ptr.To(tier2RetentionKeepNum),
-				KeepHourly:  ptr.To(0),
-				KeepDaily:   ptr.To(0),
-				KeepWeekly:  ptr.To(0),
-				KeepMonthly: ptr.To(0),
-				KeepAnnual:  ptr.To(0),
+				KeepLatest:  new(tier2RetentionKeepNum),
+				KeepHourly:  new(0),
+				KeepDaily:   new(0),
+				KeepWeekly:  new(0),
+				KeepMonthly: new(0),
+				KeepAnnual:  new(0),
 			},
 		},
 	)

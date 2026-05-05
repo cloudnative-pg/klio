@@ -8,7 +8,6 @@ import (
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/utils/ptr"
 	"sigs.k8s.io/e2e-framework/klient/k8s/resources"
 	"sigs.k8s.io/e2e-framework/klient/wait"
 	"sigs.k8s.io/e2e-framework/pkg/envconf"
@@ -125,7 +124,7 @@ func (c *pluginConfigurationUpdateScenario) Run(
 	if currentPC.Spec.Tier1.RetentionPolicy == nil {
 		currentPC.Spec.Tier1.RetentionPolicy = &kliov1alpha1.RetentionPolicy{}
 	}
-	currentPC.Spec.Tier1.RetentionPolicy.KeepLatest = ptr.To(5)
+	currentPC.Spec.Tier1.RetentionPolicy.KeepLatest = new(5)
 
 	require.NoError(t, r.Update(ctx, &currentPC), "failed to update PluginConfiguration")
 

@@ -258,11 +258,6 @@ type ServerList struct {
 	Items []Server `json:"items"`
 }
 
-//nolint:gochecknoinits
-func init() {
-	SchemeBuilder.Register(&Server{}, &ServerList{})
-}
-
 // GetServiceName returns the name of the service associated with the Klio server.
 func (s *Server) GetServiceName() string {
 	return s.Name

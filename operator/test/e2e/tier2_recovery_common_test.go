@@ -14,7 +14,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8swait "k8s.io/apimachinery/pkg/util/wait"
-	"k8s.io/utils/ptr"
 	"sigs.k8s.io/e2e-framework/klient/k8s/resources"
 	"sigs.k8s.io/e2e-framework/klient/wait"
 
@@ -410,7 +409,7 @@ func buildTier2ScenarioResources(namespace string, instances int) *tier2Scenario
 		Name: tier2SourceClusterName,
 		PluginConfiguration: &cnpgv1.PluginConfiguration{
 			Name:    "klio.cnpg.io",
-			Enabled: ptr.To(true),
+			Enabled: new(true),
 			Parameters: map[string]string{
 				klioconfig.PluginConfigurationRefParam: klioPluginConfigurationRecovery.Name,
 			},
