@@ -29,6 +29,9 @@ Klio automatically collects the following:
          - Number of WAL files written
          - Bytes written
          - Timestamp of the most recently written WAL file
+      - Queue metrics
+         - Number of messages in the queue
+         - Number of bytes in the queue
       - [GRPC metrics](https://opentelemetry.io/docs/specs/semconv/rpc/rpc-metrics/)
       - [Go runtime statistics](https://pkg.go.dev/go.opentelemetry.io/contrib/instrumentation/runtime)
       - [Host metrics](https://pkg.go.dev/go.opentelemetry.io/contrib/instrumentation/host)
@@ -150,6 +153,17 @@ and track Kopia snapshot statistics:
 | `klio.base.latest_snapshot_dirs` | Gauge | - | Number of directories in latest base snapshot |
 | `klio.base.latest_snapshot_age` | Gauge | s | Age of latest base snapshot in seconds |
 | `klio.base.oldest_snapshot_age` | Gauge | s | Age of oldest base snapshot in seconds |
+
+### Queue metrics (server)
+
+These metrics are emitted by the Klio server and track the state of
+the embedded NATS JetStream queue used for asynchronous Tier 2
+offloading of WAL files and backups:
+
+| Metric Name | Type | Unit | Description |
+|---|---|---|---|
+| `klio.queue.messages` | Gauge | - | Number of messages currently stored in the embedded NATS JetStream queue |
+| `klio.queue.bytes` | Gauge | By | Number of bytes currently stored in the embedded NATS JetStream queue |
 
 ## Configuration
 

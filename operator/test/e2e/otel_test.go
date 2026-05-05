@@ -580,6 +580,24 @@ func assertOTELMetricsReceived(
 	failures, _ := promMetrics.GetValue("klio_backup_failures_total")
 	assert.InDelta(t, 0, failures, 0.001, "should have no backup failures")
 
+	// Verify NATS queue depth metrics are exported.
+	assert.True(t, promMetrics.HasMetric("klio_queue_messages"),
+		"metric klio_queue_messages not found")
+	assert.True(t, promMetrics.HasMetric("klio_queue_bytes"),
+		"metric klio_queue_bytes not found")
+
+	queueMessages, found := promMetrics.GetValue("klio_queue_messages")
+	if assert.True(t, found, "klio_queue_messages not found") {
+		assert.GreaterOrEqual(t, queueMessages, float64(0),
+			"queue message count should be non-negative")
+	}
+
+	queueBytes, found := promMetrics.GetValue("klio_queue_bytes")
+	if assert.True(t, found, "klio_queue_bytes not found") {
+		assert.GreaterOrEqual(t, queueBytes, float64(0),
+			"queue byte count should be non-negative")
+	}
+
 	// Verify WAL metrics (Tier 1 and Tier 2)
 	assertOTELWALMetrics(t, cfg, scenario, promMetrics, collectorPod)
 

@@ -84,6 +84,9 @@ const (
 	SnapshotLatestDirCountMetric  = "klio.base.latest_snapshot_dirs"
 	SnapshotLatestAgeMetric       = "klio.base.latest_snapshot_age"
 	SnapshotOldestAgeMetric       = "klio.base.oldest_snapshot_age"
+
+	QueueMessagesMetric = "klio.queue.messages"
+	QueueBytesMetric    = "klio.queue.bytes"
 )
 
 // BackupMetrics holds OTel instruments for backup lifecycle tracking.
