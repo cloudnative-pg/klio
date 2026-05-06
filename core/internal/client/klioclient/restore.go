@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path"
+	"slices"
 	"sort"
 	"time"
 
@@ -127,8 +128,8 @@ func (l BackupList) FindClosestBackup(t time.Time) *BackupMetadata {
 	}
 
 	l.SortByAscendingTime()
-	for i := len(l) - 1; i >= 0; i-- {
-		if l[i].StoppedAt <= t.Unix() {
+	for i, v := range slices.Backward(l) {
+		if v.StoppedAt <= t.Unix() {
 			return &l[i]
 		}
 	}

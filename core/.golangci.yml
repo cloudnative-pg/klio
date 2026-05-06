@@ -14,7 +14,9 @@ linters:
     - wrapcheck
     - varnamelen
     - nilnil
+    - goconst
     - godox
+    - gomodguard
     - noinlineerr
   settings:
     gomoddirectives:
@@ -54,9 +56,6 @@ linters:
           - revive
         text: should not use dot imports
         source: ginkgo|gomega
-      - linters:
-          - goconst
-        path: _test\.go
       - linters:
           - revive
         text: avoid meaningless package names

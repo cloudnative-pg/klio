@@ -14,7 +14,9 @@ linters:
     - wrapcheck
     - varnamelen
     - nilnil
+    - goconst
     - godox
+    - gomodguard
     - noinlineerr
   settings:
     lll:
@@ -37,9 +39,6 @@ linters:
           - revive
         text: should not use dot imports
         source: ginkgo|gomega
-      - linters:
-          - goconst
-        path: _test\.go
       - linters:
           - lll
         source: //\s*\+
