@@ -6,11 +6,7 @@ import (
 	"os"
 	"path/filepath"
 
-	cnpgv1 "github.com/cloudnative-pg/cloudnative-pg/api/v1"
-	"github.com/cloudnative-pg/machinery/pkg/log"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/client-go/discovery"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
@@ -51,10 +47,6 @@ func main() { // NOSONAR
 	var pluginClientCert string
 	var pluginServerAddress string
 
-	// cnpg scheme generation
-	var cnpgGroup string
-	var cnpgVersion string
-
 	flag.StringVar(&metricsAddr, "metrics-bind-address", "0", "The address the metrics endpoint binds to. "+
 		"Use :8443 for HTTPS or :8080 for HTTP, or leave as 0 to disable the metrics service.")
 	flag.StringVar(&probeAddr, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
@@ -78,10 +70,6 @@ func main() { // NOSONAR
 	flag.StringVar(&pluginServerKey, "plugin-server-key", "", "Path to the plugin server key")
 	flag.StringVar(&pluginClientCert, "plugin-client-cert", "", "Path to the plugin client certificate")
 	flag.StringVar(&pluginServerAddress, "plugin-server-address", ":9090", "Address of the plugin server")
-
-	// cnpg scheme generation
-	flag.StringVar(&cnpgGroup, "custom-cnpg-group", "", "defaults to postgresql.cnpg.io")
-	flag.StringVar(&cnpgVersion, "custom-cnpg-version", "", "defaults to v1")
 
 	opts := zap.Options{
 		Development: true,
@@ -185,7 +173,7 @@ func main() { // NOSONAR
 	}
 
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
-		Scheme:                 generateScheme(cnpgGroup, cnpgVersion),
+		Scheme:                 generateScheme(),
 		Metrics:                metricsServerOptions,
 		WebhookServer:          webhookServer,
 		HealthProbeBindAddress: probeAddr,
@@ -229,8 +217,6 @@ func main() { // NOSONAR
 		ServerKeyPath:                  pluginServerKey,
 		ClientCertPath:                 pluginClientCert,
 		ServerAddress:                  pluginServerAddress,
-		CNPGGroup:                      cnpgGroup,
-		CNPGVersion:                    cnpgVersion,
 		HaveSecurityContextConstraints: haveSCC,
 	}); err != nil {
 		setupLog.Error(err, "unable to create CNPGI runnable")
@@ -289,30 +275,14 @@ func main() { // NOSONAR
 	}
 }
 
-// generateScheme creates a runtime.Scheme object with all the
-// definition needed to support the sidecar. This allows
-// the plugin to be used in every CNPG-based operator.
-func generateScheme(cnpgGroup, cnpgVersion string) *runtime.Scheme {
+// generateScheme builds the controller-manager scheme. CNPG types are not
+// registered: they arrive only via gRPC and are decoded with json.Unmarshal.
+func generateScheme() *runtime.Scheme {
 	result := runtime.NewScheme()
 
 	// +kubebuilder:scaffold:scheme
 	utilruntime.Must(clientgoscheme.AddToScheme(result))
 	utilruntime.Must(kliov1alpha1.AddToScheme(result))
-
-	if len(cnpgGroup) == 0 {
-		cnpgGroup = cnpgv1.SchemeGroupVersion.Group
-	}
-	if len(cnpgVersion) == 0 {
-		cnpgVersion = cnpgv1.SchemeGroupVersion.Version
-	}
-
-	schemeGroupVersion := schema.GroupVersion{Group: cnpgGroup, Version: cnpgVersion}
-	result.AddKnownTypes(schemeGroupVersion, &cnpgv1.Cluster{}, &cnpgv1.ClusterList{})
-	result.AddKnownTypes(schemeGroupVersion, &cnpgv1.Backup{}, &cnpgv1.BackupList{})
-	result.AddKnownTypes(schemeGroupVersion, &cnpgv1.ScheduledBackup{}, &cnpgv1.ScheduledBackupList{})
-	metav1.AddToGroupVersion(result, schemeGroupVersion)
-
-	log.Info("Custom CNPG types registration", "schemeGroupVersion", schemeGroupVersion)
 
 	return result
 }

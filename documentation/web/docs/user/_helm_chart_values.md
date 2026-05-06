@@ -8,7 +8,7 @@
 | certmanager.enable | bool | `true` | Enable cert-manager integration for certificate creation. |
 | certmanager.renewBefore | string | `"360h"` | The renew before time for the certificates. |
 | controllerManager.affinity | object | `{}` | Affinity rules for the operator deployment. |
-| controllerManager.manager.args | list | `["--metrics-bind-address=:8443","--leader-elect","--health-probe-bind-address=:8081","--plugin-server-cert=/pluginServer/tls.crt","--plugin-server-key=/pluginServer/tls.key","--plugin-client-cert=/pluginClient/tls.crt","--plugin-server-address=:9090","--custom-cnpg-group=postgresql.cnpg.io"]` | List of command line arguments to pass to the controller manager. |
+| controllerManager.manager.args | list | `["--metrics-bind-address=:8443","--leader-elect","--health-probe-bind-address=:8081","--plugin-server-cert=/pluginServer/tls.crt","--plugin-server-key=/pluginServer/tls.key","--plugin-client-cert=/pluginClient/tls.crt","--plugin-server-address=:9090"]` | List of command line arguments to pass to the controller manager. |
 | controllerManager.manager.containerSecurityContext | object | `{"allowPrivilegeEscalation":false,"capabilities":{"drop":["ALL"]}}` | The security context for the controller manager container. |
 | controllerManager.manager.env | object | `{"SIDECAR_IMAGE":"ghcr.io/enterprisedb/klio:v0.0.14"}` | The environment variables to set in the controller manager container. |
 | controllerManager.manager.image.pullPolicy | string | `"Always"` | The controller manager container imagePullPolicy. |

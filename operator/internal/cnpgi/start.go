@@ -17,8 +17,6 @@ type CNPGI struct {
 	ServerKeyPath                  string
 	ClientCertPath                 string
 	ServerAddress                  string
-	CNPGGroup                      string
-	CNPGVersion                    string
 	HaveSecurityContextConstraints bool
 }
 
@@ -30,8 +28,6 @@ func (c *CNPGI) Start(ctx context.Context) error {
 		})
 		lifecycle.RegisterOperatorLifecycleServer(server, LifecycleImplementation{
 			Client:                         c.Client,
-			CNPGGroup:                      c.CNPGGroup,
-			CNPGVersion:                    c.CNPGVersion,
 			HaveSecurityContextConstraints: c.HaveSecurityContextConstraints,
 		})
 

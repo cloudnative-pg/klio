@@ -8,6 +8,27 @@ This page lists version-specific changes that may require
 manual action when upgrading Klio. For the upgrade procedure,
 see the [Helm chart page](helm_chart.mdx#upgrades).
 
+## Upgrading to 0.0.15
+
+The `--custom-cnpg-group` and `--custom-cnpg-version` flags have been
+removed from the operator manager arguments. The operator now derives the CNPG
+API group and version from the cluster's metadata at runtime.
+
+In the Helm chart, `--custom-cnpg-group` was previously set in the default
+`controllerManager.manager.args` list, and has now been removed.
+
+No action is needed in most cases, unless one of the following applies:
+1. You are setting these flags in your Helm values or `--set` overrides
+   explicitly
+2. You are using `--reuse-values` when upgrading, which would preserve the old
+   flags in the new deployment.
+
+In any of these cases, ensure that the `controllerManager.manager.args` is
+overridden to define the parameter list.
+
+The default arguments are shown in the
+[Helm chart page](helm_chart.mdx#configuration-reference).
+
 ## Upgrading to 0.0.14
 
 ### Encryption key management (breaking change)

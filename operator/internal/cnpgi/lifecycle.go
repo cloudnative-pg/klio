@@ -32,9 +32,23 @@ type LifecycleImplementation struct {
 	lifecycle.UnimplementedOperatorLifecycleServer
 
 	Client                         client.Client
-	CNPGGroup                      string
-	CNPGVersion                    string
 	HaveSecurityContextConstraints bool
+}
+
+// cnpgGroupVersion returns the API group and version of the cluster as
+// declared in its TypeMeta, falling back to the upstream defaults when the
+// wire payload omits them.
+func cnpgGroupVersion(cluster *cnpgv1.Cluster) (string, string) {
+	gvk := cluster.GroupVersionKind()
+	group, version := gvk.Group, gvk.Version
+	if group == "" {
+		group = cnpgv1.SchemeGroupVersion.Group
+	}
+	if version == "" {
+		version = cnpgv1.SchemeGroupVersion.Version
+	}
+
+	return group, version
 }
 
 // GetCapabilities exposes the lifecycle capabilities.
@@ -194,14 +208,15 @@ func (impl LifecycleImplementation) reconcileJob(
 
 	sidecarsToEnrich := []corev1.Container{restoreSidecar}
 
+	cnpgGroup, cnpgVersion := cnpgGroupVersion(cluster)
 	if err := reconcilePodSpec(
 		cluster,
 		&mutatedJob.Spec.Template.Spec,
 		jobRole,
 		reconcilePodSpecConfiguration{
 			sidecarsToEnrich: sidecarsToEnrich,
-			cnpgGroup:        impl.CNPGGroup,
-			cnpgVersion:      impl.CNPGVersion,
+			cnpgGroup:        cnpgGroup,
+			cnpgVersion:      cnpgVersion,
 			plugins:          plugins,
 			haveSCC:          impl.HaveSecurityContextConstraints,
 		},
@@ -274,14 +289,15 @@ func (impl LifecycleImplementation) reconcilePod(
 		buildInstanceSidecarTemplate(pod, cluster, targetPC, configKey),
 	}
 
+	cnpgGroup, cnpgVersion := cnpgGroupVersion(cluster)
 	if err := reconcilePodSpec(
 		cluster,
 		&mutatedPod.Spec,
 		"postgres",
 		reconcilePodSpecConfiguration{
 			sidecarsToEnrich: sidecarsToEnrich,
-			cnpgGroup:        impl.CNPGGroup,
-			cnpgVersion:      impl.CNPGVersion,
+			cnpgGroup:        cnpgGroup,
+			cnpgVersion:      cnpgVersion,
 			plugins:          plugins,
 			haveSCC:          impl.HaveSecurityContextConstraints,
 		}); err != nil {

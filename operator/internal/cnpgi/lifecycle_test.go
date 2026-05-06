@@ -36,6 +36,77 @@ const (
 	expectedArchiveConfigPath = "/var/lib/postgresql/klio/klio-archive"
 )
 
+func TestCnpgGroupVersion(t *testing.T) {
+	defaultGroup := cnpgv1.SchemeGroupVersion.Group
+	defaultVersion := cnpgv1.SchemeGroupVersion.Version
+
+	tests := []struct {
+		name            string
+		cluster         *cnpgv1.Cluster
+		expectedGroup   string
+		expectedVersion string
+	}{
+		{
+			name: "both set in TypeMeta",
+			cluster: &cnpgv1.Cluster{
+				TypeMeta: metav1.TypeMeta{
+					APIVersion: "custom.example.io/v2",
+					Kind:       "Cluster",
+				},
+			},
+			expectedGroup:   "custom.example.io",
+			expectedVersion: "v2",
+		},
+		{
+			name:            "both empty falls back to defaults",
+			cluster:         &cnpgv1.Cluster{},
+			expectedGroup:   defaultGroup,
+			expectedVersion: defaultVersion,
+		},
+		{
+			name: "only group empty falls back to default group",
+			cluster: &cnpgv1.Cluster{
+				TypeMeta: metav1.TypeMeta{
+					APIVersion: "v3",
+					Kind:       "Cluster",
+				},
+			},
+			expectedGroup:   defaultGroup,
+			expectedVersion: "v3",
+		},
+		{
+			name: "only version empty falls back to default version",
+			cluster: &cnpgv1.Cluster{
+				TypeMeta: metav1.TypeMeta{
+					APIVersion: "custom.example.io/",
+					Kind:       "Cluster",
+				},
+			},
+			expectedGroup:   "custom.example.io",
+			expectedVersion: defaultVersion,
+		},
+		{
+			name: "standard CNPG APIVersion",
+			cluster: &cnpgv1.Cluster{
+				TypeMeta: metav1.TypeMeta{
+					APIVersion: cnpgv1.SchemeGroupVersion.String(),
+					Kind:       "Cluster",
+				},
+			},
+			expectedGroup:   defaultGroup,
+			expectedVersion: defaultVersion,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			group, version := cnpgGroupVersion(tt.cluster)
+			assert.Equal(t, tt.expectedGroup, group)
+			assert.Equal(t, tt.expectedVersion, version)
+		})
+	}
+}
+
 func TestFindUserContainer(t *testing.T) {
 	tests := []struct {
 		name              string

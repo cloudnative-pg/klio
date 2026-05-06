@@ -67,7 +67,6 @@ spec:
           - --plugin-server-key=/pluginServer/tls.key
           - --plugin-client-cert=/pluginClient/tls.crt
           - --plugin-server-address=:9090
-          - --custom-cnpg-group=postgresql.cnpg.io
         image: controller:latest
         name: manager
         ports: []

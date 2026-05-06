@@ -217,6 +217,7 @@ Taskfile
 Tolerations
 TopoLVM
 TrueClass
+TypeMeta
 UID
 UIDs
 UTF
