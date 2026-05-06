@@ -33,6 +33,11 @@ The default arguments are shown in the
 
 ### Encryption key management (breaking change)
 
+:::Warning
+You should complete the first four steps in this section
+before proceeding with the Klio upgrade with Helm.
+:::
+
 Previous versions of Klio stored the encryption key as a
 plaintext value in a Kubernetes Secret, referenced via the
 `encryptionKey` field (a `SecretKeySelector`). This field has
@@ -56,78 +61,129 @@ identity files.
 
 To migrate an existing deployment:
 
+:::Warning
+Complete steps from 1. to 4. before upgrading Klio.
+:::
+
 1. Extract the secret name and key from the Server resource:
 
-```bash
-SECRET_NAME=$(kubectl get server my-server \
-    -o jsonpath='{.spec.tier1.encryptionKey.name}')
-SECRET_KEY=$(kubectl get server my-server \
-    -o jsonpath='{.spec.tier1.encryptionKey.key}')
-```
+   ```bash
+   SECRET_NAME=$(kubectl get server my-server \
+       -o jsonpath='{.spec.tier1.encryptionKey.name}')
+   SECRET_KEY=$(kubectl get server my-server \
+       -o jsonpath='{.spec.tier1.encryptionKey.key}')
+   ```
 
-2. Retrieve the current encryption key from the secret:
+1. Retrieve the current encryption key from the secret:
 
-```bash
-ENCRYPTION_KEY=$(kubectl get secret "$SECRET_NAME" \
-    -o jsonpath="{.data.${SECRET_KEY}}" | base64 -d)
-```
+   ```bash
+   ENCRYPTION_KEY=$(kubectl get secret "$SECRET_NAME" \
+       -o jsonpath="{.data.${SECRET_KEY}}" | base64 -d)
+   ```
 
-3. Generate an Age key pair:
+1. Create the `values.yaml` file from the existing Helm chart:
 
-```bash
-age-keygen -o identity.txt
-# Note the public key from the output
-```
+   ```bash
+   helm get values -n cnpg-system <RELEASE_NAME> > values.yaml
+   ```
 
-4. Encrypt the existing key with Age:
+1. Edit the `values.yaml` file updating the Klio version with
+   the new release tag:
 
-```bash
-echo -n "$ENCRYPTION_KEY" | age \
-    -r <public-key-from-step-3> \
-    -o encryption-key.age --armor
-```
+   ```bash
+   controllerManager:
+     manager:
+       env:
+         SIDECAR_IMAGE: ghcr.io/enterprisedb/klio:v0.0.14
+         [...]
+       image:
+         tag: v0.0.14
+         [...]
+   ```
 
-5. Create new Kubernetes Secrets:
+   Now proceed with the Klio upgrade following the
+   [Helm chart page](helm_chart.mdx#upgrades),
+   until the "Upgrade Klio Server" section included.
+   But first, please, complete reading this section.
 
-```bash
-kubectl create secret generic my-server-encryption-key \
-    --from-file=encryption-key.age
-kubectl create secret generic my-server-age-identity \
-    --from-file=identity.txt
-```
+   :::Warning
+   The command to verify that the Server is running the
+   latest version will continue showing the old version.
+   This is normal, as the operator can not reconcile yet.
+   :::
 
-6. Update the `tier1` section of the `Server` resource,
+   You can use the `values.yaml` file created in the previous
+   step when requested.
+
+   :::Warning
+   Do not delete the Klio Server's Pod yet, nor the
+   StatefulSet. The situation will settle after you
+   perform the following steps in this section.
+   :::
+
+1. Generate an Age key pair:
+
+   ```bash
+   age-keygen -o identity.txt
+   # Note the public key from the output
+   ```
+
+1. Encrypt the existing key with Age:
+
+   ```bash
+   echo -n "$ENCRYPTION_KEY" | age \
+       -r <public-key-from-step-5> \
+       -o encryption-key.age --armor
+   ```
+
+1. Create new Kubernetes Secrets:
+
+   ```bash
+   kubectl create secret generic my-server-encryption-key \
+       --from-file=encryption-key.age
+   kubectl create secret generic my-server-age-identity \
+       --from-file=identity.txt
+   ```
+
+1. Update the `tier1` section of the `Server` resource,
    replacing the old `encryptionKey` field with the new
    fields:
 
-```yaml
-# Before (remove this):
-#   encryptionKey:
-#     name: my-server-encryption
-#     key: encryptionKey
+   ```yaml
+   # Before (remove this):
+   #   encryptionKey:
+   #     name: my-server-encryption
+   #     key: encryptionKey
 
-# After:
-encryptionKeyFile:
-  fileReference:
-    volume:
-      secret:
-        secretName: my-server-encryption-key
-    path: encryption-key.age
-identityFile:
-  fileReference:
-    volume:
-      secret:
-        secretName: my-server-age-identity
-    path: identity.txt
-```
+   # After:
+       encryptionKeyFile:
+         fileReference:
+           volume:
+             secret:
+               secretName: my-server-encryption-key
+           path: encryption-key.age
+       identityFile:
+         fileReference:
+           volume:
+             secret:
+               secretName: my-server-age-identity
+           path: identity.txt
+   ```
 
-7. Apply the updated `Server` resource, then verify the Klio
+   :::Note
+   Add the same sections in `tier2`, in case it is enabled.
+   :::
+
+1. Apply the updated `Server` resource, then verify the Klio
    server pod restarts successfully.
 
-8. Once verified, delete the old plaintext secret and the
+   In case the Server's Pod is stuck in `CrashLoopBackOff` state,
+   please delete it, then check again.
+
+1. Once verified, delete the old plaintext secret and the
    local `identity.txt` file:
 
-```bash
-kubectl delete secret my-server-encryption
-rm identity.txt
-```
+   ```bash
+   kubectl delete secret my-server-encryption
+   rm identity.txt
+   ```
