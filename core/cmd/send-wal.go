@@ -17,6 +17,7 @@ import (
 	"github.com/cloudnative-pg/klio/core/internal/cli"
 	"github.com/cloudnative-pg/klio/core/internal/client/klioclient/grpcclient"
 	"github.com/cloudnative-pg/klio/core/internal/client/sendwal"
+	"github.com/cloudnative-pg/klio/core/internal/opentelemetry"
 	"github.com/cloudnative-pg/klio/core/pkg/config"
 )
 
@@ -31,6 +32,9 @@ var sendWalCmd = &cobra.Command{
 	Short: "Upload the cluster's WALs to the target Klio server",
 	RunE: func(cmd *cobra.Command, _ []string) error {
 		logger := log.FromContext(cmd.Context())
+
+		shutdownOtel := opentelemetry.Init(cmd.Context())
+		defer shutdownOtel()
 
 		// Create a context that gets cancelled on SIGINT/SIGTERM
 		ctx, stop := signal.NotifyContext(cmd.Context(), os.Interrupt, syscall.SIGTERM)

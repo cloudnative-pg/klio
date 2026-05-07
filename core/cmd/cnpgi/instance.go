@@ -9,6 +9,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 
 	"github.com/cloudnative-pg/klio/core/internal/cnpgi"
+	"github.com/cloudnative-pg/klio/core/internal/opentelemetry"
 	"github.com/cloudnative-pg/klio/core/pkg/config"
 )
 
@@ -20,6 +21,9 @@ var instanceCmd = &cobra.Command{
 	Short:  "Start the instance CNPG-I server",
 	Hidden: true,
 	RunE: func(cmd *cobra.Command, _ []string) error {
+		shutdownOtel := opentelemetry.Init(cmd.Context())
+		defer shutdownOtel()
+
 		configFile, _ := cmd.Root().PersistentFlags().GetString("config")
 		pluginPath, _ := cmd.Flags().GetString("plugin-path")
 

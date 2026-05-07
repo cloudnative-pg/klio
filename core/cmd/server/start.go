@@ -11,6 +11,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 
+	"github.com/cloudnative-pg/klio/core/internal/opentelemetry"
 	"github.com/cloudnative-pg/klio/core/pkg/config"
 )
 
@@ -21,6 +22,9 @@ var startCmd = &cobra.Command{
 	Use:   "start",
 	Short: "Starts a Klio server",
 	RunE: func(cmd *cobra.Command, _ []string) error {
+		shutdownOtel := opentelemetry.Init(cmd.Context())
+		defer shutdownOtel()
+
 		var configuration config.ServerConfig
 		contextLogger := log.FromContext(cmd.Context())
 

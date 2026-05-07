@@ -17,7 +17,6 @@ import (
 	"github.com/cloudnative-pg/klio/core/cmd/retention"
 	"github.com/cloudnative-pg/klio/core/cmd/server"
 	"github.com/cloudnative-pg/klio/core/cmd/walplayer"
-	"github.com/cloudnative-pg/klio/core/internal/opentelemetry"
 
 	_ "net/http/pprof" //nolint:gosec
 )
@@ -33,9 +32,6 @@ var logFlags = &log.Flags{}
 
 //nolint:gochecknoglobals
 var pprofServerAddress string
-
-//nolint:gochecknoglobals
-var otelShutdown func()
 
 // rootCmd represents the base command when called without any subcommands
 //
@@ -55,8 +51,6 @@ var rootCmd = &cobra.Command{
 		}
 		logFlags.ConfigureLogging()
 
-		otelShutdown = opentelemetry.Init(cmd.Context())
-
 		if pprofServerAddress != "" {
 			go func() {
 				log.Info("Starting PPROF server", "pprofServerAddress", pprofServerAddress)
@@ -67,10 +61,6 @@ var rootCmd = &cobra.Command{
 			}()
 		}
 
-		return nil
-	},
-	PersistentPostRunE: func(_ *cobra.Command, _ []string) error {
-		otelShutdown()
 		return nil
 	},
 	// Uncomment the following line if your bare application
