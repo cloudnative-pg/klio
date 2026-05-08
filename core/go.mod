@@ -9,7 +9,7 @@ require (
 	github.com/aws/aws-sdk-go-v2 v1.41.7
 	github.com/aws/aws-sdk-go-v2/config v1.32.17
 	github.com/aws/aws-sdk-go-v2/credentials v1.19.16
-	github.com/aws/aws-sdk-go-v2/service/s3 v1.100.1
+	github.com/aws/aws-sdk-go-v2/service/s3 v1.101.0
 	github.com/ccoveille/go-safecast/v2 v2.0.0
 	github.com/cloudnative-pg/api v1.29.0
 	github.com/cloudnative-pg/cloudnative-pg v1.29.0
@@ -24,7 +24,7 @@ require (
 	github.com/klauspost/compress v1.18.6
 	github.com/minio/sio v0.5.1
 	github.com/nats-io/nats-server/v2 v2.14.0
-	github.com/nats-io/nats.go v1.51.0
+	github.com/nats-io/nats.go v1.52.0
 	github.com/onsi/ginkgo/v2 v2.28.3
 	github.com/onsi/gomega v1.40.0
 	github.com/sourcegraph/conc v0.3.1-0.20240121214520-5f936abd7ae8
