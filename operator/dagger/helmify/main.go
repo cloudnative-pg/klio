@@ -21,7 +21,7 @@ func (m *Helmify) Run(
 	kustomizeImage string,
 	// Version of Helmify to use.
 	// renovate: datasource=github-tags depName=arttor/helmify versioning=semver
-	// +default="v0.4.19"
+	// +default="v0.4.20"
 	// +optional
 	helmifyVersion string,
 ) *dagger.Directory {
