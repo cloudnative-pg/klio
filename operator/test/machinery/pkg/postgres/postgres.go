@@ -21,6 +21,7 @@ func ExecPostgresQuery(
 	var stdout, stderr bytes.Buffer
 	cmd := []string{
 		"psql",
+		"-U", "postgres",
 		"-tA",
 		"-c", query,
 		databaseName,
