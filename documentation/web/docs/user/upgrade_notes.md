@@ -33,7 +33,7 @@ The default arguments are shown in the
 
 ### Encryption key management (breaking change)
 
-:::Warning
+:::warning
 You should complete the first four steps in this section
 before proceeding with the Klio upgrade with Helm.
 :::
@@ -61,7 +61,7 @@ identity files.
 
 To migrate an existing deployment:
 
-:::Warning
+:::warning
 Complete steps from 1. to 4. before upgrading Klio.
 :::
 
@@ -106,7 +106,7 @@ Complete steps from 1. to 4. before upgrading Klio.
    until the "Upgrade Klio Server" section included.
    But first, please, complete reading this section.
 
-   :::Warning
+   :::warning
    The command to verify that the Server is running the
    latest version will continue showing the old version.
    This is normal, as the operator can not reconcile yet.
@@ -115,7 +115,7 @@ Complete steps from 1. to 4. before upgrading Klio.
    You can use the `values.yaml` file created in the previous
    step when requested.
 
-   :::Warning
+   :::warning
    Do not delete the Klio Server's Pod yet, nor the
    StatefulSet. The situation will settle after you
    perform the following steps in this section.
@@ -170,7 +170,7 @@ Complete steps from 1. to 4. before upgrading Klio.
            path: identity.txt
    ```
 
-   :::Note
+   :::note
    Add the same sections in `tier2`, in case it is enabled.
    :::
 
