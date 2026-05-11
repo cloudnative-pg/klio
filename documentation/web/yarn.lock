@@ -3792,9 +3792,9 @@ balanced-match@^1.0.0:
   integrity sha512-3oSeUO0TMV67hN1AmbXsK4yaqU7tjiHlbxRDZOpH0KW9+CeX4bRAaX0Anxt0tx2MrpRpWwQaPwIlISEJhYU5Pw==
 
 baseline-browser-mapping@^2.10.12:
-  version "2.10.28"
-  resolved "https://registry.yarnpkg.com/baseline-browser-mapping/-/baseline-browser-mapping-2.10.28.tgz#9ba8e7b5ef9d40ceb3dd1cdcb936f63383b6833b"
-  integrity sha512-Ic44hnOtFIgravCunj1ifSoQPSUrkNiJuH9Mf6jr2jjoA74icqV8wU0KuadXeOR8zuIJMOoTv0GuQjZ9ZYNMeA==
+  version "2.10.29"
+  resolved "https://registry.yarnpkg.com/baseline-browser-mapping/-/baseline-browser-mapping-2.10.29.tgz#47bdc13027af28d341f367a4f35a07ce872e27b4"
+  integrity sha512-Asa2krT+XTPZINCS+2QcyS8WTkObE77RwkydwF7h6DmnKqbvlalz93m/dnphUyCa6SWSP51VgtEUf2FN+gelFQ==
 
 batch@0.6.1:
   version "0.6.1"
@@ -4501,9 +4501,9 @@ css-what@^6.0.1, css-what@^6.1.0:
   integrity sha512-u/O3vwbptzhMs3L1fQE82ZSLHQQfto5gyZzwteVIEyeaY5Fc7R4dapF/BvRoSYFeqfBk4m0V1Vafq5Pjv25wvA==
 
 cssdb@^8.6.0:
-  version "8.8.0"
-  resolved "https://registry.yarnpkg.com/cssdb/-/cssdb-8.8.0.tgz#b5a87e014d29d27924bd07d1f951206eb42b794f"
-  integrity sha512-QbLeyz2Bgso1iRlh7IpWk6OKa3lLNGXsujVjDMPl9rOZpxKeiG69icLpbLCFxeURwmcdIfZqQyhlooKJYM4f8Q==
+  version "8.8.1"
+  resolved "https://registry.yarnpkg.com/cssdb/-/cssdb-8.8.1.tgz#cbe622e4c93ebb17a5d01c84e155b8207ad7afcc"
+  integrity sha512-PdLTDamqN1muXEmfQggrogLmD+ZjfOhlZsFFs28tYSTqnlk6gEwg5wQCt6wLl2HstegUYgof6GrYyXXODFDC5g==
 
 cssesc@^3.0.0:
   version "3.0.0"
@@ -6713,9 +6713,9 @@ lru-cache@^5.1.1:
     yallist "^3.0.2"
 
 lunr-languages@^1.4.0:
-  version "1.17.0"
-  resolved "https://registry.yarnpkg.com/lunr-languages/-/lunr-languages-1.17.0.tgz#e1e5969777b105aea81591ee3dde9a9c980b017a"
-  integrity sha512-ClGZPfWoxdFgTmqa1uC12cBJJzkMiJGtQhR9J3dQLwnsO5efcTXGtTj7MQZCdjYL9jAL7J1pWQr3hksAn2zJ9Q==
+  version "1.20.0"
+  resolved "https://registry.yarnpkg.com/lunr-languages/-/lunr-languages-1.20.0.tgz#d145555fdeb546300b1394860d768487b8e0e182"
+  integrity sha512-3LVgE7ekWXt04NBci/hjm+NXJxXZeRXuyClL0kA0HONyBOjxhP3ZQkuWIM4Ok3pbeptUW/rj3XcJcJuJVPwPYA==
 
 lunr@^2.3.9:
   version "2.3.9"
