@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1@sha256:2780b5c3bab67f1f76c781860de469442999ed1a0d7992a5efdf2cffc0e3d769
 
-ARG BASE_IMAGE=registry.access.redhat.com/ubi10/ubi-micro:10.1-1777857595@sha256:6b19fae23a4bab50b2494471674577365a64667365d658671e3f9e8a5a698df3
+ARG BASE_IMAGE=registry.access.redhat.com/ubi10/ubi-micro:10.1-1778532954@sha256:38786abef22069f3dbbf286f2ccea07e31bce9b5cac53fb4f170e0cc54e1030d
 
 # Build Kopia on the host platform for the target platform
 FROM --platform=${BUILDPLATFORM} golang:1.26.3@sha256:2981696eed011d747340d7252620932677929cce7d2d539602f56a8d7e9b660b AS builder
