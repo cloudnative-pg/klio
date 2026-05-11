@@ -213,11 +213,6 @@ func GetRustFSDeployment(name, namespace string) *appsv1.Deployment {
 					},
 				},
 				Spec: corev1.PodSpec{
-					SecurityContext: &corev1.PodSecurityContext{
-						FSGroup:    new(int64(10001)),
-						RunAsGroup: new(int64(10001)),
-						RunAsUser:  new(int64(10001)),
-					},
 					InitContainers: []corev1.Container{
 						{
 							Name:  "init-step",
@@ -225,11 +220,7 @@ func GetRustFSDeployment(name, namespace string) *appsv1.Deployment {
 							Command: []string{
 								"sh",
 								"-c",
-								"mkdir -p /data /logs && chown 10001:10001 /data /logs",
-							},
-							SecurityContext: &corev1.SecurityContext{
-								RunAsUser:  new(int64(0)),
-								RunAsGroup: new(int64(0)),
+								"mkdir -p /data /mnt/rustfs/logs && chmod 755 /mnt/rustfs/logs",
 							},
 							VolumeMounts: []corev1.VolumeMount{
 								{
@@ -238,7 +229,7 @@ func GetRustFSDeployment(name, namespace string) *appsv1.Deployment {
 								},
 								{
 									Name:      "logs",
-									MountPath: "/logs",
+									MountPath: "/mnt/rustfs",
 								},
 							},
 						},
@@ -306,13 +297,6 @@ func GetRustFSDeployment(name, namespace string) *appsv1.Deployment {
 								SuccessThreshold:    1,
 								FailureThreshold:    3,
 							},
-							SecurityContext: &corev1.SecurityContext{
-								RunAsNonRoot:           new(true),
-								ReadOnlyRootFilesystem: new(true),
-								Capabilities: &corev1.Capabilities{
-									Drop: []corev1.Capability{"ALL"},
-								},
-							},
 							VolumeMounts: []corev1.VolumeMount{
 								{
 									Name:      "data",
@@ -321,6 +305,7 @@ func GetRustFSDeployment(name, namespace string) *appsv1.Deployment {
 								{
 									Name:      "logs",
 									MountPath: "/logs",
+									SubPath:   "logs",
 								},
 								{
 									Name:      "tmp",

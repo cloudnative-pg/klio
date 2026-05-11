@@ -23,10 +23,6 @@ spec:
         app.kubernetes.io/name: rustfs
     spec:
       automountServiceAccountToken: false
-      securityContext:
-        fsGroup: 10001
-        runAsGroup: 10001
-        runAsUser: 10001
       initContainers:
       - name: init-step
         image: busybox:1.37.0-musl@sha256:19b646668802469d968a05342a601e78da4322a414a7c09b1c9ee25165042138
@@ -35,15 +31,11 @@ spec:
         - sh
         - -c
         - |
-          mkdir -p /data /logs
-          chown 10001:10001 /data /logs
-        securityContext:
-          runAsUser: 0
-          runAsGroup: 0
+          mkdir -p /data /mnt/rustfs/logs && chmod 755 /mnt/rustfs/logs
         volumeMounts:
         - mountPath: /data
           name: data
-        - mountPath: /logs
+        - mountPath: /mnt/rustfs
           name: logs
       containers:
       - name: rustfs
@@ -88,15 +80,10 @@ spec:
           limits:
             cpu: 200m
             memory: 2Gi
-        securityContext:
-          runAsNonRoot: true
-          readOnlyRootFilesystem: true
-          capabilities:
-            drop:
-            - ALL
         volumeMounts:
         - mountPath: /logs
           name: logs
+          subPath: logs
         - mountPath: /data
           name: data
         - mountPath: /tmp
