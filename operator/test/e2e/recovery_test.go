@@ -34,7 +34,8 @@ func NewRecoveryFeatureConfig(
 	caIssuer := certificates.GetCAIssuerObject("test-ca-issuer", namespace, caCertificate.Spec.SecretName)
 
 	cnpgCluster := cnpg.GetCnpgClusterObject(cnpgSourceClusterName, namespace, instances,
-		"klio-plugin-configuration")
+		"klio-plugin-configuration",
+		cnpg.ClusterTemplateOptions{ImagePullSecret: pullSecretName()})
 
 	userCertificate := certificates.GetUserCertificateObject("klio-user", namespace,
 		"klio-user@"+cnpgSourceClusterName, caIssuer)
@@ -52,6 +53,9 @@ func NewRecoveryFeatureConfig(
 		klioServerName,
 		namespace,
 		klio.ServerTemplateOptions{
+			Image:              testCfg.ServerImage,
+			StorageClass:       testCfg.StorageClass,
+			ImagePullSecret:    pullSecretName(),
 			TLSSecretName:      certificate.Spec.SecretName,
 			ClientCASecretName: caCertificate.Spec.SecretName,
 			Encryption: klio.EncryptionOptions{

@@ -318,6 +318,9 @@ func buildTier2ScenarioResources(namespace string, instances int) *tier2Scenario
 		namespace,
 		klio.ServerWithTier2TemplateOptions{
 			ServerTemplateOptions: klio.ServerTemplateOptions{
+				Image:              testCfg.ServerImage,
+				StorageClass:       testCfg.StorageClass,
+				ImagePullSecret:    pullSecretName(),
 				TLSSecretName:      serverCertificate.Spec.SecretName,
 				ClientCASecretName: caCertificate.Spec.SecretName,
 				Encryption:         encOpts,
@@ -337,7 +340,8 @@ func buildTier2ScenarioResources(namespace string, instances int) *tier2Scenario
 
 	// Source CNPG cluster
 	cnpgCluster := cnpg.GetCnpgClusterObject(
-		tier2SourceClusterName, namespace, instances, tier2SourcePluginConfigName)
+		tier2SourceClusterName, namespace, instances, tier2SourcePluginConfigName,
+		cnpg.ClusterTemplateOptions{ImagePullSecret: pullSecretName()})
 
 	// Plugin configuration for source cluster (with tier2 backup enabled)
 	klioPluginConfigurationSource := klio.GetPluginConfigurationObject(
@@ -371,6 +375,9 @@ func buildTier2ScenarioResources(namespace string, instances int) *tier2Scenario
 		namespace,
 		klio.ServerWithTier2TemplateOptions{
 			ServerTemplateOptions: klio.ServerTemplateOptions{
+				Image:              testCfg.ServerImage,
+				StorageClass:       testCfg.StorageClass,
+				ImagePullSecret:    pullSecretName(),
 				TLSSecretName:      recoveryServerCertificate.Spec.SecretName,
 				ClientCASecretName: recoveryServerCACertificate.Spec.SecretName,
 				Encryption:         encOpts, // SAME as first server

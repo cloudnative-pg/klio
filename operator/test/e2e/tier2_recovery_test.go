@@ -75,7 +75,7 @@ func (s *tier2RecoveryScenario) Setup(
 	require.NoError(t, err, "failed to create resources client")
 
 	// Create namespace
-	require.NoError(t, r.Create(ctx, s.namespace), "failed to create namespace")
+	createNamespace(ctx, t, r, s.namespace)
 
 	// Set scenario infra
 	scenario := infra.Tier2{

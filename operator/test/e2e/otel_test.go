@@ -143,6 +143,9 @@ func newOTELMetricsScenario(namespace string) *otelMetricsScenario {
 		namespace,
 		klio.ServerWithTier2TemplateOptions{
 			ServerTemplateOptions: klio.ServerTemplateOptions{
+				Image:              testCfg.ServerImage,
+				StorageClass:       testCfg.StorageClass,
+				ImagePullSecret:    pullSecretName(),
 				TLSSecretName:      serverCertificate.Spec.SecretName,
 				ClientCASecretName: caCertificate.Spec.SecretName,
 				Encryption:         encOpts,
@@ -224,7 +227,8 @@ func newOTELMetricsScenario(namespace string) *otelMetricsScenario {
 	)
 
 	// CNPG Cluster with OTEL configuration
-	cnpgCluster := cnpg.GetCnpgClusterObject("test-cluster", namespace, 1, klioPluginConfiguration.Name)
+	cnpgCluster := cnpg.GetCnpgClusterObject("test-cluster", namespace, 1, klioPluginConfiguration.Name,
+		cnpg.ClusterTemplateOptions{ImagePullSecret: pullSecretName()})
 
 	// Add OTEL env vars as Spec.Env (not EnvFrom) so the Klio lifecycle webhook
 	// merges them into the sidecar container.
@@ -305,7 +309,7 @@ func (s *otelMetricsScenario) Setup(
 	require.NoError(t, err, "failed to create resources client")
 
 	// Create namespace
-	require.NoError(t, r.Create(ctx, s.namespace), "failed to create namespace")
+	createNamespace(ctx, t, r, s.namespace)
 
 	// Create resources that have no dependencies
 	require.NoError(t, r.Create(ctx, s.otelServiceAccount), "failed to create OTEL service account")

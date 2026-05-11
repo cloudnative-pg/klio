@@ -212,6 +212,12 @@ jobs:
           CLUSTERS=$(kind get clusters)
           echo "clusters=$CLUSTERS" >> $GITHUB_OUTPUT
 
+      - name: Write e2e config
+        working-directory: klio/operator/test/e2e
+        run: |
+          cp e2e-config.yaml.example e2e-config.yaml
+          sed -i 's/storageClass: ""/storageClass: "csi-hostpath-sc"/' e2e-config.yaml
+
       - name: Run integration tests
         working-directory: klio
         env:

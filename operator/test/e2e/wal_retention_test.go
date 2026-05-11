@@ -79,7 +79,7 @@ func (s *walRetentionScenario) Setup(
 	require.NoError(t, err, "failed to create resources client")
 
 	// Create namespace
-	require.NoError(t, r.Create(ctx, s.namespace), "failed to create namespace")
+	createNamespace(ctx, t, r, s.namespace)
 
 	// Set Scenario infra
 	scenario := infra.Tier2{
@@ -565,6 +565,9 @@ func newWALRetentionScenario(name string, namespace string) *walRetentionScenari
 		namespace,
 		klio.ServerWithTier2TemplateOptions{
 			ServerTemplateOptions: klio.ServerTemplateOptions{
+				Image:              testCfg.ServerImage,
+				StorageClass:       testCfg.StorageClass,
+				ImagePullSecret:    pullSecretName(),
 				TLSSecretName:      serverCertificate.Spec.SecretName,
 				ClientCASecretName: caCertificate.Spec.SecretName,
 				Encryption: klio.EncryptionOptions{
@@ -594,7 +597,8 @@ func newWALRetentionScenario(name string, namespace string) *walRetentionScenari
 
 	// Source CNPG cluster
 	cnpgCluster := cnpg.GetCnpgClusterObject(
-		cnpgClusterName, namespace, 1, pluginConfigurationName)
+		cnpgClusterName, namespace, 1, pluginConfigurationName,
+		cnpg.ClusterTemplateOptions{ImagePullSecret: pullSecretName()})
 
 	// Plugin configuration with tier2 backup enabled
 	klioPluginConfiguration := klio.GetPluginConfigurationObject(

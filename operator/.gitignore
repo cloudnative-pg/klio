@@ -22,6 +22,9 @@ go.work
 # Kubernetes Generated files - skip generated files, except for vendored files
 !vendor/**/zz_generated.*
 
+# local e2e test config (may contain credentials)
+test/e2e/e2e-config.yaml
+
 # editor and IDE paraphernalia
 .idea
 .vscode

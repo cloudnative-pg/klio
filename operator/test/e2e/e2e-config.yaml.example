@@ -1,0 +1,20 @@
+# E2E test configuration example.
+# Copy to e2e-config.yaml (gitignored) and customise for your environment,
+# or point E2E_CONFIG_FILE at an alternative path.
+
+# Klio server container image used in e2e tests.
+serverImage: "registry.dev:5000/klio-testing:dev"
+
+# Directory where pod logs are streamed during the test run.
+logDir: "e2e_cluster_logs"
+
+# Kubernetes storage class used for all PVC templates in the tests.
+# Leave empty to use the cluster's default storage class.
+storageClass: ""
+
+# Registry credentials used to create a pull secret in each test namespace.
+# Leave all fields empty if images are publicly accessible.
+imagePullSecret:
+  registry: ""
+  username: ""
+  password: ""

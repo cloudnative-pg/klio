@@ -34,7 +34,7 @@ func (c *missingPluginConfigurationScenario) Setup(
 	require.NoError(t, err, "failed to create resources client")
 
 	// Create all resources EXCEPT PluginConfiguration
-	require.NoError(t, r.Create(ctx, c.namespace), "failed to create namespace")
+	createNamespace(ctx, t, r, c.namespace)
 	require.NoError(t, r.Create(ctx, c.issuer), "failed to create issuer")
 	require.NoError(t, r.Create(ctx, c.caCertificate), "failed to create CA certificate")
 	require.NoError(t, r.Create(ctx, c.caIssuer), "failed to create CA issuer")

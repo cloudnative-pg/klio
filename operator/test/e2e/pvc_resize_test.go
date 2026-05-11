@@ -48,7 +48,7 @@ func (s *pvcResizeScenario) Setup(
 	require.NoError(t, err, "failed to create resources client")
 
 	// Create namespace
-	require.NoError(t, r.Create(ctx, s.namespace), "failed to create namespace")
+	createNamespace(ctx, t, r, s.namespace)
 
 	// Create certificates and secrets
 	require.NoError(t, r.Create(ctx, s.issuer), "failed to create issuer")
@@ -159,6 +159,9 @@ func NewPVCResizeFeatureConfig(name string, namespace string) klioFeatures.PVCRe
 		klioServerName,
 		namespace,
 		klio.ServerTemplateOptions{
+			Image:              testCfg.ServerImage,
+			StorageClass:       testCfg.StorageClass,
+			ImagePullSecret:    pullSecretName(),
 			TLSSecretName:      serverCertificate.Spec.SecretName,
 			ClientCASecretName: caCertificate.Spec.SecretName,
 			Encryption: klio.EncryptionOptions{

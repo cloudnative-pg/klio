@@ -2,7 +2,7 @@ package e2e
 
 import (
 	"context"
-	"os"
+	"log"
 	"testing"
 
 	certmanagerv1 "github.com/cert-manager/cert-manager/pkg/apis/certmanager/v1"
@@ -12,10 +12,20 @@ import (
 	"sigs.k8s.io/e2e-framework/pkg/envconf"
 
 	kliov1alpha1 "github.com/cloudnative-pg/klio/operator/api/v1alpha1"
+	"github.com/cloudnative-pg/klio/operator/test/klio/testconfig"
 	"github.com/cloudnative-pg/klio/operator/test/machinery/pkg/runner"
 )
 
+//nolint:gochecknoglobals // testCfg is a global variable that holds the test configuration loaded in TestMain.
+var testCfg *testconfig.Config
+
 func TestMain(m *testing.M) {
+	var err error
+	testCfg, err = testconfig.Load()
+	if err != nil {
+		log.Fatalf("failed to load test config: %s", err)
+	}
+
 	var sternCancel context.CancelFunc
 	var sternDoneChs []chan struct{}
 
@@ -45,10 +55,7 @@ func TestMain(m *testing.M) {
 				return ctx, err
 			}
 
-			logDir := os.Getenv("E2E_LOG_DIR")
-			if logDir == "" {
-				logDir = "e2e_cluster_logs"
-			}
+			logDir := testCfg.LogDir
 			client, err := kubernetes.NewForConfig(config.Client().RESTConfig())
 			if err != nil {
 				return ctx, err

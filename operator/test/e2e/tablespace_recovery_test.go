@@ -53,7 +53,8 @@ func NewTablespaceRecoveryFeatureConfig(
 	caIssuer := certificates.GetCAIssuerObject("test-ca-issuer", namespace, caCertificate.Spec.SecretName)
 
 	cnpgCluster := cnpg.GetCnpgClusterWithTablespacesObject(cnpgSourceClusterName, namespace, instances,
-		"klio-plugin-configuration", tablespaceConfig)
+		"klio-plugin-configuration", tablespaceConfig,
+		cnpg.ClusterTemplateOptions{ImagePullSecret: pullSecretName()})
 
 	userCertificate := certificates.GetUserCertificateObject("klio-user", namespace,
 		"klio-user@"+cnpgSourceClusterName, caIssuer)
@@ -71,6 +72,9 @@ func NewTablespaceRecoveryFeatureConfig(
 		klioServerName,
 		namespace,
 		klio.ServerTemplateOptions{
+			Image:              testCfg.ServerImage,
+			StorageClass:       testCfg.StorageClass,
+			ImagePullSecret:    pullSecretName(),
 			TLSSecretName:      certificate.Spec.SecretName,
 			ClientCASecretName: caCertificate.Spec.SecretName,
 			Encryption: klio.EncryptionOptions{

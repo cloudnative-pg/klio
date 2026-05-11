@@ -59,6 +59,7 @@ type serverReconfigScenario struct {
 	// Tier2 configuration to add during Run
 	s3Opts          klio.Tier2S3Options
 	tier2Encryption klio.EncryptionOptions
+	storageClass    string
 }
 
 // Setup creates all resources for the server reconfiguration test.
@@ -74,7 +75,7 @@ func (s *serverReconfigScenario) Setup(
 	require.NoError(t, err, "failed to create resources client")
 
 	// Create namespace
-	require.NoError(t, r.Create(ctx, s.namespace), "failed to create namespace")
+	createNamespace(ctx, t, r, s.namespace)
 
 	// Parallel setup of RustFS and Klio Server
 	scenario := infra.Tier2{
@@ -181,7 +182,7 @@ func (f *serverReconfigFeature) Run() types.StepFunc {
 		)
 
 		tier2Config := klio.BuildTier2Configuration(
-			f.scenario.s3Opts, f.scenario.tier2Encryption)
+			f.scenario.s3Opts, f.scenario.tier2Encryption, f.scenario.storageClass)
 		currentServer.Spec.Tier2 = &tier2Config
 		require.NoError(t, r.Update(ctx, currentServer), "failed to update Server with tier2")
 		t.Log("Server updated with tier2 configuration")
@@ -311,6 +312,9 @@ func ServerTierReconfiguration(namespace string) *serverReconfigFeature {
 		klioServerName,
 		namespace,
 		klio.ServerTemplateOptions{
+			Image:              testCfg.ServerImage,
+			StorageClass:       testCfg.StorageClass,
+			ImagePullSecret:    pullSecretName(),
 			TLSSecretName:      serverCertificate.Spec.SecretName,
 			ClientCASecretName: caCertificate.Spec.SecretName,
 			Encryption: klio.EncryptionOptions{
@@ -342,6 +346,7 @@ func ServerTierReconfiguration(namespace string) *serverReconfigFeature {
 		identitySecret:        ageSecrets.IdentitySecret,
 		klioServer:            klioServer,
 		s3Opts:                s3Opts,
+		storageClass:          testCfg.StorageClass,
 		tier2Encryption: klio.EncryptionOptions{
 			EncryptionKeySecretName: ageSecrets.EncryptionKeySecret.Name,
 			EncryptionKeyFileName:   "encryption-key.age",

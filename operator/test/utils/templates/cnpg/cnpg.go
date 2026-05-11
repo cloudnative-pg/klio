@@ -7,14 +7,22 @@ import (
 	"github.com/cloudnative-pg/klio/operator/internal/klioconfig"
 )
 
+// ClusterTemplateOptions configures optional fields for CNPG cluster templates.
+type ClusterTemplateOptions struct {
+	// ImagePullSecret is the name of a Kubernetes secret used to pull images.
+	// If empty, no pull secret is configured.
+	ImagePullSecret string
+}
+
 // GetCnpgClusterObject returns a CNPG Cluster Object.
 func GetCnpgClusterObject(
 	name,
 	namespace string,
 	instances int,
 	pluginConfigurationRef string,
+	opts ClusterTemplateOptions,
 ) *cnpgv1.Cluster {
-	return &cnpgv1.Cluster{
+	cluster := &cnpgv1.Cluster{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
 			Namespace: namespace,
@@ -38,6 +46,14 @@ func GetCnpgClusterObject(
 			}},
 		},
 	}
+
+	if opts.ImagePullSecret != "" {
+		cluster.Spec.ImagePullSecrets = []cnpgv1.LocalObjectReference{
+			{Name: opts.ImagePullSecret},
+		}
+	}
+
+	return cluster
 }
 
 // GetCnpgClusterWithTablespacesObject returns a CNPG Cluster Object with the passed tablespaces.
@@ -47,12 +63,14 @@ func GetCnpgClusterWithTablespacesObject(
 	instances int,
 	pluginConfigurationRef string,
 	tablespaces []cnpgv1.TablespaceConfiguration,
+	opts ClusterTemplateOptions,
 ) *cnpgv1.Cluster {
 	cluster := GetCnpgClusterObject(
 		name,
 		namespace,
 		instances,
-		pluginConfigurationRef)
+		pluginConfigurationRef,
+		opts)
 
 	cluster.Spec.Tablespaces = append(cluster.Spec.Tablespaces, tablespaces...)
 

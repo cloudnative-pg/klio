@@ -54,12 +54,22 @@ func newFileSource(secretName, fileName string) kliov1alpha1.FileSource {
 	}
 }
 
-// BuildTier2Configuration creates a Tier2Configuration from S3 options and encryption options.
-func BuildTier2Configuration(s3Opts Tier2S3Options, encOpts EncryptionOptions) kliov1alpha1.Tier2Configuration {
+// BuildTier2Configuration creates a Tier2Configuration from S3 options, encryption options,
+// and a storage class name. If storageClass is empty, the cluster's default storage class is used.
+func BuildTier2Configuration(
+	s3Opts Tier2S3Options,
+	encOpts EncryptionOptions,
+	storageClass string,
+) kliov1alpha1.Tier2Configuration {
+	var sc *string
+	if storageClass != "" {
+		sc = new(storageClass)
+	}
+
 	return kliov1alpha1.Tier2Configuration{
 		Cache: kliov1alpha1.Cache{
 			PersistentVolumeClaimTemplate: corev1.PersistentVolumeClaimSpec{
-				StorageClassName: new("csi-hostpath-sc"),
+				StorageClassName: sc,
 				AccessModes:      []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOncePod},
 				Resources: corev1.VolumeResourceRequirements{
 					Requests: corev1.ResourceList{
@@ -99,6 +109,19 @@ func BuildTier2Configuration(s3Opts Tier2S3Options, encOpts EncryptionOptions) k
 
 // ServerTemplateOptions are the options needed to create a Klio server.
 type ServerTemplateOptions struct {
+	// Image is the Klio server container image. If empty, the default
+	// test image is used.
+	Image string
+
+	// StorageClass is the Kubernetes storage class used for all PVC templates
+	// (tier1 cache, tier1 data, queue). If empty, the cluster's default
+	// storage class is used.
+	StorageClass string
+
+	// ImagePullSecret is the name of the Kubernetes secret used to pull the
+	// Klio server image. If empty, no pull secret is configured.
+	ImagePullSecret string
+
 	// TLSSecretName is the secret to be used to expose the Klio server.
 	TLSSecretName string
 
@@ -112,16 +135,21 @@ type ServerTemplateOptions struct {
 
 // newBaseServer creates a server with common fields (metadata, image, TLS) but no tier configuration.
 func newBaseServer(name, namespace string, opts ServerTemplateOptions) *kliov1alpha1.Server {
+	imgCfg := kliov1alpha1.ImageConfiguration{
+		Image:           opts.Image,
+		ImagePullPolicy: corev1.PullAlways,
+	}
+	if opts.ImagePullSecret != "" {
+		imgCfg.ImagePullSecrets = []corev1.LocalObjectReference{{Name: opts.ImagePullSecret}}
+	}
+
 	return &kliov1alpha1.Server{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
 			Namespace: namespace,
 		},
 		Spec: kliov1alpha1.ServerSpec{
-			ImageConfiguration: kliov1alpha1.ImageConfiguration{
-				Image:           "registry.dev:5000/klio-testing:dev",
-				ImagePullPolicy: corev1.PullAlways,
-			},
+			ImageConfiguration: imgCfg,
 			TLSConfiguration: kliov1alpha1.TLSConfiguration{
 				TLSSecretName:      opts.TLSSecretName,
 				ClientCASecretName: opts.ClientCASecretName,
@@ -136,12 +164,17 @@ func GetServerObject(
 	namespace string,
 	opts ServerTemplateOptions,
 ) *kliov1alpha1.Server {
+	var sc *string
+	if opts.StorageClass != "" {
+		sc = new(opts.StorageClass)
+	}
+
 	server := newBaseServer(name, namespace, opts)
 	server.Spec.Mode = kliov1alpha1.ModeStandard
 	server.Spec.Tier1 = &kliov1alpha1.Tier1Configuration{
 		Cache: kliov1alpha1.Cache{
 			PersistentVolumeClaimTemplate: corev1.PersistentVolumeClaimSpec{
-				StorageClassName: new("csi-hostpath-sc"),
+				StorageClassName: sc,
 				AccessModes:      []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOncePod},
 				Resources: corev1.VolumeResourceRequirements{
 					Requests: corev1.ResourceList{
@@ -152,7 +185,7 @@ func GetServerObject(
 		},
 		Data: kliov1alpha1.Data{
 			PersistentVolumeClaimTemplate: corev1.PersistentVolumeClaimSpec{
-				StorageClassName: new("csi-hostpath-sc"),
+				StorageClassName: sc,
 				AccessModes:      []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOncePod},
 				Resources: corev1.VolumeResourceRequirements{
 					Requests: corev1.ResourceList{
@@ -168,7 +201,7 @@ func GetServerObject(
 	// Queue is mandatory when tier1 is configured
 	server.Spec.Queue = &kliov1alpha1.Queue{
 		PersistentVolumeClaimTemplate: corev1.PersistentVolumeClaimSpec{
-			StorageClassName: new("csi-hostpath-sc"),
+			StorageClassName: sc,
 			AccessModes:      []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOncePod},
 			Resources: corev1.VolumeResourceRequirements{
 				Requests: corev1.ResourceList{
@@ -255,7 +288,7 @@ func GetServerWithTier2Object(
 	server := GetServerObject(name, namespace, opts.ServerTemplateOptions)
 
 	// Add tier2 configuration
-	tier2Config := BuildTier2Configuration(opts.S3, opts.Tier2Encryption)
+	tier2Config := BuildTier2Configuration(opts.S3, opts.Tier2Encryption, opts.StorageClass)
 	server.Spec.Tier2 = &tier2Config
 
 	return server
@@ -270,7 +303,7 @@ func GetReadOnlyTier2ServerObject(
 ) *kliov1alpha1.Server {
 	server := newBaseServer(name, namespace, opts.ServerTemplateOptions)
 	server.Spec.Mode = kliov1alpha1.ModeReadOnly
-	tier2Config := BuildTier2Configuration(opts.S3, opts.Tier2Encryption)
+	tier2Config := BuildTier2Configuration(opts.S3, opts.Tier2Encryption, opts.StorageClass)
 	server.Spec.Tier2 = &tier2Config
 
 	return server
