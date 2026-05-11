@@ -56,7 +56,7 @@ INFO  setup  Cluster capabilities detected  {"haveSecurityContextConstraints": t
 This guide explains how to install a test build of the Klio operator
 on an OpenShift cluster using OLM (Operator Lifecycle Manager).
 
-:::important
+:::note
 This procedure is for development and testing only. It requires
 a catalog image built from the branch under test and access to
 the `ghcr.io` container registry.

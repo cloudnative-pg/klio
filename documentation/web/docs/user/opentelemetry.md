@@ -261,7 +261,7 @@ the corresponding resource attributes (`k8s.container.name`, `k8s.pod.name`,
 `k8s.namespace.name`) to all telemetry data. Each attribute is added
 independently - you don't need all three environment variables to be present.
 
-:::important
+:::info
 If you have already defined any of these attributes in
 `OTEL_RESOURCE_ATTRIBUTES`, Klio will **not override** them. Only missing
 attributes will be added from the environment variables. This allows you to

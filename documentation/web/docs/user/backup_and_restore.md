@@ -21,7 +21,7 @@ A working **online backup** is composed of:
 - A set of **WAL (Write-Ahead Log) files**: Continuous logs of all changes made
   to the database during the entire period of the base backup.
 
-:::important
+:::tip
 It is recommended to periodically test backup restores to ensure correct
 recovery procedures.
 :::
@@ -138,7 +138,7 @@ Klio automatically manages backup retention based on the
 [retention policies](plugin_configuration.md#retention-policies) defined in the
 `PluginConfiguration` referred by the `Cluster`.
 
-:::important
+:::warning
 Deleting a `Backup` resource through `kubectl` only removes the Kubernetes
 object. The actual backup data in the Klio server will be retained according to
 the retention policy.
@@ -174,8 +174,8 @@ following actions during a restore:
 
 1. **Restores the base backup**: Copies the physical backup data to the new
    cluster's data directory. Uses `klio restore` command under the hood.
-1. **Restores WAL files**: Klio is configured to retrieve the WAL files from
-   required for the PostgreSQL recovery as needed.
+1. **Restores WAL files**: Klio is configured to retrieve the WAL files
+   required for PostgreSQL recovery as needed.
    Uses `klio get-wal` command under the hood.
 
 The execution of these commands is driven by CloudNativePG's recovery
@@ -289,7 +289,7 @@ spec:
   # other cluster spec fields...
 ```
 
-:::important
+:::info
 The target of a point in time recovery must fall between the time the base
 backup was completed and the time of the latest transaction recorded in the
 available WAL files.

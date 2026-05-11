@@ -20,7 +20,7 @@ Before running E2E tests, ensure you have the following tools installed:
 
 ## Required Setup
 
-:::important
+:::info
 Before running any E2E tests, you must first set up the CloudNativePG environment.
 :::
 

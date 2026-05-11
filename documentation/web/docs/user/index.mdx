@@ -49,7 +49,7 @@ development.
 - Extension of base backup retention policy enforcement to WAL files
 - Asynchronous WAL relay to Tier 2 object storage
 
-:::important
+:::note
 Klio's WAL management utilizes the `READ_REPLICATION_SLOT` streaming
 replication command, which was introduced in PostgreSQL 15.
 Therefore, Klio requires PostgreSQL version 15 or greater to function properly.
@@ -70,7 +70,7 @@ Therefore, Klio requires PostgreSQL version 15 or greater to function properly.
 - Asynchronous replication of base backups to Tier 2 object storage for
   long-term durability and disaster recovery
 
-:::important
+:::info
 Kubernetes Volume Snapshot integration (Tier 0) is only available for storage
 classes that support volume snapshots.
 :::

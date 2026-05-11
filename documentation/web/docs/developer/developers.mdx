@@ -113,16 +113,11 @@ openssl req -x509 -newkey rsa:4096 -sha256 -days 3650 \
 ~/klio server initialize
 ```
 
-The Klio WAL server can be started with:
+The Klio server hosts both the WAL streaming server and the base backup
+server in a single process. Start them with:
 
 ```sh
-~/klio server start-wal
-```
-
-The Klio base server can be started with:
-
-```sh
-~/klio server start-base
+~/klio server start
 ```
 
 ## How to setup manually a Klio client

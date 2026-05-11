@@ -26,7 +26,8 @@ your PostgreSQL clusters. To use Klio with a CloudNativePG cluster, you need to:
 Before configuring a cluster to use the Klio plugin, ensure you have:
 
 - A running Klio `Server` resource deployed in your namespace
-- Client credentials (username and password) stored in a Kubernetes Secret
+- A client TLS certificate stored in a Kubernetes Secret (see
+  [Klio server authentication](klio_server.md#authentication))
 - The server's TLS certificate available in a Secret
 
 ## Creating a PluginConfiguration resource
@@ -89,7 +90,7 @@ Once you have created a `PluginConfiguration`, reference it in your CloudNativeP
 apiVersion: postgresql.cnpg.io/v1
 kind: Cluster
 metadata:
-  name: my-postgres-cluster
+  name: my-cluster
   namespace: default
 spec:
   instances: 3
@@ -127,7 +128,7 @@ as the WAL are streamed directly to the Klio server. Thus, you must not set
 `isWALArchiver: true` in the plugin configuration.
 :::
 
-:::important
+:::info
 If you add the Klio plugin to an **existing** cluster, you must
 restart the cluster to inject the sidecar containers. Use
 [`kubectl cnpg restart`][cnpg-restart] or set the
@@ -444,7 +445,7 @@ following merge behavior:
 1. **Template defaults fill gaps**: For fields you don't specify, Klio applies
    sensible defaults (image, security context, standard volume mounts, etc.)
 
-:::important
+:::info
 
 Klio's required values (name, args, `CONTAINER_NAME` env var) will
 always override any conflicting values you set. All other customizations are

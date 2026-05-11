@@ -61,7 +61,7 @@ essential for:
   after the earliest available base backup, using archived WAL files to replay
   transactions up to the desired recovery point.
 
-:::important
+:::warning
 
 WAL archives on their own are insufficient for disaster recovery.
 A **physical base backup is required** to restore a PostgreSQL cluster.

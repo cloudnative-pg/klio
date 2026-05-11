@@ -244,7 +244,7 @@ spec:
 
 Apply the CA configuration with:
 
-```
+```bash
 kubectl apply -f ca-configuration.yaml
 ```
 

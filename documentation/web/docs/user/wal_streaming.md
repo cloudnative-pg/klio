@@ -18,10 +18,10 @@ WAL streaming in Klio is built around two components: a client and a server.
 
 - The client, invoked using the `klio send-wal` command, typically runs
   alongside PostgreSQL but does not have to.
-- The server, started with the `klio server start-wal` command, runs as a
+- The server, started with the `klio server start` command, runs as a
   dedicated process on the Klio server.
 
-In Kubernetes environments, as illustrated in the diagram above, Klio streams
+In Kubernetes environments, as illustrated in the diagram below, Klio streams
 WAL records directly from the PostgreSQL primary over a local Unix domain
 socket. The WAL streamer runs as a lightweight sidecar container within the
 same pod as the primary instance and is managed by the CNPG-I–compliant plugin.

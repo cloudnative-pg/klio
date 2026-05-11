@@ -90,7 +90,7 @@ Complete steps from 1. to 4. before upgrading Klio.
 1. Edit the `values.yaml` file updating the Klio version with
    the new release tag:
 
-   ```bash
+   ```yaml
    controllerManager:
      manager:
        env:
@@ -101,10 +101,10 @@ Complete steps from 1. to 4. before upgrading Klio.
          [...]
    ```
 
-   Now proceed with the Klio upgrade following the
-   [Helm chart page](helm_chart.mdx#upgrades),
-   until the "Upgrade Klio Server" section included.
-   But first, please, complete reading this section.
+   Before proceeding, finish reading this section. Then perform the
+   Klio upgrade following the
+   [Helm chart page](helm_chart.mdx#upgrades), up to and including the
+   "Upgrade Klio Server" section.
 
    :::warning
    The command to verify that the Server is running the
