@@ -9,7 +9,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/credentials v1.19.16
 	github.com/aws/aws-sdk-go-v2/service/s3 v1.101.0
 	github.com/ccoveille/go-safecast/v2 v2.0.0
-	github.com/cloudnative-pg/api v1.29.0
+	github.com/cloudnative-pg/api v1.29.1
 	github.com/cloudnative-pg/cloudnative-pg v1.29.1
 	github.com/cloudnative-pg/cnpg-i v0.5.0
 	github.com/cloudnative-pg/cnpg-i-machinery v0.4.2

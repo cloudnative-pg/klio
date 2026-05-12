@@ -24,8 +24,8 @@ github.com/cert-manager/cert-manager v1.20.2 h1:CimnY00nLqB2lmxhoSuEC4GDMFDK7JCX
 github.com/cert-manager/cert-manager v1.20.2/go.mod h1:1g/+a/WK5zWH/dXPZa3dMD3aJQJNRXQu+PN17C6WrOw=
 github.com/cespare/xxhash/v2 v2.3.0 h1:UL815xU9SqsFlibzuggzjXhog7bL6oX9BbNZnL2UFvs=
 github.com/cespare/xxhash/v2 v2.3.0/go.mod h1:VGX0DQ3Q6kWi7AoAeZDth3/j3BFtOZR5XLFGgcrjCOs=
-github.com/cloudnative-pg/api v1.29.0 h1:mNx6yJ5qi+Xrjs0NYrUy6V4MlXBkVJxGKwvTJZIuTX4=
-github.com/cloudnative-pg/api v1.29.0/go.mod h1:bF3HI8UVVcllZ7M8CfBufnb+Us8FyQArhD+4qtX0qhM=
+github.com/cloudnative-pg/api v1.29.1 h1:FWr8S7EQeOfdhYXyr2cof8wUXLARZiiQt5Qa6ltED7w=
+github.com/cloudnative-pg/api v1.29.1/go.mod h1:QtWF3yzSvIfORMHaSkPAk/o3bhCJwEHJgN3riyRiz3o=
 github.com/cloudnative-pg/barman-cloud v0.5.0 h1:DykSaX4o7ee2vyu5FQoG1RJsntHd+EIttIKZbJPlB1Q=
 github.com/cloudnative-pg/barman-cloud v0.5.0/go.mod h1:SO2HzLa+GWlSIpGyxnISoJAFPIcaa/qDa33Bb3jefac=
 github.com/cloudnative-pg/cloudnative-pg v1.29.1 h1:ZNEt1TMlnQKXI1kho2UqQuqdfvIvjGln4kN7C1lsmGA=
