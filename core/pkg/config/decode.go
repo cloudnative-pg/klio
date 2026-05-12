@@ -3,8 +3,10 @@ package config
 import (
 	"fmt"
 	"io"
+	"path/filepath"
 
 	"github.com/go-viper/mapstructure/v2"
+	"github.com/spf13/afero"
 	"go.yaml.in/yaml/v3"
 )
 
@@ -22,4 +24,22 @@ func DecodeYAML(r io.Reader) (*Data, error) {
 	}
 
 	return &data, nil
+}
+
+// NewFromFile loads the configuration from a YAML file at the given path.
+func NewFromFile(fs afero.Fs, path string) (*Data, error) {
+	configFile, err := fs.Open(filepath.Clean(path))
+	if err != nil {
+		return nil, fmt.Errorf("while loading config file %q: %w", path, err)
+	}
+	defer func() {
+		_ = configFile.Close()
+	}()
+
+	configuration, err := DecodeYAML(configFile)
+	if err != nil {
+		return nil, fmt.Errorf("while decoding config file %q: %w", path, err)
+	}
+
+	return configuration, nil
 }

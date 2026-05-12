@@ -19,13 +19,22 @@ type Data struct {
 	// Tier2RetentionPolicy is the retention policy to be applied to tier2.
 	Tier2RetentionPolicy *RetentionPolicy `json:"tier2_retention,omitempty" mapstructure:"tier2_retention"`
 
-	// Tier1Enabled controls whether tier1 backup/recovery is active.
+	// Tier1Enabled records whether the client archives base backups and WAL
+	// to tier1. False on read-only clients, which do not write to tier1 but
+	// may still restore from it when Client.Wal.Address is set. Not consulted
+	// on the restore path: tier1 restore eligibility is derived from
+	// Client.Wal.Address presence alone.
 	Tier1Enabled bool `json:"tier1_enabled,omitempty" mapstructure:"tier1_enabled"`
 
-	// Tier2BackupEnabled controls whether backups are sent to tier2.
+	// Tier2BackupEnabled records the user's intent to push base backups
+	// and WAL files to tier2. It gates the backup path only.
 	Tier2BackupEnabled bool `json:"tier2_backup_enabled,omitempty" mapstructure:"tier2_backup_enabled"`
 
-	// Tier2RecoveryEnabled controls whether tier2 is used for recovery.
+	// Tier2RecoveryEnabled records the user's intent to use tier2 as a
+	// recovery source. Restore must check this flag before falling back
+	// to tier2: address presence alone is not sufficient, because the
+	// operator populates Client.Wal.Tier2Address whenever tier2 is
+	// enabled for backup OR recovery.
 	Tier2RecoveryEnabled bool `json:"tier2_recovery_enabled,omitempty" mapstructure:"tier2_recovery_enabled"`
 
 	// WALPrefetch is the WAL prefetching configuration.

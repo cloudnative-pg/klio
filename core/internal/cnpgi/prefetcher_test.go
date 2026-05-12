@@ -95,7 +95,7 @@ func TestSpoolSubdir(t *testing.T) {
 			name: "tier1 with simple config",
 			opts: walRestoreOptions{
 				configFile: "/var/lib/postgresql/klio/klio-archive",
-				tier:       "tier1",
+				targetTier: tier1,
 			},
 			contains: []string{"tier1", "klio-archive"},
 		},
@@ -103,7 +103,7 @@ func TestSpoolSubdir(t *testing.T) {
 			name: "tier2 with different config",
 			opts: walRestoreOptions{
 				configFile: "/var/lib/postgresql/klio/source-cluster",
-				tier:       "tier2",
+				targetTier: tier2,
 			},
 			contains: []string{"tier2", "source-cluster"},
 		},
@@ -124,11 +124,11 @@ func TestSpoolSubdirUniqueness(t *testing.T) {
 	// Different config paths should produce different subdirectory names.
 	opts1 := walRestoreOptions{
 		configFile: "/var/lib/postgresql/klio/config1",
-		tier:       "tier1",
+		targetTier: tier1,
 	}
 	opts2 := walRestoreOptions{
 		configFile: "/var/lib/postgresql/klio/config2",
-		tier:       "tier1",
+		targetTier: tier1,
 	}
 
 	result1 := spoolSubdir(opts1)

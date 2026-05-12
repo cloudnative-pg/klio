@@ -42,8 +42,6 @@ var restoreJobCmd = &cobra.Command{
 			server.AddRestoreCapability(destination)
 			server.AddWALCapability(cnpgi.WALCapabilityOptions{
 				Debug: debug,
-				Tier1: configuration.Tier1Enabled,
-				Tier2: configuration.Tier2RecoveryEnabled,
 			})
 		}
 

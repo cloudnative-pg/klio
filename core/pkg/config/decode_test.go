@@ -3,6 +3,8 @@ package config
 import (
 	"strings"
 	"testing"
+
+	"github.com/spf13/afero"
 )
 
 func TestDecodeYAML(t *testing.T) {
@@ -111,4 +113,62 @@ source:
 			}
 		})
 	}
+}
+
+func TestNewFromFile(t *testing.T) {
+	t.Run("valid config file", func(t *testing.T) {
+		fs := afero.NewMemMapFs()
+		_ = afero.WriteFile(fs, "/etc/klio/config.yaml", []byte(`
+client:
+  cluster_name: my-cluster
+  wal:
+    address: "klio-server:52000"
+source:
+  dsn: "postgres://localhost:5432/mydb"
+  slot: my_slot
+`), 0o600)
+
+		got, err := NewFromFile(fs, "/etc/klio/config.yaml")
+		if err != nil {
+			t.Fatalf("NewFromFile() unexpected error: %v", err)
+		}
+
+		if got.Client.ClusterName != "my-cluster" {
+			t.Errorf("ClusterName = %q, want %q", got.Client.ClusterName, "my-cluster")
+		}
+		if got.Client.Wal.Address != "klio-server:52000" {
+			t.Errorf("Wal.Address = %q, want %q", got.Client.Wal.Address, "klio-server:52000")
+		}
+		if got.Source.DSN != "postgres://localhost:5432/mydb" {
+			t.Errorf("Source.DSN = %q, want %q", got.Source.DSN, "postgres://localhost:5432/mydb")
+		}
+		if got.Source.Slot != "my_slot" {
+			t.Errorf("Source.Slot = %q, want %q", got.Source.Slot, "my_slot")
+		}
+	})
+
+	t.Run("file not found", func(t *testing.T) {
+		fs := afero.NewMemMapFs()
+
+		_, err := NewFromFile(fs, "/etc/klio/nonexistent.yaml")
+		if err == nil {
+			t.Fatal("NewFromFile() expected error for nonexistent file, got nil")
+		}
+		if !strings.Contains(err.Error(), "while loading config file") {
+			t.Errorf("error = %q, want it to contain %q", err.Error(), "while loading config file")
+		}
+	})
+
+	t.Run("invalid YAML", func(t *testing.T) {
+		fs := afero.NewMemMapFs()
+		_ = afero.WriteFile(fs, "/etc/klio/bad.yaml", []byte(`{invalid`), 0o600)
+
+		_, err := NewFromFile(fs, "/etc/klio/bad.yaml")
+		if err == nil {
+			t.Fatal("NewFromFile() expected error for invalid YAML, got nil")
+		}
+		if !strings.Contains(err.Error(), "while decoding config file") {
+			t.Errorf("error = %q, want it to contain %q", err.Error(), "while decoding config file")
+		}
+	})
 }

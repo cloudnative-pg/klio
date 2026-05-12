@@ -396,7 +396,7 @@ func TestBuildInstanceSidecarTemplate(t *testing.T) {
 			},
 		}
 
-		result := buildInstanceSidecarTemplate(pod, cluster, clusterPC, "klio-archive")
+		result := buildInstanceSidecarTemplate(pod, cluster, clusterPC, klioconfig.ArchiveConfigKey)
 
 		assert.Equal(t, KlioPluginContainerName, result.Name)
 		assert.Equal(t, []string{
@@ -418,7 +418,7 @@ func TestBuildInstanceSidecarTemplate(t *testing.T) {
 			Spec: kliov1alpha1.PluginConfigurationSpec{},
 		}
 
-		result := buildInstanceSidecarTemplate(pod, cluster, clusterPC, "klio-archive")
+		result := buildInstanceSidecarTemplate(pod, cluster, clusterPC, klioconfig.ArchiveConfigKey)
 
 		assert.Equal(t, KlioPluginContainerName, result.Name)
 		assert.Equal(t, []string{
@@ -449,8 +449,8 @@ func TestBuildInstanceSidecarTemplate(t *testing.T) {
 		}, result.Args)
 	})
 
-	t.Run("with custom config key", func(t *testing.T) {
-		result := buildInstanceSidecarTemplate(pod, cluster, nil, "source-server")
+	t.Run("without archiving", func(t *testing.T) {
+		result := buildInstanceSidecarTemplate(pod, cluster, nil, "")
 
 		assert.Equal(t, KlioPluginContainerName, result.Name)
 		assert.Equal(t, []string{
@@ -459,7 +459,6 @@ func TestBuildInstanceSidecarTemplate(t *testing.T) {
 			argPodName, testPodName,
 			argClusterName, testClusterName,
 			argClusterNamespace, testClusterNamespace,
-			argConfig, "/var/lib/postgresql/klio/source-server",
 		}, result.Args)
 	})
 
@@ -786,7 +785,7 @@ func TestReconcilePodPluginSelection(t *testing.T) {
 		assert.Nil(t, resp, "non-primary pod should not get a sidecar")
 	})
 
-	t.Run("no archive plugin, replica cluster primary uses source plugin configuration", func(t *testing.T) {
+	t.Run("no archive plugin, replica cluster primary should take no configuration", func(t *testing.T) {
 		cluster := makeReplicaCluster(false)
 		pod := makePod(targetPodName)
 		fakeClient := fake.NewClientBuilder().
@@ -806,10 +805,8 @@ func TestReconcilePodPluginSelection(t *testing.T) {
 		require.NotNil(t, sidecar, "sidecar init container should be present")
 		assert.Equal(t, "source-image:latest", sidecar.Image,
 			"sidecar should use the image from the source PluginConfiguration")
-		assert.Contains(t, sidecar.Args, "--config",
-			"sidecar args should contain --config")
-		assert.Contains(t, sidecar.Args, "/var/lib/postgresql/klio/"+sourceCluster,
-			"sidecar config path should reference the source cluster key")
+		assert.NotContains(t, sidecar.Args, argConfig,
+			"non-archiving sidecar should not have --config")
 	})
 
 	t.Run("no archive plugin, replica cluster primary, source plugin missing returns nil", func(t *testing.T) {

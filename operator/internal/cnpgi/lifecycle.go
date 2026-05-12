@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"path"
 	"sort"
 	"strings"
 
@@ -260,9 +261,8 @@ func (impl LifecycleImplementation) reconcilePod(
 	contextLogger = log.FromContext(ctx).WithName("klio-pod-lifecycle").
 		WithValues("podName", pod.Name)
 
-	configKey := klioconfig.ArchiveConfigKey
-
-	targetPC, ok := plugins[configKey]
+	archiveConfigKey := klioconfig.ArchiveConfigKey
+	targetPC, ok := plugins[klioconfig.ArchiveConfigKey]
 	if !ok {
 		// No archive plugin. The only case where the instance sidecar is
 		// still needed is the designated primary of a replica cluster,
@@ -274,9 +274,8 @@ func (impl LifecycleImplementation) reconcilePod(
 
 		replicaSource := cluster.Spec.ReplicaCluster.Source
 		ext, _ := cluster.ExternalCluster(replicaSource)
-		configKey = ext.GetServerName()
-
-		targetPC, ok = plugins[configKey]
+		archiveConfigKey = ""
+		targetPC, ok = plugins[ext.GetServerName()]
 		if !ok {
 			// The cluster may be replicating using a different plugin
 			return nil, nil
@@ -286,7 +285,7 @@ func (impl LifecycleImplementation) reconcilePod(
 	mutatedPod := pod.DeepCopy()
 
 	sidecarsToEnrich := []corev1.Container{
-		buildInstanceSidecarTemplate(pod, cluster, targetPC, configKey),
+		buildInstanceSidecarTemplate(pod, cluster, targetPC, archiveConfigKey),
 	}
 
 	cnpgGroup, cnpgVersion := cnpgGroupVersion(cluster)
@@ -322,7 +321,7 @@ func buildInstanceSidecarTemplate(
 	pod *corev1.Pod,
 	cluster *cnpgv1.Cluster,
 	clusterPC *kliov1alpha1.PluginConfiguration,
-	configKey string,
+	archiveConfigKey string,
 ) corev1.Container {
 	// Merge strategy:
 	// 1. Start from user customization if present (as the base)
@@ -336,7 +335,10 @@ func buildInstanceSidecarTemplate(
 		"--pod-name", pod.Name,
 		"--cluster-name", cluster.Name,
 		"--cluster-namespace", cluster.Namespace,
-		"--config", "/var/lib/postgresql/klio/" + configKey,
+	}
+
+	if archiveConfigKey != "" {
+		args = append(args, "--config", path.Join("/var/lib/postgresql/klio/", archiveConfigKey))
 	}
 
 	if clusterPC != nil {

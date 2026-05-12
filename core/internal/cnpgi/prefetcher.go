@@ -482,7 +482,7 @@ func spoolSubdir(opts walRestoreOptions) string {
 	h := sha256.Sum256([]byte(opts.configFile))
 	hash := hex.EncodeToString(h[:4])
 
-	return fmt.Sprintf("%s-%s-%s", opts.tier, name, hash)
+	return fmt.Sprintf("%s-%s-%s", opts.targetTier, name, hash)
 }
 
 // cleanupSpoolDir removes all files in the spool directory.

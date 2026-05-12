@@ -24,7 +24,7 @@ var instanceCmd = &cobra.Command{
 		shutdownOtel := opentelemetry.Init(cmd.Context())
 		defer shutdownOtel()
 
-		configFile, _ := cmd.Root().PersistentFlags().GetString("config")
+		archiveConfigFile, _ := cmd.Root().PersistentFlags().GetString("config")
 		pluginPath, _ := cmd.Flags().GetString("plugin-path")
 
 		var configuration config.Data
@@ -43,25 +43,27 @@ var instanceCmd = &cobra.Command{
 			})
 			server.AddWALCapability(cnpgi.WALCapabilityOptions{
 				Debug: debug,
-				Tier1: configuration.Tier1Enabled,
-				Tier2: configuration.Tier2RecoveryEnabled,
 			})
 		}
 
 		enrichManager := func(mgr manager.Manager) error {
-			sendWal := cnpgi.SendWalClusterReconciler{
-				Client:         mgr.GetClient(),
-				PodName:        podName,
-				KlioConfigFile: configFile,
+			if archiveConfigFile != "" {
+				sendWal := cnpgi.SendWalClusterReconciler{
+					Client:         mgr.GetClient(),
+					PodName:        podName,
+					KlioConfigFile: archiveConfigFile,
+				}
+
+				return sendWal.SetupWithManager(mgr)
 			}
 
-			return sendWal.SetupWithManager(mgr)
+			return nil
 		}
 
 		return runCNPGI(
 			cmd.Context(),
 			pluginPath,
-			configFile,
+			archiveConfigFile,
 			types.NamespacedName{
 				Namespace: clusterNamespace,
 				Name:      clusterName,

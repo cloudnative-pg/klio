@@ -76,26 +76,12 @@ func (c *CNPGI) AddBackupCapability(opts BackupCapabilityOptions) {
 // WALCapabilityOptions are the options to configure the WAL service.
 type WALCapabilityOptions struct {
 	Debug bool
-	Tier1 bool
-	Tier2 bool
 }
 
 // AddWALCapability adds the WAL restore capabilities to the CNPGI service.
 func (c *CNPGI) AddWALCapability(opts WALCapabilityOptions) {
-	availableTiers := make([]string, 0, 2)
-	if opts.Tier1 {
-		availableTiers = append(availableTiers, "tier1")
-	}
-	if opts.Tier2 {
-		availableTiers = append(availableTiers, "tier2")
-	}
-
 	enricher := func(server *grpc.Server) error {
-		walService := walServiceImplementation{
-			opts:           opts,
-			availableTiers: availableTiers,
-			mgr:            newGRPCClientManager(),
-		}
+		walService := newWalServiceImplementation(newGRPCClientManager(), opts)
 		wal.RegisterWALServer(server, &walService)
 
 		return nil

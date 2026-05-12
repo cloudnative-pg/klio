@@ -4,29 +4,128 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
+
+	"github.com/cloudnative-pg/klio/core/pkg/config"
 )
+
+func TestAvailableTiers(t *testing.T) {
+	const (
+		tier1Addr = "klio:52000"
+		tier2Addr = "klio:52001"
+	)
+
+	tests := []struct {
+		name string
+		cfg  config.Data
+		want []tier
+	}{
+		{
+			name: "standard mode, no tier2",
+			cfg: config.Data{
+				Tier1Enabled: true,
+				Client:       config.ClientConfig{Wal: config.WalRepositoryClientConfig{Address: tier1Addr}},
+			},
+			want: []tier{tier1},
+		},
+		{
+			name: "standard mode, tier2 backup only — restore must not use tier2",
+			cfg: config.Data{
+				Tier1Enabled:       true,
+				Tier2BackupEnabled: true,
+				Client: config.ClientConfig{Wal: config.WalRepositoryClientConfig{
+					Address:      tier1Addr,
+					Tier2Address: tier2Addr,
+				}},
+			},
+			want: []tier{tier1},
+		},
+		{
+			name: "standard mode, tier2 recovery only",
+			cfg: config.Data{
+				Tier1Enabled:         true,
+				Tier2RecoveryEnabled: true,
+				Client: config.ClientConfig{Wal: config.WalRepositoryClientConfig{
+					Address:      tier1Addr,
+					Tier2Address: tier2Addr,
+				}},
+			},
+			want: []tier{tier1, tier2},
+		},
+		{
+			name: "standard mode, tier2 backup and recovery",
+			cfg: config.Data{
+				Tier1Enabled:         true,
+				Tier2BackupEnabled:   true,
+				Tier2RecoveryEnabled: true,
+				Client: config.ClientConfig{Wal: config.WalRepositoryClientConfig{
+					Address:      tier1Addr,
+					Tier2Address: tier2Addr,
+				}},
+			},
+			want: []tier{tier1, tier2},
+		},
+		{
+			name: "read-only mode, tier2 recovery",
+			cfg: config.Data{
+				Tier2RecoveryEnabled: true,
+				Client:               config.ClientConfig{Wal: config.WalRepositoryClientConfig{Tier2Address: tier2Addr}},
+			},
+			want: []tier{tier2},
+		},
+		{
+			name: "Tier1Enabled false but address present — tier1 still selectable",
+			cfg: config.Data{
+				Tier1Enabled:         false,
+				Tier2RecoveryEnabled: true,
+				Client: config.ClientConfig{Wal: config.WalRepositoryClientConfig{
+					Address:      tier1Addr,
+					Tier2Address: tier2Addr,
+				}},
+			},
+			want: []tier{tier1, tier2},
+		},
+		{
+			name: "no addresses, flags ignored",
+			cfg: config.Data{
+				Tier1Enabled:         true,
+				Tier2RecoveryEnabled: true,
+			},
+			want: nil,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := availableTiers(&tt.cfg)
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("availableTiers() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
 
 func TestGetConnectionErrors(t *testing.T) {
 	tests := []struct {
 		name       string
 		writeFile  bool
 		configYAML string
-		tier       string
+		tier       tier
 		wantSubstr string
 	}{
 		{
 			name:       "nonexistent config file",
 			writeFile:  false,
-			tier:       "tier1",
+			tier:       tier1,
 			wantSubstr: "while loading config file",
 		},
 		{
 			name:       "invalid YAML",
 			writeFile:  true,
 			configYAML: "{invalid",
-			tier:       "tier1",
+			tier:       tier1,
 			wantSubstr: "while decoding config file",
 		},
 		{
@@ -39,7 +138,7 @@ client:
     address: "localhost:52000"
     tier2_address: "localhost:52001"
 `,
-			tier:       "tier3",
+			tier:       tier("tier3"),
 			wantSubstr: `unknown tier "tier3"`,
 		},
 	}
@@ -59,7 +158,7 @@ client:
 				context.Background(),
 				walRestoreOptions{
 					configFile: configPath,
-					tier:       tt.tier,
+					targetTier: tt.tier,
 				},
 			)
 			if err == nil {

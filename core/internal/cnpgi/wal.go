@@ -8,11 +8,13 @@ import (
 	"os"
 	"path/filepath"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	cnpgv1 "github.com/cloudnative-pg/cloudnative-pg/api/v1"
 	"github.com/cloudnative-pg/cnpg-i/pkg/wal"
 	"github.com/cloudnative-pg/machinery/pkg/log"
+	"github.com/spf13/afero"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
@@ -22,17 +24,30 @@ import (
 
 var errWALNotFound = errors.New("wal not found")
 
+type tier string
+
+const (
+	tier1 tier = "tier1"
+	tier2 tier = "tier2"
+)
+
 type walServiceImplementation struct {
 	wal.UnimplementedWALServer
 
-	mu sync.Mutex
-
-	opts WALCapabilityOptions
-
-	availableTiers   []string
-	currentTierIndex int
+	opts        WALCapabilityOptions
+	currentTier atomic.Value
 
 	mgr *grpcClientManager
+}
+
+func newWalServiceImplementation(mgr *grpcClientManager, opts WALCapabilityOptions) walServiceImplementation {
+	result := walServiceImplementation{
+		opts: opts,
+		mgr:  mgr,
+	}
+	result.currentTier.Store(tier1)
+
+	return result
 }
 
 // GetCapabilities implements the WALService interface.
@@ -99,45 +114,66 @@ func (w *walServiceImplementation) Restore(
 	return &wal.WALRestoreResult{}, nil
 }
 
-func (w *walServiceImplementation) getCurrentTier() string {
-	return w.availableTiers[w.currentTierIndex]
-}
-
-func (w *walServiceImplementation) skipCurrentTier() {
-	w.mu.Lock()
-	defer w.mu.Unlock()
-
-	w.currentTierIndex = (w.currentTierIndex + 1) % len(w.availableTiers)
-}
-
 func (w *walServiceImplementation) restoreWAL(
 	ctx context.Context,
 	walName, destinationPath string,
 	configPath string,
 ) error {
-	err := w.mgr.restoreWAL(ctx, walRestoreOptions{
-		configFile: configPath,
-		tier:       w.getCurrentTier(),
-	}, walName, destinationPath)
-
-	// Only try the alternate tier if the WAL was not found and we have multiple tiers
-	if !errors.Is(err, errWALNotFound) || len(w.availableTiers) == 1 {
-		return err
+	cfg, err := config.NewFromFile(afero.NewOsFs(), configPath)
+	if err != nil {
+		return fmt.Errorf("while loading configuration from file %q: %w", configPath, err)
 	}
 
-	// Let's try the other tier
-	w.skipCurrentTier()
-	err = w.mgr.restoreWAL(ctx, walRestoreOptions{
-		configFile: configPath,
-		tier:       w.getCurrentTier(),
-	}, walName, destinationPath)
+	tiers := availableTiers(cfg)
+	if len(tiers) == 0 {
+		return errors.New("no WAL tier configured")
+	}
 
-	return err
+	// Try the previously-successful tier first, when both are available.
+	currentTier := w.currentTier.Load()
+	if len(tiers) > 1 && tiers[0] != currentTier {
+		tiers[0], tiers[1] = tiers[1], tiers[0]
+	}
+
+	for _, t := range tiers {
+		err := w.mgr.restoreWAL(ctx, walRestoreOptions{
+			configFile: configPath,
+			targetTier: t,
+		}, walName, destinationPath)
+		if err == nil {
+			w.currentTier.Store(t)
+			return nil
+		}
+		if !errors.Is(err, errWALNotFound) {
+			return err
+		}
+	}
+
+	return errWALNotFound
+}
+
+// availableTiers returns the tiers the user has opted in to as recovery
+// sources. The gating is asymmetric on purpose: the operator only sets
+// Wal.Address when the user wants to archive to tier1 (which implies
+// restoring from it), so address presence is sufficient there. Wal.Tier2Address
+// is set whenever the user enables tier2 for backup OR recovery, so we must
+// additionally consult Tier2RecoveryEnabled to avoid pulling restores from
+// a backup-only tier2.
+func availableTiers(cfg *config.Data) []tier {
+	var tiers []tier
+	if cfg.Client.Wal.Address != "" {
+		tiers = append(tiers, tier1)
+	}
+	if cfg.Tier2RecoveryEnabled && cfg.Client.Wal.Tier2Address != "" {
+		tiers = append(tiers, tier2)
+	}
+
+	return tiers
 }
 
 type walRestoreOptions struct {
 	configFile string
-	tier       string
+	targetTier tier
 }
 
 // walRestoreClient holds the connection and prefetcher for WAL restoration.
@@ -167,29 +203,22 @@ func (mgr *grpcClientManager) getClient(ctx context.Context, opts walRestoreOpti
 
 	contextLogger := log.FromContext(ctx)
 
-	configFile, err := os.Open(opts.configFile)
+	configuration, err := config.NewFromFile(afero.NewOsFs(), opts.configFile)
 	if err != nil {
-		return nil, fmt.Errorf("while loading config file %q: %w", opts.configFile, err)
-	}
-	defer func() {
-		_ = configFile.Close()
-	}()
-
-	configuration, err := config.DecodeYAML(configFile)
-	if err != nil {
-		return nil, fmt.Errorf("while decoding config file %q: %w", opts.configFile, err)
+		return nil, fmt.Errorf("while loading configuration from file %q: %w", opts.configFile, err)
 	}
 
 	var address string
-	switch opts.tier {
-	case "tier1":
+	switch opts.targetTier {
+	case tier1:
 		address = configuration.Client.Wal.Address
-
-	case "tier2":
+	case tier2:
 		address = configuration.Client.Wal.Tier2Address
-
 	default:
-		return nil, fmt.Errorf("unknown tier %q", opts.tier)
+		return nil, fmt.Errorf("unknown tier %q", opts.targetTier)
+	}
+	if address == "" {
+		return nil, fmt.Errorf("missing address for tier %q", opts.targetTier)
 	}
 
 	connection, err := grpcclient.Connect(&configuration.Client, address)
@@ -215,7 +244,7 @@ func (mgr *grpcClientManager) getClient(ctx context.Context, opts walRestoreOpti
 	mgr.clients[opts] = client
 
 	contextLogger.Info("Created WAL restore client",
-		"tier", opts.tier,
+		"targetTier", opts.targetTier,
 		"configFile", opts.configFile,
 		"spoolDir", spoolDir,
 		"prefetchCount", prefetchCount,
