@@ -1,5 +1,5 @@
 # renovate: datasource=github-tags depName=go-task/task versioning=semver
-version: 3.50.0
+version: 3.51.1
 
 # We have multiple parallel tasks that run for a long time. Prefix their output with the task name so we can understand
 # what task is writing.
