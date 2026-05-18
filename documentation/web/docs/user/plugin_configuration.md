@@ -185,6 +185,48 @@ which is managed by CloudNativePG. To apply these changes, use
 `kubectl cnpg restart` to roll the cluster pods.
 :::
 
+## Disabling the plugin
+
+To disable the Klio plugin for a CloudNativePG Cluster, set `enabled: false`
+in the plugin reference inside the `Cluster` resource:
+
+```yaml
+spec:
+  plugins:
+    - name: klio.cnpg.io
+      enabled: false
+      parameters:
+        pluginConfigurationRef: klio-plugin-config
+```
+
+After applying this change, a Pods rollout will be triggered by
+CloudNativePG to remove the Klio sidecar containers.
+
+:::warning Replication slot cleanup
+When the Klio plugin is active, the WAL streaming sidecar creates
+a physical replication slot named `klio` on the PostgreSQL
+primary. Disabling the plugin does **not** automatically remove
+this replication slot. An orphaned replication slot will cause
+PostgreSQL to retain WAL files indefinitely, eventually leading
+to disk exhaustion.
+
+After disabling the plugin, connect to the primary instance and
+drop the replication slot manually:
+
+```sql
+SELECT pg_drop_replication_slot('klio');
+```
+
+You can verify the slot exists beforehand with:
+
+```sql
+SELECT slot_name, active
+FROM pg_replication_slots
+WHERE slot_type = 'physical';
+```
+
+:::
+
 ## Advanced configuration options
 
 The `PluginConfiguration` resource supports several advanced options to
@@ -463,7 +505,7 @@ using the following logic:
    plugin declared in `.spec.plugins` (the archive plugin), its
    `PluginConfiguration` is used for the sidecar containers on every
    pod.
-2. **Fallback to replica source**: if no archive plugin is configured
+1. **Fallback to replica source**: if no archive plugin is configured
    and the cluster is a replica (`.spec.replica` is set), the
    designated primary pod uses the `PluginConfiguration` referenced
    by the external cluster defined as the replica source
