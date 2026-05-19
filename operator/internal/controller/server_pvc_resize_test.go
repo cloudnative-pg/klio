@@ -83,7 +83,7 @@ func newTestServerTier1(dataSize, cacheSize string) *kliov1alpha1.Server {
 
 // --- buildDesiredPVCSizes tests ---
 
-func TestBuildDesiredPVCSizes_Tier1Only(t *testing.T) {
+func TestBuildDesiredPVCSizesTier1Only(t *testing.T) {
 	server := newTestServerTier1("100Gi", "10Gi")
 	server.Spec.Queue = &kliov1alpha1.Queue{PersistentVolumeClaimTemplate: newPVCSpec("5Gi")}
 
@@ -95,7 +95,7 @@ func TestBuildDesiredPVCSizes_Tier1Only(t *testing.T) {
 	assert.Equal(t, resource.MustParse("5Gi"), sizes[pvcTypeQueue])
 }
 
-func TestBuildDesiredPVCSizes_Tier2Only(t *testing.T) {
+func TestBuildDesiredPVCSizesTier2Only(t *testing.T) {
 	server := &kliov1alpha1.Server{
 		Spec: kliov1alpha1.ServerSpec{
 			Mode: kliov1alpha1.ModeReadOnly,
@@ -112,7 +112,7 @@ func TestBuildDesiredPVCSizes_Tier2Only(t *testing.T) {
 	assert.Equal(t, resource.MustParse("20Gi"), sizes[pvcTypeCacheTier2])
 }
 
-func TestBuildDesiredPVCSizes_BothTiers(t *testing.T) {
+func TestBuildDesiredPVCSizesBothTiers(t *testing.T) {
 	server := newTestServerTier1("100Gi", "10Gi")
 	server.Spec.Tier2 = &kliov1alpha1.Tier2Configuration{
 		Cache: kliov1alpha1.Cache{PersistentVolumeClaimTemplate: newPVCSpec("20Gi")},
@@ -129,12 +129,12 @@ func TestBuildDesiredPVCSizes_BothTiers(t *testing.T) {
 	assert.Equal(t, resource.MustParse("5Gi"), sizes[pvcTypeQueue])
 }
 
-func TestBuildDesiredPVCSizes_EmptyServer(t *testing.T) {
+func TestBuildDesiredPVCSizesEmptyServer(t *testing.T) {
 	sizes := (&ServerReconciler{}).buildDesiredPVCSizes(&kliov1alpha1.Server{})
 	assert.Empty(t, sizes)
 }
 
-func TestBuildDesiredPVCSizes_NoStorageRequests(t *testing.T) {
+func TestBuildDesiredPVCSizesNoStorageRequests(t *testing.T) {
 	server := &kliov1alpha1.Server{
 		Spec: kliov1alpha1.ServerSpec{
 			Tier1: &kliov1alpha1.Tier1Configuration{},
@@ -197,7 +197,7 @@ func TestReconcilePVCResizes(t *testing.T) {
 	}
 }
 
-func TestReconcilePVCResizes_NoPVCsExist(t *testing.T) {
+func TestReconcilePVCResizesNoPVCsExist(t *testing.T) {
 	reconciler, _ := newTestReconciler()
 	server := newTestServerTier1("20Gi", "5Gi")
 
@@ -206,7 +206,7 @@ func TestReconcilePVCResizes_NoPVCsExist(t *testing.T) {
 	assert.True(t, result.IsZero())
 }
 
-func TestReconcilePVCResizes_OrphanedPVCIgnored(t *testing.T) {
+func TestReconcilePVCResizesOrphanedPVCIgnored(t *testing.T) {
 	// PVC for tier2 cache exists, but server only has tier1
 	pvc := newTestPVC("cachetier2-test-server-klio-0", "test-server", pvcTypeCacheTier2, "10Gi")
 	reconciler, fakeClient := newTestReconciler(pvc)

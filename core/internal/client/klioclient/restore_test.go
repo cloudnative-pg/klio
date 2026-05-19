@@ -244,7 +244,7 @@ func TestNewRestoreExecutor(t *testing.T) {
 	assert.Equal(t, conf, executor.configuration)
 }
 
-func TestRestoreExecutor_Restore(t *testing.T) {
+func TestRestoreExecutorRestore(t *testing.T) {
 	ctx := context.Background()
 
 	tempDir := t.TempDir()

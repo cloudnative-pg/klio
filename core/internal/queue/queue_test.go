@@ -70,7 +70,7 @@ func TestNotifyWALReceived(t *testing.T) {
 	require.NoError(t, err, "NotifyWALReceived should succeed")
 }
 
-func TestNotifyWALReceived_WithoutSetup(t *testing.T) {
+func TestNotifyWALReceivedWithoutSetup(t *testing.T) {
 	ns, url := startNATSServer(t)
 	defer ns.Shutdown()
 
@@ -93,7 +93,7 @@ func TestNotifyWALReceived_WithoutSetup(t *testing.T) {
 	require.NoError(t, err, "NotifyWALReceived should succeed even without explicit setup due to auto-create")
 }
 
-func TestWALTask_Serialization(t *testing.T) {
+func TestWALTaskSerialization(t *testing.T) {
 	ns, url := startNATSServer(t)
 	defer ns.Shutdown()
 
@@ -128,7 +128,7 @@ func TestWALTask_Serialization(t *testing.T) {
 	time.Sleep(100 * time.Millisecond)
 }
 
-func TestGetOldestPendingWAL_EmptyQueue(t *testing.T) {
+func TestGetOldestPendingWALEmptyQueue(t *testing.T) {
 	ns, url := startNATSServer(t)
 	defer ns.Shutdown()
 
@@ -146,7 +146,7 @@ func TestGetOldestPendingWAL_EmptyQueue(t *testing.T) {
 	assert.Empty(t, oldestWAL, "should return empty string for empty queue")
 }
 
-func TestGetOldestPendingWAL_SingleMessage(t *testing.T) {
+func TestGetOldestPendingWALSingleMessage(t *testing.T) {
 	ns, url := startNATSServer(t)
 	defer ns.Shutdown()
 
@@ -174,7 +174,7 @@ func TestGetOldestPendingWAL_SingleMessage(t *testing.T) {
 	assert.Equal(t, "000000010000000000000005", oldestWAL)
 }
 
-func TestGetOldestPendingWAL_MultipleMessages(t *testing.T) {
+func TestGetOldestPendingWALMultipleMessages(t *testing.T) {
 	ns, url := startNATSServer(t)
 	defer ns.Shutdown()
 
@@ -211,7 +211,7 @@ func TestGetOldestPendingWAL_MultipleMessages(t *testing.T) {
 	assert.Equal(t, "000000010000000000000001", oldestWAL, "should return lexicographically smallest WAL")
 }
 
-func TestGetOldestPendingWAL_MultipleCluster(t *testing.T) {
+func TestGetOldestPendingWALMultipleCluster(t *testing.T) {
 	ns, url := startNATSServer(t)
 	defer ns.Shutdown()
 
@@ -270,7 +270,7 @@ func TestGetOldestPendingWAL_MultipleCluster(t *testing.T) {
 	assert.Empty(t, oldestWAL, "should return empty for non-existent cluster")
 }
 
-func TestGetOldestPendingWAL_DifferentTimelines(t *testing.T) {
+func TestGetOldestPendingWALDifferentTimelines(t *testing.T) {
 	ns, url := startNATSServer(t)
 	defer ns.Shutdown()
 

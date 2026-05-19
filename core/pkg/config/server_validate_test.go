@@ -4,7 +4,7 @@ import (
 	"testing"
 )
 
-func TestTLSConfig_Validate(t *testing.T) {
+func TestTLSConfigValidate(t *testing.T) {
 	tests := []struct {
 		name    string
 		config  TLSConfig
@@ -23,7 +23,7 @@ func TestTLSConfig_Validate(t *testing.T) {
 	}
 }
 
-func TestTierConfigs_Validate(t *testing.T) {
+func TestTierConfigsValidate(t *testing.T) {
 	t.Run("Tier1", func(t *testing.T) {
 		tests := []struct {
 			name    string
@@ -86,7 +86,7 @@ func TestTierConfigs_Validate(t *testing.T) {
 	})
 }
 
-func TestS3Configuration_Validate(t *testing.T) {
+func TestS3ConfigurationValidate(t *testing.T) {
 	tests := []struct {
 		name    string
 		config  S3Configuration
@@ -168,7 +168,7 @@ func TestS3Configuration_Validate(t *testing.T) {
 	}
 }
 
-func TestServerConfig_RequireTier2(t *testing.T) {
+func TestServerConfigRequireTier2(t *testing.T) {
 	tests := []struct {
 		name    string
 		config  ServerConfig

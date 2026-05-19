@@ -11,7 +11,7 @@ import (
 	semconv "go.opentelemetry.io/otel/semconv/v1.40.0"
 )
 
-func TestCreateResource_K8sAttributes(t *testing.T) {
+func TestCreateResourceK8sAttributes(t *testing.T) {
 	tests := []struct {
 		name          string
 		envVars       map[string]string
@@ -146,7 +146,7 @@ func isK8sAttribute(key string) bool {
 		key == string(semconv.K8SNamespaceNameKey)
 }
 
-func TestCreateResource_WithOTELResourceAttributes(t *testing.T) {
+func TestCreateResourceWithOTELResourceAttributes(t *testing.T) {
 	// Test that k8s attributes are merged correctly with OTEL_RESOURCE_ATTRIBUTES
 	t.Setenv("OTEL_RESOURCE_ATTRIBUTES", "service.version=1.0.0,deployment.environment=test")
 	t.Setenv("CONTAINER_NAME", "my-container")
@@ -168,7 +168,7 @@ func TestCreateResource_WithOTELResourceAttributes(t *testing.T) {
 	verifyExpectedAttributes(t, res, expectedAttrs)
 }
 
-func TestCreateResource_NoOTELConfig(t *testing.T) {
+func TestCreateResourceNoOTELConfig(t *testing.T) {
 	// Test that resource creation works even when no OTEL env vars are set
 	// and k8s env vars are present
 	t.Setenv("CONTAINER_NAME", "standalone-container")
@@ -192,7 +192,7 @@ func TestCreateResource_NoOTELConfig(t *testing.T) {
 	assert.True(t, foundContainerName, "k8s.container.name should be present even without OTEL_* env vars")
 }
 
-func TestCreateResource_UserDefinedK8sAttributesNotOverridden(t *testing.T) {
+func TestCreateResourceUserDefinedK8sAttributesNotOverridden(t *testing.T) {
 	// Test that user-defined k8s attributes are NOT overridden by env vars
 	t.Setenv("OTEL_RESOURCE_ATTRIBUTES", "k8s.container.name=user-container,k8s.pod.name=user-pod")
 	t.Setenv("CONTAINER_NAME", "env-container")
@@ -218,7 +218,7 @@ func TestCreateResource_UserDefinedK8sAttributesNotOverridden(t *testing.T) {
 		"k8s.namespace.name should use env var value since not user-defined")
 }
 
-func TestCreateResource_PartialUserDefinedK8sAttributes(t *testing.T) {
+func TestCreateResourcePartialUserDefinedK8sAttributes(t *testing.T) {
 	// Test that we add missing k8s attributes even when some are user-defined
 	t.Setenv("OTEL_RESOURCE_ATTRIBUTES", "k8s.container.name=user-container")
 	t.Setenv("CONTAINER_NAME", "env-container")

@@ -9,7 +9,7 @@ import (
 	"github.com/ccoveille/go-safecast/v2"
 )
 
-func TestWALWriter_WriteWAL_CreatesFileWithCorrectSize(t *testing.T) {
+func TestWALWriterWriteWALCreatesFileWithCorrectSize(t *testing.T) {
 	dir := t.TempDir()
 	fileName := filepath.Join(dir, "testwal")
 	writer := &WALWriter{
@@ -36,7 +36,7 @@ func TestWALWriter_WriteWAL_CreatesFileWithCorrectSize(t *testing.T) {
 	}
 }
 
-func TestWALWriter_ToDirectory_CreatesMultipleFiles(t *testing.T) {
+func TestWALWriterToDirectoryCreatesMultipleFiles(t *testing.T) {
 	dir := t.TempDir()
 	writer := &WALWriter{
 		reader:      NewLoopReader([]byte{0x01, 0x02}),
@@ -57,7 +57,7 @@ func TestWALWriter_ToDirectory_CreatesMultipleFiles(t *testing.T) {
 	}
 }
 
-func TestWALWriter_WriteWAL_ErrorOnInvalidPath(t *testing.T) {
+func TestWALWriterWriteWALErrorOnInvalidPath(t *testing.T) {
 	writer := &WALWriter{
 		reader:      NewLoopReader([]byte{0x01}),
 		segmentSize: 10,
@@ -69,7 +69,7 @@ func TestWALWriter_WriteWAL_ErrorOnInvalidPath(t *testing.T) {
 	}
 }
 
-func TestWALWriter_WriteWAL_ErrorOnShortReader(t *testing.T) {
+func TestWALWriterWriteWALErrorOnShortReader(t *testing.T) {
 	// io.LimitReader returns EOF before segmentSize is reached
 	writer := &WALWriter{
 		reader:      io.LimitReader(NewLoopReader([]byte{0x01}), 5),

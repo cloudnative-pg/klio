@@ -12,7 +12,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestRunWithLogCapture_Success(t *testing.T) {
+func TestRunWithLogCaptureSuccess(t *testing.T) {
 	ctx := context.Background()
 
 	cmd := exec.CommandContext(ctx, "echo", "hello world")
@@ -21,7 +21,7 @@ func TestRunWithLogCapture_Success(t *testing.T) {
 	require.NoError(t, err)
 }
 
-func TestRunWithLogCapture_CommandFailure(t *testing.T) {
+func TestRunWithLogCaptureCommandFailure(t *testing.T) {
 	ctx := context.Background()
 
 	// Test a command that fails
@@ -32,7 +32,7 @@ func TestRunWithLogCapture_CommandFailure(t *testing.T) {
 	assert.Contains(t, err.Error(), "command failed")
 }
 
-func TestRunWithLogCapture_WithStdoutCapture(t *testing.T) {
+func TestRunWithLogCaptureWithStdoutCapture(t *testing.T) {
 	ctx := context.Background()
 
 	var stdout bytes.Buffer
@@ -45,7 +45,7 @@ func TestRunWithLogCapture_WithStdoutCapture(t *testing.T) {
 	assert.Contains(t, output, "test output")
 }
 
-func TestRunWithLogCapture_StderrCapture(t *testing.T) {
+func TestRunWithLogCaptureStderrCapture(t *testing.T) {
 	ctx := context.Background()
 
 	cmd := exec.CommandContext(ctx, "sh", "-c", "echo 'error message' >&2")
@@ -54,7 +54,7 @@ func TestRunWithLogCapture_StderrCapture(t *testing.T) {
 	require.NoError(t, err)
 }
 
-func TestRunWithLogCapture_BothStreams(t *testing.T) {
+func TestRunWithLogCaptureBothStreams(t *testing.T) {
 	ctx := context.Background()
 
 	var stdout bytes.Buffer
@@ -67,7 +67,7 @@ func TestRunWithLogCapture_BothStreams(t *testing.T) {
 	assert.Contains(t, output, "stdout line")
 }
 
-func TestRunWithLogCapture_MultilineOutput(t *testing.T) {
+func TestRunWithLogCaptureMultilineOutput(t *testing.T) {
 	ctx := context.Background()
 
 	var stdout bytes.Buffer
@@ -82,7 +82,7 @@ func TestRunWithLogCapture_MultilineOutput(t *testing.T) {
 	assert.Contains(t, output, "line 3")
 }
 
-func TestRunWithLogCapture_CanceledContext(t *testing.T) {
+func TestRunWithLogCaptureCanceledContext(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel() // Cancel immediately
 
@@ -93,7 +93,7 @@ func TestRunWithLogCapture_CanceledContext(t *testing.T) {
 	require.Error(t, err)
 }
 
-func TestRunWithLogCapture_InvalidCommand(t *testing.T) {
+func TestRunWithLogCaptureInvalidCommand(t *testing.T) {
 	ctx := context.Background()
 
 	// Test with a command that doesn't exist
@@ -210,7 +210,7 @@ func TestScanLinesOrCR(t *testing.T) {
 	}
 }
 
-func TestScanLinesOrCR_FullScan(t *testing.T) {
+func TestScanLinesOrCRFullScan(t *testing.T) {
 	// Test scanning a complete input with mixed line endings using bufio.Scanner.
 	testCases := []struct {
 		name      string

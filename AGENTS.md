@@ -116,6 +116,8 @@ runner.RegisterFeatures(
 - Avoid inline error strings; define error variables instead
   (e.g., `var ErrSomething = errors.New("message")`)
 - Comments on exported functions and variables must end with a period.
+- Test function names must match `^(_|[a-zA-Z0-9]+)$` — no underscores
+  (e.g., `TestGetStatusEmpty` not `TestGetStatus_Empty`).
 
 # Important notes
 

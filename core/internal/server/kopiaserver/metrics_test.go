@@ -6,7 +6,7 @@ import (
 	"github.com/cloudnative-pg/klio/core/internal/kopia"
 )
 
-func TestSnapshotStats_Increment_FirstSnapshot_ShouldInitializeAndUpdate(t *testing.T) {
+func TestSnapshotStatsIncrementFirstSnapshotShouldInitializeAndUpdate(t *testing.T) {
 	s := snapshotStats{}
 	ds := kopia.DirectorySummary{
 		TotalFileSize:  123,

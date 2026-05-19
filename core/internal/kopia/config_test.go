@@ -103,7 +103,7 @@ func assertConfigDataEqual(t *testing.T, got, want *ConfigData) {
 	}
 }
 
-func TestParseConfigFile_NonExistentFile(t *testing.T) {
+func TestParseConfigFileNonExistentFile(t *testing.T) {
 	_, err := ParseConfigFile("/nonexistent/path/to/config.json")
 	if err == nil {
 		t.Error("expected error for non-existent file, got none")

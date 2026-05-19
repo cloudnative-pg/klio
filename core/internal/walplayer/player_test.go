@@ -18,7 +18,7 @@ func mockTaskResult(name string, err string) WALUploadReport {
 	}
 }
 
-func Test_runManager_EmptyDir(t *testing.T) {
+func TestRunManagerEmptyDir(t *testing.T) {
 	dir := t.TempDir()
 	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
@@ -33,7 +33,7 @@ func Test_runManager_EmptyDir(t *testing.T) {
 	}
 }
 
-func Test_runManager_CancelsEarly(t *testing.T) {
+func TestRunManagerCancelsEarly(t *testing.T) {
 	dir := t.TempDir()
 	f, err := os.Create(filepath.Join(dir, "wal1")) //nolint: gosec
 	if err != nil {
@@ -53,7 +53,7 @@ func Test_runManager_CancelsEarly(t *testing.T) {
 	}
 }
 
-func Test_runCollector_CollectsResults(t *testing.T) {
+func TestRunCollectorCollectsResults(t *testing.T) {
 	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 	resultsChan := make(chan WALUploadReport)

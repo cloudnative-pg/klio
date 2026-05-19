@@ -7,7 +7,7 @@ import (
 	"testing"
 )
 
-func TestLoopReader_Read_LoopsBuffer(t *testing.T) {
+func TestLoopReaderReadLoopsBuffer(t *testing.T) {
 	// Test that LoopReader repeats the original data when reading more bytes
 	// than the buffer contains. With data [1,2,3,4] and reading 10 bytes,
 	// we expect: [1,2,3,4,1,2,3,4,1,2]
@@ -32,7 +32,7 @@ func TestLoopReader_Read_LoopsBuffer(t *testing.T) {
 	}
 }
 
-func TestLoopReader_Read_EmptyBuffer(t *testing.T) {
+func TestLoopReaderReadEmptyBuffer(t *testing.T) {
 	r := NewLoopReader([]byte{})
 	buf := make([]byte, 5)
 	n, err := r.Read(buf)
@@ -44,7 +44,7 @@ func TestLoopReader_Read_EmptyBuffer(t *testing.T) {
 	}
 }
 
-func TestLoopReader_Read_SingleByte(t *testing.T) {
+func TestLoopReaderReadSingleByte(t *testing.T) {
 	data := []byte{42}
 	r := NewLoopReader(data)
 	buf := make([]byte, 3)

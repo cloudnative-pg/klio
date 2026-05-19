@@ -234,7 +234,7 @@ func TestMarkTier2(t *testing.T) {
 	assert.Equal(t, meta, result, "Should return the same metadata pointer")
 }
 
-func TestGetClientFromMetadata_Tier1(t *testing.T) {
+func TestGetClientFromMetadataTier1(t *testing.T) {
 	conn := newTestMultiConnection()
 
 	// No annotation, should return nil
@@ -249,7 +249,7 @@ func TestGetClientFromMetadata_Tier1(t *testing.T) {
 	assert.Equal(t, conn.Tier1, client2, "Should select Tier1 if explicitly annotated as Tier1")
 }
 
-func TestGetClientFromMetadata_Tier2(t *testing.T) {
+func TestGetClientFromMetadataTier2(t *testing.T) {
 	conn := newTestMultiConnection()
 
 	// Explicit Tier2 annotation
@@ -261,7 +261,7 @@ func TestGetClientFromMetadata_Tier2(t *testing.T) {
 	assert.Equal(t, conn.Tier2, client, "Should select Tier2 if explicitly annotated as Tier2")
 }
 
-func TestGetClientFromMetadata_NilTier2(t *testing.T) {
+func TestGetClientFromMetadataNilTier2(t *testing.T) {
 	// Simulate Tier2 being optional and not connected
 	conn := &MultiConnection{
 		Tier1: newMockKlioClient(), // Use MockKlioClient for consistency

@@ -5,7 +5,7 @@ import (
 	"testing"
 )
 
-func TestSourceConfig_Validate(t *testing.T) {
+func TestSourceConfigValidate(t *testing.T) {
 	tests := []struct {
 		name    string
 		config  SourceConfig
@@ -98,7 +98,7 @@ func TestSourceConfig_Validate(t *testing.T) {
 	}
 }
 
-func TestWalRepositoryClientConfig_Validate(t *testing.T) {
+func TestWalRepositoryClientConfigValidate(t *testing.T) {
 	tests := []struct {
 		name         string
 		config       WalRepositoryClientConfig
@@ -178,7 +178,7 @@ func TestWalRepositoryClientConfig_Validate(t *testing.T) {
 	}
 }
 
-func TestBaseRepositoryClientConfig_Validate(t *testing.T) {
+func TestBaseRepositoryClientConfigValidate(t *testing.T) {
 	tests := []struct {
 		name         string
 		config       BaseRepositoryClientConfig
@@ -262,7 +262,7 @@ func TestBaseRepositoryClientConfig_Validate(t *testing.T) {
 	}
 }
 
-func TestClientConfig_Validate(t *testing.T) {
+func TestClientConfigValidate(t *testing.T) {
 	tests := []struct {
 		name         string
 		config       ClientConfig
