@@ -3,7 +3,7 @@
 ARG BASE_IMAGE=registry.access.redhat.com/ubi10/ubi-micro:10.2-1777510731@sha256:00a64774d3eb664f673834331d81eb160b47b28bc3c87893ac77a1e8c197d234
 
 # Build Kopia on the host platform for the target platform
-FROM --platform=${BUILDPLATFORM} golang:1.26.3@sha256:cc9a5d7a008cfe2cbc7ffc752b0d6636ad30fc16e4a648d2e4aac00fd8b25ca3 AS builder
+FROM --platform=${BUILDPLATFORM} golang:1.26.3@sha256:6df14f4a4bc9d979a3721f488981e0d1b318006377e473ed23d026796f5f4c0a AS builder
 
 ARG TARGETOS
 ARG TARGETARCH
