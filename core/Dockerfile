@@ -1,4 +1,4 @@
-# syntax=docker/dockerfile:1@sha256:2780b5c3bab67f1f76c781860de469442999ed1a0d7992a5efdf2cffc0e3d769
+# syntax=docker/dockerfile:1@sha256:87999aa3d42bdc6bea60565083ee17e86d1f3339802f543c0d03998580f9cb89
 
 ARG BASE_IMAGE=registry.access.redhat.com/ubi10/ubi-micro:10.2-1777510731@sha256:00a64774d3eb664f673834331d81eb160b47b28bc3c87893ac77a1e8c197d234
 
