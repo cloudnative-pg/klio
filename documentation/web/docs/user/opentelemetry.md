@@ -29,6 +29,8 @@ Klio automatically collects the following:
          - Number of WAL files written
          - Bytes written
          - Timestamp of the most recently written WAL file
+         - LSN progress of WAL ingestion (Tier 1) and archival (Tier 2)
+         - Timeline of the latest WAL on Tier 1 and Tier 2
       - Queue metrics
          - Number of messages in the queue
          - Number of bytes in the queue
@@ -107,6 +109,8 @@ WAL file reception from PostgreSQL instances:
 | `klio.wal.written_size` | Counter | By | Number of bytes written to disk for WAL files |
 | `klio.wal.written` | Counter | - | Number of WAL files written |
 | `klio.wal.latest_written_time` | Gauge | s | Unix epoch timestamp of the most recently written WAL file to disk |
+| `klio.wal.latest_written_lsn` | Gauge | By | Flush-pointer LSN of WAL received from PostgreSQL (Tier 1); matches `pg_current_wal_flush_lsn()` semantics |
+| `klio.wal.latest_written_timeline` | Gauge | - | Timeline ID of the most recently completed WAL file on Tier 1 |
 
 ### WAL consumer metrics (server)
 
@@ -118,6 +122,8 @@ WAL archival to Tier 2 storage:
 | `klio.consumer.written_size` | Counter | By | Number of bytes written to Tier 2 for WAL files |
 | `klio.consumer.written` | Counter | - | Number of WAL files written to Tier 2 |
 | `klio.consumer.latest_written_time` | Gauge | s | Unix epoch timestamp of the most recently written WAL file to Tier 2 |
+| `klio.consumer.latest_written_lsn` | Gauge | By | LSN of the last byte of the most recently archived WAL file on Tier 2 |
+| `klio.consumer.latest_written_timeline` | Gauge | - | Timeline ID of the most recently archived WAL file on Tier 2 |
 | `klio.consumer.backup_verification_success` | Counter | - | Number of successful backup verifications |
 | `klio.consumer.backup_verification_failure` | Counter | - | Number of failed backup verifications (corruption detected) |
 
@@ -139,6 +145,31 @@ WAL pipeline and signal different failure scenarios:
 
 Both metrics carry a `cluster_name` attribute label identifying the
 PostgreSQL cluster the WAL event belongs to.
+
+The LSN-based metrics `klio.wal.latest_written_lsn` and
+`klio.consumer.latest_written_lsn` provide a complementary view of
+the same two pipeline stages, expressed as byte offsets rather than
+wall-clock timestamps.
+
+- **`klio.wal.latest_written_lsn`** is updated on every flushed WAL
+  block received by the Tier 1 WAL server.
+
+- **`klio.consumer.latest_written_lsn`** is updated once per
+  completed WAL file by the Tier 2 consumer. Its value is
+  the LSN of the last byte of the WAL segment just archived.
+
+The companion `klio.wal.latest_written_timeline` and
+`klio.consumer.latest_written_timeline` gauges expose the timeline
+ID of the WAL file each tier is currently handling.
+
+:::warning
+While usually increasing, both LSN metrics may decrease after the
+promotion of a lagging standby.
+:::
+
+Use these metrics alongside the timestamp metrics to distinguish a
+slow pipeline (timestamps advancing, LSN gap growing) from a
+stalled one (timestamps and LSN both frozen).
 
 ### Base backup metrics (server)
 

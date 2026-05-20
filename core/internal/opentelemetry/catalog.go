@@ -67,15 +67,19 @@ const (
 	BackupVerificationsMetric        = "klio.backup.verifications"
 	BackupVerificationFailuresMetric = "klio.backup.verification_failures"
 
-	ConsumerVerificationSuccessMetric = "klio.consumer.backup_verification_success"
-	ConsumerVerificationFailureMetric = "klio.consumer.backup_verification_failure"
-	ConsumerWrittenSizeMetric         = "klio.consumer.written_size"
-	ConsumerWrittenMetric             = "klio.consumer.written"
-	ConsumerLatestWrittenTimeMetric   = "klio.consumer.latest_written_time"
+	ConsumerVerificationSuccessMetric   = "klio.consumer.backup_verification_success"
+	ConsumerVerificationFailureMetric   = "klio.consumer.backup_verification_failure"
+	ConsumerWrittenSizeMetric           = "klio.consumer.written_size"
+	ConsumerWrittenMetric               = "klio.consumer.written"
+	ConsumerLatestWrittenTimeMetric     = "klio.consumer.latest_written_time"
+	ConsumerLatestWrittenLSNMetric      = "klio.consumer.latest_written_lsn"
+	ConsumerLatestWrittenTimelineMetric = "klio.consumer.latest_written_timeline"
 
-	WalServerWrittenSizeMetric       = "klio.wal.written_size"
-	WalServerWrittenMetric           = "klio.wal.written"
-	WalServerLatestWrittenTimeMetric = "klio.wal.latest_written_time"
+	WalServerWrittenSizeMetric           = "klio.wal.written_size"
+	WalServerWrittenMetric               = "klio.wal.written"
+	WalServerLatestWrittenTimeMetric     = "klio.wal.latest_written_time"
+	WalServerLatestWrittenLSNMetric      = "klio.wal.latest_written_lsn"
+	WalServerLatestWrittenTimelineMetric = "klio.wal.latest_written_timeline"
 
 	KopiaServerUptimeMetric       = "klio.base.uptime"
 	SnapshotTotalMetric           = "klio.base.snapshots"
@@ -104,18 +108,22 @@ type BackupMetrics struct {
 
 // ConsumerMetrics holds OTel instruments for the WAL consumer.
 type ConsumerMetrics struct {
-	VerificationSuccess metric.Int64Counter
-	VerificationFailure metric.Int64Counter
-	WalWrittenBytes     metric.Int64Counter
-	WalWritten          metric.Int64Counter
-	LatestWrittenTime   metric.Float64Gauge
+	VerificationSuccess   metric.Int64Counter
+	VerificationFailure   metric.Int64Counter
+	WalWrittenBytes       metric.Int64Counter
+	WalWritten            metric.Int64Counter
+	LatestWrittenTime     metric.Float64Gauge
+	LatestWrittenLSN      metric.Int64Gauge
+	LatestWrittenTimeline metric.Int64Gauge
 }
 
 // WalServerMetrics holds OTel instruments for the WAL server.
 type WalServerMetrics struct {
-	WalWrittenBytes   metric.Int64Counter
-	WalWritten        metric.Int64Counter
-	LatestWrittenTime metric.Float64Gauge
+	WalWrittenBytes       metric.Int64Counter
+	WalWritten            metric.Int64Counter
+	LatestWrittenTime     metric.Float64Gauge
+	LatestWrittenLSN      metric.Int64Gauge
+	LatestWrittenTimeline metric.Int64Gauge
 }
 
 // SnapshotMetrics holds OTel instruments for Kopia snapshot gauges.
@@ -199,6 +207,15 @@ func InitConsumerMetrics() {
 		metric.WithDescription("Unix epoch timestamp of the most recently written WAL file to Tier 2."),
 		metric.WithUnit("s"),
 	)
+	Consumer.LatestWrittenLSN, _ = meter.Int64Gauge(ConsumerLatestWrittenLSNMetric,
+		metric.WithDescription(
+			"The LSN of last byte of the WAL file most recently archived on tier 2 in base 10."),
+		metric.WithUnit("By"),
+	)
+	Consumer.LatestWrittenTimeline, _ = meter.Int64Gauge(ConsumerLatestWrittenTimelineMetric,
+		metric.WithDescription(
+			"Timeline ID of the most recently archived WAL file on Tier 2."),
+	)
 }
 
 // InitWalServerMetrics creates OTel instruments for the WAL server.
@@ -216,6 +233,15 @@ func InitWalServerMetrics() {
 	WalServer.LatestWrittenTime, _ = meter.Float64Gauge(WalServerLatestWrittenTimeMetric,
 		metric.WithDescription("Unix epoch timestamp of the most recently written WAL file to disk."),
 		metric.WithUnit("s"),
+	)
+	WalServer.LatestWrittenLSN, _ = meter.Int64Gauge(WalServerLatestWrittenLSNMetric,
+		metric.WithDescription(
+			"The LSN of the most recently flushed WAL byte on Tier 1 in base 10."),
+		metric.WithUnit("By"),
+	)
+	WalServer.LatestWrittenTimeline, _ = meter.Int64Gauge(WalServerLatestWrittenTimelineMetric,
+		metric.WithDescription(
+			"Timeline ID of the most recently completed WAL file received on Tier 1."),
 	)
 }
 

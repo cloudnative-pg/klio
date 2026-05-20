@@ -382,6 +382,13 @@ func internalConsumeMessages[T any](
 			return
 		}
 
+		if meta, err := msg.Metadata(); err == nil && meta.NumDelivered > 1 {
+			logger.Info("Queue message redelivered: previous delivery was not acknowledged in time",
+				"task", &task,
+				"numDelivered", meta.NumDelivered,
+				"publishedAt", meta.Timestamp)
+		}
+
 		if err := handler(ctx, &task); err != nil {
 			logger.Error(err, "Error while handling queue message, retrying", "task", &task)
 

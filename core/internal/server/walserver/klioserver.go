@@ -38,9 +38,11 @@ func New(
 		conn:       opts.Connection,
 		isReadOnly: opts.ReadOnly,
 		metrics: &repository.Metrics{
-			WalWrittenBytes:   opentelemetry.WalServer.WalWrittenBytes,
-			WalWritten:        opentelemetry.WalServer.WalWritten,
-			LatestWrittenTime: opentelemetry.WalServer.LatestWrittenTime,
+			WalWrittenBytes:       opentelemetry.WalServer.WalWrittenBytes,
+			WalWritten:            opentelemetry.WalServer.WalWritten,
+			LatestWrittenTime:     opentelemetry.WalServer.LatestWrittenTime,
+			LatestWrittenLSN:      opentelemetry.WalServer.LatestWrittenLSN,
+			LatestWrittenTimeline: opentelemetry.WalServer.LatestWrittenTimeline,
 		},
 		queue: opts.Queue,
 	}

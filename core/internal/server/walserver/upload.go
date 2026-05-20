@@ -7,7 +7,9 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/cloudnative-pg/cloudnative-pg/pkg/postgres"
 	"github.com/cloudnative-pg/machinery/pkg/log"
+	"github.com/cloudnative-pg/machinery/pkg/types"
 	"go.opentelemetry.io/otel/attribute"
 	otelcodes "go.opentelemetry.io/otel/codes"
 	"go.opentelemetry.io/otel/metric"
@@ -91,7 +93,7 @@ func (m *walUploadBlockMetadata) handleRequest(request *grpc.PutRequest) error {
 
 // Put uploads a new WAL to the data store.
 //
-//nolint:cyclop,gocognit,maintidx
+//nolint:cyclop,gocognit,maintidx,gocyclo
 func (w *Implementation) Put(req grpc.WAL_PutServer) error {
 	var blockMeta walUploadBlockMetadata
 	var walBuffer *repository.Writer
@@ -192,6 +194,21 @@ func (w *Implementation) Put(req grpc.WAL_PutServer) error {
 			return status.Errorf(grpccodes.InvalidArgument, "%s", err.Error())
 		}
 
+		if segment, err := postgres.SegmentFromName(blockMeta.walFileName); err != nil {
+			logger.Error(err, "Could not parse timeline for latest written timeline metric",
+				"walName", blockMeta.walFileName)
+		} else {
+			w.metrics.LatestWrittenTimeline.Record(
+				ctx,
+				int64(segment.Tli),
+				metric.WithAttributeSet(
+					attribute.NewSet(
+						attribute.String("cluster_name", blockMeta.clusterName),
+					),
+				),
+			)
+		}
+
 		if walBuffer == nil {
 			walBuffer, err = w.conn.NewWriter(blockMeta.clusterName, blockMeta.walFileName, blockMeta.segmentSize,
 				w.metrics, tracer)
@@ -238,6 +255,24 @@ func (w *Implementation) Put(req grpc.WAL_PutServer) error {
 		flushSpan.End()
 
 		writtenSize += uint64(len(request.GetWalBlock()))
+
+		if startLSN, err := types.LSNStartFromWALName(blockMeta.walFileName, blockMeta.segmentSize); err != nil {
+			logger.Error(err, "Could not compute start LSN for latest written LSN metric",
+				"walName", blockMeta.walFileName)
+		} else if startPos, parseErr := startLSN.Parse(); parseErr != nil {
+			logger.Error(parseErr, "Could not parse start LSN for latest written LSN metric",
+				"walName", blockMeta.walFileName)
+		} else {
+			w.metrics.LatestWrittenLSN.Record(
+				ctx,
+				int64(startPos+writtenSize), //nolint:gosec
+				metric.WithAttributeSet(
+					attribute.NewSet(
+						attribute.String("cluster_name", blockMeta.clusterName),
+					),
+				),
+			)
+		}
 	}
 
 	if walBuffer == nil {
@@ -289,25 +324,14 @@ func (w *Implementation) Put(req grpc.WAL_PutServer) error {
 			return status.Errorf(grpccodes.Internal, "error while closing (done) WAL: %v", err.Error())
 		}
 
-		w.metrics.WalWritten.Add(
-			req.Context(),
-			1,
-			metric.WithAttributeSet(
-				attribute.NewSet(
-					attribute.String("cluster_name", blockMeta.clusterName),
-				),
+		clusterAttr := metric.WithAttributeSet(
+			attribute.NewSet(
+				attribute.String("cluster_name", blockMeta.clusterName),
 			),
 		)
 
-		w.metrics.LatestWrittenTime.Record(
-			req.Context(),
-			float64(time.Now().Unix()),
-			metric.WithAttributeSet(
-				attribute.NewSet(
-					attribute.String("cluster_name", blockMeta.clusterName),
-				),
-			),
-		)
+		w.metrics.WalWritten.Add(req.Context(), 1, clusterAttr)
+		w.metrics.LatestWrittenTime.Record(req.Context(), float64(time.Now().Unix()), clusterAttr)
 
 		logger.Info(
 			"Received completed WAL file",
