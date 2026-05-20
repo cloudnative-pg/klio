@@ -38,24 +38,38 @@ func (w *Implementation) SetFirstRequiredWAL(
 
 	firstRequiredWAL := request.GetFirstRequiredWal()
 
-	// Check if there are WAL files pending transfer to tier2 in the queue.
-	// If so, we must not delete them even if they are older than the
-	// requested first required WAL (based on tier1 backups).
+	// Clamp the first required WAL to the latest WAL that has been uploaded
+	// to tier2 for this cluster. Anything newer than that may still be
+	// pending transfer and must not be deleted from tier1.
+	//
+	// If no upload has ever been recorded for this cluster we cannot tell
+	// which tier1 WALs have been transferred, so we refuse to delete
+	// anything rather than risk losing pending WALs.
 	if w.queue != nil {
-		oldestPendingWAL, err := w.queue.GetOldestPendingWAL(ctx, request.GetClusterName())
+		latestUploadedWAL, err := w.queue.GetLatestUploadedWAL(ctx, request.GetClusterName())
 		if err != nil {
-			logger.Error(err, "Error checking queue for pending WALs, proceeding with caution")
+			logger.Error(err, "Error checking queue for latest uploaded WAL, proceeding with caution")
 			// On error, we don't delete anything to be safe
 			return &grpc.SetFirstRequiredWALResult{}, nil
 		}
 
-		if oldestPendingWAL != "" && strings.Compare(oldestPendingWAL, firstRequiredWAL) < 0 {
+		if latestUploadedWAL == "" {
+			logger.Info(
+				"No latest uploaded WAL recorded for cluster, skipping WAL retention",
+				"clusterName", request.GetClusterName(),
+				"requestedFirstRequired", firstRequiredWAL,
+			)
+
+			return &grpc.SetFirstRequiredWALResult{}, nil
+		}
+
+		if strings.Compare(latestUploadedWAL, firstRequiredWAL) < 0 {
 			logger.Info(
 				"Adjusting first required WAL to preserve pending tier2 transfers",
 				"requestedFirstRequired", firstRequiredWAL,
-				"oldestPendingWAL", oldestPendingWAL,
+				"latestUploadedWAL", latestUploadedWAL,
 			)
-			firstRequiredWAL = oldestPendingWAL
+			firstRequiredWAL = latestUploadedWAL
 		}
 	}
 

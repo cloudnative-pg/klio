@@ -98,13 +98,12 @@ func TestConfigFileWatcherTransientReadError(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 500*time.Millisecond)
 	defer cancel()
 
-	// Remove the file after watcher starts (simulating transient unavailability)
+	// Make the file temporarily unreadable (simulating transient unavailability)
 	go func() {
 		time.Sleep(100 * time.Millisecond)
-		_ = os.Remove(configFile)
-		// Recreate the file with same content after a brief moment
+		_ = os.Chmod(configFile, 0o000)
 		time.Sleep(100 * time.Millisecond)
-		_ = os.WriteFile(configFile, []byte("initial content"), 0o600)
+		_ = os.Chmod(configFile, 0o600)
 	}()
 
 	// The watcher should not fail due to transient read errors

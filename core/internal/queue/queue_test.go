@@ -2,7 +2,7 @@ package queue
 
 import (
 	"context"
-	"errors"
+	"encoding/json"
 	"testing"
 	"time"
 
@@ -21,6 +21,7 @@ func startNATSServer(t *testing.T) (*server.Server, string) {
 		Host:      "127.0.0.1",
 		Port:      -1, // random port
 		JetStream: true,
+		StoreDir:  t.TempDir(),
 	}
 
 	ns, err := server.NewServer(opts)
@@ -48,6 +49,85 @@ func TestNew(t *testing.T) {
 	assert.NotNil(t, conn)
 }
 
+func TestNewRemovesEmptyLegacyStream(t *testing.T) {
+	ns, url := startNATSServer(t)
+	defer ns.Shutdown()
+
+	nc, err := nats.Connect(url)
+	require.NoError(t, err)
+	defer nc.Close()
+
+	ctx := context.Background()
+
+	js, err := jetstream.New(nc)
+	require.NoError(t, err)
+
+	_, err = js.CreateStream(ctx, jetstream.StreamConfig{
+		Name:      legacyKlioStreamName,
+		Retention: jetstream.WorkQueuePolicy,
+		Subjects:  []string{"klio.*.wal", "klio.*.backup"},
+		Storage:   jetstream.FileStorage,
+	})
+	require.NoError(t, err)
+
+	_, err = New(ctx, nc)
+	require.NoError(t, err)
+
+	_, err = js.Stream(ctx, legacyKlioStreamName)
+	require.ErrorIs(t, err, jetstream.ErrStreamNotFound,
+		"empty legacy KLIO stream should be deleted on startup")
+}
+
+func TestNewMigratesNonEmptyLegacyStream(t *testing.T) {
+	ns, url := startNATSServer(t)
+	defer ns.Shutdown()
+
+	nc, err := nats.Connect(url)
+	require.NoError(t, err)
+	defer nc.Close()
+
+	ctx := context.Background()
+
+	js, err := jetstream.New(nc)
+	require.NoError(t, err)
+
+	_, err = js.CreateStream(ctx, jetstream.StreamConfig{
+		Name:      legacyKlioStreamName,
+		Retention: jetstream.WorkQueuePolicy,
+		Subjects:  []string{"klio.*.wal", "klio.*.backup"},
+		Storage:   jetstream.FileStorage,
+	})
+	require.NoError(t, err)
+
+	walPayload, err := json.Marshal(WALTask{
+		ClusterName: "leftover",
+		WALName:     "000000010000000000000001",
+	})
+	require.NoError(t, err)
+	_, err = js.Publish(ctx, "klio.leftover.wal", walPayload)
+	require.NoError(t, err)
+
+	backupPayload, err := json.Marshal(BackupTask{ClusterName: "leftover"})
+	require.NoError(t, err)
+	_, err = js.Publish(ctx, "klio.leftover.backup", backupPayload)
+	require.NoError(t, err)
+
+	conn, err := New(ctx, nc)
+	require.NoError(t, err)
+
+	_, err = js.Stream(ctx, legacyKlioStreamName)
+	require.ErrorIs(t, err, jetstream.ErrStreamNotFound,
+		"legacy KLIO stream must be removed after migration")
+
+	walMsg, err := conn.klioWalStream.GetLastMsgForSubject(ctx, walSubject("leftover"))
+	require.NoError(t, err, "migrated WAL task must land on the new WAL stream")
+	assert.JSONEq(t, string(walPayload), string(walMsg.Data))
+
+	backupMsg, err := conn.klioBackupStream.GetLastMsgForSubject(ctx, backupSubject("leftover"))
+	require.NoError(t, err, "migrated backup task must land on the new backup stream")
+	assert.JSONEq(t, string(backupPayload), string(backupMsg.Data))
+}
+
 func TestNotifyWALReceived(t *testing.T) {
 	ns, url := startNATSServer(t)
 	defer ns.Shutdown()
@@ -70,29 +150,6 @@ func TestNotifyWALReceived(t *testing.T) {
 	require.NoError(t, err, "NotifyWALReceived should succeed")
 }
 
-func TestNotifyWALReceivedWithoutSetup(t *testing.T) {
-	ns, url := startNATSServer(t)
-	defer ns.Shutdown()
-
-	nc, err := nats.Connect(url)
-	require.NoError(t, err)
-	defer nc.Close()
-
-	ctx := context.Background()
-	conn, err := New(ctx, nc)
-	require.NoError(t, err)
-
-	// NATS JetStream will auto-create the stream, so this actually works
-	// This test verifies that behavior
-	task := &WALTask{
-		ClusterName: "test-cluster",
-		WALName:     "000000010000000000000001",
-	}
-
-	err = conn.NotifyWALReceived(ctx, task)
-	require.NoError(t, err, "NotifyWALReceived should succeed even without explicit setup due to auto-create")
-}
-
 func TestWALTaskSerialization(t *testing.T) {
 	ns, url := startNATSServer(t)
 	defer ns.Shutdown()
@@ -105,17 +162,6 @@ func TestWALTaskSerialization(t *testing.T) {
 	conn, err := New(ctx, nc)
 	require.NoError(t, err)
 
-	// Subscribe to the subject - use unique cluster name
-	js, err := nc.JetStream()
-	require.NoError(t, err)
-
-	_, err = js.Subscribe("klio.serialization-cluster.wal", func(msg *nats.Msg) {
-		assert.Contains(t, string(msg.Data), "serialization-cluster")
-		assert.Contains(t, string(msg.Data), "000000010000000000000001")
-	})
-	require.NoError(t, err)
-
-	// Send notification
 	task := &WALTask{
 		ClusterName: "serialization-cluster",
 		WALName:     "000000010000000000000001",
@@ -124,11 +170,30 @@ func TestWALTaskSerialization(t *testing.T) {
 	err = conn.NotifyWALReceived(ctx, task)
 	require.NoError(t, err)
 
-	// Give it a moment to process
-	time.Sleep(100 * time.Millisecond)
+	// Read the message back from the WAL stream and verify its payload.
+	msg, err := conn.klioWalStream.GetLastMsgForSubject(ctx, walSubject(task.ClusterName))
+	require.NoError(t, err)
+	assert.Contains(t, string(msg.Data), "serialization-cluster")
+	assert.Contains(t, string(msg.Data), "000000010000000000000001")
 }
 
-func TestGetOldestPendingWALEmptyQueue(t *testing.T) {
+// publishLatestUploadedWAL publishes directly to the latest-uploaded-WAL
+// stream subject, simulating what the WAL consumer does after a successful
+// tier2 upload.
+func publishLatestUploadedWAL(t *testing.T, nc *nats.Conn, clusterName, walName string) {
+	t.Helper()
+
+	js, err := jetstream.New(nc)
+	require.NoError(t, err)
+
+	data, err := json.Marshal(WALTask{ClusterName: clusterName, WALName: walName})
+	require.NoError(t, err)
+
+	_, err = js.Publish(t.Context(), latestUploadedWalSubject(clusterName), data)
+	require.NoError(t, err)
+}
+
+func TestNotifyBackupReceived(t *testing.T) {
 	ns, url := startNATSServer(t)
 	defer ns.Shutdown()
 
@@ -140,41 +205,15 @@ func TestGetOldestPendingWALEmptyQueue(t *testing.T) {
 	conn, err := New(ctx, nc)
 	require.NoError(t, err)
 
-	// No messages in queue - use unique cluster name to avoid interference
-	oldestWAL, err := conn.GetOldestPendingWAL(ctx, "empty-queue-cluster")
-	require.NoError(t, err)
-	assert.Empty(t, oldestWAL, "should return empty string for empty queue")
-}
-
-func TestGetOldestPendingWALSingleMessage(t *testing.T) {
-	ns, url := startNATSServer(t)
-	defer ns.Shutdown()
-
-	nc, err := nats.Connect(url)
-	require.NoError(t, err)
-	defer nc.Close()
-
-	ctx := context.Background()
-	conn, err := New(ctx, nc)
-	require.NoError(t, err)
-
-	// Add one WAL to the queue - use unique cluster name
-	task := &WALTask{
-		ClusterName: "single-msg-cluster",
-		WALName:     "000000010000000000000005",
+	task := &BackupTask{
+		ClusterName: "test-cluster",
 	}
-	err = conn.NotifyWALReceived(ctx, task)
-	require.NoError(t, err)
 
-	// Give NATS time to process
-	time.Sleep(100 * time.Millisecond)
-
-	oldestWAL, err := conn.GetOldestPendingWAL(ctx, "single-msg-cluster")
+	err = conn.NotifyBackupReceived(ctx, task)
 	require.NoError(t, err)
-	assert.Equal(t, "000000010000000000000005", oldestWAL)
 }
 
-func TestGetOldestPendingWALMultipleMessages(t *testing.T) {
+func TestBackupTaskSerialization(t *testing.T) {
 	ns, url := startNATSServer(t)
 	defer ns.Shutdown()
 
@@ -186,32 +225,112 @@ func TestGetOldestPendingWALMultipleMessages(t *testing.T) {
 	conn, err := New(ctx, nc)
 	require.NoError(t, err)
 
-	// Add multiple WALs to the queue (out of order to test sorting)
-	// Use unique cluster name
+	task := &BackupTask{
+		ClusterName: "serialization-cluster",
+	}
+
+	err = conn.NotifyBackupReceived(ctx, task)
+	require.NoError(t, err)
+
+	msg, err := conn.klioBackupStream.GetLastMsgForSubject(ctx, backupSubject(task.ClusterName))
+	require.NoError(t, err)
+	assert.Contains(t, string(msg.Data), "serialization-cluster")
+}
+
+func TestStreamIsolation(t *testing.T) {
+	ns, url := startNATSServer(t)
+	defer ns.Shutdown()
+
+	nc, err := nats.Connect(url)
+	require.NoError(t, err)
+	defer nc.Close()
+
+	ctx := context.Background()
+	conn, err := New(ctx, nc)
+	require.NoError(t, err)
+
+	require.NoError(t, conn.NotifyWALReceived(ctx, &WALTask{
+		ClusterName: "iso-cluster",
+		WALName:     "000000010000000000000001",
+	}))
+	require.NoError(t, conn.NotifyBackupReceived(ctx, &BackupTask{
+		ClusterName: "iso-cluster",
+	}))
+
+	walInfo, err := conn.klioWalStream.Info(ctx)
+	require.NoError(t, err)
+	assert.Equal(t, uint64(1), walInfo.State.Msgs, "WAL stream should have exactly 1 message")
+
+	backupInfo, err := conn.klioBackupStream.Info(ctx)
+	require.NoError(t, err)
+	assert.Equal(t, uint64(1), backupInfo.State.Msgs, "backup stream should have exactly 1 message")
+}
+
+func TestGetLatestUploadedWALEmpty(t *testing.T) {
+	ns, url := startNATSServer(t)
+	defer ns.Shutdown()
+
+	nc, err := nats.Connect(url)
+	require.NoError(t, err)
+	defer nc.Close()
+
+	ctx := context.Background()
+	conn, err := New(ctx, nc)
+	require.NoError(t, err)
+
+	latestWAL, err := conn.GetLatestUploadedWAL(ctx, "empty-cluster")
+	require.NoError(t, err)
+	assert.Empty(t, latestWAL, "should return empty string when no WAL has been uploaded")
+}
+
+func TestGetLatestUploadedWALSingleMessage(t *testing.T) {
+	ns, url := startNATSServer(t)
+	defer ns.Shutdown()
+
+	nc, err := nats.Connect(url)
+	require.NoError(t, err)
+	defer nc.Close()
+
+	ctx := context.Background()
+	conn, err := New(ctx, nc)
+	require.NoError(t, err)
+
+	publishLatestUploadedWAL(t, nc, "single-msg-cluster", "000000010000000000000005")
+
+	latestWAL, err := conn.GetLatestUploadedWAL(ctx, "single-msg-cluster")
+	require.NoError(t, err)
+	assert.Equal(t, "000000010000000000000005", latestWAL)
+}
+
+func TestGetLatestUploadedWALKeepsLatest(t *testing.T) {
+	ns, url := startNATSServer(t)
+	defer ns.Shutdown()
+
+	nc, err := nats.Connect(url)
+	require.NoError(t, err)
+	defer nc.Close()
+
+	ctx := context.Background()
+	conn, err := New(ctx, nc)
+	require.NoError(t, err)
+
 	wals := []string{
+		"000000010000000000000001",
 		"000000010000000000000005",
 		"000000010000000000000003",
 		"000000010000000000000007",
-		"000000010000000000000001",
 	}
 	for _, wal := range wals {
-		task := &WALTask{
-			ClusterName: "multi-msg-cluster",
-			WALName:     wal,
-		}
-		err = conn.NotifyWALReceived(ctx, task)
-		require.NoError(t, err)
+		publishLatestUploadedWAL(t, nc, "multi-msg-cluster", wal)
 	}
 
-	// Give NATS time to process
-	time.Sleep(100 * time.Millisecond)
-
-	oldestWAL, err := conn.GetOldestPendingWAL(ctx, "multi-msg-cluster")
+	latestWAL, err := conn.GetLatestUploadedWAL(ctx, "multi-msg-cluster")
 	require.NoError(t, err)
-	assert.Equal(t, "000000010000000000000001", oldestWAL, "should return lexicographically smallest WAL")
+	assert.Equal(t, "000000010000000000000007", latestWAL,
+		"should return the most recently published WAL, regardless of WAL name ordering")
 }
 
-func TestGetOldestPendingWALMultipleCluster(t *testing.T) {
+func TestGetLatestUploadedWALMultipleClusters(t *testing.T) {
 	ns, url := startNATSServer(t)
 	defer ns.Shutdown()
 
@@ -223,170 +342,59 @@ func TestGetOldestPendingWALMultipleCluster(t *testing.T) {
 	conn, err := New(ctx, nc)
 	require.NoError(t, err)
 
-	// Add WALs for cluster-a
-	clusterAWALs := []string{
-		"000000010000000000000010",
-		"000000010000000000000011",
-	}
-	for _, wal := range clusterAWALs {
-		task := &WALTask{
-			ClusterName: "cluster-a",
-			WALName:     wal,
-		}
-		err = conn.NotifyWALReceived(ctx, task)
-		require.NoError(t, err)
-	}
+	publishLatestUploadedWAL(t, nc, "cluster-a", "000000010000000000000010")
+	publishLatestUploadedWAL(t, nc, "cluster-a", "000000010000000000000011")
+	publishLatestUploadedWAL(t, nc, "cluster-b", "000000010000000000000001")
+	publishLatestUploadedWAL(t, nc, "cluster-b", "000000010000000000000002")
 
-	// Add WALs for cluster-b (older WALs)
-	clusterBWALs := []string{
-		"000000010000000000000001",
-		"000000010000000000000002",
-	}
-	for _, wal := range clusterBWALs {
-		task := &WALTask{
-			ClusterName: "cluster-b",
-			WALName:     wal,
-		}
-		err = conn.NotifyWALReceived(ctx, task)
-		require.NoError(t, err)
-	}
-
-	// Give NATS time to process
-	time.Sleep(100 * time.Millisecond)
-
-	// Query cluster-a - should only see cluster-a WALs
-	oldestWAL, err := conn.GetOldestPendingWAL(ctx, "cluster-a")
+	latestWAL, err := conn.GetLatestUploadedWAL(ctx, "cluster-a")
 	require.NoError(t, err)
-	assert.Equal(t, "000000010000000000000010", oldestWAL, "should return oldest WAL for cluster-a only")
+	assert.Equal(t, "000000010000000000000011", latestWAL)
 
-	// Query cluster-b - should only see cluster-b WALs
-	oldestWAL, err = conn.GetOldestPendingWAL(ctx, "cluster-b")
+	latestWAL, err = conn.GetLatestUploadedWAL(ctx, "cluster-b")
 	require.NoError(t, err)
-	assert.Equal(t, "000000010000000000000001", oldestWAL, "should return oldest WAL for cluster-b only")
+	assert.Equal(t, "000000010000000000000002", latestWAL)
 
-	// Query non-existent cluster
-	oldestWAL, err = conn.GetOldestPendingWAL(ctx, "cluster-c")
+	latestWAL, err = conn.GetLatestUploadedWAL(ctx, "cluster-c")
 	require.NoError(t, err)
-	assert.Empty(t, oldestWAL, "should return empty for non-existent cluster")
-}
-
-func TestGetOldestPendingWALDifferentTimelines(t *testing.T) {
-	ns, url := startNATSServer(t)
-	defer ns.Shutdown()
-
-	nc, err := nats.Connect(url)
-	require.NoError(t, err)
-	defer nc.Close()
-
-	ctx := context.Background()
-	conn, err := New(ctx, nc)
-	require.NoError(t, err)
-
-	// Add WALs with different timelines - use unique cluster name
-	// Timeline 2 should be "older" than timeline 1 lexicographically
-	wals := []string{
-		"000000020000000000000001", // Timeline 2
-		"000000010000000000000005", // Timeline 1
-		"000000010000000000000001", // Timeline 1, oldest
-	}
-	for _, wal := range wals {
-		task := &WALTask{
-			ClusterName: "timeline-cluster",
-			WALName:     wal,
-		}
-		err = conn.NotifyWALReceived(ctx, task)
-		require.NoError(t, err)
-	}
-
-	// Give NATS time to process
-	time.Sleep(100 * time.Millisecond)
-
-	oldestWAL, err := conn.GetOldestPendingWAL(ctx, "timeline-cluster")
-	require.NoError(t, err)
-	// Lexicographically, "000000010000000000000001" < "000000010000000000000005" < "000000020000000000000001"
-	assert.Equal(t, "000000010000000000000001", oldestWAL, "should return lexicographically smallest WAL")
+	assert.Empty(t, latestWAL)
 }
 
 func TestGetStatus(t *testing.T) {
-	tests := []struct {
-		name        string
-		walInfo     *jetstream.ConsumerInfo
-		walErr      error
-		backupInfo  *jetstream.ConsumerInfo
-		backupErr   error
-		expectedRes *Status
-		expectErr   bool
-	}{
-		{
-			name:        "Happy path",
-			walInfo:     &jetstream.ConsumerInfo{NumPending: 10},
-			backupInfo:  &jetstream.ConsumerInfo{NumPending: 5},
-			expectedRes: &Status{PendingWALs: 10, PendingBackups: 5},
-			expectErr:   false,
-		},
-		{
-			name:      "WAL Info Error",
-			walErr:    errors.New("connection failed"),
-			expectErr: true,
-		},
-		{
-			name:      "WAL Info Nil Return",
-			walInfo:   nil,
-			expectErr: true,
-		},
-		{
-			name:      "Backup Info Error",
-			walInfo:   &jetstream.ConsumerInfo{NumPending: 1},
-			backupErr: errors.New("disk full"),
-			expectErr: true,
-		},
-		{
-			name:       "Backup Info Nil Return",
-			backupInfo: nil,
-			expectErr:  true,
-		},
-	}
+	ns, url := startNATSServer(t)
+	defer ns.Shutdown()
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			// Setup mocks
-			mockWal := &MockConsumer{info: tt.walInfo, err: tt.walErr}
-			mockBackup := &MockConsumer{info: tt.backupInfo, err: tt.backupErr}
+	nc, err := nats.Connect(url)
+	require.NoError(t, err)
+	defer nc.Close()
 
-			q := &Conn{
-				walConsumer:    mockWal,
-				backupConsumer: mockBackup,
-			}
+	ctx := context.Background()
+	conn, err := New(ctx, nc)
+	require.NoError(t, err)
 
-			status, err := q.GetStatus(context.Background())
+	status, err := conn.GetStatus(ctx)
+	require.NoError(t, err)
+	require.NotNil(t, status)
+	assert.Equal(t, uint64(0), status.PendingWALs)
+	assert.Equal(t, uint64(0), status.PendingBackups)
 
-			if tt.expectErr {
-				require.Error(t, err)
-				assert.Nil(t, status)
-				return
-			}
+	require.NoError(t, conn.NotifyWALReceived(ctx, &WALTask{
+		ClusterName: "status-cluster",
+		WALName:     "000000010000000000000001",
+	}))
+	require.NoError(t, conn.NotifyWALReceived(ctx, &WALTask{
+		ClusterName: "status-cluster",
+		WALName:     "000000010000000000000002",
+	}))
+	require.NoError(t, conn.NotifyBackupReceived(ctx, &BackupTask{
+		ClusterName: "status-cluster",
+	}))
 
-			require.NoError(t, err)
-			require.NotNil(t, status)
-			assert.Equal(t, tt.expectedRes.PendingWALs, status.PendingWALs)
-			assert.Equal(t, tt.expectedRes.PendingBackups, status.PendingBackups)
-		})
-	}
-}
+	require.Eventually(t, func() bool {
+		status, err = conn.GetStatus(ctx)
+		require.NoError(t, err)
+		require.NotNil(t, status)
 
-// MockConsumer uses embedding to satisfy the jetstream.Consumer interface
-// without explicitly defining every method, bypassing ireturn issues.
-type MockConsumer struct {
-	jetstream.Consumer
-
-	info *jetstream.ConsumerInfo
-	err  error
-}
-
-func (m *MockConsumer) Info(_ context.Context) (*jetstream.ConsumerInfo, error) {
-	return m.info, m.err
-}
-
-func (m *MockConsumer) CachedInfo() *jetstream.ConsumerInfo {
-	return m.info
+		return status.PendingWALs == 2 && status.PendingBackups == 1
+	}, 2*time.Second, 50*time.Millisecond)
 }
