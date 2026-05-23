@@ -25,7 +25,7 @@ spec:
       automountServiceAccountToken: false
       initContainers:
       - name: init-step
-        image: busybox:1.37.0-musl@sha256:6fd0ce7107f108ae0a60d9cff21e7979b59a96df2862bc1ae0b394d8a98a0cca
+        image: busybox:1.38.0-musl@sha256:f36701e0a15a97186ccc59bbe9a6217b649edecb36ce32d07fa31bf5ad15e56d
         imagePullPolicy: IfNotPresent
         command:
         - sh
