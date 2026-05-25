@@ -4,13 +4,17 @@ import (
 	"bufio"
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"os/exec"
+	"strings"
 	"sync"
 
 	"github.com/cloudnative-pg/machinery/pkg/log"
 )
+
+var errDiskSpaceExhausted = errors.New("disk space exhausted")
 
 // scanLinesOrCR is a split function for bufio.Scanner that splits on both
 // '\n' and '\r'. This handles Kopia's progress output which uses '\r' for
@@ -33,6 +37,45 @@ func scanLinesOrCR(data []byte, atEOF bool) (int, []byte, error) {
 	}
 	// Request more data.
 	return 0, nil, nil
+}
+
+// streamLogs reads from a pipe line-by-line and logs each line with structured logging.
+// If the scanner fails (e.g., due to a line exceeding the buffer limit), we create a new
+// scanner and continue reading. This ensures the pipe keeps being drained and prevents the
+// subprocess from blocking on write.
+func streamLogs(ctx context.Context, pipe io.Reader, stream string) {
+	contextLogger := log.FromContext(ctx)
+	for {
+		scanner := bufio.NewScanner(pipe)
+		scanner.Buffer(make([]byte, 0, 4096), 1024*1024)
+		scanner.Split(scanLinesOrCR)
+
+		for scanner.Scan() {
+			line := scanner.Text()
+			if line == "" {
+				continue
+			}
+
+			if isDiskFullMessage(line) {
+				contextLogger.Error(
+					errDiskSpaceExhausted,
+					"No disk space available on Kopia data volume",
+					"stream", stream,
+					"detail", line,
+				)
+			} else {
+				contextLogger.Info(line, "stream", stream)
+			}
+		}
+
+		if err := scanner.Err(); err != nil {
+			contextLogger.Error(err, "Error reading from pipe, retrying", "stream", stream)
+			continue
+		}
+
+		// scanner.Err() is nil means we reached EOF
+		break
+	}
 }
 
 // RunWithLogCapture executes a command with structured logging for stderr.
@@ -83,42 +126,12 @@ func scanLinesOrCR(data []byte, atEOF bool) (int, []byte, error) {
 // Note: This function modifies cmd.Stdout (if captureStdout is provided) and cmd.Stderr.
 // Any previous assignments to these fields will be overwritten.
 func RunWithLogCapture(ctx context.Context, cmd *exec.Cmd, captureStdout io.Writer) error {
-	contextLogger := log.FromContext(ctx)
-
-	// streamLogs reads from a pipe line-by-line and logs each line with structured logging.
-	// If the scanner fails (e.g., due to a line exceeding the buffer limit), we create a new
-	// scanner and continue reading. This ensures the pipe keeps being drained and prevents the
-	// subprocess from blocking on write.
-	streamLogs := func(pipe io.Reader, stream string) {
-		for {
-			scanner := bufio.NewScanner(pipe)
-			scanner.Buffer(make([]byte, 0, 4096), 1024*1024)
-			scanner.Split(scanLinesOrCR)
-
-			for scanner.Scan() {
-				line := scanner.Text()
-				if line != "" {
-					contextLogger.Info(line, "stream", stream)
-				}
-			}
-
-			if err := scanner.Err(); err != nil {
-				contextLogger.Error(err, "Error reading from pipe, retrying", "stream", stream)
-				continue
-			}
-
-			// scanner.Err() is nil means we reached EOF
-			break
-		}
-	}
-
 	// Assign stdout writer if provided (for capturing without logging)
 	if captureStdout != nil {
 		cmd.Stdout = captureStdout
 	}
 
 	// Create pipe for stderr (will be logged line-by-line)
-
 	stderrPipe, err := cmd.StderrPipe()
 	if err != nil {
 		return fmt.Errorf("failed to create stderr pipe: %w", err)
@@ -135,7 +148,7 @@ func RunWithLogCapture(ctx context.Context, cmd *exec.Cmd, captureStdout io.Writ
 
 	// Stream stderr - Kopia writes all logs to stderr
 	endWg.Go(func() {
-		streamLogs(stderrPipe, "stderr")
+		streamLogs(ctx, stderrPipe, "stderr")
 	})
 
 	// Wait for the goroutine to finish reading all pipe data.
@@ -144,11 +157,16 @@ func RunWithLogCapture(ctx context.Context, cmd *exec.Cmd, captureStdout io.Writ
 	endWg.Wait()
 
 	// Reap the process. This should return quickly since EOF means the process is done.
-	cmdErr := cmd.Wait()
-
-	if cmdErr != nil {
-		return fmt.Errorf("command failed: %w", cmdErr)
+	if err := cmd.Wait(); err != nil {
+		return fmt.Errorf("command failed: %w", err)
 	}
 
 	return nil
+}
+
+// isDiskFullMessage returns true when a Kopia log line indicates an ENOSPC
+// error. Kopia's console encoder omits log levels, so we match on the
+// OS-level error string that Go embeds in os.PathError messages.
+func isDiskFullMessage(line string) bool {
+	return strings.Contains(strings.ToLower(line), "no space left on device")
 }

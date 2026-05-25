@@ -104,6 +104,51 @@ func TestRunWithLogCaptureInvalidCommand(t *testing.T) {
 	assert.Contains(t, strings.ToLower(err.Error()), "failed to start")
 }
 
+func TestIsDiskFullMessage(t *testing.T) {
+	testCases := []struct {
+		name string
+		line string
+		want bool
+	}{
+		{
+			name: "typical ENOSPC from Kopia session",
+			line: `error handling session request: write /data/base/kopia.repository/p123: no space left on device`,
+			want: true,
+		},
+		{
+			name: "ENOSPC with mixed case",
+			line: `No Space Left On Device`,
+			want: true,
+		},
+		{
+			name: "normal session start message",
+			line: `starting session for user "klio@my-cluster" from 10.0.0.5:41234`,
+			want: false,
+		},
+		{
+			name: "normal session ended message",
+			line: `session ended for user "klio@my-cluster" from 10.0.0.5:41234`,
+			want: false,
+		},
+		{
+			name: "empty line",
+			line: "",
+			want: false,
+		},
+		{
+			name: "generic error without disk full",
+			line: "error handling session request: connection reset by peer",
+			want: false,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			assert.Equal(t, tc.want, isDiskFullMessage(tc.line))
+		})
+	}
+}
+
 func TestScanLinesOrCR(t *testing.T) {
 	testCases := []struct {
 		name        string

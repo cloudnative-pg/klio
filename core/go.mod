@@ -197,5 +197,3 @@ require (
 	sigs.k8s.io/randfill v1.0.0 // indirect
 	sigs.k8s.io/structured-merge-diff/v6 v6.4.0 // indirect
 )
-
-replace github.com/kopia/kopia => github.com/leonardoce/kopia v0.0.0-20251030090917-b431b8266095

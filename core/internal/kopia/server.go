@@ -46,6 +46,8 @@ func (s *Client) RunServer(ctx context.Context, opts ServerOptions) error {
 		"--config-file=" + s.ConfigFile,
 		"--address=" + opts.ListenAddress,
 		"--disable-file-logging",
+		"--log-server-requests",
+		"--log-session-errors",
 	}
 
 	env := os.Environ()

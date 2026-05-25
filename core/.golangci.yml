@@ -21,7 +21,6 @@ linters:
   settings:
     gomoddirectives:
       replace-allow-list:
-        - github.com/kopia/kopia
         - github.com/fclairamb/afero-s3
     lll:
       line-length: 120
