@@ -13,7 +13,7 @@ WORKDIR /workspace
 # Clone and build Kopia with cache mounts and cross-compilation
 RUN --mount=type=cache,target=/go/pkg/mod,id=kopia-mod-${TARGETARCH} \
     --mount=type=cache,target=/root/.cache/go-build,id=kopia-build-${TARGETARCH} \
-    git clone --depth=1 --branch=klio-20260513 https://github.com/leonardoce/kopia && \
+    git clone --depth=1 --branch=klio-20260525 https://github.com/leonardoce/kopia && \
     cd kopia && \
     CGO_ENABLED=0 GOOS="${TARGETOS}" GOARCH="${TARGETARCH}" \
     go build -o kopia main.go
