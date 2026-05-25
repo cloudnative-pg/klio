@@ -12,6 +12,7 @@ import (
 	"google.golang.org/grpc/credentials"
 
 	klioGRPC "github.com/cloudnative-pg/klio/core/internal/grpc"
+	"github.com/cloudnative-pg/klio/core/internal/wal"
 	"github.com/cloudnative-pg/klio/core/pkg/config"
 )
 
@@ -77,10 +78,10 @@ func Connect(clientConfig *config.ClientConfig, address string) (*Connection, er
 	conn, err := grpc.NewClient(
 		address,
 		grpc.WithTransportCredentials(credentials.NewTLS(tlsConfig)),
-		grpc.WithInitialWindowSize(256*1024),
-		grpc.WithInitialConnWindowSize(256*1024),
-		grpc.WithReadBufferSize(256*1024),
-		grpc.WithWriteBufferSize(256*1024),
+		grpc.WithInitialWindowSize(wal.GRPCInitialWindowSizeBytes),
+		grpc.WithInitialConnWindowSize(wal.GRPCInitialConnWindowSizeBytes),
+		grpc.WithReadBufferSize(wal.GRPCSocketBufferSizeBytes),
+		grpc.WithWriteBufferSize(wal.GRPCSocketBufferSizeBytes),
 		grpc.WithStatsHandler(otelgrpc.NewClientHandler()),
 	)
 	if err != nil {
