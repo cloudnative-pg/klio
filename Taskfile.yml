@@ -748,7 +748,7 @@ tasks:
       suffix: '{{ if ( ne .ENVIRONMENT "production" ) }}-testing{{end}}'
       tag: '{{ .TAG | default .IMAGE_TAG }}'
       # renovate: datasource=docker depName=quay.io/operator-framework/opm versioning=docker
-      OPM_IMAGE_VERSION: v1.68.0@sha256:b98c3a5d9e05d0417f114185737d9662084fe93a7f34be62e494a11a9db5f09f
+      OPM_IMAGE_VERSION: v1.69.0@sha256:1b1ee3f57f0713aa0ded61c76c6e0c7153ff6bf99665c8b345c749e1319ebd89
       CONTAINER_AUTH_FILE: '{{ .REGISTRY_AUTH_FILE | default (printf "%s/.docker/config.json" (env "HOME")) }}'
     cmds:
       - >
