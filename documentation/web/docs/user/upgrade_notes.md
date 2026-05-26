@@ -8,6 +8,70 @@ This page lists version-specific changes that may require
 manual action when upgrading Klio. For the upgrade procedure,
 see the [Helm chart page](helm_chart.mdx#upgrades).
 
+## Upgrading to 0.0.16
+
+### Metric names renamed (breaking change)
+
+:::warning
+All emitted OpenTelemetry metric names have been renamed to follow a
+component-based taxonomy of the form
+`klio.<component>.<domain>.<measurement>`. There is no dual emission
+or aliasing — dashboards and alerts using the previous names must be
+updated.
+:::
+
+The tier-1 (WAL server) and tier-2 (consumer) WAL metric families
+have also been folded into a single family discriminated by the
+`tier` attribute (`"tier1"` or `"tier2"`). Backup verification
+metrics have moved from `klio.consumer.backup_verification_*` to
+`klio.server.backup.verification_*`, pairing with the existing
+`klio.plugin.backup.*` series. Kopia base snapshot gauges
+(`klio.base.snapshots`, `klio.base.latest_snapshot_*`,
+`klio.base.oldest_snapshot_age`) have been folded under the same
+`klio.server.backup.*` prefix alongside the verification counters.
+
+The `klio.plugin.backup.running` 0/1 gauge has been replaced by the
+`klio.plugin.backup.in_progress` UpDownCounter, which reports the
+number of backups currently in progress on each plugin instance.
+Dashboards that read the previous gauge as a boolean should now check
+`klio.plugin.backup.in_progress > 0` instead.
+
+The success/failure counter pairs have been collapsed into a single
+counter per family, distinguished by an `outcome` attribute
+(`success` / `failure`):
+
+- `klio.plugin.backup.successes` and `klio.plugin.backup.failures`
+  are now both reported as `klio.plugin.backup.runs` with `outcome`.
+- `klio.plugin.backup.verifications` no longer counts every attempt
+  on its own; it is now split by `outcome`. The previous total is
+  recoverable as `sum by () (klio.plugin.backup.verifications)`, and
+  the previous `klio.plugin.backup.verification_failures` counter is
+  `klio.plugin.backup.verifications{outcome="failure"}`.
+- `klio.server.backup.verification_success` and
+  `klio.server.backup.verification_failure` are now both reported as
+  `klio.server.backup.verifications` with `outcome` (and the existing
+  `tier` attribute).
+
+The `klio.plugin.backup.latest_duration_seconds` gauge has been
+renamed to `klio.plugin.backup.latest_duration` — the unit (`s`) is
+conveyed via the OpenTelemetry metric metadata, per the
+[semantic-conventions naming guidelines](https://opentelemetry.io/docs/specs/semconv/general/metrics/#units).
+The Prometheus export name is unchanged
+(`klio_plugin_backup_latest_duration_seconds`) because the Prometheus
+exporter appends the unit suffix automatically when the OpenTelemetry
+name lacks it.
+
+The `klio.server.queue.messages` and `klio.server.queue.bytes` gauges
+are now reported per JetStream stream via a `stream` attribute,
+reflecting the WAL/backup queue split. Dashboards that previously
+read a single aggregate value should sum across the `stream`
+attribute or filter to a specific stream (for example
+`stream="klio-wal-stream"`).
+
+See the
+[OpenTelemetry metrics reference](opentelemetry.md#migration-from-the-previous-metric-names)
+for the complete old-to-new mapping table.
+
 ## Upgrading to 0.0.15
 
 The `--custom-cnpg-group` and `--custom-cnpg-version` flags have been

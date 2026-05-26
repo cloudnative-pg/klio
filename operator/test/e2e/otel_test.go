@@ -534,78 +534,100 @@ func assertOTELMetricsReceived(
 	t.Log("Verifying backup lifecycle metrics")
 
 	// After a successful backup, these metrics should exist
-	assert.True(t, promMetrics.HasMetric("klio_backup_running"),
-		"metric klio_backup_running not found")
-	assert.True(t, promMetrics.HasMetric("klio_backup_successes_total"),
-		"metric klio_backup_successes_total not found")
-	assert.True(t, promMetrics.HasMetric("klio_backup_verifications_total"),
-		"metric klio_backup_verifications_total not found")
-	assert.True(t, promMetrics.HasMetric("klio_backup_latest_start_time_seconds"),
-		"metric klio_backup_latest_start_time_seconds not found")
-	assert.True(t, promMetrics.HasMetric("klio_backup_latest_completion_time_seconds"),
-		"metric klio_backup_latest_completion_time_seconds not found")
-	assert.True(t, promMetrics.HasMetric("klio_backup_latest_duration_seconds"),
-		"metric klio_backup_latest_duration_seconds not found")
+	assert.True(t, promMetrics.HasMetric("klio_plugin_backup_in_progress"),
+		"metric klio_plugin_backup_in_progress not found")
+	assert.True(t, promMetrics.HasMetric("klio_plugin_backup_runs_total"),
+		"metric klio_plugin_backup_runs_total not found")
+	assert.True(t, promMetrics.HasMetric("klio_plugin_backup_verifications_total"),
+		"metric klio_plugin_backup_verifications_total not found")
+	assert.True(t, promMetrics.HasMetric("klio_plugin_backup_latest_start_time_seconds"),
+		"metric klio_plugin_backup_latest_start_time_seconds not found")
+	assert.True(t, promMetrics.HasMetric("klio_plugin_backup_latest_completion_time_seconds"),
+		"metric klio_plugin_backup_latest_completion_time_seconds not found")
+	assert.True(t, promMetrics.HasMetric("klio_plugin_backup_latest_duration_seconds"),
+		"metric klio_plugin_backup_latest_duration_seconds not found")
 
 	// Validate metric values
-	running, found := promMetrics.GetValue("klio_backup_running")
-	if assert.True(t, found, "klio_backup_running not found") {
-		assert.InDelta(t, 0, running, 0.001, "backup should not be running after completion")
+	inProgress, found := promMetrics.GetValue("klio_plugin_backup_in_progress")
+	if assert.True(t, found, "klio_plugin_backup_in_progress not found") {
+		assert.InDelta(t, 0, inProgress, 0.001,
+			"no backup should be in progress after completion")
 	}
 
-	successes, found := promMetrics.GetValue("klio_backup_successes_total")
-	if assert.True(t, found, "klio_backup_successes_total not found") {
+	successLabels := map[string]string{"outcome": "success"}
+	successes, found := promMetrics.GetValueWithLabels("klio_plugin_backup_runs_total", successLabels)
+	if assert.True(t, found,
+		`klio_plugin_backup_runs_total{outcome="success"} not found`) {
 		assert.GreaterOrEqual(t, successes, float64(1), "should have at least 1 successful backup")
 	}
 
-	verifications, found := promMetrics.GetValue("klio_backup_verifications_total")
-	if assert.True(t, found, "klio_backup_verifications_total not found") {
-		assert.GreaterOrEqual(t, verifications, float64(1), "should have at least 1 verification")
+	verifications, found := promMetrics.GetValueWithLabels(
+		"klio_plugin_backup_verifications_total", successLabels)
+	if assert.True(t, found,
+		`klio_plugin_backup_verifications_total{outcome="success"} not found`) {
+		assert.GreaterOrEqual(t, verifications, float64(1),
+			"should have at least 1 successful verification")
 	}
 
-	duration, found := promMetrics.GetValue("klio_backup_latest_duration_seconds")
-	if assert.True(t, found, "klio_backup_latest_duration_seconds not found") {
+	duration, found := promMetrics.GetValue("klio_plugin_backup_latest_duration_seconds")
+	if assert.True(t, found, "klio_plugin_backup_latest_duration_seconds not found") {
 		assert.Greater(t, duration, float64(0), "backup duration should be positive")
 	}
 
-	startTime, found := promMetrics.GetValue("klio_backup_latest_start_time_seconds")
-	if assert.True(t, found, "klio_backup_latest_start_time_seconds not found") {
+	startTime, found := promMetrics.GetValue("klio_plugin_backup_latest_start_time_seconds")
+	if assert.True(t, found, "klio_plugin_backup_latest_start_time_seconds not found") {
 		assert.Greater(t, startTime, float64(0), "start time should be a valid epoch")
 	}
 
-	completionTime, found := promMetrics.GetValue("klio_backup_latest_completion_time_seconds")
-	if assert.True(t, found, "klio_backup_latest_completion_time_seconds not found") {
+	completionTime, found := promMetrics.GetValue("klio_plugin_backup_latest_completion_time_seconds")
+	if assert.True(t, found, "klio_plugin_backup_latest_completion_time_seconds not found") {
 		assert.Greater(t, completionTime, float64(0), "completion time should be a valid epoch")
 		assert.GreaterOrEqual(t, completionTime, startTime,
 			"completion time should be >= start time")
 	}
 
-	// Verify no failures (GetValue returns 0 when the metric is absent).
-	failures, _ := promMetrics.GetValue("klio_backup_failures_total")
+	// Verify no failures (GetValueWithLabels returns 0 when the label
+	// combination is absent, which is the expected state for an outcome
+	// that was never recorded).
+	failureLabels := map[string]string{"outcome": "failure"}
+	failures, _ := promMetrics.GetValueWithLabels("klio_plugin_backup_runs_total", failureLabels)
 	assert.InDelta(t, 0, failures, 0.001, "should have no backup failures")
 
-	// Verify NATS queue depth metrics are exported.
-	assert.True(t, promMetrics.HasMetric("klio_queue_messages"),
-		"metric klio_queue_messages not found")
-	assert.True(t, promMetrics.HasMetric("klio_queue_bytes"),
-		"metric klio_queue_bytes not found")
-
-	queueMessages, found := promMetrics.GetValue("klio_queue_messages")
-	if assert.True(t, found, "klio_queue_messages not found") {
-		assert.GreaterOrEqual(t, queueMessages, float64(0),
-			"queue message count should be non-negative")
-	}
-
-	queueBytes, found := promMetrics.GetValue("klio_queue_bytes")
-	if assert.True(t, found, "klio_queue_bytes not found") {
-		assert.GreaterOrEqual(t, queueBytes, float64(0),
-			"queue byte count should be non-negative")
-	}
+	assertOTELQueueMetrics(t, promMetrics)
 
 	// Verify WAL metrics (Tier 1 and Tier 2)
 	assertOTELWALMetrics(t, cfg, scenario, promMetrics, collectorPod)
 
 	t.Log("OTEL metrics verification completed successfully")
+}
+
+// assertOTELQueueMetrics verifies NATS queue depth metrics are exported per
+// JetStream stream. Each of the three streams created by core/internal/queue
+// must produce its own data point distinguished by the `stream` attribute.
+func assertOTELQueueMetrics(t *testing.T, promMetrics metrics.PrometheusMetrics) {
+	t.Helper()
+
+	for _, stream := range []string{
+		"klio-wal-stream",
+		"klio-backup-stream",
+		"klio-latest-uploaded-wal-per-cluster-stream",
+	} {
+		labels := map[string]string{"stream": stream}
+
+		msgs, found := promMetrics.GetValueWithLabels("klio_server_queue_messages", labels)
+		if assert.True(t, found,
+			"klio_server_queue_messages{stream=%q} not found", stream) {
+			assert.GreaterOrEqual(t, msgs, float64(0),
+				"queue message count for stream %q should be non-negative", stream)
+		}
+
+		bytes, found := promMetrics.GetValueWithLabels("klio_server_queue_bytes", labels)
+		if assert.True(t, found,
+			"klio_server_queue_bytes{stream=%q} not found", stream) {
+			assert.GreaterOrEqual(t, bytes, float64(0),
+				"queue byte count for stream %q should be non-negative", stream)
+		}
+	}
 }
 
 // assertOTELWALMetrics verifies WAL-related metrics from Tier 1 and Tier 2.
@@ -618,26 +640,37 @@ func assertOTELWALMetrics(
 ) {
 	t.Helper()
 
-	// Verify consumer WAL written metric (Tier 2 WAL archiving)
-	t.Log("Verifying consumer WAL written metric")
-	consumerWritten, found := promMetrics.GetValue("klio_consumer_written_total")
-	t.Logf("klio_consumer_written_total = %v (found: %v)", consumerWritten, found)
-	if assert.True(t, found, "metric klio_consumer_written_total not found") {
-		assert.GreaterOrEqual(t, consumerWritten, float64(1),
-			"should have at least 1 WAL written by consumer")
+	// The tier-1 (WAL server) and tier-2 (consumer) WAL metric families
+	// are emitted under a unified series discriminated by the `tier`
+	// label. We assert both tiers below using GetValueWithLabels.
+	tier1 := map[string]string{"tier": "tier1"}
+	tier2 := map[string]string{"tier": "tier2"}
+
+	// Verify tier-2 WAL written count (consumer uploaded to remote storage)
+	t.Log("Verifying tier-2 WAL written metric")
+	tier2Written, found := promMetrics.GetValueWithLabels("klio_server_wal_written_total", tier2)
+	t.Logf(`klio_server_wal_written_total{tier="tier2"} = %v (found: %v)`, tier2Written, found)
+	if assert.True(t, found, `metric klio_server_wal_written_total{tier="tier2"} not found`) {
+		assert.GreaterOrEqual(t, tier2Written, float64(1),
+			"should have at least 1 WAL written to tier 2")
 	}
 
-	// Verify WAL server latest written time (Tier 1)
-	walLatestWritten, found := promMetrics.GetValue("klio_wal_latest_written_time_seconds")
-	t.Logf("klio_wal_latest_written_time_seconds = %v (found: %v)", walLatestWritten, found)
-	if assert.True(t, found, "metric klio_wal_latest_written_time_seconds not found") {
-		assert.Greater(t, walLatestWritten, float64(0),
-			"WAL latest written time should be a valid epoch")
+	// Verify tier-1 WAL latest written time (server received from PG and
+	// persisted to local disk)
+	tier1Latest, found := promMetrics.GetValueWithLabels(
+		"klio_server_wal_latest_written_time_seconds", tier1)
+	t.Logf(`klio_server_wal_latest_written_time_seconds{tier="tier1"} = %v (found: %v)`,
+		tier1Latest, found)
+	if assert.True(t, found,
+		`metric klio_server_wal_latest_written_time_seconds{tier="tier1"} not found`) {
+		assert.Greater(t, tier1Latest, float64(0),
+			"WAL tier-1 latest written time should be a valid epoch")
 	}
 
-	// Verify consumer latest written time (Tier 2). The consumer processes
-	// WALs asynchronously so the metric may not be present yet; poll for it.
-	t.Log("Waiting for consumer latest written time metric")
+	// Verify tier-2 WAL latest written time (consumer uploaded to remote
+	// storage). The consumer processes WALs asynchronously so the metric
+	// may not be present yet; poll for it.
+	t.Log("Waiting for tier-2 WAL latest written time metric")
 	err := wait.For(
 		func(ctx context.Context) (bool, error) {
 			freshMetrics, fetchErr := fetchCollectorMetrics(ctx, cfg.Client().RESTConfig(),
@@ -646,21 +679,23 @@ func assertOTELWALMetrics(
 				return false, nil //nolint:nilerr // retry on transient errors
 			}
 
-			consumerLatestWritten, found := freshMetrics.GetValue("klio_consumer_latest_written_time_seconds")
+			tier2Latest, found := freshMetrics.GetValueWithLabels(
+				"klio_server_wal_latest_written_time_seconds", tier2)
 			if !found {
 				return false, nil
 			}
 
-			t.Logf("  klio_consumer_latest_written_time_seconds = %v", consumerLatestWritten)
-			assert.Greater(t, consumerLatestWritten, float64(0),
-				"consumer latest written time should be a valid epoch")
+			t.Logf(`  klio_server_wal_latest_written_time_seconds{tier="tier2"} = %v`, tier2Latest)
+			assert.Greater(t, tier2Latest, float64(0),
+				"tier-2 WAL latest written time should be a valid epoch")
 
 			return true, nil
 		},
 		wait.WithTimeout(90*time.Second),
 		wait.WithInterval(10*time.Second),
 	)
-	require.NoError(t, err, "metric klio_consumer_latest_written_time_seconds not found within timeout")
+	require.NoError(t, err,
+		`metric klio_server_wal_latest_written_time_seconds{tier="tier2"} not found within timeout`)
 }
 
 // assertOTELTracesReceived verifies that the OTEL Collector received expected traces.

@@ -1,6 +1,8 @@
 package walserver
 
 import (
+	"go.opentelemetry.io/otel/attribute"
+
 	"github.com/cloudnative-pg/klio/core/internal/grpc"
 	"github.com/cloudnative-pg/klio/core/internal/opentelemetry"
 	"github.com/cloudnative-pg/klio/core/internal/queue"
@@ -38,11 +40,12 @@ func New(
 		conn:       opts.Connection,
 		isReadOnly: opts.ReadOnly,
 		metrics: &repository.Metrics{
-			WalWrittenBytes:       opentelemetry.WalServer.WalWrittenBytes,
-			WalWritten:            opentelemetry.WalServer.WalWritten,
-			LatestWrittenTime:     opentelemetry.WalServer.LatestWrittenTime,
-			LatestWrittenLSN:      opentelemetry.WalServer.LatestWrittenLSN,
-			LatestWrittenTimeline: opentelemetry.WalServer.LatestWrittenTimeline,
+			WalWrittenBytes:       opentelemetry.ServerWal.WalWrittenBytes,
+			WalWritten:            opentelemetry.ServerWal.WalWritten,
+			LatestWrittenTime:     opentelemetry.ServerWal.LatestWrittenTime,
+			LatestWrittenLSN:      opentelemetry.ServerWal.LatestWrittenLSN,
+			LatestWrittenTimeline: opentelemetry.ServerWal.LatestWrittenTimeline,
+			Attributes:            []attribute.KeyValue{opentelemetry.Tier1.Attribute()},
 		},
 		queue: opts.Queue,
 	}

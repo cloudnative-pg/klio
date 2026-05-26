@@ -45,11 +45,12 @@ type WALOptions struct {
 func NewWAL(opts *WALOptions) *WAL {
 	return &WAL{
 		metrics: &repository.Metrics{
-			WalWrittenBytes:       opentelemetry.Consumer.WalWrittenBytes,
-			WalWritten:            opentelemetry.Consumer.WalWritten,
-			LatestWrittenTime:     opentelemetry.Consumer.LatestWrittenTime,
-			LatestWrittenLSN:      opentelemetry.Consumer.LatestWrittenLSN,
-			LatestWrittenTimeline: opentelemetry.Consumer.LatestWrittenTimeline,
+			WalWrittenBytes:       opentelemetry.ServerWal.WalWrittenBytes,
+			WalWritten:            opentelemetry.ServerWal.WalWritten,
+			LatestWrittenTime:     opentelemetry.ServerWal.LatestWrittenTime,
+			LatestWrittenLSN:      opentelemetry.ServerWal.LatestWrittenLSN,
+			LatestWrittenTimeline: opentelemetry.ServerWal.LatestWrittenTimeline,
+			Attributes:            []attribute.KeyValue{opentelemetry.Tier2.Attribute()},
 		},
 		opts: opts,
 	}
@@ -133,13 +134,11 @@ func (d *WAL) walHandler(ctx context.Context, task *queue.WALTask) (returnErr er
 func (d *WAL) recordArchivedWALMetrics(ctx context.Context, task *queue.WALTask, segmentSize uint64) {
 	logger := log.FromContext(ctx).WithValues("task", task)
 	clusterAttr := metric.WithAttributeSet(
-		attribute.NewSet(
-			attribute.String("cluster_name", task.ClusterName),
-		),
+		d.metrics.AttributeSet(opentelemetry.AttributeKeyClusterName.Of(task.ClusterName)),
 	)
 
 	d.metrics.WalWritten.Add(ctx, 1, clusterAttr)
-	d.metrics.LatestWrittenTime.Record(ctx, float64(time.Now().Unix()), clusterAttr)
+	d.metrics.LatestWrittenTime.Record(ctx, time.Now().Unix(), clusterAttr)
 
 	if startLSN, err := types.LSNStartFromWALName(task.WALName, segmentSize); err == nil {
 		if startPos, parseErr := startLSN.Parse(); parseErr == nil {
@@ -153,10 +152,10 @@ func (d *WAL) recordArchivedWALMetrics(ctx context.Context, task *queue.WALTask,
 			"walName", task.WALName)
 	}
 
-	if segment, err := postgres.SegmentFromName(task.WALName); err != nil {
+	if segment, err := postgres.SegmentFromName(task.WALName); err == nil {
+		d.metrics.LatestWrittenTimeline.Record(ctx, int64(segment.Tli), clusterAttr)
+	} else {
 		logger.Error(err, "Could not parse timeline for latest written timeline metric",
 			"walName", task.WALName)
-	} else {
-		d.metrics.LatestWrittenTimeline.Record(ctx, int64(segment.Tli), clusterAttr)
 	}
 }

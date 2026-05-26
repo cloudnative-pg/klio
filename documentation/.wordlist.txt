@@ -223,6 +223,7 @@ UIDs
 UTF
 UnDeploy
 Unreferenced
+UpDownCounter
 UploadHistory
 UploadHistoryRequest
 UploadHistoryResult
@@ -288,6 +289,7 @@ dropdown
 enablement
 enterprisedb
 env
+failover
 fileReference
 filesystem
 fullnameOverride
@@ -378,6 +380,7 @@ ulong
 unicode
 unreferenced
 unrestorable
+uptime
 verifications
 wal
 wals

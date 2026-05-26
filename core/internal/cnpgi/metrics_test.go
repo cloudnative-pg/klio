@@ -8,6 +8,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
 	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
 	"go.opentelemetry.io/otel/sdk/metric/metricdata"
 
@@ -29,7 +30,7 @@ func setupTestMeter(t *testing.T) *sdkmetric.ManualReader {
 		_ = provider.Shutdown(context.Background())
 	})
 
-	opentelemetry.InitBackupMetrics()
+	opentelemetry.InitPluginBackupMetrics()
 
 	return reader
 }
@@ -44,11 +45,12 @@ func collectOTelMetrics(t *testing.T, reader *sdkmetric.ManualReader) metricdata
 	return rm
 }
 
-func findFloat64GaugeValue(rm metricdata.ResourceMetrics, name string) (float64, bool) {
+//nolint:ireturn
+func findGaugeValue[N int64 | float64](rm metricdata.ResourceMetrics, name string) (N, bool) {
 	for _, sm := range rm.ScopeMetrics {
 		for _, m := range sm.Metrics {
 			if m.Name == name {
-				if g, ok := m.Data.(metricdata.Gauge[float64]); ok && len(g.DataPoints) > 0 {
+				if g, ok := m.Data.(metricdata.Gauge[N]); ok && len(g.DataPoints) > 0 {
 					return g.DataPoints[0].Value, true
 				}
 			}
@@ -58,27 +60,17 @@ func findFloat64GaugeValue(rm metricdata.ResourceMetrics, name string) (float64,
 	return 0, false
 }
 
-func findInt64GaugeValue(rm metricdata.ResourceMetrics, name string) (int64, bool) { //nolint:unparam
+// findInProgressValue returns the current value of the
+// `klio.plugin.backup.in_progress` UpDownCounter, or (0, false) if no data
+// point has been recorded yet.
+func findInProgressValue(rm metricdata.ResourceMetrics) (int64, bool) {
 	for _, sm := range rm.ScopeMetrics {
 		for _, m := range sm.Metrics {
-			if m.Name == name {
-				if g, ok := m.Data.(metricdata.Gauge[int64]); ok && len(g.DataPoints) > 0 {
-					return g.DataPoints[0].Value, true
-				}
+			if m.Name != opentelemetry.PluginBackupInProgressMetric {
+				continue
 			}
-		}
-	}
-
-	return 0, false
-}
-
-func findInt64CounterValue(rm metricdata.ResourceMetrics, name string) (int64, bool) {
-	for _, sm := range rm.ScopeMetrics {
-		for _, m := range sm.Metrics {
-			if m.Name == name {
-				if s, ok := m.Data.(metricdata.Sum[int64]); ok && len(s.DataPoints) > 0 {
-					return s.DataPoints[0].Value, true
-				}
+			if s, ok := m.Data.(metricdata.Sum[int64]); ok && len(s.DataPoints) > 0 {
+				return s.DataPoints[0].Value, true
 			}
 		}
 	}
@@ -102,6 +94,25 @@ func findInt64SumDataPoints(
 	return nil
 }
 
+// findInt64SumValueByOutcome returns the value of the data point on the named
+// Int64 Sum instrument that carries the given `outcome` attribute, or
+// (0, false) if no such data point exists.
+func findInt64SumValueByOutcome(
+	rm metricdata.ResourceMetrics, name string, outcome opentelemetry.Outcome,
+) (int64, bool) {
+	for _, dp := range findInt64SumDataPoints(rm, name) {
+		v, ok := dp.Attributes.Value(attribute.Key("outcome"))
+		if !ok {
+			continue
+		}
+		if v.AsString() == string(outcome) {
+			return dp.Value, true
+		}
+	}
+
+	return 0, false
+}
+
 func TestRecordBackupStart(t *testing.T) {
 	reader := setupTestMeter(t)
 
@@ -110,62 +121,68 @@ func TestRecordBackupStart(t *testing.T) {
 
 	rm := collectOTelMetrics(t, reader)
 
-	startTime, ok := findFloat64GaugeValue(rm, opentelemetry.BackupLatestStartTimeMetric)
+	startTime, ok := findGaugeValue[int64](rm, opentelemetry.PluginBackupLatestStartTimeMetric)
 	require.True(t, ok)
-	assert.GreaterOrEqual(t, startTime, float64(before))
+	assert.GreaterOrEqual(t, startTime, before)
 
-	running, ok := findInt64GaugeValue(rm, opentelemetry.BackupRunningMetric)
+	inProgress, ok := findInProgressValue(rm)
 	require.True(t, ok)
-	assert.Equal(t, int64(1), running)
+	assert.Equal(t, int64(1), inProgress)
 }
 
 func TestRecordBackupSuccess(t *testing.T) {
 	reader := setupTestMeter(t)
 
 	recordBackupStart(context.Background())
-
 	duration := 42 * time.Second
 	before := time.Now().Unix()
 	recordBackupSuccess(context.Background(), duration)
+	recordBackupFinished(context.Background())
 
 	rm := collectOTelMetrics(t, reader)
 
-	completionTime, ok := findFloat64GaugeValue(rm, opentelemetry.BackupLatestCompletionTimeMetric)
+	completionTime, ok := findGaugeValue[int64](rm, opentelemetry.PluginBackupLatestCompletionTimeMetric)
 	require.True(t, ok)
-	assert.GreaterOrEqual(t, completionTime, float64(before))
+	assert.GreaterOrEqual(t, completionTime, before)
 
-	latestDuration, ok := findFloat64GaugeValue(rm, opentelemetry.BackupLatestDurationMetric)
+	latestDuration, ok := findGaugeValue[float64](rm, opentelemetry.PluginBackupLatestDurationMetric)
 	require.True(t, ok)
 	assert.InDelta(t, 42.0, latestDuration, 0.01)
 
-	running, ok := findInt64GaugeValue(rm, opentelemetry.BackupRunningMetric)
+	inProgress, ok := findInProgressValue(rm)
 	require.True(t, ok)
-	assert.Equal(t, int64(0), running)
+	assert.Equal(t, int64(0), inProgress)
 
-	successes, ok := findInt64CounterValue(rm, opentelemetry.BackupSuccessesMetric)
+	successes, ok := findInt64SumValueByOutcome(
+		rm, opentelemetry.PluginBackupRunsMetric, opentelemetry.OutcomeSuccess)
 	require.True(t, ok)
 	assert.Equal(t, int64(1), successes)
+
+	_, failPresent := findInt64SumValueByOutcome(
+		rm, opentelemetry.PluginBackupRunsMetric, opentelemetry.OutcomeFailure)
+	assert.False(t, failPresent, "no failure data point should be emitted on a clean success")
 }
 
 func TestRecordBackupFailure(t *testing.T) {
 	reader := setupTestMeter(t)
 
 	recordBackupStart(context.Background())
-
 	before := time.Now().Unix()
 	recordBackupFailure(context.Background())
+	recordBackupFinished(context.Background())
 
 	rm := collectOTelMetrics(t, reader)
 
-	failureTime, ok := findFloat64GaugeValue(rm, opentelemetry.BackupLatestFailureTimeMetric)
+	failureTime, ok := findGaugeValue[int64](rm, opentelemetry.PluginBackupLatestFailureTimeMetric)
 	require.True(t, ok)
-	assert.GreaterOrEqual(t, failureTime, float64(before))
+	assert.GreaterOrEqual(t, failureTime, before)
 
-	running, ok := findInt64GaugeValue(rm, opentelemetry.BackupRunningMetric)
+	inProgress, ok := findInProgressValue(rm)
 	require.True(t, ok)
-	assert.Equal(t, int64(0), running)
+	assert.Equal(t, int64(0), inProgress)
 
-	failures, ok := findInt64CounterValue(rm, opentelemetry.BackupFailuresMetric)
+	failures, ok := findInt64SumValueByOutcome(
+		rm, opentelemetry.PluginBackupRunsMetric, opentelemetry.OutcomeFailure)
 	require.True(t, ok)
 	assert.Equal(t, int64(1), failures)
 }
@@ -176,33 +193,38 @@ func TestBackupMetricsMultipleRuns(t *testing.T) {
 	// First backup: success.
 	recordBackupStart(context.Background())
 	recordBackupSuccess(context.Background(), 10*time.Second)
+	recordBackupFinished(context.Background())
 
 	// Second backup: failure.
 	recordBackupStart(context.Background())
 	recordBackupFailure(context.Background())
+	recordBackupFinished(context.Background())
 
 	// Third backup: success.
 	recordBackupStart(context.Background())
 	recordBackupSuccess(context.Background(), 30*time.Second)
+	recordBackupFinished(context.Background())
 
 	rm := collectOTelMetrics(t, reader)
 
-	successes, ok := findInt64CounterValue(rm, opentelemetry.BackupSuccessesMetric)
+	successes, ok := findInt64SumValueByOutcome(
+		rm, opentelemetry.PluginBackupRunsMetric, opentelemetry.OutcomeSuccess)
 	require.True(t, ok)
 	assert.Equal(t, int64(2), successes)
 
-	failures, ok := findInt64CounterValue(rm, opentelemetry.BackupFailuresMetric)
+	failures, ok := findInt64SumValueByOutcome(
+		rm, opentelemetry.PluginBackupRunsMetric, opentelemetry.OutcomeFailure)
 	require.True(t, ok)
 	assert.Equal(t, int64(1), failures)
 
 	// Latest duration should reflect the last successful backup.
-	latestDuration, ok := findFloat64GaugeValue(rm, opentelemetry.BackupLatestDurationMetric)
+	latestDuration, ok := findGaugeValue[float64](rm, opentelemetry.PluginBackupLatestDurationMetric)
 	require.True(t, ok)
 	assert.InDelta(t, 30.0, latestDuration, 0.01)
 
-	running, ok := findInt64GaugeValue(rm, opentelemetry.BackupRunningMetric)
+	inProgress, ok := findInProgressValue(rm)
 	require.True(t, ok)
-	assert.Equal(t, int64(0), running)
+	assert.Equal(t, int64(0), inProgress)
 }
 
 func TestRecordVerificationSuccess(t *testing.T) {
@@ -213,13 +235,14 @@ func TestRecordVerificationSuccess(t *testing.T) {
 
 	rm := collectOTelMetrics(t, reader)
 
-	totalDPs := findInt64SumDataPoints(rm, opentelemetry.BackupVerificationsMetric)
-	require.Len(t, totalDPs, 1)
-	assert.Equal(t, int64(2), totalDPs[0].Value)
+	successes, ok := findInt64SumValueByOutcome(
+		rm, opentelemetry.PluginBackupVerificationsMetric, opentelemetry.OutcomeSuccess)
+	require.True(t, ok)
+	assert.Equal(t, int64(2), successes)
 
-	// OTel SDK does not report counters that were never incremented.
-	failDPs := findInt64SumDataPoints(rm, opentelemetry.BackupVerificationFailuresMetric)
-	assert.Empty(t, failDPs)
+	_, failPresent := findInt64SumValueByOutcome(
+		rm, opentelemetry.PluginBackupVerificationsMetric, opentelemetry.OutcomeFailure)
+	assert.False(t, failPresent, "no failure data point should be emitted when no failure happens")
 }
 
 func TestRecordVerificationFailure(t *testing.T) {
@@ -229,13 +252,14 @@ func TestRecordVerificationFailure(t *testing.T) {
 
 	rm := collectOTelMetrics(t, reader)
 
-	totalDPs := findInt64SumDataPoints(rm, opentelemetry.BackupVerificationsMetric)
-	require.Len(t, totalDPs, 1)
-	assert.Equal(t, int64(1), totalDPs[0].Value)
+	failures, ok := findInt64SumValueByOutcome(
+		rm, opentelemetry.PluginBackupVerificationsMetric, opentelemetry.OutcomeFailure)
+	require.True(t, ok)
+	assert.Equal(t, int64(1), failures)
 
-	failDPs := findInt64SumDataPoints(rm, opentelemetry.BackupVerificationFailuresMetric)
-	require.Len(t, failDPs, 1)
-	assert.Equal(t, int64(1), failDPs[0].Value)
+	_, successPresent := findInt64SumValueByOutcome(
+		rm, opentelemetry.PluginBackupVerificationsMetric, opentelemetry.OutcomeSuccess)
+	assert.False(t, successPresent, "no success data point should be emitted when no success happens")
 }
 
 func TestRecordMixed(t *testing.T) {
@@ -247,11 +271,13 @@ func TestRecordMixed(t *testing.T) {
 
 	rm := collectOTelMetrics(t, reader)
 
-	totalDPs := findInt64SumDataPoints(rm, opentelemetry.BackupVerificationsMetric)
-	require.Len(t, totalDPs, 1)
-	assert.Equal(t, int64(3), totalDPs[0].Value)
+	successes, ok := findInt64SumValueByOutcome(
+		rm, opentelemetry.PluginBackupVerificationsMetric, opentelemetry.OutcomeSuccess)
+	require.True(t, ok)
+	assert.Equal(t, int64(2), successes)
 
-	failDPs := findInt64SumDataPoints(rm, opentelemetry.BackupVerificationFailuresMetric)
-	require.Len(t, failDPs, 1)
-	assert.Equal(t, int64(1), failDPs[0].Value)
+	failures, ok := findInt64SumValueByOutcome(
+		rm, opentelemetry.PluginBackupVerificationsMetric, opentelemetry.OutcomeFailure)
+	require.True(t, ok)
+	assert.Equal(t, int64(1), failures)
 }

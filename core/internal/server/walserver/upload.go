@@ -173,8 +173,8 @@ func (w *Implementation) Put(req grpc.WAL_PutServer) error {
 			return status.Errorf(grpccodes.InvalidArgument, "invalid WAL name: %q", request.GetWalName())
 		}
 
-		span.SetAttributes(attribute.String("clusterName", request.GetClusterName()))
-		span.SetAttributes(attribute.String("walName", request.GetWalName()))
+		span.SetAttributes(opentelemetry.AttributeKeyClusterName.Of(request.GetClusterName()))
+		span.SetAttributes(opentelemetry.AttributeKeyWalName.Of(request.GetWalName()))
 
 		logger.Debug(
 			"Received WAL block",
@@ -202,9 +202,7 @@ func (w *Implementation) Put(req grpc.WAL_PutServer) error {
 				ctx,
 				int64(segment.Tli),
 				metric.WithAttributeSet(
-					attribute.NewSet(
-						attribute.String("cluster_name", blockMeta.clusterName),
-					),
+					w.metrics.AttributeSet(opentelemetry.AttributeKeyClusterName.Of(blockMeta.clusterName)),
 				),
 			)
 		}
@@ -274,9 +272,7 @@ func (w *Implementation) Put(req grpc.WAL_PutServer) error {
 				ctx,
 				int64(startPos+writtenSize), //nolint:gosec
 				metric.WithAttributeSet(
-					attribute.NewSet(
-						attribute.String("cluster_name", blockMeta.clusterName),
-					),
+					w.metrics.AttributeSet(opentelemetry.AttributeKeyClusterName.Of(blockMeta.clusterName)),
 				),
 			)
 		}
@@ -332,13 +328,11 @@ func (w *Implementation) Put(req grpc.WAL_PutServer) error {
 		}
 
 		clusterAttr := metric.WithAttributeSet(
-			attribute.NewSet(
-				attribute.String("cluster_name", blockMeta.clusterName),
-			),
+			w.metrics.AttributeSet(opentelemetry.AttributeKeyClusterName.Of(blockMeta.clusterName)),
 		)
 
 		w.metrics.WalWritten.Add(req.Context(), 1, clusterAttr)
-		w.metrics.LatestWrittenTime.Record(req.Context(), float64(time.Now().Unix()), clusterAttr)
+		w.metrics.LatestWrittenTime.Record(req.Context(), time.Now().Unix(), clusterAttr)
 
 		logger.Info(
 			"Received completed WAL file",

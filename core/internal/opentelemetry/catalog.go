@@ -7,14 +7,14 @@ import (
 
 // Tracer name constants.
 const (
-	// TracerBackup is the tracer name for backup operations.
-	TracerBackup = "klio.backup"
-	// TracerConsumer is the tracer name for the WAL consumer.
-	TracerConsumer = "klio.consumer"
-	// TracerWalServer is the tracer name for the WAL server.
-	TracerWalServer = "klio.wal_server"
-	// TracerWalClient is the tracer name for the WAL client.
-	TracerWalClient = "klio.wal_client"
+	// TracerBackup is the tracer name for the plugin backup orchestration.
+	TracerBackup = "klio.plugin.backup"
+	// TracerConsumer is the tracer name for the server-side WAL consumer.
+	TracerConsumer = "klio.server.consumer"
+	// TracerWalServer is the tracer name for the server-side WAL ingest.
+	TracerWalServer = "klio.server.wal"
+	// TracerWalClient is the tracer name for the client-side WAL streaming.
+	TracerWalClient = "klio.client.wal"
 )
 
 // Span name constants.
@@ -57,77 +57,62 @@ const (
 
 // Metric name constants.
 const (
-	BackupLatestStartTimeMetric      = "klio.backup.latest_start_time"
-	BackupLatestCompletionTimeMetric = "klio.backup.latest_completion_time"
-	BackupLatestFailureTimeMetric    = "klio.backup.latest_failure_time"
-	BackupLatestDurationMetric       = "klio.backup.latest_duration_seconds"
-	BackupRunningMetric              = "klio.backup.running"
-	BackupFailuresMetric             = "klio.backup.failures"
-	BackupSuccessesMetric            = "klio.backup.successes"
-	BackupVerificationsMetric        = "klio.backup.verifications"
-	BackupVerificationFailuresMetric = "klio.backup.verification_failures"
+	PluginBackupLatestStartTimeMetric      = "klio.plugin.backup.latest_start_time"
+	PluginBackupLatestCompletionTimeMetric = "klio.plugin.backup.latest_completion_time"
+	PluginBackupLatestFailureTimeMetric    = "klio.plugin.backup.latest_failure_time"
+	PluginBackupLatestDurationMetric       = "klio.plugin.backup.latest_duration"
+	PluginBackupInProgressMetric           = "klio.plugin.backup.in_progress"
+	PluginBackupRunsMetric                 = "klio.plugin.backup.runs"
+	PluginBackupVerificationsMetric        = "klio.plugin.backup.verifications"
 
-	ConsumerVerificationSuccessMetric   = "klio.consumer.backup_verification_success"
-	ConsumerVerificationFailureMetric   = "klio.consumer.backup_verification_failure"
-	ConsumerWrittenSizeMetric           = "klio.consumer.written_size"
-	ConsumerWrittenMetric               = "klio.consumer.written"
-	ConsumerLatestWrittenTimeMetric     = "klio.consumer.latest_written_time"
-	ConsumerLatestWrittenLSNMetric      = "klio.consumer.latest_written_lsn"
-	ConsumerLatestWrittenTimelineMetric = "klio.consumer.latest_written_timeline"
+	ServerWalWrittenSizeMetric           = "klio.server.wal.written_size"
+	ServerWalWrittenMetric               = "klio.server.wal.written"
+	ServerWalLatestWrittenTimeMetric     = "klio.server.wal.latest_written_time"
+	ServerWalLatestWrittenLSNMetric      = "klio.server.wal.latest_written_lsn"
+	ServerWalLatestWrittenTimelineMetric = "klio.server.wal.latest_written_timeline"
 
-	WalServerWrittenSizeMetric           = "klio.wal.written_size"
-	WalServerWrittenMetric               = "klio.wal.written"
-	WalServerLatestWrittenTimeMetric     = "klio.wal.latest_written_time"
-	WalServerLatestWrittenLSNMetric      = "klio.wal.latest_written_lsn"
-	WalServerLatestWrittenTimelineMetric = "klio.wal.latest_written_timeline"
+	ServerUptimeMetric                    = "klio.server.uptime"
+	ServerBackupSnapshotsMetric           = "klio.server.backup.snapshots"
+	ServerBackupLatestSnapshotSizeMetric  = "klio.server.backup.latest_snapshot_size"
+	ServerBackupLatestSnapshotFilesMetric = "klio.server.backup.latest_snapshot_files"
+	ServerBackupLatestSnapshotDirsMetric  = "klio.server.backup.latest_snapshot_dirs"
+	ServerBackupLatestSnapshotAgeMetric   = "klio.server.backup.latest_snapshot_age"
+	ServerBackupOldestSnapshotAgeMetric   = "klio.server.backup.oldest_snapshot_age"
+	ServerBackupVerificationsMetric       = "klio.server.backup.verifications"
 
-	KopiaServerUptimeMetric       = "klio.base.uptime"
-	SnapshotTotalMetric           = "klio.base.snapshots"
-	SnapshotLatestSizeMetric      = "klio.base.latest_snapshot_size"
-	SnapshotLatestFileCountMetric = "klio.base.latest_snapshot_files"
-	SnapshotLatestDirCountMetric  = "klio.base.latest_snapshot_dirs"
-	SnapshotLatestAgeMetric       = "klio.base.latest_snapshot_age"
-	SnapshotOldestAgeMetric       = "klio.base.oldest_snapshot_age"
-
-	QueueMessagesMetric = "klio.queue.messages"
-	QueueBytesMetric    = "klio.queue.bytes"
+	ServerQueueMessagesMetric = "klio.server.queue.messages"
+	ServerQueueBytesMetric    = "klio.server.queue.bytes"
 )
 
-// BackupMetrics holds OTel instruments for backup lifecycle tracking.
-type BackupMetrics struct {
-	LatestStartTime      metric.Float64Gauge
-	LatestCompletionTime metric.Float64Gauge
-	LatestFailureTime    metric.Float64Gauge
+// PluginBackupMetrics holds OTel instruments for backup lifecycle tracking.
+// The Runs and Verifications counters carry an `outcome` attribute
+// (`success` / `failure`) so a single instrument exposes both flavors.
+type PluginBackupMetrics struct {
+	LatestStartTime      metric.Int64Gauge
+	LatestCompletionTime metric.Int64Gauge
+	LatestFailureTime    metric.Int64Gauge
 	LatestDuration       metric.Float64Gauge
-	Running              metric.Int64Gauge
-	Failures             metric.Int64Counter
-	Successes            metric.Int64Counter
+	InProgress           metric.Int64UpDownCounter
+	Runs                 metric.Int64Counter
 	Verifications        metric.Int64Counter
-	VerificationFailures metric.Int64Counter
 }
 
-// ConsumerMetrics holds OTel instruments for the WAL consumer.
-type ConsumerMetrics struct {
-	VerificationSuccess   metric.Int64Counter
-	VerificationFailure   metric.Int64Counter
-	WalWrittenBytes       metric.Int64Counter
-	WalWritten            metric.Int64Counter
-	LatestWrittenTime     metric.Float64Gauge
-	LatestWrittenLSN      metric.Int64Gauge
-	LatestWrittenTimeline metric.Int64Gauge
-}
-
-// WalServerMetrics holds OTel instruments for the WAL server.
-type WalServerMetrics struct {
-	WalWrittenBytes       metric.Int64Counter
-	WalWritten            metric.Int64Counter
-	LatestWrittenTime     metric.Float64Gauge
-	LatestWrittenLSN      metric.Int64Gauge
-	LatestWrittenTimeline metric.Int64Gauge
-}
-
-// SnapshotMetrics holds OTel instruments for Kopia snapshot gauges.
-type SnapshotMetrics struct {
+// ServerBackupMetrics holds OTel instruments for server-side backup state.
+// It groups two related families:
+//
+//   - The Verifications counter, paired with `klio.plugin.backup.*` from the
+//     plugin sidecar: the plugin records backup lifecycle, the server records
+//     the verifications it runs against those backups. Each recording carries
+//     a `tier` attribute that distinguishes tier-1 verification (post-backup
+//     local check) from tier-2 verification (post-upload remote check), and
+//     an `outcome` attribute (`success` / `failure`) so one instrument
+//     exposes both flavors.
+//   - Base snapshot gauges populated from Kopia, describing the current set
+//     of base backups stored on the server. Each recording carries a
+//     `snapshot_source` attribute identifying the Kopia source descriptor
+//     (`userName@hostName:path`).
+type ServerBackupMetrics struct {
+	Verifications           metric.Int64Counter
 	TotalSnapshots          metric.Int64Gauge
 	LatestSnapshotSize      metric.Int64Gauge
 	LatestSnapshotFileCount metric.Int64Gauge
@@ -136,141 +121,150 @@ type SnapshotMetrics struct {
 	OldestSnapshotAge       metric.Float64Gauge
 }
 
+// ServerWalMetrics holds OTel instruments for the unified WAL ingest series.
+// Every recording carries two attributes: a `tier` discriminator ("1" from
+// the WAL server writing to local disk, "2" from the consumer uploading to
+// remote storage) and a `cluster_name` identifying the PostgreSQL cluster
+// the WAL belongs to.
+type ServerWalMetrics struct {
+	WalWrittenBytes       metric.Int64Counter
+	WalWritten            metric.Int64Counter
+	LatestWrittenTime     metric.Int64Gauge
+	LatestWrittenLSN      metric.Int64Gauge
+	LatestWrittenTimeline metric.Int64Gauge
+}
+
 // Centralized metric instrument instances.
 //
 //nolint:gochecknoglobals
 var (
-	Backup    BackupMetrics
-	Consumer  ConsumerMetrics
-	WalServer WalServerMetrics
-	Snapshot  SnapshotMetrics
+	PluginBackup PluginBackupMetrics
+	ServerBackup ServerBackupMetrics
+	ServerWal    ServerWalMetrics
 )
 
-// InitBackupMetrics creates OTel instruments for backup lifecycle tracking.
-func InitBackupMetrics() {
+// All metric instruments are created when this package is loaded, in the
+// package that owns the structs. The exported InitXxxMetrics functions are
+// retained so tests can rebind the instruments after swapping the meter
+// provider.
+//
+//nolint:gochecknoinits
+func init() {
+	InitPluginBackupMetrics()
+	InitServerBackupMetrics()
+	InitServerWalMetrics()
+}
+
+// InitPluginBackupMetrics creates OTel instruments for backup lifecycle tracking.
+func InitPluginBackupMetrics() {
 	meter := otel.Meter(Meter)
 
-	Backup.LatestStartTime, _ = meter.Float64Gauge(BackupLatestStartTimeMetric,
+	PluginBackup.LatestStartTime, _ = meter.Int64Gauge(PluginBackupLatestStartTimeMetric,
 		metric.WithDescription("Unix epoch timestamp when the most recent backup started."),
 		metric.WithUnit("s"),
 	)
-	Backup.LatestCompletionTime, _ = meter.Float64Gauge(BackupLatestCompletionTimeMetric,
+	PluginBackup.LatestCompletionTime, _ = meter.Int64Gauge(PluginBackupLatestCompletionTimeMetric,
 		metric.WithDescription("Unix epoch timestamp when the most recent backup completed successfully."),
 		metric.WithUnit("s"),
 	)
-	Backup.LatestFailureTime, _ = meter.Float64Gauge(BackupLatestFailureTimeMetric,
+	PluginBackup.LatestFailureTime, _ = meter.Int64Gauge(PluginBackupLatestFailureTimeMetric,
 		metric.WithDescription("Unix epoch timestamp when the most recent backup failed."),
 		metric.WithUnit("s"),
 	)
-	Backup.LatestDuration, _ = meter.Float64Gauge(BackupLatestDurationMetric,
-		metric.WithDescription("Duration of the most recent backup in seconds."),
+	PluginBackup.LatestDuration, _ = meter.Float64Gauge(PluginBackupLatestDurationMetric,
+		metric.WithDescription("Duration of the most recent backup."),
 		metric.WithUnit("s"),
 	)
-	Backup.Running, _ = meter.Int64Gauge(BackupRunningMetric,
-		metric.WithDescription("Whether a backup is currently running (1) or not (0)."),
+	PluginBackup.InProgress, _ = meter.Int64UpDownCounter(PluginBackupInProgressMetric,
+		metric.WithDescription("Number of backups currently in progress."),
+		metric.WithUnit("{backups}"),
 	)
-	Backup.Failures, _ = meter.Int64Counter(BackupFailuresMetric,
-		metric.WithDescription("Total number of failed backups."),
+	PluginBackup.Runs, _ = meter.Int64Counter(PluginBackupRunsMetric,
+		metric.WithDescription("Total number of backup runs, split by the `outcome` "+
+			"attribute (`success` / `failure`)."),
+		metric.WithUnit("{backups}"),
 	)
-	Backup.Successes, _ = meter.Int64Counter(BackupSuccessesMetric,
-		metric.WithDescription("Total number of successful backups."),
-	)
-	Backup.Verifications, _ = meter.Int64Counter(BackupVerificationsMetric,
-		metric.WithDescription("Total number of backup verification attempts."),
-	)
-	Backup.VerificationFailures, _ = meter.Int64Counter(BackupVerificationFailuresMetric,
-		metric.WithDescription("Total number of backup verification failures."),
-	)
-}
-
-// InitConsumerMetrics creates OTel instruments for the WAL consumer.
-func InitConsumerMetrics() {
-	meter := otel.Meter(Meter)
-
-	Consumer.VerificationSuccess, _ = meter.Int64Counter(ConsumerVerificationSuccessMetric,
-		metric.WithDescription("Number of successful backup verifications."),
+	PluginBackup.Verifications, _ = meter.Int64Counter(PluginBackupVerificationsMetric,
+		metric.WithDescription("Total number of backup verification attempts, split by "+
+			"the `outcome` attribute (`success` / `failure`)."),
 		metric.WithUnit("{verifications}"),
 	)
-	Consumer.VerificationFailure, _ = meter.Int64Counter(ConsumerVerificationFailureMetric,
-		metric.WithDescription("Number of failed backup verifications (corruption detected)."),
+}
+
+// InitServerBackupMetrics creates OTel instruments for server-side backup
+// state: verification counters and Kopia base snapshot gauges. It is called
+// once automatically when this package is loaded; tests can call it again
+// after swapping the meter provider to rebind the instruments.
+func InitServerBackupMetrics() {
+	meter := otel.Meter(Meter)
+
+	ServerBackup.Verifications, _ = meter.Int64Counter(ServerBackupVerificationsMetric,
+		metric.WithDescription("Number of backup verifications, split by the `outcome` "+
+			"attribute (`success` / `failure`; `failure` indicates corruption detected). The `tier` "+
+			"attribute distinguishes tier-1 (post-backup local check) from tier-2 (post-upload remote check)."),
 		metric.WithUnit("{verifications}"),
 	)
-	Consumer.WalWrittenBytes, _ = meter.Int64Counter(ConsumerWrittenSizeMetric,
-		metric.WithDescription("Number of bytes written to Tier 2 for the WAL files."),
-		metric.WithUnit("By"),
-	)
-	Consumer.WalWritten, _ = meter.Int64Counter(ConsumerWrittenMetric,
-		metric.WithDescription("Number of WAL files written."),
-		metric.WithUnit("{wals}"),
-	)
-	Consumer.LatestWrittenTime, _ = meter.Float64Gauge(ConsumerLatestWrittenTimeMetric,
-		metric.WithDescription("Unix epoch timestamp of the most recently written WAL file to Tier 2."),
-		metric.WithUnit("s"),
-	)
-	Consumer.LatestWrittenLSN, _ = meter.Int64Gauge(ConsumerLatestWrittenLSNMetric,
-		metric.WithDescription(
-			"The LSN of last byte of the WAL file most recently archived on tier 2 in base 10."),
-		metric.WithUnit("By"),
-	)
-	Consumer.LatestWrittenTimeline, _ = meter.Int64Gauge(ConsumerLatestWrittenTimelineMetric,
-		metric.WithDescription(
-			"Timeline ID of the most recently archived WAL file on Tier 2."),
-	)
-}
-
-// InitWalServerMetrics creates OTel instruments for the WAL server.
-func InitWalServerMetrics() {
-	meter := otel.Meter(Meter)
-
-	WalServer.WalWrittenBytes, _ = meter.Int64Counter(WalServerWrittenSizeMetric,
-		metric.WithDescription("Number of bytes written to disk for the WAL files."),
-		metric.WithUnit("By"),
-	)
-	WalServer.WalWritten, _ = meter.Int64Counter(WalServerWrittenMetric,
-		metric.WithDescription("Number of WAL files written."),
-		metric.WithUnit("{wals}"),
-	)
-	WalServer.LatestWrittenTime, _ = meter.Float64Gauge(WalServerLatestWrittenTimeMetric,
-		metric.WithDescription("Unix epoch timestamp of the most recently written WAL file to disk."),
-		metric.WithUnit("s"),
-	)
-	WalServer.LatestWrittenLSN, _ = meter.Int64Gauge(WalServerLatestWrittenLSNMetric,
-		metric.WithDescription(
-			"The LSN of the most recently flushed WAL byte on Tier 1 in base 10."),
-		metric.WithUnit("By"),
-	)
-	WalServer.LatestWrittenTimeline, _ = meter.Int64Gauge(WalServerLatestWrittenTimelineMetric,
-		metric.WithDescription(
-			"Timeline ID of the most recently completed WAL file received on Tier 1."),
-	)
-}
-
-// InitSnapshotMetrics creates OTel instruments for Kopia snapshot gauges.
-func InitSnapshotMetrics() {
-	meter := otel.Meter(Meter)
-
-	Snapshot.TotalSnapshots, _ = meter.Int64Gauge(SnapshotTotalMetric,
-		metric.WithDescription("Total number of base snapshots."),
+	ServerBackup.TotalSnapshots, _ = meter.Int64Gauge(ServerBackupSnapshotsMetric,
+		metric.WithDescription("Total number of base snapshots, broken down by Kopia `snapshot_source`."),
 		metric.WithUnit("{snapshots}"),
 	)
-	Snapshot.LatestSnapshotSize, _ = meter.Int64Gauge(SnapshotLatestSizeMetric,
-		metric.WithDescription("Size of latest base snapshot in bytes (ignoring compression and deduplication)."),
+	ServerBackup.LatestSnapshotSize, _ = meter.Int64Gauge(ServerBackupLatestSnapshotSizeMetric,
+		metric.WithDescription("Size of latest base snapshot in bytes (ignoring compression and "+
+			"deduplication), broken down by Kopia `snapshot_source`."),
 		metric.WithUnit("By"),
 	)
-	Snapshot.LatestSnapshotFileCount, _ = meter.Int64Gauge(SnapshotLatestFileCountMetric,
-		metric.WithDescription("Number of files in latest base snapshot."),
+	ServerBackup.LatestSnapshotFileCount, _ = meter.Int64Gauge(ServerBackupLatestSnapshotFilesMetric,
+		metric.WithDescription("Number of files in latest base snapshot, broken down by Kopia `snapshot_source`."),
 		metric.WithUnit("{files}"),
 	)
-	Snapshot.LatestSnapshotDirCount, _ = meter.Int64Gauge(SnapshotLatestDirCountMetric,
-		metric.WithDescription("Number of directories in latest base snapshot."),
+	ServerBackup.LatestSnapshotDirCount, _ = meter.Int64Gauge(ServerBackupLatestSnapshotDirsMetric,
+		metric.WithDescription("Number of directories in latest base snapshot, broken down by Kopia "+
+			"`snapshot_source`."),
 		metric.WithUnit("{directories}"),
 	)
-	Snapshot.LatestSnapshotAge, _ = meter.Float64Gauge(SnapshotLatestAgeMetric,
-		metric.WithDescription("Age of latest base snapshot in seconds."),
+	ServerBackup.LatestSnapshotAge, _ = meter.Float64Gauge(ServerBackupLatestSnapshotAgeMetric,
+		metric.WithDescription("Age of latest base snapshot in seconds, broken down by Kopia `snapshot_source`."),
 		metric.WithUnit("s"),
 	)
-	Snapshot.OldestSnapshotAge, _ = meter.Float64Gauge(SnapshotOldestAgeMetric,
-		metric.WithDescription("Age of oldest base snapshot in seconds."),
+	ServerBackup.OldestSnapshotAge, _ = meter.Float64Gauge(ServerBackupOldestSnapshotAgeMetric,
+		metric.WithDescription("Age of oldest base snapshot in seconds, broken down by Kopia `snapshot_source`."),
 		metric.WithUnit("s"),
+	)
+}
+
+// InitServerWalMetrics creates OTel instruments for the unified WAL ingest series.
+func InitServerWalMetrics() {
+	meter := otel.Meter(Meter)
+
+	ServerWal.WalWrittenBytes, _ = meter.Int64Counter(ServerWalWrittenSizeMetric,
+		metric.WithDescription("Number of bytes written for WAL files. The `tier` attribute "+
+			"distinguishes tier-1 (local disk on the server) from tier-2 (remote storage); "+
+			"`cluster_name` identifies the PostgreSQL cluster."),
+		metric.WithUnit("By"),
+	)
+	ServerWal.WalWritten, _ = meter.Int64Counter(ServerWalWrittenMetric,
+		metric.WithDescription("Number of WAL files written. The `tier` attribute "+
+			"distinguishes tier-1 (local disk on the server) from tier-2 (remote storage); "+
+			"`cluster_name` identifies the PostgreSQL cluster."),
+		metric.WithUnit("{wals}"),
+	)
+	ServerWal.LatestWrittenTime, _ = meter.Int64Gauge(ServerWalLatestWrittenTimeMetric,
+		metric.WithDescription("Unix epoch timestamp of the most recently written WAL file. The "+
+			"`tier` attribute distinguishes tier-1 (local disk) from tier-2 (remote storage); "+
+			"`cluster_name` identifies the PostgreSQL cluster."),
+		metric.WithUnit("s"),
+	)
+	ServerWal.LatestWrittenLSN, _ = meter.Int64Gauge(ServerWalLatestWrittenLSNMetric,
+		metric.WithDescription("LSN of the most recently written WAL byte, in base 10. The "+
+			"`tier` attribute distinguishes tier-1 (flush pointer on local disk) from "+
+			"tier-2 (last byte of the most recently archived WAL segment); `cluster_name` "+
+			"identifies the PostgreSQL cluster."),
+		metric.WithUnit("By"),
+	)
+	ServerWal.LatestWrittenTimeline, _ = meter.Int64Gauge(ServerWalLatestWrittenTimelineMetric,
+		metric.WithDescription("Timeline ID of the most recently completed WAL file. The "+
+			"`tier` attribute distinguishes tier-1 (received on the server) from "+
+			"tier-2 (archived to remote storage); `cluster_name` identifies the "+
+			"PostgreSQL cluster."),
 	)
 }

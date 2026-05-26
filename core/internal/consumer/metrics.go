@@ -8,17 +8,18 @@ import (
 	"github.com/cloudnative-pg/klio/core/internal/opentelemetry"
 )
 
-//nolint:gochecknoinits
-func init() {
-	opentelemetry.InitConsumerMetrics()
+func recordVerificationSuccess(ctx context.Context, tier opentelemetry.Tier) {
+	opentelemetry.ServerBackup.Verifications.Add(ctx, 1,
+		metric.WithAttributes(
+			tier.Attribute(),
+			opentelemetry.OutcomeSuccess.Attribute(),
+		))
 }
 
-func recordVerificationSuccess(ctx context.Context, tier string) {
-	opentelemetry.Consumer.VerificationSuccess.Add(ctx, 1,
-		metric.WithAttributes(opentelemetry.TierAttribute(tier)))
-}
-
-func recordVerificationFailure(ctx context.Context, tier string) {
-	opentelemetry.Consumer.VerificationFailure.Add(ctx, 1,
-		metric.WithAttributes(opentelemetry.TierAttribute(tier)))
+func recordVerificationFailure(ctx context.Context, tier opentelemetry.Tier) {
+	opentelemetry.ServerBackup.Verifications.Add(ctx, 1,
+		metric.WithAttributes(
+			tier.Attribute(),
+			opentelemetry.OutcomeFailure.Attribute(),
+		))
 }

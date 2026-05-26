@@ -4,42 +4,49 @@ import (
 	"context"
 	"time"
 
+	"go.opentelemetry.io/otel/metric"
+
 	"github.com/cloudnative-pg/klio/core/internal/opentelemetry"
 )
 
-//nolint:gochecknoinits
-func init() {
-	opentelemetry.InitBackupMetrics()
+// recordBackupStart records that a backup has started. Callers must pair this
+// with a deferred recordBackupFinished so the in-progress counter decrements
+// on every exit path, including panics.
+func recordBackupStart(ctx context.Context) {
+	opentelemetry.PluginBackup.LatestStartTime.Record(ctx, time.Now().Unix())
+	opentelemetry.PluginBackup.InProgress.Add(ctx, 1)
 }
 
-// recordBackupStart records that a backup has started.
-func recordBackupStart(ctx context.Context) {
-	opentelemetry.Backup.LatestStartTime.Record(ctx, float64(time.Now().Unix()))
-	opentelemetry.Backup.Running.Record(ctx, 1)
+// recordBackupFinished decrements the in-progress counter. Always invoke via
+// defer immediately after recordBackupStart so concurrent backup accounting
+// stays correct even when a backup panics or returns early.
+func recordBackupFinished(ctx context.Context) {
+	opentelemetry.PluginBackup.InProgress.Add(ctx, -1)
 }
 
 // recordBackupSuccess records a successful backup completion.
 func recordBackupSuccess(ctx context.Context, duration time.Duration) {
-	opentelemetry.Backup.LatestCompletionTime.Record(ctx, float64(time.Now().Unix()))
-	opentelemetry.Backup.LatestDuration.Record(ctx, duration.Seconds())
-	opentelemetry.Backup.Running.Record(ctx, 0)
-	opentelemetry.Backup.Successes.Add(ctx, 1)
+	opentelemetry.PluginBackup.LatestCompletionTime.Record(ctx, time.Now().Unix())
+	opentelemetry.PluginBackup.LatestDuration.Record(ctx, duration.Seconds())
+	opentelemetry.PluginBackup.Runs.Add(ctx, 1,
+		metric.WithAttributes(opentelemetry.OutcomeSuccess.Attribute()))
 }
 
 // recordBackupFailure records a failed backup.
 func recordBackupFailure(ctx context.Context) {
-	opentelemetry.Backup.LatestFailureTime.Record(ctx, float64(time.Now().Unix()))
-	opentelemetry.Backup.Running.Record(ctx, 0)
-	opentelemetry.Backup.Failures.Add(ctx, 1)
+	opentelemetry.PluginBackup.LatestFailureTime.Record(ctx, time.Now().Unix())
+	opentelemetry.PluginBackup.Runs.Add(ctx, 1,
+		metric.WithAttributes(opentelemetry.OutcomeFailure.Attribute()))
 }
 
 // recordVerificationSuccess records a successful verification.
 func recordVerificationSuccess(ctx context.Context) {
-	opentelemetry.Backup.Verifications.Add(ctx, 1)
+	opentelemetry.PluginBackup.Verifications.Add(ctx, 1,
+		metric.WithAttributes(opentelemetry.OutcomeSuccess.Attribute()))
 }
 
 // recordVerificationFailure records a failed verification.
 func recordVerificationFailure(ctx context.Context) {
-	opentelemetry.Backup.Verifications.Add(ctx, 1)
-	opentelemetry.Backup.VerificationFailures.Add(ctx, 1)
+	opentelemetry.PluginBackup.Verifications.Add(ctx, 1,
+		metric.WithAttributes(opentelemetry.OutcomeFailure.Attribute()))
 }

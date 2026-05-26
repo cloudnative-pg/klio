@@ -36,7 +36,7 @@ func TestSourceInfoString(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			got := tc.input.String()
 			if got != tc.expected {
-				t.Errorf("SourceInfo.String() = %q, want %q", got, tc.expected)
+				t.Errorf("SourceInfo.Of() = %q, want %q", got, tc.expected)
 			}
 		})
 	}
@@ -50,6 +50,6 @@ func TestTargetString(t *testing.T) {
 
 	expected := "user@host"
 	if got := target.String(); got != expected {
-		t.Errorf("Target.String() = %q, want %q", got, expected)
+		t.Errorf("Target.Of() = %q, want %q", got, expected)
 	}
 }

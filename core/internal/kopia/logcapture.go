@@ -121,7 +121,7 @@ func streamLogs(ctx context.Context, pipe io.Reader, stream string) {
 //	var output bytes.Buffer
 //	cmd := exec.CommandContext(ctx, "kopia", "snapshot", "list")
 //	err := RunWithLogCapture(ctx, cmd, &output)
-//	result := parseKopiaOutput(output.String())
+//	result := parseKopiaOutput(output.Of())
 //
 // Note: This function modifies cmd.Stdout (if captureStdout is provided) and cmd.Stderr.
 // Any previous assignments to these fields will be overwritten.

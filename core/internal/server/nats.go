@@ -70,38 +70,47 @@ func (s *NatsService) String() string {
 }
 
 // registerQueueMetrics registers observable gauges that report the number of
-// messages and bytes currently held by JetStream.
+// messages and bytes currently held by each JetStream stream. Values carry a
+// `stream` attribute identifying the source stream (e.g. the WAL work queue,
+// the backup work queue, and the latest-uploaded-WAL retention stream).
 func (s *NatsService) registerQueueMetrics() (func() error, error) {
 	meter := otel.Meter(opentelemetry.Meter)
 
 	messagesObservableMetric, err := meter.Int64ObservableGauge(
-		opentelemetry.QueueMessagesMetric,
-		metric.WithDescription("Number of messages currently stored in the embedded NATS JetStream queue."),
+		opentelemetry.ServerQueueMessagesMetric,
+		metric.WithDescription("Number of messages currently stored in each JetStream stream. "+
+			"The `stream` attribute identifies the source stream."),
 		metric.WithUnit("{messages}"),
 	)
 	if err != nil {
-		return nil, fmt.Errorf("while registering %s metric: %w", opentelemetry.QueueMessagesMetric, err)
+		return nil, fmt.Errorf("while registering %s metric: %w", opentelemetry.ServerQueueMessagesMetric, err)
 	}
 
 	bytesObservableMetric, err := meter.Int64ObservableGauge(
-		opentelemetry.QueueBytesMetric,
-		metric.WithDescription("Number of bytes currently stored in the embedded NATS JetStream queue."),
+		opentelemetry.ServerQueueBytesMetric,
+		metric.WithDescription("Number of bytes currently stored in each JetStream stream. "+
+			"The `stream` attribute identifies the source stream."),
 		metric.WithUnit("By"),
 	)
 	if err != nil {
-		return nil, fmt.Errorf("while registering %s metric: %w", opentelemetry.QueueBytesMetric, err)
+		return nil, fmt.Errorf("while registering %s metric: %w", opentelemetry.ServerQueueBytesMetric, err)
 	}
 
 	registration, err := meter.RegisterCallback(func(_ context.Context, o metric.Observer) error {
-		info, jszErr := s.server.Jsz(nil)
+		info, jszErr := s.server.Jsz(&natsServer.JSzOptions{Streams: true})
 		if jszErr != nil {
 			return jszErr
 		}
 
-		//nolint:gosec
-		o.ObserveInt64(messagesObservableMetric, int64(info.Messages))
-		//nolint:gosec
-		o.ObserveInt64(bytesObservableMetric, int64(info.Bytes))
+		for _, account := range info.AccountDetails {
+			for _, stream := range account.Streams {
+				attrs := metric.WithAttributes(opentelemetry.AttributeKeyStream.Of(stream.Name))
+				//nolint:gosec
+				o.ObserveInt64(messagesObservableMetric, int64(stream.State.Msgs), attrs)
+				//nolint:gosec
+				o.ObserveInt64(bytesObservableMetric, int64(stream.State.Bytes), attrs)
+			}
+		}
 
 		return nil
 	},

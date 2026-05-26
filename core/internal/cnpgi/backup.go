@@ -98,6 +98,7 @@ func (b backupServiceImplementation) Backup(
 
 	backupStart := time.Now()
 	recordBackupStart(ctx)
+	defer recordBackupFinished(ctx)
 
 	metadata, err := b.runBackup(
 		ctx,

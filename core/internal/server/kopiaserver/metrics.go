@@ -12,11 +12,6 @@ import (
 	"github.com/cloudnative-pg/klio/core/internal/opentelemetry"
 )
 
-//nolint:gochecknoinits
-func init() {
-	opentelemetry.InitSnapshotMetrics()
-}
-
 // SnapshotMetricsCollector periodically collects Kopia snapshot metrics.
 type SnapshotMetricsCollector struct {
 	interval time.Duration
@@ -137,15 +132,15 @@ func (c *SnapshotMetricsCollector) updateMetrics(ctx context.Context, snapshots 
 
 	for origin, stat := range stats {
 		attrs := []attribute.KeyValue{
-			attribute.String("snapshot_source", origin.String()),
+			opentelemetry.AttributeKeySnapshotSource.Of(origin.String()),
 		}
-		opentelemetry.Snapshot.TotalSnapshots.Record(ctx, stat.snapshotCount, metric.WithAttributes(attrs...))
-		opentelemetry.Snapshot.OldestSnapshotAge.Record(ctx, stat.oldestSnapshotAge, metric.WithAttributes(attrs...))
-		opentelemetry.Snapshot.LatestSnapshotAge.Record(ctx, stat.latestSnapshotAge, metric.WithAttributes(attrs...))
-		opentelemetry.Snapshot.LatestSnapshotSize.Record(ctx, stat.snapshotSize, metric.WithAttributes(attrs...))
-		opentelemetry.Snapshot.LatestSnapshotDirCount.Record(
+		opentelemetry.ServerBackup.TotalSnapshots.Record(ctx, stat.snapshotCount, metric.WithAttributes(attrs...))
+		opentelemetry.ServerBackup.OldestSnapshotAge.Record(ctx, stat.oldestSnapshotAge, metric.WithAttributes(attrs...))
+		opentelemetry.ServerBackup.LatestSnapshotAge.Record(ctx, stat.latestSnapshotAge, metric.WithAttributes(attrs...))
+		opentelemetry.ServerBackup.LatestSnapshotSize.Record(ctx, stat.snapshotSize, metric.WithAttributes(attrs...))
+		opentelemetry.ServerBackup.LatestSnapshotDirCount.Record(
 			ctx, stat.latestSnapshotDirCount, metric.WithAttributes(attrs...))
-		opentelemetry.Snapshot.LatestSnapshotFileCount.Record(
+		opentelemetry.ServerBackup.LatestSnapshotFileCount.Record(
 			ctx, stat.latestSnapshotFilesCount, metric.WithAttributes(attrs...))
 	}
 }

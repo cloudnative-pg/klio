@@ -32,7 +32,7 @@ func NewDummyMetrics() *Metrics {
 		metric.WithDescription("Number of WAL files written"),
 		metric.WithUnit("{wals}"),
 	)
-	latestWrittenTime, _ := meter.Float64Gauge(
+	latestWrittenTime, _ := meter.Int64Gauge(
 		"dummy.wal.latest_written_time",
 		metric.WithDescription("Latest time a WAL file was written to disk"),
 		metric.WithUnit("s"),

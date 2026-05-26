@@ -8,7 +8,6 @@ import (
 	"path"
 
 	"github.com/spf13/afero"
-	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/codes"
 	"go.opentelemetry.io/otel/metric"
 	"go.opentelemetry.io/otel/trace"
@@ -272,9 +271,7 @@ func (w *DirectWriter) writeBlockData(ctx context.Context, wrappedBlock []byte) 
 
 	w.metrics.WalWrittenBytes.Add(ctx, int64(nBytes),
 		metric.WithAttributeSet(
-			attribute.NewSet(
-				attribute.String("cluster_name", w.clusterName),
-			),
+			w.metrics.AttributeSet(opentelemetry.AttributeKeyClusterName.Of(w.clusterName)),
 		),
 	)
 
@@ -286,9 +283,7 @@ func (w *DirectWriter) writeBlockData(ctx context.Context, wrappedBlock []byte) 
 	}
 	w.metrics.WalWrittenBytes.Add(ctx, int64(nBytes),
 		metric.WithAttributeSet(
-			attribute.NewSet(
-				attribute.String("cluster_name", w.clusterName),
-			),
+			w.metrics.AttributeSet(opentelemetry.AttributeKeyClusterName.Of(w.clusterName)),
 		),
 	)
 

@@ -40,8 +40,8 @@ func (w *Implementation) Get(req *grpc.GetRequest, res grpc.WAL_GetServer) error
 		res.Context(),
 		opentelemetry.GetWalSpan,
 		trace.WithAttributes(
-			attribute.String("cluster_name", req.GetClusterName()),
-			attribute.String("wal_name", req.GetWalName()),
+			opentelemetry.AttributeKeyClusterName.Of(req.GetClusterName()),
+			opentelemetry.AttributeKeyWalName.Of(req.GetWalName()),
 		),
 	)
 	defer span.End()

@@ -13,6 +13,7 @@ import (
 	"github.com/cloudnative-pg/klio/core/internal/client/klioclient"
 	klioclientkopia "github.com/cloudnative-pg/klio/core/internal/client/klioclient/kopia"
 	"github.com/cloudnative-pg/klio/core/internal/kopia"
+	"github.com/cloudnative-pg/klio/core/internal/opentelemetry"
 	"github.com/cloudnative-pg/klio/core/internal/queue"
 	"github.com/cloudnative-pg/klio/core/internal/repository"
 )
@@ -304,7 +305,7 @@ func (d *Backup) verifyTier1Backups(ctx context.Context, clusterName string) err
 	if err != nil {
 		var backupErr *klioclientkopia.BackupVerificationError
 		if errors.As(err, &backupErr) {
-			recordVerificationFailure(ctx, "tier1")
+			recordVerificationFailure(ctx, opentelemetry.Tier1)
 
 			return fmt.Errorf("tier1 verification detected corruption: %w", err)
 		}
@@ -313,7 +314,7 @@ func (d *Backup) verifyTier1Backups(ctx context.Context, clusterName string) err
 		return err
 	}
 
-	recordVerificationSuccess(ctx, "tier1")
+	recordVerificationSuccess(ctx, opentelemetry.Tier1)
 
 	return nil
 }
@@ -329,13 +330,13 @@ func (d *Backup) verifyTier2Backups(ctx context.Context, clusterName string) err
 	if err != nil {
 		var backupErr *klioclientkopia.BackupVerificationError
 		if errors.As(err, &backupErr) {
-			recordVerificationFailure(ctx, "tier2")
+			recordVerificationFailure(ctx, opentelemetry.Tier2)
 
 			return fmt.Errorf("tier2 verification detected corruption: %w", err)
 		}
 		contextLogger.Error(err, "Tier2 verification encountered infrastructure error, continuing")
 	} else {
-		recordVerificationSuccess(ctx, "tier2")
+		recordVerificationSuccess(ctx, opentelemetry.Tier2)
 	}
 
 	return nil
