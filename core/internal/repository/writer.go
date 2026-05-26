@@ -19,76 +19,111 @@ import (
 	"github.com/cloudnative-pg/klio/core/internal/opentelemetry"
 )
 
-// Writer is the repository file writer.
+// Writer writes a WAL file atomically: data is written to a `.partial`
+// file and renamed to the final path on CloseMarkDone.
 type Writer struct {
 	walFilePath        string
 	walFilePartialPath string
 	conn               *Connection
-	clusterName        string
-	metrics            *Metrics
-	tracer             trace.Tracer
+	inner              *DirectWriter
+}
+
+// WriterOptions configures a Writer.
+type WriterOptions struct {
+	// ClusterName is the name of the cluster the WAL file belongs to.
+	ClusterName string
+
+	// WALName is the name of the WAL segment being written.
+	WALName string
+
+	// SegmentSize is the length, in bytes, of the WAL segment.
+	SegmentSize uint64
+
+	// Metrics collects per-write metrics for this Writer.
+	Metrics *Metrics
+
+	// Tracer emits OpenTelemetry spans for write operations.
+	Tracer trace.Tracer
+
+	// BufferSize is the size, in bytes, of the buffer placed in front of
+	// the underlying file. When zero, defaultChunkSize is used.
+	BufferSize int
+}
+
+// DirectWriter writes the Klio WAL file format (header + length-prefixed,
+// compressed/encrypted blocks) directly to a WAL archive file, without
+// the `.partial` + rename dance performed by Writer.
+type DirectWriter struct {
+	conn        *Connection
+	clusterName string
+	metrics     *Metrics
+	tracer      trace.Tracer
 
 	file   afero.File
 	buffer *bufio.Writer
 }
 
 // NewWriter creates a new WAL file writer.
-func (c *Connection) NewWriter(
-	clusterName, walName string,
-	segmentSize uint64, metrics *Metrics, tracer trace.Tracer,
-) (*Writer, error) {
-	walFilePath := getWALArchivePath(clusterName, walName)
+func (c *Connection) NewWriter(opts WriterOptions) (*Writer, error) {
+	walFilePath := getWALArchivePath(opts.ClusterName, opts.WALName)
 	walFilePartialPath := walFilePath + ".partial"
 
-	// Step 1: ensure the parent path exists
-	err := c.fs.MkdirAll(path.Dir(walFilePath), 0o750)
+	inner, err := c.newDirectWriterAtPath(walFilePartialPath, opts)
 	if err != nil {
-		return nil, fmt.Errorf(
-			"error while creating directory %s: %w",
-			path.Base(walFilePath),
-			err,
-		)
-	}
-
-	// Step 2: open the file
-	file, err := c.fs.OpenFile(walFilePartialPath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o600)
-	if err != nil {
-		return nil, fmt.Errorf(
-			"error while opening file %s: %w",
-			walFilePath,
-			err,
-		)
-	}
-
-	startBlock := grpc.StartWALFile{
-		KlioVersion: 1,
-		FileLength:  segmentSize,
-	}
-
-	buffer := bufio.NewWriterSize(file, defaultChunkSize)
-	if _, err := protodelim.MarshalTo(buffer, &startBlock); err != nil {
-		return nil, fmt.Errorf("while writing WAL file header: %w", err)
+		return nil, err
 	}
 
 	return &Writer{
 		walFilePath:        walFilePath,
 		walFilePartialPath: walFilePartialPath,
-		file:               file,
 		conn:               c,
-		buffer:             buffer,
-		clusterName:        clusterName,
-		metrics:            metrics,
-		tracer:             tracer,
+		inner:              inner,
 	}, nil
 }
 
-// CloseMarkDone closes the WAL writer and mark the file as completed.
-func (w *Writer) CloseMarkDone() error {
-	if err := w.buffer.Flush(); err != nil {
-		return fmt.Errorf("while flushing data: %w", err)
+// NewDirectWriter creates a non-atomic WAL writer that writes directly
+// to the final WAL archive path. Use NewWriter when atomic semantics
+// (write to `.partial`, rename on success) are required.
+func (c *Connection) NewDirectWriter(opts WriterOptions) (*DirectWriter, error) {
+	return c.newDirectWriterAtPath(
+		getWALArchivePath(opts.ClusterName, opts.WALName),
+		opts,
+	)
+}
+
+// newDirectWriterAtPath opens the WAL archive file at the given path,
+// creating any missing parent directories, and wraps it in a DirectWriter.
+func (c *Connection) newDirectWriterAtPath(filePath string, opts WriterOptions) (*DirectWriter, error) {
+	if err := c.fs.MkdirAll(path.Dir(filePath), 0o750); err != nil {
+		return nil, fmt.Errorf(
+			"error while creating directory %s: %w",
+			path.Base(filePath),
+			err,
+		)
 	}
 
-	if err := w.Close(); err != nil {
+	file, err := c.fs.OpenFile(filePath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o600)
+	if err != nil {
+		return nil, fmt.Errorf(
+			"error while opening file %s: %w",
+			filePath,
+			err,
+		)
+	}
+
+	inner, err := c.newDirectWriter(file, opts)
+	if err != nil {
+		_ = file.Close()
+		return nil, err
+	}
+
+	return inner, nil
+}
+
+// CloseMarkDone closes the WAL writer and marks the file as completed
+// by renaming the partial file to its final path.
+func (w *Writer) CloseMarkDone() error {
+	if err := w.inner.Close(); err != nil {
 		return fmt.Errorf("while closing partial file: %w", err)
 	}
 
@@ -99,8 +134,53 @@ func (w *Writer) CloseMarkDone() error {
 	return nil
 }
 
-// Flush flushes all the buffers to disk and fsyncs it.
+// Flush flushes all the buffers to disk and fsyncs the underlying file.
 func (w *Writer) Flush() error {
+	return w.inner.Flush()
+}
+
+// Close closes the writer without renaming the partial file.
+func (w *Writer) Close() error {
+	return w.inner.Close()
+}
+
+// WriteBlock writes the WAL block to storage.
+func (w *Writer) WriteBlock(ctx context.Context, data []byte) error {
+	return w.inner.WriteBlock(ctx, data)
+}
+
+// newDirectWriter creates a format writer over an already-open file and
+// writes the Klio header.
+func (c *Connection) newDirectWriter(
+	file afero.File,
+	opts WriterOptions,
+) (*DirectWriter, error) {
+	startBlock := grpc.StartWALFile{
+		KlioVersion: 1,
+		FileLength:  opts.SegmentSize,
+	}
+
+	bufferSize := opts.BufferSize
+	if bufferSize == 0 {
+		bufferSize = defaultChunkSize
+	}
+	buffer := bufio.NewWriterSize(file, bufferSize)
+	if _, err := protodelim.MarshalTo(buffer, &startBlock); err != nil {
+		return nil, fmt.Errorf("while writing WAL file header: %w", err)
+	}
+
+	return &DirectWriter{
+		conn:        c,
+		clusterName: opts.ClusterName,
+		metrics:     opts.Metrics,
+		tracer:      opts.Tracer,
+		file:        file,
+		buffer:      buffer,
+	}, nil
+}
+
+// Flush flushes all the buffers to disk and fsyncs it.
+func (w *DirectWriter) Flush() error {
 	if err := w.buffer.Flush(); err != nil {
 		return fmt.Errorf("flush: while writing buffer: %w", err)
 	}
@@ -112,8 +192,8 @@ func (w *Writer) Flush() error {
 	return nil
 }
 
-// Close closes the file.
-func (w *Writer) Close() error {
+// Close flushes the buffer and closes the underlying file.
+func (w *DirectWriter) Close() error {
 	if err := w.buffer.Flush(); err != nil {
 		return fmt.Errorf("close: while writing buffer: %w", err)
 	}
@@ -126,7 +206,7 @@ func (w *Writer) Close() error {
 }
 
 // WriteBlock writes the WAL block to storage.
-func (w *Writer) WriteBlock(ctx context.Context, data []byte) error {
+func (w *DirectWriter) WriteBlock(ctx context.Context, data []byte) error {
 	writeBlockSpanCtx, writeBlockSpan := w.tracer.Start(ctx, opentelemetry.WriteBlockSpan)
 	defer writeBlockSpan.End()
 	const walBlockSize = 1 << 20
@@ -147,8 +227,7 @@ func (w *Writer) WriteBlock(ctx context.Context, data []byte) error {
 	return nil
 }
 
-// WriteBlock writes the WAL block to storage.
-func (w *Writer) writeBlockInternal(ctx context.Context, p []byte) error {
+func (w *DirectWriter) writeBlockInternal(ctx context.Context, p []byte) error {
 	// Step 1: compression and encryption
 	wrappedBlock, err := w.wrapBlock(ctx, p)
 	if err != nil {
@@ -164,7 +243,7 @@ func (w *Writer) writeBlockInternal(ctx context.Context, p []byte) error {
 }
 
 // wrapBlock compresses and encrypts the block data.
-func (w *Writer) wrapBlock(ctx context.Context, p []byte) ([]byte, error) {
+func (w *DirectWriter) wrapBlock(ctx context.Context, p []byte) ([]byte, error) {
 	_, wrapSpan := w.tracer.Start(ctx, opentelemetry.WrapBlockSpan)
 	defer wrapSpan.End()
 
@@ -179,7 +258,7 @@ func (w *Writer) wrapBlock(ctx context.Context, p []byte) ([]byte, error) {
 }
 
 // writeBlockData writes the wrapped block data to the buffer with metrics.
-func (w *Writer) writeBlockData(ctx context.Context, wrappedBlock []byte) error {
+func (w *DirectWriter) writeBlockData(ctx context.Context, wrappedBlock []byte) error {
 	_, writeSpan := w.tracer.Start(ctx, opentelemetry.WriteBlockDataSpan)
 	defer writeSpan.End()
 

@@ -56,7 +56,15 @@ func (w *Implementation) writeClusterMetadata(
 		return fmt.Errorf("internal error while marshalling protobuf data: %w", err)
 	}
 
-	walWriter, err := w.conn.NewWriter(clusterName, metadataFileName, uint64(len(data)), w.metrics, tracer)
+	walWriter, err := w.conn.NewWriter(
+		repository.WriterOptions{
+			ClusterName: clusterName,
+			WALName:     metadataFileName,
+			SegmentSize: uint64(len(data)),
+			Metrics:     w.metrics,
+			Tracer:      tracer,
+		},
+	)
 	if err != nil {
 		return err
 	}

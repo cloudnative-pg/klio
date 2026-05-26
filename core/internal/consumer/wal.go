@@ -20,6 +20,9 @@ import (
 	"github.com/cloudnative-pg/klio/core/internal/repository"
 )
 
+// tier2BufferSize is the write buffer size for tier2 WAL streaming.
+const tier2BufferSize = 4 * 1024 * 1024
+
 // WAL represents a WAL consumer.
 type WAL struct {
 	metrics *repository.Metrics
@@ -80,17 +83,21 @@ func (d *WAL) walHandler(ctx context.Context, task *queue.WALTask) (returnErr er
 		}
 	}()
 
-	writer, err := d.opts.Tier2.NewWriter(task.ClusterName,
-		task.WALName,
-		reader.GetFileLength(),
-		d.metrics,
-		tracer,
+	writer, err := d.opts.Tier2.NewDirectWriter(
+		repository.WriterOptions{
+			ClusterName: task.ClusterName,
+			WALName:     task.WALName,
+			SegmentSize: reader.GetFileLength(),
+			Metrics:     d.metrics,
+			Tracer:      tracer,
+			BufferSize:  tier2BufferSize,
+		},
 	)
 	if err != nil {
 		return fmt.Errorf("while creating a new WAL writer for Tier 2: %w", err)
 	}
 	defer func() {
-		closeErr := writer.CloseMarkDone()
+		closeErr := writer.Close()
 		if closeErr != nil {
 			logger.Error(closeErr, "Error while closing the WAL file from Tier 2")
 			if returnErr == nil {

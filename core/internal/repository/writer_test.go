@@ -26,7 +26,15 @@ func TestWriter(t *testing.T) {
 
 	const fileLen = 123
 	metrics := NewDummyMetrics()
-	writer, err := conn.NewWriter("cluster-example", "0000001000000000000001F8", fileLen, metrics, dummyTracer)
+	writer, err := conn.NewWriter(
+		WriterOptions{
+			ClusterName: "cluster-example",
+			WALName:     "0000001000000000000001F8",
+			SegmentSize: fileLen,
+			Metrics:     metrics,
+			Tracer:      dummyTracer,
+		},
+	)
 	require.NoError(t, err)
 	require.NotNil(t, writer)
 
@@ -38,6 +46,51 @@ func TestWriter(t *testing.T) {
 	require.NoError(t, err)
 
 	err = writer.CloseMarkDone()
+	require.NoError(t, err)
+
+	expectedPath := path.Join("cluster-example", "0000001000000000", "0000001000000000000001F8")
+	exists, err := FileExists(opts.FS, expectedPath)
+	require.NoError(t, err)
+	assert.True(t, exists)
+
+	data, err := opts.FS.Stat(expectedPath)
+	require.NoError(t, err)
+	assert.Greater(t, data.Size(), int64(len(block)))
+}
+
+func TestDirectWriter(t *testing.T) {
+	opts := Options{
+		FS:       afero.NewMemMapFs(),
+		Password: "this-password",
+	}
+
+	err := Initialize(opts)
+	require.NoError(t, err)
+
+	conn, err := Open(opts)
+	assert.NotNil(t, conn)
+	require.NoError(t, err)
+
+	const fileLen = 123
+	metrics := NewDummyMetrics()
+	writer, err := conn.NewDirectWriter(
+		WriterOptions{
+			ClusterName: "cluster-example",
+			WALName:     "0000001000000000000001F8",
+			SegmentSize: fileLen,
+			Metrics:     metrics,
+			Tracer:      dummyTracer,
+			BufferSize:  4 * 1024 * 1024,
+		},
+	)
+	require.NoError(t, err)
+	require.NotNil(t, writer)
+
+	block := []byte("this-test")
+	err = writer.WriteBlock(t.Context(), block)
+	require.NoError(t, err)
+
+	err = writer.Close()
 	require.NoError(t, err)
 
 	expectedPath := path.Join("cluster-example", "0000001000000000", "0000001000000000000001F8")
@@ -73,7 +126,14 @@ func BenchmarkWriter(b *testing.B) {
 	require.NoError(b, err)
 
 	writer, err := conn.NewWriter(
-		"cluster-example", "0000001000000000000001FF", segmentSize, metrics, dummyTracer)
+		WriterOptions{
+			ClusterName: "cluster-example",
+			WALName:     "0000001000000000000001FF",
+			SegmentSize: segmentSize,
+			Metrics:     metrics,
+			Tracer:      dummyTracer,
+		},
+	)
 	require.NoError(b, err)
 	assert.NotNil(b, writer)
 

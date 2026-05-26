@@ -68,7 +68,15 @@ func TestWALReaderBlockSplit(t *testing.T) {
 
 	const fileLen = uint64(16 * 1024 * 1024)
 	metrics := NewDummyMetrics()
-	writer, err := conn.NewWriter("cluster-example", "0000001000000000000001FF", fileLen, metrics, dummyTracer)
+	writer, err := conn.NewWriter(
+		WriterOptions{
+			ClusterName: "cluster-example",
+			WALName:     "0000001000000000000001FF",
+			SegmentSize: fileLen,
+			Metrics:     metrics,
+			Tracer:      dummyTracer,
+		},
+	)
 	require.NoError(t, err)
 	assert.NotNil(t, writer)
 
@@ -122,7 +130,15 @@ func TestReaderWriterBlocks(t *testing.T) {
 
 	const fileLen = uint64(145)
 	metrics := NewDummyMetrics()
-	writer, err := conn.NewWriter("cluster-example", "0000001000000000000001F8", fileLen, metrics, dummyTracer)
+	writer, err := conn.NewWriter(
+		WriterOptions{
+			ClusterName: "cluster-example",
+			WALName:     "0000001000000000000001F8",
+			SegmentSize: fileLen,
+			Metrics:     metrics,
+			Tracer:      dummyTracer,
+		},
+	)
 	require.NoError(t, err)
 	require.NotNil(t, writer)
 
@@ -183,7 +199,15 @@ func TestReaderWriter100KBlocks(t *testing.T) {
 	require.NoError(t, err)
 
 	metrics := NewDummyMetrics()
-	writer, err := conn.NewWriter("cluster-example", "0000001000000000000001F8", fileLen, metrics, dummyTracer)
+	writer, err := conn.NewWriter(
+		WriterOptions{
+			ClusterName: "cluster-example",
+			WALName:     "0000001000000000000001F8",
+			SegmentSize: fileLen,
+			Metrics:     metrics,
+			Tracer:      dummyTracer,
+		},
+	)
 	require.NoError(t, err)
 	require.NotNil(t, writer)
 

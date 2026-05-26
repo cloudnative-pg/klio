@@ -210,8 +210,15 @@ func (w *Implementation) Put(req grpc.WAL_PutServer) error {
 		}
 
 		if walBuffer == nil {
-			walBuffer, err = w.conn.NewWriter(blockMeta.clusterName, blockMeta.walFileName, blockMeta.segmentSize,
-				w.metrics, tracer)
+			walBuffer, err = w.conn.NewWriter(
+				repository.WriterOptions{
+					ClusterName: blockMeta.clusterName,
+					WALName:     blockMeta.walFileName,
+					SegmentSize: blockMeta.segmentSize,
+					Metrics:     w.metrics,
+					Tracer:      tracer,
+				},
+			)
 			if err != nil {
 				logger.Error(
 					err,
