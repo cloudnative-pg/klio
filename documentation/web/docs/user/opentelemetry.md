@@ -103,7 +103,7 @@ attribute key.
 
 | Attribute | Values | Applies to |
 |---|---|---|
-| `tier` | `tier1` (local disk on the Klio server), `tier2` (remote object store) | All `klio.server.wal.*` instruments; `klio.server.backup.verifications`. |
+| `tier` | `tier1` (local disk on the Klio server), `tier2` (remote object store) | All `klio.server.wal.*` and `klio.server.backup.*` instruments. |
 | `cluster_name` | Name of the PostgreSQL cluster the recording belongs to | All `klio.server.wal.*` instruments. |
 | `outcome` | `success`, `failure` | `klio.plugin.backup.runs`, `klio.plugin.backup.verifications`, `klio.server.backup.verifications`. |
 | `snapshot_source` | Kopia source descriptor (`userName@hostName:path`) | All `klio.server.backup.*` base snapshot gauges (`snapshots`, `latest_snapshot_*`, `oldest_snapshot_age`). |
@@ -230,9 +230,10 @@ and track Kopia snapshot statistics:
 | `klio.server.backup.latest_snapshot_age` | Gauge | s | Age of latest base snapshot in seconds |
 | `klio.server.backup.oldest_snapshot_age` | Gauge | s | Age of oldest base snapshot in seconds |
 
-Every recording carries a `snapshot_source` attribute identifying the
-source descriptor (`userName@hostName:path`) the snapshot
-belongs to.
+Every recording carries a `tier` attribute (`tier1` for the local
+disk repository, `tier2` for the remote object store) and a
+`snapshot_source` attribute identifying the source descriptor
+(`userName@hostName:path`) the snapshot belongs to.
 
 ### Queue metrics (server)
 

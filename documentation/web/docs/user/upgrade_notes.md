@@ -29,6 +29,11 @@ metrics have moved from `klio.consumer.backup_verification_*` to
 (`klio.base.snapshots`, `klio.base.latest_snapshot_*`,
 `klio.base.oldest_snapshot_age`) have been folded under the same
 `klio.server.backup.*` prefix alongside the verification counters.
+These snapshot gauges carry the `tier` attribute
+(`"tier1"` or `"tier2"`), matching the rest of the
+`klio.server.backup.*` family; dashboards that aggregate them must
+either group by `tier` or filter to a specific tier to avoid mixing
+the local-disk and object-store series.
 
 The `klio.plugin.backup.running` 0/1 gauge has been replaced by the
 `klio.plugin.backup.in_progress` UpDownCounter, which reports the

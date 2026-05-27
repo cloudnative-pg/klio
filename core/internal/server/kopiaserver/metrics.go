@@ -18,11 +18,14 @@ type SnapshotMetricsCollector struct {
 	logger   log.Logger
 	stopCh   chan struct{}
 	kopia    *kopia.Client
+	tier     opentelemetry.Tier
 }
 
-// newSnapshotMetricsCollector creates a new snapshot metrics collector.
+// newSnapshotMetricsCollector creates a new snapshot metrics collector for
+// the given storage tier. The tier value is attached to every emitted sample
+// so tier-1 and tier-2 series can be distinguished by consumers.
 func newSnapshotMetricsCollector(
-	configPath string, interval time.Duration, logger log.Logger,
+	configPath string, interval time.Duration, tier opentelemetry.Tier, logger log.Logger,
 ) (*SnapshotMetricsCollector, error) {
 	kopiaBinary, err := kopia.LookupBinary()
 	if err != nil {
@@ -37,6 +40,7 @@ func newSnapshotMetricsCollector(
 			ConfigFile:  configPath,
 			KopiaBinary: kopiaBinary,
 		},
+		tier: tier,
 	}, nil
 }
 
@@ -133,6 +137,7 @@ func (c *SnapshotMetricsCollector) updateMetrics(ctx context.Context, snapshots 
 	for origin, stat := range stats {
 		attrs := []attribute.KeyValue{
 			opentelemetry.AttributeKeySnapshotSource.Of(origin.String()),
+			c.tier.Attribute(),
 		}
 		opentelemetry.ServerBackup.TotalSnapshots.Record(ctx, stat.snapshotCount, metric.WithAttributes(attrs...))
 		opentelemetry.ServerBackup.OldestSnapshotAge.Record(ctx, stat.oldestSnapshotAge, metric.WithAttributes(attrs...))

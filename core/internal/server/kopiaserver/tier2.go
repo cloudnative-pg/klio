@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/cloudnative-pg/klio/core/internal/kopia"
+	"github.com/cloudnative-pg/klio/core/internal/opentelemetry"
 	"github.com/cloudnative-pg/klio/core/pkg/config"
 )
 
@@ -22,7 +23,7 @@ func StartTier2(
 		ServerControlPassword: serverControl.Password,
 	}
 
-	return start(ctx, kopiaConfigFile, &kopiaServerConfig, tls)
+	return start(ctx, kopiaConfigFile, &kopiaServerConfig, tls, opentelemetry.Tier2)
 }
 
 // InitializeTier2 initializes a new Kopia Tier2 Repository.

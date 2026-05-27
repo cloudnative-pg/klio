@@ -109,8 +109,9 @@ type PluginBackupMetrics struct {
 //     exposes both flavors.
 //   - Base snapshot gauges populated from Kopia, describing the current set
 //     of base backups stored on the server. Each recording carries a
-//     `snapshot_source` attribute identifying the Kopia source descriptor
-//     (`userName@hostName:path`).
+//     `tier` attribute (tier-1 for local disk, tier-2 for remote object
+//     store) and a `snapshot_source` attribute identifying the Kopia
+//     source descriptor (`userName@hostName:path`).
 type ServerBackupMetrics struct {
 	Verifications           metric.Int64Counter
 	TotalSnapshots          metric.Int64Gauge
@@ -205,29 +206,29 @@ func InitServerBackupMetrics() {
 		metric.WithUnit("{verifications}"),
 	)
 	ServerBackup.TotalSnapshots, _ = meter.Int64Gauge(ServerBackupSnapshotsMetric,
-		metric.WithDescription("Total number of base snapshots, broken down by Kopia `snapshot_source`."),
+		metric.WithDescription("Total number of base snapshots, broken down by `tier` and Kopia `snapshot_source`."),
 		metric.WithUnit("{snapshots}"),
 	)
 	ServerBackup.LatestSnapshotSize, _ = meter.Int64Gauge(ServerBackupLatestSnapshotSizeMetric,
 		metric.WithDescription("Size of latest base snapshot in bytes (ignoring compression and "+
-			"deduplication), broken down by Kopia `snapshot_source`."),
+			"deduplication), broken down by `tier` and Kopia `snapshot_source`."),
 		metric.WithUnit("By"),
 	)
 	ServerBackup.LatestSnapshotFileCount, _ = meter.Int64Gauge(ServerBackupLatestSnapshotFilesMetric,
-		metric.WithDescription("Number of files in latest base snapshot, broken down by Kopia `snapshot_source`."),
+		metric.WithDescription("Number of files in latest base snapshot, broken down by `tier` and Kopia `snapshot_source`."),
 		metric.WithUnit("{files}"),
 	)
 	ServerBackup.LatestSnapshotDirCount, _ = meter.Int64Gauge(ServerBackupLatestSnapshotDirsMetric,
-		metric.WithDescription("Number of directories in latest base snapshot, broken down by Kopia "+
-			"`snapshot_source`."),
+		metric.WithDescription("Number of directories in latest base snapshot, broken down by `tier` "+
+			"and Kopia `snapshot_source`."),
 		metric.WithUnit("{directories}"),
 	)
 	ServerBackup.LatestSnapshotAge, _ = meter.Float64Gauge(ServerBackupLatestSnapshotAgeMetric,
-		metric.WithDescription("Age of latest base snapshot in seconds, broken down by Kopia `snapshot_source`."),
+		metric.WithDescription("Age of latest base snapshot in seconds, broken down by `tier` and Kopia `snapshot_source`."),
 		metric.WithUnit("s"),
 	)
 	ServerBackup.OldestSnapshotAge, _ = meter.Float64Gauge(ServerBackupOldestSnapshotAgeMetric,
-		metric.WithDescription("Age of oldest base snapshot in seconds, broken down by Kopia `snapshot_source`."),
+		metric.WithDescription("Age of oldest base snapshot in seconds, broken down by `tier` and Kopia `snapshot_source`."),
 		metric.WithUnit("s"),
 	)
 }

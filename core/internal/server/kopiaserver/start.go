@@ -29,8 +29,12 @@ type Config struct {
 	ServerControlPassword string
 }
 
-// start runs a Kopia server with the passed configuration.
-func start(ctx context.Context, configFile string, cfg *Config, tls *config.TLSConfig) error {
+// start runs a Kopia server with the passed configuration. The tier value
+// labels the snapshot metrics emitted by the collector so callers can tell
+// tier-1 and tier-2 series apart.
+func start(
+	ctx context.Context, configFile string, cfg *Config, tls *config.TLSConfig, tier opentelemetry.Tier,
+) error {
 	contextLogger := log.FromContext(ctx)
 
 	kopiaBinary, err := kopia.LookupBinary()
@@ -57,6 +61,7 @@ func start(ctx context.Context, configFile string, cfg *Config, tls *config.TLSC
 	metricsCollector, err := newSnapshotMetricsCollector(
 		configFile,
 		time.Minute,
+		tier,
 		contextLogger)
 	if err != nil {
 		return fmt.Errorf("while creating snapshot metrics collector: %w", err)
