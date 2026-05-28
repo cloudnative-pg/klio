@@ -31,7 +31,7 @@ variable "registry" {
 
 variable "base_image" {
   // renovate image: datasource=docker depName=registry.access.redhat.com/ubi10/ubi-micro versioning=docker
-  default = "registry.access.redhat.com/ubi10/ubi-micro:10.2-1779772283@sha256:ef48486fdf53b4c0de48717618ae5ab9368ecebf3a944de19a956854123915e8"
+  default = "registry.access.redhat.com/ubi10/ubi-micro:10.2-1779859609@sha256:e025b421d29b8ecd86fcfd8a4ad18c0d7de747cbcc4e372f414ba02390b031b6"
 }
 
 function "getRegistry" {
