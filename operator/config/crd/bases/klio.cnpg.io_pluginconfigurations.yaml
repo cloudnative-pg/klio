@@ -1598,6 +1598,9 @@ spec:
                 - standard
                 - read-only
                 type: string
+                x-kubernetes-validations:
+                - message: mode is immutable
+                  rule: self == oldSelf
               pprof:
                 description: Pprof enables the pprof endpoint for performance profiling
                 type: boolean

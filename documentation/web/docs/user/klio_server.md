@@ -486,6 +486,12 @@ A read-only server requires:
 - **No** `tier1` configuration
 - **No** `queue` configuration
 
+:::note
+The `mode` field is immutable. Once a Server is created, its mode
+cannot be changed. To operate in a different mode, you would need
+another Klio server with a different mode.
+:::
+
 <!-- x-release-please-start-version -->
 ```yaml
 apiVersion: klio.cnpg.io/v1alpha1

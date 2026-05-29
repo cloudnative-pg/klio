@@ -296,6 +296,12 @@ Set a rule to `0` to disable that retention level.
 The `mode` field controls whether the plugin can perform both backup and
 restore operations (`standard`) or only restore operations (`read-only`).
 
+:::note
+The `mode` field is immutable. Once a PluginConfiguration is created,
+its mode cannot be changed. To operate in a different mode, you would
+need another PluginConfiguration with a different mode.
+:::
+
 ```yaml
 spec:
   mode: standard  # or read-only

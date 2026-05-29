@@ -59,6 +59,7 @@ type PluginConfigurationSpec struct {
 
 	// Mode selects the operation mode of the plugin.
 	// +kubebuilder:validation:Enum=standard;read-only
+	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="mode is immutable"
 	// +kubebuilder:default=standard
 	Mode ServerMode `json:"mode"`
 

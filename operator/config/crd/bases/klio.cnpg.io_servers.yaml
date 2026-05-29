@@ -79,6 +79,9 @@ spec:
                 - standard
                 - read-only
                 type: string
+                x-kubernetes-validations:
+                - message: mode is immutable
+                  rule: self == oldSelf
               queue:
                 description: |-
                   Queue is the configuration of the PVC that should host
