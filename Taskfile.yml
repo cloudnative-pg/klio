@@ -223,6 +223,18 @@ tasks:
           VERSION: "{{ .TAG }}"
           LATEST: "false"
           WORKDIR: "core"
+      # On a push to main, mirror the snapshot under the production image name
+      # (ghcr.io/enterprisedb/klio:main). Leaves :latest untouched — it is still
+      # only updated by core:containerize-publish on release tags.
+      - if: '[ "{{.GITHUB_REF}}" = "refs/heads/main" ]'
+        task: internal:containerize
+        vars:
+          ENVIRONMENT: "production"
+          INSECURE: "false"
+          REGISTRY: "ghcr.io/enterprisedb"
+          VERSION: "main"
+          LATEST: "false"
+          WORKDIR: "core"
 
   core:containerize-publish:
     desc: Publish container images
@@ -484,6 +496,18 @@ tasks:
           INSECURE: '{{ if .GITHUB_ACTIONS }}false{{ else }}true{{ end }}'
           REGISTRY: '{{ if .GITHUB_ACTIONS }}ghcr.io/enterprisedb{{ else }}{{ .REGISTRY_NAME }}:{{ .REGISTRY_PORT }}{{ end }}'
           VERSION: "{{ .TAG }}"
+          LATEST: "false"
+          WORKDIR: "operator"
+      # On a push to main, mirror the snapshot under the production image name
+      # (ghcr.io/enterprisedb/klio-operator:main). Leaves :latest untouched — it
+      # is still only updated by operator:containerize-publish on release tags.
+      - if: '[ "{{.GITHUB_REF}}" = "refs/heads/main" ]'
+        task: internal:containerize
+        vars:
+          ENVIRONMENT: "production"
+          INSECURE: "false"
+          REGISTRY: "ghcr.io/enterprisedb"
+          VERSION: "main"
           LATEST: "false"
           WORKDIR: "operator"
 
