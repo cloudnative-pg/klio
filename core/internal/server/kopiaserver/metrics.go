@@ -126,6 +126,11 @@ func (c *SnapshotMetricsCollector) updateMetrics(ctx context.Context, snapshots 
 		snapshotLogger := log.FromContext(ctx).WithValues("snapshotID", s.ID, "source", s.Source)
 		snapshotLogger.Debug("Processing snapshot")
 
+		if s.RootEntry == nil {
+			snapshotLogger.Debug("Skipping snapshot with nil RootEntry")
+			continue
+		}
+
 		age := now.Sub(s.EndTime.ToTime()).Seconds()
 		ds := s.RootEntry.DirSummary
 
