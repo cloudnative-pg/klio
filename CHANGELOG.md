@@ -1,5 +1,48 @@
 # Changelog
 
+## [0.0.16](https://github.com/EnterpriseDB/klio/compare/v0.0.15...v0.0.16) (2026-06-04)
+
+
+### ⚠ BREAKING CHANGES
+
+* **otel:** several plugin and server metrics are renamed, collapsed, or change instrument kind; the `tier` attribute value space  becomes `tier1` / `tier2`; and the `clusterName` / `walName` span attribute keys become snake_case. See the migration table in documentation/web/docs/user/opentelemetry.md and the per-change guidance in documentation/web/docs/user/upgrade_notes.md.
+
+### Features
+
+* Add latest written LSN metrics for tier 1 and tier 2 WAL archiving ([#1477](https://github.com/EnterpriseDB/klio/issues/1477)) ([3ee57a5](https://github.com/cloudnative-pg/klio/commit/3ee57a5e3e9fa36bc652fb8c991a072940a0fff6))
+* **api:** Make Server and PluginConfiguration mode immutable ([#1554](https://github.com/EnterpriseDB/klio/issues/1554)) ([f688877](https://github.com/cloudnative-pg/klio/commit/f6888776ecd720a310d8e4d1c4995f6dcf826005))
+* Detect and report disk-full errors during backup and WAL operations ([#1476](https://github.com/EnterpriseDB/klio/issues/1476)) ([745f41b](https://github.com/cloudnative-pg/klio/commit/745f41b8a2843d31749e87e469183bf0dfa838cd))
+* **operator:** Emit metrics via OpenTelemetry bridge ([#1567](https://github.com/EnterpriseDB/klio/issues/1567)) ([e082ab9](https://github.com/cloudnative-pg/klio/commit/e082ab9c85d151334207898a0dfd919504a6cd76))
+* **otel:** Label snapshot metrics with tier attribute ([#1555](https://github.com/EnterpriseDB/klio/issues/1555)) ([776fb34](https://github.com/cloudnative-pg/klio/commit/776fb347dbd1a40842babdcc5c60dc4c99b72209))
+
+
+### Bug Fixes
+
+* Decouple WAL restore tier selection from archive config ([#1428](https://github.com/EnterpriseDB/klio/issues/1428)) ([848971d](https://github.com/cloudnative-pg/klio/commit/848971dd2979d7e594e7b8c9eadf15dc13cf9601))
+* **deps:** Update all non-major go dependencies ([#1457](https://github.com/EnterpriseDB/klio/issues/1457)) ([f9ad52d](https://github.com/cloudnative-pg/klio/commit/f9ad52ddfe15d258436e40b21027260f8381981a))
+* **deps:** Update all non-major go dependencies ([#1503](https://github.com/EnterpriseDB/klio/issues/1503)) ([a0af152](https://github.com/cloudnative-pg/klio/commit/a0af1528b2e69f7b3e115e7f7d1ef791168100c2))
+* **deps:** Update all non-major go dependencies ([#1535](https://github.com/EnterpriseDB/klio/issues/1535)) ([146bb94](https://github.com/cloudnative-pg/klio/commit/146bb944fb1ac2ecafe832c2619064bb0f6a348d))
+* **deps:** Update all non-major go dependencies and align otel semconv ([#1566](https://github.com/EnterpriseDB/klio/issues/1566)) ([0eca6a9](https://github.com/cloudnative-pg/klio/commit/0eca6a9edaa1e15eb74e00d56b56997553712ebc))
+* **deps:** Update kubernetes monorepo to v0.36.1 ([#1485](https://github.com/EnterpriseDB/klio/issues/1485)) ([c09245b](https://github.com/cloudnative-pg/klio/commit/c09245b178c79c4b00b858d372962a9ec59bec69))
+* **deps:** Update module github.com/cloudnative-pg/api to v1.29.1 ([#1481](https://github.com/EnterpriseDB/klio/issues/1481)) ([ebf6773](https://github.com/cloudnative-pg/klio/commit/ebf6773188a3c5dcbd9b6604ed151ad67e70af63))
+* **deps:** Update module github.com/cloudnative-pg/machinery to v0.5.0 ([#1559](https://github.com/EnterpriseDB/klio/issues/1559)) ([c857b53](https://github.com/cloudnative-pg/klio/commit/c857b53cdbbed9f679de27ee3d6e04c8faddf491))
+* **deps:** Update module github.com/nats-io/nats-server/v2 to v2.14.1 ([#1524](https://github.com/EnterpriseDB/klio/issues/1524)) ([a83f0e6](https://github.com/cloudnative-pg/klio/commit/a83f0e642ed374d3ae2d29b96e2c95e549c8cdc7))
+* **deps:** Update module golang.org/x/crypto to v0.52.0 ([#1530](https://github.com/EnterpriseDB/klio/issues/1530)) ([c6a22ba](https://github.com/cloudnative-pg/klio/commit/c6a22ba61d4cd30043b74db131607292c3a2cf54))
+* **deps:** Update module google.golang.org/grpc to v1.81.1 ([#1495](https://github.com/EnterpriseDB/klio/issues/1495)) ([a6c4aab](https://github.com/cloudnative-pg/klio/commit/a6c4aabc60124fc5d22db7af3c285547bb28e9a7))
+* **deps:** Update module sigs.k8s.io/controller-runtime to v0.24.1 ([#1482](https://github.com/EnterpriseDB/klio/issues/1482)) ([6eaaf97](https://github.com/cloudnative-pg/klio/commit/6eaaf976e88a0e05a009979a8a5a503f2bf7c78c))
+* **otel:** Guard against nil RootEntry in snapshot metrics ([#1571](https://github.com/EnterpriseDB/klio/issues/1571)) ([c18a799](https://github.com/cloudnative-pg/klio/commit/c18a799cdfb493098733ac05fb93eeaa25b4136e))
+
+
+### Performance Improvements
+
+* Larger buffer and direct writes for tier 2 archival ([#1548](https://github.com/EnterpriseDB/klio/issues/1548)) ([9cf9629](https://github.com/cloudnative-pg/klio/commit/9cf9629ab922313e98cf602f23f93746f645c905))
+* Larger gRPC windows for WAL streaming ([bfe867d](https://github.com/cloudnative-pg/klio/commit/bfe867d34b55d263827e34e1eaf35ee396cdd313))
+
+
+### Code Refactoring
+
+* **otel:** Adopt component-based metric taxonomy ([#1513](https://github.com/EnterpriseDB/klio/issues/1513)) ([e1bc054](https://github.com/cloudnative-pg/klio/commit/e1bc054471303d86dbf0e3c1c13099b99142f0e4))
+
 ## [0.0.15](https://github.com/EnterpriseDB/klio/compare/v0.0.14...v0.0.15) (2026-05-08)
 
 
