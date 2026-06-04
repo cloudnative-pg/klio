@@ -91,8 +91,11 @@ segment identifies which process emits the metric:
 - `server` — the Klio server StatefulSet (hosts the Kopia server, the
   WAL gRPC ingest, the embedded NATS JetStream queue, and the tier-2
   WAL consumer).
-- `client` and `operator` — reserved for future instrumentation; no
-  metrics are emitted today.
+- `operator` — the Klio operator deployment. Bridges
+  controller-runtime Prometheus metrics to OTLP and adds Go
+  runtime and host instrumentation.
+- `client` — reserved for future instrumentation; no metrics are
+  emitted today.
 
 ### Attributes
 
@@ -554,3 +557,32 @@ spec:
   storage:
     size: 10Gi
 ```
+
+### Klio operator with OpenTelemetry
+
+The operator bridges the controller-runtime Prometheus metrics
+registry to OTLP and adds Go runtime and host instrumentation.
+When no `OTEL_*` environment variables are present, a no-op
+meter provider is installed and the operator runs without
+telemetry overhead.
+
+The existing Prometheus `/metrics` endpoint remains available
+for pull-based scraping regardless of whether OTLP export is
+enabled.
+
+To enable OTLP export, set `OTEL_*` variables through the Helm
+chart's `controllerManager.manager.env` value:
+
+```yaml
+controllerManager:
+  manager:
+    env:
+      OTEL_SERVICE_NAME: "klio-operator"
+      OTEL_EXPORTER_OTLP_ENDPOINT: "http://otel-collector:4318"
+      OTEL_EXPORTER_OTLP_PROTOCOL: "http/protobuf"  # or "grpc"
+```
+
+The Helm chart automatically injects `POD_NAME`,
+`NAMESPACE_NAME`, and `CONTAINER_NAME` via the Kubernetes
+downward API, so the corresponding `k8s.*` resource attributes
+are populated without additional configuration.

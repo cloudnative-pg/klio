@@ -131,6 +131,10 @@ The E2E tests are located in `operator/test/e2e/` and include:
 - **`otel_test.go`** - OpenTelemetry metrics and traces export: deploys
   an OTEL Collector and verifies that backup lifecycle metrics and
   traces are correctly exported via OTLP (`OTELMetricsAndTraces`)
+- **`operator_otel_test.go`** - Operator OpenTelemetry metrics:
+  patches the operator deployment with OTEL env vars and verifies
+  that controller-runtime metrics are bridged to an OTLP collector
+  (`OperatorOTELMetrics`, serial)
 
 ## Test Configuration
 

@@ -64,7 +64,8 @@
         "*/dagger/*/main.go",
         "*/docker-bake.hcl",
         "operator/test/utils/templates/rustfs/rustfs.go",
-        "operator/test/utils/templates/otel/otel.go"
+        "operator/test/utils/templates/otel/otel.go",
+        "operator/test/e2e/operator_otel_test.go"
       ],
       "matchStrings": [
         "\\/\\/ renovate image: datasource=(?<datasource>[a-z-.]+?) depName=(?<depName>[^\\s]+?)(?: (?:lookupName|packageName)=(?<packageName>[^\\s]+?))?(?: versioning=(?<versioning>[^\\s]+?))?(?: extractVersion=(?<extractVersion>[^\\s]+?))?\\s+[^=]+=\\s*[\"']?[^:]+:(?<currentValue>[^@]+?)(@(?<currentDigest>sha256:[a-f0-9]+))?[\"']\\s",

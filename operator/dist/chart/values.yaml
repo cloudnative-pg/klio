@@ -30,6 +30,8 @@ controllerManager:
       # -- The list of imagePullSecrets.
       pullSecrets: []
     # -- The environment variables to set in the controller manager container.
+    # Set OTEL_* variables here to enable OpenTelemetry export.
+    # See the OpenTelemetry Observability page in the documentation.
     env: {
       SIDECAR_IMAGE: "ghcr.io/enterprisedb/klio:v0.0.15" # x-release-please-version
     }

@@ -1,10 +1,12 @@
 package main
 
 import (
+	"context"
 	"crypto/tls"
 	"flag"
 	"os"
 	"path/filepath"
+	"time"
 
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
@@ -22,6 +24,7 @@ import (
 	"github.com/cloudnative-pg/klio/operator/internal/cnpgi"
 	"github.com/cloudnative-pg/klio/operator/internal/controller"
 	kliodiscovery "github.com/cloudnative-pg/klio/operator/internal/discovery"
+	"github.com/cloudnative-pg/klio/operator/internal/opentelemetry"
 
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	// to ensure that exec-entrypoint and run can make use of them.
@@ -268,9 +271,21 @@ func main() { // NOSONAR
 		os.Exit(1)
 	}
 
+	ctx := ctrl.SetupSignalHandler()
+	shutdownOTel := opentelemetry.Init(ctx)
+
 	setupLog.Info("starting manager")
-	if err := mgr.Start(ctrl.SetupSignalHandler()); err != nil {
-		setupLog.Error(err, "problem running manager")
+	mgrErr := mgr.Start(ctx)
+
+	// ctx is already cancelled here
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	if shutdownErr := shutdownOTel(shutdownCtx); shutdownErr != nil {
+		setupLog.Error(shutdownErr, "OpenTelemetry shutdown failed")
+	}
+	cancel()
+
+	if mgrErr != nil {
+		setupLog.Error(mgrErr, "problem running manager")
 		os.Exit(1)
 	}
 }
