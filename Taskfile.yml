@@ -1164,7 +1164,7 @@ tasks:
     cmds:
       - kind get kubeconfig --name {{ .KIND_CLUSTER_NAME }} > {{ .KUBECONFIG_PATH }}
       - |
-        dagger << "."
+        dagger shell << "."
         container | from alpine/k8s:{{ .ALPINE_K8S_VERSION }} | with-mounted-file /kube/.config {{ .KUBECONFIG_PATH }} |
         with-directory /chart operator/dist/chart |
         with-env-variable KUBECONFIG /kube/.config |
@@ -1196,7 +1196,7 @@ tasks:
     cmds:
       - |
         kind get kubeconfig --name {{ .KIND_CLUSTER_NAME }} > {{ .KUBECONFIG_PATH }}
-        dagger << "."
+        dagger shell << "."
         container | from golang:{{ .GOLANG_IMAGE_VERSION }} | with-mounted-file /kube/.config {{ .KUBECONFIG_PATH }} |
         with-directory /src/operator operator |
         with-workdir /src/operator/test/e2e |
