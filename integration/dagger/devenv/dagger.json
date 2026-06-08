@@ -1,19 +1,19 @@
 {
   "name": "devenv",
-  "engineVersion": "v0.20.1",
+  "engineVersion": "v0.21.4",
   "sdk": {
     "source": "go"
   },
   "dependencies": [
     {
       "name": "go",
-      "source": "github.com/sagikazarmark/daggerverse/go",
-      "pin": "d9ba06776c4c1ccf6f329bd862b9b439c4582ab6"
+      "source": "github.com/sagikazarmark/daggerverse/go@main",
+      "pin": "ff27cd50f6b4eed2e3753c520632cd6099e1ce52"
     },
     {
       "name": "k3s",
-      "source": "github.com/marcosnils/daggerverse/k3s",
-      "pin": "c07646d1bf7f6079dab47ba152c767e062aa0f58"
+      "source": "github.com/marcosnils/daggerverse/k3s@main",
+      "pin": "a59aae4c9f6e02ac1f9d5d16cfbace2693be4f05"
     }
   ],
   "disableDefaultFunctionCaching": true
