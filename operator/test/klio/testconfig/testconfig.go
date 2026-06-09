@@ -14,8 +14,10 @@ import (
 
 // Config value defaults.
 const (
-	defaultServerImage = "registry.dev:5000/klio-testing:dev"
-	defaultLogDir      = "e2e_cluster_logs"
+	defaultServerImage       = "registry.dev:5000/klio-testing:dev"
+	defaultLogDir            = "e2e_cluster_logs"
+	defaultOperatorNamespace = "cnpg-system"
+	defaultOperatorAppLabel  = "app.kubernetes.io/name=klio"
 )
 
 // Config file loader settings.
@@ -52,6 +54,24 @@ type Config struct {
 	// in the tests (tier1 cache, tier1 data, queue, tier2 cache).
 	StorageClass string `mapstructure:"storageClass"`
 
+	// OperatorNamespace is the namespace where the Klio operator runs. Defaults
+	// to cnpg-system (the Helm/Kind layout); set to openshift-operators for the
+	// OLM-based OpenShift install.
+	OperatorNamespace string `mapstructure:"operatorNamespace"`
+
+	// OperatorAppLabel is the label selector identifying the Klio operator
+	// Deployment. Defaults to app.kubernetes.io/name=klio (Helm/Kind); the
+	// OLM-based OpenShift install labels it app.kubernetes.io/name=klio-operator.
+	OperatorAppLabel string `mapstructure:"operatorAppLabel"`
+
+	// OperatorSubscription is the name of the OLM Subscription that manages the
+	// operator, in OperatorNamespace. Set it on the OLM-based OpenShift install
+	// so tests that need to change the operator's environment patch the
+	// Subscription (which OLM propagates to the Deployment) instead of the
+	// Deployment directly, which OLM reverts. Leave empty for the Helm/Kind
+	// install, where the Deployment is patched directly.
+	OperatorSubscription string `mapstructure:"operatorSubscription"`
+
 	// ImagePullSecret holds optional registry credentials. When all fields are
 	// non-empty, a pull secret named "e2e-pull-secret" is created in every test
 	// namespace and referenced by the Server and Cluster templates.
@@ -66,6 +86,8 @@ func Load() (*Config, error) {
 
 	v.SetDefault("serverImage", defaultServerImage)
 	v.SetDefault("logDir", defaultLogDir)
+	v.SetDefault("operatorNamespace", defaultOperatorNamespace)
+	v.SetDefault("operatorAppLabel", defaultOperatorAppLabel)
 
 	path := os.Getenv(envConfigFile)
 	if path == "" {

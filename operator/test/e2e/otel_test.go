@@ -48,8 +48,6 @@ type otelMetricsScenario struct {
 	// RustFS infrastructure
 	rustfsSecret          *corev1.Secret
 	rustfsConfigMap       *corev1.ConfigMap
-	rustfsPVC             *corev1.PersistentVolumeClaim
-	rustfsLogsPVC         *corev1.PersistentVolumeClaim
 	rustfsCertificate     *certmanagerv1.Certificate
 	rustfsService         *corev1.Service
 	rustfsDeployment      *appsv1.Deployment
@@ -100,8 +98,6 @@ func newOTELMetricsScenario(namespace string) *otelMetricsScenario {
 	// RustFS infrastructure
 	rustfsSecret := rustfs.GetRustFSSecret(rustfsName+"-secret", namespace)
 	rustfsConfigMap := rustfs.GetRustFSConfigMap(rustfsName+"-config", namespace)
-	rustfsPVC := rustfs.GetRustFSPVC(rustfsName+"-data", namespace)
-	rustfsLogsPVC := rustfs.GetRustFSLogsPVC(rustfsName+"-logs", namespace)
 	rustfsCertificate := rustfs.GetRustFSCertificate(rustfsName, namespace, issuer)
 	rustfsService := rustfs.GetRustFSService(rustfsName, namespace)
 	rustfsDeployment := rustfs.GetRustFSDeployment(rustfsName, namespace)
@@ -228,7 +224,7 @@ func newOTELMetricsScenario(namespace string) *otelMetricsScenario {
 
 	// CNPG Cluster with OTEL configuration
 	cnpgCluster := cnpg.GetCnpgClusterObject("test-cluster", namespace, 1, klioPluginConfiguration.Name,
-		cnpg.ClusterTemplateOptions{ImagePullSecret: pullSecretName()})
+		cnpg.ClusterTemplateOptions{ImagePullSecret: pullSecretName(), StorageClass: testCfg.StorageClass})
 
 	// Add OTEL env vars as Spec.Env (not EnvFrom) so the Klio lifecycle webhook
 	// merges them into the sidecar container.
@@ -268,8 +264,6 @@ func newOTELMetricsScenario(namespace string) *otelMetricsScenario {
 		issuer:                  issuer,
 		rustfsSecret:            rustfsSecret,
 		rustfsConfigMap:         rustfsConfigMap,
-		rustfsPVC:               rustfsPVC,
-		rustfsLogsPVC:           rustfsLogsPVC,
 		rustfsCertificate:       rustfsCertificate,
 		rustfsService:           rustfsService,
 		rustfsDeployment:        rustfsDeployment,
@@ -321,8 +315,6 @@ func (s *otelMetricsScenario) Setup(
 	require.NoError(t, r.Create(ctx, s.encryptionSecrets.IdentitySecret), "failed to create identity secret")
 	require.NoError(t, r.Create(ctx, s.rustfsSecret), "failed to create RustFS secret")
 	require.NoError(t, r.Create(ctx, s.rustfsConfigMap), "failed to create RustFS configmap")
-	require.NoError(t, r.Create(ctx, s.rustfsPVC), "failed to create RustFS data PVC")
-	require.NoError(t, r.Create(ctx, s.rustfsLogsPVC), "failed to create RustFS logs PVC")
 
 	// Create and wait for the self-signed issuer
 	require.NoError(t, r.Create(ctx, s.issuer), "failed to create issuer")

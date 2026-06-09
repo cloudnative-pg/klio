@@ -1,0 +1,87 @@
+name: OpenShift E2E
+
+on:
+  workflow_call:
+    inputs:
+      catalog-artifact-name:
+        description: "Artifact name holding the pre-built Klio OLM catalog."
+        type: string
+        required: true
+    secrets:
+      REDHAT_REGISTRY_DOCKERCONFIG:
+        description: "Red Hat pull secret used to start the CRC cluster."
+        required: true
+
+permissions:
+  contents: read
+  packages: read
+
+jobs:
+  openshift-e2e:
+    name: OpenShift E2E
+    runs-on: github-hosted-2xlarge-amd64-ubuntu-latest
+    timeout-minutes: 120
+    env:
+      ENVIRONMENT: "testing"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        with:
+          fetch-depth: 0
+
+      - name: Cleanup disk
+        uses: ./.github/actions/cleanup-disk
+
+      - name: Install Task
+        shell: bash
+        env:
+          # renovate: datasource=github-tags depName=go-task/task versioning=semver
+          TASK_VERSION: 3.51.1
+        run: |
+          curl -sSfL "https://github.com/go-task/task/releases/download/v${TASK_VERSION}/task_linux_amd64.tar.gz" \
+            | sudo tar -xz -C /usr/local/bin task
+
+      - name: Download pre-built Klio OLM catalog
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v5
+        with:
+          name: ${{ inputs.catalog-artifact-name }}
+          path: operator
+
+      - name: Start OpenShift cluster (CRC)
+        uses: crc-org/crc-github-action@c32030519c129bdaeedf2f313670831c2195526e # v1
+        with:
+          pull-secret: ${{ secrets.REDHAT_REGISTRY_DOCKERCONFIG }}
+          preset: openshift
+          cpus: 8
+          memory: 20480
+          disk: 80
+
+      - name: Set up Go
+        uses: actions/setup-go@d35c59abb061a4a6fb18e82ac0862c26744d6ab5 # v6
+        with:
+          go-version-file: operator/go.mod
+          cache-dependency-path: operator/go.sum
+
+      - name: Run e2e tests on OpenShift
+        env:
+          # The e2e-openshift dependencies (write-e2e-config-openshift and
+          # deploy-to-openshift) build the e2e config and GHCR pull secrets
+          # from these.
+          GHCR_USERNAME: ${{ github.actor }}
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          export EXTERNAL_KUBECONFIG="${HOME}/.kube/config"
+          task integration:e2e-openshift
+
+      - name: Upload e2e logs
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: openshift_e2e_logs
+          path: |
+            e2e_cluster_logs/
+          if-no-files-found: ignore
+
+      - name: Delete CRC cluster
+        if: always()
+        run: crc delete -f || true

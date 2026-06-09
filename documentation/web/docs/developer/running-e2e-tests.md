@@ -154,6 +154,20 @@ logDir: "e2e_cluster_logs"
 # Kubernetes storage class used for all PVC templates in the tests.
 storageClass: "csi-hostpath-sc"
 
+# Namespace where the Klio operator runs. Defaults to cnpg-system (Helm/Kind);
+# set to openshift-operators for the OLM-based OpenShift install.
+operatorNamespace: "cnpg-system"
+
+# Label selector for identifying the Klio operator deployment. Must match
+# the labels applied in the operator deployment manifest.
+operatorAppLabel: "app.kubernetes.io/name=klio"
+
+# Name of the OLM Subscription managing the operator (in operatorNamespace).
+# Set it on OpenShift so tests that change the operator environment patch the
+# Subscription (which OLM propagates to the Deployment) rather than the
+# Deployment, which OLM reverts. Leave empty for the Helm/Kind install.
+operatorSubscription: ""
+
 # Registry credentials for pulling private images.
 # The secret is created automatically in every test namespace.
 # Leave all fields empty when images are publicly accessible.
@@ -199,12 +213,80 @@ completes. In CI, that directory is uploaded as a workflow artifact
 named `e2e_cluster_logs` and is available for download from the
 GitHub Actions run page.
 
+## Running on OpenShift
+
+The project includes an OpenShift-based e2e pipeline that validates
+Klio on a single-node OpenShift (SNO) cluster. The cluster is
+provisioned with [CRC](https://github.com/crc-org/crc-github-action)
+(CodeReady Containers) using the `openshift` preset, which already
+ships OLM, the operator catalogs, and a default StorageClass. The
+pipeline then installs cert-manager, community CNPG, and the Klio
+operator via OLM subscriptions and runs the same Go e2e suite as the
+Kind path.
+
+### OpenShift prerequisites
+
+CRC runs the cluster inside a KVM virtual machine, so the runner must
+expose `/dev/kvm` (nested virtualization). In addition to Go and Task,
+the pipeline requires:
+
+- A pre-built Klio OLM catalog artifact
+  (`operator/klio-operator-catalog-source.yaml`)
+- A Red Hat pull secret (`REDHAT_REGISTRY_DOCKERCONFIG`) used to start
+  the CRC cluster
+- GHCR credentials (`GHCR_USERNAME`, `GHCR_TOKEN`) for the private Klio
+  images
+
+### Running locally
+
+Start a CRC `openshift` cluster yourself, then point the tasks at its
+kubeconfig (CRC writes it to `~/.kube/config`):
+
+```bash
+export EXTERNAL_KUBECONFIG="$HOME/.kube/config"
+export GHCR_USERNAME=<github-user>
+export GHCR_TOKEN=<github-token>
+
+# Generate the Klio OLM CatalogSource the deploy step requires (or
+# download the klio-olm artifact from the ci.yml olm job instead).
+task olm:catalog-source
+
+task integration:e2e-openshift
+```
+
+This command will:
+
+- Add GHCR credentials to the cluster-wide pull secret
+- Deploy cert-manager, CNPG, and Klio via OLM subscriptions
+- Run the full e2e suite
+
+> **Storage note:** CRC's default StorageClass is hostPath-backed and
+> cannot expand volumes, so `task integration:e2e-openshift` deploys
+> the upstream `csi-driver-host-path` (the same driver the Kind path
+> uses) via its `integration:setup-crc-storage` dependency and points
+> `storageClass` at `csi-hostpath-sc`, which has `allowVolumeExpansion`
+> enabled for the `PVCResize` feature. This runs the same way in CI and
+> locally; override `STORAGE_CLASS` to use another expandable class.
+
+### CI
+
+The OpenShift e2e job does not run on regular pull requests. It runs
+on pushes to `main`, on the `release-please--branches--main` release
+PR, and on demand via the CI workflow's `workflow_dispatch`
+(`run-openshift` input). When it runs, the `core` and `operator` jobs
+are forced to build so their images are published to GHCR before the
+suite pulls them; the deploy step also consumes the `klio-olm`
+CatalogSource artifact produced by the always-on `olm` job. It is
+defined in `.github/workflows/openshift-e2e.yml` and provisions the
+cluster with the `crc-org/crc-github-action` action.
+
 ## Environment Variables
 
-The following environment variables can be used to customize the tasks
-execution:
+The following environment variables can be used to customize the
+tasks execution:
 
-- `KIND_CLUSTER_NAME` - Name of the Kind cluster to use (required)
+- `KIND_CLUSTER_NAME` - Name of the Kind cluster to use (required
+  for the Kind path)
 - `E2E_CONFIG_FILE` - Path to a custom test configuration file
   (default: `operator/test/e2e/e2e-config.yaml`)
 

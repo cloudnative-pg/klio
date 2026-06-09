@@ -95,7 +95,7 @@ func newPluginTestResources(namespace string) pluginTestResources {
 	)
 
 	cnpgCluster := cnpg.GetCnpgClusterObject("test-cluster", namespace, 1, "klio-plugin-configuration",
-		cnpg.ClusterTemplateOptions{ImagePullSecret: pullSecretName()})
+		cnpg.ClusterTemplateOptions{ImagePullSecret: pullSecretName(), StorageClass: testCfg.StorageClass})
 
 	ageSecrets := secrets.GetKlioAgeEncryptionSecrets("encryption", namespace, "testencryptionpassword123")
 	klioServer := klio.GetServerObject(

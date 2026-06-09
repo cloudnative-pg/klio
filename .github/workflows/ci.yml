@@ -3,6 +3,11 @@ name: CI
 on:
   pull_request:
   workflow_dispatch:
+    inputs:
+      run-openshift:
+        description: "Run the OpenShift e2e tests"
+        type: boolean
+        default: false
   push:
     branches:
       - main
@@ -17,6 +22,10 @@ jobs:
       core-changed: ${{ steps.event-filter.outputs.core-changed || steps.paths-filter.outputs.core-changed }}
       operator-changed: ${{ steps.event-filter.outputs.operator-changed || steps.paths-filter.outputs.operator-changed }}
       renovate-changed: ${{ steps.event-filter.outputs.renovate-changed || steps.paths-filter.outputs.renovate-changed }}
+      # Run the OpenShift e2e suite on pushes to main, on the
+      # release-please PR branch, and on demand via workflow_dispatch — but
+      # never automatically on a regular pull request.
+      run-openshift: ${{ github.event_name == 'push' || github.head_ref == 'release-please--branches--main' || (github.event_name == 'workflow_dispatch' && inputs.run-openshift) }}
     steps:
       - name: Checkout
         uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
@@ -103,7 +112,9 @@ jobs:
     name: Core CI
     needs:
       - change-triage
-    if: needs.change-triage.outputs.core-changed == 'true'
+    # Also build when the OpenShift suite runs: openshift-e2e pulls the
+    # freshly built operand image from ghcr regardless of which module changed.
+    if: needs.change-triage.outputs.core-changed == 'true' || needs.change-triage.outputs.run-openshift == 'true'
     runs-on: ["edb", "2xlarge"]
     steps:
       - name: Checkout
@@ -143,7 +154,9 @@ jobs:
     name: Operator CI
     needs:
       - change-triage
-    if: needs.change-triage.outputs.operator-changed == 'true'
+    # Also build when the OpenShift suite runs: the OLM catalog and tests pull
+    # the freshly built operator image from ghcr regardless of what changed.
+    if: needs.change-triage.outputs.operator-changed == 'true' || needs.change-triage.outputs.run-openshift == 'true'
     runs-on: ["edb", "2xlarge"]
     steps:
       - name: Checkout
@@ -290,3 +303,17 @@ jobs:
           # renovate: datasource=npm depName=renovate versioning=semver
           RENOVATE_VERSION: 43.214.1
         run: npx --yes --package renovate@${RENOVATE_VERSION} -- renovate-config-validator
+
+  openshift-e2e:
+    name: OpenShift E2E
+    needs:
+      - change-triage
+      - core
+      - operator
+      - olm
+    if: needs.change-triage.outputs.run-openshift == 'true'
+    uses: ./.github/workflows/openshift-e2e.yml
+    with:
+      catalog-artifact-name: klio-olm
+    secrets:
+      REDHAT_REGISTRY_DOCKERCONFIG: ${{ secrets.REDHAT_REGISTRY_DOCKERCONFIG }}

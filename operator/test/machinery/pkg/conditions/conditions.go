@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	cnpgv1 "github.com/cloudnative-pg/api/pkg/api/v1"
+	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"sigs.k8s.io/e2e-framework/klient/k8s"
@@ -49,6 +50,37 @@ func BackupIsCompleted(r *resources.Resources, backup k8s.Object) wait.Condition
 		}
 
 		return false, nil
+	}
+}
+
+// DeploymentRolloutComplete reports whether the Deployment's current spec has
+// fully rolled out, mirroring `kubectl rollout status`: the controller has
+// observed this generation, every desired replica is updated, no old replicas
+// remain, and all updated replicas are available.
+func DeploymentRolloutComplete(r *resources.Resources, deployment *appsv1.Deployment) wait.ConditionWithContextFunc {
+	return func(ctx context.Context) (bool, error) {
+		current := &appsv1.Deployment{}
+		if err := r.Get(ctx, deployment.Name, deployment.Namespace, current); err != nil {
+			return false, fmt.Errorf("failed to get Deployment: %w", err)
+		}
+
+		// Until the controller observes the current spec, the replica counts
+		// below still reflect the previous generation.
+		if current.Status.ObservedGeneration < current.Generation {
+			return false, nil
+		}
+
+		if current.Spec.Replicas != nil && current.Status.UpdatedReplicas < *current.Spec.Replicas {
+			return false, nil // not all replicas updated to the new spec yet
+		}
+		if current.Status.Replicas > current.Status.UpdatedReplicas {
+			return false, nil // old replicas still terminating
+		}
+		if current.Status.AvailableReplicas < current.Status.UpdatedReplicas {
+			return false, nil // updated replicas not all available yet
+		}
+
+		return true, nil
 	}
 }
 

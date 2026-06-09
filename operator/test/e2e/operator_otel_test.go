@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"strings"
 	"testing"
 	"time"
 
@@ -12,19 +13,21 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 	"sigs.k8s.io/e2e-framework/klient/wait"
 	"sigs.k8s.io/e2e-framework/pkg/envconf"
 	"sigs.k8s.io/e2e-framework/pkg/types"
 
+	machineryConditions "github.com/cloudnative-pg/klio/operator/test/machinery/pkg/conditions"
 	"github.com/cloudnative-pg/klio/operator/test/utils/metrics"
 )
 
 const (
-	operatorNamespace      = "cnpg-system"
-	operatorDeploymentName = "klio-controller-manager"
-	operatorOTELCollector  = "operator-otel-collector"
+	operatorOTELCollector = "operator-otel-collector"
 	// collectorImage must match the image used in otel.go.
 	//nolint:godot,lll
 	// renovate image: datasource=docker depName=otel/opentelemetry-collector-contrib versioning=docker
@@ -36,8 +39,32 @@ const (
 // operatorOTELFeature implements machineryFeatures.Feature.
 type operatorOTELFeature struct {
 	namespace string
-	// savedEnv preserves the original env vars so teardown can restore them.
+	// operatorNamespace is where the Klio operator runs (cnpg-system on Kind,
+	// openshift-operators on OpenShift).
+	operatorNamespace string
+	// operatorAppLabel is the label selector identifying the operator Deployment
+	// (app.kubernetes.io/name=klio on Kind, =klio-operator on OpenShift).
+	operatorAppLabel string
+	// operatorSubscription, when non-empty, is the name of the OLM Subscription
+	// (in operatorNamespace) managing the operator. On OpenShift the operator is
+	// OLM-managed, so the OTEL env must be set on the Subscription's
+	// spec.config.env (which OLM propagates to the Deployment); patching the
+	// Deployment directly is reverted by OLM. Empty means a Helm/Kind install
+	// whose Deployment is patched directly.
+	operatorSubscription string
+	// savedEnv preserves the original Deployment env so teardown can restore it
+	// (Helm/Kind path).
 	savedEnv []corev1.EnvVar
+	// savedSubEnv preserves the original Subscription spec.config.env so teardown
+	// can restore it (OLM path). nil when the field was absent.
+	savedSubEnv []any
+}
+
+// subscriptionGVR is the OLM Subscription resource.
+//
+//nolint:gochecknoglobals
+var subscriptionGVR = schema.GroupVersionResource{
+	Group: "operators.coreos.com", Version: "v1alpha1", Resource: "subscriptions",
 }
 
 func (f *operatorOTELFeature) Name() string { return "OperatorOTELMetrics" }
@@ -73,15 +100,6 @@ func (f *operatorOTELFeature) Setup() types.StepFunc {
 			wait.WithInterval(5*time.Second),
 		), "OTel collector not ready")
 
-		// Patch the operator deployment with OTEL_* env vars.
-		t.Log("Patching operator deployment with OTEL env vars")
-		dep, err := clientset.AppsV1().Deployments(operatorNamespace).Get(ctx, operatorDeploymentName, metav1.GetOptions{})
-		require.NoError(t, err, "failed to get operator deployment")
-
-		// Save the original env for teardown.
-		f.savedEnv = make([]corev1.EnvVar, len(dep.Spec.Template.Spec.Containers[0].Env))
-		copy(f.savedEnv, dep.Spec.Template.Spec.Containers[0].Env)
-
 		collectorEndpoint := fmt.Sprintf("http://%s.%s.svc.cluster.local:%d",
 			operatorOTELCollector, f.namespace, collectorHTTPPort)
 
@@ -92,25 +110,46 @@ func (f *operatorOTELFeature) Setup() types.StepFunc {
 			{Name: "OTEL_EXPORTER_OTLP_ENDPOINT", Value: collectorEndpoint},
 			{Name: "OTEL_METRIC_EXPORT_INTERVAL", Value: "5000"},
 		}
-		dep.Spec.Template.Spec.Containers[0].Env = append(dep.Spec.Template.Spec.Containers[0].Env, otelEnv...)
 
-		_, err = clientset.AppsV1().Deployments(operatorNamespace).Update(ctx, dep, metav1.UpdateOptions{})
-		require.NoError(t, err, "failed to patch operator deployment")
+		if f.operatorSubscription != "" {
+			// OLM-managed operator (OpenShift): set the env on the Subscription's
+			// spec.config.env so OLM propagates it to the Deployment. Patching the
+			// Deployment directly is reverted by OLM within seconds.
+			t.Log("Injecting OTEL env via the OLM Subscription")
+			dyn, err := dynamic.NewForConfig(cfg.Client().RESTConfig())
+			require.NoError(t, err)
+
+			f.savedSubEnv, err = setSubscriptionEnv(
+				ctx, dyn, f.operatorNamespace, f.operatorSubscription, otelEnv)
+			require.NoError(t, err, "failed to set OTEL env on the operator Subscription")
+
+			// OLM updates the Deployment asynchronously; wait until it carries
+			// the env before waiting on the rollout.
+			t.Log("Waiting for OLM to propagate the env to the operator deployment")
+			require.NoError(t, waitForDeploymentEnv(
+				ctx, clientset, f.operatorNamespace, f.operatorAppLabel, "OTEL_SERVICE_NAME"),
+				"OLM did not propagate the OTEL env to the operator deployment")
+		} else {
+			// Helm/Kind: patch the Deployment directly and save the original env.
+			t.Log("Patching operator deployment with OTEL env vars")
+			dep, err := operatorDeployment(ctx, clientset, f.operatorNamespace, f.operatorAppLabel)
+			require.NoError(t, err, "failed to find operator deployment")
+
+			f.savedEnv = make([]corev1.EnvVar, len(dep.Spec.Template.Spec.Containers[0].Env))
+			copy(f.savedEnv, dep.Spec.Template.Spec.Containers[0].Env)
+
+			dep.Spec.Template.Spec.Containers[0].Env = append(
+				dep.Spec.Template.Spec.Containers[0].Env, otelEnv...)
+			_, err = clientset.AppsV1().Deployments(f.operatorNamespace).Update(ctx, dep, metav1.UpdateOptions{})
+			require.NoError(t, err, "failed to patch operator deployment")
+		}
 
 		// Wait for the rollout to complete.
 		t.Log("Waiting for operator rollout")
+		dep, err := operatorDeployment(ctx, clientset, f.operatorNamespace, f.operatorAppLabel)
+		require.NoError(t, err, "failed to find operator deployment")
 		require.NoError(t, wait.For(
-			func(ctx context.Context) (bool, error) {
-				dep, err := clientset.AppsV1().Deployments(operatorNamespace).Get(
-					ctx, operatorDeploymentName, metav1.GetOptions{})
-				if err != nil {
-					return false, nil //nolint:nilerr // retry on transient errors
-				}
-
-				return dep.Status.UpdatedReplicas == *dep.Spec.Replicas &&
-					dep.Status.ReadyReplicas == *dep.Spec.Replicas &&
-					dep.Status.ObservedGeneration >= dep.Generation, nil
-			},
+			machineryConditions.DeploymentRolloutComplete(cfg.Client().Resources(), dep),
 			wait.WithContext(ctx),
 			wait.WithTimeout(2*time.Minute),
 			wait.WithInterval(5*time.Second),
@@ -127,58 +166,62 @@ func (f *operatorOTELFeature) Run() types.StepFunc {
 		clientset, err := kubernetes.NewForConfig(cfg.Client().RESTConfig())
 		require.NoError(t, err)
 
-		// Allow time for metrics to be exported.
-		t.Log("Waiting for metrics to propagate")
-		time.Sleep(15 * time.Second)
+		// Poll the collector until the operator's controller-runtime metrics
+		// reach it through the Prometheus->OTLP bridge, instead of assuming a
+		// fixed delay: the export interval, OTLP delivery, batch flush, and
+		// Prometheus scrape each add latency that varies with cluster load.
+		t.Log("Waiting for operator controller-runtime metrics to propagate")
+		var promMetrics, crMetrics metrics.PrometheusMetrics
+		require.NoError(t, wait.For(
+			func(ctx context.Context) (bool, error) {
+				pods, err := clientset.CoreV1().Pods(f.namespace).List(ctx, metav1.ListOptions{
+					LabelSelector: "app=" + operatorOTELCollector,
+				})
+				if err != nil || len(pods.Items) != 1 {
+					return false, nil //nolint:nilerr // retry until the collector pod is up
+				}
 
-		// Fetch the collector pod.
-		podList, err := clientset.CoreV1().Pods(f.namespace).List(ctx, metav1.ListOptions{
-			LabelSelector: "app=" + operatorOTELCollector,
-		})
-		require.NoError(t, err)
-		require.Len(t, podList.Items, 1, "expected one collector pod")
+				body, err := clientset.CoreV1().RESTClient().Get().
+					Resource("pods").
+					Name(fmt.Sprintf("%s:%d", pods.Items[0].Name, collectorMetricsPort)).
+					Namespace(f.namespace).
+					SubResource("proxy").
+					Suffix("/metrics").
+					Do(ctx).Raw()
+				if err != nil {
+					return false, nil //nolint:nilerr // retry on transient proxy errors
+				}
 
-		collectorPod := podList.Items[0].Name
+				parsed, err := metrics.ParsePrometheusMetrics(bytes.NewReader(body))
+				if err != nil {
+					return false, nil //nolint:nilerr // retry on a partial scrape
+				}
 
-		// Fetch metrics from the collector's Prometheus endpoint.
-		t.Log("Fetching metrics from operator OTel collector")
-		req := clientset.CoreV1().RESTClient().Get().
-			Resource("pods").
-			Name(fmt.Sprintf("%s:%d", collectorPod, collectorMetricsPort)).
-			Namespace(f.namespace).
-			SubResource("proxy").
-			Suffix("/metrics")
+				promMetrics = parsed
+				// The exact set depends on what the operator has done since
+				// restart; we only need the bridge to have delivered at least one.
+				crMetrics = parsed.FindByNamePrefix("controller_runtime_")
 
-		body, err := req.Do(ctx).Raw()
-		require.NoError(t, err, "failed to fetch collector metrics")
-
-		promMetrics, err := metrics.ParsePrometheusMetrics(bytes.NewReader(body))
-		require.NoError(t, err, "failed to parse collector metrics")
+				return len(crMetrics) > 0, nil
+			},
+			wait.WithContext(ctx),
+			wait.WithTimeout(2*time.Minute),
+			wait.WithInterval(5*time.Second),
+		), "no controller_runtime_* metrics reached the OTel collector")
 
 		t.Logf("Found %d total metrics from operator OTel collector", len(promMetrics))
-
-		// Log all metric names for debugging.
 		t.Logf("All metric names: %v", promMetrics.Names())
-
-		// Assert controller-runtime metrics are bridged through OTel.
-		// The exact set depends on what the operator has done since restart;
-		// webhook panic counters are always registered.
-		crMetrics := promMetrics.FindByNamePrefix("controller_runtime_")
 		t.Logf("Found %d controller_runtime_* metrics", len(crMetrics))
 		for _, m := range crMetrics {
 			t.Logf("  %s = %v", m.Name, m.Value)
 		}
-		assert.NotEmpty(t, crMetrics,
-			"expected at least one controller_runtime_* metric from the Prometheus bridge")
 
-		// Verify service.name resource attribute propagation on any
-		// controller-runtime metric that was collected.
-		if len(crMetrics) > 0 {
-			serviceNameLabels := map[string]string{"service_name": "klio-operator"}
-			_, found := promMetrics.GetValueWithLabels(crMetrics[0].Name, serviceNameLabels)
-			assert.True(t, found,
-				"%s should carry service_name=klio-operator label", crMetrics[0].Name)
-		}
+		// Verify service.name resource attribute propagation on a collected
+		// metric (wait.For above guarantees crMetrics is non-empty here).
+		serviceNameLabels := map[string]string{"service_name": "klio-operator"}
+		_, found := promMetrics.GetValueWithLabels(crMetrics[0].Name, serviceNameLabels)
+		assert.True(t, found,
+			"%s should carry service_name=klio-operator label", crMetrics[0].Name)
 
 		t.Log("Operator OTel metrics verification completed")
 
@@ -193,34 +236,35 @@ func (f *operatorOTELFeature) Teardown() types.StepFunc {
 		clientset, err := kubernetes.NewForConfig(cfg.Client().RESTConfig())
 		require.NoError(t, err)
 
-		// Restore the operator deployment's original env vars.
-		t.Log("Restoring operator deployment")
-		dep, err := clientset.AppsV1().Deployments(operatorNamespace).Get(ctx, operatorDeploymentName, metav1.GetOptions{})
-		if err == nil {
+		// Restore the operator's original env. On OLM we reset the Subscription
+		// (which OLM propagates back to the Deployment); otherwise we restore the
+		// Deployment directly.
+		t.Log("Restoring operator environment")
+		if f.operatorSubscription != "" {
+			dyn, err := dynamic.NewForConfig(cfg.Client().RESTConfig())
+			require.NoError(t, err)
+			require.NoError(t, restoreSubscriptionEnv(
+				ctx, dyn, f.operatorNamespace, f.operatorSubscription, f.savedSubEnv),
+				"failed to restore the operator Subscription env")
+		} else {
+			dep, err := operatorDeployment(ctx, clientset, f.operatorNamespace, f.operatorAppLabel)
+			require.NoError(t, err, "failed to fetch operator deployment")
+
 			dep.Spec.Template.Spec.Containers[0].Env = f.savedEnv
-			_, err = clientset.AppsV1().Deployments(operatorNamespace).Update(ctx, dep, metav1.UpdateOptions{})
-			if err != nil {
-				t.Logf("failed to restore operator deployment: %v", err)
-			}
+			_, err = clientset.AppsV1().Deployments(f.operatorNamespace).Update(
+				ctx, dep, metav1.UpdateOptions{})
+			require.NoError(t, err, "failed to restore operator deployment")
 		}
 
 		// Wait for the rollout after restore.
-		_ = wait.For(
-			func(ctx context.Context) (bool, error) {
-				dep, err := clientset.AppsV1().Deployments(operatorNamespace).Get(
-					ctx, operatorDeploymentName, metav1.GetOptions{})
-				if err != nil {
-					return false, nil //nolint:nilerr // retry on transient errors
-				}
-
-				return dep.Status.UpdatedReplicas == *dep.Spec.Replicas &&
-					dep.Status.ReadyReplicas == *dep.Spec.Replicas &&
-					dep.Status.ObservedGeneration >= dep.Generation, nil
-			},
-			wait.WithContext(ctx),
-			wait.WithTimeout(2*time.Minute),
-			wait.WithInterval(5*time.Second),
-		)
+		if dep, err := operatorDeployment(ctx, clientset, f.operatorNamespace, f.operatorAppLabel); err == nil {
+			_ = wait.For(
+				machineryConditions.DeploymentRolloutComplete(cfg.Client().Resources(), dep),
+				wait.WithContext(ctx),
+				wait.WithTimeout(2*time.Minute),
+				wait.WithInterval(5*time.Second),
+			)
+		}
 
 		// Clean up the test namespace.
 		_ = clientset.CoreV1().Namespaces().Delete(ctx, f.namespace, metav1.DeleteOptions{})
@@ -230,9 +274,129 @@ func (f *operatorOTELFeature) Teardown() types.StepFunc {
 }
 
 // OperatorOTELMetrics returns a Feature that verifies the operator exports
-// controller-runtime metrics through the OpenTelemetry bridge.
-func OperatorOTELMetrics(namespace string) *operatorOTELFeature {
-	return &operatorOTELFeature{namespace: namespace}
+// controller-runtime metrics through the OpenTelemetry bridge. operatorNamespace
+// is where the Klio operator runs and operatorAppLabel selects its Deployment.
+// operatorSubscription, when non-empty, names the OLM Subscription managing the
+// operator (OpenShift): the OTEL env is then set on the Subscription rather than
+// the Deployment, since OLM reverts direct Deployment patches.
+func OperatorOTELMetrics(
+	namespace, operatorNamespace, operatorAppLabel, operatorSubscription string,
+) *operatorOTELFeature {
+	return &operatorOTELFeature{
+		namespace:            namespace,
+		operatorNamespace:    operatorNamespace,
+		operatorAppLabel:     operatorAppLabel,
+		operatorSubscription: operatorSubscription,
+	}
+}
+
+// setSubscriptionEnv merges otelEnv into the OLM Subscription's
+// spec.config.env, dropping any pre-existing OTEL_* entries and preserving the
+// rest (e.g. SIDECAR_IMAGE). It returns the original env slice so teardown can
+// restore it; the result is nil when spec.config.env was absent.
+func setSubscriptionEnv(
+	ctx context.Context, dyn dynamic.Interface, namespace, name string, otelEnv []corev1.EnvVar,
+) ([]any, error) {
+	sub, err := dyn.Resource(subscriptionGVR).Namespace(namespace).Get(ctx, name, metav1.GetOptions{})
+	if err != nil {
+		return nil, fmt.Errorf("getting subscription %s/%s: %w", namespace, name, err)
+	}
+
+	original, _, err := unstructured.NestedSlice(sub.Object, "spec", "config", "env")
+	if err != nil {
+		return nil, fmt.Errorf("reading spec.config.env: %w", err)
+	}
+
+	merged := make([]any, 0, len(original)+len(otelEnv))
+	for _, e := range original {
+		if m, ok := e.(map[string]any); ok {
+			if n, _ := m["name"].(string); strings.HasPrefix(n, "OTEL_") {
+				continue
+			}
+		}
+		merged = append(merged, e)
+	}
+	for _, e := range otelEnv {
+		merged = append(merged, map[string]any{"name": e.Name, "value": e.Value})
+	}
+
+	if err := unstructured.SetNestedSlice(sub.Object, merged, "spec", "config", "env"); err != nil {
+		return nil, fmt.Errorf("setting spec.config.env: %w", err)
+	}
+	if _, err := dyn.Resource(subscriptionGVR).Namespace(namespace).Update(
+		ctx, sub, metav1.UpdateOptions{}); err != nil {
+		return nil, fmt.Errorf("updating subscription: %w", err)
+	}
+
+	return original, nil
+}
+
+// restoreSubscriptionEnv resets the Subscription's spec.config.env to saved
+// (nil removes the field).
+func restoreSubscriptionEnv(
+	ctx context.Context, dyn dynamic.Interface, namespace, name string, saved []any,
+) error {
+	sub, err := dyn.Resource(subscriptionGVR).Namespace(namespace).Get(ctx, name, metav1.GetOptions{})
+	if err != nil {
+		return fmt.Errorf("getting subscription %s/%s: %w", namespace, name, err)
+	}
+	if saved == nil {
+		unstructured.RemoveNestedField(sub.Object, "spec", "config", "env")
+	} else if err := unstructured.SetNestedSlice(sub.Object, saved, "spec", "config", "env"); err != nil {
+		return fmt.Errorf("setting spec.config.env: %w", err)
+	}
+	if _, err := dyn.Resource(subscriptionGVR).Namespace(namespace).Update(
+		ctx, sub, metav1.UpdateOptions{}); err != nil {
+		return fmt.Errorf("updating subscription: %w", err)
+	}
+
+	return nil
+}
+
+// waitForDeploymentEnv polls until the operator Deployment's first container
+// carries an env var named envName, confirming OLM propagated the Subscription
+// change to the Deployment.
+func waitForDeploymentEnv(
+	ctx context.Context, clientset kubernetes.Interface, namespace, labelSelector, envName string,
+) error {
+	return wait.For(
+		func(ctx context.Context) (bool, error) {
+			dep, err := operatorDeployment(ctx, clientset, namespace, labelSelector)
+			if err != nil {
+				return false, nil //nolint:nilerr // retry until OLM settles
+			}
+			for _, e := range dep.Spec.Template.Spec.Containers[0].Env {
+				if e.Name == envName {
+					return true, nil
+				}
+			}
+
+			return false, nil
+		},
+		wait.WithContext(ctx),
+		wait.WithTimeout(2*time.Minute),
+		wait.WithInterval(5*time.Second),
+	)
+}
+
+// operatorDeployment finds the Klio operator Deployment in namespace by label.
+// Its name differs across install methods (Helm on Kind, OLM on OpenShift), so
+// we locate it by label rather than a fixed name.
+func operatorDeployment(
+	ctx context.Context, clientset kubernetes.Interface, namespace, labelSelector string,
+) (*appsv1.Deployment, error) {
+	list, err := clientset.AppsV1().Deployments(namespace).List(ctx, metav1.ListOptions{
+		LabelSelector: labelSelector,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("listing operator deployment in %s: %w", namespace, err)
+	}
+	if len(list.Items) != 1 {
+		return nil, fmt.Errorf("expected exactly one deployment matching %q in %s, found %d",
+			labelSelector, namespace, len(list.Items))
+	}
+
+	return &list.Items[0], nil
 }
 
 // createOperatorOTELCollector deploys a minimal insecure OTel collector for

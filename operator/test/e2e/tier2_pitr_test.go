@@ -20,8 +20,6 @@ func NewTier2PitrFeatureConfig(
 		issuer:                          res.Issuer,
 		rustfsSecret:                    res.RustfsSecret,
 		rustfsConfigMap:                 res.RustfsConfigMap,
-		rustfsPVC:                       res.RustfsPVC,
-		rustfsLogsPVC:                   res.RustfsLogsPVC,
 		rustfsCertificate:               res.RustfsCertificate,
 		rustfsService:                   res.RustfsService,
 		rustfsDeployment:                res.RustfsDeployment,

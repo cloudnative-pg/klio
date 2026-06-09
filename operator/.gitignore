@@ -24,6 +24,7 @@ go.work
 
 # local e2e test config (may contain credentials)
 test/e2e/e2e-config.yaml
+test/e2e/e2e-config.openshift.yaml
 
 # editor and IDE paraphernalia
 .idea

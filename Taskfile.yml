@@ -1210,3 +1210,318 @@ tasks:
         TEST_EXIT=$(cat ./e2e_cluster_logs/.exitcode 2>/dev/null || echo 1)
         rm -f {{ .KUBECONFIG_PATH }}
         exit $TEST_EXIT
+
+  integration:deploy-to-openshift:
+    desc: Deploy the operator + cert-manager + community CNPG on OpenShift via OLM.
+    run: once
+    requires:
+      vars:
+        - EXTERNAL_KUBECONFIG
+        - GHCR_USERNAME
+        - GHCR_TOKEN
+    env:
+      KUBECONFIG: '{{ .EXTERNAL_KUBECONFIG }}'
+      GHCR_USERNAME: '{{ .GHCR_USERNAME }}'
+      GHCR_TOKEN: '{{ .GHCR_TOKEN }}'
+    vars:
+      CERT_MANAGER_PACKAGE: 'openshift-cert-manager-operator'
+      CERT_MANAGER_CHANNEL: 'stable-v1'
+      # The certified catalog ships both community `cloudnative-pg` (used here)
+      # and EDB's `cloud-native-postgresql` (subscription-gated).
+      CNPG_PACKAGE: 'cloudnative-pg'
+      CNPG_CHANNEL: 'stable-v1'
+      KLIO_PACKAGE: 'klio-operator'
+      # opm semver renders 0.x.y bundles into stable-v0; bump on 1.0.0.
+      KLIO_CHANNEL: 'stable-v0'
+      # SIDECAR_IMAGE is wired via Subscription.spec.config.env so the CNPG
+      # plugin has an image to inject.
+      OPERAND_IMAGE_REPOSITORY: '{{ .OPERAND_IMAGE_REPOSITORY | default "ghcr.io/enterprisedb/klio-testing" }}'
+      OPERAND_IMAGE_TAG: '{{ .OPERAND_IMAGE_TAG | default .IMAGE_TAG }}'
+    preconditions:
+      - sh: test -s operator/klio-operator-catalog-source.yaml
+        msg: |
+          operator/klio-operator-catalog-source.yaml is missing.
+          Run `task olm:catalog-source` first (or download the `klio-olm`
+          artifact from the ci.yml `olm` job) before invoking this task.
+    cmds:
+      - |
+        set -euo pipefail
+        # Full OpenShift (CRC) already provides OLM, the openshift-marketplace
+        # and openshift-operators namespaces (with a global OperatorGroup), the
+        # redhat-operators/certified-operators catalogs, the console.openshift.io
+        # CRDs, and a cluster pull secret for registry.redhat.io. We only need to
+        # add GHCR auth (for the Klio images) and our own catalog on top.
+
+        # Build a dockerconfigjson for GHCR from the username/token. We construct
+        # it explicitly rather than reading ~/.docker/config.json, which may use a
+        # credential helper that omits the inline auth string.
+        ghcr_secret=$(mktemp)
+        global_secret=$(mktemp)
+        merged_secret=$(mktemp)
+        trap 'rm -f "${ghcr_secret}" "${global_secret}" "${merged_secret}"' EXIT
+        auth=$(printf '%s:%s' "${GHCR_USERNAME}" "${GHCR_TOKEN}" | base64 -w0)
+        printf '{"auths":{"ghcr.io":{"auth":"%s"}}}' "${auth}" > "${ghcr_secret}"
+
+        # Add GHCR credentials to the cluster-wide pull secret so the kubelet can
+        # pull the private Klio operator/bundle/operand images on every node.
+        kubectl get secret pull-secret -n openshift-config \
+          -o jsonpath='{.data.\.dockerconfigjson}' | base64 -d > "${global_secret}"
+        jq -s '.[0] * .[1]' "${global_secret}" "${ghcr_secret}" > "${merged_secret}"
+        kubectl create secret generic pull-secret \
+          --type=kubernetes.io/dockerconfigjson \
+          --from-file=.dockerconfigjson="${merged_secret}" \
+          -n openshift-config \
+          --dry-run=client -o yaml | kubectl apply -f -
+
+        # The klio-catalog CatalogSource references this secret via spec.secrets
+        # so its grpc pod can pull the catalog image from GHCR.
+        kubectl create secret generic klio-pull-secret \
+          --type=kubernetes.io/dockerconfigjson \
+          --from-file=.dockerconfigjson="${ghcr_secret}" \
+          -n openshift-marketplace \
+          --dry-run=client -o yaml | kubectl apply -f -
+      - kubectl apply -f operator/klio-operator-catalog-source.yaml
+      - kubectl -n openshift-marketplace wait
+          --for=jsonpath='{.status.connectionState.lastObservedState}'=READY
+          --timeout=600s
+          catalogsource/klio-catalog
+      - |
+        set -euo pipefail
+        # The cluster's global-operators OG (openshift-operators) covers all
+        # three Subscriptions. cert-manager and CNPG come from the built-in
+        # redhat-operators/certified-operators catalogs.
+        cat <<EOF | kubectl apply -f -
+        apiVersion: operators.coreos.com/v1alpha1
+        kind: Subscription
+        metadata:
+          name: {{ .CERT_MANAGER_PACKAGE }}
+          namespace: openshift-operators
+        spec:
+          channel: {{ .CERT_MANAGER_CHANNEL }}
+          name: {{ .CERT_MANAGER_PACKAGE }}
+          source: redhat-operators
+          sourceNamespace: openshift-marketplace
+          installPlanApproval: Automatic
+        ---
+        apiVersion: operators.coreos.com/v1alpha1
+        kind: Subscription
+        metadata:
+          name: {{ .CNPG_PACKAGE }}
+          namespace: openshift-operators
+        spec:
+          channel: {{ .CNPG_CHANNEL }}
+          name: {{ .CNPG_PACKAGE }}
+          source: certified-operators
+          sourceNamespace: openshift-marketplace
+          installPlanApproval: Automatic
+        ---
+        apiVersion: operators.coreos.com/v1alpha1
+        kind: Subscription
+        metadata:
+          name: {{ .KLIO_PACKAGE }}
+          namespace: openshift-operators
+        spec:
+          channel: {{ .KLIO_CHANNEL }}
+          name: {{ .KLIO_PACKAGE }}
+          source: klio-catalog
+          sourceNamespace: openshift-marketplace
+          installPlanApproval: Automatic
+          config:
+            env:
+              - name: SIDECAR_IMAGE
+                value: {{ .OPERAND_IMAGE_REPOSITORY }}:{{ .OPERAND_IMAGE_TAG }}
+        EOF
+      - |
+        set -euo pipefail
+        # Re-create the three TLS Issuer+Certificate pairs the OLM bundle strips.
+        # OLM hasn't created the cert-manager CRDs yet at this point. Poll the
+        # Established condition directly rather than `kubectl wait
+        # --for=condition=Established`: that command errors out (instead of
+        # waiting) both when a CRD is still NotFound AND when it exists but its
+        # .status.conditions is still nil — a race right after OLM creates them
+        # ("accessor error: <nil> ... expected []interface{}"). A jsonpath read
+        # returns empty in both cases, so we loop until it reports True.
+        echo "waiting for cert-manager CRDs to be Established..."
+        deadline=$(( $(date +%s) + 300 ))
+        for crd in issuers.cert-manager.io certificates.cert-manager.io; do
+          until [ "$(kubectl get crd "${crd}" \
+            -o jsonpath='{.status.conditions[?(@.type=="Established")].status}' \
+            2>/dev/null)" = "True" ]; do
+            if (( $(date +%s) >= deadline )); then
+              echo "::error::cert-manager CRD ${crd} not Established within 5m"
+              kubectl get csv,sub,installplan -n openshift-operators || true
+              kubectl get pods -A 2>/dev/null | grep -Ei "imagepull|err|pending" || true
+              exit 1
+            fi
+            sleep 5
+          done
+        done
+
+        # Wait for the cert-manager workload (CRD validating webhook depends
+        # on cert-manager-webhook.cert-manager.svc being Ready).
+        kubectl wait --for=create ns/cert-manager --timeout=600s
+        kubectl wait --for=create deployment/cert-manager-webhook -n cert-manager --timeout=600s
+
+        echo "waiting for cert-manager-webhook deployment to be Available..."
+        kubectl -n cert-manager \
+          wait --for=condition=Available deployment/cert-manager-webhook --timeout=10m
+
+        # Wait for the Endpoints to point at the webhook pod (the address-update
+        # window can lag the Deployment becoming Available by a beat).
+        selector=$(kubectl -n cert-manager get service cert-manager-webhook -o json \
+          | jq -r '.spec.selector | to_entries | map("\(.key)=\(.value)") | join(",")')
+        pod_ip=$(kubectl -n cert-manager get pod -l "${selector}" \
+          -o jsonpath='{.items[0].status.podIP}')
+        kubectl wait --for=jsonpath="{.subsets[0].addresses[0].ip}=${pod_ip}" \
+          -n cert-manager endpoints/cert-manager-webhook --timeout=60s
+
+        # Wait for cainjector to copy the source CA into the VWC caBundle.
+        # The annotation tells us the source Secret (NS/name); we compute the
+        # expected base64 value and wait for caBundle to equal it.
+        ann=$(kubectl get validatingwebhookconfiguration cert-manager-webhook \
+          -o jsonpath='{.metadata.annotations.cert-manager\.io/inject-ca-from-secret}')
+        ca_ns="${ann%%/*}"
+        ca_sec="${ann##*/}"
+        kubectl wait --for=create -n "${ca_ns}" "secret/${ca_sec}" --timeout=300s
+        expected_ca=$(kubectl -n "${ca_ns}" get "secret/${ca_sec}" \
+          -o jsonpath='{.data.ca\.crt}')
+        kubectl wait --for=jsonpath="{.webhooks[0].clientConfig.caBundle}=${expected_ca}" \
+          validatingwebhookconfiguration/cert-manager-webhook --timeout=300s
+
+        cat <<'YAML' | kubectl -n openshift-operators apply -f -
+        apiVersion: cert-manager.io/v1
+        kind: Issuer
+        metadata:
+          name: klio-operator-selfsigned-issuer
+        spec:
+          selfSigned: {}
+        ---
+        apiVersion: cert-manager.io/v1
+        kind: Certificate
+        metadata:
+          name: klio-operator-plugin-server
+        spec:
+          secretName: klio-plugin-server-tls
+          dnsNames:
+            - klio-operator-plugin
+            - klio-operator-plugin.openshift-operators
+            - klio-operator-plugin.openshift-operators.svc
+            - klio-operator-plugin.openshift-operators.svc.cluster.local
+          usages: [server auth]
+          issuerRef: {name: klio-operator-selfsigned-issuer, kind: Issuer, group: cert-manager.io}
+          duration: 2160h
+          renewBefore: 360h
+        ---
+        apiVersion: cert-manager.io/v1
+        kind: Certificate
+        metadata:
+          name: klio-operator-plugin-client
+        spec:
+          secretName: klio-plugin-client-tls
+          commonName: klio-operator-plugin-client
+          usages: [client auth]
+          issuerRef: {name: klio-operator-selfsigned-issuer, kind: Issuer, group: cert-manager.io}
+          duration: 2160h
+          renewBefore: 360h
+        ---
+        apiVersion: cert-manager.io/v1
+        kind: Certificate
+        metadata:
+          name: klio-operator-metrics-certs
+        spec:
+          secretName: klio-metrics-server-cert
+          dnsNames:
+            - klio-operator-controller-manager-metrics-service.openshift-operators.svc
+            - klio-operator-controller-manager-metrics-service.openshift-operators.svc.cluster.local
+          issuerRef: {name: klio-operator-selfsigned-issuer, kind: Issuer}
+          duration: 2160h
+          renewBefore: 360h
+        YAML
+
+        kubectl -n openshift-operators wait --for=condition=Ready --timeout=300s \
+          certificate/klio-operator-plugin-server \
+          certificate/klio-operator-plugin-client \
+          certificate/klio-operator-metrics-certs
+        echo "all three Klio TLS certificates issued"
+      - |
+        set -euo pipefail
+
+        # Wait for each Subscription's CSV to reach Succeeded.
+        for pkg in {{ .CERT_MANAGER_PACKAGE }} {{ .CNPG_PACKAGE }} {{ .KLIO_PACKAGE }}; do
+          label="operators.coreos.com/${pkg}.openshift-operators="
+          kubectl wait --for=create -n openshift-operators -l "${label}" csv --timeout=300s
+          echo "waiting for ${pkg} CSV to reach Succeeded..."
+          kubectl wait --for=jsonpath='{.status.phase}'=Succeeded -n openshift-operators \
+            -l "${label}" csv --timeout=10m
+        done
+
+  integration:write-e2e-config-openshift:
+    desc: Generate operator/test/e2e/e2e-config.openshift.yaml for an OpenShift run.
+    run: once
+    requires:
+      vars:
+        - GHCR_USERNAME
+        - GHCR_TOKEN
+    vars:
+      OPERAND_IMAGE_REPOSITORY: '{{ .OPERAND_IMAGE_REPOSITORY | default "ghcr.io/enterprisedb/klio-testing" }}'
+      OPERAND_IMAGE_TAG: '{{ .OPERAND_IMAGE_TAG | default .IMAGE_TAG }}'
+      # csi-hostpath-sc is provisioned by setup-crc-csi-hostpath.sh and matches
+      # the StorageClass the Kind path uses (allowVolumeExpansion: true).
+      STORAGE_CLASS: '{{ .STORAGE_CLASS | default "csi-hostpath-sc" }}'
+    cmds:
+      - |
+        set -euo pipefail
+        cat > operator/test/e2e/e2e-config.openshift.yaml <<EOF
+        serverImage: "{{ .OPERAND_IMAGE_REPOSITORY }}:{{ .OPERAND_IMAGE_TAG }}"
+        logDir: "e2e_cluster_logs"
+        storageClass: "{{ .STORAGE_CLASS }}"
+        operatorNamespace: "openshift-operators"
+        operatorAppLabel: "app.kubernetes.io/name=klio-operator"
+        operatorSubscription: "klio-operator"
+        imagePullSecret:
+          registry: "ghcr.io"
+          username: "{{ .GHCR_USERNAME }}"
+          password: "{{ .GHCR_TOKEN }}"
+        EOF
+        chmod 0600 operator/test/e2e/e2e-config.openshift.yaml
+
+  integration:setup-crc-storage:
+    desc: Deploy expandable csi-hostpath storage on a CRC cluster (for PVCResize).
+    summary: |
+      CRC's default StorageClass is hostPath-backed and cannot expand volumes.
+      This deploys the same csi-driver-host-path the Kind path uses so the
+      PVCResize e2e feature has an expandable csi-hostpath-sc. Run it whenever
+      you have a CRC cluster, in CI or locally (point KUBECONFIG at the cluster
+      first).
+    run: once
+    env:
+      # Target the cluster via EXTERNAL_KUBECONFIG when invoked as a dependency
+      # of integration:e2e-openshift; fall back to the ambient KUBECONFIG for
+      # standalone local runs.
+      KUBECONFIG: '{{.EXTERNAL_KUBECONFIG | default .KUBECONFIG}}'
+    cmds:
+      - bash operator/test/hack/setup-crc-csi-hostpath.sh
+
+  integration:e2e-openshift:
+    desc: Run the e2e tests against an OpenShift (CRC) cluster.
+    deps:
+      - integration:setup-crc-storage
+      - integration:write-e2e-config-openshift
+      - integration:deploy-to-openshift
+    run: once
+    requires:
+      vars:
+        - EXTERNAL_KUBECONFIG
+    dir: operator/test/e2e
+    env:
+      KUBECONFIG: '{{ .EXTERNAL_KUBECONFIG }}'
+      # Read the OpenShift config the write-e2e-config-openshift dependency
+      # generates, not the default e2e-config.yaml a local Kind run may own.
+      # Relative to dir (operator/test/e2e).
+      E2E_CONFIG_FILE: e2e-config.openshift.yaml
+    cmds:
+      # write-e2e-config-openshift (a dependency) generates this with the GHCR
+      # token in it; remove it when the run finishes, pass or fail.
+      - defer: rm -f "${E2E_CONFIG_FILE}"
+      - mkdir -p e2e_cluster_logs
+      - go test -timeout 30m -v ./...

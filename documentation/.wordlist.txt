@@ -11,6 +11,8 @@ ByteString
 CAs
 CLI
 CNPG
+CRC
+CRC's
 CRDs
 CSV
 CatalogSource
@@ -27,6 +29,7 @@ CloudNativePG's
 CloudSmith
 ClusterMetadata
 ClusterName
+CodeReady
 DNS
 DeleteBackup
 DeleteBackupRequest
@@ -48,11 +51,16 @@ FileSource
 Fixnum
 GC
 GCM
+GHCR
 GRPC
 GetMetadata
 GetMetadataRequest
 GetRequest
 GetResult
+GetWAL
+GetWALRequest
+GetWALResult
+GiB
 Grafana
 IAM
 IRSA
@@ -64,6 +72,7 @@ ImagePullSecrets
 JSON
 Jaeger
 JetStream
+KVM
 Kasten
 KeepAnnual
 KeepDaily
@@ -145,6 +154,7 @@ RustFS
 SCC
 SCCs
 SDK
+SNO
 SafetyFull
 SafetyNone
 SecretKeySelector
@@ -190,6 +200,7 @@ WALPrefetchConfiguration
 WALs
 YAML
 api
+apiserver
 args
 aspirational
 async
@@ -237,6 +248,7 @@ github
 goroutines
 grpc
 gzip
+hostPath
 http
 https
 imagePullPolicy
@@ -247,6 +259,7 @@ keychain
 klio
 klioclient
 kopia
+kubeconfig
 kubectl
 kubernetes
 kubernetesClusterDomain

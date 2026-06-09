@@ -54,7 +54,7 @@ func NewTablespaceRecoveryFeatureConfig(
 
 	cnpgCluster := cnpg.GetCnpgClusterWithTablespacesObject(cnpgSourceClusterName, namespace, instances,
 		"klio-plugin-configuration", tablespaceConfig,
-		cnpg.ClusterTemplateOptions{ImagePullSecret: pullSecretName()})
+		cnpg.ClusterTemplateOptions{ImagePullSecret: pullSecretName(), StorageClass: testCfg.StorageClass})
 
 	userCertificate := certificates.GetUserCertificateObject("klio-user", namespace,
 		"klio-user@"+cnpgSourceClusterName, caIssuer)

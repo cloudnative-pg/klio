@@ -54,8 +54,6 @@ const (
 	tier2RustfsResourceName        = "rustfs"
 	tier2RustfsSecretName          = tier2RustfsResourceName + "-secret"
 	tier2RustfsConfigMapName       = tier2RustfsResourceName + "-config"
-	tier2RustfsDataPVCName         = tier2RustfsResourceName + "-data"
-	tier2RustfsLogsPVCName         = tier2RustfsResourceName + "-logs"
 	tier2RustfsCreateBucketJobName = tier2RustfsResourceName
 
 	// Tier2 test secret names.
@@ -237,8 +235,6 @@ type tier2ScenarioResources struct {
 	// RustFS infrastructure
 	RustfsSecret          *corev1.Secret
 	RustfsConfigMap       *corev1.ConfigMap
-	RustfsPVC             *corev1.PersistentVolumeClaim
-	RustfsLogsPVC         *corev1.PersistentVolumeClaim
 	RustfsCertificate     *certmanagerv1.Certificate
 	RustfsService         *corev1.Service
 	RustfsDeployment      *appsv1.Deployment
@@ -286,8 +282,6 @@ func buildTier2ScenarioResources(namespace string, instances int) *tier2Scenario
 	// RustFS infrastructure
 	rustfsSecretObj := rustfs.GetRustFSSecret(tier2RustfsSecretName, namespace)
 	rustfsConfigMapObj := rustfs.GetRustFSConfigMap(tier2RustfsConfigMapName, namespace)
-	rustfsPVC := rustfs.GetRustFSPVC(tier2RustfsDataPVCName, namespace)
-	rustfsLogsPVCObj := rustfs.GetRustFSLogsPVC(tier2RustfsLogsPVCName, namespace)
 	rustfsCertificate := rustfs.GetRustFSCertificate(tier2RustfsResourceName, namespace, issuer)
 	rustfsService := rustfs.GetRustFSService(tier2RustfsResourceName, namespace)
 	rustfsDeployment := rustfs.GetRustFSDeployment(tier2RustfsResourceName, namespace)
@@ -341,7 +335,7 @@ func buildTier2ScenarioResources(namespace string, instances int) *tier2Scenario
 	// Source CNPG cluster
 	cnpgCluster := cnpg.GetCnpgClusterObject(
 		tier2SourceClusterName, namespace, instances, tier2SourcePluginConfigName,
-		cnpg.ClusterTemplateOptions{ImagePullSecret: pullSecretName()})
+		cnpg.ClusterTemplateOptions{ImagePullSecret: pullSecretName(), StorageClass: testCfg.StorageClass})
 
 	// Plugin configuration for source cluster (with tier2 backup enabled)
 	klioPluginConfigurationSource := klio.GetPluginConfigurationObject(
@@ -434,8 +428,6 @@ func buildTier2ScenarioResources(namespace string, instances int) *tier2Scenario
 		Issuer:                          issuer,
 		RustfsSecret:                    rustfsSecretObj,
 		RustfsConfigMap:                 rustfsConfigMapObj,
-		RustfsPVC:                       rustfsPVC,
-		RustfsLogsPVC:                   rustfsLogsPVCObj,
 		RustfsCertificate:               rustfsCertificate,
 		RustfsService:                   rustfsService,
 		RustfsDeployment:                rustfsDeployment,

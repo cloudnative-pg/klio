@@ -12,6 +12,22 @@ logDir: "e2e_cluster_logs"
 # Leave empty to use the cluster's default storage class.
 storageClass: ""
 
+# Namespace where the Klio operator runs. Defaults to cnpg-system (the
+# Helm/Kind layout); set to openshift-operators for the OLM-based OpenShift
+# install.
+operatorNamespace: "cnpg-system"
+
+# Label selector identifying the Klio operator Deployment. Defaults to the
+# Helm/Kind label; the OLM-based OpenShift install uses
+# app.kubernetes.io/name=klio-operator.
+operatorAppLabel: "app.kubernetes.io/name=klio"
+
+# Name of the OLM Subscription managing the operator (in operatorNamespace).
+# Set it for the OLM-based OpenShift install so tests that change the operator
+# environment patch the Subscription (which OLM propagates to the Deployment)
+# instead of the Deployment, which OLM reverts. Leave empty for Helm/Kind.
+operatorSubscription: ""
+
 # Registry credentials used to create a pull secret in each test namespace.
 # Leave all fields empty if images are publicly accessible.
 imagePullSecret:

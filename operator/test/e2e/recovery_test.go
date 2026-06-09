@@ -35,7 +35,7 @@ func NewRecoveryFeatureConfig(
 
 	cnpgCluster := cnpg.GetCnpgClusterObject(cnpgSourceClusterName, namespace, instances,
 		"klio-plugin-configuration",
-		cnpg.ClusterTemplateOptions{ImagePullSecret: pullSecretName()})
+		cnpg.ClusterTemplateOptions{ImagePullSecret: pullSecretName(), StorageClass: testCfg.StorageClass})
 
 	userCertificate := certificates.GetUserCertificateObject("klio-user", namespace,
 		"klio-user@"+cnpgSourceClusterName, caIssuer)

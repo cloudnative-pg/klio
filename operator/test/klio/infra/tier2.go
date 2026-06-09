@@ -25,8 +25,6 @@ type Tier2 struct {
 	// RustFS infrastructure
 	RustfsSecret          *corev1.Secret
 	RustfsConfigMap       *corev1.ConfigMap
-	RustfsPVC             *corev1.PersistentVolumeClaim
-	RustfsLogsPVC         *corev1.PersistentVolumeClaim
 	RustfsCertificate     *certmanagerv1.Certificate
 	RustfsService         *corev1.Service
 	RustfsDeployment      *appsv1.Deployment
@@ -55,8 +53,6 @@ func (s Tier2) ParallelSetup(ctx context.Context, t *testing.T, r *resources.Res
 		t.Logf("Deploying RustFS infrastructure...")
 		require.NoError(t, r.Create(gCtx, s.RustfsSecret), "failed to create RustFS secret")
 		require.NoError(t, r.Create(gCtx, s.RustfsConfigMap), "failed to create RustFS configmap")
-		require.NoError(t, r.Create(gCtx, s.RustfsPVC), "failed to create RustFS data PVC")
-		require.NoError(t, r.Create(gCtx, s.RustfsLogsPVC), "failed to create RustFS logs PVC")
 		require.NoError(t, r.Create(gCtx, s.Issuer), "failed to create issuer")
 
 		// Wait for issuer to be ready before creating certificates

@@ -30,8 +30,6 @@ type tier2RecoveryScenario struct {
 	// RustFS infrastructure
 	rustfsSecret          *corev1.Secret
 	rustfsConfigMap       *corev1.ConfigMap
-	rustfsPVC             *corev1.PersistentVolumeClaim
-	rustfsLogsPVC         *corev1.PersistentVolumeClaim
 	rustfsCertificate     *certmanagerv1.Certificate
 	rustfsService         *corev1.Service
 	rustfsDeployment      *appsv1.Deployment
@@ -82,8 +80,6 @@ func (s *tier2RecoveryScenario) Setup(
 		Issuer:                s.issuer,
 		RustfsSecret:          s.rustfsSecret,
 		RustfsConfigMap:       s.rustfsConfigMap,
-		RustfsPVC:             s.rustfsPVC,
-		RustfsLogsPVC:         s.rustfsLogsPVC,
 		RustfsCertificate:     s.rustfsCertificate,
 		RustfsService:         s.rustfsService,
 		RustfsDeployment:      s.rustfsDeployment,
@@ -179,8 +175,6 @@ func NewTier2RecoveryFeatureConfig(
 		issuer:                          res.Issuer,
 		rustfsSecret:                    res.RustfsSecret,
 		rustfsConfigMap:                 res.RustfsConfigMap,
-		rustfsPVC:                       res.RustfsPVC,
-		rustfsLogsPVC:                   res.RustfsLogsPVC,
 		rustfsCertificate:               res.RustfsCertificate,
 		rustfsService:                   res.RustfsService,
 		rustfsDeployment:                res.RustfsDeployment,

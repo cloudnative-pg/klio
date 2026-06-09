@@ -8,7 +8,6 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 )
@@ -81,42 +80,6 @@ func GetRustFSConfigMap(name, namespace string) *corev1.ConfigMap {
 			"RUSTFS_OBS_ENVIRONMENT":   "develop",
 			"RUSTFS_OBS_LOG_DIRECTORY": "/logs",
 			"RUSTFS_OBS_LOGGER_LEVEL":  "debug",
-		},
-	}
-}
-
-// GetRustFSPVC returns a PersistentVolumeClaim for RustFS data storage.
-func GetRustFSPVC(name, namespace string) *corev1.PersistentVolumeClaim {
-	return &corev1.PersistentVolumeClaim{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      name,
-			Namespace: namespace,
-		},
-		Spec: corev1.PersistentVolumeClaimSpec{
-			AccessModes: []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce},
-			Resources: corev1.VolumeResourceRequirements{
-				Requests: corev1.ResourceList{
-					corev1.ResourceStorage: resource.MustParse("1Gi"),
-				},
-			},
-		},
-	}
-}
-
-// GetRustFSLogsPVC returns a PersistentVolumeClaim for RustFS logs.
-func GetRustFSLogsPVC(name, namespace string) *corev1.PersistentVolumeClaim {
-	return &corev1.PersistentVolumeClaim{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      name,
-			Namespace: namespace,
-		},
-		Spec: corev1.PersistentVolumeClaimSpec{
-			AccessModes: []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce},
-			Resources: corev1.VolumeResourceRequirements{
-				Requests: corev1.ResourceList{
-					corev1.ResourceStorage: resource.MustParse("1Gi"),
-				},
-			},
 		},
 	}
 }
@@ -328,17 +291,13 @@ func GetRustFSDeployment(name, namespace string) *appsv1.Deployment {
 						{
 							Name: "data",
 							VolumeSource: corev1.VolumeSource{
-								PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
-									ClaimName: name + "-data",
-								},
+								EmptyDir: &corev1.EmptyDirVolumeSource{},
 							},
 						},
 						{
 							Name: "logs",
 							VolumeSource: corev1.VolumeSource{
-								PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
-									ClaimName: name + "-logs",
-								},
+								EmptyDir: &corev1.EmptyDirVolumeSource{},
 							},
 						},
 						{

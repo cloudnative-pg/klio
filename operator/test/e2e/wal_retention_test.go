@@ -41,8 +41,6 @@ type walRetentionScenario struct {
 	// RustFS infrastructure (for tier2 storage)
 	rustfsSecret          *corev1.Secret
 	rustfsConfigMap       *corev1.ConfigMap
-	rustfsPVC             *corev1.PersistentVolumeClaim
-	rustfsLogsPVC         *corev1.PersistentVolumeClaim
 	rustfsCertificate     *certmanagerv1.Certificate
 	rustfsService         *corev1.Service
 	rustfsDeployment      *appsv1.Deployment
@@ -86,8 +84,6 @@ func (s *walRetentionScenario) Setup(
 		Issuer:                s.issuer,
 		RustfsSecret:          s.rustfsSecret,
 		RustfsConfigMap:       s.rustfsConfigMap,
-		RustfsPVC:             s.rustfsPVC,
-		RustfsLogsPVC:         s.rustfsLogsPVC,
 		RustfsCertificate:     s.rustfsCertificate,
 		RustfsService:         s.rustfsService,
 		RustfsDeployment:      s.rustfsDeployment,
@@ -511,8 +507,6 @@ func newWALRetentionScenario(name string, namespace string) *walRetentionScenari
 		rustfsName                = "rustfs"
 		rustfsSecretName          = rustfsName + "-secret"
 		rustfsConfigMapName       = rustfsName + "-config"
-		rustfsDataPVCName         = rustfsName + "-data"
-		rustfsLogsPVCName         = rustfsName + "-logs"
 		rustfsCreateBucketJobName = rustfsName
 
 		// Secret names
@@ -540,8 +534,6 @@ func newWALRetentionScenario(name string, namespace string) *walRetentionScenari
 	// RustFS infrastructure
 	rustfsSecret := rustfs.GetRustFSSecret(rustfsSecretName, namespace)
 	rustfsConfigMap := rustfs.GetRustFSConfigMap(rustfsConfigMapName, namespace)
-	rustfsPVC := rustfs.GetRustFSPVC(rustfsDataPVCName, namespace)
-	rustfsLogsPVC := rustfs.GetRustFSLogsPVC(rustfsLogsPVCName, namespace)
 	rustfsCertificate := rustfs.GetRustFSCertificate(rustfsName, namespace, issuer)
 	rustfsService := rustfs.GetRustFSService(rustfsName, namespace)
 	rustfsDeployment := rustfs.GetRustFSDeployment(rustfsName, namespace)
@@ -598,7 +590,7 @@ func newWALRetentionScenario(name string, namespace string) *walRetentionScenari
 	// Source CNPG cluster
 	cnpgCluster := cnpg.GetCnpgClusterObject(
 		cnpgClusterName, namespace, 1, pluginConfigurationName,
-		cnpg.ClusterTemplateOptions{ImagePullSecret: pullSecretName()})
+		cnpg.ClusterTemplateOptions{ImagePullSecret: pullSecretName(), StorageClass: testCfg.StorageClass})
 
 	// Plugin configuration with tier2 backup enabled
 	klioPluginConfiguration := klio.GetPluginConfigurationObject(
@@ -622,8 +614,6 @@ func newWALRetentionScenario(name string, namespace string) *walRetentionScenari
 		issuer:                  issuer,
 		rustfsSecret:            rustfsSecret,
 		rustfsConfigMap:         rustfsConfigMap,
-		rustfsPVC:               rustfsPVC,
-		rustfsLogsPVC:           rustfsLogsPVC,
 		rustfsCertificate:       rustfsCertificate,
 		rustfsService:           rustfsService,
 		rustfsDeployment:        rustfsDeployment,

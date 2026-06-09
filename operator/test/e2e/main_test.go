@@ -45,7 +45,9 @@ func TestMain(m *testing.M) {
 	runner.RegisterFeature(PVCResize(envconf.RandomName("pvc-resize", 32)))
 	runner.RegisterFeature(OTELMetricsAndTraces(envconf.RandomName("otel", 32)))
 	runner.RegisterFeature(
-		OperatorOTELMetrics(envconf.RandomName("operator-otel", 32)),
+		OperatorOTELMetrics(
+			envconf.RandomName("operator-otel", 32), testCfg.OperatorNamespace,
+			testCfg.OperatorAppLabel, testCfg.OperatorSubscription),
 		runner.WithSerialExecution(),
 	)
 	runner.RegisterFeature(MissingPluginConfiguration(envconf.RandomName("missing-plugin-config", 32)))

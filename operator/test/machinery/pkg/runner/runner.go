@@ -7,12 +7,22 @@ import (
 	"testing"
 
 	cnpgv1 "github.com/cloudnative-pg/api/pkg/api/v1"
+	"sigs.k8s.io/e2e-framework/klient"
+	"sigs.k8s.io/e2e-framework/klient/conf"
 	"sigs.k8s.io/e2e-framework/pkg/env"
 	"sigs.k8s.io/e2e-framework/pkg/envconf"
 	e2eFrameworkFeatures "sigs.k8s.io/e2e-framework/pkg/features"
 	"sigs.k8s.io/e2e-framework/pkg/types"
 
 	machineryFeatures "github.com/cloudnative-pg/klio/operator/test/machinery/pkg/features"
+)
+
+// Raised over client-go's 5/10 defaults so parallel features don't throttle
+// the Kind-based integration runner. Reverting to defaults reproduces a
+// "client rate limiter Wait returned an error" failure in backup polls.
+const (
+	clientQPS   = 100
+	clientBurst = 200
 )
 
 var (
@@ -121,6 +131,20 @@ func RunMain(m *testing.M) {
 	if err != nil {
 		log.Fatalf("failed to build envconf from flags: %s", err)
 	}
+
+	restCfg, err := conf.New(cfg.KubeconfigFile())
+	if err != nil {
+		log.Fatalf("failed to build rest config: %s", err)
+	}
+	restCfg.QPS = clientQPS
+	restCfg.Burst = clientBurst
+
+	client, err := klient.New(restCfg)
+	if err != nil {
+		log.Fatalf("failed to build klient: %s", err)
+	}
+	cfg.WithClient(client)
+
 	testEnv = env.NewWithConfig(cfg)
 
 	testEnv.Setup(
