@@ -6,6 +6,8 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"sync"
+	"time"
 
 	"github.com/ccoveille/go-safecast/v2"
 	"github.com/cloudnative-pg/machinery/pkg/log"
@@ -38,6 +40,12 @@ const (
 	// streams across upgrades.
 	legacyKlioStreamName = "KLIO"
 )
+
+// heartbeatInterval is how often the consumer sends an InProgress ack while
+// a handler is still working. It must be lower than the smallest backoff
+// configured on the WAL and backup consumers, so JetStream never times out
+// AckWait and redelivers a message that is still being processed.
+const heartbeatInterval = 15 * time.Second
 
 func backupSubject(clusterName string) string {
 	return "klio.backup." + clusterName
@@ -125,6 +133,16 @@ func New(ctx context.Context, natsConnection *nats.Conn) (*Conn, error) {
 			Durable:       klioWalConsumerName,
 			AckPolicy:     jetstream.AckExplicitPolicy,
 			MaxAckPending: 1,
+			MaxDeliver:    10,
+			// BackOff drives both the redelivery delay and the per-delivery
+			// AckWait, so we do not set AckWait explicitly: it would be
+			// ignored. The effective ceiling is the last BackOff entry.
+			BackOff: []time.Duration{
+				30 * time.Second,
+				1 * time.Minute,
+				2 * time.Minute,
+				5 * time.Minute,
+			},
 		},
 	)
 	if err != nil {
@@ -139,6 +157,19 @@ func New(ctx context.Context, natsConnection *nats.Conn) (*Conn, error) {
 			Durable:       klioBackupConsumerName,
 			AckPolicy:     jetstream.AckExplicitPolicy,
 			MaxAckPending: 1,
+			// Each backup task processes the full set of backups for a cluster,
+			// so a failed task is naturally retried by the next one. Fewer attempts
+			// here are acceptable.
+			MaxDeliver: 5,
+			// BackOff drives both the redelivery delay and the per-delivery
+			// AckWait, so we do not set AckWait explicitly: it would be
+			// ignored. The effective ceiling is the last BackOff entry.
+			BackOff: []time.Duration{
+				5 * time.Minute,
+				10 * time.Minute,
+				30 * time.Minute,
+				1 * time.Hour,
+			},
 		},
 	)
 	if err != nil {
@@ -375,24 +406,40 @@ func internalConsumeMessages[T any](
 		if err := json.Unmarshal(msg.Data(), &task); err != nil {
 			logger := logger.WithValues("bytes", msg.Data())
 			logger.Error(err, "Detected invalid queue message, skipping and removing it from the queue")
-			if ackError := msg.Ack(); ackError != nil {
-				logger.Error(err, "Error while acking an invalid queue message, this wrong message will be retried")
+			if ackError := msg.TermWithReason("Invalid message data"); ackError != nil {
+				logger.Error(ackError, "Failed to terminate invalid queue message")
 			}
 
 			return
 		}
 
-		if meta, err := msg.Metadata(); err == nil && meta.NumDelivered > 1 {
-			logger.Info("Queue message redelivered: previous delivery was not acknowledged in time",
+		meta, err := msg.Metadata()
+		if err != nil {
+			logger.Error(err, "Error while fetching message metadata")
+			if ackError := msg.TermWithReason("Metadata cannot be extracted"); ackError != nil {
+				logger.Error(ackError, "Failed to terminate invalid queue message")
+			}
+
+			return
+		}
+
+		if meta.NumDelivered > 1 {
+			logger.Info("Queue message redelivered: previous delivery was not acknowledged",
 				"task", &task,
 				"numDelivered", meta.NumDelivered,
 				"publishedAt", meta.Timestamp)
 		}
 
-		if err := handler(ctx, &task); err != nil {
+		err = internalRunTaskHandler(ctx, msg, func() error {
+			return handler(ctx, &task)
+		})
+		if err != nil {
+			// We deliberately do not Nak the message: a plain Nak triggers
+			// immediate redelivery and ignores the consumer's BackOff schedule.
+			// Letting AckWait expire instead causes the server to use the
+			// configured BackOff entry for the current delivery attempt.
 			logger.Error(err, "Error while handling queue message, retrying", "task", &task)
 
-			// no ack here, this message should be retried
 			return
 		}
 
@@ -412,4 +459,54 @@ func internalConsumeMessages[T any](
 	consumerContext.Stop()
 
 	return nil
+}
+
+// internalRunTaskHandler runs handleMessage while a background goroutine sends
+// InProgress acks for msg, and guarantees the goroutine has exited before
+// returning so the caller can safely Ack/Term the message.
+func internalRunTaskHandler(
+	ctx context.Context,
+	msg jetstream.Msg,
+	handleMessage func() error,
+) error {
+	// Send InProgress acks while the handler is still working to prevent
+	// redeliveries due to AckWait expiration for long-running tasks. The
+	// interval is well below every configured consumer backoff.
+	heartbeatCtx, heartbeatCancel := context.WithCancel(ctx)
+	var heartbeatWG sync.WaitGroup
+
+	// Defers run LIFO: cancel the context first, then wait for the goroutine
+	// to drain. Using defers also covers the case where handleMessage panics.
+	defer heartbeatWG.Wait()
+	defer heartbeatCancel()
+
+	heartbeatWG.Go(func() {
+		runHeartbeat(heartbeatCtx, msg, heartbeatInterval)
+	})
+
+	return handleMessage()
+}
+
+func runHeartbeat(
+	ctx context.Context,
+	msg jetstream.Msg,
+	interval time.Duration,
+) {
+	if interval <= 0 {
+		return
+	}
+
+	logger := log.FromContext(ctx)
+	ticker := time.NewTicker(interval)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			if err := msg.InProgress(); err != nil {
+				logger.Info("InProgress ack failed", "err", err)
+			}
+		}
+	}
 }

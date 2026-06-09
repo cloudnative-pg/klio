@@ -3,6 +3,8 @@ package queue
 import (
 	"context"
 	"encoding/json"
+	"errors"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -397,4 +399,282 @@ func TestGetStatus(t *testing.T) {
 
 		return status.PendingWALs == 2 && status.PendingBackups == 1
 	}, 2*time.Second, 50*time.Millisecond)
+}
+
+// TestConsumerRetryConfig pins the bounded-retry configuration of the
+// production WAL and backup consumers so that accidental regressions
+// (e.g. dropping MaxDeliver or BackOff) are caught.
+func TestConsumerRetryConfig(t *testing.T) {
+	ns, url := startNATSServer(t)
+	defer ns.Shutdown()
+
+	nc, err := nats.Connect(url)
+	require.NoError(t, err)
+	defer nc.Close()
+
+	ctx := context.Background()
+	conn, err := New(ctx, nc)
+	require.NoError(t, err)
+
+	walInfo, err := conn.walConsumer.Info(ctx)
+	require.NoError(t, err)
+	assert.Equal(t, 10, walInfo.Config.MaxDeliver, "WAL consumer must bound retries")
+	assert.Equal(t, []time.Duration{
+		30 * time.Second,
+		1 * time.Minute,
+		2 * time.Minute,
+		5 * time.Minute,
+	}, walInfo.Config.BackOff)
+
+	backupInfo, err := conn.backupConsumer.Info(ctx)
+	require.NoError(t, err)
+	assert.Equal(t, 5, backupInfo.Config.MaxDeliver, "backup consumer must bound retries")
+	assert.Equal(t, []time.Duration{
+		5 * time.Minute,
+		10 * time.Minute,
+		30 * time.Minute,
+		1 * time.Hour,
+	}, backupInfo.Config.BackOff)
+}
+
+// newTestConsumer creates a dedicated work-queue stream and a durable consumer
+// with a short AckWait and a small MaxDeliver, so retry/termination behavior
+// can be exercised quickly without the long production backoff schedule.
+//
+//nolint:ireturn // mirrors the jetstream API surface
+func newTestConsumer(
+	t *testing.T,
+	nc *nats.Conn,
+	subject string,
+	maxDeliver int,
+	ackWait time.Duration,
+) (jetstream.JetStream, jetstream.Consumer) {
+	t.Helper()
+
+	ctx := context.Background()
+
+	js, err := jetstream.New(nc)
+	require.NoError(t, err)
+
+	_, err = js.CreateOrUpdateStream(ctx, jetstream.StreamConfig{
+		Name:      "test-stream",
+		Retention: jetstream.WorkQueuePolicy,
+		Subjects:  []string{subject},
+		Storage:   jetstream.MemoryStorage,
+	})
+	require.NoError(t, err)
+
+	consumer, err := js.CreateOrUpdateConsumer(ctx, "test-stream", jetstream.ConsumerConfig{
+		Name:          "test-consumer",
+		Durable:       "test-consumer",
+		AckPolicy:     jetstream.AckExplicitPolicy,
+		MaxAckPending: 1,
+		MaxDeliver:    maxDeliver,
+		AckWait:       ackWait,
+	})
+	require.NoError(t, err)
+
+	return js, consumer
+}
+
+func TestInternalConsumeMessagesAcksOnSuccess(t *testing.T) {
+	ns, url := startNATSServer(t)
+	defer ns.Shutdown()
+
+	nc, err := nats.Connect(url)
+	require.NoError(t, err)
+	defer nc.Close()
+
+	const subject = "test.success"
+	js, consumer := newTestConsumer(t, nc, subject, 5, 500*time.Millisecond)
+
+	var calls atomic.Int32
+	//nolint:unparam // must satisfy the WALTaskHandler signature
+	handler := func(_ context.Context, _ *WALTask) error {
+		calls.Add(1)
+
+		return nil
+	}
+
+	ctx := t.Context()
+	go func() {
+		_ = internalConsumeMessages(ctx, handler, consumer)
+	}()
+
+	payload, err := json.Marshal(WALTask{ClusterName: "c", WALName: "w"})
+	require.NoError(t, err)
+	_, err = js.Publish(ctx, subject, payload)
+	require.NoError(t, err)
+
+	require.Eventually(t, func() bool {
+		return calls.Load() == 1
+	}, 2*time.Second, 20*time.Millisecond)
+
+	// Give a redelivery window a chance to (incorrectly) fire, then assert the
+	// handler was invoked exactly once because the message was acked.
+	time.Sleep(time.Second)
+	assert.Equal(t, int32(1), calls.Load(), "successful message must be acked, not redelivered")
+}
+
+func TestInternalConsumeMessagesTerminatesInvalidMessage(t *testing.T) {
+	ns, url := startNATSServer(t)
+	defer ns.Shutdown()
+
+	nc, err := nats.Connect(url)
+	require.NoError(t, err)
+	defer nc.Close()
+
+	const subject = "test.invalid"
+	js, consumer := newTestConsumer(t, nc, subject, 5, 500*time.Millisecond)
+
+	var calls atomic.Int32
+	//nolint:unparam // must satisfy the WALTaskHandler signature
+	handler := func(_ context.Context, _ *WALTask) error {
+		calls.Add(1)
+
+		return nil
+	}
+
+	ctx := t.Context()
+	go func() {
+		_ = internalConsumeMessages(ctx, handler, consumer)
+	}()
+
+	_, err = js.Publish(ctx, subject, []byte("not-json"))
+	require.NoError(t, err)
+
+	stream, err := js.Stream(ctx, "test-stream")
+	require.NoError(t, err)
+
+	// The invalid message must be terminated and removed from the work queue.
+	require.Eventually(t, func() bool {
+		info, infoErr := stream.Info(ctx)
+		require.NoError(t, infoErr)
+
+		return info.State.Msgs == 0
+	}, 2*time.Second, 20*time.Millisecond)
+
+	assert.Equal(t, int32(0), calls.Load(), "handler must not run for an invalid message")
+}
+
+func TestInternalConsumeMessagesRetriesUntilMaxDeliver(t *testing.T) {
+	ns, url := startNATSServer(t)
+	defer ns.Shutdown()
+
+	nc, err := nats.Connect(url)
+	require.NoError(t, err)
+	defer nc.Close()
+
+	const subject = "test.retry"
+	const maxDeliver = 3
+	js, consumer := newTestConsumer(t, nc, subject, maxDeliver, 300*time.Millisecond)
+
+	var calls atomic.Int32
+	handler := func(_ context.Context, _ *WALTask) error {
+		calls.Add(1)
+
+		return errors.New("boom")
+	}
+
+	ctx := t.Context()
+	go func() {
+		_ = internalConsumeMessages(ctx, handler, consumer)
+	}()
+
+	payload, err := json.Marshal(WALTask{ClusterName: "c", WALName: "w"})
+	require.NoError(t, err)
+	_, err = js.Publish(ctx, subject, payload)
+	require.NoError(t, err)
+
+	// The handler is retried exactly MaxDeliver times and then no more: the
+	// consumer stops redelivering once the attempt budget is exhausted.
+	require.Eventually(t, func() bool {
+		return calls.Load() == int32(maxDeliver)
+	}, 5*time.Second, 50*time.Millisecond)
+
+	// Give a further redelivery window a chance to fire and confirm the count
+	// stays put.
+	time.Sleep(time.Second)
+	assert.Equal(t, int32(maxDeliver), calls.Load(),
+		"a permanently failing message must be retried exactly MaxDeliver times")
+
+	// Note: the message is neither acked nor terminated, so on a WorkQueue
+	// stream it remains stored after the retry budget is spent. This documents
+	// current behavior rather than asserting it is desirable.
+	stream, err := js.Stream(ctx, "test-stream")
+	require.NoError(t, err)
+	info, err := stream.Info(ctx)
+	require.NoError(t, err)
+	assert.Equal(t, uint64(1), info.State.Msgs,
+		"poison message is retained in the work queue after MaxDeliver")
+}
+
+// TestRunHeartbeatPreventsRedelivery verifies that the heartbeat keeps an
+// in-flight message alive past its AckWait, and that redelivery resumes once
+// the heartbeat stops.
+func TestRunHeartbeatPreventsRedelivery(t *testing.T) {
+	ns, url := startNATSServer(t)
+	defer ns.Shutdown()
+
+	nc, err := nats.Connect(url)
+	require.NoError(t, err)
+	defer nc.Close()
+
+	const subject = "test.heartbeat"
+	const ackWait = 500 * time.Millisecond
+	js, consumer := newTestConsumer(t, nc, subject, 5, ackWait)
+
+	ctx := context.Background()
+	_, err = js.Publish(ctx, subject, []byte("payload"))
+	require.NoError(t, err)
+
+	// Fetch the message so it becomes in-flight with its AckWait timer running.
+	batch, err := consumer.Fetch(1)
+	require.NoError(t, err)
+	var msg jetstream.Msg
+	for m := range batch.Messages() {
+		msg = m
+	}
+	require.NoError(t, batch.Error())
+	require.NotNil(t, msg)
+
+	meta, err := msg.Metadata()
+	require.NoError(t, err)
+	require.Equal(t, uint64(1), meta.NumDelivered)
+
+	// Run the heartbeat with an interval well below AckWait.
+	heartbeatCtx, heartbeatCancel := context.WithCancel(ctx)
+	done := make(chan struct{})
+	go func() {
+		runHeartbeat(heartbeatCtx, msg, 150*time.Millisecond)
+		close(done)
+	}()
+
+	// While the heartbeat runs, the message must not be redelivered even though
+	// we hold it for longer than AckWait.
+	time.Sleep(3 * ackWait)
+	emptyBatch, err := consumer.Fetch(1, jetstream.FetchMaxWait(200*time.Millisecond))
+	require.NoError(t, err)
+	for range emptyBatch.Messages() {
+		t.Fatal("message was redelivered while the heartbeat was active")
+	}
+	require.NoError(t, emptyBatch.Error())
+
+	// Stop the heartbeat and let AckWait expire: the message is now redelivered.
+	heartbeatCancel()
+	<-done
+
+	require.Eventually(t, func() bool {
+		redelivered, fetchErr := consumer.Fetch(1, jetstream.FetchMaxWait(200*time.Millisecond))
+		require.NoError(t, fetchErr)
+		for m := range redelivered.Messages() {
+			redeliveredMeta, metaErr := m.Metadata()
+			require.NoError(t, metaErr)
+			if redeliveredMeta.NumDelivered >= 2 {
+				return true
+			}
+		}
+
+		return false
+	}, 3*time.Second, 50*time.Millisecond)
 }
