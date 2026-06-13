@@ -301,7 +301,7 @@ jobs:
       - name: Validate Renovate JSON
         env:
           # renovate: datasource=npm depName=renovate versioning=semver
-          RENOVATE_VERSION: 43.216.1
+          RENOVATE_VERSION: 43.217.0
         run: npx --yes --package renovate@${RENOVATE_VERSION} -- renovate-config-validator
 
   openshift-e2e:
