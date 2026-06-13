@@ -12,7 +12,7 @@ require (
 	github.com/cloudnative-pg/machinery v0.5.0
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc
 	github.com/evanphx/json-patch/v5 v5.9.11
-	github.com/onsi/ginkgo/v2 v2.29.0
+	github.com/onsi/ginkgo/v2 v2.30.0
 	github.com/onsi/gomega v1.41.0
 	github.com/prometheus/common v0.68.1
 	github.com/spf13/viper v1.21.0
