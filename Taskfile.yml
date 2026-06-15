@@ -223,11 +223,25 @@ tasks:
           VERSION: "{{ .TAG }}"
           LATEST: "false"
           WORKDIR: "core"
-      # On a push to main, mirror the snapshot under the production image name
-      # (ghcr.io/enterprisedb/klio:main). Leaves :latest untouched — it is still
-      # only updated by core:containerize-publish on release tags.
-      - if: '[ "{{.GITHUB_REF}}" = "refs/heads/main" ]'
-        task: internal:containerize
+
+  core:containerize-main:
+    desc: Push the production core image for the main branch
+    dir: core
+    deps:
+      - core:goreleaser-snapshot
+      - internal:start-registry
+    requires:
+      # These GitHub-specific vars are present only in a workflow run. Requiring
+      # them prevents pushing the production :main image from a local run by
+      # accident.
+      vars:
+        - CI
+        - GITHUB_REF
+    preconditions:
+      - sh: '[ "{{.GITHUB_REF}}" = "refs/heads/main" ]'
+        msg: not on the main branch, failing
+    cmds:
+      - task: internal:containerize
         vars:
           ENVIRONMENT: "production"
           INSECURE: "false"
@@ -498,11 +512,25 @@ tasks:
           VERSION: "{{ .TAG }}"
           LATEST: "false"
           WORKDIR: "operator"
-      # On a push to main, mirror the snapshot under the production image name
-      # (ghcr.io/enterprisedb/klio-operator:main). Leaves :latest untouched — it
-      # is still only updated by operator:containerize-publish on release tags.
-      - if: '[ "{{.GITHUB_REF}}" = "refs/heads/main" ]'
-        task: internal:containerize
+
+  operator:containerize-main:
+    desc: Push the production operator image for the main branch
+    dir: operator
+    deps:
+      - internal:start-registry
+      - operator:controller-gen
+    requires:
+      # These GitHub-specific vars are present only in a workflow run. Requiring
+      # them prevents pushing the production :main image from a local run by
+      # accident.
+      vars:
+        - CI
+        - GITHUB_REF
+    preconditions:
+      - sh: '[ "{{.GITHUB_REF}}" = "refs/heads/main" ]'
+        msg: not on the main branch, failing
+    cmds:
+      - task: internal:containerize
         vars:
           ENVIRONMENT: "production"
           INSECURE: "false"
