@@ -21,6 +21,7 @@ import (
 	"go.opentelemetry.io/otel/codes"
 	"k8s.io/apimachinery/pkg/util/wait"
 
+	"github.com/cloudnative-pg/klio/core/internal/backupfailure"
 	"github.com/cloudnative-pg/klio/core/internal/client/klioclient"
 	"github.com/cloudnative-pg/klio/core/internal/opentelemetry"
 )
@@ -106,7 +107,7 @@ func (b backupServiceImplementation) Backup(
 		isPrimary,
 	)
 	if err != nil {
-		recordBackupFailure(ctx)
+		recordBackupFailure(ctx, err)
 		span.RecordError(err)
 		span.SetStatus(codes.Error, "backup failed")
 
@@ -117,7 +118,7 @@ func (b backupServiceImplementation) Backup(
 	corruption, verifyErr := b.runVerify(ctx, backupName)
 	if corruption {
 		recordVerificationFailure(ctx)
-		recordBackupFailure(ctx)
+		recordBackupFailure(ctx, verifyErr)
 		span.RecordError(verifyErr)
 		span.SetStatus(codes.Error, "verification detected corruption")
 
@@ -145,6 +146,28 @@ func (b backupServiceImplementation) Backup(
 		EndWal:            metadata.EndWAL,
 		Online:            true,
 	}, nil
+}
+
+// classifyRunBackupError maps an error from the `klio backup run`
+// subprocess to a failure category. A category reported by the
+// subprocess via its exit code takes precedence over the context error.
+func classifyRunBackupError(ctx context.Context, err error) backupfailure.Category {
+	if exitErr, ok := errors.AsType[*exec.ExitError](err); ok {
+		if category, ok := backupfailure.ByExitCode(exitErr.ExitCode()); ok {
+			return category
+		}
+	}
+
+	if ctxErr := ctx.Err(); ctxErr != nil {
+		switch {
+		case errors.Is(ctxErr, context.DeadlineExceeded):
+			return backupfailure.Timeout
+		case errors.Is(ctxErr, context.Canceled):
+			return backupfailure.Canceled
+		}
+	}
+
+	return backupfailure.Unknown
 }
 
 func (b backupServiceImplementation) runBackup(
@@ -217,10 +240,6 @@ func (b backupServiceImplementation) runBackup(
 	return &metadata, nil
 }
 
-// corruptionExitCode is the exit code returned by "klio backup verify"
-// when actual corruption is detected (errorCount > 0).
-const corruptionExitCode = 2
-
 var (
 	// ErrVerificationCorruption is returned when backup verification detects corruption.
 	ErrVerificationCorruption = errors.New("backup verification detected corruption")
@@ -264,8 +283,8 @@ func (b backupServiceImplementation) runVerify(ctx context.Context, backupName s
 		cmd.Stderr = os.Stderr
 
 		if runErr := cmd.Run(); runErr != nil {
-			var exitErr *exec.ExitError
-			if errors.As(runErr, &exitErr) && exitErr.ExitCode() == corruptionExitCode {
+			exitErr, ok := errors.AsType[*exec.ExitError](runErr)
+			if ok && exitErr.ExitCode() == backupfailure.Verification.ExitCode {
 				return false, fmt.Errorf("%w: %w", ErrVerificationCorruption, runErr)
 			}
 

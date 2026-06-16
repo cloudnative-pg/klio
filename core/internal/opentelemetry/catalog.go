@@ -1,8 +1,12 @@
 package opentelemetry
 
 import (
+	"strings"
+
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/metric"
+
+	"github.com/cloudnative-pg/klio/core/internal/backupfailure"
 )
 
 // Tracer name constants.
@@ -87,6 +91,8 @@ const (
 // PluginBackupMetrics holds OTel instruments for backup lifecycle tracking.
 // The Runs and Verifications counters carry an `outcome` attribute
 // (`success` / `failure`) so a single instrument exposes both flavors.
+// Runs failure data points additionally carry a `failure_category`
+// attribute classifying the failure (see opentelemetry.FailureCategory).
 type PluginBackupMetrics struct {
 	LatestStartTime      metric.Int64Gauge
 	LatestCompletionTime metric.Int64Gauge
@@ -182,7 +188,9 @@ func InitPluginBackupMetrics() {
 	)
 	PluginBackup.Runs, _ = meter.Int64Counter(PluginBackupRunsMetric,
 		metric.WithDescription("Total number of backup runs, split by the `outcome` "+
-			"attribute (`success` / `failure`)."),
+			"attribute (`success` / `failure`). Failure data points additionally "+
+			"carry a `failure_category` attribute (`"+
+			strings.Join(backupfailure.Names(), "`, `")+"`)."),
 		metric.WithUnit("{backups}"),
 	)
 	PluginBackup.Verifications, _ = meter.Int64Counter(PluginBackupVerificationsMetric,

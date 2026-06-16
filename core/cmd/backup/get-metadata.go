@@ -8,6 +8,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 
+	"github.com/cloudnative-pg/klio/core/internal/backupfailure"
 	"github.com/cloudnative-pg/klio/core/internal/cli"
 	"github.com/cloudnative-pg/klio/core/internal/client/klioclient/kopia"
 	"github.com/cloudnative-pg/klio/core/pkg/config"
@@ -20,60 +21,65 @@ var getMetadataCmd = &cobra.Command{
 	Use:   "get-metadata [backupName]",
 	Short: "Gets the metadata of the backup with the provided name",
 	Args:  cobra.ExactArgs(1),
-	RunE: func(cmd *cobra.Command, args []string) error {
-		var configuration config.Data
-		backupName := args[0]
+	RunE:  cli.RunEWithExitCode(runGetMetadata),
+}
 
-		// IMPORTANT: this requires this program to be built with "-tags viper_bind_struct"
-		// when using environment variables
-		if err := viper.Unmarshal(&configuration); err != nil {
-			return fmt.Errorf("could not unmarshal configuration: %w", err)
-		}
+func runGetMetadata(cmd *cobra.Command, args []string) error {
+	var configuration config.Data
+	backupName := args[0]
 
-		// Sets the default values, to be overridden by the user configuration
-		configuration.SetDefaults()
+	// IMPORTANT: this requires this program to be built with "-tags viper_bind_struct"
+	// when using environment variables
+	if err := viper.Unmarshal(&configuration); err != nil {
+		return fmt.Errorf("could not unmarshal configuration: %w", err)
+	}
 
-		if configuration.Client == (config.ClientConfig{}) {
-			return cli.ErrClientSectionIsRequired
-		}
-		if configuration.Client.Base == (config.BaseRepositoryClientConfig{}) {
-			return cli.ErrKopiaClientSectionIsRequired
-		}
-		if configuration.Source == (config.SourceConfig{}) {
-			return cli.ErrSourceSectionIsRequired
-		}
+	// Sets the default values, to be overridden by the user configuration
+	configuration.SetDefaults()
 
-		if err := configuration.Validate(); err != nil {
-			return fmt.Errorf("configuration validation error: %w", err)
-		}
+	if configuration.Client == (config.ClientConfig{}) {
+		return cli.ErrClientSectionIsRequired
+	}
+	if configuration.Client.Base == (config.BaseRepositoryClientConfig{}) {
+		return cli.ErrKopiaClientSectionIsRequired
+	}
+	if configuration.Source == (config.SourceConfig{}) {
+		return cli.ErrSourceSectionIsRequired
+	}
 
-		client, err := kopia.MultiConnect(
-			cmd.Context(),
-			&configuration.Client,
-		)
-		if err != nil {
-			return fmt.Errorf("while connecting to the Klio server: %w %q", err, configuration.Client.Base.URL)
-		}
-		defer client.Close(cmd.Context())
+	if err := configuration.Validate(); err != nil {
+		return fmt.Errorf("configuration validation error: %w", err)
+	}
 
-		metadata, err := client.GetMetadata(cmd.Context(), client.GetHostname(), backupName)
-		if err != nil {
-			return fmt.Errorf("while getting metadata for backup %q: %w", backupName, err)
-		}
+	client, err := kopia.MultiConnect(
+		cmd.Context(),
+		&configuration.Client,
+	)
+	if err != nil {
+		return cli.NewCodedError(
+			fmt.Errorf("while connecting to the Klio server: %w %q", err, configuration.Client.Base.URL),
+			backupfailure.RepositoryError.ExitCode)
+	}
+	defer client.Close(cmd.Context())
 
-		// Marshal metadata to JSON
-		jsonData, err := json.Marshal(metadata)
-		if err != nil {
-			return fmt.Errorf("failed to marshal metadata to JSON: %w", err)
-		}
+	metadata, err := client.GetMetadata(cmd.Context(), client.GetHostname(), backupName)
+	if err != nil {
+		return cli.NewCodedError(
+			fmt.Errorf("while getting metadata for backup %q: %w", backupName, err),
+			backupfailure.RepositoryError.ExitCode)
+	}
 
-		_, err = os.Stdout.Write(jsonData)
-		if err != nil {
-			return fmt.Errorf("failed to write JSON output: %w", err)
-		}
+	// Marshal metadata to JSON
+	jsonData, err := json.Marshal(metadata)
+	if err != nil {
+		return fmt.Errorf("failed to marshal metadata to JSON: %w", err)
+	}
 
-		return nil
-	},
+	if _, err := os.Stdout.Write(jsonData); err != nil {
+		return fmt.Errorf("failed to write JSON output: %w", err)
+	}
+
+	return nil
 }
 
 //nolint:gochecknoinits

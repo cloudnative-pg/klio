@@ -56,6 +56,9 @@ const (
 	// AttributeKeyOutcome is the attribute key for the outcome (success or failure)
 	// of an operation.
 	AttributeKeyOutcome AttributeKey = "outcome"
+	// AttributeKeyFailureCategory is the attribute key for the
+	// failure category of a backup that ended with outcome=failure.
+	AttributeKeyFailureCategory AttributeKey = "failure_category"
 	// AttributeKeyStream is the attribute key identifying a JetStream stream.
 	AttributeKeyStream AttributeKey = "stream"
 	// AttributeKeyTier is the attribute key for the storage tier (tier1 or tier2)

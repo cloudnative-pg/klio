@@ -84,6 +84,24 @@ func DeploymentRolloutComplete(r *resources.Resources, deployment *appsv1.Deploy
 	}
 }
 
+// BackupIsFailed checks if the given backup has reached the failed phase.
+func BackupIsFailed(r *resources.Resources, backup k8s.Object) wait.ConditionWithContextFunc {
+	return func(ctx context.Context) (bool, error) {
+		if err := r.Get(ctx, backup.GetName(), backup.GetNamespace(), backup); err != nil {
+			return false, fmt.Errorf("failed to get Backup: %w", err)
+		}
+		backup, ok := backup.(*cnpgv1.Backup)
+		if !ok {
+			return false, fmt.Errorf("object is not a Backup: %v", backup)
+		}
+		if backup.Status.Phase == cnpgv1.BackupPhaseFailed {
+			return true, nil
+		}
+
+		return false, nil
+	}
+}
+
 // InitContainerHasRestarted checks if an init container has restarted
 // by comparing the current restart count against the initial count.
 func InitContainerHasRestarted(

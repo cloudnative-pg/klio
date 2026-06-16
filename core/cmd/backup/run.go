@@ -11,6 +11,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 
+	"github.com/cloudnative-pg/klio/core/internal/backupfailure"
 	"github.com/cloudnative-pg/klio/core/internal/cli"
 	"github.com/cloudnative-pg/klio/core/internal/client/klioclient"
 	"github.com/cloudnative-pg/klio/core/internal/client/klioclient/grpcclient"
@@ -26,140 +27,157 @@ import (
 var runCmd = &cobra.Command{
 	Use:   "run",
 	Short: "Backup the PostgreSQL cluster to the opened Klio server",
-	RunE: func(cmd *cobra.Command, _ []string) error {
-		var configuration config.Data
+	RunE:  cli.RunEWithExitCode(runBackup),
+}
 
-		contextLogger := log.FromContext(cmd.Context())
+//nolint:cyclop
+func runBackup(cmd *cobra.Command, _ []string) error {
+	var configuration config.Data
 
-		// IMPORTANT: this requires this program to be built with "-tags viper_bind_struct"
-		// when using environment variables
-		if err := viper.Unmarshal(&configuration); err != nil {
-			return fmt.Errorf("could not unmarshal configuration: %w", err)
-		}
+	contextLogger := log.FromContext(cmd.Context())
 
-		// Sets the default values, to be overridden by the user configuration
-		configuration.SetDefaults()
+	// IMPORTANT: this requires this program to be built with "-tags viper_bind_struct"
+	// when using environment variables
+	if err := viper.Unmarshal(&configuration); err != nil {
+		return fmt.Errorf("could not unmarshal configuration: %w", err)
+	}
 
-		if configuration.Client == (config.ClientConfig{}) {
-			return cli.ErrClientSectionIsRequired
-		}
-		if configuration.Client.Base == (config.BaseRepositoryClientConfig{}) {
-			return cli.ErrKopiaClientSectionIsRequired
-		}
-		if configuration.Client.Wal == (config.WalRepositoryClientConfig{}) {
-			return cli.ErrKlioClientSectionIsRequired
-		}
-		if configuration.Source == (config.SourceConfig{}) {
-			return cli.ErrSourceSectionIsRequired
-		}
+	// Sets the default values, to be overridden by the user configuration
+	configuration.SetDefaults()
 
-		waitWALs, _ := cmd.Flags().GetBool("wait-for-wals")
-		tier2, _ := cmd.Flags().GetBool("enable-tier2-backup")
+	if configuration.Client == (config.ClientConfig{}) {
+		return cli.ErrClientSectionIsRequired
+	}
+	if configuration.Client.Base == (config.BaseRepositoryClientConfig{}) {
+		return cli.ErrKopiaClientSectionIsRequired
+	}
+	if configuration.Client.Wal == (config.WalRepositoryClientConfig{}) {
+		return cli.ErrKlioClientSectionIsRequired
+	}
+	if configuration.Source == (config.SourceConfig{}) {
+		return cli.ErrSourceSectionIsRequired
+	}
 
-		if err := configuration.Validate(); err != nil {
-			return fmt.Errorf("configuration validation error: %w", err)
-		}
+	waitWALs, _ := cmd.Flags().GetBool("wait-for-wals")
+	tier2, _ := cmd.Flags().GetBool("enable-tier2-backup")
 
-		kopiaClient, err := kopia.MultiConnect(
-			cmd.Context(),
-			&configuration.Client,
-		)
-		if err != nil {
-			return fmt.Errorf("while connecting to the Klio server: %w %q", err, configuration.Client.Base.URL)
-		}
-		defer kopiaClient.Close(cmd.Context())
+	if err := configuration.Validate(); err != nil {
+		return fmt.Errorf("configuration validation error: %w", err)
+	}
 
-		conn, err := pgx.Connect(cmd.Context(), configuration.Source.StandardDSN)
-		if err != nil {
-			return fmt.Errorf("while connecting to PostgreSQL: %w", err)
-		}
-		defer func() {
-			_ = conn.Close(cmd.Context())
-		}()
+	kopiaClient, err := kopia.MultiConnect(
+		cmd.Context(),
+		&configuration.Client,
+	)
+	if err != nil {
+		return cli.NewCodedError(
+			fmt.Errorf("while connecting to the Klio server: %w %q", err, configuration.Client.Base.URL),
+			backupfailure.RepositoryError.ExitCode)
+	}
+	defer kopiaClient.Close(cmd.Context())
 
-		backupExecutor := klioclient.NewBackupExecutor(conn, kopiaClient, kopiaClient.GetHostname())
+	conn, err := pgx.Connect(cmd.Context(), configuration.Source.StandardDSN)
+	if err != nil {
+		return cli.NewCodedError(
+			fmt.Errorf("while connecting to PostgreSQL: %w", err),
+			backupfailure.SourceError.ExitCode)
+	}
+	defer func() {
+		_ = conn.Close(cmd.Context())
+	}()
 
-		var opts klioclient.BackupOptions
+	backupExecutor := klioclient.NewBackupExecutor(conn, kopiaClient, kopiaClient.GetHostname())
 
-		backupName, _ := cmd.Flags().GetString("name")
-		opts.Name = backupName
+	var opts klioclient.BackupOptions
 
-		if err := backupExecutor.Start(cmd.Context(), opts); err != nil {
-			return fmt.Errorf("while starting the backup: %w", err)
-		}
+	backupName, _ := cmd.Flags().GetString("name")
+	opts.Name = backupName
 
-		if err := backupExecutor.Upload(cmd.Context(), tier2); err != nil {
-			return fmt.Errorf("while uploading data: %w", err)
-		}
+	if err := backupExecutor.Start(cmd.Context(), opts); err != nil {
+		return cli.NewCodedError(
+			fmt.Errorf("while starting the backup: %w", err),
+			backupfailure.RepositoryError.ExitCode)
+	}
 
-		metadata, err := backupExecutor.Close(cmd.Context(), tier2)
-		if err != nil {
-			return fmt.Errorf("while closing the backup: %w", err)
-		}
+	if err := backupExecutor.Upload(cmd.Context(), tier2); err != nil {
+		return cli.NewCodedError(
+			fmt.Errorf("while uploading data: %w", err),
+			backupfailure.RepositoryError.ExitCode)
+	}
 
-		grpcClient, err := grpcclient.Connect(&configuration.Client, configuration.Client.Wal.Address)
-		if err != nil {
-			return fmt.Errorf("while connecting to the Klio server: %w", err)
-		}
+	metadata, err := backupExecutor.Close(cmd.Context(), tier2)
+	if err != nil {
+		return cli.NewCodedError(
+			fmt.Errorf("while closing the backup: %w", err),
+			backupfailure.RepositoryError.ExitCode)
+	}
 
-		for {
-			var tier2RetentionPolicy string
-			if configuration.Tier2RetentionPolicy != nil {
-				policy := kopiaWrapper.RetentionPolicy{
-					KeepLatest:  configuration.Tier2RetentionPolicy.KeepLatest,
-					KeepHourly:  configuration.Tier2RetentionPolicy.KeepHourly,
-					KeepDaily:   configuration.Tier2RetentionPolicy.KeepDaily,
-					KeepWeekly:  configuration.Tier2RetentionPolicy.KeepWeekly,
-					KeepMonthly: configuration.Tier2RetentionPolicy.KeepMonthly,
-					KeepAnnual:  configuration.Tier2RetentionPolicy.KeepAnnual,
-				}
+	grpcClient, err := grpcclient.Connect(&configuration.Client, configuration.Client.Wal.Address)
+	if err != nil {
+		return cli.NewCodedError(
+			fmt.Errorf("while connecting to the Klio server: %w", err),
+			backupfailure.RepositoryError.ExitCode)
+	}
 
-				content, err := json.Marshal(policy)
-				if err != nil {
-					contextLogger.Error(err, "Error while serializing the tier2 retention policy, skipping")
-				} else {
-					tier2RetentionPolicy = string(content)
-				}
+	for {
+		var tier2RetentionPolicy string
+		if configuration.Tier2RetentionPolicy != nil {
+			policy := kopiaWrapper.RetentionPolicy{
+				KeepLatest:  configuration.Tier2RetentionPolicy.KeepLatest,
+				KeepHourly:  configuration.Tier2RetentionPolicy.KeepHourly,
+				KeepDaily:   configuration.Tier2RetentionPolicy.KeepDaily,
+				KeepWeekly:  configuration.Tier2RetentionPolicy.KeepWeekly,
+				KeepMonthly: configuration.Tier2RetentionPolicy.KeepMonthly,
+				KeepAnnual:  configuration.Tier2RetentionPolicy.KeepAnnual,
 			}
 
-			result, err := grpcClient.CloseBackup(cmd.Context(), &grpc.CloseBackupRequest{
-				ClusterName:          kopiaClient.GetHostname(),
-				BackupName:           metadata.Name,
-				Timeline:             int32(metadata.Timeline),
-				StartWal:             metadata.StartWAL,
-				EndWal:               metadata.EndWAL,
-				SegmentSize:          metadata.SegmentSize,
-				SendToTier2:          tier2,
-				Tier2RetentionPolicy: tier2RetentionPolicy,
-			})
+			content, err := json.Marshal(policy)
 			if err != nil {
-				return fmt.Errorf("while closing the backup: %w", err)
+				contextLogger.Error(err, "Error while serializing the tier2 retention policy, skipping")
+			} else {
+				tier2RetentionPolicy = string(content)
 			}
-
-			if waitWALs && len(result.GetMissingWalFiles()) > 0 {
-				contextLogger.Info(
-					"Detected missing WAL files, waiting for 5 seconds",
-					"missingWALFiles", result.GetMissingWalFiles(),
-				)
-				time.Sleep(5 * time.Second)
-
-				continue
-			}
-
-			if result.GetTier2Schedule() {
-				contextLogger.Info("Backup completed, triggered synchronization to tier2 if available")
-			}
-
-			break
 		}
 
-		// Marshal metadata to JSON
-		if err := json.NewEncoder(os.Stdout).Encode(metadata); err != nil {
-			return fmt.Errorf("failed to marshal metadata to JSON: %w", err)
+		result, err := grpcClient.CloseBackup(cmd.Context(), &grpc.CloseBackupRequest{
+			ClusterName:          kopiaClient.GetHostname(),
+			BackupName:           metadata.Name,
+			Timeline:             int32(metadata.Timeline), //nolint:gosec // postgres timeline is uint32 in practice, fits int32
+			StartWal:             metadata.StartWAL,
+			EndWal:               metadata.EndWAL,
+			SegmentSize:          metadata.SegmentSize,
+			SendToTier2:          tier2,
+			Tier2RetentionPolicy: tier2RetentionPolicy,
+		})
+		if err != nil {
+			return cli.NewCodedError(
+				fmt.Errorf("while closing the backup: %w", err),
+				backupfailure.RepositoryError.ExitCode)
 		}
 
-		return nil
-	},
+		if waitWALs && len(result.GetMissingWalFiles()) > 0 {
+			contextLogger.Info(
+				"Detected missing WAL files, waiting for 5 seconds",
+				"missingWALFiles", result.GetMissingWalFiles(),
+			)
+			time.Sleep(5 * time.Second)
+
+			continue
+		}
+
+		if result.GetTier2Schedule() {
+			contextLogger.Info("Backup completed, triggered synchronization to tier2 if available")
+		}
+
+		break
+	}
+
+	// Marshal metadata to JSON
+	if err := json.NewEncoder(os.Stdout).Encode(metadata); err != nil {
+		return fmt.Errorf("failed to marshal metadata to JSON: %w", err)
+	}
+
+	return nil
 }
 
 //nolint:gochecknoinits

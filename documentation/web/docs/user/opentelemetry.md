@@ -109,6 +109,7 @@ attribute key.
 | `tier` | `tier1` (local disk on the Klio server), `tier2` (remote object store) | All `klio.server.wal.*` and `klio.server.backup.*` instruments. |
 | `cluster_name` | Name of the PostgreSQL cluster the recording belongs to | All `klio.server.wal.*` instruments. |
 | `outcome` | `success`, `failure` | `klio.plugin.backup.runs`, `klio.plugin.backup.verifications`, `klio.server.backup.verifications`. |
+| `failure_category` | `repository_error`, `source_error`, `verification`, `timeout`, `canceled`, `unknown` | `klio.plugin.backup.runs` failure data points only. |
 | `snapshot_source` | Kopia source descriptor (`userName@hostName:path`) | All `klio.server.backup.*` base snapshot gauges (`snapshots`, `latest_snapshot_*`, `oldest_snapshot_age`). |
 | `stream` | JetStream stream name (`klio-wal-stream`, `klio-backup-stream`, `klio-latest-uploaded-wal-per-cluster-stream`) | `klio.server.queue.messages`, `klio.server.queue.bytes`. |
 
@@ -124,8 +125,24 @@ operations on each PostgreSQL instance:
 | `klio.plugin.backup.latest_completion_time` | Gauge | s | Unix epoch timestamp when the most recent backup completed successfully |
 | `klio.plugin.backup.latest_failure_time` | Gauge | s | Unix epoch timestamp when the most recent backup failed |
 | `klio.plugin.backup.latest_duration` | Gauge | s | Duration of the most recent backup |
-| `klio.plugin.backup.runs` | Counter | `{backups}` | Total number of backup runs, split by the `outcome` attribute (`success` / `failure`) |
+| `klio.plugin.backup.runs` | Counter | `{backups}` | Total number of backup runs, split by the `outcome` attribute (`success` / `failure`). Failure data points additionally carry a `failure_category` attribute classifying the failure |
 | `klio.plugin.backup.verifications` | Counter | `{verifications}` | Total number of backup verification attempts, split by the `outcome` attribute (`success` / `failure`) |
+
+The `failure_category` attribute on `klio.plugin.backup.runs` failure
+data points takes one of the following values:
+
+- `repository_error` — the backup failed while interacting with the
+  Klio server or the Kopia repository.
+- `source_error` — the backup failed while connecting to or interacting
+  with the source PostgreSQL instance.
+- `verification` — tier-1 verification detected corruption in the
+  freshly taken backup.
+- `timeout` — the backup exceeded its deadline.
+- `canceled` — the backup's context was canceled before a more specific
+  category could be determined. This covers cluster restart,
+  hibernation, pod eviction, and client disconnect; the metric does not
+  distinguish between them.
+- `unknown` — the failure did not match any of the categories above.
 
 :::note
 These metrics are tied to the plugin sidecar lifecycle: when the

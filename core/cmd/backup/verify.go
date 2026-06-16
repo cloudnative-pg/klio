@@ -3,22 +3,17 @@ package backup
 import (
 	"errors"
 	"fmt"
-	"os"
 	"strings"
 
 	"github.com/cloudnative-pg/machinery/pkg/log"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 
+	"github.com/cloudnative-pg/klio/core/internal/backupfailure"
 	"github.com/cloudnative-pg/klio/core/internal/cli"
 	"github.com/cloudnative-pg/klio/core/internal/client/klioclient/kopia"
 	"github.com/cloudnative-pg/klio/core/pkg/config"
 )
-
-// corruptionExitCode is the exit code used when backup verification
-// detects actual corruption (errorCount > 0). Infrastructure errors
-// use the default exit code 1.
-const corruptionExitCode = 2
 
 // tierSelection represents which tiers to verify.
 type tierSelection struct {
@@ -63,20 +58,7 @@ Use --tiers to select which tiers to verify (default: both).`,
 
 		return nil
 	},
-	RunE: func(cmd *cobra.Command, args []string) error {
-		err := runVerify(cmd, args)
-		if err != nil {
-			var backupErr *kopia.BackupVerificationError
-			if errors.As(err, &backupErr) {
-				// Print the error and exit with corruption exit code.
-				// At this point, all defers in runVerify have already executed.
-				cmd.PrintErrln(err)
-				os.Exit(corruptionExitCode)
-			}
-		}
-
-		return err
-	},
+	RunE: cli.RunEWithExitCode(runVerify),
 }
 
 func runVerify(cmd *cobra.Command, args []string) error {
@@ -167,10 +149,9 @@ func verifyTier(cmd *cobra.Command, client *kopia.Connection, opts kopia.VerifyO
 	contextLogger.Info("Verifying backups", "tier", tierName)
 
 	if err := client.VerifyBackups(cmd.Context(), opts); err != nil {
-		var backupErr *kopia.BackupVerificationError
-		if errors.As(err, &backupErr) {
+		if _, ok := errors.AsType[*kopia.BackupVerificationError](err); ok {
 			contextLogger.Error(err, "Backup verification detected corruption", "tier", tierName)
-			return err
+			return cli.NewCodedError(err, backupfailure.Verification.ExitCode)
 		}
 
 		return fmt.Errorf("%s backup verification failed: %w", tierName, err)

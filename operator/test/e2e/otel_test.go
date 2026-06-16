@@ -16,6 +16,7 @@ import (
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
@@ -593,6 +594,105 @@ func assertOTELMetricsReceived(
 	t.Log("OTEL metrics verification completed successfully")
 }
 
+// assertRepositoryErrorFailureCategory induces a backup failure caused by an
+// unreachable repository and verifies it is exported on the
+// klio.plugin.backup.runs counter with outcome=failure and
+// failure_category=repository_error.
+//
+// It must run only after assertOTELMetricsReceived has asserted that no
+// failures exist yet, because it deliberately records the first failure.
+func assertRepositoryErrorFailureCategory(
+	ctx context.Context,
+	t *testing.T,
+	cfg *envconf.Config,
+	scenario *otelMetricsScenario,
+) {
+	t.Helper()
+
+	r, err := resources.New(cfg.Client().RESTConfig())
+	require.NoError(t, err, "failed to create resources client")
+
+	// Delete the Klio server so the next `klio backup run` subprocess cannot
+	// connect to the repository. That failure exits with the repository-error
+	// code, which the plugin classifies as failure_category=repository_error.
+	t.Log("Deleting Klio server to induce a repository error on the next backup")
+	require.NoError(t, r.Delete(ctx, scenario.klioServer), "failed to delete Klio server")
+
+	// Wait until the server pod is actually gone, otherwise the backup could
+	// still connect to a terminating server and succeed.
+	serverPodName := scenario.klioServer.GetName() + "-klio-0"
+	err = wait.For(
+		func(ctx context.Context) (bool, error) {
+			var pod corev1.Pod
+			getErr := r.Get(ctx, serverPodName, scenario.namespace.Name, &pod)
+
+			// Done only when the pod is confirmed gone; any other error
+			// (including a transient API error) means keep waiting.
+			return apierrors.IsNotFound(getErr), nil
+		},
+		wait.WithTimeout(2*time.Minute),
+		wait.WithInterval(5*time.Second),
+	)
+	require.NoError(t, err, "Klio server pod still present; cannot guarantee a repository error")
+
+	// Trigger a new backup that is expected to fail.
+	failBackup := cnpg.GetCnpgBackupObject(
+		"test-backup-repo-error", scenario.namespace.Name, cnpgv1.BackupTargetPrimary, scenario.cnpgCluster)
+	require.NoError(t, r.Create(ctx, failBackup), "failed to create failing backup")
+
+	t.Log("Waiting for the backup to reach the failed phase")
+	err = wait.For(
+		machineryConditions.BackupIsFailed(r, failBackup),
+		wait.WithTimeout(3*time.Minute),
+		wait.WithInterval(10*time.Second),
+	)
+	require.NoError(t, err, "backup did not reach the failed phase")
+
+	// The OTEL Collector pod is unaffected by the server deletion. Poll it
+	// until the repository_error failure data point appears.
+	clientset, err := kubernetes.NewForConfig(cfg.Client().RESTConfig())
+	require.NoError(t, err, "failed to create kubernetes clientset")
+
+	podList, err := clientset.CoreV1().Pods(scenario.namespace.Name).List(ctx, metav1.ListOptions{
+		LabelSelector: "app=" + otel.CollectorName,
+	})
+	require.NoError(t, err, "failed to list OTEL collector pods")
+	require.Len(t, podList.Items, 1, "expected exactly one OTEL collector pod")
+	collectorPod := &podList.Items[0]
+
+	// String literal mirrors backupfailure.RepositoryError.Name in the
+	// core module, which is internal and cannot be imported from here.
+	failureLabels := map[string]string{
+		"outcome":          "failure",
+		"failure_category": "repository_error",
+	}
+
+	t.Log("Waiting for the repository_error failure metric to be exported")
+	err = wait.For(
+		func(ctx context.Context) (bool, error) {
+			freshMetrics, fetchErr := fetchCollectorMetrics(ctx, cfg.Client().RESTConfig(),
+				scenario.namespace.Name, collectorPod.Name)
+			if fetchErr != nil {
+				return false, nil //nolint:nilerr // retry on transient errors
+			}
+
+			value, found := freshMetrics.GetValueWithLabels("klio_plugin_backup_runs_total", failureLabels)
+			if !found {
+				return false, nil
+			}
+
+			return value >= 1, nil
+		},
+		wait.WithTimeout(90*time.Second),
+		wait.WithInterval(10*time.Second),
+	)
+	require.NoError(t, err,
+		`klio_plugin_backup_runs_total{outcome="failure",failure_category="repository_error"} `+
+			"not found within timeout")
+
+	t.Log("repository_error failure category metric verified")
+}
+
 // assertOTELQueueMetrics verifies NATS queue depth metrics are exported per
 // JetStream stream. Each of the three streams created by core/internal/queue
 // must produce its own data point distinguished by the `stream` attribute.
@@ -774,6 +874,10 @@ func OTELMetricsAndTraces(namespace string) *machineryFeatures.BackupFeature {
 			time.Sleep(10 * time.Second)
 			assertOTELMetricsReceived(ctx, t, cfg, scenario)
 			assertOTELTracesReceived(ctx, t, cfg, scenario)
+			// Runs last: it deletes the Klio server and triggers a failing
+			// backup, so it must follow the success-path assertions above
+			// (which require failures to be zero).
+			assertRepositoryErrorFailureCategory(ctx, t, cfg, scenario)
 		},
 		BackupTimeout: 2 * time.Minute,
 	})

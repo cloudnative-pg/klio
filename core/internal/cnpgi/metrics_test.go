@@ -2,6 +2,8 @@ package cnpgi
 
 import (
 	"context"
+	"fmt"
+	"os/exec"
 	"testing"
 	"time"
 
@@ -12,6 +14,7 @@ import (
 	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
 	"go.opentelemetry.io/otel/sdk/metric/metricdata"
 
+	"github.com/cloudnative-pg/klio/core/internal/backupfailure"
 	"github.com/cloudnative-pg/klio/core/internal/opentelemetry"
 )
 
@@ -100,12 +103,34 @@ func findInt64SumDataPoints(
 func findInt64SumValueByOutcome(
 	rm metricdata.ResourceMetrics, name string, outcome opentelemetry.Outcome,
 ) (int64, bool) {
+	var total int64
+	var found bool
 	for _, dp := range findInt64SumDataPoints(rm, name) {
 		v, ok := dp.Attributes.Value(attribute.Key("outcome"))
 		if !ok {
 			continue
 		}
 		if v.AsString() == string(outcome) {
+			total += dp.Value
+			found = true
+		}
+	}
+
+	return total, found
+}
+
+// findInt64SumValueByFailureCategory returns the value of the data point on
+// the named Int64 Sum instrument that carries the given `failure_category`
+// attribute, or (0, false) if no such data point exists.
+func findInt64SumValueByFailureCategory(
+	rm metricdata.ResourceMetrics, name string, category backupfailure.Category,
+) (int64, bool) {
+	for _, dp := range findInt64SumDataPoints(rm, name) {
+		v, ok := dp.Attributes.Value(attribute.Key("failure_category"))
+		if !ok {
+			continue
+		}
+		if v.AsString() == category.Name {
 			return dp.Value, true
 		}
 	}
@@ -166,10 +191,15 @@ func TestRecordBackupSuccess(t *testing.T) {
 func TestRecordBackupFailure(t *testing.T) {
 	reader := setupTestMeter(t)
 
-	recordBackupStart(context.Background())
+	recordBackupStart(t.Context())
 	before := time.Now().Unix()
-	recordBackupFailure(context.Background())
-	recordBackupFinished(context.Background())
+
+	//nolint:gosec // hardcoded test input
+	exitErr := exec.CommandContext(t.Context(), "sh",
+		"-c", fmt.Sprintf("exit %d", backupfailure.RepositoryError.ExitCode)).Run()
+
+	recordBackupFailure(t.Context(), exitErr)
+	recordBackupFinished(t.Context())
 
 	rm := collectOTelMetrics(t, reader)
 
@@ -185,6 +215,59 @@ func TestRecordBackupFailure(t *testing.T) {
 		rm, opentelemetry.PluginBackupRunsMetric, opentelemetry.OutcomeFailure)
 	require.True(t, ok)
 	assert.Equal(t, int64(1), failures)
+
+	byCat, ok := findInt64SumValueByFailureCategory(
+		rm, opentelemetry.PluginBackupRunsMetric, backupfailure.RepositoryError)
+	require.True(t, ok)
+	assert.Equal(t, int64(1), byCat)
+}
+
+func TestRecordBackupFailureCategoriesAreSeparateSeries(t *testing.T) {
+	reader := setupTestMeter(t)
+	expiredCtx, cancelTimeout := context.WithTimeout(t.Context(), 0)
+	defer cancelTimeout()
+
+	recordBackupFailure(expiredCtx, nil)
+	canceledCtx, cancelCanceled := context.WithCancel(t.Context())
+	cancelCanceled()
+	recordBackupFailure(canceledCtx, nil)
+	recordBackupFailure(canceledCtx, nil)
+
+	//nolint:gosec // hardcoded test input
+	exitErr := exec.CommandContext(t.Context(), "sh",
+		"-c", fmt.Sprintf("exit %d", backupfailure.Verification.ExitCode)).Run()
+	recordBackupFailure(t.Context(), exitErr)
+
+	rm := collectOTelMetrics(t, reader)
+
+	for category, want := range map[backupfailure.Category]int64{
+		backupfailure.Timeout:      1,
+		backupfailure.Canceled:     2,
+		backupfailure.Verification: 1,
+	} {
+		got, ok := findInt64SumValueByFailureCategory(
+			rm, opentelemetry.PluginBackupRunsMetric, category)
+		require.True(t, ok, "expected data point for category %q", category.Name)
+		assert.Equal(t, want, got, "category %q", category.Name)
+	}
+
+	totalFailures, ok := findInt64SumValueByOutcome(
+		rm, opentelemetry.PluginBackupRunsMetric, opentelemetry.OutcomeFailure)
+	require.True(t, ok)
+	assert.Equal(t, int64(4), totalFailures)
+}
+
+func TestRecordBackupFailureNilErrorDefaultsToUnknown(t *testing.T) {
+	reader := setupTestMeter(t)
+
+	recordBackupFailure(context.Background(), nil)
+
+	rm := collectOTelMetrics(t, reader)
+
+	unknown, ok := findInt64SumValueByFailureCategory(
+		rm, opentelemetry.PluginBackupRunsMetric, backupfailure.Unknown)
+	require.True(t, ok)
+	assert.Equal(t, int64(1), unknown)
 }
 
 func TestBackupMetricsMultipleRuns(t *testing.T) {
@@ -197,7 +280,7 @@ func TestBackupMetricsMultipleRuns(t *testing.T) {
 
 	// Second backup: failure.
 	recordBackupStart(context.Background())
-	recordBackupFailure(context.Background())
+	recordBackupFailure(context.Background(), assert.AnError)
 	recordBackupFinished(context.Background())
 
 	// Third backup: success.
