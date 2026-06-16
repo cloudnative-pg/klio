@@ -11,6 +11,7 @@ import (
 
 	"github.com/ccoveille/go-safecast/v2"
 	"github.com/cloudnative-pg/machinery/pkg/log"
+	"github.com/nats-io/nats-server/v2/server"
 	"github.com/nats-io/nats.go"
 	"github.com/nats-io/nats.go/jetstream"
 )
@@ -22,6 +23,9 @@ type Conn struct {
 	klioBackupStream                      jetstream.Stream
 	klioLatestUploadedWalPerClusterStream jetstream.Stream
 
+	klioDLQWalStream    jetstream.Stream
+	klioDLQBackupStream jetstream.Stream
+
 	walConsumer    jetstream.Consumer
 	backupConsumer jetstream.Consumer
 }
@@ -30,6 +34,9 @@ const (
 	klioBackupStreamName            = "klio-backup-stream"
 	klioWalStreamName               = "klio-wal-stream"
 	klioLatestUploadedWalStreamName = "klio-latest-uploaded-wal-per-cluster-stream"
+
+	klioDLQBackupStreamName = "klio-dlq-backup-stream"
+	klioDLQWalStreamName    = "klio-dlq-wal-stream"
 
 	klioBackupConsumerName = "klio-backup-consumer"
 	klioWalConsumerName    = "klio-wal-consumer"
@@ -78,7 +85,24 @@ func New(ctx context.Context, natsConnection *nats.Conn) (*Conn, error) {
 		return nil, err
 	}
 
-	result.klioWalStream, err = js.CreateOrUpdateStream(
+	if err := configureJetStreams(ctx, js, result); err != nil {
+		return nil, err
+	}
+
+	if err := configureConsumers(ctx, js, result); err != nil {
+		return nil, err
+	}
+
+	if err := republishLegacyMessages(ctx, js, pending); err != nil {
+		return nil, err
+	}
+
+	return result, nil
+}
+
+func configureJetStreams(ctx context.Context, js jetstream.JetStream, conn *Conn) error {
+	var err error
+	conn.klioWalStream, err = js.CreateOrUpdateStream(
 		ctx,
 		jetstream.StreamConfig{
 			Name:        klioWalStreamName,
@@ -91,10 +115,29 @@ func New(ctx context.Context, natsConnection *nats.Conn) (*Conn, error) {
 		},
 	)
 	if err != nil {
-		return nil, fmt.Errorf("while creating or updating JetStream WAL stream: %w", err)
+		return fmt.Errorf("while creating or updating JetStream WAL stream: %w", err)
 	}
 
-	result.klioLatestUploadedWalPerClusterStream, err = js.CreateOrUpdateStream(
+	conn.klioDLQWalStream, err = js.CreateOrUpdateStream(
+		ctx,
+		jetstream.StreamConfig{
+			Name:        klioDLQWalStreamName,
+			Retention:   jetstream.LimitsPolicy,
+			Description: "Klio Dead Letter Queue WAL Stream",
+			Subjects: []string{
+				fmt.Sprintf("%s.%s.%s",
+					server.JSAdvisoryConsumerMaxDeliveryExceedPre,
+					klioWalStreamName,
+					klioWalConsumerName),
+			},
+			Storage: jetstream.FileStorage,
+		},
+	)
+	if err != nil {
+		return fmt.Errorf("while creating or updating JetStream Dead-Letter Queue WAL stream: %w", err)
+	}
+
+	conn.klioLatestUploadedWalPerClusterStream, err = js.CreateOrUpdateStream(
 		ctx,
 		jetstream.StreamConfig{
 			Name:              klioLatestUploadedWalStreamName,
@@ -106,10 +149,10 @@ func New(ctx context.Context, natsConnection *nats.Conn) (*Conn, error) {
 		},
 	)
 	if err != nil {
-		return nil, fmt.Errorf("while creating or updating JetStream latest-uploaded-WAL stream: %w", err)
+		return fmt.Errorf("while creating or updating JetStream latest-uploaded-WAL stream: %w", err)
 	}
 
-	result.klioBackupStream, err = js.CreateOrUpdateStream(
+	conn.klioBackupStream, err = js.CreateOrUpdateStream(
 		ctx,
 		jetstream.StreamConfig{
 			Name:        klioBackupStreamName,
@@ -122,10 +165,34 @@ func New(ctx context.Context, natsConnection *nats.Conn) (*Conn, error) {
 		},
 	)
 	if err != nil {
-		return nil, fmt.Errorf("while creating or updating JetStream backup stream: %w", err)
+		return fmt.Errorf("while creating or updating JetStream backup stream: %w", err)
 	}
 
-	result.walConsumer, err = js.CreateOrUpdateConsumer(
+	conn.klioDLQBackupStream, err = js.CreateOrUpdateStream(
+		ctx,
+		jetstream.StreamConfig{
+			Name:        klioDLQBackupStreamName,
+			Retention:   jetstream.LimitsPolicy,
+			Description: "Klio Dead Letter Queue Backup Stream",
+			Subjects: []string{
+				fmt.Sprintf("%s.%s.%s",
+					server.JSAdvisoryConsumerMaxDeliveryExceedPre,
+					klioBackupStreamName,
+					klioBackupConsumerName),
+			},
+			Storage: jetstream.FileStorage,
+		},
+	)
+	if err != nil {
+		return fmt.Errorf("while creating or updating JetStream Dead-Letter Queue backup stream: %w", err)
+	}
+
+	return nil
+}
+
+func configureConsumers(ctx context.Context, js jetstream.JetStream, conn *Conn) error {
+	var err error
+	conn.walConsumer, err = js.CreateOrUpdateConsumer(
 		ctx,
 		klioWalStreamName,
 		jetstream.ConsumerConfig{
@@ -146,10 +213,10 @@ func New(ctx context.Context, natsConnection *nats.Conn) (*Conn, error) {
 		},
 	)
 	if err != nil {
-		return nil, fmt.Errorf("while creating or updating JetStream WAL consumer: %w", err)
+		return fmt.Errorf("while creating or updating JetStream WAL consumer: %w", err)
 	}
 
-	result.backupConsumer, err = js.CreateOrUpdateConsumer(
+	conn.backupConsumer, err = js.CreateOrUpdateConsumer(
 		ctx,
 		klioBackupStreamName,
 		jetstream.ConsumerConfig{
@@ -173,14 +240,10 @@ func New(ctx context.Context, natsConnection *nats.Conn) (*Conn, error) {
 		},
 	)
 	if err != nil {
-		return nil, fmt.Errorf("while creating or updating JetStream Base consumer: %w", err)
+		return fmt.Errorf("while creating or updating JetStream Base consumer: %w", err)
 	}
 
-	if err := republishLegacyMessages(ctx, js, pending); err != nil {
-		return nil, err
-	}
-
-	return result, nil
+	return nil
 }
 
 // legacyMessage holds a message read from the pre-split KLIO stream so

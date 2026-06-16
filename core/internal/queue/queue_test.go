@@ -678,3 +678,117 @@ func TestRunHeartbeatPreventsRedelivery(t *testing.T) {
 		return false
 	}, 3*time.Second, 50*time.Millisecond)
 }
+
+// TestDLQStreamsConfig verifies that New provisions the two dead-letter queue
+// streams subscribed to the MAX_DELIVERIES advisory of their source consumers,
+// with a retain-only (LimitsPolicy) retention so captured advisories are kept
+// rather than consumed.
+func TestDLQStreamsConfig(t *testing.T) {
+	ns, url := startNATSServer(t)
+	defer ns.Shutdown()
+
+	nc, err := nats.Connect(url)
+	require.NoError(t, err)
+	defer nc.Close()
+
+	ctx := context.Background()
+	conn, err := New(ctx, nc)
+	require.NoError(t, err)
+
+	walInfo, err := conn.klioDLQWalStream.Info(ctx)
+	require.NoError(t, err)
+	assert.Equal(t, klioDLQWalStreamName, walInfo.Config.Name)
+	assert.Equal(t, jetstream.LimitsPolicy, walInfo.Config.Retention,
+		"DLQ must retain advisories, not consume them like a work queue")
+	assert.Equal(t, []string{
+		server.JSAdvisoryConsumerMaxDeliveryExceedPre + "." +
+			klioWalStreamName + "." + klioWalConsumerName,
+	}, walInfo.Config.Subjects,
+		"WAL DLQ must subscribe to the WAL consumer's MAX_DELIVERIES advisory")
+
+	backupInfo, err := conn.klioDLQBackupStream.Info(ctx)
+	require.NoError(t, err)
+	assert.Equal(t, klioDLQBackupStreamName, backupInfo.Config.Name)
+	assert.Equal(t, jetstream.LimitsPolicy, backupInfo.Config.Retention)
+	assert.Equal(t, []string{
+		server.JSAdvisoryConsumerMaxDeliveryExceedPre + "." +
+			klioBackupStreamName + "." + klioBackupConsumerName,
+	}, backupInfo.Config.Subjects,
+		"backup DLQ must subscribe to the backup consumer's MAX_DELIVERIES advisory")
+}
+
+// TestDLQCapturesMaxDeliveryAdvisory exercises the end-to-end capture path: a
+// poison message that exhausts MaxDeliver must produce exactly one advisory in
+// the DLQ stream, and that advisory's StreamSeq must point back to the original
+// payload, which stays retained in the source work queue and can be fetched on
+// demand.
+func TestDLQCapturesMaxDeliveryAdvisory(t *testing.T) {
+	ns, url := startNATSServer(t)
+	defer ns.Shutdown()
+
+	nc, err := nats.Connect(url)
+	require.NoError(t, err)
+	defer nc.Close()
+
+	const subject = "test.dlq"
+	const maxDeliver = 3
+	js, consumer := newTestConsumer(t, nc, subject, maxDeliver, 300*time.Millisecond)
+
+	// A DLQ stream subscribed to the test consumer's MAX_DELIVERIES advisory,
+	// mirroring how New wires the production DLQ streams.
+	dlqSubject := server.JSAdvisoryConsumerMaxDeliveryExceedPre + ".test-stream.test-consumer"
+	dlqStream, err := js.CreateOrUpdateStream(t.Context(), jetstream.StreamConfig{
+		Name:      "test-dlq-stream",
+		Retention: jetstream.LimitsPolicy,
+		Subjects:  []string{dlqSubject},
+		Storage:   jetstream.MemoryStorage,
+	})
+	require.NoError(t, err)
+
+	handler := func(_ context.Context, _ *WALTask) error {
+		return errors.New("boom")
+	}
+
+	ctx := t.Context()
+	go func() {
+		_ = internalConsumeMessages(ctx, handler, consumer)
+	}()
+
+	payload, err := json.Marshal(WALTask{ClusterName: "c", WALName: "w"})
+	require.NoError(t, err)
+	_, err = js.Publish(ctx, subject, payload)
+	require.NoError(t, err)
+
+	// Exactly one advisory is captured once the delivery budget is spent.
+	require.Eventually(t, func() bool {
+		info, infoErr := dlqStream.Info(ctx)
+		require.NoError(t, infoErr)
+
+		return info.State.Msgs == 1
+	}, 5*time.Second, 50*time.Millisecond)
+
+	// Give a further window to confirm no duplicate advisory is captured.
+	time.Sleep(time.Second)
+	info, err := dlqStream.Info(ctx)
+	require.NoError(t, err)
+	require.Equal(t, uint64(1), info.State.Msgs,
+		"a single poison message must yield exactly one DLQ advisory")
+
+	advMsg, err := dlqStream.GetMsg(ctx, 1)
+	require.NoError(t, err)
+
+	var advisory server.JSConsumerDeliveryExceededAdvisory
+	require.NoError(t, json.Unmarshal(advMsg.Data, &advisory))
+	assert.Equal(t, "test-stream", advisory.Stream)
+	assert.Equal(t, "test-consumer", advisory.Consumer)
+	assert.Equal(t, uint64(maxDeliver), advisory.Deliveries)
+
+	// The advisory is only a pointer: the payload itself is fetched on demand
+	// from the source stream by the StreamSeq it carries.
+	origMsg, err := js.Stream(ctx, "test-stream")
+	require.NoError(t, err)
+	original, err := origMsg.GetMsg(ctx, advisory.StreamSeq)
+	require.NoError(t, err)
+	assert.JSONEq(t, string(payload), string(original.Data),
+		"DLQ advisory StreamSeq must resolve to the retained original payload")
+}
