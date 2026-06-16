@@ -924,7 +924,7 @@ tasks:
     run: once
     vars:
       # renovate: datasource=docker depName=golang versioning=docker
-      GOLANG_IMAGE_VERSION: 1.26.4-alpine@sha256:7a3e50096189ad57c9f9f865e7e4aa8585ed1585248513dc5cda498e2f41812c
+      GOLANG_IMAGE_VERSION: 1.26.4-alpine@sha256:f1ddd9fe14fffc091dd98cb4bfa999f32c5fc77d2f2305ea9f0e2595c5437c14
     cmds:
       - >
         dagger core container from --address golang:{{ .GOLANG_IMAGE_VERSION }}
@@ -1220,7 +1220,7 @@ tasks:
         # Redundant curly braces are used to escape the template syntax in Taskfile.
         sh: docker inspect --format '{{"{{"}} (index (index .HostConfig.PortBindings "6443/tcp") 0).HostPort {{"}}"}}' {{ .KIND_CLUSTER_NAME }}-control-plane
       # renovate: datasource=docker depName=golang versioning=docker
-      GOLANG_IMAGE_VERSION: 1.26.4-alpine@sha256:7a3e50096189ad57c9f9f865e7e4aa8585ed1585248513dc5cda498e2f41812c
+      GOLANG_IMAGE_VERSION: 1.26.4-alpine@sha256:f1ddd9fe14fffc091dd98cb4bfa999f32c5fc77d2f2305ea9f0e2595c5437c14
     cmds:
       - |
         kind get kubeconfig --name {{ .KIND_CLUSTER_NAME }} > {{ .KUBECONFIG_PATH }}
