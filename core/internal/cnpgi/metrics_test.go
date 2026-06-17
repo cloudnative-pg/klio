@@ -138,6 +138,43 @@ func findInt64SumValueByFailureCategory(
 	return 0, false
 }
 
+func findFloat64HistogramDataPoints(
+	rm metricdata.ResourceMetrics, name string,
+) []metricdata.HistogramDataPoint[float64] {
+	for _, sm := range rm.ScopeMetrics {
+		for _, m := range sm.Metrics {
+			if m.Name == name {
+				if h, ok := m.Data.(metricdata.Histogram[float64]); ok {
+					return h.DataPoints
+				}
+			}
+		}
+	}
+
+	return nil
+}
+
+// findHistogramByOutcome returns (count, sum) for the data point on the named
+// Float64 Histogram instrument that carries the given `outcome` attribute, or
+// (0, 0, false) if no such data point exists.
+//
+//nolint:unparam
+func findHistogramByOutcome(
+	rm metricdata.ResourceMetrics, name string, outcome opentelemetry.Outcome,
+) (uint64, float64, bool) {
+	for _, dp := range findFloat64HistogramDataPoints(rm, name) {
+		v, ok := dp.Attributes.Value(attribute.Key("outcome"))
+		if !ok {
+			continue
+		}
+		if v.AsString() == string(outcome) {
+			return dp.Count, dp.Sum, true
+		}
+	}
+
+	return 0, 0, false
+}
+
 func TestRecordBackupStart(t *testing.T) {
 	reader := setupTestMeter(t)
 
@@ -186,6 +223,12 @@ func TestRecordBackupSuccess(t *testing.T) {
 	_, failPresent := findInt64SumValueByOutcome(
 		rm, opentelemetry.PluginBackupRunsMetric, opentelemetry.OutcomeFailure)
 	assert.False(t, failPresent, "no failure data point should be emitted on a clean success")
+
+	histCount, histSum, ok := findHistogramByOutcome(
+		rm, opentelemetry.PluginBackupDurationMetric, opentelemetry.OutcomeSuccess)
+	require.True(t, ok)
+	assert.Equal(t, uint64(1), histCount)
+	assert.InDelta(t, 42.0, histSum, 0.01)
 }
 
 func TestRecordBackupFailure(t *testing.T) {
@@ -198,7 +241,7 @@ func TestRecordBackupFailure(t *testing.T) {
 	exitErr := exec.CommandContext(t.Context(), "sh",
 		"-c", fmt.Sprintf("exit %d", backupfailure.RepositoryError.ExitCode)).Run()
 
-	recordBackupFailure(t.Context(), exitErr)
+	recordBackupFailure(t.Context(), 7*time.Second, exitErr)
 	recordBackupFinished(t.Context())
 
 	rm := collectOTelMetrics(t, reader)
@@ -216,6 +259,12 @@ func TestRecordBackupFailure(t *testing.T) {
 	require.True(t, ok)
 	assert.Equal(t, int64(1), failures)
 
+	histCount, histSum, ok := findHistogramByOutcome(
+		rm, opentelemetry.PluginBackupDurationMetric, opentelemetry.OutcomeFailure)
+	require.True(t, ok)
+	assert.Equal(t, uint64(1), histCount)
+	assert.InDelta(t, 7.0, histSum, 0.01)
+
 	byCat, ok := findInt64SumValueByFailureCategory(
 		rm, opentelemetry.PluginBackupRunsMetric, backupfailure.RepositoryError)
 	require.True(t, ok)
@@ -227,16 +276,16 @@ func TestRecordBackupFailureCategoriesAreSeparateSeries(t *testing.T) {
 	expiredCtx, cancelTimeout := context.WithTimeout(t.Context(), 0)
 	defer cancelTimeout()
 
-	recordBackupFailure(expiredCtx, nil)
+	recordBackupFailure(expiredCtx, time.Second, nil)
 	canceledCtx, cancelCanceled := context.WithCancel(t.Context())
 	cancelCanceled()
-	recordBackupFailure(canceledCtx, nil)
-	recordBackupFailure(canceledCtx, nil)
+	recordBackupFailure(canceledCtx, time.Second, nil)
+	recordBackupFailure(canceledCtx, time.Second, nil)
 
 	//nolint:gosec // hardcoded test input
 	exitErr := exec.CommandContext(t.Context(), "sh",
 		"-c", fmt.Sprintf("exit %d", backupfailure.Verification.ExitCode)).Run()
-	recordBackupFailure(t.Context(), exitErr)
+	recordBackupFailure(t.Context(), time.Second, exitErr)
 
 	rm := collectOTelMetrics(t, reader)
 
@@ -260,7 +309,7 @@ func TestRecordBackupFailureCategoriesAreSeparateSeries(t *testing.T) {
 func TestRecordBackupFailureNilErrorDefaultsToUnknown(t *testing.T) {
 	reader := setupTestMeter(t)
 
-	recordBackupFailure(context.Background(), nil)
+	recordBackupFailure(context.Background(), time.Second, nil)
 
 	rm := collectOTelMetrics(t, reader)
 
@@ -280,7 +329,7 @@ func TestBackupMetricsMultipleRuns(t *testing.T) {
 
 	// Second backup: failure.
 	recordBackupStart(context.Background())
-	recordBackupFailure(context.Background(), assert.AnError)
+	recordBackupFailure(context.Background(), 3*time.Second, assert.AnError)
 	recordBackupFinished(context.Background())
 
 	// Third backup: success.
@@ -308,6 +357,20 @@ func TestBackupMetricsMultipleRuns(t *testing.T) {
 	inProgress, ok := findInProgressValue(rm)
 	require.True(t, ok)
 	assert.Equal(t, int64(0), inProgress)
+
+	// Histogram aggregates both successful runs (10s + 30s).
+	successCount, successSum, ok := findHistogramByOutcome(
+		rm, opentelemetry.PluginBackupDurationMetric, opentelemetry.OutcomeSuccess)
+	require.True(t, ok)
+	assert.Equal(t, uint64(2), successCount)
+	assert.InDelta(t, 40.0, successSum, 0.01)
+
+	// Failure-path duration is also observed.
+	failureCount, failureSum, ok := findHistogramByOutcome(
+		rm, opentelemetry.PluginBackupDurationMetric, opentelemetry.OutcomeFailure)
+	require.True(t, ok)
+	assert.Equal(t, uint64(1), failureCount)
+	assert.InDelta(t, 3.0, failureSum, 0.01)
 }
 
 func TestRecordVerificationSuccess(t *testing.T) {

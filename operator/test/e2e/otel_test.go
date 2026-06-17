@@ -539,6 +539,8 @@ func assertOTELMetricsReceived(
 		"metric klio_plugin_backup_latest_completion_time_seconds not found")
 	assert.True(t, promMetrics.HasMetric("klio_plugin_backup_latest_duration_seconds"),
 		"metric klio_plugin_backup_latest_duration_seconds not found")
+	assert.True(t, promMetrics.HasMetric("klio_plugin_backup_duration_seconds"),
+		"metric klio_plugin_backup_duration_seconds not found")
 
 	// Validate metric values
 	inProgress, found := promMetrics.GetValue("klio_plugin_backup_in_progress")
@@ -565,6 +567,22 @@ func assertOTELMetricsReceived(
 	duration, found := promMetrics.GetValue("klio_plugin_backup_latest_duration_seconds")
 	if assert.True(t, found, "klio_plugin_backup_latest_duration_seconds not found") {
 		assert.Greater(t, duration, float64(0), "backup duration should be positive")
+	}
+
+	// The backup duration histogram must carry the `outcome` attribute and
+	// expose a real bucket distribution. A BucketCount of one would mean the
+	// histogram collapsed to the `+Inf` bucket only (e.g. an exponential
+	// histogram squashed by the classic Prometheus exposition format), leaving
+	// no usable latency distribution.
+	hist, found := promMetrics.GetHistogram(
+		"klio_plugin_backup_duration_seconds", successLabels)
+	if assert.True(t, found,
+		`klio_plugin_backup_duration_seconds{outcome="success"} not found`) {
+		assert.GreaterOrEqual(t, hist.SampleCount, uint64(1),
+			"should have at least 1 successful backup observation")
+		assert.Greater(t, hist.SampleSum, float64(0), "histogram sum should be positive")
+		assert.Greater(t, hist.BucketCount, 1,
+			"histogram should expose explicit buckets, not just +Inf")
 	}
 
 	startTime, found := promMetrics.GetValue("klio_plugin_backup_latest_start_time_seconds")

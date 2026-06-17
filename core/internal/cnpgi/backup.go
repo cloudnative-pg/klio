@@ -107,7 +107,7 @@ func (b backupServiceImplementation) Backup(
 		isPrimary,
 	)
 	if err != nil {
-		recordBackupFailure(ctx, err)
+		recordBackupFailure(ctx, time.Since(backupStart), err)
 		span.RecordError(err)
 		span.SetStatus(codes.Error, "backup failed")
 
@@ -118,7 +118,7 @@ func (b backupServiceImplementation) Backup(
 	corruption, verifyErr := b.runVerify(ctx, backupName)
 	if corruption {
 		recordVerificationFailure(ctx)
-		recordBackupFailure(ctx, verifyErr)
+		recordBackupFailure(ctx, time.Since(backupStart), verifyErr)
 		span.RecordError(verifyErr)
 		span.SetStatus(codes.Error, "verification detected corruption")
 

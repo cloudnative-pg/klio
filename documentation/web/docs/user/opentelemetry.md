@@ -125,6 +125,7 @@ operations on each PostgreSQL instance:
 | `klio.plugin.backup.latest_completion_time` | Gauge | s | Unix epoch timestamp when the most recent backup completed successfully |
 | `klio.plugin.backup.latest_failure_time` | Gauge | s | Unix epoch timestamp when the most recent backup failed |
 | `klio.plugin.backup.latest_duration` | Gauge | s | Duration of the most recent backup |
+| `klio.plugin.backup.duration` | Histogram | s | Distribution of backup durations, split by the `outcome` attribute (`success` / `failure`) |
 | `klio.plugin.backup.runs` | Counter | `{backups}` | Total number of backup runs, split by the `outcome` attribute (`success` / `failure`). Failure data points additionally carry a `failure_category` attribute classifying the failure |
 | `klio.plugin.backup.verifications` | Counter | `{verifications}` | Total number of backup verification attempts, split by the `outcome` attribute (`success` / `failure`) |
 

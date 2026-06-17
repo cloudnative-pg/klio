@@ -17,6 +17,19 @@ type PrometheusMetric struct {
 	Name   string
 	Labels map[string]string
 	Value  float64
+	// Histogram holds the aggregated histogram data when the metric is a
+	// histogram; it is nil for every other metric type.
+	Histogram *HistogramData
+}
+
+// HistogramData holds the aggregated values of a Prometheus histogram metric.
+type HistogramData struct {
+	SampleCount uint64
+	SampleSum   float64
+	// BucketCount is the number of emitted `le` buckets (including `+Inf`). A
+	// value greater than one proves the distribution survived the exposition
+	// format, as opposed to an exponential histogram collapsed to `+Inf` only.
+	BucketCount int
 }
 
 // PrometheusMetrics is a collection of parsed Prometheus metrics.
@@ -48,6 +61,14 @@ func ParsePrometheusMetrics(r io.Reader) (PrometheusMetrics, error) {
 				pm.Value = m.GetCounter().GetValue()
 			case m.GetUntyped() != nil:
 				pm.Value = m.GetUntyped().GetValue()
+			case m.GetHistogram() != nil:
+				h := m.GetHistogram()
+				pm.Value = float64(h.GetSampleCount())
+				pm.Histogram = &HistogramData{
+					SampleCount: h.GetSampleCount(),
+					SampleSum:   h.GetSampleSum(),
+					BucketCount: len(h.GetBucket()),
+				}
 			}
 			metrics = append(metrics, pm)
 		}
@@ -114,6 +135,32 @@ func (m PrometheusMetrics) GetValueWithLabels(name string, labels map[string]str
 	}
 
 	return 0, false
+}
+
+// hasLabels reports whether the metric carries every label in the given set.
+func (p PrometheusMetric) hasLabels(labels map[string]string) bool {
+	for k, v := range labels {
+		if p.Labels[k] != v {
+			return false
+		}
+	}
+
+	return true
+}
+
+// GetHistogram returns the histogram data for the metric matching name and all
+// specified labels. Returns nil and false if not found or not a histogram.
+func (m PrometheusMetrics) GetHistogram(
+	name string, labels map[string]string,
+) (*HistogramData, bool) {
+	idx := slices.IndexFunc(m, func(metric PrometheusMetric) bool {
+		return metric.Name == name && metric.Histogram != nil && metric.hasLabels(labels)
+	})
+	if idx == -1 {
+		return nil, false
+	}
+
+	return m[idx].Histogram, true
 }
 
 // HasMetric returns true if a metric with the given name exists.

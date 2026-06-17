@@ -65,6 +65,7 @@ const (
 	PluginBackupLatestCompletionTimeMetric = "klio.plugin.backup.latest_completion_time"
 	PluginBackupLatestFailureTimeMetric    = "klio.plugin.backup.latest_failure_time"
 	PluginBackupLatestDurationMetric       = "klio.plugin.backup.latest_duration"
+	PluginBackupDurationMetric             = "klio.plugin.backup.duration"
 	PluginBackupInProgressMetric           = "klio.plugin.backup.in_progress"
 	PluginBackupRunsMetric                 = "klio.plugin.backup.runs"
 	PluginBackupVerificationsMetric        = "klio.plugin.backup.verifications"
@@ -98,6 +99,7 @@ type PluginBackupMetrics struct {
 	LatestCompletionTime metric.Int64Gauge
 	LatestFailureTime    metric.Int64Gauge
 	LatestDuration       metric.Float64Gauge
+	Duration             metric.Float64Histogram
 	InProgress           metric.Int64UpDownCounter
 	Runs                 metric.Int64Counter
 	Verifications        metric.Int64Counter
@@ -180,6 +182,11 @@ func InitPluginBackupMetrics() {
 	)
 	PluginBackup.LatestDuration, _ = meter.Float64Gauge(PluginBackupLatestDurationMetric,
 		metric.WithDescription("Duration of the most recent backup."),
+		metric.WithUnit("s"),
+	)
+	PluginBackup.Duration, _ = meter.Float64Histogram(PluginBackupDurationMetric,
+		metric.WithDescription("Distribution of backup durations, split by the `outcome` "+
+			"attribute (`success` / `failure`)."),
 		metric.WithUnit("s"),
 	)
 	PluginBackup.InProgress, _ = meter.Int64UpDownCounter(PluginBackupInProgressMetric,

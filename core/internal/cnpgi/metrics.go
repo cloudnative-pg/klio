@@ -28,15 +28,18 @@ func recordBackupFinished(ctx context.Context) {
 func recordBackupSuccess(ctx context.Context, duration time.Duration) {
 	opentelemetry.PluginBackup.LatestCompletionTime.Record(ctx, time.Now().Unix())
 	opentelemetry.PluginBackup.LatestDuration.Record(ctx, duration.Seconds())
+	opentelemetry.PluginBackup.Duration.Record(ctx, duration.Seconds(),
+		metric.WithAttributes(opentelemetry.OutcomeSuccess.Attribute()))
 	opentelemetry.PluginBackup.Runs.Add(ctx, 1,
 		metric.WithAttributes(opentelemetry.OutcomeSuccess.Attribute()))
 }
 
-// recordBackupFailure records a failed backup. The category is
-// attached to the runs counter via the `failure_category` attribute.
-func recordBackupFailure(ctx context.Context, err error) {
+// recordBackupFailure records a failed backup.
+func recordBackupFailure(ctx context.Context, duration time.Duration, err error) {
 	category := classifyRunBackupError(ctx, err)
 	opentelemetry.PluginBackup.LatestFailureTime.Record(ctx, time.Now().Unix())
+	opentelemetry.PluginBackup.Duration.Record(ctx, duration.Seconds(),
+		metric.WithAttributes(opentelemetry.OutcomeFailure.Attribute()))
 	opentelemetry.PluginBackup.Runs.Add(ctx, 1,
 		metric.WithAttributes(
 			opentelemetry.OutcomeFailure.Attribute(),

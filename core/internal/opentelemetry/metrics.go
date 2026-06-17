@@ -60,6 +60,22 @@ func newMeterProvider(ctx context.Context) (*metric.MeterProvider, error) {
 			metric.WithProducer(bridge),
 		)),
 		metric.WithResource(res),
+		// Use an explicit-bucket histogram for backup durations with boundaries
+		// spanning seconds to a full day (10s, 30s, 1m, 5m, 10m, 30m,
+		// 1h, 2h, 4h, 8h, 12h, 24h, 48h, 96h, 1w and 2w).
+		metric.WithView(
+			metric.NewView(
+				metric.Instrument{Name: PluginBackupDurationMetric},
+				metric.Stream{
+					Name: PluginBackupDurationMetric,
+					Aggregation: metric.AggregationExplicitBucketHistogram{
+						Boundaries: []float64{
+							10, 30, 60, 300, 600, 1800, 3600, 7200, 14400, 21600, 43200, 86400, 172800, 604800, 1209600,
+						},
+					},
+				},
+			),
+		),
 	)
 
 	return meterProvider, nil

@@ -237,6 +237,7 @@ decrypted
 deduplication
 dev
 docusaurus
+durations
 enterprisedb
 env
 failover
