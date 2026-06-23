@@ -10,7 +10,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.opentelemetry.io/otel"
-	"go.opentelemetry.io/otel/attribute"
 	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
 	"go.opentelemetry.io/otel/sdk/metric/metricdata"
 
@@ -97,16 +96,16 @@ func findInt64SumDataPoints(
 	return nil
 }
 
-// findInt64SumValueByOutcome returns the value of the data point on the named
-// Int64 Sum instrument that carries the given `outcome` attribute, or
-// (0, false) if no such data point exists.
-func findInt64SumValueByOutcome(
-	rm metricdata.ResourceMetrics, name string, outcome opentelemetry.Outcome,
+// findBackupInt64SumValueByOutcome returns the value of the data point on the
+// backup runs Int64 Sum instrument that carries the given `outcome`
+// attribute, or (0, false) if no such data point exists.
+func findBackupInt64SumValueByOutcome(
+	rm metricdata.ResourceMetrics, outcome opentelemetry.Outcome,
 ) (int64, bool) {
 	var total int64
 	var found bool
-	for _, dp := range findInt64SumDataPoints(rm, name) {
-		v, ok := dp.Attributes.Value(attribute.Key("outcome"))
+	for _, dp := range findInt64SumDataPoints(rm, opentelemetry.PluginBackupRunsMetric) {
+		v, ok := dp.Attributes.Value("outcome")
 		if !ok {
 			continue
 		}
@@ -119,14 +118,14 @@ func findInt64SumValueByOutcome(
 	return total, found
 }
 
-// findInt64SumValueByFailureCategory returns the value of the data point on
-// the named Int64 Sum instrument that carries the given `failure_category`
-// attribute, or (0, false) if no such data point exists.
-func findInt64SumValueByFailureCategory(
-	rm metricdata.ResourceMetrics, name string, category backupfailure.Category,
+// findBackupInt64SumValueByFailureCategory returns the value of the data point on
+// the backup runs Int64 Sum instrument that carries the given
+// `failure_category` attribute, or (0, false) if no such data point exists.
+func findBackupInt64SumValueByFailureCategory(
+	rm metricdata.ResourceMetrics, category backupfailure.Category,
 ) (int64, bool) {
-	for _, dp := range findInt64SumDataPoints(rm, name) {
-		v, ok := dp.Attributes.Value(attribute.Key("failure_category"))
+	for _, dp := range findInt64SumDataPoints(rm, opentelemetry.PluginBackupRunsMetric) {
+		v, ok := dp.Attributes.Value("failure_category")
 		if !ok {
 			continue
 		}
@@ -163,7 +162,7 @@ func findHistogramByOutcome(
 	rm metricdata.ResourceMetrics, name string, outcome opentelemetry.Outcome,
 ) (uint64, float64, bool) {
 	for _, dp := range findFloat64HistogramDataPoints(rm, name) {
-		v, ok := dp.Attributes.Value(attribute.Key("outcome"))
+		v, ok := dp.Attributes.Value("outcome")
 		if !ok {
 			continue
 		}
@@ -215,13 +214,13 @@ func TestRecordBackupSuccess(t *testing.T) {
 	require.True(t, ok)
 	assert.Equal(t, int64(0), inProgress)
 
-	successes, ok := findInt64SumValueByOutcome(
-		rm, opentelemetry.PluginBackupRunsMetric, opentelemetry.OutcomeSuccess)
+	successes, ok := findBackupInt64SumValueByOutcome(
+		rm, opentelemetry.OutcomeSuccess)
 	require.True(t, ok)
 	assert.Equal(t, int64(1), successes)
 
-	_, failPresent := findInt64SumValueByOutcome(
-		rm, opentelemetry.PluginBackupRunsMetric, opentelemetry.OutcomeFailure)
+	_, failPresent := findBackupInt64SumValueByOutcome(
+		rm, opentelemetry.OutcomeFailure)
 	assert.False(t, failPresent, "no failure data point should be emitted on a clean success")
 
 	histCount, histSum, ok := findHistogramByOutcome(
@@ -254,8 +253,8 @@ func TestRecordBackupFailure(t *testing.T) {
 	require.True(t, ok)
 	assert.Equal(t, int64(0), inProgress)
 
-	failures, ok := findInt64SumValueByOutcome(
-		rm, opentelemetry.PluginBackupRunsMetric, opentelemetry.OutcomeFailure)
+	failures, ok := findBackupInt64SumValueByOutcome(
+		rm, opentelemetry.OutcomeFailure)
 	require.True(t, ok)
 	assert.Equal(t, int64(1), failures)
 
@@ -265,8 +264,8 @@ func TestRecordBackupFailure(t *testing.T) {
 	assert.Equal(t, uint64(1), histCount)
 	assert.InDelta(t, 7.0, histSum, 0.01)
 
-	byCat, ok := findInt64SumValueByFailureCategory(
-		rm, opentelemetry.PluginBackupRunsMetric, backupfailure.RepositoryError)
+	byCat, ok := findBackupInt64SumValueByFailureCategory(
+		rm, backupfailure.RepositoryError)
 	require.True(t, ok)
 	assert.Equal(t, int64(1), byCat)
 }
@@ -294,14 +293,14 @@ func TestRecordBackupFailureCategoriesAreSeparateSeries(t *testing.T) {
 		backupfailure.Canceled:     2,
 		backupfailure.Verification: 1,
 	} {
-		got, ok := findInt64SumValueByFailureCategory(
-			rm, opentelemetry.PluginBackupRunsMetric, category)
+		got, ok := findBackupInt64SumValueByFailureCategory(
+			rm, category)
 		require.True(t, ok, "expected data point for category %q", category.Name)
 		assert.Equal(t, want, got, "category %q", category.Name)
 	}
 
-	totalFailures, ok := findInt64SumValueByOutcome(
-		rm, opentelemetry.PluginBackupRunsMetric, opentelemetry.OutcomeFailure)
+	totalFailures, ok := findBackupInt64SumValueByOutcome(
+		rm, opentelemetry.OutcomeFailure)
 	require.True(t, ok)
 	assert.Equal(t, int64(4), totalFailures)
 }
@@ -313,8 +312,8 @@ func TestRecordBackupFailureNilErrorDefaultsToUnknown(t *testing.T) {
 
 	rm := collectOTelMetrics(t, reader)
 
-	unknown, ok := findInt64SumValueByFailureCategory(
-		rm, opentelemetry.PluginBackupRunsMetric, backupfailure.Unknown)
+	unknown, ok := findBackupInt64SumValueByFailureCategory(
+		rm, backupfailure.Unknown)
 	require.True(t, ok)
 	assert.Equal(t, int64(1), unknown)
 }
@@ -339,13 +338,13 @@ func TestBackupMetricsMultipleRuns(t *testing.T) {
 
 	rm := collectOTelMetrics(t, reader)
 
-	successes, ok := findInt64SumValueByOutcome(
-		rm, opentelemetry.PluginBackupRunsMetric, opentelemetry.OutcomeSuccess)
+	successes, ok := findBackupInt64SumValueByOutcome(
+		rm, opentelemetry.OutcomeSuccess)
 	require.True(t, ok)
 	assert.Equal(t, int64(2), successes)
 
-	failures, ok := findInt64SumValueByOutcome(
-		rm, opentelemetry.PluginBackupRunsMetric, opentelemetry.OutcomeFailure)
+	failures, ok := findBackupInt64SumValueByOutcome(
+		rm, opentelemetry.OutcomeFailure)
 	require.True(t, ok)
 	assert.Equal(t, int64(1), failures)
 
@@ -371,59 +370,4 @@ func TestBackupMetricsMultipleRuns(t *testing.T) {
 	require.True(t, ok)
 	assert.Equal(t, uint64(1), failureCount)
 	assert.InDelta(t, 3.0, failureSum, 0.01)
-}
-
-func TestRecordVerificationSuccess(t *testing.T) {
-	reader := setupTestMeter(t)
-
-	recordVerificationSuccess(context.Background())
-	recordVerificationSuccess(context.Background())
-
-	rm := collectOTelMetrics(t, reader)
-
-	successes, ok := findInt64SumValueByOutcome(
-		rm, opentelemetry.PluginBackupVerificationsMetric, opentelemetry.OutcomeSuccess)
-	require.True(t, ok)
-	assert.Equal(t, int64(2), successes)
-
-	_, failPresent := findInt64SumValueByOutcome(
-		rm, opentelemetry.PluginBackupVerificationsMetric, opentelemetry.OutcomeFailure)
-	assert.False(t, failPresent, "no failure data point should be emitted when no failure happens")
-}
-
-func TestRecordVerificationFailure(t *testing.T) {
-	reader := setupTestMeter(t)
-
-	recordVerificationFailure(context.Background())
-
-	rm := collectOTelMetrics(t, reader)
-
-	failures, ok := findInt64SumValueByOutcome(
-		rm, opentelemetry.PluginBackupVerificationsMetric, opentelemetry.OutcomeFailure)
-	require.True(t, ok)
-	assert.Equal(t, int64(1), failures)
-
-	_, successPresent := findInt64SumValueByOutcome(
-		rm, opentelemetry.PluginBackupVerificationsMetric, opentelemetry.OutcomeSuccess)
-	assert.False(t, successPresent, "no success data point should be emitted when no success happens")
-}
-
-func TestRecordMixed(t *testing.T) {
-	reader := setupTestMeter(t)
-
-	recordVerificationSuccess(context.Background())
-	recordVerificationFailure(context.Background())
-	recordVerificationSuccess(context.Background())
-
-	rm := collectOTelMetrics(t, reader)
-
-	successes, ok := findInt64SumValueByOutcome(
-		rm, opentelemetry.PluginBackupVerificationsMetric, opentelemetry.OutcomeSuccess)
-	require.True(t, ok)
-	assert.Equal(t, int64(2), successes)
-
-	failures, ok := findInt64SumValueByOutcome(
-		rm, opentelemetry.PluginBackupVerificationsMetric, opentelemetry.OutcomeFailure)
-	require.True(t, ok)
-	assert.Equal(t, int64(1), failures)
 }

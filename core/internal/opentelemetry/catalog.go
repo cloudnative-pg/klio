@@ -68,7 +68,6 @@ const (
 	PluginBackupDurationMetric             = "klio.plugin.backup.duration"
 	PluginBackupInProgressMetric           = "klio.plugin.backup.in_progress"
 	PluginBackupRunsMetric                 = "klio.plugin.backup.runs"
-	PluginBackupVerificationsMetric        = "klio.plugin.backup.verifications"
 
 	ServerWalWrittenSizeMetric           = "klio.server.wal.written_size"
 	ServerWalWrittenMetric               = "klio.server.wal.written"
@@ -90,10 +89,11 @@ const (
 )
 
 // PluginBackupMetrics holds OTel instruments for backup lifecycle tracking.
-// The Runs and Verifications counters carry an `outcome` attribute
-// (`success` / `failure`) so a single instrument exposes both flavors.
-// Runs failure data points additionally carry a `failure_category`
-// attribute classifying the failure (see opentelemetry.FailureCategory).
+// The Runs counter carries an `outcome` attribute (`success` / `failure`)
+// so a single instrument exposes both flavors. Runs failure data points
+// additionally carry a `failure_category` attribute classifying the failure
+// (see opentelemetry.FailureCategory); verification failures are recorded
+// here with `failure_category="verification"`.
 type PluginBackupMetrics struct {
 	LatestStartTime      metric.Int64Gauge
 	LatestCompletionTime metric.Int64Gauge
@@ -102,7 +102,6 @@ type PluginBackupMetrics struct {
 	Duration             metric.Float64Histogram
 	InProgress           metric.Int64UpDownCounter
 	Runs                 metric.Int64Counter
-	Verifications        metric.Int64Counter
 }
 
 // ServerBackupMetrics holds OTel instruments for server-side backup state.
@@ -199,11 +198,6 @@ func InitPluginBackupMetrics() {
 			"carry a `failure_category` attribute (`"+
 			strings.Join(backupfailure.Names(), "`, `")+"`)."),
 		metric.WithUnit("{backups}"),
-	)
-	PluginBackup.Verifications, _ = meter.Int64Counter(PluginBackupVerificationsMetric,
-		metric.WithDescription("Total number of backup verification attempts, split by "+
-			"the `outcome` attribute (`success` / `failure`)."),
-		metric.WithUnit("{verifications}"),
 	)
 }
 

@@ -531,8 +531,6 @@ func assertOTELMetricsReceived(
 		"metric klio_plugin_backup_in_progress not found")
 	assert.True(t, promMetrics.HasMetric("klio_plugin_backup_runs_total"),
 		"metric klio_plugin_backup_runs_total not found")
-	assert.True(t, promMetrics.HasMetric("klio_plugin_backup_verifications_total"),
-		"metric klio_plugin_backup_verifications_total not found")
 	assert.True(t, promMetrics.HasMetric("klio_plugin_backup_latest_start_time_seconds"),
 		"metric klio_plugin_backup_latest_start_time_seconds not found")
 	assert.True(t, promMetrics.HasMetric("klio_plugin_backup_latest_completion_time_seconds"),
@@ -554,14 +552,6 @@ func assertOTELMetricsReceived(
 	if assert.True(t, found,
 		`klio_plugin_backup_runs_total{outcome="success"} not found`) {
 		assert.GreaterOrEqual(t, successes, float64(1), "should have at least 1 successful backup")
-	}
-
-	verifications, found := promMetrics.GetValueWithLabels(
-		"klio_plugin_backup_verifications_total", successLabels)
-	if assert.True(t, found,
-		`klio_plugin_backup_verifications_total{outcome="success"} not found`) {
-		assert.GreaterOrEqual(t, verifications, float64(1),
-			"should have at least 1 successful verification")
 	}
 
 	duration, found := promMetrics.GetValue("klio_plugin_backup_latest_duration_seconds")

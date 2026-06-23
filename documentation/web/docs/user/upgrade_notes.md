@@ -47,11 +47,6 @@ counter per family, distinguished by an `outcome` attribute
 
 - `klio.plugin.backup.successes` and `klio.plugin.backup.failures`
   are now both reported as `klio.plugin.backup.runs` with `outcome`.
-- `klio.plugin.backup.verifications` no longer counts every attempt
-  on its own; it is now split by `outcome`. The previous total is
-  recoverable as `sum by () (klio.plugin.backup.verifications)`, and
-  the previous `klio.plugin.backup.verification_failures` counter is
-  `klio.plugin.backup.verifications{outcome="failure"}`.
 - `klio.server.backup.verification_success` and
   `klio.server.backup.verification_failure` are now both reported as
   `klio.server.backup.verifications` with `outcome` (and the existing

@@ -114,10 +114,11 @@ func (b backupServiceImplementation) Backup(
 		return nil, err
 	}
 
-	// Step 3: verify the backup on tier1
+	// Step 3: verify the backup on tier1. A corruption failure is recorded
+	// on the runs counter with failure_category="verification"; a clean
+	// verification is folded into the successful-backup recording below.
 	corruption, verifyErr := b.runVerify(ctx, backupName)
 	if corruption {
-		recordVerificationFailure(ctx)
 		recordBackupFailure(ctx, time.Since(backupStart), verifyErr)
 		span.RecordError(verifyErr)
 		span.SetStatus(codes.Error, "verification detected corruption")
@@ -125,7 +126,6 @@ func (b backupServiceImplementation) Backup(
 		return nil, verifyErr
 	}
 
-	recordVerificationSuccess(ctx)
 	recordBackupSuccess(ctx, time.Since(backupStart))
 
 	// Step 4: trigger maintenance

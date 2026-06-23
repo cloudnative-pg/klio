@@ -108,7 +108,7 @@ attribute key.
 |---|---|---|
 | `tier` | `tier1` (local disk on the Klio server), `tier2` (remote object store) | All `klio.server.wal.*` and `klio.server.backup.*` instruments. |
 | `cluster_name` | Name of the PostgreSQL cluster the recording belongs to | All `klio.server.wal.*` instruments. |
-| `outcome` | `success`, `failure` | `klio.plugin.backup.runs`, `klio.plugin.backup.verifications`, `klio.server.backup.verifications`. |
+| `outcome` | `success`, `failure` | `klio.plugin.backup.runs`, `klio.server.backup.verifications`. |
 | `failure_category` | `repository_error`, `source_error`, `verification`, `timeout`, `canceled`, `unknown` | `klio.plugin.backup.runs` failure data points only. |
 | `snapshot_source` | Kopia source descriptor (`userName@hostName:path`) | All `klio.server.backup.*` base snapshot gauges (`snapshots`, `latest_snapshot_*`, `oldest_snapshot_age`). |
 | `stream` | JetStream stream name (`klio-wal-stream`, `klio-backup-stream`, `klio-latest-uploaded-wal-per-cluster-stream`) | `klio.server.queue.messages`, `klio.server.queue.bytes`. |
@@ -126,8 +126,7 @@ operations on each PostgreSQL instance:
 | `klio.plugin.backup.latest_failure_time` | Gauge | s | Unix epoch timestamp when the most recent backup failed |
 | `klio.plugin.backup.latest_duration` | Gauge | s | Duration of the most recent backup |
 | `klio.plugin.backup.duration` | Histogram | s | Distribution of backup durations, split by the `outcome` attribute (`success` / `failure`) |
-| `klio.plugin.backup.runs` | Counter | `{backups}` | Total number of backup runs, split by the `outcome` attribute (`success` / `failure`). Failure data points additionally carry a `failure_category` attribute classifying the failure |
-| `klio.plugin.backup.verifications` | Counter | `{verifications}` | Total number of backup verification attempts, split by the `outcome` attribute (`success` / `failure`) |
+| `klio.plugin.backup.runs` | Counter | `{backups}` | Total number of backup runs, split by the `outcome` attribute (`success` / `failure`). Failure data points additionally carry a `failure_category` attribute classifying the failure. Backup verification is part of a run: a verification failure is recorded here with `failure_category="verification"`, and a clean verification is included in the `outcome="success"` count |
 
 The `failure_category` attribute on `klio.plugin.backup.runs` failure
 data points takes one of the following values:
@@ -150,10 +149,9 @@ These metrics are tied to the plugin sidecar lifecycle: when the
 sidecar restarts (for example, after a pod reschedule or PostgreSQL
 instance failover) the counters reset to zero and the gauges are
 re-initialized on the next backup. As a result,
-`klio.plugin.backup.runs` and `klio.plugin.backup.verifications`
-report totals since the last sidecar start rather than over the life
-of the cluster, and may diverge from the count of `Backup`
-resources.
+`klio.plugin.backup.runs` reports totals since the last sidecar start
+rather than over the life of the cluster, and may diverge from the
+count of `Backup` resources.
 :::
 
 ### WAL ingest metrics (server)
@@ -284,8 +282,8 @@ and alerts according to the following table:
 | `klio.backup.running` | `klio.plugin.backup.in_progress` | Renamed and switched from a 0/1 gauge to an UpDownCounter; reports the number of concurrent backups in progress.                                                                                                                                                                                                                                                                                             |
 | `klio.backup.latest_duration_seconds` | `klio.plugin.backup.latest_duration` | The `_seconds` suffix was dropped — the unit (`s`) is conveyed via the OpenTelemetry metric metadata, per [semantic conventions guidelines](https://opentelemetry.io/docs/specs/semconv/general/metrics/#units). The Prometheus export name is unchanged (`klio_plugin_backup_latest_duration_seconds`) because the Prometheus exporter appends the unit suffix when the OpenTelemetry name lacks it. |
 | `klio.backup.successes`, `klio.backup.failures` | `klio.plugin.backup.runs` | Collapsed into a single counter with an `outcome` attribute (`success` / `failure`).                                                                                                                                                                                                                                                                                                                         |
-| `klio.backup.verifications` | `klio.plugin.backup.verifications` | Now split by an `outcome` attribute (`success` / `failure`); the total attempt count is `sum by () (verifications)`.                                                                                                                                                                                                                                                                                         |
-| `klio.backup.verification_failures` | `klio.plugin.backup.verifications{outcome="failure"}` | Folded into the `verifications` counter via the `outcome` attribute.                                                                                                                                                                                                                                                                                                                                         |
+| `klio.backup.verifications` | `klio.plugin.backup.runs` | Verification is part of a backup run; a clean verification is part of the `outcome="success"` count.                                                                                                                                                                                                                                                                                                          |
+| `klio.backup.verification_failures` | `klio.plugin.backup.runs{outcome="failure",failure_category="verification"}` | Verification corruption is recorded as a run failure with `failure_category="verification"`.                                                                                                                                                                                                                                                                                                                 |
 | `klio.wal.written_size` | `klio.server.wal.written_size` | Carries `tier="tier1"`.                                                                                                                                                                                                                                                                                                                                                                                      |
 | `klio.wal.written` | `klio.server.wal.written` | Carries `tier="tier1"`.                                                                                                                                                                                                                                                                                                                                                                                      |
 | `klio.wal.latest_written_time` | `klio.server.wal.latest_written_time` | Carries `tier="tier1"`.                                                                                                                                                                                                                                                                                                                                                                                      |

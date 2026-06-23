@@ -46,15 +46,3 @@ func recordBackupFailure(ctx context.Context, duration time.Duration, err error)
 			opentelemetry.AttributeKeyFailureCategory.Of(category.Name),
 		))
 }
-
-// recordVerificationSuccess records a successful verification.
-func recordVerificationSuccess(ctx context.Context) {
-	opentelemetry.PluginBackup.Verifications.Add(ctx, 1,
-		metric.WithAttributes(opentelemetry.OutcomeSuccess.Attribute()))
-}
-
-// recordVerificationFailure records a failed verification.
-func recordVerificationFailure(ctx context.Context) {
-	opentelemetry.PluginBackup.Verifications.Add(ctx, 1,
-		metric.WithAttributes(opentelemetry.OutcomeFailure.Attribute()))
-}
