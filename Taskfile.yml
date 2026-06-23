@@ -721,6 +721,20 @@ tasks:
       # renovate: datasource=git-refs depName=kustomize lookupName=https://github.com/sagikazarmark/daggerverse currentValue=main
       DAGGER_KUSTOMIZE_SHA: ff27cd50f6b4eed2e3753c520632cd6099e1ce52
     cmds:
+      # Generate the kustomize patch that bakes the operand (sidecar) image into
+      # the operator Deployment as the SIDECAR_IMAGE env var, so the OLM
+      # Subscription does not need to set it. The operand shares the operator's
+      # registry and tag, differing only by the "klio" repository instead of
+      # "klio-operator". The patch is consumed by
+      # operator/config/olm-default/kustomization.yaml.
+      - |
+        cat > operator/config/olm-default/manager_sidecar_image_patch.yaml <<EOF
+        - op: add
+          path: /spec/template/spec/containers/0/env
+          value:
+            - name: SIDECAR_IMAGE
+              value: ${registry}/klio${suffix}:${tag}
+        EOF
       - >
         GITHUB_REF= dagger -s call -m github.com/sagikazarmark/daggerverse/kustomize@${DAGGER_KUSTOMIZE_SHA}
         edit --source .
@@ -1261,10 +1275,8 @@ tasks:
       KLIO_PACKAGE: 'klio-operator'
       # opm semver renders 0.x.y bundles into stable-v0; bump on 1.0.0.
       KLIO_CHANNEL: 'stable-v0'
-      # SIDECAR_IMAGE is wired via Subscription.spec.config.env so the CNPG
-      # plugin has an image to inject.
-      OPERAND_IMAGE_REPOSITORY: '{{ .OPERAND_IMAGE_REPOSITORY | default "ghcr.io/enterprisedb/klio-testing" }}'
-      OPERAND_IMAGE_TAG: '{{ .OPERAND_IMAGE_TAG | default .IMAGE_TAG }}'
+      # SIDECAR_IMAGE is baked into the operator Deployment by the bundle (see
+      # the olm:manifest task), so the Subscription does not need to set it.
     preconditions:
       - sh: test -s operator/klio-operator-catalog-source.yaml
         msg: |
@@ -1354,10 +1366,6 @@ tasks:
           source: klio-catalog
           sourceNamespace: openshift-marketplace
           installPlanApproval: Automatic
-          config:
-            env:
-              - name: SIDECAR_IMAGE
-                value: {{ .OPERAND_IMAGE_REPOSITORY }}:{{ .OPERAND_IMAGE_TAG }}
         EOF
       - |
         set -euo pipefail

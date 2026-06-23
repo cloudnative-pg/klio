@@ -5,6 +5,15 @@ resources:
 - ../default
 - plugin_service.yaml
 
+# Bake the Klio sidecar (operand) image into the operator Deployment as the
+# SIDECAR_IMAGE env var, so OLM Subscriptions do not need to set it. The patch
+# is generated (with the right image) by the `olm:manifest` task and is git
+# ignored.
+patches:
+- path: manager_sidecar_image_patch.yaml
+  target:
+    kind: Deployment
+
 #patches:
 #- path: olm_changes.yaml
 #  target:

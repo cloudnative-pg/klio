@@ -9,6 +9,7 @@ Bignum
 BucketName
 ByteString
 CAs
+CEL
 CLI
 CNPG
 CRC

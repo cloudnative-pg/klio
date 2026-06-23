@@ -157,6 +157,14 @@ oc apply -f openshift_subscription.yaml
 OLM will create an `InstallPlan` and deploy the operator into
 the `openshift-operators` namespace.
 
+:::note
+The Klio sidecar (operand) image is baked into the operator
+Deployment by the bundle as the `SIDECAR_IMAGE` environment
+variable. It uses the same registry and tag as the operator
+image by default, with the `klio` repository instead of
+`klio-operator`. The Subscription can override it.
+:::
+
 ## 4. Create TLS certificates
 
 The Klio plugin requires two TLS secrets to establish mutual

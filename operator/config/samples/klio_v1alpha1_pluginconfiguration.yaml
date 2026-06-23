@@ -1,0 +1,30 @@
+apiVersion: klio.cnpg.io/v1alpha1
+kind: PluginConfiguration
+metadata:
+  name: pluginconfiguration-sample
+spec:
+  serverAddress: server-sample.default
+  clusterName: cluster-example
+  clientSecretName: cluster-example-klio-user
+  serverSecretName: server-sample-tls
+  tier1:
+    retention:
+      keepLatest: 10
+      keepHourly: 48
+      keepDaily: 7
+      keepWeekly: 4
+      keepMonthly: 24
+      keepAnnual: 1
+  tier2:
+    enableBackup: true
+    enableRecovery: true
+    retention:
+      keepLatest: 10
+      keepHourly: 48
+      keepDaily: 7
+      keepWeekly: 4
+      keepMonthly: 24
+      keepAnnual: 1
+  walPrefetch:
+    count: 2
+    maxConcurrentDownloads: 4
