@@ -41,7 +41,7 @@ func (m *Devenv) Kubernetes(
 	source *dagger.Directory,
 // +optional
 // renovate image: datasource=docker depName=registry versioning=docker
-// +default="registry:3.1@sha256:3bf995b87d68313b9eca73c472d9db38e4d8399ec763e84827c28620d3cbe880"
+// +default="registry:3.1@sha256:5620083c96ffb6f6296bbda84b2da7e822ed95d8df10de6434cee19c39fe0e9c"
 	registryImage string,
 // +optional
 // renovate image: datasource=docker depName=skopeo lookupName=quay.io/skopeo/stable versioning=docker
