@@ -25,8 +25,10 @@ import (
 	"sigs.k8s.io/e2e-framework/pkg/envconf"
 
 	kliov1alpha1 "github.com/cloudnative-pg/klio/operator/api/v1alpha1"
+	"github.com/cloudnative-pg/klio/operator/test/klio/testconfig"
 	machineryConditions "github.com/cloudnative-pg/klio/operator/test/machinery/pkg/conditions"
 	machineryFeatures "github.com/cloudnative-pg/klio/operator/test/machinery/pkg/features"
+	"github.com/cloudnative-pg/klio/operator/test/machinery/pkg/namespaces"
 	"github.com/cloudnative-pg/klio/operator/test/machinery/pkg/pods"
 	"github.com/cloudnative-pg/klio/operator/test/utils/conditions"
 	"github.com/cloudnative-pg/klio/operator/test/utils/metrics"
@@ -443,6 +445,8 @@ func (s *otelMetricsScenario) Teardown(
 	// Delete cluster-scoped resources
 	_ = r.Delete(ctx, s.otelClusterRoleBinding)
 	_ = r.Delete(ctx, s.otelClusterRole)
+
+	namespaces.DumpNamespaceOnFailure(ctx, t, r, testCfg.LogDir, s.namespace.Name, testconfig.DumpedKinds())
 
 	// Delete namespace (will cascade delete namespaced resources)
 	require.NoError(t, r.Delete(ctx, s.namespace), "failed to delete namespace")

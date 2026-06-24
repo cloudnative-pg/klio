@@ -44,6 +44,7 @@ EnableBackup
 EnableRecovery
 EncryptionKey
 EncryptionKeyFile
+EndpointSlices
 Enum
 ExactlyOneOf
 FailedBackup
@@ -174,6 +175,7 @@ ServerMode
 ServerSecretName
 ServerSpec
 ServerStatus
+ServiceAccounts
 ServiceMonitor
 SessionExpirationAge
 SetFirstRequiredWAL
@@ -324,6 +326,7 @@ stderr
 str
 subprocess
 tablespaces
+teardown
 tgz
 tolerations
 topologySpreadConstraints

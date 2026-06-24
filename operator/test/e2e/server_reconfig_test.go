@@ -20,6 +20,8 @@ import (
 
 	kliov1alpha1 "github.com/cloudnative-pg/klio/operator/api/v1alpha1"
 	"github.com/cloudnative-pg/klio/operator/test/klio/infra"
+	"github.com/cloudnative-pg/klio/operator/test/klio/testconfig"
+	"github.com/cloudnative-pg/klio/operator/test/machinery/pkg/namespaces"
 	"github.com/cloudnative-pg/klio/operator/test/utils/conditions"
 	"github.com/cloudnative-pg/klio/operator/test/utils/templates/certificates"
 	"github.com/cloudnative-pg/klio/operator/test/utils/templates/klio"
@@ -110,6 +112,7 @@ func (s *serverReconfigScenario) Teardown(
 	t.Logf("Tearing down resources for server reconfiguration feature: %s", s.name)
 	r, err := resources.New(cfg.Client().RESTConfig())
 	require.NoError(t, err, "failed to create resources client")
+	namespaces.DumpNamespaceOnFailure(ctx, t, r, testCfg.LogDir, s.namespace.Name, testconfig.DumpedKinds())
 	require.NoError(t, r.Delete(ctx, s.namespace), "failed to delete namespace")
 	t.Logf("Resources torn down for server reconfiguration feature: %s", s.name)
 

@@ -12,7 +12,9 @@ import (
 	"sigs.k8s.io/e2e-framework/pkg/envconf"
 
 	klioFeatures "github.com/cloudnative-pg/klio/operator/test/klio/features"
+	"github.com/cloudnative-pg/klio/operator/test/klio/testconfig"
 	machineryConditions "github.com/cloudnative-pg/klio/operator/test/machinery/pkg/conditions"
+	"github.com/cloudnative-pg/klio/operator/test/machinery/pkg/namespaces"
 	"github.com/cloudnative-pg/klio/operator/test/utils/conditions"
 )
 
@@ -134,6 +136,7 @@ func (c *missingPluginConfigurationScenario) Teardown(
 	t.Logf("Tearing down resources for missing PluginConfiguration feature: %s", c.name)
 	r, err := resources.New(cfg.Client().RESTConfig())
 	require.NoError(t, err, "failed to create resources client")
+	namespaces.DumpNamespaceOnFailure(ctx, t, r, testCfg.LogDir, c.namespace.Name, testconfig.DumpedKinds())
 	require.NoError(t, r.Delete(ctx, c.namespace), "failed to delete namespace")
 	t.Logf("Resources torn down for missing PluginConfiguration feature: %s", c.name)
 

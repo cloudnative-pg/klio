@@ -111,6 +111,14 @@ runner.RegisterFeatures(
 > `documentation/web/docs/developer/running-e2e-tests.md` to list the
 > new file and its feature function(s).
 
+#### Test Package Structure
+
+The `operator/test/machinery` package may only contain helpers that are
+generic to any Kubernetes cluster or to CloudNativePG. Anything
+Klio-specific (Server/PluginConfiguration resources, Klio config,
+Klio-only assertions) must live outside `machinery` — e.g. under
+`operator/test/klio` or the `operator/test/e2e` package itself.
+
 ## Code Style
 
 - Avoid inline error strings; define error variables instead

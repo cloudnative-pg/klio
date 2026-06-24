@@ -22,7 +22,9 @@ import (
 	"sigs.k8s.io/e2e-framework/pkg/envconf"
 	"sigs.k8s.io/e2e-framework/pkg/types"
 
+	"github.com/cloudnative-pg/klio/operator/test/klio/testconfig"
 	machineryConditions "github.com/cloudnative-pg/klio/operator/test/machinery/pkg/conditions"
+	"github.com/cloudnative-pg/klio/operator/test/machinery/pkg/namespaces"
 	"github.com/cloudnative-pg/klio/operator/test/utils/metrics"
 )
 
@@ -267,6 +269,8 @@ func (f *operatorOTELFeature) Teardown() types.StepFunc {
 		}
 
 		// Clean up the test namespace.
+		namespaces.DumpNamespaceOnFailure(
+			ctx, t, cfg.Client().Resources(), testCfg.LogDir, f.namespace, testconfig.DumpedKinds())
 		_ = clientset.CoreV1().Namespaces().Delete(ctx, f.namespace, metav1.DeleteOptions{})
 
 		return ctx

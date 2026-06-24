@@ -9,7 +9,15 @@ import (
 	"errors"
 	"os"
 
+	cnpgv1 "github.com/cloudnative-pg/api/pkg/api/v1"
 	"github.com/spf13/viper"
+	appsv1 "k8s.io/api/apps/v1"
+	batchv1 "k8s.io/api/batch/v1"
+	corev1 "k8s.io/api/core/v1"
+	discoveryv1 "k8s.io/api/discovery/v1"
+	"sigs.k8s.io/e2e-framework/klient/k8s"
+
+	kliov1alpha1 "github.com/cloudnative-pg/klio/operator/api/v1alpha1"
 )
 
 // Config value defaults.
@@ -108,4 +116,26 @@ func Load() (*Config, error) {
 	}
 
 	return &cfg, nil
+}
+
+// DumpedKinds is the ordered set of object lists dumped for a namespace on
+// failure. It covers the Klio and CloudNativePG custom resources together with
+// the core workload objects needed to debug a failed e2e test. A fresh set is
+// returned on each call so parallel features never share list objects.
+func DumpedKinds() []k8s.ObjectList {
+	return []k8s.ObjectList{
+		&kliov1alpha1.ServerList{},
+		&kliov1alpha1.PluginConfigurationList{},
+		&cnpgv1.ClusterList{},
+		&cnpgv1.BackupList{},
+		&cnpgv1.ScheduledBackupList{},
+		&corev1.PodList{},
+		&corev1.PersistentVolumeClaimList{},
+		&corev1.ServiceAccountList{},
+		&corev1.EventList{},
+		&appsv1.StatefulSetList{},
+		&appsv1.DeploymentList{},
+		&batchv1.JobList{},
+		&discoveryv1.EndpointSliceList{},
+	}
 }

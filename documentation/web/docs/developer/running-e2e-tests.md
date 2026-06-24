@@ -216,6 +216,17 @@ completes. In CI, that directory is uploaded as a workflow artifact
 named `e2e_cluster_logs` and is available for download from the
 GitHub Actions run page.
 
+### Namespace object dumps on failure
+
+When a feature fails, its teardown writes a JSON snapshot of the
+objects in the test namespace under `<logDir>/<namespace>/`, one
+`<Kind>.json` file per resource kind (for example `PodList.json` and
+`ClusterList.json`), before the namespace is deleted. It covers the Klio
+and CloudNativePG custom resources together with the core workload
+objects (Pods, PVCs, Jobs, Events, ServiceAccounts, EndpointSlices,
+StatefulSets and Deployments), giving a point-in-time view of the
+cluster state at the moment of failure.
+
 ## Running on OpenShift
 
 The project includes an OpenShift-based e2e pipeline that validates

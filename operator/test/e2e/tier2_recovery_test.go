@@ -17,8 +17,10 @@ import (
 
 	kliov1alpha1 "github.com/cloudnative-pg/klio/operator/api/v1alpha1"
 	"github.com/cloudnative-pg/klio/operator/test/klio/infra"
+	"github.com/cloudnative-pg/klio/operator/test/klio/testconfig"
 	machineryConditions "github.com/cloudnative-pg/klio/operator/test/machinery/pkg/conditions"
 	machineryFeatures "github.com/cloudnative-pg/klio/operator/test/machinery/pkg/features"
+	"github.com/cloudnative-pg/klio/operator/test/machinery/pkg/namespaces"
 )
 
 // tier2RecoveryScenario contains all resources needed for tier2 recovery testing.
@@ -140,6 +142,7 @@ func (s *tier2RecoveryScenario) Teardown(
 	t.Logf("Tearing down resources for tier2 recovery feature: %s", s.name)
 	r, err := resources.New(cfg.Client().RESTConfig())
 	require.NoError(t, err, "failed to create resources client")
+	namespaces.DumpNamespaceOnFailure(ctx, t, r, testCfg.LogDir, s.namespace.Name, testconfig.DumpedKinds())
 	require.NoError(t, r.Delete(ctx, s.namespace), "failed to delete namespace")
 	t.Logf("Resources torn down for tier2 recovery feature: %s", s.name)
 

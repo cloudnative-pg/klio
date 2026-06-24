@@ -15,7 +15,9 @@ import (
 	"sigs.k8s.io/e2e-framework/pkg/envconf"
 
 	kliov1alpha1 "github.com/cloudnative-pg/klio/operator/api/v1alpha1"
+	"github.com/cloudnative-pg/klio/operator/test/klio/testconfig"
 	machineryConditions "github.com/cloudnative-pg/klio/operator/test/machinery/pkg/conditions"
+	"github.com/cloudnative-pg/klio/operator/test/machinery/pkg/namespaces"
 	"github.com/cloudnative-pg/klio/operator/test/utils/conditions"
 	"github.com/cloudnative-pg/klio/operator/test/utils/templates/certificates"
 	"github.com/cloudnative-pg/klio/operator/test/utils/templates/cnpg"
@@ -220,6 +222,7 @@ func (c *commonBackupRestoreScenario) Teardown(
 	t.Logf("Tearing down resources for recovery feature: %s", c.name)
 	r, err := resources.New(cfg.Client().RESTConfig())
 	require.NoError(t, err, "failed to create resources client")
+	namespaces.DumpNamespaceOnFailure(ctx, t, r, testCfg.LogDir, c.namespace.Name, testconfig.DumpedKinds())
 	require.NoError(t, r.Delete(ctx, c.namespace), "failed to delete namespace")
 	t.Logf("Resources torn down for recovery feature: %s", c.name)
 
