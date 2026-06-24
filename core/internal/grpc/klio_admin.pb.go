@@ -9,6 +9,7 @@ package grpc
 import (
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
+	timestamppb "google.golang.org/protobuf/types/known/timestamppb"
 	reflect "reflect"
 	sync "sync"
 	unsafe "unsafe"
@@ -236,6 +237,302 @@ func (x *ListBackupsResult) GetBackupManifests() []byte {
 	return nil
 }
 
+type QueueListFailedBackupsRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	ClusterName   *string                `protobuf:"bytes,1,opt,name=cluster_name,json=clusterName,proto3,oneof" json:"cluster_name,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *QueueListFailedBackupsRequest) Reset() {
+	*x = QueueListFailedBackupsRequest{}
+	mi := &file_proto_klio_admin_proto_msgTypes[4]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *QueueListFailedBackupsRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*QueueListFailedBackupsRequest) ProtoMessage() {}
+
+func (x *QueueListFailedBackupsRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_klio_admin_proto_msgTypes[4]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use QueueListFailedBackupsRequest.ProtoReflect.Descriptor instead.
+func (*QueueListFailedBackupsRequest) Descriptor() ([]byte, []int) {
+	return file_proto_klio_admin_proto_rawDescGZIP(), []int{4}
+}
+
+func (x *QueueListFailedBackupsRequest) GetClusterName() string {
+	if x != nil && x.ClusterName != nil {
+		return *x.ClusterName
+	}
+	return ""
+}
+
+type QueueListFailedBackupsResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Backups       []*FailedBackup        `protobuf:"bytes,1,rep,name=backups,proto3" json:"backups,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *QueueListFailedBackupsResponse) Reset() {
+	*x = QueueListFailedBackupsResponse{}
+	mi := &file_proto_klio_admin_proto_msgTypes[5]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *QueueListFailedBackupsResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*QueueListFailedBackupsResponse) ProtoMessage() {}
+
+func (x *QueueListFailedBackupsResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_klio_admin_proto_msgTypes[5]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use QueueListFailedBackupsResponse.ProtoReflect.Descriptor instead.
+func (*QueueListFailedBackupsResponse) Descriptor() ([]byte, []int) {
+	return file_proto_klio_admin_proto_rawDescGZIP(), []int{5}
+}
+
+func (x *QueueListFailedBackupsResponse) GetBackups() []*FailedBackup {
+	if x != nil {
+		return x.Backups
+	}
+	return nil
+}
+
+type QueueListFailedWALsRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	ClusterName   *string                `protobuf:"bytes,1,opt,name=cluster_name,json=clusterName,proto3,oneof" json:"cluster_name,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *QueueListFailedWALsRequest) Reset() {
+	*x = QueueListFailedWALsRequest{}
+	mi := &file_proto_klio_admin_proto_msgTypes[6]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *QueueListFailedWALsRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*QueueListFailedWALsRequest) ProtoMessage() {}
+
+func (x *QueueListFailedWALsRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_klio_admin_proto_msgTypes[6]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use QueueListFailedWALsRequest.ProtoReflect.Descriptor instead.
+func (*QueueListFailedWALsRequest) Descriptor() ([]byte, []int) {
+	return file_proto_klio_admin_proto_rawDescGZIP(), []int{6}
+}
+
+func (x *QueueListFailedWALsRequest) GetClusterName() string {
+	if x != nil && x.ClusterName != nil {
+		return *x.ClusterName
+	}
+	return ""
+}
+
+type QueueListFailedWALsResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Wals          []*FailedWAL           `protobuf:"bytes,1,rep,name=wals,proto3" json:"wals,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *QueueListFailedWALsResponse) Reset() {
+	*x = QueueListFailedWALsResponse{}
+	mi := &file_proto_klio_admin_proto_msgTypes[7]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *QueueListFailedWALsResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*QueueListFailedWALsResponse) ProtoMessage() {}
+
+func (x *QueueListFailedWALsResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_klio_admin_proto_msgTypes[7]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use QueueListFailedWALsResponse.ProtoReflect.Descriptor instead.
+func (*QueueListFailedWALsResponse) Descriptor() ([]byte, []int) {
+	return file_proto_klio_admin_proto_rawDescGZIP(), []int{7}
+}
+
+func (x *QueueListFailedWALsResponse) GetWals() []*FailedWAL {
+	if x != nil {
+		return x.Wals
+	}
+	return nil
+}
+
+type FailedBackup struct {
+	state           protoimpl.MessageState `protogen:"open.v1"`
+	ClusterName     string                 `protobuf:"bytes,1,opt,name=cluster_name,json=clusterName,proto3" json:"cluster_name,omitempty"`
+	LastAttemptTime *timestamppb.Timestamp `protobuf:"bytes,2,opt,name=last_attempt_time,json=lastAttemptTime,proto3" json:"last_attempt_time,omitempty"`
+	unknownFields   protoimpl.UnknownFields
+	sizeCache       protoimpl.SizeCache
+}
+
+func (x *FailedBackup) Reset() {
+	*x = FailedBackup{}
+	mi := &file_proto_klio_admin_proto_msgTypes[8]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *FailedBackup) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*FailedBackup) ProtoMessage() {}
+
+func (x *FailedBackup) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_klio_admin_proto_msgTypes[8]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use FailedBackup.ProtoReflect.Descriptor instead.
+func (*FailedBackup) Descriptor() ([]byte, []int) {
+	return file_proto_klio_admin_proto_rawDescGZIP(), []int{8}
+}
+
+func (x *FailedBackup) GetClusterName() string {
+	if x != nil {
+		return x.ClusterName
+	}
+	return ""
+}
+
+func (x *FailedBackup) GetLastAttemptTime() *timestamppb.Timestamp {
+	if x != nil {
+		return x.LastAttemptTime
+	}
+	return nil
+}
+
+type FailedWAL struct {
+	state           protoimpl.MessageState `protogen:"open.v1"`
+	ClusterName     string                 `protobuf:"bytes,1,opt,name=cluster_name,json=clusterName,proto3" json:"cluster_name,omitempty"`
+	WalName         string                 `protobuf:"bytes,2,opt,name=wal_name,json=walName,proto3" json:"wal_name,omitempty"`
+	Sequence        uint64                 `protobuf:"varint,3,opt,name=sequence,proto3" json:"sequence,omitempty"`
+	LastAttemptTime *timestamppb.Timestamp `protobuf:"bytes,4,opt,name=last_attempt_time,json=lastAttemptTime,proto3" json:"last_attempt_time,omitempty"`
+	unknownFields   protoimpl.UnknownFields
+	sizeCache       protoimpl.SizeCache
+}
+
+func (x *FailedWAL) Reset() {
+	*x = FailedWAL{}
+	mi := &file_proto_klio_admin_proto_msgTypes[9]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *FailedWAL) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*FailedWAL) ProtoMessage() {}
+
+func (x *FailedWAL) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_klio_admin_proto_msgTypes[9]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use FailedWAL.ProtoReflect.Descriptor instead.
+func (*FailedWAL) Descriptor() ([]byte, []int) {
+	return file_proto_klio_admin_proto_rawDescGZIP(), []int{9}
+}
+
+func (x *FailedWAL) GetClusterName() string {
+	if x != nil {
+		return x.ClusterName
+	}
+	return ""
+}
+
+func (x *FailedWAL) GetWalName() string {
+	if x != nil {
+		return x.WalName
+	}
+	return ""
+}
+
+func (x *FailedWAL) GetSequence() uint64 {
+	if x != nil {
+		return x.Sequence
+	}
+	return 0
+}
+
+func (x *FailedWAL) GetLastAttemptTime() *timestamppb.Timestamp {
+	if x != nil {
+		return x.LastAttemptTime
+	}
+	return nil
+}
+
 type QueueStatusRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	unknownFields protoimpl.UnknownFields
@@ -244,7 +541,7 @@ type QueueStatusRequest struct {
 
 func (x *QueueStatusRequest) Reset() {
 	*x = QueueStatusRequest{}
-	mi := &file_proto_klio_admin_proto_msgTypes[4]
+	mi := &file_proto_klio_admin_proto_msgTypes[10]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -256,7 +553,7 @@ func (x *QueueStatusRequest) String() string {
 func (*QueueStatusRequest) ProtoMessage() {}
 
 func (x *QueueStatusRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_klio_admin_proto_msgTypes[4]
+	mi := &file_proto_klio_admin_proto_msgTypes[10]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -269,7 +566,7 @@ func (x *QueueStatusRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use QueueStatusRequest.ProtoReflect.Descriptor instead.
 func (*QueueStatusRequest) Descriptor() ([]byte, []int) {
-	return file_proto_klio_admin_proto_rawDescGZIP(), []int{4}
+	return file_proto_klio_admin_proto_rawDescGZIP(), []int{10}
 }
 
 type QueueStatusResponse struct {
@@ -284,7 +581,7 @@ type QueueStatusResponse struct {
 
 func (x *QueueStatusResponse) Reset() {
 	*x = QueueStatusResponse{}
-	mi := &file_proto_klio_admin_proto_msgTypes[5]
+	mi := &file_proto_klio_admin_proto_msgTypes[11]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -296,7 +593,7 @@ func (x *QueueStatusResponse) String() string {
 func (*QueueStatusResponse) ProtoMessage() {}
 
 func (x *QueueStatusResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_klio_admin_proto_msgTypes[5]
+	mi := &file_proto_klio_admin_proto_msgTypes[11]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -309,7 +606,7 @@ func (x *QueueStatusResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use QueueStatusResponse.ProtoReflect.Descriptor instead.
 func (*QueueStatusResponse) Descriptor() ([]byte, []int) {
-	return file_proto_klio_admin_proto_rawDescGZIP(), []int{5}
+	return file_proto_klio_admin_proto_rawDescGZIP(), []int{11}
 }
 
 func (x *QueueStatusResponse) GetPendingBackups() uint64 {
@@ -342,7 +639,7 @@ type DeleteBackupRequest struct {
 
 func (x *DeleteBackupRequest) Reset() {
 	*x = DeleteBackupRequest{}
-	mi := &file_proto_klio_admin_proto_msgTypes[6]
+	mi := &file_proto_klio_admin_proto_msgTypes[12]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -354,7 +651,7 @@ func (x *DeleteBackupRequest) String() string {
 func (*DeleteBackupRequest) ProtoMessage() {}
 
 func (x *DeleteBackupRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_klio_admin_proto_msgTypes[6]
+	mi := &file_proto_klio_admin_proto_msgTypes[12]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -367,7 +664,7 @@ func (x *DeleteBackupRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteBackupRequest.ProtoReflect.Descriptor instead.
 func (*DeleteBackupRequest) Descriptor() ([]byte, []int) {
-	return file_proto_klio_admin_proto_rawDescGZIP(), []int{6}
+	return file_proto_klio_admin_proto_rawDescGZIP(), []int{12}
 }
 
 func (x *DeleteBackupRequest) GetBackupName() string {
@@ -400,7 +697,7 @@ type DeleteBackupResponse struct {
 
 func (x *DeleteBackupResponse) Reset() {
 	*x = DeleteBackupResponse{}
-	mi := &file_proto_klio_admin_proto_msgTypes[7]
+	mi := &file_proto_klio_admin_proto_msgTypes[13]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -412,7 +709,7 @@ func (x *DeleteBackupResponse) String() string {
 func (*DeleteBackupResponse) ProtoMessage() {}
 
 func (x *DeleteBackupResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_klio_admin_proto_msgTypes[7]
+	mi := &file_proto_klio_admin_proto_msgTypes[13]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -425,19 +722,37 @@ func (x *DeleteBackupResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteBackupResponse.ProtoReflect.Descriptor instead.
 func (*DeleteBackupResponse) Descriptor() ([]byte, []int) {
-	return file_proto_klio_admin_proto_rawDescGZIP(), []int{7}
+	return file_proto_klio_admin_proto_rawDescGZIP(), []int{13}
 }
 
 var File_proto_klio_admin_proto protoreflect.FileDescriptor
 
 const file_proto_klio_admin_proto_rawDesc = "" +
 	"\n" +
-	"\x16proto/klio_admin.proto\x12\vklio.wal.v1\"\x10\n" +
+	"\x16proto/klio_admin.proto\x12\vklio.wal.v1\x1a\x1fgoogle/protobuf/timestamp.proto\"\x10\n" +
 	"\x0eRefreshRequest\"\x0f\n" +
 	"\rRefreshResult\"\x14\n" +
 	"\x12ListBackupsRequest\">\n" +
 	"\x11ListBackupsResult\x12)\n" +
-	"\x10backup_manifests\x18\x01 \x01(\fR\x0fbackupManifests\"\x14\n" +
+	"\x10backup_manifests\x18\x01 \x01(\fR\x0fbackupManifests\"X\n" +
+	"\x1dQueueListFailedBackupsRequest\x12&\n" +
+	"\fcluster_name\x18\x01 \x01(\tH\x00R\vclusterName\x88\x01\x01B\x0f\n" +
+	"\r_cluster_name\"U\n" +
+	"\x1eQueueListFailedBackupsResponse\x123\n" +
+	"\abackups\x18\x01 \x03(\v2\x19.klio.wal.v1.FailedBackupR\abackups\"U\n" +
+	"\x1aQueueListFailedWALsRequest\x12&\n" +
+	"\fcluster_name\x18\x01 \x01(\tH\x00R\vclusterName\x88\x01\x01B\x0f\n" +
+	"\r_cluster_name\"I\n" +
+	"\x1bQueueListFailedWALsResponse\x12*\n" +
+	"\x04wals\x18\x01 \x03(\v2\x16.klio.wal.v1.FailedWALR\x04wals\"y\n" +
+	"\fFailedBackup\x12!\n" +
+	"\fcluster_name\x18\x01 \x01(\tR\vclusterName\x12F\n" +
+	"\x11last_attempt_time\x18\x02 \x01(\v2\x1a.google.protobuf.TimestampR\x0flastAttemptTime\"\xad\x01\n" +
+	"\tFailedWAL\x12!\n" +
+	"\fcluster_name\x18\x01 \x01(\tR\vclusterName\x12\x19\n" +
+	"\bwal_name\x18\x02 \x01(\tR\awalName\x12\x1a\n" +
+	"\bsequence\x18\x03 \x01(\x04R\bsequence\x12F\n" +
+	"\x11last_attempt_time\x18\x04 \x01(\v2\x1a.google.protobuf.TimestampR\x0flastAttemptTime\"\x14\n" +
 	"\x12QueueStatusRequest\"a\n" +
 	"\x13QueueStatusResponse\x12'\n" +
 	"\x0fpending_backups\x18\x01 \x01(\x04R\x0ependingBackups\x12!\n" +
@@ -453,10 +768,12 @@ const file_proto_klio_admin_proto_rawDesc = "" +
 	"\n" +
 	"\x06TIER_1\x10\x01\x12\n" +
 	"\n" +
-	"\x06TIER_2\x10\x022\xca\x02\n" +
+	"\x06TIER_2\x10\x022\xab\x04\n" +
 	"\x05Admin\x12D\n" +
 	"\aRefresh\x12\x1b.klio.wal.v1.RefreshRequest\x1a\x1a.klio.wal.v1.RefreshResult\"\x00\x12P\n" +
-	"\vListBackups\x12\x1f.klio.wal.v1.ListBackupsRequest\x1a\x1e.klio.wal.v1.ListBackupsResult\"\x00\x12R\n" +
+	"\vListBackups\x12\x1f.klio.wal.v1.ListBackupsRequest\x1a\x1e.klio.wal.v1.ListBackupsResult\"\x00\x12s\n" +
+	"\x16QueueListFailedBackups\x12*.klio.wal.v1.QueueListFailedBackupsRequest\x1a+.klio.wal.v1.QueueListFailedBackupsResponse\"\x00\x12j\n" +
+	"\x13QueueListFailedWALs\x12'.klio.wal.v1.QueueListFailedWALsRequest\x1a(.klio.wal.v1.QueueListFailedWALsResponse\"\x00\x12R\n" +
 	"\vQueueStatus\x12\x1f.klio.wal.v1.QueueStatusRequest\x1a .klio.wal.v1.QueueStatusResponse\"\x00\x12U\n" +
 	"\fDeleteBackup\x12 .klio.wal.v1.DeleteBackupRequest\x1a!.klio.wal.v1.DeleteBackupResponse\"\x00B1Z/github.com/cloudnative-pg/klio/core/internal/grpcb\x06proto3"
 
@@ -473,33 +790,48 @@ func file_proto_klio_admin_proto_rawDescGZIP() []byte {
 }
 
 var file_proto_klio_admin_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_proto_klio_admin_proto_msgTypes = make([]protoimpl.MessageInfo, 8)
+var file_proto_klio_admin_proto_msgTypes = make([]protoimpl.MessageInfo, 14)
 var file_proto_klio_admin_proto_goTypes = []any{
-	(Tier)(0),                    // 0: klio.wal.v1.Tier
-	(*RefreshRequest)(nil),       // 1: klio.wal.v1.RefreshRequest
-	(*RefreshResult)(nil),        // 2: klio.wal.v1.RefreshResult
-	(*ListBackupsRequest)(nil),   // 3: klio.wal.v1.ListBackupsRequest
-	(*ListBackupsResult)(nil),    // 4: klio.wal.v1.ListBackupsResult
-	(*QueueStatusRequest)(nil),   // 5: klio.wal.v1.QueueStatusRequest
-	(*QueueStatusResponse)(nil),  // 6: klio.wal.v1.QueueStatusResponse
-	(*DeleteBackupRequest)(nil),  // 7: klio.wal.v1.DeleteBackupRequest
-	(*DeleteBackupResponse)(nil), // 8: klio.wal.v1.DeleteBackupResponse
+	(Tier)(0),                              // 0: klio.wal.v1.Tier
+	(*RefreshRequest)(nil),                 // 1: klio.wal.v1.RefreshRequest
+	(*RefreshResult)(nil),                  // 2: klio.wal.v1.RefreshResult
+	(*ListBackupsRequest)(nil),             // 3: klio.wal.v1.ListBackupsRequest
+	(*ListBackupsResult)(nil),              // 4: klio.wal.v1.ListBackupsResult
+	(*QueueListFailedBackupsRequest)(nil),  // 5: klio.wal.v1.QueueListFailedBackupsRequest
+	(*QueueListFailedBackupsResponse)(nil), // 6: klio.wal.v1.QueueListFailedBackupsResponse
+	(*QueueListFailedWALsRequest)(nil),     // 7: klio.wal.v1.QueueListFailedWALsRequest
+	(*QueueListFailedWALsResponse)(nil),    // 8: klio.wal.v1.QueueListFailedWALsResponse
+	(*FailedBackup)(nil),                   // 9: klio.wal.v1.FailedBackup
+	(*FailedWAL)(nil),                      // 10: klio.wal.v1.FailedWAL
+	(*QueueStatusRequest)(nil),             // 11: klio.wal.v1.QueueStatusRequest
+	(*QueueStatusResponse)(nil),            // 12: klio.wal.v1.QueueStatusResponse
+	(*DeleteBackupRequest)(nil),            // 13: klio.wal.v1.DeleteBackupRequest
+	(*DeleteBackupResponse)(nil),           // 14: klio.wal.v1.DeleteBackupResponse
+	(*timestamppb.Timestamp)(nil),          // 15: google.protobuf.Timestamp
 }
 var file_proto_klio_admin_proto_depIdxs = []int32{
-	0, // 0: klio.wal.v1.DeleteBackupRequest.tiers:type_name -> klio.wal.v1.Tier
-	1, // 1: klio.wal.v1.Admin.Refresh:input_type -> klio.wal.v1.RefreshRequest
-	3, // 2: klio.wal.v1.Admin.ListBackups:input_type -> klio.wal.v1.ListBackupsRequest
-	5, // 3: klio.wal.v1.Admin.QueueStatus:input_type -> klio.wal.v1.QueueStatusRequest
-	7, // 4: klio.wal.v1.Admin.DeleteBackup:input_type -> klio.wal.v1.DeleteBackupRequest
-	2, // 5: klio.wal.v1.Admin.Refresh:output_type -> klio.wal.v1.RefreshResult
-	4, // 6: klio.wal.v1.Admin.ListBackups:output_type -> klio.wal.v1.ListBackupsResult
-	6, // 7: klio.wal.v1.Admin.QueueStatus:output_type -> klio.wal.v1.QueueStatusResponse
-	8, // 8: klio.wal.v1.Admin.DeleteBackup:output_type -> klio.wal.v1.DeleteBackupResponse
-	5, // [5:9] is the sub-list for method output_type
-	1, // [1:5] is the sub-list for method input_type
-	1, // [1:1] is the sub-list for extension type_name
-	1, // [1:1] is the sub-list for extension extendee
-	0, // [0:1] is the sub-list for field type_name
+	9,  // 0: klio.wal.v1.QueueListFailedBackupsResponse.backups:type_name -> klio.wal.v1.FailedBackup
+	10, // 1: klio.wal.v1.QueueListFailedWALsResponse.wals:type_name -> klio.wal.v1.FailedWAL
+	15, // 2: klio.wal.v1.FailedBackup.last_attempt_time:type_name -> google.protobuf.Timestamp
+	15, // 3: klio.wal.v1.FailedWAL.last_attempt_time:type_name -> google.protobuf.Timestamp
+	0,  // 4: klio.wal.v1.DeleteBackupRequest.tiers:type_name -> klio.wal.v1.Tier
+	1,  // 5: klio.wal.v1.Admin.Refresh:input_type -> klio.wal.v1.RefreshRequest
+	3,  // 6: klio.wal.v1.Admin.ListBackups:input_type -> klio.wal.v1.ListBackupsRequest
+	5,  // 7: klio.wal.v1.Admin.QueueListFailedBackups:input_type -> klio.wal.v1.QueueListFailedBackupsRequest
+	7,  // 8: klio.wal.v1.Admin.QueueListFailedWALs:input_type -> klio.wal.v1.QueueListFailedWALsRequest
+	11, // 9: klio.wal.v1.Admin.QueueStatus:input_type -> klio.wal.v1.QueueStatusRequest
+	13, // 10: klio.wal.v1.Admin.DeleteBackup:input_type -> klio.wal.v1.DeleteBackupRequest
+	2,  // 11: klio.wal.v1.Admin.Refresh:output_type -> klio.wal.v1.RefreshResult
+	4,  // 12: klio.wal.v1.Admin.ListBackups:output_type -> klio.wal.v1.ListBackupsResult
+	6,  // 13: klio.wal.v1.Admin.QueueListFailedBackups:output_type -> klio.wal.v1.QueueListFailedBackupsResponse
+	8,  // 14: klio.wal.v1.Admin.QueueListFailedWALs:output_type -> klio.wal.v1.QueueListFailedWALsResponse
+	12, // 15: klio.wal.v1.Admin.QueueStatus:output_type -> klio.wal.v1.QueueStatusResponse
+	14, // 16: klio.wal.v1.Admin.DeleteBackup:output_type -> klio.wal.v1.DeleteBackupResponse
+	11, // [11:17] is the sub-list for method output_type
+	5,  // [5:11] is the sub-list for method input_type
+	5,  // [5:5] is the sub-list for extension type_name
+	5,  // [5:5] is the sub-list for extension extendee
+	0,  // [0:5] is the sub-list for field type_name
 }
 
 func init() { file_proto_klio_admin_proto_init() }
@@ -507,13 +839,15 @@ func file_proto_klio_admin_proto_init() {
 	if File_proto_klio_admin_proto != nil {
 		return
 	}
+	file_proto_klio_admin_proto_msgTypes[4].OneofWrappers = []any{}
+	file_proto_klio_admin_proto_msgTypes[6].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_proto_klio_admin_proto_rawDesc), len(file_proto_klio_admin_proto_rawDesc)),
 			NumEnums:      1,
-			NumMessages:   8,
+			NumMessages:   14,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

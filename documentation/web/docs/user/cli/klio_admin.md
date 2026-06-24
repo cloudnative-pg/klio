@@ -34,6 +34,6 @@ Server administration commands
 * [klio](klio.md)	 - Klio is a Cloud Native Backup & Recovery solution
 * [klio admin delete-backup](klio_admin_delete-backup.md)	 - Delete a backup from the Klio server
 * [klio admin list-backups](klio_admin_list-backups.md)	 - List the backups available in the Klio server
-* [klio admin queue-status](klio_admin_queue-status.md)	 - Show the status of the task queue (pending backups and pending WALs)
+* [klio admin queue](klio_admin_queue.md)	 - Manage the queue tasks
 * [klio admin refresh](klio_admin_refresh.md)	 - Refresh the Kopia cache and policies
 

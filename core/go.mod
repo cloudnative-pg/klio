@@ -21,6 +21,7 @@ require (
 	github.com/jackc/pgx/v5 v5.10.0
 	github.com/klauspost/compress v1.18.6
 	github.com/minio/sio v0.5.1
+	github.com/nats-io/jsm.go v0.4.1
 	github.com/nats-io/nats-server/v2 v2.14.2
 	github.com/nats-io/nats.go v1.52.0
 	github.com/onsi/ginkgo/v2 v2.32.0
@@ -60,7 +61,7 @@ require (
 	filippo.io/hpke v0.4.0 // indirect
 	github.com/GoogleCloudPlatform/opentelemetry-operations-go/detectors/gcp v1.32.0 // indirect
 	github.com/Masterminds/semver/v3 v3.5.0 // indirect
-	github.com/antithesishq/antithesis-sdk-go v0.7.0-default-no-op // indirect
+	github.com/antithesishq/antithesis-sdk-go v0.7.0 // indirect
 	github.com/avast/retry-go/v5 v5.0.0 // indirect
 	github.com/aws/aws-sdk-go-v2/aws/protocol/eventstream v1.7.13 // indirect
 	github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.18.29 // indirect
@@ -84,9 +85,11 @@ require (
 	github.com/cloudnative-pg/barman-cloud v0.5.0 // indirect
 	github.com/cpuguy83/go-md2man/v2 v2.0.6 // indirect
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc // indirect
+	github.com/dustin/go-humanize v1.0.1 // indirect
 	github.com/ebitengine/purego v0.10.1 // indirect
 	github.com/emicklei/go-restful/v3 v3.13.0 // indirect
 	github.com/evanphx/json-patch/v5 v5.9.11 // indirect
+	github.com/expr-lang/expr v1.17.8 // indirect
 	github.com/fsnotify/fsnotify v1.9.0 // indirect
 	github.com/fxamacker/cbor/v2 v2.9.2 // indirect
 	github.com/go-logr/logr v1.4.3 // indirect

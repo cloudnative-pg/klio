@@ -6,8 +6,14 @@
 - [klio_admin.proto](#klio_admin-proto)
     - [DeleteBackupRequest](#klio-wal-v1-DeleteBackupRequest)
     - [DeleteBackupResponse](#klio-wal-v1-DeleteBackupResponse)
+    - [FailedBackup](#klio-wal-v1-FailedBackup)
+    - [FailedWAL](#klio-wal-v1-FailedWAL)
     - [ListBackupsRequest](#klio-wal-v1-ListBackupsRequest)
     - [ListBackupsResult](#klio-wal-v1-ListBackupsResult)
+    - [QueueListFailedBackupsRequest](#klio-wal-v1-QueueListFailedBackupsRequest)
+    - [QueueListFailedBackupsResponse](#klio-wal-v1-QueueListFailedBackupsResponse)
+    - [QueueListFailedWALsRequest](#klio-wal-v1-QueueListFailedWALsRequest)
+    - [QueueListFailedWALsResponse](#klio-wal-v1-QueueListFailedWALsResponse)
     - [QueueStatusRequest](#klio-wal-v1-QueueStatusRequest)
     - [QueueStatusResponse](#klio-wal-v1-QueueStatusResponse)
     - [RefreshRequest](#klio-wal-v1-RefreshRequest)
@@ -75,6 +81,40 @@ DeleteBackupResponse is the response to a backup deletion request.
 
 
 
+<a name="klio-wal-v1-FailedBackup"></a>
+
+### FailedBackup
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| cluster_name | [string](#string) |  |  |
+| last_attempt_time | [google.protobuf.Timestamp](#google-protobuf-Timestamp) |  |  |
+
+
+
+
+
+
+<a name="klio-wal-v1-FailedWAL"></a>
+
+### FailedWAL
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| cluster_name | [string](#string) |  |  |
+| wal_name | [string](#string) |  |  |
+| sequence | [uint64](#uint64) |  |  |
+| last_attempt_time | [google.protobuf.Timestamp](#google-protobuf-Timestamp) |  |  |
+
+
+
+
+
+
 <a name="klio-wal-v1-ListBackupsRequest"></a>
 
 ### ListBackupsRequest
@@ -94,6 +134,66 @@ DeleteBackupResponse is the response to a backup deletion request.
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
 | backup_manifests | [bytes](#bytes) |  | JSON-serialized array of backup manifests. Each manifest contains fields like: - id: string - cluster_name: string - timestamp: RFC3339 string - size_bytes: number See klioclient.BackupManifest for the canonical structure. We use JSON bytes here to avoid duplicating the internal type definition and conversion logic, as this is a local admin API. |
+
+
+
+
+
+
+<a name="klio-wal-v1-QueueListFailedBackupsRequest"></a>
+
+### QueueListFailedBackupsRequest
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| cluster_name | [string](#string) | optional |  |
+
+
+
+
+
+
+<a name="klio-wal-v1-QueueListFailedBackupsResponse"></a>
+
+### QueueListFailedBackupsResponse
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| backups | [FailedBackup](#klio-wal-v1-FailedBackup) | repeated |  |
+
+
+
+
+
+
+<a name="klio-wal-v1-QueueListFailedWALsRequest"></a>
+
+### QueueListFailedWALsRequest
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| cluster_name | [string](#string) | optional |  |
+
+
+
+
+
+
+<a name="klio-wal-v1-QueueListFailedWALsResponse"></a>
+
+### QueueListFailedWALsResponse
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| wals | [FailedWAL](#klio-wal-v1-FailedWAL) | repeated |  |
 
 
 
@@ -174,6 +274,8 @@ Tier represents a storage tier in the backup system.
 | ----------- | ------------ | ------------- | ------------|
 | Refresh | [RefreshRequest](#klio-wal-v1-RefreshRequest) | [RefreshResult](#klio-wal-v1-RefreshResult) | Invoked to refresh the policies and the cache of the Kopia server |
 | ListBackups | [ListBackupsRequest](#klio-wal-v1-ListBackupsRequest) | [ListBackupsResult](#klio-wal-v1-ListBackupsResult) | List every backup on the server |
+| QueueListFailedBackups | [QueueListFailedBackupsRequest](#klio-wal-v1-QueueListFailedBackupsRequest) | [QueueListFailedBackupsResponse](#klio-wal-v1-QueueListFailedBackupsResponse) | List backups failed to be processed from the queue |
+| QueueListFailedWALs | [QueueListFailedWALsRequest](#klio-wal-v1-QueueListFailedWALsRequest) | [QueueListFailedWALsResponse](#klio-wal-v1-QueueListFailedWALsResponse) | List WAL files failed to be processed from the queue |
 | QueueStatus | [QueueStatusRequest](#klio-wal-v1-QueueStatusRequest) | [QueueStatusResponse](#klio-wal-v1-QueueStatusResponse) | Get the status of the task queue (pending backups and WALs) |
 | DeleteBackup | [DeleteBackupRequest](#klio-wal-v1-DeleteBackupRequest) | [DeleteBackupResponse](#klio-wal-v1-DeleteBackupResponse) | Delete a backup from the server |
 

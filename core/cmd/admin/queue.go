@@ -11,15 +11,23 @@ import (
 	klioGRPC "github.com/cloudnative-pg/klio/core/internal/grpc"
 )
 
+// queueCmd represents the queue command
+//
+//nolint:gochecknoglobals
+var queueCmd = &cobra.Command{
+	Use:   "queue",
+	Short: "Manage the queue tasks",
+}
+
 // queueStatusCmd represents the queue-status command
 //
 //nolint:gochecknoglobals
 var queueStatusCmd = &cobra.Command{
-	Use:   "queue-status",
+	Use:   "status",
 	Short: "Show the status of the task queue (pending backups and pending WALs)",
 	Args:  cobra.NoArgs,
 	RunE: func(cmd *cobra.Command, _ []string) error {
-		socketPath, err := cmd.Flags().GetString("socketPath")
+		socketPath, err := cmd.Flags().GetString("socket-path")
 		if err != nil {
 			return fmt.Errorf("while getting the socketPath flag: %w", err)
 		}
@@ -64,9 +72,10 @@ var queueStatusCmd = &cobra.Command{
 
 //nolint:gochecknoinits
 func init() {
-	AdminCmd.AddCommand(queueStatusCmd)
+	AdminCmd.AddCommand(queueCmd)
+	queueCmd.AddCommand(queueStatusCmd)
 
 	socketPath := path.Join(os.TempDir(), ".klio-admin")
-	queueStatusCmd.Flags().String("socketPath", socketPath, "Unix socket used by the administration server")
-	queueStatusCmd.Flags().Bool("json", false, "Output in JSON format")
+	queueCmd.PersistentFlags().String("socket-path", socketPath, "Unix socket used by the administration server")
+	queueCmd.PersistentFlags().Bool("json", false, "Output in JSON format")
 }

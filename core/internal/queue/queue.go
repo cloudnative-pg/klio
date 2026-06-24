@@ -405,32 +405,6 @@ type Status struct {
 	PendingWALs uint64
 }
 
-// GetStatus returns the current status of the task queue.
-func (q *Conn) GetStatus(ctx context.Context) (*Status, error) {
-	walInfo, err := q.klioWalStream.Info(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("while getting WAL stream info: %w", err)
-	}
-
-	if walInfo == nil {
-		return nil, errors.New("WAL stream info is nil")
-	}
-
-	backupInfo, err := q.klioBackupStream.Info(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("while getting backup stream info: %w", err)
-	}
-
-	if backupInfo == nil {
-		return nil, errors.New("backup stream info is nil")
-	}
-
-	return &Status{
-		PendingBackups: backupInfo.State.Msgs,
-		PendingWALs:    walInfo.State.Msgs,
-	}, nil
-}
-
 // notifyMessage is called to send a message on the queue.
 func (q *Conn) notifyMessage(ctx context.Context, subject string, task any) error {
 	contextLogger := log.FromContext(ctx)

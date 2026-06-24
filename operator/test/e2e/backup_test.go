@@ -1,7 +1,9 @@
 package e2e
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"testing"
 
 	cnpgv1 "github.com/cloudnative-pg/api/pkg/api/v1"
@@ -50,6 +52,62 @@ func assertVerificationRan(
 	require.Contains(t, logs, "Backup verification completed successfully",
 		"backup verification log message not found in klio-plugin logs")
 	t.Log("Verified that backup verification ran successfully")
+
+	// A successful backup must not have left any failed tasks in the
+	// dead-letter queue. This also smoke-tests the admin "queue list-failed"
+	// CLI -> admin gRPC -> StreamManager -> NATS path against a live server.
+	assertNoFailedQueueTasks(ctx, t, r, backup.Namespace)
+}
+
+// adminSocketPath is the default Unix socket the Klio server's admin gRPC
+// endpoint listens on inside the "server" container (path.Join(os.TempDir(),
+// ".klio-admin") in core/cmd/server/start.go).
+const adminSocketPath = "/tmp/.klio-admin"
+
+// assertNoFailedQueueTasks runs `klio admin queue {wal,backup} list-failed`
+// against the live admin socket in the Klio server pod and asserts both return
+// well-formed JSON with no entries.
+func assertNoFailedQueueTasks(
+	ctx context.Context,
+	t *testing.T,
+	r *resources.Resources,
+	namespace string,
+) {
+	t.Helper()
+
+	podName := klioServerName + "-klio-0"
+
+	for _, tc := range []struct {
+		kind string
+		key  string
+	}{
+		{kind: "wal", key: "wals"},
+		{kind: "backup", key: "backups"},
+	} {
+		var stdout, stderr bytes.Buffer
+		cmd := []string{
+			"klio", "admin", "queue", tc.kind, "list-failed",
+			"--json",
+			"--socket-path", adminSocketPath,
+		}
+		require.NoError(t,
+			r.ExecInPod(ctx, namespace, podName, "server", cmd, &stdout, &stderr),
+			"failed to run admin queue %s list-failed; stderr: %s", tc.kind, stderr.String())
+
+		var resp map[string]json.RawMessage
+		require.NoError(t, json.Unmarshal(stdout.Bytes(), &resp),
+			"admin queue %s list-failed output is not valid JSON: %s", tc.kind, stdout.String())
+
+		var entries []json.RawMessage
+		if raw, ok := resp[tc.key]; ok {
+			require.NoError(t, json.Unmarshal(raw, &entries),
+				"failed to decode %q array from %s list-failed output", tc.key, tc.kind)
+		}
+		require.Empty(t, entries,
+			"a successful backup must leave no failed %s tasks in the DLQ", tc.kind)
+	}
+
+	t.Log("Verified that the dead-letter queue has no failed tasks")
 }
 
 func newBackupFeature(

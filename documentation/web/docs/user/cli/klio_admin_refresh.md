@@ -13,8 +13,8 @@ klio admin refresh [flags]
 ### Options
 
 ```
-  -h, --help                help for refresh
-      --socketPath string   Unix socket used by the administration server (default "/tmp/.klio-admin")
+  -h, --help                 help for refresh
+      --socket-path string   Unix socket used by the administration server (default "/tmp/.klio-admin")
 ```
 
 ### Options inherited from parent commands

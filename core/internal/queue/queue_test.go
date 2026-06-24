@@ -362,45 +362,6 @@ func TestGetLatestUploadedWALMultipleClusters(t *testing.T) {
 	assert.Empty(t, latestWAL)
 }
 
-func TestGetStatus(t *testing.T) {
-	ns, url := startNATSServer(t)
-	defer ns.Shutdown()
-
-	nc, err := nats.Connect(url)
-	require.NoError(t, err)
-	defer nc.Close()
-
-	ctx := context.Background()
-	conn, err := New(ctx, nc)
-	require.NoError(t, err)
-
-	status, err := conn.GetStatus(ctx)
-	require.NoError(t, err)
-	require.NotNil(t, status)
-	assert.Equal(t, uint64(0), status.PendingWALs)
-	assert.Equal(t, uint64(0), status.PendingBackups)
-
-	require.NoError(t, conn.NotifyWALReceived(ctx, &WALTask{
-		ClusterName: "status-cluster",
-		WALName:     "000000010000000000000001",
-	}))
-	require.NoError(t, conn.NotifyWALReceived(ctx, &WALTask{
-		ClusterName: "status-cluster",
-		WALName:     "000000010000000000000002",
-	}))
-	require.NoError(t, conn.NotifyBackupReceived(ctx, &BackupTask{
-		ClusterName: "status-cluster",
-	}))
-
-	require.Eventually(t, func() bool {
-		status, err = conn.GetStatus(ctx)
-		require.NoError(t, err)
-		require.NotNil(t, status)
-
-		return status.PendingWALs == 2 && status.PendingBackups == 1
-	}, 2*time.Second, 50*time.Millisecond)
-}
-
 // TestConsumerRetryConfig pins the bounded-retry configuration of the
 // production WAL and backup consumers so that accidental regressions
 // (e.g. dropping MaxDeliver or BackOff) are caught.

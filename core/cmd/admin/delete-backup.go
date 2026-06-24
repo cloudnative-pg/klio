@@ -20,7 +20,7 @@ var deleteBackupCmd = &cobra.Command{
 	RunE: func(cmd *cobra.Command, args []string) error {
 		backupName := args[0]
 
-		socketPath, err := cmd.Flags().GetString("socketPath")
+		socketPath, err := cmd.Flags().GetString("socket-path")
 		if err != nil {
 			return fmt.Errorf("while getting the socketPath flag: %w", err)
 		}
@@ -83,7 +83,7 @@ func init() {
 	AdminCmd.AddCommand(deleteBackupCmd)
 
 	socketPath := path.Join(os.TempDir(), ".klio-admin")
-	deleteBackupCmd.Flags().String("socketPath", socketPath, "Unix socket used by the administration server")
+	deleteBackupCmd.Flags().String("socket-path", socketPath, "Unix socket used by the administration server")
 	deleteBackupCmd.Flags().String("cluster", "", "The name of the cluster that owns the backup")
 	deleteBackupCmd.Flags().Bool("tier1", false, "Delete the backup from tier1 (local cache)")
 	deleteBackupCmd.Flags().Bool("tier2", false, "Delete the backup from tier2 (object storage)")

@@ -16,6 +16,11 @@ type BackupTask struct {
 	Tier2RetentionPolicy *kopia.RetentionPolicy `json:"tier2RetentionPolicy,omitzero"`
 }
 
+// Cluster returns the name of the cluster associated with this task.
+func (t BackupTask) Cluster() string {
+	return t.ClusterName
+}
+
 // NotifyBackupReceived is called to notify the consumers that a new backup
 // has been uploaded.
 func (q *Conn) NotifyBackupReceived(ctx context.Context, task *BackupTask) error {

@@ -13,11 +13,11 @@ klio admin delete-backup [backupName] [flags]
 ### Options
 
 ```
-      --cluster string      The name of the cluster that owns the backup
-  -h, --help                help for delete-backup
-      --socketPath string   Unix socket used by the administration server (default "/tmp/.klio-admin")
-      --tier1               Delete the backup from tier1 (local cache)
-      --tier2               Delete the backup from tier2 (object storage)
+      --cluster string       The name of the cluster that owns the backup
+  -h, --help                 help for delete-backup
+      --socket-path string   Unix socket used by the administration server (default "/tmp/.klio-admin")
+      --tier1                Delete the backup from tier1 (local cache)
+      --tier2                Delete the backup from tier2 (object storage)
 ```
 
 ### Options inherited from parent commands

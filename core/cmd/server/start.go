@@ -49,7 +49,7 @@ var startCmd = &cobra.Command{
 			return fmt.Errorf("failed to read tier2 flag: %w", err)
 		}
 
-		adminSocketPath, err := cmd.Flags().GetString("socketPath")
+		adminSocketPath, err := cmd.Flags().GetString("socket-path")
 		if err != nil {
 			return fmt.Errorf("failed to read socketPath flag: %w", err)
 		}
@@ -94,7 +94,7 @@ func init() {
 	socketPath := path.Join(os.TempDir(), ".klio-admin")
 	startCmd.Flags().Bool("tier1", true, "Enables Tier1 server components")
 	startCmd.Flags().Bool("tier2", false, "Enables Tier2 server components")
-	startCmd.Flags().String("socketPath", socketPath, "Unix socket used by the administration server")
+	startCmd.Flags().String("socket-path", socketPath, "Unix socket used by the administration server")
 
 	ServerCmd.AddCommand(startCmd)
 }

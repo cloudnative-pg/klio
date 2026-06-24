@@ -20,6 +20,11 @@ type WALTask struct {
 	WALName string `json:"walName"`
 }
 
+// Cluster returns the name of the cluster associated with this task.
+func (t WALTask) Cluster() string {
+	return t.ClusterName
+}
+
 // NotifyWALReceived is called to notify the consumers that a new WAL
 // is available in the Klio repository.
 func (q *Conn) NotifyWALReceived(ctx context.Context, task *WALTask) error {

@@ -2,6 +2,8 @@ syntax = "proto3";
 
 package klio.wal.v1;
 
+import "google/protobuf/timestamp.proto";
+
 option go_package = "github.com/cloudnative-pg/klio/core/internal/grpc";
 
 service Admin {
@@ -10,6 +12,12 @@ service Admin {
 
   // List every backup on the server
   rpc ListBackups(ListBackupsRequest) returns (ListBackupsResult) {}
+
+  // List backups failed to be processed from the queue
+  rpc QueueListFailedBackups(QueueListFailedBackupsRequest) returns (QueueListFailedBackupsResponse) {}
+
+  // List WAL files failed to be processed from the queue
+  rpc QueueListFailedWALs(QueueListFailedWALsRequest) returns (QueueListFailedWALsResponse) {}
 
   // Get the status of the task queue (pending backups and WALs)
   rpc QueueStatus(QueueStatusRequest) returns (QueueStatusResponse) {}
@@ -38,6 +46,34 @@ message ListBackupsResult {
   // We use JSON bytes here to avoid duplicating the internal type definition
   // and conversion logic, as this is a local admin API.
   bytes backup_manifests = 1;
+}
+
+message QueueListFailedBackupsRequest {
+  optional string cluster_name = 1;
+}
+
+message QueueListFailedBackupsResponse {
+  repeated FailedBackup backups = 1;
+}
+
+message QueueListFailedWALsRequest {
+  optional string cluster_name = 1;
+}
+
+message QueueListFailedWALsResponse {
+  repeated FailedWAL wals = 1;
+}
+
+message FailedBackup {
+  string cluster_name = 1;
+  google.protobuf.Timestamp last_attempt_time = 2;
+}
+
+message FailedWAL {
+  string cluster_name = 1;
+  string wal_name = 2;
+  uint64 sequence = 3;
+  google.protobuf.Timestamp last_attempt_time = 4;
 }
 
 message QueueStatusRequest {

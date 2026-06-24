@@ -13,6 +13,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/cloudnative-pg/klio/core/internal/client/klioclient"
 	"github.com/cloudnative-pg/klio/core/internal/client/klioclient/kopia"
@@ -48,8 +49,8 @@ type Server struct {
 	tier1            klioclient.Client
 	tier2            klioclient.Client
 	klio             klioclient.Client
-	queueConn        *queue.Conn
 	natsConn         *nats.Conn
+	streamMgr        *queue.StreamManager
 }
 
 // New creates a new admin server instance with the provided options.
@@ -109,30 +110,16 @@ func (s *Server) Start(ctx context.Context) error {
 			}
 		}()
 
-		queueConn, err := queue.New(ctx, natsConn)
+		streamMgr, err := queue.NewStreamManager(natsConn)
 		if err != nil {
-			return fmt.Errorf("while creating queue connection: %w", err)
+			return fmt.Errorf("while creating queue stream manager: %w", err)
 		}
-		s.queueConn = queueConn
+		s.streamMgr = streamMgr
 	}
 
-	// Remove any stale socket file
-	if err := os.Remove(s.opts.SocketPath); err != nil && !os.IsNotExist(err) {
-		return fmt.Errorf("while removing stale socket file: %w", err)
-	}
-
-	// Create the Unix socket
-	var lc net.ListenConfig
-	listener, err := lc.Listen(ctx, "unix", s.opts.SocketPath)
+	listener, err := s.createListener(ctx)
 	if err != nil {
 		return err
-	}
-
-	// Set restrictive permissions on the socket file (owner read/write only).
-	// This ensures only the user running the server can connect to the admin socket.
-	if err := os.Chmod(s.opts.SocketPath, 0o600); err != nil {
-		_ = listener.Close()
-		return fmt.Errorf("while setting socket permissions: %w", err)
 	}
 
 	server := grpc.NewServer()
@@ -146,8 +133,10 @@ func (s *Server) Start(ctx context.Context) error {
 		server.GracefulStop()
 	}()
 
-	contextLogger.Info("Starting Klio administration server", "socketPath", s.opts.SocketPath)
-	if err := server.Serve(listener); !errors.Is(err, net.ErrClosed) {
+	contextLogger.Info("Starting Klio administration server", "socket-path", s.opts.SocketPath)
+	// Serve returns nil after a GracefulStop, and net.ErrClosed if the
+	// listener is closed out from under it; neither is a real failure.
+	if err := server.Serve(listener); err != nil && !errors.Is(err, net.ErrClosed) {
 		return fmt.Errorf("error while running server: %w", err)
 	}
 
@@ -203,19 +192,18 @@ func (s *Server) Refresh(
 
 // QueueStatus implements [grpc.AdminServer].
 func (s *Server) QueueStatus(
-	ctx context.Context,
+	_ context.Context,
 	_ *klioGRPC.QueueStatusRequest,
 ) (*klioGRPC.QueueStatusResponse, error) {
-	// Check if queue connection is available
-	if s.queueConn == nil {
+	if s.streamMgr == nil {
 		return nil, status.Errorf(
 			codes.Unavailable,
-			"queue status not available: server not configured with queue URL",
+			"queue status not available: server not configured with Stream Manager",
 		)
 	}
 
 	// Get queue status
-	queueStatus, err := s.queueConn.GetStatus(ctx)
+	queueStatus, err := s.streamMgr.GetStatus()
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "while getting queue status: %s", err.Error())
 	}
@@ -223,6 +211,81 @@ func (s *Server) QueueStatus(
 	return &klioGRPC.QueueStatusResponse{
 		PendingBackups: queueStatus.PendingBackups,
 		PendingWals:    queueStatus.PendingWALs,
+	}, nil
+}
+
+// QueueListFailedBackups implements [grpc.AdminServer].
+func (s *Server) QueueListFailedBackups(
+	ctx context.Context,
+	req *klioGRPC.QueueListFailedBackupsRequest,
+) (*klioGRPC.QueueListFailedBackupsResponse, error) {
+	if s.streamMgr == nil {
+		return nil, status.Errorf(
+			codes.Unavailable,
+			"failed backups not available: server not configured with Stream Manager",
+		)
+	}
+
+	opts := make([]queue.ListOption, 0)
+
+	if name := req.GetClusterName(); name != "" {
+		opts = append(opts, queue.WithCluster(name))
+	}
+
+	backupTasks, err := s.streamMgr.ListFailedBackupTasks(ctx, opts...)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "while getting queue failed backups: %s", err.Error())
+	}
+
+	responseBackups := make([]*klioGRPC.FailedBackup, len(backupTasks))
+
+	for i, task := range backupTasks {
+		responseBackups[i] = &klioGRPC.FailedBackup{
+			ClusterName:     task.Task.ClusterName,
+			LastAttemptTime: timestamppb.New(task.Timestamp),
+		}
+	}
+
+	return &klioGRPC.QueueListFailedBackupsResponse{
+		Backups: responseBackups,
+	}, nil
+}
+
+// QueueListFailedWALs implements [grpc.AdminServer].
+func (s *Server) QueueListFailedWALs(
+	ctx context.Context,
+	req *klioGRPC.QueueListFailedWALsRequest,
+) (*klioGRPC.QueueListFailedWALsResponse, error) {
+	if s.streamMgr == nil {
+		return nil, status.Errorf(
+			codes.Unavailable,
+			"failed WALs not available: server not configured with Stream Manager",
+		)
+	}
+	opts := make([]queue.ListOption, 0)
+
+	if name := req.GetClusterName(); name != "" {
+		opts = append(opts, queue.WithCluster(name))
+	}
+
+	walTasks, err := s.streamMgr.ListFailedWALTasks(ctx, opts...)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "while getting queue failed wal files: %s", err.Error())
+	}
+
+	responseWALs := make([]*klioGRPC.FailedWAL, len(walTasks))
+
+	for i, task := range walTasks {
+		responseWALs[i] = &klioGRPC.FailedWAL{
+			ClusterName:     task.Task.ClusterName,
+			WalName:         task.Task.WALName,
+			Sequence:        task.Sequence,
+			LastAttemptTime: timestamppb.New(task.Timestamp),
+		}
+	}
+
+	return &klioGRPC.QueueListFailedWALsResponse{
+		Wals: responseWALs,
 	}, nil
 }
 
@@ -283,4 +346,26 @@ func (s *Server) deleteBackupFromTier(
 	}
 
 	return nil
+}
+
+// createListener creates the Unix socket the admin server listens on, with
+// restrictive permissions so only the user running the server can connect.
+func (s *Server) createListener(ctx context.Context) (net.Listener, error) {
+	// Remove any stale socket file
+	if err := os.Remove(s.opts.SocketPath); err != nil && !os.IsNotExist(err) {
+		return nil, fmt.Errorf("while removing stale socket file: %w", err)
+	}
+
+	var lc net.ListenConfig
+	listener, err := lc.Listen(ctx, "unix", s.opts.SocketPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := os.Chmod(s.opts.SocketPath, 0o600); err != nil {
+		_ = listener.Close()
+		return nil, fmt.Errorf("while setting socket permissions: %w", err)
+	}
+
+	return listener, nil
 }

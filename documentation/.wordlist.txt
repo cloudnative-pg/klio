@@ -46,6 +46,8 @@ EncryptionKey
 EncryptionKeyFile
 Enum
 ExactlyOneOf
+FailedBackup
+FailedWAL
 FalseClass
 FileReference
 FileSource
@@ -138,6 +140,12 @@ PreReconcile
 PullPolicy
 PutRequest
 PutResult
+QueueListFailedBackups
+QueueListFailedBackupsRequest
+QueueListFailedBackupsResponse
+QueueListFailedWALs
+QueueListFailedWALsRequest
+QueueListFailedWALsResponse
 QueueStatus
 QueueStatusRequest
 QueueStatusResponse

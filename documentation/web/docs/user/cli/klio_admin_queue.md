@@ -1,19 +1,16 @@
 ---
-title: klio admin list-backups
+title: klio admin queue
 ---
 
-## klio admin list-backups
+## klio admin queue
 
-List the backups available in the Klio server
-
-```
-klio admin list-backups [flags]
-```
+Manage the queue tasks
 
 ### Options
 
 ```
-  -h, --help                 help for list-backups
+  -h, --help                 help for queue
+      --json                 Output in JSON format
       --socket-path string   Unix socket used by the administration server (default "/tmp/.klio-admin")
 ```
 
@@ -37,4 +34,7 @@ klio admin list-backups [flags]
 ### SEE ALSO
 
 * [klio admin](klio_admin.md)	 - Server administration commands
+* [klio admin queue backup](klio_admin_queue_backup.md)	 - Manage the queue backup tasks
+* [klio admin queue status](klio_admin_queue_status.md)	 - Show the status of the task queue (pending backups and pending WALs)
+* [klio admin queue wal](klio_admin_queue_wal.md)	 - Manage the queue WAL tasks
 
