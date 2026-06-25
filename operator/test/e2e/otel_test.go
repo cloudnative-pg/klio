@@ -802,6 +802,133 @@ func assertOTELWALMetrics(
 		`metric klio_server_wal_latest_written_time_seconds{tier="tier2"} not found within timeout`)
 }
 
+// assertOTELServerBackupMetrics verifies the server-side PostgreSQL backup
+// metrics (klio.server.backup.*) derived from the snapshotted backup metadata.
+// The SnapshotMetricsCollector emits these on both tiers on its poll interval,
+// so the metrics are populated asynchronously and must be polled for. Each
+// series is keyed by the `tier` and `cluster_name` attributes.
+//
+// It must run before assertRepositoryErrorFailureCategory, which deletes the
+// Klio server (stopping the collector) and records a failing backup.
+func assertOTELServerBackupMetrics(
+	ctx context.Context,
+	t *testing.T,
+	cfg *envconf.Config,
+	scenario *otelMetricsScenario,
+) {
+	t.Helper()
+
+	// Matches the cluster name configured in newOTELMetricsScenario; it is the
+	// value the collector reads from the backup metadata and exports as the
+	// `cluster_name` attribute.
+	const clusterName = "test-cluster"
+
+	clientset, err := kubernetes.NewForConfig(cfg.Client().RESTConfig())
+	require.NoError(t, err, "failed to create kubernetes clientset")
+
+	podList, err := clientset.CoreV1().Pods(scenario.namespace.Name).List(ctx, metav1.ListOptions{
+		LabelSelector: "app=" + otel.CollectorName,
+	})
+	require.NoError(t, err, "failed to list OTEL collector pods")
+	require.Len(t, podList.Items, 1, "expected exactly one OTEL collector pod")
+	collectorPod := &podList.Items[0]
+
+	// Both the tier-1 and tier-2 collectors emit the backup gauges once the
+	// backup metadata is present in their respective repository. Tier-2 lags
+	// tier-1 because the metadata must first be replicated to remote storage.
+	for _, tier := range []string{"tier1", "tier2"} {
+		labels := map[string]string{"tier": tier, "cluster_name": clusterName}
+
+		t.Logf("Waiting for server backup metrics on %s", tier)
+		var promMetrics metrics.PrometheusMetrics
+		err := wait.For(
+			func(ctx context.Context) (bool, error) {
+				fresh, fetchErr := fetchCollectorMetrics(ctx, cfg.Client().RESTConfig(),
+					scenario.namespace.Name, collectorPod.Name)
+				if fetchErr != nil {
+					return false, nil //nolint:nilerr // retry on transient errors
+				}
+
+				if _, found := fresh.GetValueWithLabels("klio_server_backup_backups", labels); !found {
+					return false, nil
+				}
+
+				promMetrics = fresh
+
+				return true, nil
+			},
+			wait.WithTimeout(3*time.Minute),
+			wait.WithInterval(10*time.Second),
+		)
+		require.NoError(t, err,
+			"klio_server_backup_backups{tier=%q,cluster_name=%q} not found within timeout", tier, clusterName)
+
+		assertServerBackupSeriesForTier(t, promMetrics, tier, labels)
+	}
+}
+
+// assertServerBackupSeriesForTier validates the value invariants of the
+// klio.server.backup.* gauges for a single tier, given a metrics snapshot that
+// already contains the series.
+func assertServerBackupSeriesForTier(
+	t *testing.T,
+	promMetrics metrics.PrometheusMetrics,
+	tier string,
+	labels map[string]string,
+) {
+	t.Helper()
+
+	// At least one backup is retained after the successful backup.
+	backups, _ := promMetrics.GetValueWithLabels("klio_server_backup_backups", labels)
+	assert.GreaterOrEqual(t, backups, float64(1),
+		"expected at least 1 retained backup on %s", tier)
+
+	// The latest backup start/completion times must be valid epochs, with
+	// completion at or after start.
+	startTime, found := promMetrics.GetValueWithLabels(
+		"klio_server_backup_latest_backup_start_time_seconds", labels)
+	if assert.True(t, found,
+		"klio_server_backup_latest_backup_start_time_seconds{tier=%q} not found", tier) {
+		assert.Greater(t, startTime, float64(0),
+			"latest backup start time should be a valid epoch on %s", tier)
+	}
+
+	completionTime, _ := promMetrics.GetValueWithLabels(
+		"klio_server_backup_latest_backup_completion_time_seconds", labels)
+	assert.GreaterOrEqual(t, completionTime, startTime,
+		"latest backup completion time should be >= start time on %s", tier)
+
+	// The end LSN must be at or past the start LSN: a backup only advances the
+	// WAL position.
+	startLSN, _ := promMetrics.GetValueWithLabels(
+		"klio_server_backup_latest_backup_start_lsn_bytes", labels)
+	endLSN, _ := promMetrics.GetValueWithLabels(
+		"klio_server_backup_latest_backup_end_lsn_bytes", labels)
+	assert.Greater(t, startLSN, float64(0), "start LSN should be positive on %s", tier)
+	assert.GreaterOrEqual(t, endLSN, startLSN, "end LSN should be >= start LSN on %s", tier)
+
+	// A fresh cluster's first backup is on timeline 1.
+	timeline, _ := promMetrics.GetValueWithLabels(
+		"klio_server_backup_latest_backup_timeline", labels)
+	assert.GreaterOrEqual(t, timeline, float64(1), "timeline should be >= 1 on %s", tier)
+
+	// The oldest retained backup cannot have started after the latest one.
+	oldestStart, _ := promMetrics.GetValueWithLabels(
+		"klio_server_backup_oldest_backup_start_time_seconds", labels)
+	assert.LessOrEqual(t, oldestStart, startTime,
+		"oldest backup start time should be <= latest backup start time on %s", tier)
+
+	// The renamed snapshot freshness gauge is exported as an absolute timestamp
+	// (keyed by `snapshot_source`, so matched on `tier` only).
+	snapshotTimestamp, found := promMetrics.GetValueWithLabels(
+		"klio_server_backup_latest_snapshot_timestamp_seconds", map[string]string{"tier": tier})
+	if assert.True(t, found,
+		"klio_server_backup_latest_snapshot_timestamp_seconds{tier=%q} not found", tier) {
+		assert.Greater(t, snapshotTimestamp, float64(0),
+			"latest snapshot timestamp should be a valid epoch on %s", tier)
+	}
+}
+
 // assertOTELTracesReceived verifies that the OTEL Collector received expected traces.
 // It parses the collector's debug exporter logs to find trace spans.
 func assertOTELTracesReceived(
@@ -885,6 +1012,7 @@ func OTELMetricsAndTraces(namespace string) *machineryFeatures.BackupFeature {
 			// Wait a bit for telemetry to be exported
 			time.Sleep(10 * time.Second)
 			assertOTELMetricsReceived(ctx, t, cfg, scenario)
+			assertOTELServerBackupMetrics(ctx, t, cfg, scenario)
 			assertOTELTracesReceived(ctx, t, cfg, scenario)
 			// Runs last: it deletes the Klio server and triggers a failing
 			// backup, so it must follow the success-path assertions above

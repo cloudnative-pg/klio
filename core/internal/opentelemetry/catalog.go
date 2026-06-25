@@ -75,14 +75,26 @@ const (
 	ServerWalLatestWrittenLSNMetric      = "klio.server.wal.latest_written_lsn"
 	ServerWalLatestWrittenTimelineMetric = "klio.server.wal.latest_written_timeline"
 
-	ServerUptimeMetric                    = "klio.server.uptime"
-	ServerBackupSnapshotsMetric           = "klio.server.backup.snapshots"
-	ServerBackupLatestSnapshotSizeMetric  = "klio.server.backup.latest_snapshot_size"
-	ServerBackupLatestSnapshotFilesMetric = "klio.server.backup.latest_snapshot_files"
-	ServerBackupLatestSnapshotDirsMetric  = "klio.server.backup.latest_snapshot_dirs"
-	ServerBackupLatestSnapshotAgeMetric   = "klio.server.backup.latest_snapshot_age"
-	ServerBackupOldestSnapshotAgeMetric   = "klio.server.backup.oldest_snapshot_age"
-	ServerBackupVerificationsMetric       = "klio.server.backup.verifications"
+	ServerUptimeMetric                        = "klio.server.uptime"
+	ServerBackupSnapshotsMetric               = "klio.server.backup.snapshots"
+	ServerBackupLatestSnapshotSizeMetric      = "klio.server.backup.latest_snapshot_size"
+	ServerBackupLatestSnapshotFilesMetric     = "klio.server.backup.latest_snapshot_files"
+	ServerBackupLatestSnapshotDirsMetric      = "klio.server.backup.latest_snapshot_dirs"
+	ServerBackupLatestSnapshotTimestampMetric = "klio.server.backup.latest_snapshot_timestamp"
+	ServerBackupOldestSnapshotTimestampMetric = "klio.server.backup.oldest_snapshot_timestamp"
+	ServerBackupVerificationsMetric           = "klio.server.backup.verifications"
+
+	ServerBackupBackupsMetric               = "klio.server.backup.backups"
+	ServerBackupLatestBackupStartTimeMetric = "klio.server.backup.latest_backup_start_time"
+	ServerBackupLatestBackupEndTimeMetric   = "klio.server.backup.latest_backup_completion_time"
+	ServerBackupLatestBackupStartLSNMetric  = "klio.server.backup.latest_backup_start_lsn"
+	ServerBackupLatestBackupEndLSNMetric    = "klio.server.backup.latest_backup_end_lsn"
+	ServerBackupLatestBackupTimelineMetric  = "klio.server.backup.latest_backup_timeline"
+	ServerBackupOldestBackupStartTimeMetric = "klio.server.backup.oldest_backup_start_time"
+	ServerBackupOldestBackupEndTimeMetric   = "klio.server.backup.oldest_backup_completion_time"
+	ServerBackupOldestBackupStartLSNMetric  = "klio.server.backup.oldest_backup_start_lsn"
+	ServerBackupOldestBackupEndLSNMetric    = "klio.server.backup.oldest_backup_end_lsn"
+	ServerBackupOldestBackupTimelineMetric  = "klio.server.backup.oldest_backup_timeline"
 
 	ServerQueueMessagesMetric = "klio.server.queue.messages"
 	ServerQueueBytesMetric    = "klio.server.queue.bytes"
@@ -119,14 +131,36 @@ type PluginBackupMetrics struct {
 //     `tier` attribute (tier-1 for local disk, tier-2 for remote object
 //     store) and a `snapshot_source` attribute identifying the Kopia
 //     source descriptor (`userName@hostName:path`).
+//   - PostgreSQL backup gauges populated from the snapshotted backup
+//     metadata, describing the retention window of physical backups per
+//     cluster. Each recording carries a `tier` attribute and a
+//     `cluster_name` attribute. The `Latest*`/`Oldest*` gauges describe the
+//     most recent and oldest backup retained on that tier, and `Backups`
+//     counts how many backups are retained.
+//
+// The snapshot and backup gauges are asynchronous (observable) gauges: a
+// collector registers a callback that observes only the series currently
+// present.
 type ServerBackupMetrics struct {
 	Verifications           metric.Int64Counter
-	TotalSnapshots          metric.Int64Gauge
-	LatestSnapshotSize      metric.Int64Gauge
-	LatestSnapshotFileCount metric.Int64Gauge
-	LatestSnapshotDirCount  metric.Int64Gauge
-	LatestSnapshotAge       metric.Float64Gauge
-	OldestSnapshotAge       metric.Float64Gauge
+	TotalSnapshots          metric.Int64ObservableGauge
+	LatestSnapshotSize      metric.Int64ObservableGauge
+	LatestSnapshotFileCount metric.Int64ObservableGauge
+	LatestSnapshotDirCount  metric.Int64ObservableGauge
+	LatestSnapshotTimestamp metric.Int64ObservableGauge
+	OldestSnapshotTimestamp metric.Int64ObservableGauge
+
+	Backups               metric.Int64ObservableGauge
+	LatestBackupStartTime metric.Int64ObservableGauge
+	LatestBackupEndTime   metric.Int64ObservableGauge
+	LatestBackupStartLSN  metric.Int64ObservableGauge
+	LatestBackupEndLSN    metric.Int64ObservableGauge
+	LatestBackupTimeline  metric.Int64ObservableGauge
+	OldestBackupStartTime metric.Int64ObservableGauge
+	OldestBackupEndTime   metric.Int64ObservableGauge
+	OldestBackupStartLSN  metric.Int64ObservableGauge
+	OldestBackupEndLSN    metric.Int64ObservableGauge
+	OldestBackupTimeline  metric.Int64ObservableGauge
 }
 
 // ServerWalMetrics holds OTel instruments for the unified WAL ingest series.
@@ -214,31 +248,86 @@ func InitServerBackupMetrics() {
 			"attribute distinguishes tier-1 (post-backup local check) from tier-2 (post-upload remote check)."),
 		metric.WithUnit("{verifications}"),
 	)
-	ServerBackup.TotalSnapshots, _ = meter.Int64Gauge(ServerBackupSnapshotsMetric,
+	ServerBackup.TotalSnapshots, _ = meter.Int64ObservableGauge(ServerBackupSnapshotsMetric,
 		metric.WithDescription("Total number of base snapshots, broken down by `tier` and Kopia `snapshot_source`."),
 		metric.WithUnit("{snapshots}"),
 	)
-	ServerBackup.LatestSnapshotSize, _ = meter.Int64Gauge(ServerBackupLatestSnapshotSizeMetric,
+	ServerBackup.LatestSnapshotSize, _ = meter.Int64ObservableGauge(ServerBackupLatestSnapshotSizeMetric,
 		metric.WithDescription("Size of latest base snapshot in bytes (ignoring compression and "+
 			"deduplication), broken down by `tier` and Kopia `snapshot_source`."),
 		metric.WithUnit("By"),
 	)
-	ServerBackup.LatestSnapshotFileCount, _ = meter.Int64Gauge(ServerBackupLatestSnapshotFilesMetric,
+	ServerBackup.LatestSnapshotFileCount, _ = meter.Int64ObservableGauge(ServerBackupLatestSnapshotFilesMetric,
 		metric.WithDescription("Number of files in latest base snapshot, broken down by `tier` and Kopia `snapshot_source`."),
 		metric.WithUnit("{files}"),
 	)
-	ServerBackup.LatestSnapshotDirCount, _ = meter.Int64Gauge(ServerBackupLatestSnapshotDirsMetric,
+	ServerBackup.LatestSnapshotDirCount, _ = meter.Int64ObservableGauge(ServerBackupLatestSnapshotDirsMetric,
 		metric.WithDescription("Number of directories in latest base snapshot, broken down by `tier` "+
 			"and Kopia `snapshot_source`."),
 		metric.WithUnit("{directories}"),
 	)
-	ServerBackup.LatestSnapshotAge, _ = meter.Float64Gauge(ServerBackupLatestSnapshotAgeMetric,
-		metric.WithDescription("Age of latest base snapshot in seconds, broken down by `tier` and Kopia `snapshot_source`."),
+	ServerBackup.LatestSnapshotTimestamp, _ = meter.Int64ObservableGauge(ServerBackupLatestSnapshotTimestampMetric,
+		metric.WithDescription("Unix epoch timestamp of the latest base snapshot, broken down by "+
+			"`tier` and Kopia `snapshot_source`."),
 		metric.WithUnit("s"),
 	)
-	ServerBackup.OldestSnapshotAge, _ = meter.Float64Gauge(ServerBackupOldestSnapshotAgeMetric,
-		metric.WithDescription("Age of oldest base snapshot in seconds, broken down by `tier` and Kopia `snapshot_source`."),
+	ServerBackup.OldestSnapshotTimestamp, _ = meter.Int64ObservableGauge(ServerBackupOldestSnapshotTimestampMetric,
+		metric.WithDescription("Unix epoch timestamp of the oldest base snapshot, broken down by "+
+			"`tier` and Kopia `snapshot_source`."),
 		metric.WithUnit("s"),
+	)
+
+	ServerBackup.Backups, _ = meter.Int64ObservableGauge(ServerBackupBackupsMetric,
+		metric.WithDescription("Number of PostgreSQL backups retained, broken down by `tier` and `cluster_name`."),
+		metric.WithUnit("{backups}"),
+	)
+	ServerBackup.LatestBackupStartTime, _ = meter.Int64ObservableGauge(ServerBackupLatestBackupStartTimeMetric,
+		metric.WithDescription("Unix epoch timestamp when the latest retained PostgreSQL backup started, "+
+			"broken down by `tier` and `cluster_name`."),
+		metric.WithUnit("s"),
+	)
+	ServerBackup.LatestBackupEndTime, _ = meter.Int64ObservableGauge(ServerBackupLatestBackupEndTimeMetric,
+		metric.WithDescription("Unix epoch timestamp when the latest retained PostgreSQL backup completed, "+
+			"broken down by `tier` and `cluster_name`."),
+		metric.WithUnit("s"),
+	)
+	ServerBackup.LatestBackupStartLSN, _ = meter.Int64ObservableGauge(ServerBackupLatestBackupStartLSNMetric,
+		metric.WithDescription("Start LSN of the latest retained PostgreSQL backup, in base 10, "+
+			"broken down by `tier` and `cluster_name`."),
+		metric.WithUnit("By"),
+	)
+	ServerBackup.LatestBackupEndLSN, _ = meter.Int64ObservableGauge(ServerBackupLatestBackupEndLSNMetric,
+		metric.WithDescription("End LSN of the latest retained PostgreSQL backup, in base 10, "+
+			"broken down by `tier` and `cluster_name`."),
+		metric.WithUnit("By"),
+	)
+	ServerBackup.LatestBackupTimeline, _ = meter.Int64ObservableGauge(ServerBackupLatestBackupTimelineMetric,
+		metric.WithDescription("Timeline of the latest retained PostgreSQL backup, "+
+			"broken down by `tier` and `cluster_name`."),
+	)
+	ServerBackup.OldestBackupStartTime, _ = meter.Int64ObservableGauge(ServerBackupOldestBackupStartTimeMetric,
+		metric.WithDescription("Unix epoch timestamp when the oldest retained PostgreSQL backup started, "+
+			"broken down by `tier` and `cluster_name`."),
+		metric.WithUnit("s"),
+	)
+	ServerBackup.OldestBackupEndTime, _ = meter.Int64ObservableGauge(ServerBackupOldestBackupEndTimeMetric,
+		metric.WithDescription("Unix epoch timestamp when the oldest retained PostgreSQL backup completed, "+
+			"broken down by `tier` and `cluster_name`."),
+		metric.WithUnit("s"),
+	)
+	ServerBackup.OldestBackupStartLSN, _ = meter.Int64ObservableGauge(ServerBackupOldestBackupStartLSNMetric,
+		metric.WithDescription("Start LSN of the oldest retained PostgreSQL backup, in base 10, "+
+			"broken down by `tier` and `cluster_name`."),
+		metric.WithUnit("By"),
+	)
+	ServerBackup.OldestBackupEndLSN, _ = meter.Int64ObservableGauge(ServerBackupOldestBackupEndLSNMetric,
+		metric.WithDescription("End LSN of the oldest retained PostgreSQL backup, in base 10, "+
+			"broken down by `tier` and `cluster_name`."),
+		metric.WithUnit("By"),
+	)
+	ServerBackup.OldestBackupTimeline, _ = meter.Int64ObservableGauge(ServerBackupOldestBackupTimelineMetric,
+		metric.WithDescription("Timeline of the oldest retained PostgreSQL backup, "+
+			"broken down by `tier` and `cluster_name`."),
 	)
 }
 

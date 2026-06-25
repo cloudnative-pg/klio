@@ -68,7 +68,8 @@ func (s *Connection) restoreMetadata(
 	ctx context.Context,
 	snapshotID string,
 ) (*klioclient.BackupMetadata, error) {
-	manifestContent, err := s.kopia.RestoreSingleFile(ctx, snapshotID, "metadata.json")
+	contextLogger := log.FromContext(ctx)
+	manifestContent, err := s.kopia.RestoreSingleFile(ctx, snapshotID, "metadata.json", contextLogger.Info)
 	if err != nil {
 		return nil, fmt.Errorf("restoring backup metadata: %w", err)
 	}

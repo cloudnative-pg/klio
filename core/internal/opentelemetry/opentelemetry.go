@@ -44,6 +44,18 @@ func Init(ctx context.Context) func() {
 	}
 	otel.SetMeterProvider(otelMeterProvider)
 
+	// Rebind the metric instruments to the real meter provider. They are first
+	// created at package load time (in the catalog init function), when the
+	// global meter provider is still the default delegating one. Synchronous
+	// instruments keep working through that delegation, but observable
+	// instruments must be recreated against the real provider: otherwise
+	// RegisterCallback rejects them with "invalid observable: from a different
+	// implementation" and their callbacks are never invoked, so no samples are
+	// produced.
+	InitPluginBackupMetrics()
+	InitServerBackupMetrics()
+	InitServerWalMetrics()
+
 	otelTracerProvider, err := newTracerProvider(ctx)
 	if err != nil {
 		contextLogger.Error(err, "failed to setup otelTracerProvider")

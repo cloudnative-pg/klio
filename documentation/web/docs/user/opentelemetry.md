@@ -24,8 +24,11 @@ Klio automatically collects the following:
          - Number of files in the latest snapshot
          - Number of directories in the latest snapshot
          - Size of the latest snapshot
-         - Age of the latest snapshot
-         - Age of the oldest snapshot
+         - Timestamp of the latest snapshot
+         - Timestamp of the oldest snapshot
+         - Number of retained PostgreSQL backups (per cluster and tier)
+         - Start/end time, timeline and LSN of the latest and oldest
+           retained PostgreSQL backup (per cluster and tier)
          - Total number of backup verifications (split by outcome and tier)
       - WAL processing metrics
          - Number of WAL files written
@@ -107,10 +110,10 @@ attribute key.
 | Attribute | Values | Applies to |
 |---|---|---|
 | `tier` | `tier1` (local disk on the Klio server), `tier2` (remote object store) | All `klio.server.wal.*` and `klio.server.backup.*` instruments. |
-| `cluster_name` | Name of the PostgreSQL cluster the recording belongs to | All `klio.server.wal.*` instruments. |
+| `cluster_name` | Name of the PostgreSQL cluster the recording belongs to | All `klio.server.wal.*` instruments and the `klio.server.backup.*` PostgreSQL backup gauges (`backups`, `latest_backup_*`, `oldest_backup_*`). |
 | `outcome` | `success`, `failure` | `klio.plugin.backup.runs`, `klio.server.backup.verifications`. |
 | `failure_category` | `repository_error`, `source_error`, `verification`, `timeout`, `canceled`, `unknown` | `klio.plugin.backup.runs` failure data points only. |
-| `snapshot_source` | Kopia source descriptor (`userName@hostName:path`) | All `klio.server.backup.*` base snapshot gauges (`snapshots`, `latest_snapshot_*`, `oldest_snapshot_age`). |
+| `snapshot_source` | Kopia source descriptor (`userName@hostName:path`) | All `klio.server.backup.*` base snapshot gauges (`snapshots`, `latest_snapshot_*`, `oldest_snapshot_timestamp`). |
 | `stream` | JetStream stream name (`klio-wal-stream`, `klio-backup-stream`, `klio-latest-uploaded-wal-per-cluster-stream`) | `klio.server.queue.messages`, `klio.server.queue.bytes`. |
 
 ### Backup lifecycle metrics (plugin sidecar)
@@ -246,13 +249,35 @@ and track Kopia snapshot statistics:
 | `klio.server.backup.latest_snapshot_size` | Gauge | By | Size of latest base snapshot in bytes (ignoring compression and deduplication) |
 | `klio.server.backup.latest_snapshot_files` | Gauge | - | Number of files in latest base snapshot |
 | `klio.server.backup.latest_snapshot_dirs` | Gauge | - | Number of directories in latest base snapshot |
-| `klio.server.backup.latest_snapshot_age` | Gauge | s | Age of latest base snapshot in seconds |
-| `klio.server.backup.oldest_snapshot_age` | Gauge | s | Age of oldest base snapshot in seconds |
+| `klio.server.backup.latest_snapshot_timestamp` | Gauge | s | Unix epoch timestamp of the latest base snapshot |
+| `klio.server.backup.oldest_snapshot_timestamp` | Gauge | s | Unix epoch timestamp of the oldest base snapshot |
 
 Every recording carries a `tier` attribute (`tier1` for the local
 disk repository, `tier2` for the remote object store) and a
 `snapshot_source` attribute identifying the source descriptor
 (`userName@hostName:path`) the snapshot belongs to.
+
+The following metrics describe the retention window of physical
+PostgreSQL backups, derived from the snapshotted backup metadata.
+Each recording carries a `tier` attribute and a `cluster_name`
+attribute identifying the PostgreSQL cluster the backup belongs to.
+The `latest_backup_*` and `oldest_backup_*` gauges describe the most
+recent and oldest backup retained on that tier (a base backup cannot
+span a timeline switch, so its start and end share one timeline):
+
+| Metric Name | Type | Unit | Description |
+|---|---|---|---|
+| `klio.server.backup.backups` | Gauge | - | Number of PostgreSQL backups retained |
+| `klio.server.backup.latest_backup_start_time` | Gauge | s | Unix epoch timestamp when the latest retained backup started |
+| `klio.server.backup.latest_backup_completion_time` | Gauge | s | Unix epoch timestamp when the latest retained backup completed |
+| `klio.server.backup.latest_backup_start_lsn` | Gauge | By | Start LSN of the latest retained backup (base 10) |
+| `klio.server.backup.latest_backup_end_lsn` | Gauge | By | End LSN of the latest retained backup (base 10) |
+| `klio.server.backup.latest_backup_timeline` | Gauge | - | Timeline of the latest retained backup |
+| `klio.server.backup.oldest_backup_start_time` | Gauge | s | Unix epoch timestamp when the oldest retained backup started |
+| `klio.server.backup.oldest_backup_completion_time` | Gauge | s | Unix epoch timestamp when the oldest retained backup completed |
+| `klio.server.backup.oldest_backup_start_lsn` | Gauge | By | Start LSN of the oldest retained backup (base 10) |
+| `klio.server.backup.oldest_backup_end_lsn` | Gauge | By | End LSN of the oldest retained backup (base 10) |
+| `klio.server.backup.oldest_backup_timeline` | Gauge | - | Timeline of the oldest retained backup |
 
 ### Queue metrics (server)
 

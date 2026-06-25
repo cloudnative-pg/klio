@@ -58,8 +58,13 @@ func (s *Client) ListSnapshots(
 	return entries, nil
 }
 
-// RestoreSingleFile restores a single file from a snapshot and returns its contents.
-func (s *Client) RestoreSingleFile(ctx context.Context, snapshotID string, fileName string) ([]byte, error) {
+// RestoreSingleFile restores a single file from a snapshot and returns its
+// contents. The logFn parameter controls how the operation is logged - callers
+// should pass contextLogger.Info for user-facing operations or
+// contextLogger.Debug for internal/periodic operations.
+func (s *Client) RestoreSingleFile(
+	ctx context.Context, snapshotID string, fileName string, logFn LogFunc,
+) ([]byte, error) {
 	contextLogger := log.FromContext(ctx)
 
 	dirName, err := os.MkdirTemp("", "kopia_snapshot_*")
@@ -82,7 +87,7 @@ func (s *Client) RestoreSingleFile(ctx context.Context, snapshotID string, fileN
 		dirName,
 	}
 
-	contextLogger.Info("Restoring Kopia snapshot (single file)", "args", args)
+	logFn("Restoring Kopia snapshot (single file)", "args", args)
 
 	restoreCmd := exec.CommandContext(ctx, s.KopiaBinary, args...) //nolint:gosec
 	restoreCmd.Env = s.kopiaEnvironmentVariables()

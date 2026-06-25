@@ -8,6 +8,18 @@ This page lists version-specific changes that may require
 manual action when upgrading Klio. For the upgrade procedure,
 see the [Helm chart page](helm_chart.mdx#upgrades).
 
+## Upgrading to 0.0.17
+
+### Metric names renamed
+
+The snapshot freshness gauges have changed from age to absolute
+timestamps: `klio.server.backup.latest_snapshot_age` and
+`klio.server.backup.oldest_snapshot_age` are now
+`klio.server.backup.latest_snapshot_timestamp` and
+`klio.server.backup.oldest_snapshot_timestamp`, reporting the Unix
+epoch second of the snapshot instead of its age. Compute age at query
+time as `time() - klio_server_backup_latest_snapshot_timestamp`.
+
 ## Upgrading to 0.0.16
 
 ### Metric names renamed (breaking change)

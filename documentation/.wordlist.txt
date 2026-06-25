@@ -322,6 +322,7 @@ serviceAccountName
 sfixed
 sint
 sio
+snapshotted
 stderr
 str
 subprocess
