@@ -4,7 +4,7 @@ go 1.26.3
 
 require (
 	filippo.io/age v1.3.1
-	github.com/cert-manager/cert-manager v1.20.2
+	github.com/cert-manager/cert-manager v1.20.3
 	github.com/cloudnative-pg/api v1.29.1
 	github.com/cloudnative-pg/cloudnative-pg v1.29.1
 	github.com/cloudnative-pg/cnpg-i v0.5.0
