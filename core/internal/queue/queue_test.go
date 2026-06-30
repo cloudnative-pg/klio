@@ -38,6 +38,23 @@ func startNATSServer(t *testing.T) (*server.Server, string) {
 	return ns, ns.ClientURL()
 }
 
+// streamHandle returns a jetstream.Stream for the named stream. Conn no longer
+// caches stream handles, so tests that inspect stream state directly fetch a
+// handle by name.
+//
+//nolint:ireturn // mirrors the third-party jetstream.Stream interface by design
+func streamHandle(ctx context.Context, t *testing.T, nc *nats.Conn, name string) jetstream.Stream {
+	t.Helper()
+
+	js, err := jetstream.New(nc)
+	require.NoError(t, err)
+
+	stream, err := js.Stream(ctx, name)
+	require.NoError(t, err)
+
+	return stream
+}
+
 func TestNew(t *testing.T) {
 	ns, url := startNATSServer(t)
 	defer ns.Shutdown()
@@ -121,11 +138,12 @@ func TestNewMigratesNonEmptyLegacyStream(t *testing.T) {
 	require.ErrorIs(t, err, jetstream.ErrStreamNotFound,
 		"legacy KLIO stream must be removed after migration")
 
-	walMsg, err := conn.klioWalStream.GetLastMsgForSubject(ctx, walSubject("leftover"))
+	walMsg, err := streamHandle(ctx, t, conn.conn, klioWalStreamName).GetLastMsgForSubject(ctx, walSubject("leftover"))
 	require.NoError(t, err, "migrated WAL task must land on the new WAL stream")
 	assert.JSONEq(t, string(walPayload), string(walMsg.Data))
 
-	backupMsg, err := conn.klioBackupStream.GetLastMsgForSubject(ctx, backupSubject("leftover"))
+	backupStream := streamHandle(ctx, t, conn.conn, klioBackupStreamName)
+	backupMsg, err := backupStream.GetLastMsgForSubject(ctx, backupSubject("leftover"))
 	require.NoError(t, err, "migrated backup task must land on the new backup stream")
 	assert.JSONEq(t, string(backupPayload), string(backupMsg.Data))
 }
@@ -173,7 +191,7 @@ func TestWALTaskSerialization(t *testing.T) {
 	require.NoError(t, err)
 
 	// Read the message back from the WAL stream and verify its payload.
-	msg, err := conn.klioWalStream.GetLastMsgForSubject(ctx, walSubject(task.ClusterName))
+	msg, err := streamHandle(ctx, t, conn.conn, klioWalStreamName).GetLastMsgForSubject(ctx, walSubject(task.ClusterName))
 	require.NoError(t, err)
 	assert.Contains(t, string(msg.Data), "serialization-cluster")
 	assert.Contains(t, string(msg.Data), "000000010000000000000001")
@@ -234,7 +252,8 @@ func TestBackupTaskSerialization(t *testing.T) {
 	err = conn.NotifyBackupReceived(ctx, task)
 	require.NoError(t, err)
 
-	msg, err := conn.klioBackupStream.GetLastMsgForSubject(ctx, backupSubject(task.ClusterName))
+	backupStream := streamHandle(ctx, t, conn.conn, klioBackupStreamName)
+	msg, err := backupStream.GetLastMsgForSubject(ctx, backupSubject(task.ClusterName))
 	require.NoError(t, err)
 	assert.Contains(t, string(msg.Data), "serialization-cluster")
 }
@@ -259,11 +278,11 @@ func TestStreamIsolation(t *testing.T) {
 		ClusterName: "iso-cluster",
 	}))
 
-	walInfo, err := conn.klioWalStream.Info(ctx)
+	walInfo, err := streamHandle(ctx, t, conn.conn, klioWalStreamName).Info(ctx)
 	require.NoError(t, err)
 	assert.Equal(t, uint64(1), walInfo.State.Msgs, "WAL stream should have exactly 1 message")
 
-	backupInfo, err := conn.klioBackupStream.Info(ctx)
+	backupInfo, err := streamHandle(ctx, t, conn.conn, klioBackupStreamName).Info(ctx)
 	require.NoError(t, err)
 	assert.Equal(t, uint64(1), backupInfo.State.Msgs, "backup stream should have exactly 1 message")
 }
@@ -451,7 +470,7 @@ func TestInternalConsumeMessagesAcksOnSuccess(t *testing.T) {
 
 	var calls atomic.Int32
 	//nolint:unparam // must satisfy the WALTaskHandler signature
-	handler := func(_ context.Context, _ *WALTask) error {
+	handler := func(_ context.Context, _ *WALTask, _ nats.Header) error {
 		calls.Add(1)
 
 		return nil
@@ -490,7 +509,7 @@ func TestInternalConsumeMessagesTerminatesInvalidMessage(t *testing.T) {
 
 	var calls atomic.Int32
 	//nolint:unparam // must satisfy the WALTaskHandler signature
-	handler := func(_ context.Context, _ *WALTask) error {
+	handler := func(_ context.Context, _ *WALTask, _ nats.Header) error {
 		calls.Add(1)
 
 		return nil
@@ -531,7 +550,7 @@ func TestInternalConsumeMessagesRetriesUntilMaxDeliver(t *testing.T) {
 	js, consumer := newTestConsumer(t, nc, subject, maxDeliver, 300*time.Millisecond)
 
 	var calls atomic.Int32
-	handler := func(_ context.Context, _ *WALTask) error {
+	handler := func(_ context.Context, _ *WALTask, _ nats.Header) error {
 		calls.Add(1)
 
 		return errors.New("boom")
@@ -656,7 +675,7 @@ func TestDLQStreamsConfig(t *testing.T) {
 	conn, err := New(ctx, nc)
 	require.NoError(t, err)
 
-	walInfo, err := conn.klioDLQWalStream.Info(ctx)
+	walInfo, err := streamHandle(ctx, t, conn.conn, klioDLQWalStreamName).Info(ctx)
 	require.NoError(t, err)
 	assert.Equal(t, klioDLQWalStreamName, walInfo.Config.Name)
 	assert.Equal(t, jetstream.LimitsPolicy, walInfo.Config.Retention,
@@ -667,7 +686,7 @@ func TestDLQStreamsConfig(t *testing.T) {
 	}, walInfo.Config.Subjects,
 		"WAL DLQ must subscribe to the WAL consumer's MAX_DELIVERIES advisory")
 
-	backupInfo, err := conn.klioDLQBackupStream.Info(ctx)
+	backupInfo, err := streamHandle(ctx, t, conn.conn, klioDLQBackupStreamName).Info(ctx)
 	require.NoError(t, err)
 	assert.Equal(t, klioDLQBackupStreamName, backupInfo.Config.Name)
 	assert.Equal(t, jetstream.LimitsPolicy, backupInfo.Config.Retention)
@@ -706,7 +725,7 @@ func TestDLQCapturesMaxDeliveryAdvisory(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	handler := func(_ context.Context, _ *WALTask) error {
+	handler := func(_ context.Context, _ *WALTask, _ nats.Header) error {
 		return errors.New("boom")
 	}
 

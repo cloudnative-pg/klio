@@ -3,6 +3,9 @@ package queue
 import (
 	"context"
 
+	"github.com/cloudnative-pg/machinery/pkg/log"
+	"github.com/nats-io/nats.go"
+
 	"github.com/cloudnative-pg/klio/core/internal/kopia"
 )
 
@@ -32,7 +35,24 @@ func (q *Conn) NotifyBackupReceived(ctx context.Context, task *BackupTask) error
 type BackupTaskHandler func(ctx context.Context, t *BackupTask) error
 
 // ConsumeBackupReceivedMessages starts consuming the backup received messages and ends
-// when the context is canceled.
+// when the context is canceled. After a successful handler run, all dead-letter
+// queue entries for the backed-up cluster are purged.
 func (q *Conn) ConsumeBackupReceivedMessages(ctx context.Context, handler BackupTaskHandler) error {
-	return internalConsumeMessages(ctx, handler, q.backupConsumer)
+	wrapped := func(ctx context.Context, t *BackupTask, _ nats.Header) error {
+		if err := handler(ctx, t); err != nil {
+			return err
+		}
+
+		if err := q.purgeBackupDLQEntries(ctx, t.ClusterName); err != nil {
+			log.FromContext(ctx).Error(
+				err,
+				"Failed to purge backup dead-letter queue entries after successful backup",
+				"task", t,
+			)
+		}
+
+		return nil
+	}
+
+	return internalConsumeMessages(ctx, wrapped, q.backupConsumer)
 }

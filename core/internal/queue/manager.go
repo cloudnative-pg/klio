@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"slices"
+	"sync"
 	"time"
 
 	"github.com/cloudnative-pg/machinery/pkg/log"
@@ -13,6 +14,7 @@ import (
 	"github.com/nats-io/jsm.go/api"
 	"github.com/nats-io/nats-server/v2/server"
 	"github.com/nats-io/nats.go"
+	"github.com/nats-io/nats.go/jetstream"
 )
 
 // errIncompleteDLQListing indicates the DLQ pager stopped before reading every
@@ -57,6 +59,9 @@ func WithCluster(name string) ListOption {
 // StreamManager provides methods to interact with NATS streams.
 type StreamManager struct {
 	mgr *jsm.Manager
+
+	mu      sync.Mutex
+	streams map[string]*jsm.Stream
 }
 
 // NewStreamManager creates a new StreamManager instance using the provided NATS connection.
@@ -66,7 +71,10 @@ func NewStreamManager(conn *nats.Conn) (*StreamManager, error) {
 		return nil, err
 	}
 
-	return &StreamManager{mgr: mgr}, nil
+	return &StreamManager{
+		mgr:     mgr,
+		streams: make(map[string]*jsm.Stream),
+	}, nil
 }
 
 // GetStatus returns the current status of the task queue. Streams that have not
@@ -129,10 +137,125 @@ func (m *StreamManager) ListFailedBackupTasks(
 	return listFailedTasks[BackupTask](ctx, dlqBackupStream, backupStream, opts...)
 }
 
-// loadStreamOrNil loads a stream by name. The queue streams are created lazily
-// by the tier servers, so the admin server may query them before they exist; in
-// that case the stream is reported as absent (nil, nil) rather than as an error.
+// configureStreams creates or updates all JetStream streams required by Klio.
+func (m *StreamManager) configureStreams(ctx context.Context, js jetstream.JetStream) error {
+	configs := []jetstream.StreamConfig{
+		{
+			Name:        klioWalStreamName,
+			Retention:   jetstream.WorkQueuePolicy,
+			Description: "Klio WAL Stream",
+			Subjects:    []string{walSubject("*")},
+			Storage:     jetstream.FileStorage,
+		},
+		{
+			Name:        klioDLQWalStreamName,
+			Retention:   jetstream.LimitsPolicy,
+			Description: "Klio Dead Letter Queue WAL Stream",
+			Subjects: []string{
+				fmt.Sprintf("%s.%s.%s",
+					server.JSAdvisoryConsumerMaxDeliveryExceedPre,
+					klioWalStreamName,
+					klioWalConsumerName),
+			},
+			Storage: jetstream.FileStorage,
+		},
+		{
+			Name:              klioLatestUploadedWalStreamName,
+			Retention:         jetstream.LimitsPolicy,
+			Description:       "Klio Latest Uploaded WAL per Cluster Stream",
+			Subjects:          []string{latestUploadedWalSubject("*")},
+			Storage:           jetstream.FileStorage,
+			MaxMsgsPerSubject: 1,
+		},
+		{
+			Name:        klioBackupStreamName,
+			Retention:   jetstream.WorkQueuePolicy,
+			Description: "Klio Backup Stream",
+			Subjects:    []string{backupSubject("*")},
+			Storage:     jetstream.FileStorage,
+		},
+		{
+			Name:        klioDLQBackupStreamName,
+			Retention:   jetstream.LimitsPolicy,
+			Description: "Klio Dead Letter Queue Backup Stream",
+			Subjects: []string{
+				fmt.Sprintf("%s.%s.%s",
+					server.JSAdvisoryConsumerMaxDeliveryExceedPre,
+					klioBackupStreamName,
+					klioBackupConsumerName),
+			},
+			Storage: jetstream.FileStorage,
+		},
+	}
+
+	for _, cfg := range configs {
+		if _, err := js.CreateOrUpdateStream(ctx, cfg); err != nil {
+			return fmt.Errorf("while creating or updating JetStream stream %q: %w", cfg.Name, err)
+		}
+	}
+
+	return nil
+}
+
+// purgeWALDLQEntry removes the WAL dead-letter queue entry at the given stream
+// sequence and releases the original message it references from the WAL
+// work-queue stream.
+func (m *StreamManager) purgeWALDLQEntry(_ context.Context, dlqSequence uint64) error {
+	dlqStream, err := m.loadStreamOrNil(klioDLQWalStreamName)
+	if err != nil {
+		return err
+	}
+	sourceStream, err := m.loadStreamOrNil(klioWalStreamName)
+	if err != nil {
+		return err
+	}
+	if dlqStream == nil || sourceStream == nil {
+		return nil
+	}
+
+	return m.purgeDLQEntryBySequence(dlqStream, sourceStream, dlqSequence)
+}
+
+// purgeBackupDLQEntries removes every backup dead-letter queue entry belonging to the
+// given cluster. For each matching entry it deletes the DLQ advisory and releases the
+// original failed message it references from the backup work-queue stream.
+func (m *StreamManager) purgeBackupDLQEntries(ctx context.Context, clusterName string) error {
+	dlqStream, err := m.loadStreamOrNil(klioDLQBackupStreamName)
+	if err != nil {
+		return err
+	}
+	sourceStream, err := m.loadStreamOrNil(klioBackupStreamName)
+	if err != nil {
+		return err
+	}
+	if dlqStream == nil || sourceStream == nil {
+		return nil
+	}
+
+	failed, err := listFailedTasks[BackupTask](ctx, dlqStream, sourceStream, WithCluster(clusterName))
+	if err != nil {
+		return err
+	}
+
+	var errs []error
+	for _, task := range failed {
+		if err := m.purgeDLQEntryBySequence(dlqStream, sourceStream, task.Sequence); err != nil {
+			errs = append(errs, err)
+		}
+	}
+
+	return errors.Join(errs...)
+}
+
+// loadStreamOrNil loads a stream by name, caching the handle.
 func (m *StreamManager) loadStreamOrNil(name string) (*jsm.Stream, error) {
+	m.mu.Lock()
+	cached, ok := m.streams[name]
+	m.mu.Unlock()
+	if ok {
+		return cached, nil
+	}
+
 	stream, err := m.mgr.LoadStream(name)
 	switch {
 	case jsm.IsNatsError(err, uint16(server.JSStreamNotFoundErr)):
@@ -140,6 +263,10 @@ func (m *StreamManager) loadStreamOrNil(name string) (*jsm.Stream, error) {
 	case err != nil:
 		return nil, fmt.Errorf("loading stream %q: %w", name, err)
 	}
+
+	m.mu.Lock()
+	m.streams[name] = stream
+	m.mu.Unlock()
 
 	return stream, nil
 }
@@ -164,6 +291,56 @@ func (m *StreamManager) pendingMsgs(name string) (uint64, error) {
 	}
 
 	return info.State.Msgs, nil
+}
+
+// purgeDLQEntryBySequence removes the dead-letter queue entry stored at dlqSeq
+// and releases the original message it references from sourceStream.
+func (m *StreamManager) purgeDLQEntryBySequence(
+	dlqStream *jsm.Stream,
+	sourceStream *jsm.Stream,
+	dlqSeq uint64,
+) error {
+	advisoryMsg, err := dlqStream.ReadMessage(dlqSeq)
+	if err != nil {
+		if jsm.IsNatsError(err, uint16(server.JSNoMessageFoundErr)) {
+			return nil
+		}
+
+		return fmt.Errorf("while fetching dead-letter queue entry at sequence %d: %w", dlqSeq, err)
+	}
+
+	var advisory server.JSConsumerDeliveryExceededAdvisory
+	if err := json.Unmarshal(advisoryMsg.Data, &advisory); err != nil {
+		return fmt.Errorf("while unmarshalling dead-letter queue advisory at sequence %d: %w", dlqSeq, err)
+	}
+
+	// Release the original failed message first. The message may already be
+	// gone (e.g. drained by the work queue), so a missing original is treated
+	// as already cleaned up rather than an error. Deleting the original before
+	// the DLQ entry makes this function idempotent: if it is interrupted after
+	// this point the DLQ entry still exists and a retry will skip the
+	// already-deleted original and then complete the DLQ removal.
+	// We read before deleting because DeleteMessageRequest returns the generic
+	// JSStreamMsgDeleteFailedF (10057) when the message is absent, which would
+	// mask real delete failures. ReadMessage returns the precise
+	// JSNoMessageFoundErr (10037) that we can safely ignore.
+	_, err = sourceStream.ReadMessage(advisory.StreamSeq)
+	switch {
+	case jsm.IsNatsError(err, uint16(server.JSNoMessageFoundErr)):
+		// already gone, nothing to release
+	case err != nil:
+		return fmt.Errorf("while checking original message at sequence %d: %w", advisory.StreamSeq, err)
+	default:
+		if err := sourceStream.DeleteMessageRequest(api.JSApiMsgDeleteRequest{Seq: advisory.StreamSeq}); err != nil {
+			return fmt.Errorf("while releasing original message at sequence %d: %w", advisory.StreamSeq, err)
+		}
+	}
+
+	if err := dlqStream.DeleteMessageRequest(api.JSApiMsgDeleteRequest{Seq: dlqSeq}); err != nil {
+		return fmt.Errorf("while deleting dead-letter queue entry at sequence %d: %w", dlqSeq, err)
+	}
+
+	return nil
 }
 
 func listFailedTasks[T clusterTask](

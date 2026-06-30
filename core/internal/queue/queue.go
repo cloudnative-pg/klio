@@ -5,26 +5,22 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/ccoveille/go-safecast/v2"
 	"github.com/cloudnative-pg/machinery/pkg/log"
-	"github.com/nats-io/nats-server/v2/server"
 	"github.com/nats-io/nats.go"
 	"github.com/nats-io/nats.go/jetstream"
 )
 
 // Conn is a work queue as used by Klio.
 type Conn struct {
-	conn                                  *nats.Conn
-	klioWalStream                         jetstream.Stream
-	klioBackupStream                      jetstream.Stream
-	klioLatestUploadedWalPerClusterStream jetstream.Stream
+	*StreamManager
 
-	klioDLQWalStream    jetstream.Stream
-	klioDLQBackupStream jetstream.Stream
+	conn *nats.Conn
 
 	walConsumer    jetstream.Consumer
 	backupConsumer jetstream.Consumer
@@ -54,6 +50,25 @@ const (
 // AckWait and redelivers a message that is still being processed.
 const heartbeatInterval = 15 * time.Second
 
+// DLQAdvisorySequenceHeader is the NATS message header carrying the DLQ advisory sequence for a CLI-driven retry.
+const DLQAdvisorySequenceHeader = "Klio-Dlq-Advisory-Sequence"
+
+// dlqRetrySequence returns the dead-letter queue sequence carried by the
+// Klio-Dlq-Retry-Sequence header, if present.
+func dlqRetrySequence(headers nats.Header) (uint64, bool) {
+	raw := headers.Get(DLQAdvisorySequenceHeader)
+	if raw == "" {
+		return 0, false
+	}
+
+	seq, err := strconv.ParseUint(raw, 10, 64)
+	if err != nil {
+		return 0, false
+	}
+
+	return seq, true
+}
+
 func backupSubject(clusterName string) string {
 	return "klio.backup." + clusterName
 }
@@ -72,6 +87,12 @@ func New(ctx context.Context, natsConnection *nats.Conn) (*Conn, error) {
 		conn: natsConnection,
 	}
 
+	streamManager, err := NewStreamManager(natsConnection)
+	if err != nil {
+		return nil, fmt.Errorf("while creating stream manager: %w", err)
+	}
+	result.StreamManager = streamManager
+
 	js, err := jetstream.New(natsConnection)
 	if err != nil {
 		return nil, fmt.Errorf("while creating JetStream instance: %w", err)
@@ -85,7 +106,7 @@ func New(ctx context.Context, natsConnection *nats.Conn) (*Conn, error) {
 		return nil, err
 	}
 
-	if err := configureJetStreams(ctx, js, result); err != nil {
+	if err := result.configureStreams(ctx, js); err != nil {
 		return nil, err
 	}
 
@@ -98,96 +119,6 @@ func New(ctx context.Context, natsConnection *nats.Conn) (*Conn, error) {
 	}
 
 	return result, nil
-}
-
-func configureJetStreams(ctx context.Context, js jetstream.JetStream, conn *Conn) error {
-	var err error
-	conn.klioWalStream, err = js.CreateOrUpdateStream(
-		ctx,
-		jetstream.StreamConfig{
-			Name:        klioWalStreamName,
-			Retention:   jetstream.WorkQueuePolicy,
-			Description: "Klio WAL Stream",
-			Subjects: []string{
-				walSubject("*"),
-			},
-			Storage: jetstream.FileStorage,
-		},
-	)
-	if err != nil {
-		return fmt.Errorf("while creating or updating JetStream WAL stream: %w", err)
-	}
-
-	conn.klioDLQWalStream, err = js.CreateOrUpdateStream(
-		ctx,
-		jetstream.StreamConfig{
-			Name:        klioDLQWalStreamName,
-			Retention:   jetstream.LimitsPolicy,
-			Description: "Klio Dead Letter Queue WAL Stream",
-			Subjects: []string{
-				fmt.Sprintf("%s.%s.%s",
-					server.JSAdvisoryConsumerMaxDeliveryExceedPre,
-					klioWalStreamName,
-					klioWalConsumerName),
-			},
-			Storage: jetstream.FileStorage,
-		},
-	)
-	if err != nil {
-		return fmt.Errorf("while creating or updating JetStream Dead-Letter Queue WAL stream: %w", err)
-	}
-
-	conn.klioLatestUploadedWalPerClusterStream, err = js.CreateOrUpdateStream(
-		ctx,
-		jetstream.StreamConfig{
-			Name:              klioLatestUploadedWalStreamName,
-			Retention:         jetstream.LimitsPolicy,
-			Description:       "Klio Latest Uploaded WAL per Cluster Stream",
-			Subjects:          []string{latestUploadedWalSubject("*")},
-			Storage:           jetstream.FileStorage,
-			MaxMsgsPerSubject: 1,
-		},
-	)
-	if err != nil {
-		return fmt.Errorf("while creating or updating JetStream latest-uploaded-WAL stream: %w", err)
-	}
-
-	conn.klioBackupStream, err = js.CreateOrUpdateStream(
-		ctx,
-		jetstream.StreamConfig{
-			Name:        klioBackupStreamName,
-			Retention:   jetstream.WorkQueuePolicy,
-			Description: "Klio Backup Stream",
-			Subjects: []string{
-				backupSubject("*"),
-			},
-			Storage: jetstream.FileStorage,
-		},
-	)
-	if err != nil {
-		return fmt.Errorf("while creating or updating JetStream backup stream: %w", err)
-	}
-
-	conn.klioDLQBackupStream, err = js.CreateOrUpdateStream(
-		ctx,
-		jetstream.StreamConfig{
-			Name:        klioDLQBackupStreamName,
-			Retention:   jetstream.LimitsPolicy,
-			Description: "Klio Dead Letter Queue Backup Stream",
-			Subjects: []string{
-				fmt.Sprintf("%s.%s.%s",
-					server.JSAdvisoryConsumerMaxDeliveryExceedPre,
-					klioBackupStreamName,
-					klioBackupConsumerName),
-			},
-			Storage: jetstream.FileStorage,
-		},
-	)
-	if err != nil {
-		return fmt.Errorf("while creating or updating JetStream Dead-Letter Queue backup stream: %w", err)
-	}
-
-	return nil
 }
 
 func configureConsumers(ctx context.Context, js jetstream.JetStream, conn *Conn) error {
@@ -432,7 +363,7 @@ func (q *Conn) notifyMessage(ctx context.Context, subject string, task any) erro
 // when the context is canceled.
 func internalConsumeMessages[T any](
 	ctx context.Context,
-	handler func(ctx context.Context, t *T) error,
+	handler func(ctx context.Context, t *T, headers nats.Header) error,
 	consumer jetstream.Consumer,
 ) error {
 	logger := log.FromContext(ctx)
@@ -468,7 +399,7 @@ func internalConsumeMessages[T any](
 		}
 
 		err = internalRunTaskHandler(ctx, msg, func() error {
-			return handler(ctx, &task)
+			return handler(ctx, &task, msg.Headers())
 		})
 		if err != nil {
 			// We deliberately do not Nak the message: a plain Nak triggers

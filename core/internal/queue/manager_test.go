@@ -90,7 +90,7 @@ func publishWALAndCaptureSeq(t *testing.T, conn *Conn, task *WALTask) uint64 {
 	ctx := t.Context()
 	require.NoError(t, conn.NotifyWALReceived(ctx, task))
 
-	msg, err := conn.klioWalStream.GetLastMsgForSubject(ctx, walSubject(task.ClusterName))
+	msg, err := streamHandle(ctx, t, conn.conn, klioWalStreamName).GetLastMsgForSubject(ctx, walSubject(task.ClusterName))
 	require.NoError(t, err)
 
 	return msg.Sequence
@@ -104,7 +104,8 @@ func publishBackupAndCaptureSeq(t *testing.T, conn *Conn, task *BackupTask) uint
 	ctx := t.Context()
 	require.NoError(t, conn.NotifyBackupReceived(ctx, task))
 
-	msg, err := conn.klioBackupStream.GetLastMsgForSubject(ctx, backupSubject(task.ClusterName))
+	backupStream := streamHandle(ctx, t, conn.conn, klioBackupStreamName)
+	msg, err := backupStream.GetLastMsgForSubject(ctx, backupSubject(task.ClusterName))
 	require.NoError(t, err)
 
 	return msg.Sequence
