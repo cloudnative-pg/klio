@@ -19,7 +19,7 @@ require (
 	github.com/google/uuid v1.6.0
 	github.com/jackc/pglogrepl v0.0.0-20260401131349-e37c41485510
 	github.com/jackc/pgx/v5 v5.10.0
-	github.com/klauspost/compress v1.18.6
+	github.com/klauspost/compress v1.18.7
 	github.com/minio/sio v0.5.1
 	github.com/nats-io/jsm.go v0.4.1
 	github.com/nats-io/nats-server/v2 v2.14.3
@@ -47,7 +47,7 @@ require (
 	go.opentelemetry.io/otel/trace v1.44.0
 	go.yaml.in/yaml/v3 v3.0.4
 	golang.org/x/crypto v0.53.0
-	google.golang.org/grpc v1.81.1
+	google.golang.org/grpc v1.82.0
 	google.golang.org/protobuf v1.36.12-0.20260120151049-f2248ac996af
 	k8s.io/api v0.36.2
 	k8s.io/apimachinery v0.36.2
