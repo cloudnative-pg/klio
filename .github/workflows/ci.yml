@@ -182,8 +182,11 @@ jobs:
         run: |
           task operator:ci
 
-      - name: Operator preflight check
-        uses: ./.github/actions/preflight
+      - name: Run Red Hat preflight certification
+        run: |
+          # Certify the operator image just built and pushed by operator:ci
+          IMAGE=$(jq -r '.default."image.name" | split(",")[0]' operator/metadata.json)
+          task olm:preflight-container IMAGE="${IMAGE}"
 
   integration-tests:
     name: Integration Tests

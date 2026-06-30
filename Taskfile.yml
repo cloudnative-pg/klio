@@ -909,6 +909,34 @@ tasks:
                - klio-pull-secret
         EOF
 
+  olm:preflight-container:
+    desc: Run Red Hat Preflight (check container) certification on the operator image
+    dir: operator
+    run: once
+    requires:
+      vars:
+        # IMAGE is the fully-qualified operator image to certify. It must already
+        # be published to a registry (e.g. by `operator:containerize-snapshot`)
+        # and is supplied by the caller, who knows the image it just pushed (for
+        # CI, read from operator/metadata.json). Requiring it here avoids
+        # re-deriving the image name per environment.
+        - IMAGE
+    env:
+      # REGISTRY_AUTH_FILE is the registry credentials file used to pull the
+      # image under test (same convention as the OLM tasks).
+      REGISTRY_AUTH_FILE: '{{ .REGISTRY_AUTH_FILE | default (printf "%s/.docker/config.json" (env "HOME")) }}'
+    # Preflight runs and the results are evaluated entirely inside the Dagger
+    # engine: the `verdict` call fails on a non-passing check. Nothing is
+    # written to the host.
+    cmds:
+      - |
+        docker_config_arg=""
+        if [ -f "${REGISTRY_AUTH_FILE}" ]; then
+          docker_config_arg="--docker-config file://${REGISTRY_AUTH_FILE}"
+        fi
+        GITHUB_REF= dagger call -m dagger/preflight \
+          check-container --image "{{ .IMAGE }}" ${docker_config_arg} verdict
+
   olm:clean:
     desc: Cleanup of the OLM build artifacts
     cmds:
