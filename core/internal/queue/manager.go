@@ -24,6 +24,11 @@ import (
 // distinguishes the two and prevents a silently truncated listing.
 var errIncompleteDLQListing = errors.New("incomplete DLQ listing")
 
+// errAmbiguousSourceRead indicates a source-stream read returned no message
+// and no error. A genuine orphan always surfaces as a not-found error, so an
+// empty result without one is ambiguous.
+var errAmbiguousSourceRead = errors.New("ambiguous source stream read: no message and no error")
+
 // FailedTask represents a task that has failed and has been sent to the Dead Letter Queue (DLQ) stream.
 type FailedTask[T clusterTask] struct {
 	// Sequence is the sequence number of the message in the DLQ stream.
@@ -373,19 +378,85 @@ func listFailedTasks[T clusterTask](
 	return listPager[T](ctx, pgr, taskStream.ReadMessage, state.Msgs, cfg)
 }
 
-//nolint:cyclop
+// dlqAdvisory is a DLQ entry collected from the pager before its original
+// stream message is resolved.
+type dlqAdvisory struct {
+	// dlqSequence is the DLQ stream sequence of the advisory itself.
+	dlqSequence uint64
+	// timestamp is when the advisory was stored on the DLQ stream.
+	timestamp time.Time
+	// sourceSeq is the sequence of the failed message on the source stream.
+	sourceSeq uint64
+}
+
 func listPager[T clusterTask](ctx context.Context,
 	pgr *jsm.StreamPager,
 	readMessage func(seq uint64) (*api.StoredMsg, error),
 	expected uint64,
 	cfg listConfig,
 ) ([]FailedTask[T], error) {
-	tasks := make([]FailedTask[T], 0)
+	// The DLQ pager and the source-stream reads share the same NATS
+	// connection, and the pager's reply inbox shares the connection's
+	// request-mux inbox prefix. Issuing a source-stream read while the pager
+	// still has batch replies in flight can make the read pick up a stray
+	// pager reply, surfacing as a spurious empty message. So we drain the
+	// pager fully first and only then resolve the source messages.
+	advisories, err := drainDLQPager(ctx, pgr, expected)
+	if err != nil {
+		return nil, err
+	}
 
-	// read counts the DLQ messages actually pulled from the pager (before any
-	// orphan-skip or cluster filtering), so it can be compared against the
-	// snapshot count to detect a short read.
-	var read uint64
+	tasks := make([]FailedTask[T], 0, len(advisories))
+	for _, advisory := range advisories {
+		msg, err := readMessage(advisory.sourceSeq)
+		switch {
+		case jsm.IsNatsError(err, uint16(server.JSNoMessageFoundErr)):
+			// The DLQ advisory outlives the original message: once a failed
+			// task is retried or the source stream is purged, the advisory
+			// remains but its source message is gone. A genuine orphan always
+			// surfaces as this not-found error, so skip it instead of failing
+			// the whole listing.
+			log.FromContext(ctx).Info(
+				"Skipping orphaned DLQ entry: original stream message not found",
+				"streamSeq", advisory.sourceSeq,
+			)
+
+			continue
+		case err != nil:
+			return nil, fmt.Errorf("failed to read original stream message: %w", err)
+		case msg == nil:
+			return nil, fmt.Errorf("%w: streamSeq %d", errAmbiguousSourceRead, advisory.sourceSeq)
+		}
+
+		var task T
+		if err := json.Unmarshal(msg.Data, &task); err != nil {
+			return nil, fmt.Errorf("failed to unmarshal original stream message data: %w", err)
+		}
+
+		if cfg.cluster != "" && task.Cluster() != cfg.cluster {
+			continue
+		}
+
+		tasks = append(tasks, FailedTask[T]{
+			Sequence:  advisory.dlqSequence,
+			Task:      task,
+			Timestamp: advisory.timestamp,
+		})
+	}
+
+	slices.SortFunc(tasks, func(a, b FailedTask[T]) int {
+		return b.Timestamp.Compare(a.Timestamp)
+	})
+
+	return tasks, nil
+}
+
+// drainDLQPager reads every advisory the pager can deliver. It returns an
+// error if it reads fewer entries than expected, because the pager cannot
+// distinguish a genuine end-of-stream from a timeout and a short read would
+// otherwise produce a silently truncated listing.
+func drainDLQPager(ctx context.Context, pgr *jsm.StreamPager, expected uint64) ([]dlqAdvisory, error) {
+	advisories := make([]dlqAdvisory, 0, expected)
 
 	for {
 		dlqMsg, last, err := pgr.NextMsg(ctx)
@@ -404,7 +475,6 @@ func listPager[T clusterTask](ctx context.Context,
 		if dlqMsg == nil {
 			break
 		}
-		read++
 
 		dlqMetadata, err := jsm.ParseJSMsgMetadata(dlqMsg)
 		if err != nil {
@@ -416,51 +486,19 @@ func listPager[T clusterTask](ctx context.Context,
 			return nil, fmt.Errorf("failed to unmarshal DLQ stream message data: %w", err)
 		}
 
-		msg, err := readMessage(dlqTask.StreamSeq)
-		switch {
-		case err != nil && !jsm.IsNatsError(err, uint16(server.JSNoMessageFoundErr)):
-			return nil, fmt.Errorf("failed to read original stream message: %w", err)
-		case err != nil || msg == nil:
-			// The DLQ advisory outlives the original message: once a failed
-			// task is retried or the source stream is purged, the advisory
-			// remains but its source message is gone (a not-found error, or a
-			// nil message without error). Skip such orphaned entries instead
-			// of failing the whole listing.
-			log.FromContext(ctx).Info(
-				"Skipping orphaned DLQ entry: original stream message not found",
-				"streamSeq", dlqTask.StreamSeq,
-			)
-
-			continue
-		}
-
-		var task T
-		if err := json.Unmarshal(msg.Data, &task); err != nil {
-			return nil, fmt.Errorf("failed to unmarshal original stream message data: %w", err)
-		}
-
-		if cfg.cluster != "" && task.Cluster() != cfg.cluster {
-			continue
-		}
-
-		tasks = append(tasks, FailedTask[T]{
-			Sequence:  dlqMetadata.StreamSequence(),
-			Task:      task,
-			Timestamp: dlqMetadata.TimeStamp(),
+		advisories = append(advisories, dlqAdvisory{
+			dlqSequence: dlqMetadata.StreamSequence(),
+			timestamp:   dlqMetadata.TimeStamp(),
+			sourceSeq:   dlqTask.StreamSeq,
 		})
 	}
 
-	// The pager cannot distinguish a genuine end-of-stream from a timeout: both
-	// terminate the loop above. If we read fewer entries than the stream
-	// reported, the pager gave up early (slow/unreachable server) and the
-	// listing would be silently truncated, so fail loudly instead.
-	if read < expected {
+	// If we read fewer entries than the stream reported, the pager gave up
+	// early (slow/unreachable server) and the listing would be silently
+	// truncated, so fail loudly instead.
+	if read := uint64(len(advisories)); read < expected {
 		return nil, fmt.Errorf("%w: read %d of %d entries", errIncompleteDLQListing, read, expected)
 	}
 
-	slices.SortFunc(tasks, func(a, b FailedTask[T]) int {
-		return b.Timestamp.Compare(a.Timestamp)
-	})
-
-	return tasks, nil
+	return advisories, nil
 }
