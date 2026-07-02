@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"slices"
+	"time"
 
 	"github.com/cloudnative-pg/machinery/pkg/log"
 	"go.opentelemetry.io/otel/attribute"
@@ -22,7 +24,24 @@ import (
 const metadataFileName = "metadata"
 
 // Get implements the relative GRPC call.
-func (w *Implementation) Get(req *grpc.GetRequest, res grpc.WAL_GetServer) error { //nolint:cyclop
+func (w *Implementation) Get(req *grpc.GetRequest, res grpc.WAL_GetServer) error {
+	startTime := time.Now()
+
+	err := w.getWAL(req, res)
+
+	// Tag with the tier this server actually serves (tier-1 or tier-2), not a
+	// hardcoded tier: the same Get implementation runs in both WAL servers.
+	// Concat instead of append to avoid mutating the shared Attributes slice.
+	attrs := slices.Concat(
+		w.metrics.Attributes,
+		[]attribute.KeyValue{opentelemetry.AttributeKeyClusterName.Of(req.GetClusterName())},
+	)
+	opentelemetry.RecordDuration(res.Context(), opentelemetry.ServerWal.GetDuration, time.Since(startTime), err, attrs...)
+
+	return err
+}
+
+func (w *Implementation) getWAL(req *grpc.GetRequest, res grpc.WAL_GetServer) error { //nolint:cyclop
 	logger := log.FromContext(res.Context())
 	if err := repository.ValidatePathComponent(req.GetClusterName()); err != nil {
 		return status.Errorf(codes.InvalidArgument, "invalid cluster name: %v", err.Error())
@@ -36,7 +55,10 @@ func (w *Implementation) Get(req *grpc.GetRequest, res grpc.WAL_GetServer) error
 		return status.Errorf(codes.InvalidArgument, "invalid WAL name: %q", req.GetWalName())
 	}
 
-	ctx, span := tracer.Start(
+	// get_wal is a leaf span: the per-block read/send spans were removed in
+	// favor of the WAL duration histograms, so the span context is not
+	// propagated to any child.
+	_, span := tracer.Start(
 		res.Context(),
 		opentelemetry.GetWalSpan,
 		trace.WithAttributes(
@@ -46,7 +68,7 @@ func (w *Implementation) Get(req *grpc.GetRequest, res grpc.WAL_GetServer) error
 	)
 	defer span.End()
 
-	walReader, err := repository.NewReader(w.conn, req.GetClusterName(), req.GetWalName(), tracer)
+	walReader, err := repository.NewReader(w.conn, req.GetClusterName(), req.GetWalName(), w.metrics)
 	if errors.Is(err, os.ErrNotExist) {
 		span.RecordError(fmt.Errorf("WAL not found: %v/%v", req.GetClusterName(), req.GetWalName()))
 		return status.Errorf(codes.NotFound, "WAL not found: %v/%v", req.GetClusterName(), req.GetWalName())
@@ -56,23 +78,25 @@ func (w *Implementation) Get(req *grpc.GetRequest, res grpc.WAL_GetServer) error
 	}
 
 	for {
-		readCtx, readSpan := tracer.Start(ctx, opentelemetry.ReadBlockSpan)
-		readBytes, readError := walReader.ReadBlock(readCtx)
-		readSpan.SetAttributes(
-			attribute.Int("num_bytesread", len(readBytes)))
-		readSpan.End()
+		readBytes, readError := walReader.ReadBlock(res.Context())
 		if readError != nil && !errors.Is(readError, io.EOF) {
 			return status.Errorf(codes.Internal, "error while reading WAL (reading into buffer): %v", readError.Error())
 		}
 
-		_, writeSpan := tracer.Start(ctx, opentelemetry.SendBlockSpan)
-		err := res.Send(&grpc.GetResult{WalBlock: readBytes, SegmentSize: walReader.GetFileLength()})
-		writeSpan.SetAttributes(
-			attribute.Int("num_bytesread", len(readBytes)))
-		writeSpan.End()
-		if err != nil {
+		sendStart := time.Now()
+		sendErr := res.Send(&grpc.GetResult{WalBlock: readBytes, SegmentSize: walReader.GetFileLength()})
+		// Skip the terminal empty block sent on EOF: it carries no WAL data.
+		if len(readBytes) > 0 {
+			sendOutcome := opentelemetry.OutcomeSuccess
+			if sendErr != nil {
+				sendOutcome = opentelemetry.OutcomeFailure
+			}
+			w.metrics.RecordBlockStage(res.Context(), req.GetClusterName(), opentelemetry.PathGet, opentelemetry.StageSend,
+				time.Since(sendStart), sendOutcome)
+		}
+		if sendErr != nil {
 			return status.Errorf(codes.Internal, "error while writing WAL block (sending to client GRPC): %v",
-				err.Error())
+				sendErr.Error())
 		}
 
 		if errors.Is(readError, io.EOF) {

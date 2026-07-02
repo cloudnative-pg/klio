@@ -601,7 +601,7 @@ func assertOTELMetricsReceived(
 	assertOTELQueueMetrics(t, promMetrics)
 
 	// Verify WAL metrics (Tier 1 and Tier 2)
-	assertOTELWALMetrics(t, cfg, scenario, promMetrics, collectorPod)
+	assertOTELWALMetrics(ctx, t, cfg, scenario, promMetrics, collectorPod)
 
 	// Verify server-side backup processing metrics (emitted by the consumer)
 	assertOTELServerBackupProcessingMetrics(t, cfg, scenario, collectorPod)
@@ -739,6 +739,7 @@ func assertOTELQueueMetrics(t *testing.T, promMetrics metrics.PrometheusMetrics)
 
 // assertOTELWALMetrics verifies WAL-related metrics from Tier 1 and Tier 2.
 func assertOTELWALMetrics(
+	ctx context.Context,
 	t *testing.T,
 	cfg *envconf.Config,
 	scenario *otelMetricsScenario,
@@ -803,6 +804,61 @@ func assertOTELWALMetrics(
 	)
 	require.NoError(t, err,
 		`metric klio_server_wal_latest_written_time_seconds{tier="tier2"} not found within timeout`)
+
+	// Verify the new per-block and per-file WAL duration histograms/gauge
+	// exist and expose a real bucket distribution through the Prometheus
+	// bridge, not just a collapsed +Inf bucket (same failure mode the
+	// backup-duration histogram check above guards against). Only the put
+	// path and the tier-2 upload are exercised here: this scenario never
+	// triggers a WAL Get (no restore/replica in this feature), so
+	// klio_server_wal_get_duration_nanoseconds and the get-path block_duration
+	// series are not covered by this assertion.
+	freshMetrics, err := fetchCollectorMetrics(ctx, cfg.Client().RESTConfig(),
+		scenario.namespace.Name, collectorPod.Name)
+	require.NoError(t, err, "failed to re-fetch metrics for WAL duration histograms")
+
+	putWriteSuccess := map[string]string{
+		"path": "put", "stage": "write", "tier": "tier1", "outcome": "success",
+	}
+	blockHist, found := freshMetrics.GetHistogram(
+		"klio_server_wal_block_duration_nanoseconds", putWriteSuccess)
+	if assert.True(t, found,
+		`klio_server_wal_block_duration_nanoseconds{path="put",stage="write",tier="tier1",outcome="success"} not found`) {
+		assert.GreaterOrEqual(t, blockHist.SampleCount, uint64(1),
+			"should have at least 1 successfully written WAL block")
+		assert.Greater(t, blockHist.BucketCount, 1,
+			"block duration histogram should expose explicit buckets, not just +Inf")
+	}
+
+	uploadSuccess := map[string]string{"tier": "tier2", "outcome": "success"}
+	uploadHist, found := freshMetrics.GetHistogram(
+		"klio_server_wal_upload_duration_nanoseconds", uploadSuccess)
+	if assert.True(t, found,
+		`klio_server_wal_upload_duration_nanoseconds{tier="tier2",outcome="success"} not found`) {
+		assert.GreaterOrEqual(t, uploadHist.SampleCount, uint64(1),
+			"should have at least 1 successful tier-2 upload")
+		assert.Greater(t, uploadHist.BucketCount, 1,
+			"upload duration histogram should expose explicit buckets, not just +Inf")
+	}
+
+	clientSendSuccess := map[string]string{
+		"path": "put", "stage": "send", "outcome": "success",
+	}
+	clientBlockHist, found := freshMetrics.GetHistogram(
+		"klio_client_wal_block_duration_nanoseconds", clientSendSuccess)
+	if assert.True(t, found,
+		`klio_client_wal_block_duration_nanoseconds{path="put",stage="send",outcome="success"} not found`) {
+		assert.GreaterOrEqual(t, clientBlockHist.SampleCount, uint64(1),
+			"should have at least 1 successfully sent WAL block from the client")
+		assert.Greater(t, clientBlockHist.BucketCount, 1,
+			"client block duration histogram should expose explicit buckets, not just +Inf")
+	}
+
+	timeline, found := freshMetrics.GetValue("klio_client_wal_timeline")
+	if assert.True(t, found, "metric klio_client_wal_timeline not found") {
+		assert.GreaterOrEqual(t, timeline, float64(1),
+			"client streaming timeline should be a valid (1-based) timeline ID")
+	}
 }
 
 // assertOTELServerBackupMetrics verifies the server-side PostgreSQL backup

@@ -1,13 +1,41 @@
 package opentelemetry
 
 import (
+	"context"
 	"strings"
+	"time"
 
 	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/metric"
 
 	"github.com/cloudnative-pg/klio/core/internal/backupfailure"
 )
+
+// RecordDuration records d (in nanoseconds) on the given duration histogram,
+// tagging it with the outcome derived from err alongside any extra attributes
+// (e.g. tier or stage). It is a no-op when h is nil, so call sites recording on
+// the package-level WAL duration instruments need not guard against an
+// uninitialized instrument themselves.
+func RecordDuration(
+	ctx context.Context,
+	h metric.Int64Histogram,
+	d time.Duration,
+	err error,
+	attrs ...attribute.KeyValue,
+) {
+	if h == nil {
+		return
+	}
+
+	outcome := OutcomeSuccess
+	if err != nil {
+		outcome = OutcomeFailure
+	}
+
+	attrs = append(attrs, outcome.Attribute())
+	h.Record(ctx, d.Nanoseconds(), metric.WithAttributes(attrs...))
+}
 
 // Tracer name constants.
 const (
@@ -25,30 +53,11 @@ const (
 const (
 	// DownloadHistoryFileSpan is the span name for downloading history files.
 	DownloadHistoryFileSpan = "download_history_file"
-	// ManageWalStreamSpan is the span name for managing WAL streams.
-	ManageWalStreamSpan = "manage_wal_stream"
-	// FlushBlockSpan is the span name for flushing blocks.
-	FlushBlockSpan = "flush_block"
-	// ReceiveBlockSpan is the span name for receiving blocks.
-	ReceiveBlockSpan = "receive_block"
-	// WriteBlockSpan is the span name for writing blocks.
-	WriteBlockSpan = "write_block"
-	// ReadBlockSpan is the span name for reading blocks.
-	ReadBlockSpan = "read_block"
-	// ReadBlockDataSpan is the span name for reading block data.
-	ReadBlockDataSpan = "read_block_data"
-	// WriteBlockDataSpan is the span name for writing block data.
-	WriteBlockDataSpan = "write_block_data"
-	// WrapBlockSpan is the span name for wrapping block data.
-	WrapBlockSpan = "wrap_block_data"
-	// UnwrapBlockSpan is the span name for unwrapping block data.
-	UnwrapBlockSpan = "unwrap_block_data"
-	// SendBlockSpan is the span name for sending blocks.
-	SendBlockSpan = "send_block"
+	// Tier2UploadSpan is the span name for archiving a single WAL file to
+	// tier-2 (remote storage) on the server-side consumer.
+	Tier2UploadSpan = "tier2_upload"
 	// GetWalSpan is the span name for getting WAL files.
 	GetWalSpan = "get_wal"
-	// PutWalSpan is the span name for uploading WAL files.
-	PutWalSpan = "put_wal"
 	// BackupSpan is the span name for the backup entry point.
 	BackupSpan = "backup"
 	// BackupRunSpan is the span name for running a backup.
@@ -72,6 +81,13 @@ const (
 	ServerWalLatestWrittenTimeMetric     = "klio.server.wal.latest_written_time"
 	ServerWalLatestWrittenLSNMetric      = "klio.server.wal.latest_written_lsn"
 	ServerWalLatestWrittenTimelineMetric = "klio.server.wal.latest_written_timeline"
+
+	ServerWalBlockDurationMetric  = "klio.server.wal.block_duration"
+	ServerWalGetDurationMetric    = "klio.server.wal.get_duration"
+	ServerWalUploadDurationMetric = "klio.server.wal.upload_duration"
+
+	ClientWalBlockDurationMetric = "klio.client.wal.block_duration"
+	ClientWalTimelineMetric      = "klio.client.wal.timeline"
 
 	ServerUptimeMetric                        = "klio.server.uptime"
 	ServerBackupSnapshotsMetric               = "klio.server.backup.snapshots"
@@ -177,6 +193,18 @@ type ServerWalMetrics struct {
 	LatestWrittenTime     metric.Int64Gauge
 	LatestWrittenLSN      metric.Int64Gauge
 	LatestWrittenTimeline metric.Int64Gauge
+	BlockDuration         metric.Int64Histogram
+	GetDuration           metric.Int64Histogram
+	UploadDuration        metric.Int64Histogram
+}
+
+// ClientWalMetrics holds OTel instruments for the client-side WAL streaming
+// path. BlockDuration is recorded once per WAL block and carries a `stage`
+// attribute (receive, wrap, send) alongside `outcome`. Timeline holds
+// the timeline the client is currently streaming, updated on each switch.
+type ClientWalMetrics struct {
+	BlockDuration metric.Int64Histogram
+	Timeline      metric.Int64Gauge
 }
 
 // Centralized metric instrument instances.
@@ -186,6 +214,7 @@ var (
 	PluginBackup PluginBackupMetrics
 	ServerBackup ServerBackupMetrics
 	ServerWal    ServerWalMetrics
+	ClientWal    ClientWalMetrics
 )
 
 // All metric instruments are created when this package is loaded, in the
@@ -198,6 +227,7 @@ func init() {
 	InitPluginBackupMetrics()
 	InitServerBackupMetrics()
 	InitServerWalMetrics()
+	InitClientWalMetrics()
 }
 
 // InitPluginBackupMetrics creates OTel instruments for backup lifecycle tracking.
@@ -381,5 +411,45 @@ func InitServerWalMetrics() {
 			"`tier` attribute distinguishes tier-1 (received on the server) from "+
 			"tier-2 (archived to remote storage); `cluster_name` identifies the "+
 			"PostgreSQL cluster."),
+	)
+	ServerWal.BlockDuration, _ = meter.Int64Histogram(ServerWalBlockDurationMetric,
+		metric.WithDescription("Distribution of per-block WAL processing durations on the server. "+
+			"The `path` attribute is `put` (ingest) or `get` (serve); the `stage` attribute splits "+
+			"each path (put: `wrap`, `write`, `flush`; get: `read`, `unwrap`, `send`); the `tier` "+
+			"attribute is the serving tier (put is always tier-1; get is tier-1 for local serves or "+
+			"tier-2 for serves from remote storage); `cluster_name` identifies the PostgreSQL cluster; "+
+			"`outcome` is `success` or `failure`."),
+		metric.WithUnit("ns"),
+	)
+	ServerWal.GetDuration, _ = meter.Int64Histogram(ServerWalGetDurationMetric,
+		metric.WithDescription("Distribution of per-file WAL get durations on the server (gRPC "+
+			"retrieval of a complete WAL file). The `tier` attribute is the tier that served the "+
+			"request (tier-1 from local disk or tier-2 from remote storage); `cluster_name` identifies "+
+			"the PostgreSQL cluster; `outcome` is `success` or `failure`."),
+		metric.WithUnit("ns"),
+	)
+	ServerWal.UploadDuration, _ = meter.Int64Histogram(ServerWalUploadDurationMetric,
+		metric.WithDescription("Distribution of per-file WAL upload durations on the server (tier-2 "+
+			"archival leg to remote storage). Always tagged tier-2; `cluster_name` identifies the "+
+			"PostgreSQL cluster; `outcome` is `success` or `failure`."),
+		metric.WithUnit("ns"),
+	)
+}
+
+// InitClientWalMetrics creates OTel instruments for the client-side WAL
+// streaming path. It is called once automatically when this package is loaded;
+// tests can call it again after swapping the meter provider to rebind the
+// instruments.
+func InitClientWalMetrics() {
+	meter := otel.Meter(Meter)
+
+	ClientWal.BlockDuration, _ = meter.Int64Histogram(ClientWalBlockDurationMetric,
+		metric.WithDescription("Distribution of per-block WAL durations on the client. Carries "+
+			"`path=put` and the `send` stage (gRPC send of a WAL block to the Klio server); "+
+			"`outcome` is `success` or `failure`."),
+		metric.WithUnit("ns"),
+	)
+	ClientWal.Timeline, _ = meter.Int64Gauge(ClientWalTimelineMetric,
+		metric.WithDescription("Timeline ID the WAL streaming client is currently streaming."),
 	)
 }

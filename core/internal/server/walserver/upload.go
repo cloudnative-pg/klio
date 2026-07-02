@@ -11,8 +11,6 @@ import (
 	"github.com/cloudnative-pg/cloudnative-pg/pkg/postgres"
 	"github.com/cloudnative-pg/machinery/pkg/log"
 	"github.com/cloudnative-pg/machinery/pkg/types"
-	"go.opentelemetry.io/otel/attribute"
-	otelcodes "go.opentelemetry.io/otel/codes"
 	"go.opentelemetry.io/otel/metric"
 	"go.opentelemetry.io/otel/trace"
 	grpccodes "google.golang.org/grpc/codes"
@@ -96,13 +94,16 @@ func (m *walUploadBlockMetadata) handleRequest(request *grpc.PutRequest) error {
 type putHandler struct {
 	impl      *Implementation
 	req       grpc.WAL_PutServer
-	span      trace.Span
 	logger    log.Logger
 	startTime time.Time
 
 	blockMeta   walUploadBlockMetadata
 	walBuffer   *repository.Writer
 	writtenSize uint64
+
+	// spanEnriched records whether the cluster and WAL name have already been
+	// attached to the RPC span, so we set them only once per Put call.
+	spanEnriched bool
 }
 
 // Put uploads a new WAL to the data store.
@@ -111,18 +112,14 @@ func (w *Implementation) Put(req grpc.WAL_PutServer) error {
 		return status.Error(grpccodes.FailedPrecondition, errReadOnly.Error())
 	}
 
-	ctx, span := tracer.Start(req.Context(), opentelemetry.PutWalSpan)
-	defer span.End()
-
 	h := &putHandler{
 		impl:      w,
 		req:       req,
-		span:      span,
 		logger:    log.FromContext(req.Context()),
 		startTime: time.Now(),
 	}
 
-	return h.run(ctx)
+	return h.run(req.Context())
 }
 
 // run consumes the stream of WAL blocks and finalizes the upload. A receive
@@ -130,7 +127,7 @@ func (w *Implementation) Put(req grpc.WAL_PutServer) error {
 // whatever has been written so far.
 func (h *putHandler) run(ctx context.Context) error {
 	for {
-		request, err := h.receiveBlock(ctx)
+		request, err := h.receiveBlock()
 		if err != nil {
 			break
 		}
@@ -143,17 +140,15 @@ func (h *putHandler) run(ctx context.Context) error {
 	return h.finalize(ctx)
 }
 
-// receiveBlock reads the next WAL block from the stream, recording tracing
-// information. It returns an error (including io.EOF) once the stream is
-// exhausted or fails.
-func (h *putHandler) receiveBlock(ctx context.Context) (*grpc.PutRequest, error) {
-	_, readSpan := tracer.Start(ctx, opentelemetry.ReceiveBlockSpan)
-	defer readSpan.End()
-
+// receiveBlock reads the next WAL block from the stream. It returns an error
+// (including io.EOF) once the stream is exhausted or fails. Per-block send
+// latency is measured on the sender side (the client's `send` stage), not here:
+// this call's duration is dominated by waiting for the client to produce the
+// next block, which is gated by PostgreSQL's WAL generation rate.
+func (h *putHandler) receiveBlock() (*grpc.PutRequest, error) {
 	request, err := h.req.Recv()
 	if err != nil {
 		if !errors.Is(err, io.EOF) {
-			readSpan.SetStatus(otelcodes.Error, err.Error())
 			h.logger.Warning(
 				"Error while reading WAL block",
 				"clusterName", request.GetClusterName(),
@@ -161,42 +156,11 @@ func (h *putHandler) receiveBlock(ctx context.Context) (*grpc.PutRequest, error)
 				"err", err,
 			)
 		}
-		readSpan.RecordError(err)
 
 		return nil, err
 	}
 
-	readSpan.SetAttributes(attribute.Int("len", len(request.GetWalBlock())))
-	addTraceLink(readSpan, request)
-
 	return request, nil
-}
-
-// addTraceLink links the read span to the trace propagated in the request, if any.
-func addTraceLink(readSpan trace.Span, request *grpc.PutRequest) {
-	if request == nil || request.GetTraceId() == "" || request.GetSpanId() == "" {
-		return
-	}
-
-	traceID, err := trace.TraceIDFromHex(request.GetTraceId())
-	if err != nil {
-		readSpan.RecordError(err)
-	}
-	spanID, err := trace.SpanIDFromHex(request.GetSpanId())
-	if err != nil {
-		readSpan.RecordError(err)
-	}
-
-	readSpan.AddLink(
-		trace.Link{
-			SpanContext: trace.NewSpanContext(
-				trace.SpanContextConfig{
-					TraceID: traceID,
-					SpanID:  spanID,
-				},
-			),
-		},
-	)
 }
 
 // processBlock validates a received block, writes it to the WAL buffer and
@@ -205,11 +169,6 @@ func (h *putHandler) processBlock(ctx context.Context, request *grpc.PutRequest)
 	if err := h.validateRequest(request); err != nil {
 		return err
 	}
-
-	h.span.SetAttributes(
-		opentelemetry.AttributeKeyClusterName.Of(request.GetClusterName()),
-		opentelemetry.AttributeKeyWalName.Of(request.GetWalName()),
-	)
 
 	h.logger.Debug(
 		"Received WAL block",
@@ -229,6 +188,7 @@ func (h *putHandler) processBlock(ctx context.Context, request *grpc.PutRequest)
 		return status.Errorf(grpccodes.InvalidArgument, "%s", err.Error())
 	}
 
+	h.enrichSpan(ctx)
 	h.recordLatestWrittenTimeline(ctx)
 
 	if err := h.openWriter(request); err != nil {
@@ -276,7 +236,6 @@ func (h *putHandler) openWriter(request *grpc.PutRequest) error {
 			WALName:     h.blockMeta.walFileName,
 			SegmentSize: h.blockMeta.segmentSize,
 			Metrics:     h.impl.metrics,
-			Tracer:      tracer,
 		},
 	)
 	if err != nil {
@@ -308,10 +267,10 @@ func (h *putHandler) writeBlock(ctx context.Context, request *grpc.PutRequest) e
 		return status.Errorf(grpccodes.Internal, "error while writing WAL: %v", err.Error())
 	}
 
-	_, flushSpan := tracer.Start(ctx, opentelemetry.FlushBlockSpan)
-	defer flushSpan.End()
-
-	if err := h.walBuffer.Flush(); err != nil {
+	flushStart := time.Now()
+	err := h.walBuffer.Flush()
+	flushDuration := time.Since(flushStart)
+	if err != nil {
 		h.logger.Error(
 			err,
 			"Error while flushing WAL data",
@@ -319,13 +278,31 @@ func (h *putHandler) writeBlock(ctx context.Context, request *grpc.PutRequest) e
 			"walName", request.GetWalName(),
 		)
 
-		flushSpan.SetStatus(otelcodes.Error, err.Error())
-		flushSpan.RecordError(err)
+		h.impl.metrics.RecordBlockStage(ctx, request.GetClusterName(), opentelemetry.PathPut,
+			opentelemetry.StageFlush, flushDuration, opentelemetry.OutcomeFailure)
 
 		return status.Errorf(grpccodes.Internal, "error while flushing WAL: %v", err.Error())
 	}
+	h.impl.metrics.RecordBlockStage(ctx, request.GetClusterName(), opentelemetry.PathPut,
+		opentelemetry.StageFlush, flushDuration, opentelemetry.OutcomeSuccess)
 
 	return nil
+}
+
+// enrichSpan attaches the cluster and WAL name to the RPC span created by the
+// otelgrpc stats handler. The names are only known once the first block has
+// been received, so the span cannot carry them at creation time; we set them
+// once, on the first block, to match the attributes of the tier-2 upload span.
+func (h *putHandler) enrichSpan(ctx context.Context) {
+	if h.spanEnriched {
+		return
+	}
+
+	trace.SpanFromContext(ctx).SetAttributes(
+		opentelemetry.AttributeKeyClusterName.Of(h.blockMeta.clusterName),
+		opentelemetry.AttributeKeyWalName.Of(h.blockMeta.walFileName),
+	)
+	h.spanEnriched = true
 }
 
 // recordLatestWrittenTimeline updates the latest written timeline metric for

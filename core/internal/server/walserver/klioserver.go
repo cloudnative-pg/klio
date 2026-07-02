@@ -30,6 +30,11 @@ type Options struct {
 
 	// Queue is the connection to the Queue
 	Queue *queue.Conn
+
+	// Tier is the storage tier this WAL server serves, used to tag its metrics
+	// (a tier-1 server reads/writes local disk; a tier-2 server serves WAL from
+	// remote object storage).
+	Tier opentelemetry.Tier
 }
 
 // New creates a new WAL server implementation.
@@ -45,7 +50,8 @@ func New(
 			LatestWrittenTime:     opentelemetry.ServerWal.LatestWrittenTime,
 			LatestWrittenLSN:      opentelemetry.ServerWal.LatestWrittenLSN,
 			LatestWrittenTimeline: opentelemetry.ServerWal.LatestWrittenTimeline,
-			Attributes:            []attribute.KeyValue{opentelemetry.Tier1.Attribute()},
+			BlockDuration:         opentelemetry.ServerWal.BlockDuration,
+			Attributes:            []attribute.KeyValue{opts.Tier.Attribute()},
 		},
 		queue: opts.Queue,
 	}

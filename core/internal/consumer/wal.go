@@ -12,7 +12,9 @@ import (
 	"github.com/cloudnative-pg/cloudnative-pg/pkg/postgres"
 	"github.com/cloudnative-pg/machinery/pkg/types"
 	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/codes"
 	"go.opentelemetry.io/otel/metric"
+	"go.opentelemetry.io/otel/trace"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	"github.com/cloudnative-pg/klio/core/internal/opentelemetry"
@@ -70,10 +72,31 @@ func (d *WAL) walHandler(ctx context.Context, task *queue.WALTask) (returnErr er
 	logger := log.FromContext(ctx).WithValues("task", task)
 	logger.Info("Archiving WAL file")
 
+	ctx, span := tracer.Start(ctx, opentelemetry.Tier2UploadSpan,
+		trace.WithAttributes(
+			opentelemetry.AttributeKeyClusterName.Of(task.ClusterName),
+			opentelemetry.AttributeKeyWalName.Of(task.WALName),
+		))
+	defer span.End()
+	defer func() {
+		if returnErr != nil {
+			span.RecordError(returnErr)
+			span.SetStatus(codes.Error, "tier-2 upload failed")
+		}
+	}()
+
+	startTime := time.Now()
+
+	// Record the per-file tier-2 upload duration
+	defer func() {
+		opentelemetry.RecordDuration(ctx, opentelemetry.ServerWal.UploadDuration, time.Since(startTime), returnErr,
+			opentelemetry.Tier2.Attribute(), opentelemetry.AttributeKeyClusterName.Of(task.ClusterName))
+	}()
+
 	reader, err := repository.NewReader(d.opts.Tier1,
 		task.ClusterName,
 		task.WALName,
-		tracer,
+		d.metrics,
 	)
 	if err != nil {
 		return fmt.Errorf("while creating a new WAL reader: %w", err)
@@ -90,7 +113,6 @@ func (d *WAL) walHandler(ctx context.Context, task *queue.WALTask) (returnErr er
 			WALName:     task.WALName,
 			SegmentSize: reader.GetFileLength(),
 			Metrics:     d.metrics,
-			Tracer:      tracer,
 			BufferSize:  tier2BufferSize,
 		},
 	)

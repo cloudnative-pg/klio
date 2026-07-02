@@ -36,6 +36,8 @@ Klio automatically collects the following:
          - Timestamp of the most recently written WAL file
          - LSN progress of WAL ingestion (Tier 1) and archival (Tier 2)
          - Timeline of the latest WAL on Tier 1 and Tier 2
+         - Per-block processing durations split by stage (histogram)
+         - Per-file get and Tier 2 upload durations (histogram)
       - Queue metrics
          - Number of messages in the queue
          - Number of bytes in the queue
@@ -56,6 +58,9 @@ Klio automatically collects the following:
       - [Go runtime statistics](https://pkg.go.dev/go.opentelemetry.io/contrib/instrumentation/runtime)
       - [Host metrics](https://pkg.go.dev/go.opentelemetry.io/contrib/instrumentation/host)
       - [Controller runtime metrics](https://book.kubebuilder.io/reference/metrics-reference)
+   - Client (WAL streaming)
+      - Per-block WAL send durations (histogram)
+      - Timeline currently being streamed (gauge)
 
 :::note
 Log exporters are not currently supported.
@@ -83,6 +88,18 @@ The `backup` span includes the following attributes:
 On failure, the span records the error and sets its status to
 `ERROR`.
 
+### WAL streaming spans
+
+Klio traces WAL streaming at the per-file level; the per-block stage
+timings that used to be spans are now recorded as the
+[WAL duration histograms](#wal-duration-histograms-server) instead.
+
+| Span Name | Tracer | Description |
+|---|---|---|
+| `download_history_file` | `klio.client.wal` | Span for downloading a timeline history file (rare). |
+| `get_wal` | `klio.server.wal` | Per-file span for the gRPC Get of a WAL file (served from tier-1 or tier-2). |
+| `tier2_upload` | `klio.server.consumer` | One span per WAL file archived to tier-2 (remote storage). |
+
 ## Metrics Reference
 
 Klio metric names follow the
@@ -96,8 +113,9 @@ segment identifies which process emits the metric:
 - `operator` — the Klio operator deployment. Bridges
   controller-runtime Prometheus metrics to OTLP and adds Go
   runtime and host instrumentation.
-- `client` — reserved for future instrumentation; no metrics are
-  emitted today.
+- `client` — the WAL streaming client that ships WAL from
+  PostgreSQL to the Klio server. Emits the per-block WAL send
+  duration histogram and the currently streamed timeline gauge.
 
 ### Attributes
 
@@ -109,9 +127,11 @@ attribute key.
 | Attribute | Values | Applies to |
 |---|---|---|
 | `tier` | `tier1` (local disk on the Klio server), `tier2` (remote object store) | All `klio.server.wal.*` and `klio.server.backup.*` instruments. |
-| `cluster_name` | Name of the PostgreSQL cluster the recording belongs to | All `klio.server.wal.*` instruments, the `klio.server.backup.*` PostgreSQL backup gauges (`backups`, `latest_backup_*`, `oldest_backup_*`) and the `klio.server.backup.relay` / `klio.server.backup.maintenance` counters. |
-| `outcome` | `success`, `failure` | `klio.plugin.backup.runs`, `klio.server.backup.relay`, `klio.server.backup.maintenance`, `klio.server.backup.verifications`. |
+| `cluster_name` | Name of the PostgreSQL cluster the recording belongs to | All `klio.server.wal.*` instruments (counters, gauges, and the WAL duration histograms), `klio.client.wal.*`, the `klio.server.backup.*` PostgreSQL backup gauges (`backups`, `latest_backup_*`, `oldest_backup_*`) and the `klio.server.backup.relay` / `klio.server.backup.maintenance` counters. |
+| `outcome` | `success`, `failure` | `klio.plugin.backup.runs`, `klio.server.backup.relay`, `klio.server.backup.maintenance`, `klio.server.backup.verifications`, and all WAL duration histograms (`klio.server.wal.*_duration`, `klio.client.wal.block_duration`). |
 | `failure_category` | `repository_error`, `source_error`, `verification`, `timeout`, `canceled`, `unknown` | `klio.plugin.backup.runs` failure data points only. |
+| `path` | `put` (WAL ingest), `get` (WAL serve) | `klio.server.wal.block_duration`, `klio.client.wal.block_duration`. |
+| `stage` | put: `wrap`, `write`, `flush`, `send` (client); get: `read`, `unwrap`, `send` | `klio.server.wal.block_duration`, `klio.client.wal.block_duration`. |
 | `snapshot_source` | Kopia source descriptor (`userName@hostName:path`) | All `klio.server.backup.*` base snapshot gauges (`snapshots`, `latest_snapshot_*`, `oldest_snapshot_timestamp`). |
 | `stream` | JetStream stream name (`klio-wal-stream`, `klio-backup-stream`, `klio-latest-uploaded-wal-per-cluster-stream`) | `klio.server.queue.messages`, `klio.server.queue.bytes`. |
 
@@ -193,6 +213,47 @@ before it succeeds or is dead-lettered.
 |---|---|---|---|
 | `klio.server.backup.relay` | Counter | `{relays}` | Number of tier-2 relay attempts after a backup (migration to tier-2 and verification), split by `cluster_name` and `outcome` (`success` / `failure`). |
 | `klio.server.backup.maintenance` | Counter | `{runs}` | Number of maintenance runs after a backup (base-snapshot retention and WAL cleanup), split by `cluster_name`, `tier` (`tier1` / `tier2`) and `outcome` (`success` / `failure`) |
+
+### WAL duration histograms (server)
+
+The server records WAL processing latencies as OpenTelemetry
+histograms. They replace the per-block spans Klio previously emitted
+for each WAL stage, which were impractical for distributions: the
+histograms can be aggregated across clusters and rendered as
+percentile dashboards (`p50`, `p95`, `p99`) over time. Per-block
+stages are recorded once per WAL block; the per-file instruments are
+recorded once per WAL file.
+
+| Metric Name | Type | Unit | Description |
+|---|---|---|---|
+| `klio.server.wal.block_duration` | Histogram | ns | Per-block processing duration, split by the `path` (`put` ingest / `get` serve), `stage`, and `outcome` attributes. Put stages: `wrap`, `write`, `flush`; get stages: `read`, `unwrap`, `send`. Per-block send latency lives on the `send` stage (client `block_duration` for ingest, server `path="get"` for serve). Carries `tier` (`tier1` for put; `tier1` or `tier2` for get, depending on which WAL server handled it) and `cluster_name` |
+| `klio.server.wal.get_duration` | Histogram | ns | Per-file duration of the gRPC get of a complete WAL file, split by `outcome`. Carries `tier` (`tier1` or `tier2`, depending on which WAL server served it) and `cluster_name` |
+| `klio.server.wal.upload_duration` | Histogram | ns | Per-file duration of the tier-2 archival upload to remote storage, split by `outcome`. Carries `tier="tier2"` and `cluster_name` |
+
+The bucket boundaries are explicit (rather than an exponential
+aggregation) so they survive export through the Prometheus bridge, and
+are an initial set expected to be refined against real distributions.
+
+### WAL duration histograms (client)
+
+The WAL streaming client records the latency of shipping each WAL
+block to the Klio server.
+
+| Metric Name | Type | Unit | Description |
+|---|---|---|---|
+| `klio.client.wal.block_duration` | Histogram | ns | Per-block duration of the gRPC send of a WAL block to the server. Carries `path="put"`, `stage="send"`, `cluster_name`, split by `outcome` |
+
+### WAL streaming state (client)
+
+The WAL streaming client also exposes the timeline it is currently
+streaming. It is set when replication starts and updated on each
+timeline switch (failover), giving a client-side, lag-free counterpart
+to the server-side `klio.server.wal.latest_written_timeline` gauge
+(which only advances once new-timeline WAL is written).
+
+| Metric Name | Type | Unit | Description |
+|---|---|---|---|
+| `klio.client.wal.timeline` | Gauge | - | Timeline ID the WAL streaming client is currently streaming. Carries `cluster_name` |
 
 ### Backup verification metrics (server)
 

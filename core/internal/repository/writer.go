@@ -6,11 +6,10 @@ import (
 	"fmt"
 	"os"
 	"path"
+	"time"
 
 	"github.com/spf13/afero"
-	"go.opentelemetry.io/otel/codes"
 	"go.opentelemetry.io/otel/metric"
-	"go.opentelemetry.io/otel/trace"
 	"google.golang.org/protobuf/encoding/protodelim"
 	"google.golang.org/protobuf/encoding/protowire"
 
@@ -41,9 +40,6 @@ type WriterOptions struct {
 	// Metrics collects per-write metrics for this Writer.
 	Metrics *Metrics
 
-	// Tracer emits OpenTelemetry spans for write operations.
-	Tracer trace.Tracer
-
 	// BufferSize is the size, in bytes, of the buffer placed in front of
 	// the underlying file. When zero, defaultChunkSize is used.
 	BufferSize int
@@ -56,7 +52,6 @@ type DirectWriter struct {
 	conn        *Connection
 	clusterName string
 	metrics     *Metrics
-	tracer      trace.Tracer
 
 	file   afero.File
 	buffer *bufio.Writer
@@ -172,7 +167,6 @@ func (c *Connection) newDirectWriter(
 		conn:        c,
 		clusterName: opts.ClusterName,
 		metrics:     opts.Metrics,
-		tracer:      opts.Tracer,
 		file:        file,
 		buffer:      buffer,
 	}, nil
@@ -204,68 +198,82 @@ func (w *DirectWriter) Close() error {
 	return nil
 }
 
-// WriteBlock writes the WAL block to storage.
+// WriteBlock writes the WAL block to storage. The per-chunk wrap and write
+// durations are accumulated and emitted as one observation per stage for the
+// whole block, so they share the per-block granularity of the flush stage (one
+// fsync per block).
 func (w *DirectWriter) WriteBlock(ctx context.Context, data []byte) error {
-	writeBlockSpanCtx, writeBlockSpan := w.tracer.Start(ctx, opentelemetry.WriteBlockSpan)
-	defer writeBlockSpan.End()
 	const walBlockSize = 1 << 20
 
-	// Process data in blocks
+	// Nothing to wrap or write for an empty block: skip it without emitting a
+	// zero-duration observation.
+	if len(data) == 0 {
+		return nil
+	}
+
+	var wrap, write time.Duration
+	var chunkWritten bool
 	for start := 0; start < len(data); start += walBlockSize {
 		end := start + walBlockSize
 		end = min(end, len(data))
-		block := data[start:end]
 
-		if err := w.writeBlockInternal(writeBlockSpanCtx, block); err != nil {
-			writeBlockSpan.RecordError(err)
-			writeBlockSpan.SetStatus(codes.Error, err.Error())
-			return fmt.Errorf("while writing WAL block: %w", err)
+		// Step 1: compression and encryption
+		wrapStart := time.Now()
+		wrappedBlock, err := w.wrapBlock(data[start:end])
+		wrap += time.Since(wrapStart)
+		if err != nil {
+			w.metrics.RecordBlockStage(ctx, w.clusterName, opentelemetry.PathPut,
+				opentelemetry.StageWrap, wrap, opentelemetry.OutcomeFailure)
+			// A prior chunk in this block may have already completed its write
+			// step; that work happened and must not be dropped just because a
+			// later chunk failed to wrap.
+			if chunkWritten {
+				w.metrics.RecordBlockStage(ctx, w.clusterName, opentelemetry.PathPut,
+					opentelemetry.StageWrite, write, opentelemetry.OutcomeSuccess)
+			}
+
+			return fmt.Errorf("while wrapping WAL block: %w", err)
 		}
+
+		// Step 2: writing to permanent storage
+		writeStart := time.Now()
+		err = w.writeBlockData(ctx, wrappedBlock)
+		write += time.Since(writeStart)
+		if err != nil {
+			w.metrics.RecordBlockStage(ctx, w.clusterName, opentelemetry.PathPut,
+				opentelemetry.StageWrap, wrap, opentelemetry.OutcomeSuccess)
+			w.metrics.RecordBlockStage(ctx, w.clusterName, opentelemetry.PathPut,
+				opentelemetry.StageWrite, write, opentelemetry.OutcomeFailure)
+
+			return fmt.Errorf("while writing WAL block data: %w", err)
+		}
+		chunkWritten = true
 	}
 
-	return nil
-}
-
-func (w *DirectWriter) writeBlockInternal(ctx context.Context, p []byte) error {
-	// Step 1: compression and encryption
-	wrappedBlock, err := w.wrapBlock(ctx, p)
-	if err != nil {
-		return fmt.Errorf("while wrapping WAL block: %w", err)
-	}
-
-	// Step 2: writing to permanent storage
-	if err := w.writeBlockData(ctx, wrappedBlock); err != nil {
-		return fmt.Errorf("while writing WAL block data: %w", err)
-	}
+	w.metrics.RecordBlockStage(ctx, w.clusterName, opentelemetry.PathPut,
+		opentelemetry.StageWrap, wrap, opentelemetry.OutcomeSuccess)
+	w.metrics.RecordBlockStage(ctx, w.clusterName, opentelemetry.PathPut,
+		opentelemetry.StageWrite, write, opentelemetry.OutcomeSuccess)
 
 	return nil
 }
 
 // wrapBlock compresses and encrypts the block data.
-func (w *DirectWriter) wrapBlock(ctx context.Context, p []byte) ([]byte, error) {
-	_, wrapSpan := w.tracer.Start(ctx, opentelemetry.WrapBlockSpan)
-	defer wrapSpan.End()
-
+func (w *DirectWriter) wrapBlock(p []byte) ([]byte, error) {
 	wrappedBlock, err := w.conn.WrapBlock(p, defaultChunkSize)
 	if err != nil {
-		wrapSpan.SetStatus(codes.Error, err.Error())
-		wrapSpan.RecordError(fmt.Errorf("error while wrapping block: %w", err))
 		return nil, fmt.Errorf("error while wrapping block: %w", err)
 	}
 
 	return wrappedBlock, nil
 }
 
-// writeBlockData writes the wrapped block data to the buffer with metrics.
+// writeBlockData writes the wrapped block data to the buffer and updates the
+// bytes-written counter.
 func (w *DirectWriter) writeBlockData(ctx context.Context, wrappedBlock []byte) error {
-	_, writeSpan := w.tracer.Start(ctx, opentelemetry.WriteBlockDataSpan)
-	defer writeSpan.End()
-
 	prefix := protowire.AppendFixed64(nil, uint64(len(wrappedBlock)))
 	nBytes, err := w.buffer.Write(prefix)
 	if err != nil {
-		writeSpan.SetStatus(codes.Error, err.Error())
-		writeSpan.RecordError(err)
 		return fmt.Errorf("while writing prefix: %w", err)
 	}
 
@@ -277,8 +285,6 @@ func (w *DirectWriter) writeBlockData(ctx context.Context, wrappedBlock []byte) 
 
 	nBytes, err = w.buffer.Write(wrappedBlock)
 	if err != nil {
-		writeSpan.SetStatus(codes.Error, err.Error())
-		writeSpan.RecordError(err)
 		return fmt.Errorf("while writing WAL file block: %w", err)
 	}
 	w.metrics.WalWrittenBytes.Add(ctx, int64(nBytes),

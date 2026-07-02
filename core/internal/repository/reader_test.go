@@ -13,7 +13,10 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/metric"
+	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
+	"go.opentelemetry.io/otel/sdk/metric/metricdata"
 
 	"github.com/cloudnative-pg/klio/core/internal/opentelemetry"
 )
@@ -45,8 +48,6 @@ func NewDummyMetrics() *Metrics {
 	}
 }
 
-var dummyTracer = otel.Tracer("dummy") //nolint:gochecknoglobals
-
 func TestWALReaderBlockSplit(t *testing.T) {
 	opts := Options{
 		FS:       afero.NewMemMapFs(),
@@ -62,7 +63,7 @@ func TestWALReaderBlockSplit(t *testing.T) {
 
 	defer conn.Close()
 
-	readerNonExisting, err := NewReader(conn, "cluster-example", "0000001000000000000001FF", dummyTracer)
+	readerNonExisting, err := NewReader(conn, "cluster-example", "0000001000000000000001FF", nil)
 	assert.Nil(t, readerNonExisting)
 	require.ErrorIs(t, err, os.ErrNotExist)
 
@@ -74,7 +75,6 @@ func TestWALReaderBlockSplit(t *testing.T) {
 			WALName:     "0000001000000000000001FF",
 			SegmentSize: fileLen,
 			Metrics:     metrics,
-			Tracer:      dummyTracer,
 		},
 	)
 	require.NoError(t, err)
@@ -89,7 +89,7 @@ func TestWALReaderBlockSplit(t *testing.T) {
 	err = writer.CloseMarkDone()
 	require.NoError(t, err)
 
-	reader, err := NewReader(conn, "cluster-example", "0000001000000000000001FF", dummyTracer)
+	reader, err := NewReader(conn, "cluster-example", "0000001000000000000001FF", metrics)
 	require.NoError(t, err)
 	assert.NotNil(t, reader)
 	assert.Equal(t, fileLen, reader.GetFileLength())
@@ -136,7 +136,6 @@ func TestReaderWriterBlocks(t *testing.T) {
 			WALName:     "0000001000000000000001F8",
 			SegmentSize: fileLen,
 			Metrics:     metrics,
-			Tracer:      dummyTracer,
 		},
 	)
 	require.NoError(t, err)
@@ -157,7 +156,7 @@ func TestReaderWriterBlocks(t *testing.T) {
 	require.NoError(t, err)
 
 	// Step 2: open the compressed file
-	reader, err := NewReader(conn, "cluster-example", "0000001000000000000001F8", dummyTracer)
+	reader, err := NewReader(conn, "cluster-example", "0000001000000000000001F8", metrics)
 	require.NoError(t, err)
 	assert.NotNil(t, reader)
 	assert.Equal(t, fileLen, reader.GetFileLength())
@@ -205,7 +204,6 @@ func TestReaderWriter100KBlocks(t *testing.T) {
 			WALName:     "0000001000000000000001F8",
 			SegmentSize: fileLen,
 			Metrics:     metrics,
-			Tracer:      dummyTracer,
 		},
 	)
 	require.NoError(t, err)
@@ -224,4 +222,84 @@ func TestReaderWriter100KBlocks(t *testing.T) {
 
 	err = writer.CloseMarkDone()
 	require.NoError(t, err)
+}
+
+// TestReaderRecordsReadAndUnwrapStages verifies that ReadBlock records the
+// read-side per-block stages (read, unwrap) on the BlockDuration histogram,
+// carrying the tier attribute baked into the Metrics.
+func TestReaderRecordsReadAndUnwrapStages(t *testing.T) {
+	opts := Options{
+		FS:       afero.NewMemMapFs(),
+		Password: "this-password",
+	}
+	require.NoError(t, Initialize(opts))
+
+	conn, err := Open(opts)
+	require.NoError(t, err)
+	require.NotNil(t, conn)
+
+	defer conn.Close()
+
+	reader := sdkmetric.NewManualReader()
+	provider := sdkmetric.NewMeterProvider(sdkmetric.WithReader(reader))
+	blockDuration, err := provider.Meter("test").Int64Histogram(opentelemetry.ServerWalBlockDurationMetric)
+	require.NoError(t, err)
+
+	metrics := NewDummyMetrics()
+	metrics.BlockDuration = blockDuration
+	metrics.Attributes = []attribute.KeyValue{opentelemetry.Tier1.Attribute()}
+
+	const fileLen = uint64(64)
+	writer, err := conn.NewWriter(
+		WriterOptions{
+			ClusterName: "cluster-example",
+			WALName:     "0000001000000000000001F8",
+			SegmentSize: fileLen,
+			Metrics:     metrics,
+		},
+	)
+	require.NoError(t, err)
+	require.NoError(t, writer.WriteBlock(t.Context(), []byte("hello-wal")))
+	require.NoError(t, writer.Flush())
+	require.NoError(t, writer.CloseMarkDone())
+
+	walReader, err := NewReader(conn, "cluster-example", "0000001000000000000001F8", metrics)
+	require.NoError(t, err)
+	for {
+		_, readErr := walReader.ReadBlock(t.Context())
+		if errors.Is(readErr, io.EOF) {
+			break
+		}
+		require.NoError(t, readErr)
+	}
+
+	var rm metricdata.ResourceMetrics
+	require.NoError(t, reader.Collect(t.Context(), &rm))
+
+	stagePath := map[string]string{}
+	for _, sm := range rm.ScopeMetrics {
+		for _, m := range sm.Metrics {
+			if m.Name != opentelemetry.ServerWalBlockDurationMetric {
+				continue
+			}
+			h, ok := m.Data.(metricdata.Histogram[int64])
+			require.True(t, ok)
+			for _, dp := range h.DataPoints {
+				stage, ok := dp.Attributes.Value(attribute.Key("stage"))
+				require.True(t, ok, "every data point must carry a stage attribute")
+				pathVal, ok := dp.Attributes.Value(attribute.Key("path"))
+				require.True(t, ok, "every data point must carry a path attribute")
+				tier, ok := dp.Attributes.Value(attribute.Key("tier"))
+				require.True(t, ok, "every data point must carry a tier attribute")
+				assert.Equal(t, string(opentelemetry.Tier1), tier.AsString())
+				stagePath[stage.AsString()] = pathVal.AsString()
+			}
+		}
+	}
+
+	// The read-side stages must be recorded on the get path.
+	assert.Equal(t, string(opentelemetry.PathGet), stagePath[string(opentelemetry.StageRead)],
+		"read stage must be recorded on the get path")
+	assert.Equal(t, string(opentelemetry.PathGet), stagePath[string(opentelemetry.StageUnwrap)],
+		"unwrap stage must be recorded on the get path")
 }

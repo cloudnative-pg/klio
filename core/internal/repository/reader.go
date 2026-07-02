@@ -3,13 +3,13 @@ package repository
 import (
 	"bufio"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"os"
+	"time"
 
 	"github.com/spf13/afero"
-	"go.opentelemetry.io/otel/codes"
-	"go.opentelemetry.io/otel/trace"
 	"google.golang.org/protobuf/encoding/protodelim"
 	"google.golang.org/protobuf/encoding/protowire"
 
@@ -23,17 +23,19 @@ type Reader struct {
 	file        afero.File
 	reader      *bufio.Reader
 	walFilePath string
-	tracer      trace.Tracer
+	clusterName string
+	metrics     *Metrics
 
 	segmentLength uint64
 }
 
-// NewReader creates a new WAL file reader.
+// NewReader creates a new WAL file reader. metrics may be nil to skip per-block
+// duration recording (e.g. when reading non-WAL data such as cluster metadata).
 func NewReader(
 	conn *Connection,
 	clusterName,
 	walName string,
-	tracer trace.Tracer,
+	metrics *Metrics,
 ) (*Reader, error) {
 	walFilePath := getWALArchivePath(clusterName, walName)
 
@@ -56,10 +58,11 @@ func NewReader(
 	return &Reader{
 		conn:          conn,
 		walFilePath:   walFilePath,
+		clusterName:   clusterName,
 		file:          walFileReader,
 		reader:        reader,
+		metrics:       metrics,
 		segmentLength: header.GetFileLength(),
-		tracer:        tracer,
 	}, nil
 }
 
@@ -73,14 +76,33 @@ func (r *Reader) Close() error {
 	return nil
 }
 
-// ReadBlock reads the next WAL block from the file.
+// ReadBlock reads the next WAL block from the file, recording the per-block
+// read and unwrap durations on the WAL duration histogram.
 func (r *Reader) ReadBlock(ctx context.Context) ([]byte, error) {
-	block, err := r.readBlockData(ctx)
+	readStart := time.Now()
+	block, err := r.readBlockData()
+	readDuration := time.Since(readStart)
 	if err != nil {
+		// io.EOF is the normal end of the file, not a failure.
+		if !errors.Is(err, io.EOF) {
+			r.recordStage(ctx, opentelemetry.StageRead, readDuration, opentelemetry.OutcomeFailure)
+		}
+
 		return nil, err
 	}
+	r.recordStage(ctx, opentelemetry.StageRead, readDuration, opentelemetry.OutcomeSuccess)
 
-	return r.unwrapBlockData(ctx, block)
+	unwrapStart := time.Now()
+	unwrapped, err := r.unwrapBlockData(block)
+	unwrapDuration := time.Since(unwrapStart)
+	if err != nil {
+		r.recordStage(ctx, opentelemetry.StageUnwrap, unwrapDuration, opentelemetry.OutcomeFailure)
+
+		return nil, err
+	}
+	r.recordStage(ctx, opentelemetry.StageUnwrap, unwrapDuration, opentelemetry.OutcomeSuccess)
+
+	return unwrapped, nil
 }
 
 // GetFileLength gets the file length.
@@ -88,15 +110,25 @@ func (r *Reader) GetFileLength() uint64 {
 	return r.segmentLength
 }
 
-// readBlockData reads the block length and data from the file.
-func (r *Reader) readBlockData(ctx context.Context) ([]byte, error) {
-	_, readBlockSpan := r.tracer.Start(ctx, opentelemetry.ReadBlockDataSpan)
-	defer readBlockSpan.End()
+// recordStage records a per-block read-side stage duration, if metrics are set.
+func (r *Reader) recordStage(
+	ctx context.Context,
+	stage opentelemetry.Stage,
+	d time.Duration,
+	outcome opentelemetry.Outcome,
+) {
+	if r.metrics == nil {
+		return
+	}
 
+	r.metrics.RecordBlockStage(ctx, r.clusterName, opentelemetry.PathGet, stage, d, outcome)
+}
+
+// readBlockData reads the block length and data from the file.
+func (r *Reader) readBlockData() ([]byte, error) {
 	blockLenBytes := make([]byte, 8)
 	_, err := io.ReadFull(r.reader, blockLenBytes)
 	if err != nil {
-		readBlockSpan.RecordError(fmt.Errorf("error while reading block: %w", err))
 		return nil, fmt.Errorf("while reading WAL file block prefix: %w", err)
 	}
 
@@ -104,7 +136,6 @@ func (r *Reader) readBlockData(ctx context.Context) ([]byte, error) {
 
 	block := make([]byte, blockLen)
 	if _, err := io.ReadFull(r.reader, block); err != nil {
-		readBlockSpan.RecordError(fmt.Errorf("error while reading block: %w", err))
 		return nil, fmt.Errorf("while reading WAL file block: %w", err)
 	}
 
@@ -112,14 +143,9 @@ func (r *Reader) readBlockData(ctx context.Context) ([]byte, error) {
 }
 
 // unwrapBlockData unwraps the block data using the connection.
-func (r *Reader) unwrapBlockData(ctx context.Context, block []byte) ([]byte, error) {
-	_, unwrapSpan := r.tracer.Start(ctx, opentelemetry.UnwrapBlockSpan)
-	defer unwrapSpan.End()
-
+func (r *Reader) unwrapBlockData(block []byte) ([]byte, error) {
 	bytesRead, err := r.conn.UnwrapBlock(block)
 	if err != nil {
-		unwrapSpan.SetStatus(codes.Error, err.Error())
-		unwrapSpan.RecordError(fmt.Errorf("error while unwrapping block: %w", err))
 		return nil, fmt.Errorf("while unwrapping WAL file block: %w", err)
 	}
 

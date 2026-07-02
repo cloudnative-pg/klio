@@ -17,6 +17,7 @@ import (
 	"google.golang.org/grpc/credentials"
 
 	klioGRPC "github.com/cloudnative-pg/klio/core/internal/grpc"
+	"github.com/cloudnative-pg/klio/core/internal/opentelemetry"
 	"github.com/cloudnative-pg/klio/core/internal/queue"
 	"github.com/cloudnative-pg/klio/core/internal/repository"
 	"github.com/cloudnative-pg/klio/core/internal/wal"
@@ -30,6 +31,7 @@ func Start(
 	walServerConfiguration *config.WalServerConfig,
 	tlsConfiguration *config.TLSConfig,
 	queueURL string,
+	tier opentelemetry.Tier,
 ) error {
 	logger := log.FromContext(ctx)
 
@@ -105,6 +107,7 @@ func Start(
 				Connection: repoConnection,
 				ReadOnly:   false,
 				Queue:      queueConnection,
+				Tier:       tier,
 			},
 		),
 	)

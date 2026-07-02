@@ -227,6 +227,7 @@ backupID
 backupId
 benchmarking
 bool
+cardinality
 certmanager
 changelog
 clientSecret
@@ -276,6 +277,7 @@ kubeconfig
 kubectl
 kubernetes
 kubernetesClusterDomain
+latencies
 lifecycle
 livenessProbe
 localhost
@@ -290,6 +292,7 @@ namespace
 namespace's
 namespaces
 nodeSelector
+ns
 observability
 opentelemetry
 otel

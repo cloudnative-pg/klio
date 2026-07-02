@@ -404,8 +404,6 @@ file
 | wal_name | [string](#string) |  |  |
 | wal_block | [bytes](#bytes) |  |  |
 | segment_size | [uint64](#uint64) |  |  |
-| trace_id | [string](#string) |  |  |
-| span_id | [string](#string) |  |  |
 | send_to_tier2 | [bool](#bool) |  |  |
 
 

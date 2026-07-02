@@ -15,7 +15,7 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgproto3"
 	"go.opentelemetry.io/otel/attribute"
-	"go.opentelemetry.io/otel/codes"
+	"go.opentelemetry.io/otel/metric"
 	"go.opentelemetry.io/otel/trace"
 
 	"github.com/cloudnative-pg/klio/core/internal/client/klioclient/grpcclient"
@@ -376,6 +376,11 @@ func (s *Process) startReplication(
 	timeline := coordinate.timeline
 
 	for {
+		// Publish the timeline we are about to stream: this covers both the
+		// initial timeline and every subsequent switch handled below.
+		opentelemetry.ClientWal.Timeline.Record(ctx, int64(timeline),
+			metric.WithAttributes(opentelemetry.AttributeKeyClusterName.Of(s.config.Client.ClusterName)))
+
 		// To find the replication start position, we go back to the start of the WAL file
 		startWalLSNString, err := types.Int64ToLSN(uint64(startXlog)).WALFileStart(walSegmentSize)
 		if err != nil {
@@ -446,7 +451,8 @@ func (s *Process) startReplication(
 				"newStartLSN", copyDoneResult.LSN,
 			)
 
-			// Update timeline and starting position for restart
+			// Update timeline and starting position for restart. The streaming
+			// timeline gauge is republished at the top of the loop.
 			timeline = copyDoneResult.Timeline
 			startXlog = copyDoneResult.LSN
 
@@ -475,21 +481,13 @@ func (s *Process) manageWALStream(
 	feedbackDeadline := s.config.Source.StandbyMessageTimeout()
 	nextFeedbackDeadline := time.Now().Add(feedbackDeadline)
 
-	blockCtx, blockSpan := tracer.Start(ctx, opentelemetry.ManageWalStreamSpan)
 loop:
 	for {
 		if time.Now().After(nextFlushDeadline) {
 			flushedLSN := buffer.FlushLSN()
 
-			flushCtx, flushSpan := tracer.Start(blockCtx, opentelemetry.FlushBlockSpan,
-				trace.WithAttributes(
-					attribute.String("beforeFlushLSN", pglogrepl.LSN(flushedLSN).String())))
-			err := buffer.Flush(flushCtx)
-			flushSpan.SetAttributes(attribute.String("afterFlushLSN", pglogrepl.LSN(buffer.FlushLSN()).String()))
-			flushSpan.End()
-			if err != nil {
+			if err := buffer.Flush(ctx); err != nil {
 				contextLogger.Error(err, "Failed flush WAL data")
-				blockSpan.End()
 				return nil, fmt.Errorf("while flushing WAL data: %w", err)
 			}
 
@@ -497,20 +495,8 @@ loop:
 			// the FlushedLSN will be different. In that case, we want to immediately
 			// give feedback to the PostgreSQL server. This ultimately
 			// will result in updated data in pg_stat_replication.
-			//
-			// For tracing purposes, we declare this block closed and open a new one
 			if flushedLSN != buffer.FlushLSN() {
 				nextFeedbackDeadline = time.Time{}
-
-				blockSpan.SetAttributes(
-					attribute.String("endLSN", pglogrepl.LSN(flushedLSN).String()))
-				blockSpan.End()
-
-				blockCtx, blockSpan = tracer.Start( //nolint:fatcontext
-					ctx,
-					opentelemetry.ManageWalStreamSpan,
-					trace.WithAttributes(
-						attribute.String("startLSN", pglogrepl.LSN(flushedLSN).String())))
 			}
 
 			nextFlushDeadline = time.Now().Add(flushDeadline)
@@ -525,20 +511,9 @@ loop:
 			nextFeedbackDeadline = time.Now().Add(feedbackDeadline)
 		}
 
-		receiveCtx, span := tracer.Start(
-			blockCtx,
-			opentelemetry.ReceiveBlockSpan,
-			trace.WithAttributes(
-				attribute.String("lsn", pglogrepl.LSN(buffer.WriteLSN()).String())))
-		standbyMessageDeadlineContext, cancel := context.WithDeadline(receiveCtx, nextFlushDeadline)
+		standbyMessageDeadlineContext, cancel := context.WithDeadline(ctx, nextFlushDeadline)
 		msg, err := conn.ReceiveMessage(standbyMessageDeadlineContext)
-		if copyDataMsg, ok := msg.(*pgproto3.CopyData); ok {
-			span.SetAttributes(
-				attribute.Int("len", len(copyDataMsg.Data)))
-		}
-		span.SetAttributes()
 		cancel()
-		span.End()
 
 		if err != nil {
 			if pgconn.Timeout(err) {
@@ -583,21 +558,12 @@ loop:
 					continue
 				}
 
-				writeCtx, writeSpan := tracer.Start(blockCtx, opentelemetry.WriteBlockSpan,
-					trace.WithAttributes(
-						attribute.String("lsn", xld.WALStart.String()),
-						attribute.Int("size", len(xld.WALData))))
-
-				err = buffer.ProcessWALData(writeCtx, xld.WALData, types.LSN(xld.WALStart.String()))
+				err = buffer.ProcessWALData(ctx, xld.WALData, types.LSN(xld.WALStart.String()))
 				if err != nil {
 					contextLogger.Error(err, "Error while processing WAL data", "lsn", xld.WALStart)
-					writeSpan.SetStatus(codes.Error, err.Error())
-					writeSpan.RecordError(err)
-					writeSpan.End()
 
 					return nil, fmt.Errorf("could not process WAL data at %s: %w", xld.WALStart, err)
 				}
-				writeSpan.End()
 
 				// Force the code to communicate back to PostgreSQL the current status without waiting for
 				// a flush
@@ -633,8 +599,6 @@ loop:
 		"timeline", copyDoneResult.Timeline,
 		"lsn", copyDoneResult.LSN,
 	)
-
-	blockSpan.End()
 
 	return copyDoneResult, nil
 }

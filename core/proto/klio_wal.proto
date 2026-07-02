@@ -23,8 +23,8 @@ message PutRequest {
   bytes wal_block = 3;
   uint64 segment_size = 4;
 
-  string trace_id = 5;
-  string span_id = 6;
+  reserved 5, 6; // was trace_id, span_id
+  reserved "trace_id", "span_id";
 
   bool send_to_tier2 = 7;
 }

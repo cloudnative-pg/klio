@@ -7,6 +7,7 @@ import (
 	"github.com/cloudnative-pg/machinery/pkg/log"
 	"github.com/spf13/afero"
 
+	"github.com/cloudnative-pg/klio/core/internal/opentelemetry"
 	"github.com/cloudnative-pg/klio/core/internal/repository"
 	"github.com/cloudnative-pg/klio/core/internal/server/kopiaserver"
 	"github.com/cloudnative-pg/klio/core/internal/server/walserver"
@@ -40,6 +41,7 @@ func (s *Tier1WALServer) Serve(ctx context.Context) error {
 		&s.Config.Tier1.Wal,
 		&s.Config.TLS,
 		s.QueueURL,
+		opentelemetry.Tier1,
 	); err != nil {
 		return fmt.Errorf("while starting the WAL server: %w", err)
 	}

@@ -20,7 +20,8 @@ var ErrIncoherentMetadata = errors.New("incoherent cluster metadata")
 func (w *Implementation) getClusterMetadata(ctx context.Context, clusterName string) (*grpc.ClusterMetadata, error) {
 	logger := log.FromContext(ctx)
 
-	walReader, err := repository.NewReader(w.conn, clusterName, metadataFileName, tracer)
+	// Metadata is not WAL data, so pass nil metrics to skip per-block recording.
+	walReader, err := repository.NewReader(w.conn, clusterName, metadataFileName, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -62,7 +63,6 @@ func (w *Implementation) writeClusterMetadata(
 			WALName:     metadataFileName,
 			SegmentSize: uint64(len(data)),
 			Metrics:     w.metrics,
-			Tracer:      tracer,
 		},
 	)
 	if err != nil {
