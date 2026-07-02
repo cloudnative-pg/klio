@@ -603,6 +603,9 @@ func assertOTELMetricsReceived(
 	// Verify WAL metrics (Tier 1 and Tier 2)
 	assertOTELWALMetrics(t, cfg, scenario, promMetrics, collectorPod)
 
+	// Verify server-side backup processing metrics (emitted by the consumer)
+	assertOTELServerBackupProcessingMetrics(t, cfg, scenario, collectorPod)
+
 	t.Log("OTEL metrics verification completed successfully")
 }
 
@@ -927,6 +930,76 @@ func assertServerBackupSeriesForTier(
 		assert.Greater(t, snapshotTimestamp, float64(0),
 			"latest snapshot timestamp should be a valid epoch on %s", tier)
 	}
+}
+
+// assertOTELServerBackupProcessingMetrics verifies the server-side backup
+// processing metrics emitted by the backup queue consumer. The server processes
+// backups asynchronously after the client closes them, so the metrics may not
+// be present immediately; poll for them.
+func assertOTELServerBackupProcessingMetrics(
+	t *testing.T,
+	cfg *envconf.Config,
+	scenario *otelMetricsScenario,
+	collectorPod *corev1.Pod,
+) {
+	t.Helper()
+
+	// This scenario relays to tier2, so the relay counter and the maintenance
+	// counter for both tiers are emitted (all per-cluster, outcome=success).
+	relayLabels := map[string]string{
+		"outcome":      "success",
+		"cluster_name": scenario.cnpgCluster.Name,
+	}
+	tier1Labels := map[string]string{
+		"outcome":      "success",
+		"cluster_name": scenario.cnpgCluster.Name,
+		"tier":         "tier1",
+	}
+	tier2Labels := map[string]string{
+		"outcome":      "success",
+		"cluster_name": scenario.cnpgCluster.Name,
+		"tier":         "tier2",
+	}
+
+	t.Log("Waiting for server-side post-backup processing metrics")
+	err := wait.For(
+		func(ctx context.Context) (bool, error) {
+			freshMetrics, fetchErr := fetchCollectorMetrics(ctx, cfg.Client().RESTConfig(),
+				scenario.namespace.Name, collectorPod.Name)
+			if fetchErr != nil {
+				return false, nil //nolint:nilerr // retry on transient errors
+			}
+
+			relays, found := freshMetrics.GetValueWithLabels("klio_server_backup_relay_total", relayLabels)
+			if !found {
+				return false, nil
+			}
+
+			tier1Maint, found := freshMetrics.GetValueWithLabels("klio_server_backup_maintenance_total", tier1Labels)
+			if !found {
+				return false, nil
+			}
+
+			tier2Maint, found := freshMetrics.GetValueWithLabels("klio_server_backup_maintenance_total", tier2Labels)
+			if !found {
+				return false, nil
+			}
+
+			t.Logf(`  klio_server_backup_relay_total{outcome="success"} = %v`, relays)
+			t.Logf(`  klio_server_backup_maintenance_total{outcome="success",tier="tier1"} = %v`, tier1Maint)
+			t.Logf(`  klio_server_backup_maintenance_total{outcome="success",tier="tier2"} = %v`, tier2Maint)
+
+			assert.GreaterOrEqual(t, relays, float64(1), "should have at least 1 successful tier2 relay")
+			assert.GreaterOrEqual(t, tier1Maint, float64(1), "should have at least 1 successful tier1 maintenance run")
+			assert.GreaterOrEqual(t, tier2Maint, float64(1), "should have at least 1 successful tier2 maintenance run")
+
+			return true, nil
+		},
+		wait.WithTimeout(90*time.Second),
+		wait.WithInterval(10*time.Second),
+	)
+	require.NoError(t, err,
+		`relay/maintenance success metrics (klio_server_backup_{relay,maintenance}_total) not found within timeout`)
 }
 
 // assertOTELTracesReceived verifies that the OTEL Collector received expected traces.

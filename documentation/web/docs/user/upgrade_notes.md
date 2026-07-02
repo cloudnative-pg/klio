@@ -20,6 +20,30 @@ timestamps: `klio.server.backup.latest_snapshot_age` and
 epoch second of the snapshot instead of its age. Compute age at query
 time as `time() - klio_server_backup_latest_snapshot_timestamp`.
 
+### Post-backup processing moved to the server
+
+Tier-1 maintenance (retention and WAL cleanup) and the tier-2 relay no
+longer run in the plugin sidecar after a backup. The client now only
+runs and closes the backup; the server's backup queue consumer performs
+verification, tier-1 maintenance, and the tier-2 migration. No
+configuration change is required.
+
+The `klio backup maintenance` command has been removed: retention now runs
+automatically on the server after every backup, so there is nothing left
+for it to trigger.
+
+Two consequences for observability:
+
+- The plugin no longer emits the `backup_maintenance` trace span.
+- New server-side counters `klio.server.backup.relay` (tier-2 migration +
+  verification) and `klio.server.backup.maintenance` (base-snapshot retention
+  + WAL cleanup, split by a `tier` attribute of `tier1` / `tier2`), both also
+  carrying `cluster_name` and `outcome`, count the post-backup work the server
+  performs, per attempt. They are emitted for every backup, including backups
+  taken by clients without a plugin sidecar, and the maintenance counter is
+  the only signal of an otherwise best-effort maintenance failure (tier-1, or
+  tier-2 WAL cleanup).
+
 ## Upgrading to 0.0.16
 
 ### Metric names renamed (breaking change)

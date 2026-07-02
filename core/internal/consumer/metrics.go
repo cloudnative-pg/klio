@@ -8,6 +8,39 @@ import (
 	"github.com/cloudnative-pg/klio/core/internal/opentelemetry"
 )
 
+// recordRelay records the outcome of a tier2 relay attempt for a cluster. A
+// failure means the backup did not reach tier2 on that attempt (the task is
+// retried). The server emits this, so it is available even for clusters whose
+// client has no plugin sidecar.
+func recordRelay(ctx context.Context, clusterName string, err error) {
+	opentelemetry.ServerBackup.Relay.Add(ctx, 1,
+		metric.WithAttributes(
+			opentelemetry.AttributeKeyClusterName.Of(clusterName),
+			outcomeOf(err).Attribute(),
+		))
+}
+
+// recordMaintenance records the outcome of a maintenance run (base retention
+// and WAL cleanup) for a cluster on a tier. tier1 maintenance is best-effort
+// and tier2 WAL cleanup is best-effort, so for those this counter is the only
+// signal that they failed.
+func recordMaintenance(ctx context.Context, clusterName string, tier opentelemetry.Tier, err error) {
+	opentelemetry.ServerBackup.Maintenance.Add(ctx, 1,
+		metric.WithAttributes(
+			opentelemetry.AttributeKeyClusterName.Of(clusterName),
+			tier.Attribute(),
+			outcomeOf(err).Attribute(),
+		))
+}
+
+func outcomeOf(err error) opentelemetry.Outcome {
+	if err != nil {
+		return opentelemetry.OutcomeFailure
+	}
+
+	return opentelemetry.OutcomeSuccess
+}
+
 func recordVerificationSuccess(ctx context.Context, tier opentelemetry.Tier) {
 	opentelemetry.ServerBackup.Verifications.Add(ctx, 1,
 		metric.WithAttributes(

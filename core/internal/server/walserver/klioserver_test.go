@@ -46,46 +46,6 @@ func TestNewWithReadOnlyFalse(t *testing.T) {
 	}
 }
 
-// TestSetFirstRequiredWALReadOnlyMode verifies that SetFirstRequiredWAL returns an error
-// when the server is in read-only mode.
-func TestSetFirstRequiredWALReadOnlyMode(t *testing.T) {
-	opts := Options{
-		Connection: nil,
-		ReadOnly:   true,
-	}
-
-	impl := New(opts)
-
-	req := &grpc.SetFirstRequiredWALRequest{
-		ClusterName:      "test-cluster",
-		FirstRequiredWal: "000000010000000000000001",
-	}
-
-	result, err := impl.SetFirstRequiredWAL(context.Background(), req)
-
-	if err == nil {
-		t.Fatal("expected error, got nil")
-	}
-
-	if result != nil {
-		t.Fatal("expected nil result")
-	}
-
-	// Verify that the error is a FailedPrecondition status code
-	s, ok := status.FromError(err)
-	if !ok {
-		t.Fatal("expected gRPC status error")
-	}
-
-	if s.Code() != codes.FailedPrecondition {
-		t.Fatalf("expected FailedPrecondition, got %v", s.Code())
-	}
-
-	if s.Message() != errReadOnly.Error() {
-		t.Fatalf("expected message %q, got %q", errReadOnly.Error(), s.Message())
-	}
-}
-
 // TestResetWALStreamReadOnlyMode verifies that ResetWALStream returns an error
 // when the server is in read-only mode.
 func TestResetWALStreamReadOnlyMode(t *testing.T) {

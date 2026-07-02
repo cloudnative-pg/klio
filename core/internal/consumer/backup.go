@@ -18,13 +18,31 @@ import (
 	"github.com/cloudnative-pg/klio/core/internal/repository"
 )
 
+// errTier2NotConfigured is returned when a backup requests a tier2 relay but
+// the server has no tier2 configured. It fails the task (retried, then
+// dead-lettered) so the misconfiguration is surfaced.
+var errTier2NotConfigured = errors.New("backup requested tier2 relay but the server has no tier2 configured")
+
+// backupSteps is implemented by *Backup in production and by a test stub in
+// unit tests. It covers the five steps that processBackup orchestrates so
+// that the orchestration logic can be exercised without real Kopia clients.
+type backupSteps interface {
+	listManifests(ctx context.Context, clusterName string) ([]kopia.Manifest, error)
+	verifyTier1(ctx context.Context, clusterName string) error
+	relayTier2(ctx context.Context, task *queue.BackupTask, entries []kopia.Manifest) error
+	maintainTier2(ctx context.Context, task *queue.BackupTask, entries []kopia.Manifest) error
+	maintainTier1(ctx context.Context, clusterName string, entries []kopia.Manifest) error
+}
+
 // Backup represents a Backup consumer.
 type Backup struct {
-	opts        *BackupOptions
-	tier1Kopia  *kopia.Client
-	tier2Kopia  *kopia.Client
-	tier1Client *klioclientkopia.Connection
-	tier2Client *klioclientkopia.Connection
+	opts         *BackupOptions
+	tier1Kopia   *kopia.Client
+	tier2Kopia   *kopia.Client
+	tier1Client  *klioclientkopia.Connection
+	tier2Client  *klioclientkopia.Connection
+	tier2Enabled bool
+	steps        backupSteps
 }
 
 // BackupOptions are the configuration of the WAL consumer.
@@ -56,6 +74,10 @@ type BackupOptions struct {
 	// Tier2WALRepository is the connection to the tier 2 WAL repository.
 	// Used to apply WAL retention after backup retention is applied.
 	Tier2WALRepository *repository.Connection
+
+	// Tier1WALRepository is the connection to the tier 1 WAL repository.
+	// Used by tier1 maintenance to drop WAL files that are no longer required.
+	Tier1WALRepository *repository.Connection
 }
 
 // NewBackup creates a new Backup consumer.
@@ -70,24 +92,34 @@ func NewBackup(opts *BackupOptions) (*Backup, error) {
 		return nil, fmt.Errorf("while creating tier1 client: %w", err)
 	}
 
-	tier2Client, err := klioclientkopia.FromKopiaConfig(opts.Tier2KopiaConfig)
-	if err != nil {
-		return nil, fmt.Errorf("while creating tier2 client: %w", err)
-	}
-
-	return &Backup{
+	b := &Backup{
 		opts: opts,
 		tier1Kopia: &kopia.Client{
 			KopiaBinary: kopiaBinary,
 			ConfigFile:  opts.Tier1KopiaConfig,
 		},
-		tier2Kopia: &kopia.Client{
+		tier1Client: tier1Client,
+	}
+
+	// The tier2 clients are only created when tier2 is configured. Without
+	// them the consumer only performs tier1 maintenance.
+	if opts.Tier2KopiaConfig != "" {
+		tier2Client, err := klioclientkopia.FromKopiaConfig(opts.Tier2KopiaConfig)
+		if err != nil {
+			return nil, fmt.Errorf("while creating tier2 client: %w", err)
+		}
+
+		b.tier2Kopia = &kopia.Client{
 			KopiaBinary: kopiaBinary,
 			ConfigFile:  opts.Tier2KopiaConfig,
-		},
-		tier1Client: tier1Client,
-		tier2Client: tier2Client,
-	}, nil
+		}
+		b.tier2Client = tier2Client
+		b.tier2Enabled = true
+	}
+
+	b.steps = b
+
+	return b, nil
 }
 
 // Run starts the consumer until the context is canceled or the
@@ -96,15 +128,18 @@ func (d *Backup) Run(ctx context.Context) error {
 	consumerCtx, stop := signal.NotifyContext(ctx, os.Interrupt)
 	defer stop()
 
-	return d.opts.Queue.ConsumeBackupReceivedMessages(consumerCtx, d.backupHandler)
+	return d.opts.Queue.ConsumeBackupReceivedMessages(consumerCtx, d.processBackup)
 }
 
-//nolint:cyclop
-func (d *Backup) backupHandler(ctx context.Context, task *queue.BackupTask) error {
+// processBackup performs the post-backup work for a task and records a
+// per-operation metric for the relay and maintenance stages. A returned error
+// means the task should be retried (and, once MaxDeliver is exhausted,
+// dead-lettered).
+func (d *Backup) processBackup(ctx context.Context, task *queue.BackupTask) error {
 	contextLogger := log.FromContext(ctx)
-	contextLogger.Info("Synchronizing backup", "task", task)
+	contextLogger.Info("Processing backup", "task", task)
 
-	entries, err := d.manifestsForCluster(ctx, task.ClusterName)
+	entries, err := d.steps.listManifests(ctx, task.ClusterName)
 	if err != nil {
 		return err
 	}
@@ -113,6 +148,67 @@ func (d *Backup) backupHandler(ctx context.Context, task *queue.BackupTask) erro
 		return nil
 	}
 
+	// Verify tier1 backups (catches any issues since sidecar verification).
+	// We verify all backups for the cluster rather than a specific one because
+	// MigrateSnapshots works at the source level (cluster), not individual backups.
+	// The BackupTask doesn't include the backup name for this reason.
+	if err := d.steps.verifyTier1(ctx, task.ClusterName); err != nil {
+		return err
+	}
+
+	return d.relayAndMaintain(ctx, task, entries)
+}
+
+// relayAndMaintain runs the tier2 relay (when requested) and the per-tier
+// maintenance for a verified backup.
+func (d *Backup) relayAndMaintain(ctx context.Context, task *queue.BackupTask, entries []kopia.Manifest) error {
+	contextLogger := log.FromContext(ctx)
+
+	// A tier2 relay requested against a server with no tier2 is a
+	// misconfiguration: we record it as a relay failure, still run tier1
+	// maintenance below (so tier1 retention is never starved), then fail the
+	// task so it is retried and eventually dead-lettered, surfacing the gap.
+	tier2Unavailable := task.SendToTier2 && !d.tier2Enabled
+	switch {
+	case tier2Unavailable:
+		contextLogger.Error(nil,
+			"Backup requested tier2 relay but the server has no tier2 configured",
+			"cluster", task.ClusterName)
+		recordRelay(ctx, task.ClusterName, errTier2NotConfigured)
+	case task.SendToTier2:
+		relayErr := d.steps.relayTier2(ctx, task, entries)
+		recordRelay(ctx, task.ClusterName, relayErr)
+		if relayErr != nil {
+			return relayErr
+		}
+
+		// tier2 maintenance (retention + WAL cleanup) records its own per-tier
+		// metric; a tier2 base-retention failure is fatal (the task is retried)
+		// while WAL cleanup is best-effort.
+		if err := d.steps.maintainTier2(ctx, task, entries); err != nil {
+			return err
+		}
+	}
+
+	// Tier1 maintenance: apply the tier1 retention policy and drop WAL files
+	// that are no longer required. This runs for every backup, including the
+	// misconfigured one above. It records its own per-tier metric (the only
+	// signal of a tier1 maintenance failure, which is otherwise best-effort);
+	// we log but don't fail the task on its error.
+	if err := d.steps.maintainTier1(ctx, task.ClusterName, entries); err != nil {
+		contextLogger.Error(err, "Error while applying tier1 maintenance, skipping")
+	}
+
+	if tier2Unavailable {
+		return errTier2NotConfigured
+	}
+
+	return nil
+}
+
+// relayTier2 migrates the cluster's backups to tier2 and verifies them there.
+// tier2 retention/WAL cleanup is handled separately by maintainTier2.
+func (d *Backup) relayTier2(ctx context.Context, task *queue.BackupTask, entries []kopia.Manifest) error {
 	sources := manifestListToDescriptors(entries)
 
 	if err := d.tier2Kopia.MigrateSnapshots(ctx, kopia.SnapshotMigrateOpts{
@@ -127,87 +223,71 @@ func (d *Backup) backupHandler(ctx context.Context, task *queue.BackupTask) erro
 		return err
 	}
 
-	// Verify tier1 backups (catches any issues since sidecar verification).
-	// We verify all backups for the cluster rather than a specific one because
-	// MigrateSnapshots works at the source level (cluster), not individual backups.
-	// The BackupTask doesn't include the backup name for this reason.
-	if err := d.verifyTier1Backups(ctx, task.ClusterName); err != nil {
-		return err
-	}
-
 	// Verify tier2 backups after migration
-	if err := d.verifyTier2Backups(ctx, task.ClusterName); err != nil {
-		return err
-	}
+	return d.verifyTier2Backups(ctx, task.ClusterName)
+}
 
-	userName := entries[0].Source.UserName
+// maintainTier2 enforces tier2 retention (base-snapshot policy and WAL
+// cleanup) after a successful relay, and records the tier2 maintenance metric.
+// A base-retention failure (policy set/apply) is fatal so the task is retried;
+// unpin, server refresh and WAL cleanup are best-effort. The ordering matches
+// the previous inline flow: WAL retention runs after the server refresh so it
+// lists the post-retention backups.
+func (d *Backup) maintainTier2(ctx context.Context, task *queue.BackupTask, entries []kopia.Manifest) error {
+	contextLogger := log.FromContext(ctx)
+	contextLogger.Info("Applying tier2 maintenance", "cluster", task.ClusterName)
+
+	target := kopia.Target{
+		Username: entries[0].Source.UserName,
+		Hostname: task.ClusterName,
+	}
 
 	if task.Tier2RetentionPolicy != nil {
-		if err := d.tier2Kopia.SetKopiaPolicy(
-			ctx,
-			kopia.Target{
-				Username: userName,
-				Hostname: task.ClusterName,
-			},
-			task.Tier2RetentionPolicy,
-		); err != nil {
+		if err := d.tier2Kopia.SetKopiaPolicy(ctx, target, task.Tier2RetentionPolicy); err != nil {
+			recordMaintenance(ctx, task.ClusterName, opentelemetry.Tier2, err)
+
 			return err
 		}
 	}
 
-	if err := d.tier2Kopia.ApplyKopiaPolicy(
-		ctx,
-		kopia.Target{
-			Username: userName,
-			Hostname: task.ClusterName,
-		},
-	); err != nil {
+	if err := d.tier2Kopia.ApplyKopiaPolicy(ctx, target); err != nil {
+		recordMaintenance(ctx, task.ClusterName, opentelemetry.Tier2, err)
+
 		return err
 	}
 
-	pinnedSnapshots := getPinnedSnapshots(entries)
-
-	// Unpin the pinned snapshots.
-	// Note: we log but don't fail on this error because the backup migration
-	// has already succeeded. The snapshots will be unpinned when migrating
-	// the next backup.
-	if len(pinnedSnapshots) > 0 {
-		if err := d.tier1Kopia.PinSnapshots(
-			ctx,
-			kopia.PinSnapshotOpts{
-				IDs: pinnedSnapshots,
-				RemovePins: []string{
-					klioclient.Tier2Pin,
-				},
-			},
-		); err != nil {
+	// Unpin the pinned snapshots (best-effort: the backup is already on tier2;
+	// they will be unpinned when migrating the next backup).
+	if pinnedSnapshots := getPinnedSnapshots(entries); len(pinnedSnapshots) > 0 {
+		if err := d.tier1Kopia.PinSnapshots(ctx, kopia.PinSnapshotOpts{
+			IDs:        pinnedSnapshots,
+			RemovePins: []string{klioclient.Tier2Pin},
+		}); err != nil {
 			contextLogger.Error(err, "Error while unpinning snapshots")
 		}
 	}
 
-	// Refresh the tier 2 server cache to ensure it has the latest manifests.
-	// After applying retention policies, the manifest list may have changed,
-	// so we need to notify the Kopia server to update its cache.
-	// Note: We log but don't fail on this error because the backup migration
-	// has already succeeded. Failing here would cause unnecessary retries of the
-	// entire migration, which is wasteful since the data is already safe.
+	// Refresh the tier 2 server cache so it reflects the post-retention manifest
+	// list before WAL retention lists the surviving backups (best-effort).
 	if err := d.refreshTier2KopiaServer(ctx); err != nil {
 		contextLogger.Error(err, "Error while refreshing Kopia server cache, skipping")
 	}
 
-	// Apply WAL retention to tier2 based on remaining backups.
-	// This ensures tier2 WAL files are cleaned up according to tier2's own retention policy,
-	// not tier1's policy.
+	// Apply WAL retention to tier2 based on the remaining backups (best-effort:
+	// recorded on the maintenance metric, but does not fail the task).
+	var walErr error
 	if d.opts.Tier2WALRepository != nil {
-		if err := d.applyTier2WALRetention(ctx, task.ClusterName); err != nil {
-			contextLogger.Error(err, "Error while applying tier2 WAL retention, skipping")
+		if walErr = d.applyTier2WALRetention(ctx, task.ClusterName); walErr != nil {
+			contextLogger.Error(walErr, "Error while applying tier2 WAL retention, skipping")
 		}
 	}
+
+	recordMaintenance(ctx, task.ClusterName, opentelemetry.Tier2, walErr)
 
 	return nil
 }
 
-func (d *Backup) manifestsForCluster(ctx context.Context, cluster string) ([]kopia.Manifest, error) {
+func (d *Backup) listManifests(ctx context.Context, cluster string) ([]kopia.Manifest, error) {
 	contextLogger := log.FromContext(ctx)
 	entries, err := d.tier1Kopia.ListSnapshots(ctx, nil, contextLogger.Info)
 	if err != nil {
@@ -294,7 +374,7 @@ func (d *Backup) applyTier2WALRetention(ctx context.Context, clusterName string)
 	return nil
 }
 
-func (d *Backup) verifyTier1Backups(ctx context.Context, clusterName string) error {
+func (d *Backup) verifyTier1(ctx context.Context, clusterName string) error {
 	contextLogger := log.FromContext(ctx)
 	contextLogger.Info("Verifying tier1 backups", "cluster", clusterName)
 
@@ -303,8 +383,7 @@ func (d *Backup) verifyTier1Backups(ctx context.Context, clusterName string) err
 		All:      true,
 	})
 	if err != nil {
-		var backupErr *klioclientkopia.BackupVerificationError
-		if errors.As(err, &backupErr) {
+		if _, ok := errors.AsType[*klioclientkopia.BackupVerificationError](err); ok {
 			recordVerificationFailure(ctx, opentelemetry.Tier1)
 
 			return fmt.Errorf("tier1 verification detected corruption: %w", err)
@@ -328,8 +407,7 @@ func (d *Backup) verifyTier2Backups(ctx context.Context, clusterName string) err
 		All:      true,
 	})
 	if err != nil {
-		var backupErr *klioclientkopia.BackupVerificationError
-		if errors.As(err, &backupErr) {
+		if _, ok := errors.AsType[*klioclientkopia.BackupVerificationError](err); ok {
 			recordVerificationFailure(ctx, opentelemetry.Tier2)
 
 			return fmt.Errorf("tier2 verification detected corruption: %w", err)

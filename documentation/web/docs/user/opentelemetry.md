@@ -70,10 +70,9 @@ the following spans under the `klio.plugin.backup` tracer:
 
 | Span Name | Description |
 |---|---|
-| `backup` | Root span covering the entire backup operation (run + verify + maintenance) |
+| `backup` | Root span covering the entire backup operation (run + verify) |
 | `backup_run` | Child span for the actual data backup execution |
 | `backup_verify` | Child span for post-backup verification |
-| `backup_maintenance` | Child span for post-backup maintenance |
 
 The `backup` span includes the following attributes:
 
@@ -110,8 +109,8 @@ attribute key.
 | Attribute | Values | Applies to |
 |---|---|---|
 | `tier` | `tier1` (local disk on the Klio server), `tier2` (remote object store) | All `klio.server.wal.*` and `klio.server.backup.*` instruments. |
-| `cluster_name` | Name of the PostgreSQL cluster the recording belongs to | All `klio.server.wal.*` instruments and the `klio.server.backup.*` PostgreSQL backup gauges (`backups`, `latest_backup_*`, `oldest_backup_*`). |
-| `outcome` | `success`, `failure` | `klio.plugin.backup.runs`, `klio.server.backup.verifications`. |
+| `cluster_name` | Name of the PostgreSQL cluster the recording belongs to | All `klio.server.wal.*` instruments, the `klio.server.backup.*` PostgreSQL backup gauges (`backups`, `latest_backup_*`, `oldest_backup_*`) and the `klio.server.backup.relay` / `klio.server.backup.maintenance` counters. |
+| `outcome` | `success`, `failure` | `klio.plugin.backup.runs`, `klio.server.backup.relay`, `klio.server.backup.maintenance`, `klio.server.backup.verifications`. |
 | `failure_category` | `repository_error`, `source_error`, `verification`, `timeout`, `canceled`, `unknown` | `klio.plugin.backup.runs` failure data points only. |
 | `snapshot_source` | Kopia source descriptor (`userName@hostName:path`) | All `klio.server.backup.*` base snapshot gauges (`snapshots`, `latest_snapshot_*`, `oldest_snapshot_timestamp`). |
 | `stream` | JetStream stream name (`klio-wal-stream`, `klio-backup-stream`, `klio-latest-uploaded-wal-per-cluster-stream`) | `klio.server.queue.messages`, `klio.server.queue.bytes`. |
@@ -176,14 +175,31 @@ family and are distinguished by the `tier` attribute (`"tier1"` or
 Every recording carries a `cluster_name` attribute identifying the
 PostgreSQL cluster, alongside the `tier` discriminator.
 
+### Post-backup processing metrics (server)
+
+The tier-1 backup itself is taken and counted client-side
+(`klio.plugin.backup.runs`). Afterwards the server does two kinds of work for
+the completed backup: optionally **relays** it to tier-2 (migration +
+verification), and runs **maintenance** (base-snapshot retention + WAL
+cleanup) on each tier. The relay is counted by `klio.server.backup.relay`;
+maintenance is counted by `klio.server.backup.maintenance`, discriminated by a
+`tier` attribute (`tier1` / `tier2`).
+
+Both carry `cluster_name` and `outcome` and are recorded once per attempt, so
+a backup whose relay or maintenance is retried produces multiple data points
+before it succeeds or is dead-lettered.
+
+| Metric Name | Type | Unit | Description |
+|---|---|---|---|
+| `klio.server.backup.relay` | Counter | `{relays}` | Number of tier-2 relay attempts after a backup (migration to tier-2 and verification), split by `cluster_name` and `outcome` (`success` / `failure`). |
+| `klio.server.backup.maintenance` | Counter | `{runs}` | Number of maintenance runs after a backup (base-snapshot retention and WAL cleanup), split by `cluster_name`, `tier` (`tier1` / `tier2`) and `outcome` (`success` / `failure`) |
+
 ### Backup verification metrics (server)
 
-The server verifies each backup that the plugin records via
-`klio.plugin.backup.*`. Verification happens at two points: once
-against the tier-1 local copy immediately after the backup
-completes, and again against the tier-2 remote copy after migration.
-The `tier` attribute (`"tier1"` or `"tier2"`) identifies which check the
-recording refers to.
+As part of processing each backup the server verifies it. Verification
+happens at two points: once against the tier-1 local copy, and again
+against the tier-2 remote copy after migration. The `tier` attribute
+(`"tier1"` or `"tier2"`) identifies which check the recording refers to.
 
 | Metric Name | Type | Unit | Description |
 |---|---|---|---|

@@ -112,6 +112,7 @@ func assertNoFailedQueueTasks(
 
 func newBackupFeature(
 	name string, backupTarget cnpgv1.BackupTarget, instances int, namespace string,
+	postBackupAssert machineryFeatures.BackupAssertFunc,
 ) *machineryFeatures.BackupFeature {
 	namespaceObj := &corev1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{Name: namespace},
@@ -177,14 +178,14 @@ func newBackupFeature(
 		Setup:            c.Setup,
 		Teardown:         c.Teardown,
 		Backup:           backup,
-		PostBackupAssert: assertVerificationRan,
+		PostBackupAssert: postBackupAssert,
 	})
 }
 
 func BackupFromPrimary(namespace string) *machineryFeatures.BackupFeature {
-	return newBackupFeature("BackupFromPrimary", cnpgv1.BackupTargetPrimary, 1, namespace)
+	return newBackupFeature("BackupFromPrimary", cnpgv1.BackupTargetPrimary, 1, namespace, assertVerificationRan)
 }
 
 func BackupFromStandby(namespace string) *machineryFeatures.BackupFeature {
-	return newBackupFeature("BackupFromStandby", cnpgv1.BackupTargetStandby, 2, namespace)
+	return newBackupFeature("BackupFromStandby", cnpgv1.BackupTargetStandby, 2, namespace, assertVerificationRan)
 }

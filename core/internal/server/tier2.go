@@ -10,7 +10,6 @@ import (
 	"github.com/spf13/afero"
 
 	"github.com/cloudnative-pg/klio/core/internal/consumer"
-	"github.com/cloudnative-pg/klio/core/internal/kopia"
 	"github.com/cloudnative-pg/klio/core/internal/queue"
 	"github.com/cloudnative-pg/klio/core/internal/repository"
 	"github.com/cloudnative-pg/klio/core/internal/server/kopiaserver"
@@ -96,82 +95,6 @@ func (s *Tier2KopiaServer) Serve(ctx context.Context) error {
 
 func (s *Tier2KopiaServer) String() string {
 	return "tier2-kopia"
-}
-
-// Tier2BackupConsumer manages the tier 2 backup consumer that processes backup tasks from the queue.
-type Tier2BackupConsumer struct {
-	Config               *config.ServerConfig
-	Tier1KopiaConfigFile string
-	Tier2KopiaConfigFile string
-	QueueURL             string
-	RunID                string
-	RunSecret            string
-}
-
-// Serve starts the tier 2 backup consumer and processes backup tasks from the queue.
-func (s *Tier2BackupConsumer) Serve(ctx context.Context) error {
-	contextLogger := log.FromContext(ctx).WithName("tier2-backup-consumer")
-	ctx = log.IntoContext(ctx, contextLogger)
-
-	// Connect to NATS
-	natsConnection, err := nats.Connect(
-		s.QueueURL,
-		nats.RetryOnFailedConnect(true),
-		nats.ReconnectWait(1*time.Second),
-	)
-	if err != nil {
-		return fmt.Errorf("error while connecting to the NATS server: %w", err)
-	}
-	queueConnection, err := queue.New(ctx, natsConnection)
-	if err != nil {
-		return fmt.Errorf("error while configuring NATS server: %w", err)
-	}
-
-	// Extract the certificate fingerprint for the tier 2 Kopia server
-	certificateFingerprint, err := kopia.ExtractSHA256CertificateFingerprint(
-		s.Config.TLS.TLSCert)
-	if err != nil {
-		return fmt.Errorf("error while extracting fingerprint of the kopia server certificate: %w", err)
-	}
-
-	// Connect to the tier 2 WAL repository for WAL retention
-	tier2WALFS, err := tier2.ConnectWAL(ctx, &s.Config.Tier2)
-	if err != nil {
-		return fmt.Errorf("error while connecting to tier2 WAL storage: %w", err)
-	}
-	tier2WALRepository, err := repository.Open(repository.Options{
-		FS:       tier2WALFS,
-		Password: s.Config.Tier2.EncryptionKey,
-	})
-	if err != nil {
-		return fmt.Errorf("failed to open tier2 WAL repository: %w", err)
-	}
-
-	// Starts the consumer
-	c, err := consumer.NewBackup(&consumer.BackupOptions{
-		Queue:                             queueConnection,
-		Tier1KopiaConfig:                  s.Tier1KopiaConfigFile,
-		Tier2KopiaConfig:                  s.Tier2KopiaConfigFile,
-		CacheDirectory:                    s.Config.Tier1.Base.CacheDirectory,
-		RunID:                             s.RunID,
-		RunSecret:                         s.RunSecret,
-		Tier2ServerAddress:                "https://" + s.Config.Tier2.BaseListenAddress,
-		Tier2ServerCertificateFingerprint: certificateFingerprint,
-		Tier2WALRepository:                tier2WALRepository,
-	})
-	if err != nil {
-		return fmt.Errorf("error while creating backup consumer: %w", err)
-	}
-
-	if err := c.Run(ctx); err != nil {
-		return fmt.Errorf("while consuming messages: %w", err)
-	}
-
-	return nil
-}
-
-func (s *Tier2BackupConsumer) String() string {
-	return "tier2-backup-consumer"
 }
 
 // Tier2WALConsumer manages the tier 2 WAL consumer that processes WAL tasks from the queue.

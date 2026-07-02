@@ -33,15 +33,21 @@ func (w *Implementation) CloseBackup(
 		}, nil
 	}
 
-	// Step 2: notify the queue of the completed backup
-	if request.GetSendToTier2() {
+	// Step 2: notify the queue of the completed backup.
+	//
+	// We always enqueue a task, even when the backup is not destined for
+	// tier2: the consumer is responsible for the post-backup processing
+	// (verification, maintenance and metrics) that used to run client-side.
+	// The SendToTier2 flag tells the consumer whether to also migrate the
+	// backup to tier2.
+	if w.queue != nil {
 		if err := w.scheduleBackupRelay(ctx, request); err != nil {
 			return nil, err
 		}
 	}
 
 	return &grpc.CloseBackupResult{
-		Tier2Schedule:   w.queue != nil,
+		Tier2Schedule:   w.queue != nil && request.GetSendToTier2(),
 		MissingWalFiles: nil,
 	}, nil
 }
@@ -68,6 +74,7 @@ func (w *Implementation) scheduleBackupRelay(ctx context.Context, request *grpc.
 
 	if err := w.queue.NotifyBackupReceived(ctx, &queue.BackupTask{
 		ClusterName:          request.GetClusterName(),
+		SendToTier2:          request.GetSendToTier2(),
 		Tier2RetentionPolicy: tier2Policy,
 	}); err != nil {
 		return fmt.Errorf("while sending task to queue: %w", err)

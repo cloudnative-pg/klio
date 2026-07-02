@@ -247,6 +247,7 @@ func TestBackupTaskSerialization(t *testing.T) {
 
 	task := &BackupTask{
 		ClusterName: "serialization-cluster",
+		SendToTier2: true,
 	}
 
 	err = conn.NotifyBackupReceived(ctx, task)
@@ -256,6 +257,11 @@ func TestBackupTaskSerialization(t *testing.T) {
 	msg, err := backupStream.GetLastMsgForSubject(ctx, backupSubject(task.ClusterName))
 	require.NoError(t, err)
 	assert.Contains(t, string(msg.Data), "serialization-cluster")
+
+	var decoded BackupTask
+	require.NoError(t, json.Unmarshal(msg.Data, &decoded))
+	assert.Equal(t, "serialization-cluster", decoded.ClusterName)
+	assert.True(t, decoded.SendToTier2, "SendToTier2 should round-trip through the queue")
 }
 
 func TestStreamIsolation(t *testing.T) {

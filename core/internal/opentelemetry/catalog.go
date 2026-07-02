@@ -55,8 +55,6 @@ const (
 	BackupRunSpan = "backup_run"
 	// BackupVerifySpan is the span name for verifying a backup.
 	BackupVerifySpan = "backup_verify"
-	// BackupMaintenanceSpan is the span name for running backup maintenance.
-	BackupMaintenanceSpan = "backup_maintenance"
 )
 
 // Metric name constants.
@@ -83,6 +81,9 @@ const (
 	ServerBackupLatestSnapshotTimestampMetric = "klio.server.backup.latest_snapshot_timestamp"
 	ServerBackupOldestSnapshotTimestampMetric = "klio.server.backup.oldest_snapshot_timestamp"
 	ServerBackupVerificationsMetric           = "klio.server.backup.verifications"
+
+	ServerBackupRelayMetric       = "klio.server.backup.relay"
+	ServerBackupMaintenanceMetric = "klio.server.backup.maintenance"
 
 	ServerBackupBackupsMetric               = "klio.server.backup.backups"
 	ServerBackupLatestBackupStartTimeMetric = "klio.server.backup.latest_backup_start_time"
@@ -143,6 +144,8 @@ type PluginBackupMetrics struct {
 // present.
 type ServerBackupMetrics struct {
 	Verifications           metric.Int64Counter
+	Relay                   metric.Int64Counter
+	Maintenance             metric.Int64Counter
 	TotalSnapshots          metric.Int64ObservableGauge
 	LatestSnapshotSize      metric.Int64ObservableGauge
 	LatestSnapshotFileCount metric.Int64ObservableGauge
@@ -247,6 +250,19 @@ func InitServerBackupMetrics() {
 			"attribute (`success` / `failure`; `failure` indicates corruption detected). The `tier` "+
 			"attribute distinguishes tier-1 (post-backup local check) from tier-2 (post-upload remote check)."),
 		metric.WithUnit("{verifications}"),
+	)
+	ServerBackup.Relay, _ = meter.Int64Counter(ServerBackupRelayMetric,
+		metric.WithDescription("Number of tier2 relay attempts after a backup (migrating the backup to "+
+			"tier2 and verifying it there), split by the `cluster_name` and `outcome` "+
+			"(`success` / `failure`) attributes. A failure means the backup did not reach tier2 on that "+
+			"attempt; the task is retried."),
+		metric.WithUnit("{relays}"),
+	)
+	ServerBackup.Maintenance, _ = meter.Int64Counter(ServerBackupMaintenanceMetric,
+		metric.WithDescription("Number of maintenance runs after a backup (base-snapshot retention and "+
+			"WAL cleanup), split by the `cluster_name`, `tier` (`tier1` / `tier2`) and `outcome` "+
+			"(`success` / `failure`) attributes."),
+		metric.WithUnit("{runs}"),
 	)
 	ServerBackup.TotalSnapshots, _ = meter.Int64ObservableGauge(ServerBackupSnapshotsMetric,
 		metric.WithDescription("Total number of base snapshots, broken down by `tier` and Kopia `snapshot_source`."),

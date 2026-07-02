@@ -14,7 +14,6 @@ service WAL {
   rpc RequestWALStart(RequestWALStartRequest) returns (RequestWALStartResult) {}
   rpc ResetWALStream(ResetWALStreamRequest) returns (ResetWALStreamResult) {}
 
-  rpc SetFirstRequiredWAL(SetFirstRequiredWALRequest) returns (SetFirstRequiredWALResult) {}
   rpc CloseBackup(CloseBackupRequest) returns (CloseBackupResult) {}
 }
 
@@ -84,20 +83,6 @@ message ResetWALStreamResult {
   // The WAL file where the client is expected to start
   // streaming.
   string wal_name = 1;
-}
-
-message SetFirstRequiredWALRequest {
-  // This is the cluster name
-  string cluster_name = 1;
-
-  // This field is REQUIRED. Value of this field is the name of the first
-  // required WAL in the WAL archive for this cluster (normally based on the
-  // begin WAL of the first available base backup for the cluster)
-  string first_required_wal = 2;
-}
-
-message SetFirstRequiredWALResult {
-  // Intentionally empty.
 }
 
 // The following messages are written in the cluster metadata

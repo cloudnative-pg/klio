@@ -106,6 +106,10 @@ The E2E tests are located in `operator/test/e2e/` and include:
    - `BackupFromPrimary`: backup from a single-instance cluster
    - `BackupFromStandby`: backup from a standby in a multi-instance
     cluster
+- **`maintenance_test.go`** - Server-side post-backup maintenance on a
+  tier1-only deployment: verifies the backup queue consumer applies
+  tier1 WAL retention after a backup even when tier2 is not configured
+  (`Tier1ServerSideMaintenance`)
 - **`recovery_test.go`** - Cluster recovery tests:
    - `RecoverClusterFromBackupID`: recovery using a specific backup ID
    - `RecoverClusterFromLatestBackup`: recovery from the latest backup
@@ -120,7 +124,8 @@ The E2E tests are located in `operator/test/e2e/` and include:
 - **`tier2_retention_test.go`** - Backup and WAL retention policy
   enforcement in tier2 storage (`Tier2Retention`)
 - **`wal_retention_test.go`** - WAL retention queue-awareness: verifies
-  WALs pending tier2 transfer are not prematurely deleted
+  server-side tier1 retention prunes old WALs only after they reach tier2,
+  driven by backup completion rather than a client command
   (`WALRetentionQueueAwareness`)
 - **`server_reconfig_test.go`** - Adding tier2 storage to an existing
   tier1+queue server (`ServerTierReconfiguration`)

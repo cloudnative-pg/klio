@@ -35,7 +35,6 @@ Manage physical backups
 * [klio backup delete](klio_backup_delete.md)	 - Deletes the metadata with the provided name
 * [klio backup get-metadata](klio_backup_get-metadata.md)	 - Gets the metadata of the backup with the provided name
 * [klio backup list](klio_backup_list.md)	 - Gets the metadata of all backups
-* [klio backup maintenance](klio_backup_maintenance.md)	 - Gets the metadata of all backups
 * [klio backup run](klio_backup_run.md)	 - Backup the PostgreSQL cluster to the opened Klio server
 * [klio backup verify](klio_backup_verify.md)	 - Verify the integrity of backups
 

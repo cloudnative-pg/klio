@@ -223,11 +223,17 @@ func runServer(ctx context.Context, opts serverOpts) error {
 		klio.Add(tier2)
 	}
 
-	if opts.tier1 && opts.tier2 {
-		// We can skip the validation here:
-		// both tier1 and tier2 have been already validated, if existing
-		relay := suture.NewSimple("relay")
-		relay.Add(&server.Tier2BackupConsumer{
+	// The backup consumer performs the post-backup processing (tier1
+	// maintenance for every backup and, when the backup is destined for
+	// tier2, the tier2 relay). It runs whenever tier1 is enabled. The
+	// tier2 relay is gated per-backup on the request, so when tier2 is not
+	// configured Tier2KopiaConfigFile is empty and the consumer only runs
+	// tier1 maintenance.
+	if opts.tier1 {
+		// We can skip the validation here: tier1 (and tier2, if enabled)
+		// have already been validated above.
+		postBackup := suture.NewSimple("postbackup")
+		postBackup.Add(&server.BackupConsumer{
 			Config:               opts.cfg,
 			Tier1KopiaConfigFile: tier1ConfigFileName,
 			Tier2KopiaConfigFile: tier2RWConfigFileName,
@@ -235,11 +241,15 @@ func runServer(ctx context.Context, opts serverOpts) error {
 			RunID:                opts.runID,
 			RunSecret:            opts.runSecret,
 		})
-		relay.Add(&server.Tier2WALConsumer{
-			Config:   opts.cfg,
-			QueueURL: queueURL,
-		})
-		klio.Add(relay)
+
+		// The WAL relay to tier2 only makes sense when tier2 is configured.
+		if opts.tier2 {
+			postBackup.Add(&server.Tier2WALConsumer{
+				Config:   opts.cfg,
+				QueueURL: queueURL,
+			})
+		}
+		klio.Add(postBackup)
 	}
 
 	// Configure administration server

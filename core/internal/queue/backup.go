@@ -15,6 +15,11 @@ type BackupTask struct {
 	// The name of the cluster
 	ClusterName string `json:"clusterName"`
 
+	// SendToTier2 indicates the backup must also be migrated to tier2.
+	// When false the consumer only runs tier1 post-processing (verification
+	// and maintenance) without touching tier2.
+	SendToTier2 bool `json:"sendToTier2,omitempty"`
+
 	// The retention policy to apply to tier2.
 	Tier2RetentionPolicy *kopia.RetentionPolicy `json:"tier2RetentionPolicy,omitzero"`
 }

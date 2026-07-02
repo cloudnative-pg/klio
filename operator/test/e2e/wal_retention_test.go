@@ -194,36 +194,6 @@ func (s *walRetentionScenario) getWALFilesInTier1(
 	return walFiles
 }
 
-// runBackupMaintenance triggers the backup maintenance command on the PostgreSQL pod.
-// This runs the "klio backup maintenance" command which calls SetFirstRequiredWAL on the Klio server.
-// The command is executed in the klio-plugin sidecar container where the klio binary is installed.
-func (s *walRetentionScenario) runBackupMaintenance(
-	ctx context.Context,
-	r *resources.Resources,
-) error {
-	// The klio config is at /var/lib/postgresql/klio/klio-archive on the PostgreSQL pod.
-	// The klio binary is in the klio-plugin sidecar container.
-	const klioConfigPath = "/var/lib/postgresql/klio/klio-archive"
-
-	var stdout, stderr bytes.Buffer
-	maintenanceCmd := []string{
-		"klio",
-		"backup",
-		"maintenance",
-		"--config",
-		klioConfigPath,
-	}
-
-	err := r.ExecInPod(
-		ctx, s.namespace.Name, s.sourcePrimaryPod.Name, cnpgi.KlioPluginContainerName, maintenanceCmd, &stdout, &stderr)
-	if err != nil {
-		return fmt.Errorf(
-			"failed to run backup maintenance: %w; stdout: %s; stderr: %s", err, stdout.String(), stderr.String())
-	}
-
-	return nil
-}
-
 // deleteBackup deletes a backup by name using the klio CLI.
 func (s *walRetentionScenario) deleteBackup(
 	ctx context.Context,
@@ -317,16 +287,21 @@ func (f *WALRetentionFeature) Setup() types.StepFunc {
 }
 
 // Run executes the WAL retention test.
+//
+// Post-backup maintenance now runs server-side: each backup completion makes
+// the backup queue consumer apply tier1 retention, clamped to the tier2
+// transfer frontier so WALs still pending upload are never deleted. There is
+// no client command to trigger maintenance any more, so the test drives it by
+// completing backups and observes the on-disk effect.
 func (f *WALRetentionFeature) Run() types.StepFunc {
 	return func(ctx context.Context, t *testing.T, cfg *envconf.Config) context.Context {
 		t.Helper()
-		t.Log("Running WAL retention queue-awareness test")
+		t.Log("Running server-side WAL retention queue-awareness test")
 
 		r, err := resources.New(cfg.Client().RESTConfig())
 		require.NoError(t, err, "failed to create resources client")
 
-		// Step 1: Create a backup to establish a baseline.
-		// This creates the first required WAL reference point.
+		// Step 1: first backup establishes a retention baseline.
 		t.Log("Creating initial backup...")
 		require.NoError(t, r.Create(ctx, f.scenario.backup), "failed to create backup")
 		err = wait.For(
@@ -336,7 +311,8 @@ func (f *WALRetentionFeature) Run() types.StepFunc {
 		)
 		require.NoError(t, err, "backup not completed")
 
-		// Step 2: Generate WAL activity to create additional WAL files.
+		// Step 2: generate WAL activity so there are older WAL segments that a
+		// later retention pass could prune.
 		t.Log("Generating WAL activity...")
 		_, err = machineryPostgres.ExecPostgresQuery(
 			ctx, r, &f.scenario.sourcePrimaryPod, "postgres",
@@ -344,7 +320,6 @@ func (f *WALRetentionFeature) Run() types.StepFunc {
 		)
 		require.NoError(t, err, "failed to create test table")
 
-		// Insert data and force WAL switches to generate multiple WAL files.
 		for i := range 5 {
 			_, err = machineryPostgres.ExecPostgresQuery(
 				ctx, r, &f.scenario.sourcePrimaryPod, "postgres",
@@ -352,39 +327,15 @@ func (f *WALRetentionFeature) Run() types.StepFunc {
 			)
 			require.NoError(t, err, "failed to insert test data")
 
-			// Force WAL switch after each batch to ensure we create multiple WAL files.
 			err = machineryPostgres.CheckpointAndSwitchWal(ctx, r, &f.scenario.sourcePrimaryPod)
 			require.NoError(t, err, "failed to switch WAL on iteration %d", i)
 		}
 
-		// Step 3: Wait for WAL archiving to stabilize and count WAL files.
-		// We poll until the WAL count is stable (same count for 2 consecutive checks).
-		t.Log("Waiting for WAL archiving to stabilize...")
-		var walFilesBefore []string
-		var previousCount int
-		stableChecks := 0
-		for i := range 12 { // Max 2 minutes (12 * 10s)
-			time.Sleep(10 * time.Second)
-			walFilesBefore = f.scenario.getWALFilesInTier1(ctx, r)
-			t.Logf("WAL files (check %d): %d files - %v", i+1, len(walFilesBefore), walFilesBefore)
-
-			if len(walFilesBefore) == previousCount && len(walFilesBefore) > 0 {
-				stableChecks++
-				if stableChecks >= 2 {
-					t.Log("WAL count stabilized")
-					break
-				}
-			} else {
-				stableChecks = 0
-			}
-			previousCount = len(walFilesBefore)
-		}
-		require.GreaterOrEqual(t, len(walFilesBefore), 3,
-			"should have at least 3 WAL files before testing retention")
-
-		// Step 4: Create a second backup to establish a new first required WAL.
-		// After this backup, WAL files older than the backup's StartWAL are candidates for deletion.
-		t.Log("Creating second backup to advance the retention point...")
+		// Step 3: second backup. Its completion triggers a server-side
+		// maintenance pass. Once the older backup is deleted, this backup's
+		// begin WAL becomes the retention frontier: retention may prune
+		// everything older, but only after those WALs reach tier2.
+		t.Log("Creating second backup...")
 		secondBackup := f.scenario.backup.DeepCopy()
 		secondBackup.Name = "test-backup-2"
 		secondBackup.ResourceVersion = ""
@@ -396,90 +347,65 @@ func (f *WALRetentionFeature) Run() types.StepFunc {
 		)
 		require.NoError(t, err, "second backup not completed")
 
-		// Re-capture WAL count after second backup (it may have added one more WAL).
-		walFilesBefore = f.scenario.getWALFilesInTier1(ctx, r)
-		t.Logf("WAL files before maintenance: %d files - %v", len(walFilesBefore), walFilesBefore)
+		var secondCompleted cnpgv1.Backup
+		require.NoError(t, r.Get(ctx, secondBackup.Name, secondBackup.Namespace, &secondCompleted),
+			"failed to get completed second backup")
+		boundary := secondCompleted.Status.BeginWal
+		require.NotEmpty(t, boundary, "second backup has no begin WAL in its status")
 
-		// Step 5: Run backup maintenance immediately after generating WALs.
-		// This triggers SetFirstRequiredWAL. With tier2 enabled and WALs pending
-		// transfer, the queue-awareness feature should preserve them.
-		t.Log("Phase 1: Running backup maintenance (WALs should be pending tier2 transfer)...")
-		err = f.scenario.runBackupMaintenance(ctx, r)
-		require.NoError(t, err, "failed to run backup maintenance")
+		// There must be WAL segments older than the second backup's begin WAL,
+		// otherwise the retention assertion below would pass vacuously.
+		before := f.scenario.getWALFilesInTier1(ctx, r)
+		t.Logf("Tier1 WAL files before retention advances: %d (%v), boundary %q", len(before), before, boundary)
+		require.NotEmpty(t, walsOlderThan(before, boundary),
+			"expected WAL segments older than the second backup begin WAL before retention advances")
 
-		// Get WAL files after first maintenance.
-		walFilesAfterFirstMaint := f.scenario.getWALFilesInTier1(ctx, r)
-		t.Logf("WAL files after first maintenance: %d files - %v",
-			len(walFilesAfterFirstMaint), walFilesAfterFirstMaint)
-
-		// Verify queue-awareness is working: WAL files should be preserved.
-		// With tier2 enabled and WALs pending transfer, the queue-awareness feature
-		// should prevent premature deletion of WALs that are still in the transfer queue.
-		require.NotEmpty(t, walFilesAfterFirstMaint, "WAL files should not be completely deleted")
-
-		// We allow at most 1 WAL to be deleted (the backup process itself may advance the WAL).
-		// The key assertion is that queue-awareness prevents mass deletion of pending WALs.
-		require.GreaterOrEqual(t, len(walFilesAfterFirstMaint), len(walFilesBefore)-1,
-			"queue-awareness should preserve WAL files pending tier2 transfer "+
-				"(before: %d, after: %d)", len(walFilesBefore), len(walFilesAfterFirstMaint))
-
-		t.Logf("Phase 1 passed: queue-awareness preserved WALs (before: %d, after: %d)",
-			len(walFilesBefore), len(walFilesAfterFirstMaint))
-
-		// Step 6: Delete the first backup to advance the retention point.
-		// Maintenance calculates the oldest required WAL from ALL backups, so we need to
-		// delete the first backup to allow retention of older WALs.
-		// Note: We must use the actual Kopia backup name (e.g., "backup-20260202121752"),
-		// not the Kubernetes Backup resource name ("test-backup").
-		t.Log("Phase 2: Listing backups to find the oldest backup's Kopia name...")
+		// Step 4: delete the oldest backup so the retention point can advance to
+		// the second backup's begin WAL.
+		t.Log("Deleting the oldest backup to advance the retention point...")
 		backupNames, err := f.scenario.listBackups(ctx, r)
 		require.NoError(t, err, "failed to list backups")
 		require.GreaterOrEqual(t, len(backupNames), 2,
 			"expected at least 2 backups, got %d: %v", len(backupNames), backupNames)
-		t.Logf("Found backups: %v", backupNames)
+		require.NoError(t, f.scenario.deleteBackup(ctx, r, backupNames[0]),
+			"failed to delete oldest backup %s", backupNames[0])
 
-		// Delete the first (oldest) backup to advance the retention point.
-		firstBackupName := backupNames[0]
-		t.Logf("Deleting first backup: %s", firstBackupName)
-		err = f.scenario.deleteBackup(ctx, r, firstBackupName)
-		require.NoError(t, err, "failed to delete first backup %s", firstBackupName)
-
-		// Step 7: Wait for tier2 transfers to complete, then verify retention happens.
-		// After tier2 transfers complete, retention SHOULD delete older WALs.
-		t.Log("Waiting for tier2 transfers to complete and running maintenance...")
-		const (
-			maxRetries    = 30 // 5 minutes max
-			retryInterval = 10 * time.Second
+		// Step 5: a third backup triggers a fresh maintenance pass now that the
+		// oldest backup is gone and tier2 has had time to catch up.
+		t.Log("Creating a third backup to trigger another maintenance pass...")
+		thirdBackup := f.scenario.backup.DeepCopy()
+		thirdBackup.Name = "test-backup-3"
+		thirdBackup.ResourceVersion = ""
+		require.NoError(t, r.Create(ctx, thirdBackup), "failed to create third backup")
+		err = wait.For(
+			machineryConditions.BackupIsCompleted(r, thirdBackup),
+			wait.WithTimeout(2*time.Minute),
+			wait.WithInterval(10*time.Second),
 		)
+		require.NoError(t, err, "third backup not completed")
 
-		var walFilesAfter []string
-		for attempt := 1; attempt <= maxRetries; attempt++ {
-			time.Sleep(retryInterval)
+		// Step 6: poll until server-side retention has pruned every WAL older
+		// than the retention frontier. This only happens once those WALs have
+		// been transferred to tier2, so it verifies both that retention runs
+		// automatically and that the queue-awareness clamp releases after the
+		// tier2 frontier advances.
+		t.Log("Waiting for server-side tier1 WAL retention to prune WALs older than the retention frontier...")
+		err = wait.For(
+			func(ctx context.Context) (bool, error) {
+				walFiles := f.scenario.getWALFilesInTier1(ctx, r)
+				return len(walsOlderThan(walFiles, boundary)) == 0, nil
+			},
+			wait.WithTimeout(5*time.Minute),
+			wait.WithInterval(10*time.Second),
+		)
+		final := f.scenario.getWALFilesInTier1(ctx, r)
+		require.NoError(t, err,
+			"server-side retention did not prune WALs older than boundary %q; remaining older WALs: %v",
+			boundary, walsOlderThan(final, boundary))
+		require.NotEmpty(t, final, "tier1 WAL repository unexpectedly empty after retention")
 
-			t.Logf("Running backup maintenance (attempt %d/%d)...", attempt, maxRetries)
-			err = f.scenario.runBackupMaintenance(ctx, r)
-			require.NoError(t, err, "failed to run backup maintenance")
-
-			walFilesAfter = f.scenario.getWALFilesInTier1(ctx, r)
-			t.Logf("WAL files after maintenance: %d files - %v", len(walFilesAfter), walFilesAfter)
-
-			// Check if retention happened (fewer files than we started with).
-			if len(walFilesAfter) < len(walFilesBefore) {
-				t.Logf("Retention occurred on attempt %d", attempt)
-				break
-			}
-		}
-
-		// Verify that retention eventually happens after tier2 transfers complete.
-		require.NotEmpty(t, walFilesAfter, "WAL files should not be completely deleted")
-		require.Less(t, len(walFilesAfter), len(walFilesBefore),
-			"after tier2 transfers complete, retention should delete older WAL files "+
-				"(before: %d, after: %d)", len(walFilesBefore), len(walFilesAfter))
-
-		t.Logf("Phase 2 passed: retention deleted %d of %d WAL files after tier2 transfers completed",
-			len(walFilesBefore)-len(walFilesAfter), len(walFilesBefore))
-
-		t.Log("WAL retention queue-awareness test completed successfully")
+		t.Logf("Server-side WAL retention verified: %d WAL files remain, all >= begin WAL %q",
+			len(final), boundary)
 
 		return ctx
 	}

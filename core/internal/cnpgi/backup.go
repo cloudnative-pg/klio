@@ -128,9 +128,6 @@ func (b backupServiceImplementation) Backup(
 
 	recordBackupSuccess(ctx, time.Since(backupStart))
 
-	// Step 4: trigger maintenance
-	b.triggerMaintenance(ctx)
-
 	return &backup.BackupResult{
 		BackupName:        backupName,
 		StartedAt:         metadata.StartedAt,
@@ -310,29 +307,6 @@ func (b backupServiceImplementation) runVerify(ctx context.Context, backupName s
 	}
 
 	return false, nil
-}
-
-func (b backupServiceImplementation) triggerMaintenance(ctx context.Context) {
-	ctx, span := tracer.Start(ctx, opentelemetry.BackupMaintenanceSpan)
-	defer span.End()
-
-	contextLogger := log.FromContext(ctx)
-
-	klioPath, err := os.Executable()
-	if err != nil {
-		contextLogger.Error(err, "failed to determine klio path, skipping maintenance")
-		return
-	}
-
-	contextLogger.Info("Starting Klio backup maintenance")
-	//nolint:gosec
-	cmd := exec.CommandContext(ctx, klioPath, "backup", "maintenance", "--config", backupRepositoryConfigPath)
-
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	if err := cmd.Run(); err != nil {
-		contextLogger.Error(err, "failed to execute klio backup maintenance command, skipping")
-	}
 }
 
 //nolint:cyclop

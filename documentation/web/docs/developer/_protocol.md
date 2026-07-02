@@ -36,8 +36,6 @@
     - [RequestWALStartResult](#klio-wal-v1-RequestWALStartResult)
     - [ResetWALStreamRequest](#klio-wal-v1-ResetWALStreamRequest)
     - [ResetWALStreamResult](#klio-wal-v1-ResetWALStreamResult)
-    - [SetFirstRequiredWALRequest](#klio-wal-v1-SetFirstRequiredWALRequest)
-    - [SetFirstRequiredWALResult](#klio-wal-v1-SetFirstRequiredWALResult)
     - [StartWALFile](#klio-wal-v1-StartWALFile)
     - [WALGap](#klio-wal-v1-WALGap)
   
@@ -494,32 +492,6 @@ file
 
 
 
-<a name="klio-wal-v1-SetFirstRequiredWALRequest"></a>
-
-### SetFirstRequiredWALRequest
-
-
-
-| Field | Type | Label | Description |
-| ----- | ---- | ----- | ----------- |
-| cluster_name | [string](#string) |  | This is the cluster name |
-| first_required_wal | [string](#string) |  | This field is REQUIRED. Value of this field is the name of the first required WAL in the WAL archive for this cluster (normally based on the begin WAL of the first available base backup for the cluster) |
-
-
-
-
-
-
-<a name="klio-wal-v1-SetFirstRequiredWALResult"></a>
-
-### SetFirstRequiredWALResult
-Intentionally empty.
-
-
-
-
-
-
 <a name="klio-wal-v1-StartWALFile"></a>
 
 ### StartWALFile
@@ -574,7 +546,6 @@ feature.
 | GetMetadata | [GetMetadataRequest](#klio-wal-v1-GetMetadataRequest) | [ClusterMetadata](#klio-wal-v1-ClusterMetadata) |  |
 | RequestWALStart | [RequestWALStartRequest](#klio-wal-v1-RequestWALStartRequest) | [RequestWALStartResult](#klio-wal-v1-RequestWALStartResult) |  |
 | ResetWALStream | [ResetWALStreamRequest](#klio-wal-v1-ResetWALStreamRequest) | [ResetWALStreamResult](#klio-wal-v1-ResetWALStreamResult) |  |
-| SetFirstRequiredWAL | [SetFirstRequiredWALRequest](#klio-wal-v1-SetFirstRequiredWALRequest) | [SetFirstRequiredWALResult](#klio-wal-v1-SetFirstRequiredWALResult) |  |
 | CloseBackup | [CloseBackupRequest](#klio-wal-v1-CloseBackupRequest) | [CloseBackupResult](#klio-wal-v1-CloseBackupResult) |  |
 
  
