@@ -37,6 +37,9 @@ service Admin {
   // List WAL files failed to be processed from the queue
   rpc QueueListFailedWALs(QueueListFailedWALsRequest) returns (QueueListFailedWALsResponse) {}
 
+  // Retry WAL files that failed to be processed from the queue
+  rpc QueueRetryWALs(QueueRetryWALsRequest) returns (QueueRetryResponse) {}
+
   // Get the status of the task queue (pending backups and WALs)
   rpc QueueStatus(QueueStatusRequest) returns (QueueStatusResponse) {}
 
@@ -92,6 +95,14 @@ message FailedWAL {
   string wal_name = 2;
   uint64 sequence = 3;
   google.protobuf.Timestamp last_attempt_time = 4;
+}
+
+message QueueRetryWALsRequest {
+  optional string cluster_name = 1;
+  repeated string wal_names = 2;
+}
+
+message QueueRetryResponse {
 }
 
 message QueueStatusRequest {

@@ -51,7 +51,7 @@ func (t BackupTask) Cluster() string {
 // NotifyBackupReceived is called to notify the consumers that a new backup
 // has been uploaded.
 func (q *Conn) NotifyBackupReceived(ctx context.Context, task *BackupTask) error {
-	return q.notifyMessage(ctx, backupSubject(task.ClusterName), task)
+	return q.notifyMessage(ctx, backupSubject(task.ClusterName), task, nil)
 }
 
 // BackupTaskHandler is called for every backup task message that should be handled.

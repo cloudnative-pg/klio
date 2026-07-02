@@ -24,7 +24,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -69,23 +68,19 @@ const (
 // AckWait and redelivers a message that is still being processed.
 const heartbeatInterval = 15 * time.Second
 
-// DLQAdvisorySequenceHeader is the NATS message header carrying the DLQ advisory sequence for a CLI-driven retry.
-const DLQAdvisorySequenceHeader = "Klio-Dlq-Advisory-Sequence"
+const (
+	// TaskOriginHeaderKey is the NATS message header describing the provenance
+	// of a task.
+	TaskOriginHeaderKey = "Klio-Task-Origin"
+	// TaskOriginDLQRetry marks a task that was manually re-enqueued from the
+	// dead-letter queue.
+	TaskOriginDLQRetry = "dlq-retry"
+)
 
-// dlqRetrySequence returns the dead-letter queue sequence carried by the
-// Klio-Dlq-Retry-Sequence header, if present.
-func dlqRetrySequence(headers nats.Header) (uint64, bool) {
-	raw := headers.Get(DLQAdvisorySequenceHeader)
-	if raw == "" {
-		return 0, false
-	}
-
-	seq, err := strconv.ParseUint(raw, 10, 64)
-	if err != nil {
-		return 0, false
-	}
-
-	return seq, true
+// isDLQRetry reports whether the message was manually re-enqueued from the
+// dead-letter queue.
+func isDLQRetry(headers nats.Header) bool {
+	return headers.Get(TaskOriginHeaderKey) == TaskOriginDLQRetry
 }
 
 func backupSubject(clusterName string) string {
@@ -353,29 +348,6 @@ type Status struct {
 
 	// PendingWALs is the number of WAL relay tasks pending in the queue.
 	PendingWALs uint64
-}
-
-// notifyMessage is called to send a message on the queue.
-func (q *Conn) notifyMessage(ctx context.Context, subject string, task any) error {
-	contextLogger := log.FromContext(ctx)
-	contextLogger.Info("Sending message", "subject", subject, "task", task)
-
-	js, err := jetstream.New(q.conn)
-	if err != nil {
-		return fmt.Errorf("while creating JetStream instance: %w", err)
-	}
-
-	rawContent, err := json.Marshal(task)
-	if err != nil {
-		return fmt.Errorf("while marshalling task to JSON: %w", err)
-	}
-
-	_, err = js.Publish(ctx, subject, rawContent)
-	if err != nil {
-		return fmt.Errorf("while pushing message to the queue: %w", err)
-	}
-
-	return nil
 }
 
 // internalConsumeMessages starts consuming messages and ends

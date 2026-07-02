@@ -552,6 +552,94 @@ func (x *FailedWAL) GetLastAttemptTime() *timestamppb.Timestamp {
 	return nil
 }
 
+type QueueRetryWALsRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	ClusterName   *string                `protobuf:"bytes,1,opt,name=cluster_name,json=clusterName,proto3,oneof" json:"cluster_name,omitempty"`
+	WalNames      []string               `protobuf:"bytes,2,rep,name=wal_names,json=walNames,proto3" json:"wal_names,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *QueueRetryWALsRequest) Reset() {
+	*x = QueueRetryWALsRequest{}
+	mi := &file_proto_klio_admin_proto_msgTypes[10]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *QueueRetryWALsRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*QueueRetryWALsRequest) ProtoMessage() {}
+
+func (x *QueueRetryWALsRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_klio_admin_proto_msgTypes[10]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use QueueRetryWALsRequest.ProtoReflect.Descriptor instead.
+func (*QueueRetryWALsRequest) Descriptor() ([]byte, []int) {
+	return file_proto_klio_admin_proto_rawDescGZIP(), []int{10}
+}
+
+func (x *QueueRetryWALsRequest) GetClusterName() string {
+	if x != nil && x.ClusterName != nil {
+		return *x.ClusterName
+	}
+	return ""
+}
+
+func (x *QueueRetryWALsRequest) GetWalNames() []string {
+	if x != nil {
+		return x.WalNames
+	}
+	return nil
+}
+
+type QueueRetryResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *QueueRetryResponse) Reset() {
+	*x = QueueRetryResponse{}
+	mi := &file_proto_klio_admin_proto_msgTypes[11]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *QueueRetryResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*QueueRetryResponse) ProtoMessage() {}
+
+func (x *QueueRetryResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_klio_admin_proto_msgTypes[11]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use QueueRetryResponse.ProtoReflect.Descriptor instead.
+func (*QueueRetryResponse) Descriptor() ([]byte, []int) {
+	return file_proto_klio_admin_proto_rawDescGZIP(), []int{11}
+}
+
 type QueueStatusRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	unknownFields protoimpl.UnknownFields
@@ -560,7 +648,7 @@ type QueueStatusRequest struct {
 
 func (x *QueueStatusRequest) Reset() {
 	*x = QueueStatusRequest{}
-	mi := &file_proto_klio_admin_proto_msgTypes[10]
+	mi := &file_proto_klio_admin_proto_msgTypes[12]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -572,7 +660,7 @@ func (x *QueueStatusRequest) String() string {
 func (*QueueStatusRequest) ProtoMessage() {}
 
 func (x *QueueStatusRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_klio_admin_proto_msgTypes[10]
+	mi := &file_proto_klio_admin_proto_msgTypes[12]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -585,7 +673,7 @@ func (x *QueueStatusRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use QueueStatusRequest.ProtoReflect.Descriptor instead.
 func (*QueueStatusRequest) Descriptor() ([]byte, []int) {
-	return file_proto_klio_admin_proto_rawDescGZIP(), []int{10}
+	return file_proto_klio_admin_proto_rawDescGZIP(), []int{12}
 }
 
 type QueueStatusResponse struct {
@@ -600,7 +688,7 @@ type QueueStatusResponse struct {
 
 func (x *QueueStatusResponse) Reset() {
 	*x = QueueStatusResponse{}
-	mi := &file_proto_klio_admin_proto_msgTypes[11]
+	mi := &file_proto_klio_admin_proto_msgTypes[13]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -612,7 +700,7 @@ func (x *QueueStatusResponse) String() string {
 func (*QueueStatusResponse) ProtoMessage() {}
 
 func (x *QueueStatusResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_klio_admin_proto_msgTypes[11]
+	mi := &file_proto_klio_admin_proto_msgTypes[13]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -625,7 +713,7 @@ func (x *QueueStatusResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use QueueStatusResponse.ProtoReflect.Descriptor instead.
 func (*QueueStatusResponse) Descriptor() ([]byte, []int) {
-	return file_proto_klio_admin_proto_rawDescGZIP(), []int{11}
+	return file_proto_klio_admin_proto_rawDescGZIP(), []int{13}
 }
 
 func (x *QueueStatusResponse) GetPendingBackups() uint64 {
@@ -658,7 +746,7 @@ type DeleteBackupRequest struct {
 
 func (x *DeleteBackupRequest) Reset() {
 	*x = DeleteBackupRequest{}
-	mi := &file_proto_klio_admin_proto_msgTypes[12]
+	mi := &file_proto_klio_admin_proto_msgTypes[14]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -670,7 +758,7 @@ func (x *DeleteBackupRequest) String() string {
 func (*DeleteBackupRequest) ProtoMessage() {}
 
 func (x *DeleteBackupRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_klio_admin_proto_msgTypes[12]
+	mi := &file_proto_klio_admin_proto_msgTypes[14]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -683,7 +771,7 @@ func (x *DeleteBackupRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteBackupRequest.ProtoReflect.Descriptor instead.
 func (*DeleteBackupRequest) Descriptor() ([]byte, []int) {
-	return file_proto_klio_admin_proto_rawDescGZIP(), []int{12}
+	return file_proto_klio_admin_proto_rawDescGZIP(), []int{14}
 }
 
 func (x *DeleteBackupRequest) GetBackupName() string {
@@ -716,7 +804,7 @@ type DeleteBackupResponse struct {
 
 func (x *DeleteBackupResponse) Reset() {
 	*x = DeleteBackupResponse{}
-	mi := &file_proto_klio_admin_proto_msgTypes[13]
+	mi := &file_proto_klio_admin_proto_msgTypes[15]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -728,7 +816,7 @@ func (x *DeleteBackupResponse) String() string {
 func (*DeleteBackupResponse) ProtoMessage() {}
 
 func (x *DeleteBackupResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_klio_admin_proto_msgTypes[13]
+	mi := &file_proto_klio_admin_proto_msgTypes[15]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -741,7 +829,7 @@ func (x *DeleteBackupResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteBackupResponse.ProtoReflect.Descriptor instead.
 func (*DeleteBackupResponse) Descriptor() ([]byte, []int) {
-	return file_proto_klio_admin_proto_rawDescGZIP(), []int{13}
+	return file_proto_klio_admin_proto_rawDescGZIP(), []int{15}
 }
 
 var File_proto_klio_admin_proto protoreflect.FileDescriptor
@@ -771,7 +859,12 @@ const file_proto_klio_admin_proto_rawDesc = "" +
 	"\fcluster_name\x18\x01 \x01(\tR\vclusterName\x12\x19\n" +
 	"\bwal_name\x18\x02 \x01(\tR\awalName\x12\x1a\n" +
 	"\bsequence\x18\x03 \x01(\x04R\bsequence\x12F\n" +
-	"\x11last_attempt_time\x18\x04 \x01(\v2\x1a.google.protobuf.TimestampR\x0flastAttemptTime\"\x14\n" +
+	"\x11last_attempt_time\x18\x04 \x01(\v2\x1a.google.protobuf.TimestampR\x0flastAttemptTime\"m\n" +
+	"\x15QueueRetryWALsRequest\x12&\n" +
+	"\fcluster_name\x18\x01 \x01(\tH\x00R\vclusterName\x88\x01\x01\x12\x1b\n" +
+	"\twal_names\x18\x02 \x03(\tR\bwalNamesB\x0f\n" +
+	"\r_cluster_name\"\x14\n" +
+	"\x12QueueRetryResponse\"\x14\n" +
 	"\x12QueueStatusRequest\"a\n" +
 	"\x13QueueStatusResponse\x12'\n" +
 	"\x0fpending_backups\x18\x01 \x01(\x04R\x0ependingBackups\x12!\n" +
@@ -787,12 +880,13 @@ const file_proto_klio_admin_proto_rawDesc = "" +
 	"\n" +
 	"\x06TIER_1\x10\x01\x12\n" +
 	"\n" +
-	"\x06TIER_2\x10\x022\xab\x04\n" +
+	"\x06TIER_2\x10\x022\x84\x05\n" +
 	"\x05Admin\x12D\n" +
 	"\aRefresh\x12\x1b.klio.wal.v1.RefreshRequest\x1a\x1a.klio.wal.v1.RefreshResult\"\x00\x12P\n" +
 	"\vListBackups\x12\x1f.klio.wal.v1.ListBackupsRequest\x1a\x1e.klio.wal.v1.ListBackupsResult\"\x00\x12s\n" +
 	"\x16QueueListFailedBackups\x12*.klio.wal.v1.QueueListFailedBackupsRequest\x1a+.klio.wal.v1.QueueListFailedBackupsResponse\"\x00\x12j\n" +
-	"\x13QueueListFailedWALs\x12'.klio.wal.v1.QueueListFailedWALsRequest\x1a(.klio.wal.v1.QueueListFailedWALsResponse\"\x00\x12R\n" +
+	"\x13QueueListFailedWALs\x12'.klio.wal.v1.QueueListFailedWALsRequest\x1a(.klio.wal.v1.QueueListFailedWALsResponse\"\x00\x12W\n" +
+	"\x0eQueueRetryWALs\x12\".klio.wal.v1.QueueRetryWALsRequest\x1a\x1f.klio.wal.v1.QueueRetryResponse\"\x00\x12R\n" +
 	"\vQueueStatus\x12\x1f.klio.wal.v1.QueueStatusRequest\x1a .klio.wal.v1.QueueStatusResponse\"\x00\x12U\n" +
 	"\fDeleteBackup\x12 .klio.wal.v1.DeleteBackupRequest\x1a!.klio.wal.v1.DeleteBackupResponse\"\x00B3Z1github.com/cloudnative-pg/klio/core/internal/grpcb\x06proto3"
 
@@ -809,7 +903,7 @@ func file_proto_klio_admin_proto_rawDescGZIP() []byte {
 }
 
 var file_proto_klio_admin_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_proto_klio_admin_proto_msgTypes = make([]protoimpl.MessageInfo, 14)
+var file_proto_klio_admin_proto_msgTypes = make([]protoimpl.MessageInfo, 16)
 var file_proto_klio_admin_proto_goTypes = []any{
 	(Tier)(0),                              // 0: klio.wal.v1.Tier
 	(*RefreshRequest)(nil),                 // 1: klio.wal.v1.RefreshRequest
@@ -822,32 +916,36 @@ var file_proto_klio_admin_proto_goTypes = []any{
 	(*QueueListFailedWALsResponse)(nil),    // 8: klio.wal.v1.QueueListFailedWALsResponse
 	(*FailedBackup)(nil),                   // 9: klio.wal.v1.FailedBackup
 	(*FailedWAL)(nil),                      // 10: klio.wal.v1.FailedWAL
-	(*QueueStatusRequest)(nil),             // 11: klio.wal.v1.QueueStatusRequest
-	(*QueueStatusResponse)(nil),            // 12: klio.wal.v1.QueueStatusResponse
-	(*DeleteBackupRequest)(nil),            // 13: klio.wal.v1.DeleteBackupRequest
-	(*DeleteBackupResponse)(nil),           // 14: klio.wal.v1.DeleteBackupResponse
-	(*timestamppb.Timestamp)(nil),          // 15: google.protobuf.Timestamp
+	(*QueueRetryWALsRequest)(nil),          // 11: klio.wal.v1.QueueRetryWALsRequest
+	(*QueueRetryResponse)(nil),             // 12: klio.wal.v1.QueueRetryResponse
+	(*QueueStatusRequest)(nil),             // 13: klio.wal.v1.QueueStatusRequest
+	(*QueueStatusResponse)(nil),            // 14: klio.wal.v1.QueueStatusResponse
+	(*DeleteBackupRequest)(nil),            // 15: klio.wal.v1.DeleteBackupRequest
+	(*DeleteBackupResponse)(nil),           // 16: klio.wal.v1.DeleteBackupResponse
+	(*timestamppb.Timestamp)(nil),          // 17: google.protobuf.Timestamp
 }
 var file_proto_klio_admin_proto_depIdxs = []int32{
 	9,  // 0: klio.wal.v1.QueueListFailedBackupsResponse.backups:type_name -> klio.wal.v1.FailedBackup
 	10, // 1: klio.wal.v1.QueueListFailedWALsResponse.wals:type_name -> klio.wal.v1.FailedWAL
-	15, // 2: klio.wal.v1.FailedBackup.last_attempt_time:type_name -> google.protobuf.Timestamp
-	15, // 3: klio.wal.v1.FailedWAL.last_attempt_time:type_name -> google.protobuf.Timestamp
+	17, // 2: klio.wal.v1.FailedBackup.last_attempt_time:type_name -> google.protobuf.Timestamp
+	17, // 3: klio.wal.v1.FailedWAL.last_attempt_time:type_name -> google.protobuf.Timestamp
 	0,  // 4: klio.wal.v1.DeleteBackupRequest.tiers:type_name -> klio.wal.v1.Tier
 	1,  // 5: klio.wal.v1.Admin.Refresh:input_type -> klio.wal.v1.RefreshRequest
 	3,  // 6: klio.wal.v1.Admin.ListBackups:input_type -> klio.wal.v1.ListBackupsRequest
 	5,  // 7: klio.wal.v1.Admin.QueueListFailedBackups:input_type -> klio.wal.v1.QueueListFailedBackupsRequest
 	7,  // 8: klio.wal.v1.Admin.QueueListFailedWALs:input_type -> klio.wal.v1.QueueListFailedWALsRequest
-	11, // 9: klio.wal.v1.Admin.QueueStatus:input_type -> klio.wal.v1.QueueStatusRequest
-	13, // 10: klio.wal.v1.Admin.DeleteBackup:input_type -> klio.wal.v1.DeleteBackupRequest
-	2,  // 11: klio.wal.v1.Admin.Refresh:output_type -> klio.wal.v1.RefreshResult
-	4,  // 12: klio.wal.v1.Admin.ListBackups:output_type -> klio.wal.v1.ListBackupsResult
-	6,  // 13: klio.wal.v1.Admin.QueueListFailedBackups:output_type -> klio.wal.v1.QueueListFailedBackupsResponse
-	8,  // 14: klio.wal.v1.Admin.QueueListFailedWALs:output_type -> klio.wal.v1.QueueListFailedWALsResponse
-	12, // 15: klio.wal.v1.Admin.QueueStatus:output_type -> klio.wal.v1.QueueStatusResponse
-	14, // 16: klio.wal.v1.Admin.DeleteBackup:output_type -> klio.wal.v1.DeleteBackupResponse
-	11, // [11:17] is the sub-list for method output_type
-	5,  // [5:11] is the sub-list for method input_type
+	11, // 9: klio.wal.v1.Admin.QueueRetryWALs:input_type -> klio.wal.v1.QueueRetryWALsRequest
+	13, // 10: klio.wal.v1.Admin.QueueStatus:input_type -> klio.wal.v1.QueueStatusRequest
+	15, // 11: klio.wal.v1.Admin.DeleteBackup:input_type -> klio.wal.v1.DeleteBackupRequest
+	2,  // 12: klio.wal.v1.Admin.Refresh:output_type -> klio.wal.v1.RefreshResult
+	4,  // 13: klio.wal.v1.Admin.ListBackups:output_type -> klio.wal.v1.ListBackupsResult
+	6,  // 14: klio.wal.v1.Admin.QueueListFailedBackups:output_type -> klio.wal.v1.QueueListFailedBackupsResponse
+	8,  // 15: klio.wal.v1.Admin.QueueListFailedWALs:output_type -> klio.wal.v1.QueueListFailedWALsResponse
+	12, // 16: klio.wal.v1.Admin.QueueRetryWALs:output_type -> klio.wal.v1.QueueRetryResponse
+	14, // 17: klio.wal.v1.Admin.QueueStatus:output_type -> klio.wal.v1.QueueStatusResponse
+	16, // 18: klio.wal.v1.Admin.DeleteBackup:output_type -> klio.wal.v1.DeleteBackupResponse
+	12, // [12:19] is the sub-list for method output_type
+	5,  // [5:12] is the sub-list for method input_type
 	5,  // [5:5] is the sub-list for extension type_name
 	5,  // [5:5] is the sub-list for extension extendee
 	0,  // [0:5] is the sub-list for field type_name
@@ -860,13 +958,14 @@ func file_proto_klio_admin_proto_init() {
 	}
 	file_proto_klio_admin_proto_msgTypes[4].OneofWrappers = []any{}
 	file_proto_klio_admin_proto_msgTypes[6].OneofWrappers = []any{}
+	file_proto_klio_admin_proto_msgTypes[10].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_proto_klio_admin_proto_rawDesc), len(file_proto_klio_admin_proto_rawDesc)),
 			NumEnums:      1,
-			NumMessages:   14,
+			NumMessages:   16,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

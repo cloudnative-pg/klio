@@ -63,20 +63,29 @@ type clusterTask interface {
 	Cluster() string
 }
 
-// ListOption configures a DLQ listing call. Pass options to
-// ListFailedWALTasks / ListFailedBackupTasks via functional options
-// (e.g., WithCluster("foo")).
-type ListOption func(*listConfig)
+// Option configures a queue operation on failed tasks.
+// Pass options via functional options (e.g., WithCluster("foo")). Each
+// operation uses only the subset of fields relevant to it.
+type Option func(*optionConfig)
 
-type listConfig struct {
+type optionConfig struct {
 	cluster string
+	wals    []string
 }
 
-// WithCluster restricts the returned DLQ entries to those whose original
-// task belongs to the given cluster. An empty cluster name is a no-op.
-func WithCluster(name string) ListOption {
-	return func(c *listConfig) {
+// WithCluster restricts the operation to failed tasks whose original task
+// belongs to the given cluster.
+func WithCluster(name string) Option {
+	return func(c *optionConfig) {
 		c.cluster = name
+	}
+}
+
+// WithWALs restricts the operation to failed tasks for the given WAL file
+// names.
+func WithWALs(wals ...string) Option {
+	return func(c *optionConfig) {
+		c.wals = wals
 	}
 }
 
@@ -121,7 +130,7 @@ func (m *StreamManager) GetStatus() (*Status, error) {
 }
 
 // ListFailedWALTasks retrieves a list of failed WAL tasks from the Dead Letter Queue (DLQ) stream.
-func (m *StreamManager) ListFailedWALTasks(ctx context.Context, opts ...ListOption) ([]FailedTask[WALTask], error) {
+func (m *StreamManager) ListFailedWALTasks(ctx context.Context, opts ...Option) ([]FailedTask[WALTask], error) {
 	walStream, err := m.loadStreamOrNil(klioWalStreamName)
 	if err != nil {
 		return nil, err
@@ -142,7 +151,7 @@ func (m *StreamManager) ListFailedWALTasks(ctx context.Context, opts ...ListOpti
 // ListFailedBackupTasks retrieves a list of failed backup tasks from the Dead Letter Queue (DLQ) stream.
 func (m *StreamManager) ListFailedBackupTasks(
 	ctx context.Context,
-	opts ...ListOption,
+	opts ...Option,
 ) ([]FailedTask[BackupTask], error) {
 	backupStream, err := m.loadStreamOrNil(klioBackupStreamName)
 	if err != nil {
@@ -159,6 +168,59 @@ func (m *StreamManager) ListFailedBackupTasks(
 	}
 
 	return listFailedTasks[BackupTask](ctx, dlqBackupStream, backupStream, opts...)
+}
+
+// RetryFailedWALTasks re-enqueues failed WAL tasks from the dead-letter queue.
+func (m *StreamManager) RetryFailedWALTasks(
+	ctx context.Context,
+	opts ...Option,
+) error {
+	var cfg optionConfig
+	for _, opt := range opts {
+		opt(&cfg)
+	}
+
+	var listOpts []Option
+	if cfg.cluster != "" {
+		listOpts = append(listOpts, WithCluster(cfg.cluster))
+	}
+
+	failedTasks, err := m.ListFailedWALTasks(ctx, listOpts...)
+	if err != nil {
+		return fmt.Errorf("while listing failed WAL tasks: %w", err)
+	}
+
+	if len(cfg.wals) > 0 {
+		failedTasks = slices.DeleteFunc(failedTasks, func(task FailedTask[WALTask]) bool {
+			return !slices.Contains(cfg.wals, task.Task.WALName)
+		})
+	}
+
+	return m.reenqueueWALTasks(ctx, failedTasks)
+}
+
+// reenqueueWALTasks re-publishes the given failed WAL tasks onto the work queue
+// carrying the DLQ retry origin marker, skipping duplicate tasks.
+func (m *StreamManager) reenqueueWALTasks(ctx context.Context, tasks []FailedTask[WALTask]) error {
+	attempted := make(map[WALTask]struct{}, len(tasks))
+	for _, task := range tasks {
+		if _, ok := attempted[task.Task]; ok {
+			continue
+		}
+		if err := m.notifyMessage(
+			ctx,
+			walSubject(task.Task.Cluster()),
+			task.Task,
+			nats.Header{
+				TaskOriginHeaderKey: []string{TaskOriginDLQRetry},
+			},
+		); err != nil {
+			return fmt.Errorf("while retrying failed WAL task for sequence %d: %w", task.Sequence, err)
+		}
+		attempted[task.Task] = struct{}{}
+	}
+
+	return nil
 }
 
 // configureStreams creates or updates all JetStream streams required by Klio.
@@ -221,10 +283,7 @@ func (m *StreamManager) configureStreams(ctx context.Context, js jetstream.JetSt
 	return nil
 }
 
-// purgeWALDLQEntry removes the WAL dead-letter queue entry at the given stream
-// sequence and releases the original message it references from the WAL
-// work-queue stream.
-func (m *StreamManager) purgeWALDLQEntry(_ context.Context, dlqSequence uint64) error {
+func (m *StreamManager) purgeWALDLQEntries(ctx context.Context, clusterName, walName string) error {
 	dlqStream, err := m.loadStreamOrNil(klioDLQWalStreamName)
 	if err != nil {
 		return err
@@ -237,7 +296,22 @@ func (m *StreamManager) purgeWALDLQEntry(_ context.Context, dlqSequence uint64) 
 		return nil
 	}
 
-	return m.purgeDLQEntryBySequence(dlqStream, sourceStream, dlqSequence)
+	failed, err := listFailedTasks[WALTask](ctx, dlqStream, sourceStream, WithCluster(clusterName))
+	if err != nil {
+		return err
+	}
+
+	var errs []error
+	for _, task := range failed {
+		if task.Task.WALName != walName {
+			continue
+		}
+		if err := m.purgeDLQEntryBySequence(dlqStream, sourceStream, task.Sequence); err != nil {
+			errs = append(errs, err)
+		}
+	}
+
+	return errors.Join(errs...)
 }
 
 // purgeBackupDLQEntries removes every backup dead-letter queue entry belonging to the
@@ -367,12 +441,41 @@ func (m *StreamManager) purgeDLQEntryBySequence(
 	return nil
 }
 
+// notifyMessage is called to send a message on the queue.
+func (m *StreamManager) notifyMessage(ctx context.Context, subject string, task any, headers nats.Header) error {
+	contextLogger := log.FromContext(ctx)
+	contextLogger.Info("Sending message", "subject", subject, "task", task)
+
+	js, err := jetstream.New(m.mgr.NatsConn())
+	if err != nil {
+		return fmt.Errorf("while creating JetStream instance: %w", err)
+	}
+
+	rawContent, err := json.Marshal(task)
+	if err != nil {
+		return fmt.Errorf("while marshalling task to JSON: %w", err)
+	}
+
+	msg := &nats.Msg{
+		Subject: subject,
+		Data:    rawContent,
+		Header:  headers,
+	}
+
+	_, err = js.PublishMsg(ctx, msg)
+	if err != nil {
+		return fmt.Errorf("while pushing message to the queue: %w", err)
+	}
+
+	return nil
+}
+
 func listFailedTasks[T clusterTask](
 	ctx context.Context,
 	dlqStream, taskStream *jsm.Stream,
-	opts ...ListOption,
+	opts ...Option,
 ) ([]FailedTask[T], error) {
-	var cfg listConfig
+	var cfg optionConfig
 	for _, opt := range opts {
 		opt(&cfg)
 	}
@@ -412,7 +515,7 @@ func listPager[T clusterTask](ctx context.Context,
 	pgr *jsm.StreamPager,
 	readMessage func(seq uint64) (*api.StoredMsg, error),
 	expected uint64,
-	cfg listConfig,
+	cfg optionConfig,
 ) ([]FailedTask[T], error) {
 	// The DLQ pager and the source-stream reads share the same NATS
 	// connection, and the pager's reply inbox shares the connection's

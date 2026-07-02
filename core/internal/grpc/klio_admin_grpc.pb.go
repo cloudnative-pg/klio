@@ -42,6 +42,7 @@ const (
 	Admin_ListBackups_FullMethodName            = "/klio.wal.v1.Admin/ListBackups"
 	Admin_QueueListFailedBackups_FullMethodName = "/klio.wal.v1.Admin/QueueListFailedBackups"
 	Admin_QueueListFailedWALs_FullMethodName    = "/klio.wal.v1.Admin/QueueListFailedWALs"
+	Admin_QueueRetryWALs_FullMethodName         = "/klio.wal.v1.Admin/QueueRetryWALs"
 	Admin_QueueStatus_FullMethodName            = "/klio.wal.v1.Admin/QueueStatus"
 	Admin_DeleteBackup_FullMethodName           = "/klio.wal.v1.Admin/DeleteBackup"
 )
@@ -58,6 +59,8 @@ type AdminClient interface {
 	QueueListFailedBackups(ctx context.Context, in *QueueListFailedBackupsRequest, opts ...grpc.CallOption) (*QueueListFailedBackupsResponse, error)
 	// List WAL files failed to be processed from the queue
 	QueueListFailedWALs(ctx context.Context, in *QueueListFailedWALsRequest, opts ...grpc.CallOption) (*QueueListFailedWALsResponse, error)
+	// Retry WAL files that failed to be processed from the queue
+	QueueRetryWALs(ctx context.Context, in *QueueRetryWALsRequest, opts ...grpc.CallOption) (*QueueRetryResponse, error)
 	// Get the status of the task queue (pending backups and WALs)
 	QueueStatus(ctx context.Context, in *QueueStatusRequest, opts ...grpc.CallOption) (*QueueStatusResponse, error)
 	// Delete a backup from the server
@@ -112,6 +115,16 @@ func (c *adminClient) QueueListFailedWALs(ctx context.Context, in *QueueListFail
 	return out, nil
 }
 
+func (c *adminClient) QueueRetryWALs(ctx context.Context, in *QueueRetryWALsRequest, opts ...grpc.CallOption) (*QueueRetryResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(QueueRetryResponse)
+	err := c.cc.Invoke(ctx, Admin_QueueRetryWALs_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *adminClient) QueueStatus(ctx context.Context, in *QueueStatusRequest, opts ...grpc.CallOption) (*QueueStatusResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(QueueStatusResponse)
@@ -144,6 +157,8 @@ type AdminServer interface {
 	QueueListFailedBackups(context.Context, *QueueListFailedBackupsRequest) (*QueueListFailedBackupsResponse, error)
 	// List WAL files failed to be processed from the queue
 	QueueListFailedWALs(context.Context, *QueueListFailedWALsRequest) (*QueueListFailedWALsResponse, error)
+	// Retry WAL files that failed to be processed from the queue
+	QueueRetryWALs(context.Context, *QueueRetryWALsRequest) (*QueueRetryResponse, error)
 	// Get the status of the task queue (pending backups and WALs)
 	QueueStatus(context.Context, *QueueStatusRequest) (*QueueStatusResponse, error)
 	// Delete a backup from the server
@@ -169,6 +184,9 @@ func (UnimplementedAdminServer) QueueListFailedBackups(context.Context, *QueueLi
 }
 func (UnimplementedAdminServer) QueueListFailedWALs(context.Context, *QueueListFailedWALsRequest) (*QueueListFailedWALsResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method QueueListFailedWALs not implemented")
+}
+func (UnimplementedAdminServer) QueueRetryWALs(context.Context, *QueueRetryWALsRequest) (*QueueRetryResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method QueueRetryWALs not implemented")
 }
 func (UnimplementedAdminServer) QueueStatus(context.Context, *QueueStatusRequest) (*QueueStatusResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method QueueStatus not implemented")
@@ -269,6 +287,24 @@ func _Admin_QueueListFailedWALs_Handler(srv interface{}, ctx context.Context, de
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Admin_QueueRetryWALs_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(QueueRetryWALsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AdminServer).QueueRetryWALs(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Admin_QueueRetryWALs_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AdminServer).QueueRetryWALs(ctx, req.(*QueueRetryWALsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _Admin_QueueStatus_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(QueueStatusRequest)
 	if err := dec(in); err != nil {
@@ -327,6 +363,10 @@ var Admin_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "QueueListFailedWALs",
 			Handler:    _Admin_QueueListFailedWALs_Handler,
+		},
+		{
+			MethodName: "QueueRetryWALs",
+			Handler:    _Admin_QueueRetryWALs_Handler,
 		},
 		{
 			MethodName: "QueueStatus",
