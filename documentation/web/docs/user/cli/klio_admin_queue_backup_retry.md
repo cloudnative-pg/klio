@@ -1,15 +1,25 @@
 ---
-title: klio admin queue backup
+title: klio admin queue backup retry
 ---
 
-## klio admin queue backup
+## klio admin queue backup retry
 
-Manage the queue backup tasks
+Retry failed backup tasks in the queue
+
+### Synopsis
+
+Retry failed backup tasks in the queue.
+
+With no arguments, all failed backup tasks are retried. If a cluster name is given, all failed backup tasks for that cluster are retried.
+
+```
+klio admin queue backup retry [cluster-name] [flags]
+```
 
 ### Options
 
 ```
-  -h, --help   help for backup
+  -h, --help   help for retry
 ```
 
 ### Options inherited from parent commands
@@ -33,6 +43,4 @@ Manage the queue backup tasks
 
 ### SEE ALSO
 
-* [klio admin queue](klio_admin_queue.md)	 - Manage the queue tasks
-* [klio admin queue backup list-failed](klio_admin_queue_backup_list-failed.md)	 - List failed backup tasks in the queue
-* [klio admin queue backup retry](klio_admin_queue_backup_retry.md)	 - Retry failed backup tasks in the queue
+* [klio admin queue backup](klio_admin_queue_backup.md)	 - Manage the queue backup tasks

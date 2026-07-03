@@ -313,6 +313,13 @@ func (s *Server) QueueRetryWALs(
 	ctx context.Context,
 	req *klioGRPC.QueueRetryWALsRequest,
 ) (*klioGRPC.QueueRetryResponse, error) {
+	if s.streamMgr == nil {
+		return nil, status.Errorf(
+			codes.Unavailable,
+			"failed WALs not available: server not configured with Stream Manager",
+		)
+	}
+
 	clusterName := req.GetClusterName()
 	wals := req.GetWalNames()
 
@@ -330,6 +337,32 @@ func (s *Server) QueueRetryWALs(
 
 	if err := s.streamMgr.RetryFailedWALTasks(ctx, retryOpts...); err != nil {
 		return nil, status.Errorf(codes.Internal, "while retrying failed WALs: %s", err.Error())
+	}
+
+	return &klioGRPC.QueueRetryResponse{}, nil
+}
+
+// QueueRetryBackups implements [grpc.AdminServer].
+func (s *Server) QueueRetryBackups(
+	ctx context.Context,
+	req *klioGRPC.QueueRetryBackupsRequest,
+) (*klioGRPC.QueueRetryResponse, error) {
+	if s.streamMgr == nil {
+		return nil, status.Errorf(
+			codes.Unavailable,
+			"failed backups not available: server not configured with Stream Manager",
+		)
+	}
+
+	clusterName := req.GetClusterName()
+
+	var retryOpts []queue.Option
+	if clusterName != "" {
+		retryOpts = append(retryOpts, queue.WithCluster(clusterName))
+	}
+
+	if err := s.streamMgr.RetryFailedBackupTasks(ctx, retryOpts...); err != nil {
+		return nil, status.Errorf(codes.Internal, "while retrying failed backups: %s", err.Error())
 	}
 
 	return &klioGRPC.QueueRetryResponse{}, nil

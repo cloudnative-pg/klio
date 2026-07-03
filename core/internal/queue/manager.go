@@ -196,12 +196,35 @@ func (m *StreamManager) RetryFailedWALTasks(
 		})
 	}
 
-	return m.reenqueueWALTasks(ctx, failedTasks)
+	return m.enqueueWALTasks(ctx, failedTasks)
 }
 
-// reenqueueWALTasks re-publishes the given failed WAL tasks onto the work queue
+// RetryFailedBackupTasks re-enqueues failed backup tasks from the dead-letter queue.
+func (m *StreamManager) RetryFailedBackupTasks(
+	ctx context.Context,
+	opts ...Option,
+) error {
+	var cfg optionConfig
+	for _, opt := range opts {
+		opt(&cfg)
+	}
+
+	var listOpts []Option
+	if cfg.cluster != "" {
+		listOpts = append(listOpts, WithCluster(cfg.cluster))
+	}
+
+	failedTasks, err := m.ListFailedBackupTasks(ctx, listOpts...)
+	if err != nil {
+		return fmt.Errorf("while listing failed backup tasks: %w", err)
+	}
+
+	return m.enqueueBackupTasks(ctx, failedTasks)
+}
+
+// enqueueWALTasks re-publishes the given failed WAL tasks onto the work queue
 // carrying the DLQ retry origin marker, skipping duplicate tasks.
-func (m *StreamManager) reenqueueWALTasks(ctx context.Context, tasks []FailedTask[WALTask]) error {
+func (m *StreamManager) enqueueWALTasks(ctx context.Context, tasks []FailedTask[WALTask]) error {
 	attempted := make(map[WALTask]struct{}, len(tasks))
 	for _, task := range tasks {
 		if _, ok := attempted[task.Task]; ok {
@@ -215,9 +238,36 @@ func (m *StreamManager) reenqueueWALTasks(ctx context.Context, tasks []FailedTas
 				TaskOriginHeaderKey: []string{TaskOriginDLQRetry},
 			},
 		); err != nil {
-			return fmt.Errorf("while retrying failed WAL task for sequence %d: %w", task.Sequence, err)
+			return fmt.Errorf("while retrying failed WAL task for cluster %s, wal %s: %w",
+				task.Task.ClusterName,
+				task.Task.WALName,
+				err)
 		}
 		attempted[task.Task] = struct{}{}
+	}
+
+	return nil
+}
+
+// enqueueBackupTasks re-publishes the given failed backup tasks onto the work
+// queue carrying the DLQ retry origin marker, skipping duplicate tasks.
+func (m *StreamManager) enqueueBackupTasks(ctx context.Context, tasks []FailedTask[BackupTask]) error {
+	attempted := make(map[string]struct{}, len(tasks))
+	for _, task := range tasks {
+		if _, ok := attempted[task.Task.ClusterName]; ok {
+			continue
+		}
+		if err := m.notifyMessage(
+			ctx,
+			backupSubject(task.Task.Cluster()),
+			task.Task,
+			nats.Header{
+				TaskOriginHeaderKey: []string{TaskOriginDLQRetry},
+			},
+		); err != nil {
+			return fmt.Errorf("while retrying failed backup task for cluster %s: %w", task.Task.ClusterName, err)
+		}
+		attempted[task.Task.ClusterName] = struct{}{}
 	}
 
 	return nil
