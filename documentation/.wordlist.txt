@@ -135,6 +135,11 @@ QueueListFailedBackupsResponse
 QueueListFailedWALs
 QueueListFailedWALsRequest
 QueueListFailedWALsResponse
+QueueRetryBackups
+QueueRetryBackupsRequest
+QueueRetryResponse
+QueueRetryWALs
+QueueRetryWALsRequest
 QueueStatus
 QueueStatusRequest
 QueueStatusResponse
