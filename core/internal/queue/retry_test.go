@@ -167,3 +167,116 @@ func TestRetryFailedWALTasksSkipsUnknownWALs(t *testing.T) {
 		{ClusterName: "cluster-a", WALName: "000000010000000000000001"}: {},
 	}, retried, "only the WAL names that matched a failed task must be retried")
 }
+
+// seedFailedBackup publishes an original backup task to the backup work-queue
+// stream and a matching dead-letter queue advisory, simulating a backup that
+// has exhausted its delivery budget.
+func seedFailedBackup(t *testing.T, js jetstream.JetStream, clusterName string) {
+	t.Helper()
+
+	seq := publishBackupMessage(t, js, clusterName)
+	seedDLQAdvisory(t, js, klioBackupStreamName, klioBackupConsumerName, seq)
+}
+
+// retriedBackupClusters returns, per cluster, the number of backup tasks
+// re-enqueued onto the backup work-queue stream, identified by the DLQ retry
+// origin marker.
+func retriedBackupClusters(t *testing.T, stream jetstream.Stream) map[string]int {
+	t.Helper()
+
+	info, err := stream.Info(t.Context())
+	require.NoError(t, err)
+
+	out := make(map[string]int)
+	for seq := info.State.FirstSeq; seq <= info.State.LastSeq && seq != 0; seq++ {
+		msg, err := stream.GetMsg(t.Context(), seq)
+		if err != nil {
+			// Sequences may be absent (e.g. deleted); skip them.
+			continue
+		}
+		if msg.Header.Get(TaskOriginHeaderKey) != TaskOriginDLQRetry {
+			continue
+		}
+
+		var task BackupTask
+		require.NoError(t, json.Unmarshal(msg.Data, &task))
+		out[task.ClusterName]++
+	}
+
+	return out
+}
+
+func TestRetryFailedBackupTasksRetriesAllClusters(t *testing.T) {
+	ns, url := startNATSServer(t)
+	defer ns.Shutdown()
+
+	nc, err := nats.Connect(url)
+	require.NoError(t, err)
+	defer nc.Close()
+
+	ctx := context.Background()
+	conn, err := New(ctx, nc)
+	require.NoError(t, err)
+
+	js, err := jetstream.New(nc)
+	require.NoError(t, err)
+
+	seedFailedBackup(t, js, "cluster-a")
+	seedFailedBackup(t, js, "cluster-b")
+
+	require.NoError(t, conn.RetryFailedBackupTasks(ctx))
+
+	retried := retriedBackupClusters(t, streamHandle(ctx, t, conn.conn, klioBackupStreamName))
+	assert.Equal(t, map[string]int{"cluster-a": 1, "cluster-b": 1}, retried)
+}
+
+func TestRetryFailedBackupTasksRetriesSingleCluster(t *testing.T) {
+	ns, url := startNATSServer(t)
+	defer ns.Shutdown()
+
+	nc, err := nats.Connect(url)
+	require.NoError(t, err)
+	defer nc.Close()
+
+	ctx := context.Background()
+	conn, err := New(ctx, nc)
+	require.NoError(t, err)
+
+	js, err := jetstream.New(nc)
+	require.NoError(t, err)
+
+	seedFailedBackup(t, js, "cluster-a")
+	seedFailedBackup(t, js, "cluster-b")
+
+	require.NoError(t, conn.RetryFailedBackupTasks(ctx, WithCluster("cluster-a")))
+
+	retried := retriedBackupClusters(t, streamHandle(ctx, t, conn.conn, klioBackupStreamName))
+	assert.Equal(t, map[string]int{"cluster-a": 1}, retried,
+		"only the requested cluster's failed backup must be retried")
+}
+
+func TestRetryFailedBackupTasksDeduplicatesByCluster(t *testing.T) {
+	ns, url := startNATSServer(t)
+	defer ns.Shutdown()
+
+	nc, err := nats.Connect(url)
+	require.NoError(t, err)
+	defer nc.Close()
+
+	ctx := context.Background()
+	conn, err := New(ctx, nc)
+	require.NoError(t, err)
+
+	js, err := jetstream.New(nc)
+	require.NoError(t, err)
+
+	// Two failed backups for the same cluster must collapse into a single retry.
+	seedFailedBackup(t, js, "cluster-a")
+	seedFailedBackup(t, js, "cluster-a")
+
+	require.NoError(t, conn.RetryFailedBackupTasks(ctx))
+
+	retried := retriedBackupClusters(t, streamHandle(ctx, t, conn.conn, klioBackupStreamName))
+	assert.Equal(t, map[string]int{"cluster-a": 1}, retried,
+		"multiple failed backups for one cluster must be retried only once")
+}
