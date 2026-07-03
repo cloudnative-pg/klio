@@ -90,6 +90,12 @@ func (q *Conn) ConsumeWALReceivedMessages(ctx context.Context, handler WALTaskHa
 			return nil
 		}
 
+		// TODO: make the latest-uploaded-WAL marker monotonic. Retention treats
+		// this record as a high-water mark and won't delete tier1 WALs newer
+		// than it. A CLI retry re-injects an older WAL, regressing the marker;
+		// it fails safe (retention just gets more conservative and self-heals)
+		// but can briefly stall tier1 reclamation. Fix: only advance when
+		// t.WALName is lexicographically greater than the stored value.
 		if err := q.notifyMessage(
 			ctx,
 			latestUploadedWalSubject(t.ClusterName),
