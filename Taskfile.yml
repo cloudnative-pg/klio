@@ -17,6 +17,11 @@ vars:
   CLEANED_REF_NAME: '{{ regexReplaceAll "[/_]" .GITHUB_REF_NAME "-" }}'
   IMAGE_TAG: '{{ .IMAGE_TAG | default (regexReplaceAll "(\\d+)-merge" .CLEANED_REF_NAME "pr-${1}") }}'
   KUBECONFIG_PATH: ./kubeconfig-integration
+  # operator-sdk image used to generate the OLM bundle (olm:bundle) and run
+  # scorecard against it (olm:scorecard); the two must use the same version.
+  # renovate: datasource=docker depName=quay.io/operator-framework/operator-sdk versioning=docker
+  OPERATOR_SDK_IMAGE_VERSION: v1.42.3@sha256:b7378eb179b97fbdf1ff1304e86f62e9ff9f9c2d0089464111ce8eddd39e2013
+  ALLOWED_ENVS: [testing, production]
 
 tasks:
 
@@ -383,7 +388,9 @@ tasks:
     internal: true
     requires:
       vars:
-        - ENVIRONMENT
+        - name: ENVIRONMENT
+          enum:
+            ref: .ALLOWED_ENVS
         - REGISTRY
         - INSECURE
         - VERSION
@@ -702,17 +709,22 @@ tasks:
     desc: Generate the OLM bundle, catalog image, and CatalogSource YAML
     requires:
       vars:
-        - ENVIRONMENT
+        - name: ENVIRONMENT
+          enum:
+            ref: .ALLOWED_ENVS
     deps:
       - olm:catalog
       - olm:catalog-source
+      - olm:scorecard
 
   olm:manifest:
     run: once
     internal: true
     requires:
       vars:
-        - ENVIRONMENT
+        - name: ENVIRONMENT
+          enum:
+            ref: .ALLOWED_ENVS
     env:
       registry: '{{ if .GITHUB_ACTIONS }}ghcr.io/enterprisedb{{ else }}{{ .REGISTRY_NAME }}:{{ .REGISTRY_PORT }}{{ end }}'
       insecure: '{{ if .GITHUB_ACTIONS }}false{{ else }}true{{ end }}'
@@ -756,9 +768,6 @@ tasks:
     run: once
     deps:
       - olm:manifest
-    env:
-      # renovate: datasource=docker depName=quay.io/operator-framework/operator-sdk versioning=docker
-      OPERATOR_SDK_IMAGE_VERSION: v1.42.3@sha256:b7378eb179b97fbdf1ff1304e86f62e9ff9f9c2d0089464111ce8eddd39e2013
     cmds:
       - >
         docker
@@ -766,7 +775,7 @@ tasks:
         -u $(id -u)
         -v $(pwd)/operator:/operator
         -w /operator/
-        quay.io/operator-framework/operator-sdk:${OPERATOR_SDK_IMAGE_VERSION}
+        quay.io/operator-framework/operator-sdk:{{ .OPERATOR_SDK_IMAGE_VERSION }}
         generate bundle
         --input-dir olm-manifests/
         --kustomize-dir config/manifests
@@ -780,7 +789,9 @@ tasks:
     desc: Build the require OLM bundle image after generating the bundle
     requires:
       vars:
-        - ENVIRONMENT
+        - name: ENVIRONMENT
+          enum:
+            ref: .ALLOWED_ENVS
     deps:
       - internal:create-builder
       - internal:registry-network-connect
@@ -807,7 +818,9 @@ tasks:
         - olm:build
     requires:
       vars:
-        - ENVIRONMENT
+        - name: ENVIRONMENT
+          enum:
+            ref: .ALLOWED_ENVS
     env:
       registry: '{{ if .GITHUB_ACTIONS }}ghcr.io/enterprisedb{{ else }}{{ .REGISTRY_NAME }}:{{ .REGISTRY_PORT }}{{ end }}'
       insecure: '{{ if .GITHUB_ACTIONS }}false{{ else }}true{{ end }}'
@@ -866,7 +879,9 @@ tasks:
     desc: Build the OLM catalog image after the bundle image is built
     requires:
       vars:
-        - ENVIRONMENT
+        - name: ENVIRONMENT
+          enum:
+            ref: .ALLOWED_ENVS
     env:
       registry: '{{ if .GITHUB_ACTIONS }}ghcr.io/enterprisedb{{ else }}{{ .REGISTRY_NAME }}:{{ .REGISTRY_PORT }}{{ end }}'
       insecure: '{{ if .GITHUB_ACTIONS }}false{{ else }}true{{ end }}'
@@ -888,7 +903,9 @@ tasks:
     desc: Build the OLM CatalogSource YAML file
     requires:
       vars:
-        - ENVIRONMENT
+        - name: ENVIRONMENT
+          enum:
+            ref: .ALLOWED_ENVS
     env:
       registry: '{{ if .GITHUB_ACTIONS }}ghcr.io/enterprisedb{{ else }}{{ .REGISTRY_NAME }}:{{ .REGISTRY_PORT }}{{ end }}'
       insecure: '{{ if .GITHUB_ACTIONS }}false{{ else }}true{{ end }}'
@@ -936,6 +953,21 @@ tasks:
         fi
         GITHUB_REF= dagger call -m dagger/preflight \
           check-container --image "{{ .IMAGE }}" ${docker_config_arg} verdict
+
+  olm:scorecard:
+    desc: Run operator-sdk scorecard against the OLM bundle on an ephemeral k3s cluster
+    summary: |
+      Runs the operator-sdk scorecard basic and OLM test suites against the
+      generated bundle.
+    dir: operator
+    run: once
+    deps:
+      - olm:bundle
+    cmds:
+      - >
+        GITHUB_REF= dagger call -m dagger/scorecard
+        --operator-sdk-image quay.io/operator-framework/operator-sdk:{{ .OPERATOR_SDK_IMAGE_VERSION }}
+        run --bundle bundle
 
   olm:clean:
     desc: Cleanup of the OLM build artifacts

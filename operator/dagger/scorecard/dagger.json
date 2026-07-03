@@ -1,0 +1,15 @@
+{
+  "name": "scorecard",
+  "engineVersion": "v0.21.7",
+  "sdk": {
+    "source": "go"
+  },
+  "dependencies": [
+    {
+      "name": "k3s",
+      "source": "github.com/marcosnils/daggerverse/k3s@main",
+      "pin": "a59aae4c9f6e02ac1f9d5d16cfbace2693be4f05"
+    }
+  ],
+  "disableDefaultFunctionCaching": true
+}

@@ -268,6 +268,23 @@ jobs:
       - name: Setup dagger
         uses: ./.github/actions/setup-dagger
 
+      - name: Start dagger engine with a host cgroup namespace
+        shell: bash
+        run: |
+          # olm:scorecard runs k3s in a container. On cgroup v2 hosts, Docker
+          # defaults new containers to a private cgroup namespace, which does
+          # not always delegate the cpu controller, making k3s crash with
+          # "failed to find cpu cgroup (v2)" (intermittently, depending on the
+          # runner). Start the dagger engine with --cgroupns=host instead, so
+          # containers nested inside it (like k3s) see the real host cgroup
+          # hierarchy, where cpu is always present.
+          image=$(dagger version | grep -oP 'image://\K[^)\s]+')
+          docker run -d --restart always --privileged --cgroupns=host \
+            -v /var/lib/dagger \
+            --name dagger-engine-host-cgroupns \
+            "${image}"
+          echo "_EXPERIMENTAL_DAGGER_RUNNER_HOST=docker-container://dagger-engine-host-cgroupns" >> "${GITHUB_ENV}"
+
       - name: Login to ghcr.io using Podman
         uses: redhat-actions/podman-login@4934294ad0449894bcd1e9f191899d7292469603 # v1
         with:
@@ -276,6 +293,7 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Run OLM task
+        timeout-minutes: 10
         run: |
           task olm:all
 
