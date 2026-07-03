@@ -22,7 +22,6 @@ package admin
 import (
 	"fmt"
 	"os"
-	"strconv"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -89,7 +88,6 @@ var listFailedWALCmd = &cobra.Command{
 			rows := make([][]string, 0, len(response.GetWals()))
 			for _, wal := range response.GetWals() {
 				rows = append(rows, []string{
-					strconv.FormatUint(wal.GetSequence(), 10),
 					wal.GetClusterName(),
 					wal.GetWalName(),
 					wal.GetLastAttemptTime().AsTime().Format(time.RFC3339),
@@ -97,7 +95,7 @@ var listFailedWALCmd = &cobra.Command{
 			}
 			if err := writeTable(
 				os.Stdout,
-				[]string{"SEQUENCE", "CLUSTER", "WAL NAME", "LAST ATTEMPT"},
+				[]string{"CLUSTER", "WAL NAME", "LAST ATTEMPT"},
 				rows,
 			); err != nil {
 				return fmt.Errorf("while writing table output: %w", err)
