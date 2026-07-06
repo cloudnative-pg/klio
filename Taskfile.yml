@@ -135,7 +135,7 @@ tasks:
       - core:protoc-gen-go-grpc
     vars:
       # renovate: datasource=github-tags depName=goreleaser/goreleaser versioning=semver
-      GORELEASER_VERSION: v2.16.0
+      GORELEASER_VERSION: v2.17.0
       # renovate: datasource=docker depName=golang versioning=docker
       GOLANG_IMAGE_VERSION: 1.26.4@sha256:f96cc555eb8db430159a3aa6797cd5bae561945b7b0fe7d0e284c63a3b291609
     run: once
@@ -186,7 +186,7 @@ tasks:
         msg: not a tag, failing
     vars:
       # renovate: datasource=github-tags depName=goreleaser/goreleaser versioning=semver
-      GORELEASER_VERSION: v2.16.0
+      GORELEASER_VERSION: v2.17.0
       # renovate: datasource=docker depName=golang versioning=docker
       GOLANG_IMAGE_VERSION: 1.26.4@sha256:f96cc555eb8db430159a3aa6797cd5bae561945b7b0fe7d0e284c63a3b291609
     cmds:
