@@ -280,3 +280,26 @@ func TestRetryFailedBackupTasksDeduplicatesByCluster(t *testing.T) {
 	assert.Equal(t, map[string]int{"cluster-a": 1}, retried,
 		"multiple failed backups for one cluster must be retried only once")
 }
+
+func TestRetryFailedBackupTasksRejectsWALFilter(t *testing.T) {
+	ns, url := startNATSServer(t)
+	defer ns.Shutdown()
+
+	nc, err := nats.Connect(url)
+	require.NoError(t, err)
+	defer nc.Close()
+
+	ctx := context.Background()
+	conn, err := New(ctx, nc)
+	require.NoError(t, err)
+
+	js, err := jetstream.New(nc)
+	require.NoError(t, err)
+
+	seedFailedBackup(t, js, "cluster-a")
+
+	// BackupTask has no individual WAL name to filter on: WithWALs must be
+	// rejected rather than silently ignored.
+	err = conn.RetryFailedBackupTasks(ctx, WithWALs("000000010000000000000001"))
+	require.ErrorIs(t, err, errWALFilterUnsupported)
+}
