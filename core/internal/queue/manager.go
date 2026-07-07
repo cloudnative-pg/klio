@@ -48,6 +48,10 @@ var errIncompleteDLQListing = errors.New("incomplete DLQ listing")
 // empty result without one is ambiguous.
 var errAmbiguousSourceRead = errors.New("ambiguous source stream read: no message and no error")
 
+// errWALFilterUnsupported indicates WithWALs was passed to an operation on a
+// task type that has no WAL name to filter on (e.g. backups).
+var errWALFilterUnsupported = errors.New("WAL name filtering is only supported for WAL tasks")
+
 // FailedTask represents a task that has failed and has been sent to the Dead Letter Queue (DLQ) stream.
 type FailedTask[T clusterTask] struct {
 	// Sequence is the sequence number of the message in the DLQ stream.
@@ -92,6 +96,7 @@ func WithWALs(wals ...string) Option {
 // StreamManager provides methods to interact with NATS streams.
 type StreamManager struct {
 	mgr *jsm.Manager
+	js  jetstream.JetStream
 
 	mu      sync.Mutex
 	streams map[string]*jsm.Stream
@@ -104,8 +109,14 @@ func NewStreamManager(conn *nats.Conn) (*StreamManager, error) {
 		return nil, err
 	}
 
+	js, err := jetstream.New(conn)
+	if err != nil {
+		return nil, fmt.Errorf("while creating JetStream instance: %w", err)
+	}
+
 	return &StreamManager{
 		mgr:     mgr,
+		js:      js,
 		streams: make(map[string]*jsm.Stream),
 	}, nil
 }
@@ -145,7 +156,22 @@ func (m *StreamManager) ListFailedWALTasks(ctx context.Context, opts ...Option) 
 		return nil, nil
 	}
 
-	return listFailedTasks[WALTask](ctx, dlqWALStream, walStream, opts...)
+	tasks, err := listFailedTasks[WALTask](ctx, dlqWALStream, walStream, opts...)
+	if err != nil {
+		return nil, err
+	}
+
+	var cfg optionConfig
+	for _, opt := range opts {
+		opt(&cfg)
+	}
+	if len(cfg.wals) > 0 {
+		tasks = slices.DeleteFunc(tasks, func(task FailedTask[WALTask]) bool {
+			return !slices.Contains(cfg.wals, task.Task.WALName)
+		})
+	}
+
+	return tasks, nil
 }
 
 // ListFailedBackupTasks retrieves a list of failed backup tasks from the Dead Letter Queue (DLQ) stream.
@@ -153,6 +179,14 @@ func (m *StreamManager) ListFailedBackupTasks(
 	ctx context.Context,
 	opts ...Option,
 ) ([]FailedTask[BackupTask], error) {
+	var cfg optionConfig
+	for _, opt := range opts {
+		opt(&cfg)
+	}
+	if len(cfg.wals) > 0 {
+		return nil, errWALFilterUnsupported
+	}
+
 	backupStream, err := m.loadStreamOrNil(klioBackupStreamName)
 	if err != nil {
 		return nil, err
@@ -175,25 +209,9 @@ func (m *StreamManager) RetryFailedWALTasks(
 	ctx context.Context,
 	opts ...Option,
 ) error {
-	var cfg optionConfig
-	for _, opt := range opts {
-		opt(&cfg)
-	}
-
-	var listOpts []Option
-	if cfg.cluster != "" {
-		listOpts = append(listOpts, WithCluster(cfg.cluster))
-	}
-
-	failedTasks, err := m.ListFailedWALTasks(ctx, listOpts...)
+	failedTasks, err := m.ListFailedWALTasks(ctx, opts...)
 	if err != nil {
 		return fmt.Errorf("while listing failed WAL tasks: %w", err)
-	}
-
-	if len(cfg.wals) > 0 {
-		failedTasks = slices.DeleteFunc(failedTasks, func(task FailedTask[WALTask]) bool {
-			return !slices.Contains(cfg.wals, task.Task.WALName)
-		})
 	}
 
 	return m.enqueueWALTasks(ctx, failedTasks)
@@ -204,17 +222,7 @@ func (m *StreamManager) RetryFailedBackupTasks(
 	ctx context.Context,
 	opts ...Option,
 ) error {
-	var cfg optionConfig
-	for _, opt := range opts {
-		opt(&cfg)
-	}
-
-	var listOpts []Option
-	if cfg.cluster != "" {
-		listOpts = append(listOpts, WithCluster(cfg.cluster))
-	}
-
-	failedTasks, err := m.ListFailedBackupTasks(ctx, listOpts...)
+	failedTasks, err := m.ListFailedBackupTasks(ctx, opts...)
 	if err != nil {
 		return fmt.Errorf("while listing failed backup tasks: %w", err)
 	}
@@ -496,11 +504,6 @@ func (m *StreamManager) notifyMessage(ctx context.Context, subject string, task 
 	contextLogger := log.FromContext(ctx)
 	contextLogger.Info("Sending message", "subject", subject, "task", task)
 
-	js, err := jetstream.New(m.mgr.NatsConn())
-	if err != nil {
-		return fmt.Errorf("while creating JetStream instance: %w", err)
-	}
-
 	rawContent, err := json.Marshal(task)
 	if err != nil {
 		return fmt.Errorf("while marshalling task to JSON: %w", err)
@@ -512,7 +515,7 @@ func (m *StreamManager) notifyMessage(ctx context.Context, subject string, task 
 		Header:  headers,
 	}
 
-	_, err = js.PublishMsg(ctx, msg)
+	_, err = m.js.PublishMsg(ctx, msg)
 	if err != nil {
 		return fmt.Errorf("while pushing message to the queue: %w", err)
 	}
