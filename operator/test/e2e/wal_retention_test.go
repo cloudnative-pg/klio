@@ -3,7 +3,9 @@ package e2e
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
+	"sort"
 	"strings"
 	"testing"
 	"time"
@@ -156,7 +158,7 @@ func (s *walRetentionScenario) Teardown(
 func (s *walRetentionScenario) getWALFilesInTier1(
 	ctx context.Context,
 	r *resources.Resources,
-) []string {
+) ([]string, error) {
 	podName := s.klioServer.Name + "-klio-0"
 	containerName := "server"
 
@@ -170,11 +172,18 @@ func (s *walRetentionScenario) getWALFilesInTier1(
 	}
 
 	// ls returns exit code 1 if no files match, which is fine - we just return empty list.
-	_ = r.ExecInPod(ctx, s.namespace.Name, podName, containerName, listCmd, &stdout, &stderr)
-
+	err := r.ExecInPod(ctx, s.namespace.Name, podName, containerName, listCmd, &stdout, &stderr)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list files in pod %s, container %s: %w", podName, containerName, err)
+	}
 	output := strings.TrimSpace(stdout.String())
 	if output == "" {
-		return []string{}
+		return []string{}, fmt.Errorf(
+			"no WAL files found in tier1 for cluster %s; stdout: %s; stderr: %s",
+			s.cnpgCluster.Name,
+			stdout.String(),
+			stderr.String(),
+		)
 	}
 
 	files := strings.Split(output, "\n")
@@ -191,7 +200,7 @@ func (s *walRetentionScenario) getWALFilesInTier1(
 		}
 	}
 
-	return walFiles
+	return walFiles, nil
 }
 
 // deleteBackup deletes a backup by name using the klio CLI.
@@ -221,6 +230,13 @@ func (s *walRetentionScenario) deleteBackup(
 	}
 
 	return nil
+}
+
+// kopiaBackupInfo mirrors the subset of klioclient.BackupMetadata fields
+// needed to identify and order the backups printed by "klio backup list".
+type kopiaBackupInfo struct {
+	Name      string `json:"name"`
+	StartedAt int64  `json:"startedAt"`
 }
 
 // listBackups returns a list of Kopia backup names sorted by creation time (oldest first).
@@ -256,15 +272,22 @@ func (s *walRetentionScenario) listBackups(
 		return []string{}, nil
 	}
 
-	// Simple JSON parsing to extract backup names.
-	// We look for patterns like "name":"backup-TIMESTAMP".
-	var backupNames []string
-	lines := strings.Split(output, `"name":"`)
-	for i := 1; i < len(lines); i++ { // Skip the first part before any "name":"
-		endIdx := strings.Index(lines[i], `"`)
-		if endIdx > 0 {
-			backupNames = append(backupNames, lines[i][:endIdx])
-		}
+	var backups []kopiaBackupInfo
+	if err := json.Unmarshal([]byte(output), &backups); err != nil {
+		return nil, fmt.Errorf("failed to parse backup list %q: %w", output, err)
+	}
+
+	// The ordering "klio backup list" returns isn't guaranteed to be
+	// chronological (it reflects however the underlying Kopia repository
+	// enumerates snapshots), and callers rely on element 0 being the oldest
+	// backup, so sort explicitly rather than trusting that order.
+	sort.Slice(backups, func(i, j int) bool {
+		return backups[i].StartedAt < backups[j].StartedAt
+	})
+
+	backupNames := make([]string, 0, len(backups))
+	for _, b := range backups {
+		backupNames = append(backupNames, b.Name)
 	}
 
 	return backupNames, nil
@@ -355,9 +378,10 @@ func (f *WALRetentionFeature) Run() types.StepFunc {
 
 		// There must be WAL segments older than the second backup's begin WAL,
 		// otherwise the retention assertion below would pass vacuously.
-		before := f.scenario.getWALFilesInTier1(ctx, r)
-		t.Logf("Tier1 WAL files before retention advances: %d (%v), boundary %q", len(before), before, boundary)
-		require.NotEmpty(t, walsOlderThan(before, boundary),
+		walFiles, err := f.scenario.getWALFilesInTier1(ctx, r)
+		require.NoError(t, err, "failed to get WAL files in tier1")
+		t.Logf("Tier1 WAL files before retention advances: %d (%v), boundary %q", len(walFiles), walFiles, boundary)
+		require.NotEmpty(t, walsOlderThan(walFiles, boundary),
 			"expected WAL segments older than the second backup begin WAL before retention advances")
 
 		// Step 4: delete the oldest backup so the retention point can advance to
@@ -392,20 +416,20 @@ func (f *WALRetentionFeature) Run() types.StepFunc {
 		t.Log("Waiting for server-side tier1 WAL retention to prune WALs older than the retention frontier...")
 		err = wait.For(
 			func(ctx context.Context) (bool, error) {
-				walFiles := f.scenario.getWALFilesInTier1(ctx, r)
-				return len(walsOlderThan(walFiles, boundary)) == 0, nil
+				var err error
+				walFiles, err = f.scenario.getWALFilesInTier1(ctx, r)
+				return len(walsOlderThan(walFiles, boundary)) == 0, err
 			},
 			wait.WithTimeout(5*time.Minute),
 			wait.WithInterval(10*time.Second),
 		)
-		final := f.scenario.getWALFilesInTier1(ctx, r)
 		require.NoError(t, err,
 			"server-side retention did not prune WALs older than boundary %q; remaining older WALs: %v",
-			boundary, walsOlderThan(final, boundary))
-		require.NotEmpty(t, final, "tier1 WAL repository unexpectedly empty after retention")
+			boundary, walsOlderThan(walFiles, boundary))
+		require.NotEmpty(t, walFiles, "tier1 WAL repository unexpectedly empty after retention")
 
 		t.Logf("Server-side WAL retention verified: %d WAL files remain, all >= begin WAL %q",
-			len(final), boundary)
+			len(walFiles), boundary)
 
 		return ctx
 	}

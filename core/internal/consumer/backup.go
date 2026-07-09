@@ -53,6 +53,12 @@ type BackupOptions struct {
 	// A config file to connect to tier 1
 	Tier1KopiaConfig string
 
+	// Tier1ServerAddress is the address of the tier 1 Kopia server.
+	Tier1ServerAddress string
+
+	// Tier1ServerCertificateFingerprint is the SHA256 fingerprint of the tier 1 server certificate.
+	Tier1ServerCertificateFingerprint string
+
 	// A config file to connect to tier 2
 	Tier2KopiaConfig string
 
@@ -267,8 +273,13 @@ func (d *Backup) maintainTier2(ctx context.Context, task *queue.BackupTask, entr
 		}
 	}
 
-	// Refresh the tier 2 server cache so it reflects the post-retention manifest
+	// Refresh the server cache so it reflects the post-retention manifest
 	// list before WAL retention lists the surviving backups (best-effort).
+	contextLogger.Info("Refreshing tier1 and tier 2 Kopia server cache to reflect post-retention manifest list")
+	if err := d.refreshTier1KopiaServer(ctx); err != nil {
+		contextLogger.Error(err, "Error while refreshing tier1 Kopia server, continuing")
+	}
+
 	if err := d.refreshTier2KopiaServer(ctx); err != nil {
 		contextLogger.Error(err, "Error while refreshing Kopia server cache, skipping")
 	}
@@ -285,6 +296,15 @@ func (d *Backup) maintainTier2(ctx context.Context, task *queue.BackupTask, entr
 	recordMaintenance(ctx, task.ClusterName, opentelemetry.Tier2, walErr)
 
 	return nil
+}
+
+func (d *Backup) refreshTier1KopiaServer(ctx context.Context) error {
+	return d.tier1Kopia.RefreshServer(ctx, kopia.RefreshServerOptions{
+		ServerControlUser:     d.opts.RunID,
+		ServerControlPassword: d.opts.RunSecret,
+		ServerCertFingerprint: d.opts.Tier1ServerCertificateFingerprint,
+		Address:               d.opts.Tier1ServerAddress,
+	})
 }
 
 func (d *Backup) listManifests(ctx context.Context, cluster string) ([]kopia.Manifest, error) {

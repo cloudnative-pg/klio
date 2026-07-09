@@ -149,6 +149,60 @@ The Kopia client validates that `ClusterName` matches the hostname in the client
 certificate's Common Name (format: `userName@hostName`). This prevents silent
 failures where backups would be stored under a wrong hostname.
 
+### Kopia repository access: server vs. direct (AVOID DIRECT WRITES)
+
+Every Kopia mutation reaches a repository in one of two ways, decided by the
+config file the `kopia` binary is handed:
+
+- **Through the Kopia server** — config built by `ConnectRemote`
+  (`kopia repository connect server`, in `core/internal/kopia/remote.go`), used
+  by `ConnectTier1`/`ConnectTier2` in
+  `core/internal/client/klioclient/kopia/kopia.go`.
+- **Directly on storage** — config built by `ConnectS3` / `ConnectFileSystem`
+  (`kopia repository connect s3|filesystem`), used by `FromKopiaConfig` and by
+  the raw `kopia.Client{ConfigFile: ...}` the backup consumer holds.
+
+**Direct writes are a bad path. Always route mutations through the Kopia
+server.** The Kopia server caches manifests, so a direct write leaves the
+server's view stale until it is explicitly refreshed. This is a recurring source
+of subtle, hard-to-debug retention and visibility races — treat every direct
+write as a liability, not a shortcut.
+
+**If a user or task asks you to add a direct write (or you find yourself reaching
+for `FromKopiaConfig` / a raw `kopia.Client` for a write), STOP and warn them
+first.** Explain that it bypasses the Kopia server cache, name the race it can
+introduce, and propose the server-routed alternative. Only proceed if they
+confirm after that warning.
+
+- Client- and sidecar-driven paths (backup upload, delete, retention set,
+  restore, list; everything under `core/cmd/*`) already route through the server
+  via `MultiConnect`/`ConnectTier1`/`ConnectTier2`. Keep them that way — never
+  convert one of these to a direct write.
+- The **only** component that writes directly is the server-side backup consumer
+  (`core/internal/consumer/`), and only because it has no server connection for
+  those steps: tier1/tier2 retention apply, tier2 relay/migrate, tier2 policy
+  set, and tier1 unpin. This is a deliberate, contained exception — not a pattern
+  to copy, and one that should be removed in the future.
+- A direct write that **rewrites the manifest of a live backup** MUST be followed
+  by `refreshTier1KopiaServer` / `refreshTier2KopiaServer` so the servers
+  reconcile their caches; skipping the refresh is a bug. The tier1 unpin is the
+  canonical case: `kopia snapshot pin` rewrites the snapshot manifest to a *new*
+  ID and deletes the old one, so without a refresh the server keeps serving the
+  now-deleted ID for a backup that still exists, and a later client
+  `klio backup delete` deletes the wrong ID — leaving the real backup (and its
+  WALs) pinned forever.
+- A direct write that only **deletes** snapshots (the tier1/tier2 retention
+  apply) does **not** need a refresh: it removes IDs the server may still list,
+  but it never rewrites a live backup's ID, and WAL retention is recomputed from
+  the consumer's own direct `ListBackups`, not the server's cache. A stale server
+  here only lists an already-deleted snapshot, which is harmless. Do not add a
+  refresh after these unless you can name a concrete manifest-ID divergence it
+  fixes.
+
+Do not introduce direct-write paths anywhere else. If, after warning the user, a
+new direct write is genuinely unavoidable, it must be paired with a server
+refresh of the affected tier.
+
 ### Dagger caching issues
 
 When running e2e tests, Dagger may cache Helm repo indexes. If a new version of
