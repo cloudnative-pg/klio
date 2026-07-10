@@ -133,6 +133,15 @@ Klio-only assertions) must live outside `machinery` — e.g. under
   - `operator/pkg/config/server.go` ↔ `core/pkg/config/server.go`
   - `operator/pkg/config/client.go` ↔ `core/pkg/config/client.go`
 
+- When you change a metric in `core/internal/opentelemetry/catalog.go`
+  (rename, add, remove, or change a metric's unit, type, or attributes),
+  update the Grafana dashboard builder in `observability/grafana/` to match
+  and regenerate the committed JSON with `task grafana:gen`. The builder
+  references the **Prometheus** export names of these metrics, where the unit
+  and instrument type add suffixes (so a unit change shifts the suffix too).
+  `gcx` lint validates PromQL syntax and units but cannot catch a query that
+  references a metric the code no longer emits.
+
 ## Architecture notes
 
 ### Client configuration

@@ -21,6 +21,7 @@ jobs:
       docs-changed: ${{ steps.event-filter.outputs.docs-changed || steps.paths-filter.outputs.docs-changed }}
       core-changed: ${{ steps.event-filter.outputs.core-changed || steps.paths-filter.outputs.core-changed }}
       operator-changed: ${{ steps.event-filter.outputs.operator-changed || steps.paths-filter.outputs.operator-changed }}
+      grafana-changed: ${{ steps.event-filter.outputs.grafana-changed || steps.paths-filter.outputs.grafana-changed }}
       renovate-changed: ${{ steps.event-filter.outputs.renovate-changed || steps.paths-filter.outputs.renovate-changed }}
       # Run the OpenShift e2e suite on pushes to main, on the
       # release-please PR branch, and on demand via workflow_dispatch — but
@@ -56,6 +57,15 @@ jobs:
               - 'Taskfile.yml'
               - '.github/actions/**'
               - '.github/workflows/ci.yml'
+            grafana-changed:
+              - 'observability/grafana/**/*.go'
+              - 'observability/grafana/go.mod'
+              - 'observability/grafana/go.sum'
+              - 'observability/grafana/klio-dashboard.json'
+              - 'observability/grafana/.golangci.yml'
+              - 'Taskfile.yml'
+              - '.github/actions/**'
+              - '.github/workflows/ci.yml'
             renovate-changed:
               - 'renovate.json'
 
@@ -68,6 +78,7 @@ jobs:
           echo "docs-changed=true" >> $GITHUB_OUTPUT
           echo "core-changed=true" >> $GITHUB_OUTPUT
           echo "operator-changed=true" >> $GITHUB_OUTPUT
+          echo "grafana-changed=true" >> $GITHUB_OUTPUT
           echo "renovate-changed=true" >> $GITHUB_OUTPUT
 
 
@@ -107,6 +118,26 @@ jobs:
       - name: Run CI task
         run: |
           task documentation:ci
+
+  grafana:
+    name: Grafana Dashboard CI
+    needs:
+      - change-triage
+    if: needs.change-triage.outputs.grafana-changed == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.sha }}
+
+      - name: Setup dagger
+        uses: ./.github/actions/setup-dagger
+
+      - name: Run CI task
+        run: |
+          task grafana:ci
 
   core:
     name: Core CI

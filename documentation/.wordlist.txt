@@ -273,6 +273,7 @@ keychain
 klio
 klioclient
 kopia
+kube
 kubeconfig
 kubectl
 kubernetes
@@ -313,6 +314,7 @@ protobuf
 provisioner
 pullPolicy
 pullSecrets
+quickstart
 readinessProbe
 renewBefore
 resizable

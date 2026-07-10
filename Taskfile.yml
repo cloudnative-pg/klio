@@ -36,6 +36,7 @@ tasks:
       - core:ci
       - documentation:ci
       - operator:ci
+      - grafana:ci
 
   all:commitlint:
     desc: Check for conventional commits
@@ -1176,6 +1177,101 @@ tasks:
       - rm -rf web/build
       - rm -rf web/docs/developer/protocol.md
       - rm -rf web/node_modules
+
+  ####################################
+  ## GRAFANA
+  ####################################
+
+  grafana:ci:
+    desc: Run the Grafana dashboard CI pipeline
+    deps:
+      - grafana:lint-builder
+      - grafana:lint-dashboard
+      - grafana:uncommitted
+
+  grafana:gen:
+    desc: Generate the Grafana dashboard JSON
+    run: once
+    vars:
+      # renovate: datasource=docker depName=golang versioning=docker
+      GOLANG_IMAGE_VERSION: 1.26.4-alpine@sha256:3ad57304ad93bbec8548a0437ad9e06a455660655d9af011d58b993f6f615648
+    cmds:
+      - >
+        dagger core container from --address golang:{{ .GOLANG_IMAGE_VERSION }}
+        with-mounted-cache --cache go-mod --path "/go/pkg/mod"
+        with-env-variable --name GOMODCACHE --value /go/pkg/mod
+        with-mounted-cache --cache go-build --path "/go/build-cache"
+        with-env-variable --name GOCACHE --value /go/build-cache
+        with-directory --path /src --source observability/grafana/
+        with-workdir --path /src
+        with-env-variable --name CACHEBUST --value "$(date)"
+        with-exec --args sh --args '-c' --args "go run . -output klio-dashboard.json"
+        file --path klio-dashboard.json
+        export --path observability/grafana/klio-dashboard.json
+    sources:
+      - observability/grafana/**/*.go
+      - observability/grafana/go.mod
+      - observability/grafana/go.sum
+    generates:
+      - observability/grafana/klio-dashboard.json
+
+  grafana:lint-builder:
+    desc: Run golangci-lint on the Grafana dashboard generator
+    cmds:
+      - task: internal:lint
+        vars:
+          WORKDIR: "observability/grafana"
+    sources:
+      - observability/grafana/**/*.go
+
+  grafana:lint-dashboard:
+    desc: Lint the generated Grafana dashboard JSON with gcx
+    vars:
+      # renovate: datasource=github-releases depName=grafana/gcx extractVersion=^v(?<version>.+)$
+      GCX_VERSION: 0.4.1
+      # renovate: datasource=docker depName=golang versioning=docker
+      GOLANG_IMAGE_VERSION: 1.26.4-alpine@sha256:3ad57304ad93bbec8548a0437ad9e06a455660655d9af011d58b993f6f615648
+      # gcx dev lint only accepts the resource-as-code envelope, so the classic
+      # importable dashboard JSON is wrapped on the fly. The uneditable-dashboard
+      # rule is disabled on purpose: the dashboard ships editable so users can
+      # tweak it after import.
+      GCX_LINT_SCRIPT: >-
+        set -eu;
+        apk add --no-cache curl jq >/dev/null;
+        ver={{ .GCX_VERSION }};
+        base="https://github.com/grafana/gcx/releases/download/v${ver}";
+        asset="gcx_${ver}_linux_amd64.tar.gz";
+        curl -fsSL "${base}/${asset}" -o "/tmp/${asset}";
+        curl -fsSL "${base}/gcx_${ver}_checksums.txt" -o /tmp/checksums.txt;
+        expected=$(grep "${asset}" /tmp/checksums.txt | cut -d" " -f1);
+        actual=$(sha256sum "/tmp/${asset}" | cut -d" " -f1);
+        test "${expected}" = "${actual}";
+        tar -xzf "/tmp/${asset}" -C /usr/local/bin gcx;
+        jq "{apiVersion: \"dashboard.grafana.app/v1beta1\", kind: \"Dashboard\", metadata: {name: .uid}, spec: .}" klio-dashboard.json > /tmp/resource.json;
+        gcx dev lint run --disable uneditable-dashboard /tmp/resource.json -o compact;
+        n=$(gcx dev lint run --disable uneditable-dashboard /tmp/resource.json --jq ".summary.num_violations");
+        echo "gcx dashboard lint violations: ${n}";
+        test "${n}" = "0"
+    cmds:
+      - >
+        dagger core container from --address golang:{{ .GOLANG_IMAGE_VERSION }}
+        with-env-variable --name GCX_AGENT_MODE --value 1
+        with-directory --path /src --source observability/grafana/
+        with-workdir --path /src
+        with-new-file --path /lint-dashboard.sh --contents '{{ .GCX_LINT_SCRIPT }}'
+        with-exec --args sh --args /lint-dashboard.sh
+        stdout
+    sources:
+      - observability/grafana/klio-dashboard.json
+
+  grafana:uncommitted:
+    desc: Check for uncommitted changes after dashboard generation
+    deps:
+      - grafana:gen
+    cmds:
+      - task: internal:uncommitted
+    sources:
+      - ./**/*
 
   ####################################
   ## CLEANUP

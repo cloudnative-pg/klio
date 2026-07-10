@@ -1,0 +1,64 @@
+version: "2"
+linters:
+  default: all
+  disable:
+    - mnd
+    - depguard
+    - exhaustruct
+    - funlen
+    - paralleltest
+    - testpackage
+    - wsl
+    - wsl_v5
+    - err113
+    - wrapcheck
+    - varnamelen
+    - nilnil
+    - goconst
+    - godox
+    - gomodguard
+    - noinlineerr
+    # The grafana-foundation-sdk uses cog.ToPtr(...) as its idiomatic pointer
+    # helper; modernize's new(x) suggestion does not apply to these.
+    - modernize
+  settings:
+    lll:
+      line-length: 120
+    nlreturn:
+      block-size: 3
+  exclusions:
+    generated: lax
+    rules:
+      # We intentionally target the classic (v1) dashboard schema: it is the
+      # format that imports into any current Grafana and that ConfigMap
+      # sidecar provisioning expects. The SDK's v2 schema (dashboardv2) is a
+      # newer, less portable alpha schema, so the deprecation does not apply.
+      - linters:
+          - staticcheck
+        text: "SA1019:.*dashboardv2"
+    paths:
+      - third_party$
+      - builtin$
+      - examples$
+formatters:
+  enable:
+    - gci
+    - gofmt
+    - gofumpt
+    - goimports
+  settings:
+    gci:
+      no-prefix-comments: false
+      no-inline-comments: false
+      sections:
+        - standard
+        - default
+        - prefix(github.com/cloudnative-pg/klio)
+        - blank
+        - dot
+  exclusions:
+    generated: lax
+    paths:
+      - third_party$
+      - builtin$
+      - examples$
