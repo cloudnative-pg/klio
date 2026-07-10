@@ -1,5 +1,50 @@
 # Changelog
 
+## [0.0.17](https://github.com/EnterpriseDB/klio/compare/v0.0.16...v0.0.17) (2026-07-10)
+
+
+### Features
+
+* Add nats dead-letter queues ([#1639](https://github.com/EnterpriseDB/klio/issues/1639)) ([14285e1](https://github.com/cloudnative-pg/klio/commit/14285e1e0690d7b3883ea6b263abfe6d4e8bc831))
+* Expose DLQ messages via CLI ([#1666](https://github.com/EnterpriseDB/klio/issues/1666)) ([7fbd0ea](https://github.com/cloudnative-pg/klio/commit/7fbd0eac9b36487ffef2ef5ae3f9abbd01521950))
+* Expose failed queue tasks via admin CLI and gRPC ([7fbd0ea](https://github.com/cloudnative-pg/klio/commit/7fbd0eac9b36487ffef2ef5ae3f9abbd01521950))
+* **metrics:** Add backup duration histogram ([#1589](https://github.com/EnterpriseDB/klio/issues/1589)) ([5d1173c](https://github.com/cloudnative-pg/klio/commit/5d1173cf76a774f3a355c0ba040616b4be81264b))
+* **metrics:** Add PostgreSQL backup metrics and use timestamps for snapshots ([#1680](https://github.com/EnterpriseDB/klio/issues/1680)) ([6f141d3](https://github.com/cloudnative-pg/klio/commit/6f141d3553bd9a6976ba890713666f82be9a1a33))
+* **metrics:** Rework WAL OpenTelemetry metrics and tracing ([#1703](https://github.com/EnterpriseDB/klio/issues/1703)) ([7e795e7](https://github.com/cloudnative-pg/klio/commit/7e795e77298b4ac6b81558488547ac5598c51943))
+* **nats:** Clean up DLQ entries on offload success ([#1663](https://github.com/EnterpriseDB/klio/issues/1663)) ([21fd947](https://github.com/cloudnative-pg/klio/commit/21fd9472a2922a7d1b25bb71fb80a035827ecd76))
+* **observability:** Add Grafana dashboard for Klio metrics ([#1708](https://github.com/EnterpriseDB/klio/issues/1708)) ([bd0d712](https://github.com/cloudnative-pg/klio/commit/bd0d7120830d792b11e64b105f89e80d284dd4ce))
+* **olm:** Improve the CSV for the operator on OpenShift ([#1333](https://github.com/EnterpriseDB/klio/issues/1333)) ([47afda9](https://github.com/cloudnative-pg/klio/commit/47afda949f3f7dd3003c5d811db8e16397e4ce4f))
+* **otel:** Classify backup failures by category ([#1586](https://github.com/EnterpriseDB/klio/issues/1586)) ([a32c40e](https://github.com/cloudnative-pg/klio/commit/a32c40e7c7a9585a19e769ef230f9bae350bf451))
+* **otel:** Remove redundant klio.plugin.backup.verifications metric ([#1665](https://github.com/EnterpriseDB/klio/issues/1665)) ([9fcb3a4](https://github.com/cloudnative-pg/klio/commit/9fcb3a4af5dfc7a4a4df749992921bca1df3307d))
+* **queue:** Bound retries on WAL and backup consumers ([#1574](https://github.com/EnterpriseDB/klio/issues/1574)) ([a531719](https://github.com/cloudnative-pg/klio/commit/a53171950d6d050a74d84a9dd966bdd789e86911))
+
+
+### Bug Fixes
+
+* **deps:** Update all non-major go dependencies ([#1602](https://github.com/EnterpriseDB/klio/issues/1602)) ([b085097](https://github.com/cloudnative-pg/klio/commit/b085097e53447bc9d276c7e5d067fe53730bcdc4))
+* **deps:** Update all non-major go dependencies ([#1620](https://github.com/EnterpriseDB/klio/issues/1620)) ([4119de7](https://github.com/cloudnative-pg/klio/commit/4119de7e7f94495f216284b317135ab8b4ec655f))
+* **deps:** Update all non-major go dependencies ([#1635](https://github.com/EnterpriseDB/klio/issues/1635)) ([49651ef](https://github.com/cloudnative-pg/klio/commit/49651efa01db293ac9f994b6154026a4d42c60de))
+* **deps:** Update all non-major go dependencies ([#1652](https://github.com/EnterpriseDB/klio/issues/1652)) ([8e59c13](https://github.com/cloudnative-pg/klio/commit/8e59c1333ef2fe7ed3467d0a4c098b672c172efa))
+* **deps:** Update all non-major go dependencies ([#1662](https://github.com/EnterpriseDB/klio/issues/1662)) ([54233f8](https://github.com/cloudnative-pg/klio/commit/54233f85660466411fffc930c02a159cf0f2b6fa))
+* **deps:** Update all non-major go dependencies ([#1686](https://github.com/EnterpriseDB/klio/issues/1686)) ([b905fbc](https://github.com/cloudnative-pg/klio/commit/b905fbc5ec5c7e09d2bacf6af016f184bd1ae99a))
+* **deps:** Update all non-major go dependencies ([#1724](https://github.com/EnterpriseDB/klio/issues/1724)) ([29f7b61](https://github.com/cloudnative-pg/klio/commit/29f7b6167b7b0e59c2cb273279e5d9a8711fc4f2))
+* **deps:** Update all non-major go dependencies ([#1730](https://github.com/EnterpriseDB/klio/issues/1730)) ([e7818b3](https://github.com/cloudnative-pg/klio/commit/e7818b34a025841107418f3be7efebb1d2363690))
+* **deps:** Update all non-major go dependencies ([#1734](https://github.com/EnterpriseDB/klio/issues/1734)) ([d2c25ab](https://github.com/cloudnative-pg/klio/commit/d2c25ab302d463d52b467c39be15564bbf702a1f))
+* **deps:** Update all non-major go dependencies ([#1758](https://github.com/EnterpriseDB/klio/issues/1758)) ([6894234](https://github.com/cloudnative-pg/klio/commit/6894234c042f7bfa87a7bc70c112eb2e899ad82a))
+* **deps:** Update all non-major go dependencies ([#1770](https://github.com/EnterpriseDB/klio/issues/1770)) ([86a92ba](https://github.com/cloudnative-pg/klio/commit/86a92baba4dcd072b533b790bd0f911838c5f717))
+* **deps:** Update all non-major go dependencies to v2.30.0 ([#1648](https://github.com/EnterpriseDB/klio/issues/1648)) ([fe81198](https://github.com/cloudnative-pg/klio/commit/fe81198a76d39b5e92a7cf992b8090f28d576a15))
+* **deps:** Update github.com/cloudnative-pg/cloudnative-pg/tests digest to 08ead64 ([#1765](https://github.com/EnterpriseDB/klio/issues/1765)) ([0f40919](https://github.com/cloudnative-pg/klio/commit/0f4091931ba73bbd2cfdab39f136b42b18f6064c))
+* **deps:** Update github.com/cloudnative-pg/cloudnative-pg/tests digest to 66039df ([#1740](https://github.com/EnterpriseDB/klio/issues/1740)) ([3288673](https://github.com/cloudnative-pg/klio/commit/3288673a367c3fc848eaa9899b9f72cc7c92d0bb))
+* **deps:** Update github.com/cloudnative-pg/cloudnative-pg/tests digest to a203777 ([#1750](https://github.com/EnterpriseDB/klio/issues/1750)) ([268c3e2](https://github.com/cloudnative-pg/klio/commit/268c3e24bcaf79755158538a6dd4c452cbecaf35))
+* **deps:** Update kubernetes monorepo to v0.36.2 ([#1645](https://github.com/EnterpriseDB/klio/issues/1645)) ([6cd4726](https://github.com/cloudnative-pg/klio/commit/6cd47267092d39b4bdc20189a55f593fcf0958f1))
+* **deps:** Update module github.com/cert-manager/cert-manager to v1.20.3 ([#1711](https://github.com/EnterpriseDB/klio/issues/1711)) ([7c82afd](https://github.com/cloudnative-pg/klio/commit/7c82afde39c796f0f3b734c4c5012f3ca5e26464))
+* **deps:** Update module github.com/fclairamb/afero-s3 to v0.5.0 ([#1753](https://github.com/EnterpriseDB/klio/issues/1753)) ([6988e52](https://github.com/cloudnative-pg/klio/commit/6988e521e0c73d08d9876d4f5c154a8ef00429cc))
+* **deps:** Update module github.com/onsi/gomega to v1.42.1 ([#1699](https://github.com/EnterpriseDB/klio/issues/1699)) ([989c9d3](https://github.com/cloudnative-pg/klio/commit/989c9d343fc6462e0557b2e9be27849168f072c1))
+* **queue:** Drain DLQ pager before resolving source messages ([#1714](https://github.com/EnterpriseDB/klio/issues/1714)) ([a463dbe](https://github.com/cloudnative-pg/klio/commit/a463dbe871539cfef7d5fb49230fee2c82bdb533))
+* **recovery:** Gate tier2 as a base recovery source on enableRecovery ([#1761](https://github.com/EnterpriseDB/klio/issues/1761)) ([1786da6](https://github.com/cloudnative-pg/klio/commit/1786da69d0652bf82fe4cbe5f1d13dc0ed145434))
+* **server:** Refresh tier1 Kopia server after the unpin direct write ([#1769](https://github.com/EnterpriseDB/klio/issues/1769)) ([b41dc27](https://github.com/cloudnative-pg/klio/commit/b41dc27ee8df31113514e3316913d034ee860348))
+* **walserver:** Skip latest_written_* metrics for non-segment WAL files ([#1640](https://github.com/EnterpriseDB/klio/issues/1640)) ([aeec3e3](https://github.com/cloudnative-pg/klio/commit/aeec3e3254e03530796636133ebda0339125bfac))
+
 ## [0.0.16](https://github.com/EnterpriseDB/klio/compare/v0.0.15...v0.0.16) (2026-06-04)
 
 
