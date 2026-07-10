@@ -138,7 +138,7 @@ tasks:
       # renovate: datasource=github-tags depName=goreleaser/goreleaser versioning=semver
       GORELEASER_VERSION: v2.17.0
       # renovate: datasource=docker depName=golang versioning=docker
-      GOLANG_IMAGE_VERSION: 1.26.4@sha256:f96cc555eb8db430159a3aa6797cd5bae561945b7b0fe7d0e284c63a3b291609
+      GOLANG_IMAGE_VERSION: 1.26.5@sha256:079e59808d2d252516e27e3f3a9c003740dee7f75e55aa71528766d52bcfc16a
     run: once
     cmds:
       # Goreleaser needs the .git directory to figure out the version from the tags.
@@ -189,7 +189,7 @@ tasks:
       # renovate: datasource=github-tags depName=goreleaser/goreleaser versioning=semver
       GORELEASER_VERSION: v2.17.0
       # renovate: datasource=docker depName=golang versioning=docker
-      GOLANG_IMAGE_VERSION: 1.26.4@sha256:f96cc555eb8db430159a3aa6797cd5bae561945b7b0fe7d0e284c63a3b291609
+      GOLANG_IMAGE_VERSION: 1.26.5@sha256:079e59808d2d252516e27e3f3a9c003740dee7f75e55aa71528766d52bcfc16a
     cmds:
       # Goreleaser needs the .git directory to figure out the version from the tags.
       # Given that it is easier to have .goreleaser.yaml in the core directory, we
@@ -428,7 +428,7 @@ tasks:
     dir: '{{ .WORKDIR }}'
     env:
       # renovate: datasource=docker depName=golang versioning=docker
-      GOLANG_IMAGE_VERSION: 1.26.4@sha256:f96cc555eb8db430159a3aa6797cd5bae561945b7b0fe7d0e284c63a3b291609
+      GOLANG_IMAGE_VERSION: 1.26.5@sha256:079e59808d2d252516e27e3f3a9c003740dee7f75e55aa71528766d52bcfc16a
       # renovate: datasource=custom.envtest depName=kubernetes packageName=https://github.com/kubernetes/kubernetes versioning=semver
       K8S_VERSION: 1.36.2
       # renovate: datasource=git-refs depName=controller-runtime packageName=https://github.com/kubernetes-sigs/controller-runtime versioning=semver
@@ -999,7 +999,7 @@ tasks:
     run: once
     vars:
       # renovate: datasource=docker depName=golang versioning=docker
-      GOLANG_IMAGE_VERSION: 1.26.4-alpine@sha256:3ad57304ad93bbec8548a0437ad9e06a455660655d9af011d58b993f6f615648
+      GOLANG_IMAGE_VERSION: 1.26.5-alpine@sha256:0178a641fbb4858c5f1b48e34bdaabe0350a330a1b1149aabd498d0699ff5fb2
     cmds:
       - >
         dagger core container from --address golang:{{ .GOLANG_IMAGE_VERSION }}
@@ -1390,7 +1390,7 @@ tasks:
         # Redundant curly braces are used to escape the template syntax in Taskfile.
         sh: docker inspect --format '{{"{{"}} (index (index .HostConfig.PortBindings "6443/tcp") 0).HostPort {{"}}"}}' {{ .KIND_CLUSTER_NAME }}-control-plane
       # renovate: datasource=docker depName=golang versioning=docker
-      GOLANG_IMAGE_VERSION: 1.26.4-alpine@sha256:3ad57304ad93bbec8548a0437ad9e06a455660655d9af011d58b993f6f615648
+      GOLANG_IMAGE_VERSION: 1.26.5-alpine@sha256:0178a641fbb4858c5f1b48e34bdaabe0350a330a1b1149aabd498d0699ff5fb2
     cmds:
       - |
         kind get kubeconfig --name {{ .KIND_CLUSTER_NAME }} > {{ .KUBECONFIG_PATH }}
