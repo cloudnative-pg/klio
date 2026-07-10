@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -15,6 +16,14 @@ import (
 	"github.com/cloudnative-pg/klio/core/internal/client/klioclient/kopia"
 	"github.com/cloudnative-pg/klio/core/pkg/config"
 )
+
+// errNoSuitableBackup is returned when no backup matches the requested recovery
+// target: the latest backup, or the closest one before a target time.
+var errNoSuitableBackup = errors.New("no suitable backup found to restore for the requested recovery target")
+
+// errNoTierForRecovery is returned when neither a tier1 nor a tier2 base URL
+// is configured for recovery.
+var errNoTierForRecovery = errors.New("no repository is configured for recovery")
 
 // restoreCmd represents the restore command
 //
@@ -78,6 +87,17 @@ var restoreCmd = &cobra.Command{
 			tablespaces[splitOption[0]] = splitOption[1]
 		}
 
+		if dropTier2BaseURLWhenRecoveryDisabled(&configuration) {
+			contextLogger.Info(
+				"tier2 is configured for backup only; recovery from tier2 is not enabled, " +
+					"so base backups stored only on tier2 will not be used for this recovery. " +
+					"Enable tier2 recovery to restore from tier2.")
+		}
+
+		if configuration.Client.Base.URL == "" && configuration.Client.Base.Tier2URL == "" {
+			return errNoTierForRecovery
+		}
+
 		client, err := kopia.MultiConnect(cmd.Context(), &configuration.Client)
 		if err != nil {
 			return fmt.Errorf("while connecting to the Klio server: %w", err)
@@ -106,11 +126,11 @@ var restoreCmd = &cobra.Command{
 			}
 
 			if targetBackup == nil {
-				contextLogger.Info("Unable to find a suitable backup to restore, bailing out")
-			} else {
-				contextLogger.Info("Found target backup", "targetBackup", targetBackup)
-				backupName = targetBackup.Name
+				return errNoSuitableBackup
 			}
+
+			contextLogger.Info("Found target backup", "targetBackup", targetBackup)
+			backupName = targetBackup.Name
 		}
 
 		executor := klioclient.NewRestoreExecutor(
@@ -124,6 +144,21 @@ var restoreCmd = &cobra.Command{
 
 		return executor.Restore(cmd.Context(), client.GetHostname(), destinationPath)
 	},
+}
+
+// dropTier2BaseURLWhenRecoveryDisabled clears Client.Base.Tier2URL so restore
+// never reads base backups from a backup-only tier2. The operator populates
+// Tier2URL whenever tier2 is enabled for backup OR recovery, so URL presence
+// alone does not imply recovery intent; the WAL restore path applies the same
+// gate via availableTiers. Reports whether the URL was dropped.
+func dropTier2BaseURLWhenRecoveryDisabled(configuration *config.Data) bool {
+	if configuration.Tier2RecoveryEnabled || configuration.Client.Base.Tier2URL == "" {
+		return false
+	}
+
+	configuration.Client.Base.Tier2URL = ""
+
+	return true
 }
 
 type invalidTablespaceRemapOptionError struct {

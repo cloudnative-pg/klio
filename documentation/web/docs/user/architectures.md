@@ -186,13 +186,17 @@ migration completes.
 
 ### Restoring from Tier 2
 
-When a backup is requested for restore, Klio will first look for it in Tier 1.
-If the backup is not found in Tier 1, Klio will automatically check Tier 2.
-This fallback mechanism ensures that backups that have been migrated to Tier 2
-are still accessible for restore operations.
+Tier 2 is only used as a restore source, for both base backups and WAL files,
+when `enableRecovery` is set to `true`. Enabling Tier 2 for backup alone
+(`enableBackup: true`) does not opt a cluster into restoring from Tier 2.
 
-When Tier 2 is enabled and a backup exists in both tiers, Tier 1 takes
-precedence as restore from it will be faster.
+When `enableRecovery` is `true`, a backup requested for restore is first
+looked up in Tier 1. If it is not found in Tier 1, Klio automatically checks
+Tier 2. This fallback mechanism ensures that backups that have been migrated
+to Tier 2 are still accessible for restore operations.
+
+When Tier 2 recovery is enabled and a backup exists in both tiers, Tier 1
+takes precedence as restore from it will be faster.
 
 ### Read-Only Server Mode
 

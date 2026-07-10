@@ -19,6 +19,8 @@ import (
 	"sigs.k8s.io/e2e-framework/pkg/types"
 
 	kliov1alpha1 "github.com/cloudnative-pg/klio/operator/api/v1alpha1"
+	"github.com/cloudnative-pg/klio/operator/internal/cnpgi"
+	"github.com/cloudnative-pg/klio/operator/internal/klioconfig"
 	machineryConditions "github.com/cloudnative-pg/klio/operator/test/machinery/pkg/conditions"
 )
 
@@ -34,6 +36,19 @@ const (
 	// Used by verifyTier2RetentionPolicySet to run kopia policy commands.
 	// The file ending in .kopia-password contains the path to the actual config.
 	tier2KopiaConfigPattern = "/tmp/kopiaconfig_tier2_rw_*.kopia-password"
+	// archiveConfigPath is the config file the klio-plugin sidecar uses for its own
+	// cluster's backup/WAL-archive operations, mounted from the ArchiveConfigKey
+	// projection. It carries this cluster's own Tier2RecoveryEnabled setting, so it
+	// can also be used to invoke `klio restore` as this cluster's client identity.
+	archiveConfigPath = "/var/lib/postgresql/klio/" + klioconfig.ArchiveConfigKey
+	// tier2GateLogMessage is a substring of the message restoreCmd logs when it drops
+	// a backup-only Tier2 base URL because tier2 recovery is not enabled. See
+	// gateTier2ForRecovery in core/cmd/restore.go.
+	tier2GateLogMessage = "recovery from tier2 is not enabled"
+	// tier2GateRestoreScratchDir is a scratch destination for the `klio restore` run
+	// by verifyTier2RecoveryGate. It is never used as a real PGDATA, only to smoke-test
+	// that a backup-only tier2 is not used as a recovery source.
+	tier2GateRestoreScratchDir = "/tmp/tier2-recovery-gate-check"
 )
 
 // Tier2RetentionFeature defines a feature for testing tier2 backup and WAL retention.
@@ -120,7 +135,7 @@ func (f *Tier2RetentionFeature) Setup() types.StepFunc {
 
 // Run executes the tier2 retention feature test.
 //
-// This test validates the complete tier2 retention pipeline using a three-level
+// This test validates the complete tier2 retention pipeline using a four-level
 // verification strategy:
 //
 //  1. Result Verification: Verifies that tier2 contains exactly `keepLatest` backups
@@ -138,8 +153,13 @@ func (f *Tier2RetentionFeature) Setup() types.StepFunc {
 //     warnings only) because WAL retention depends on backup metadata (StartWAL)
 //     and timing, making strict assertions fragile.
 //
+//  4. Tier2 Recovery Gate Verification: this scenario configures tier2 for backup
+//     only (EnableTier2Recovery: false). Runs an actual `klio restore` as this
+//     cluster's own client identity and verifies the gate log fires, confirming
+//     tier2 was dropped as a recovery source rather than silently used.
+//
 // The test creates more backups than `keepLatest` to trigger retention, then verifies
-// all three levels pass.
+// all four levels pass.
 func (f *Tier2RetentionFeature) Run() types.StepFunc {
 	return func(ctx context.Context, t *testing.T, cfg *envconf.Config) context.Context {
 		t.Helper()
@@ -231,6 +251,17 @@ func (f *Tier2RetentionFeature) Run() types.StepFunc {
 		// - The exact count depends on PostgreSQL activity during the test
 		verifyWALRetention(ctx, t, r, f, walDirCountAfterFirstBackup)
 
+		// ==========================================
+		// Level 4: Tier2 Recovery Gate Verification
+		// ==========================================
+		// This scenario configures tier2 for backup only (EnableTier2Recovery:
+		// false). Run an actual `klio restore` as this cluster's own client
+		// identity and verify the gate log fires, confirming tier2 was dropped
+		// as a recovery source rather than silently used.
+		t.Log("[Level 4] Tier2 recovery gate verification: klio restore must not use a backup-only tier2...")
+		verifyTier2RecoveryGate(ctx, t, r, f.namespace, f.backups[len(f.backups)-1])
+		t.Log("[Level 4] PASSED: klio restore logged that tier2 recovery is disabled")
+
 		t.Log("Tier2 retention test completed: all verification levels passed")
 
 		return ctx
@@ -240,6 +271,39 @@ func (f *Tier2RetentionFeature) Run() types.StepFunc {
 // Teardown cleans up resources after the test is run.
 func (f *Tier2RetentionFeature) Teardown() types.StepFunc {
 	return f.teardown
+}
+
+// verifyTier2RecoveryGate runs `klio restore` inside the klio-plugin sidecar of
+// the pod that took backup, using the pod's own archive config (the same
+// config the instance uses for its own backups/WAL archiving, which carries
+// this cluster's real Tier2RecoveryEnabled setting). It restores into a
+// scratch directory, never the real PGDATA, and asserts that restore still
+// succeeds (tier1 remains a valid base source) while logging that a
+// backup-only tier2 was not used, proving the recovery gate is active.
+func verifyTier2RecoveryGate(
+	ctx context.Context,
+	t *testing.T,
+	r *resources.Resources,
+	namespace string,
+	backup *cnpgv1.Backup,
+) {
+	t.Helper()
+
+	require.NotNil(t, backup.Status.InstanceID, "backup instance ID should be set")
+	podName := backup.Status.InstanceID.PodName
+
+	var stdout, stderr bytes.Buffer
+	restoreCmd := []string{
+		"klio", "restore",
+		"--config", archiveConfigPath,
+		tier2GateRestoreScratchDir,
+	}
+
+	err := r.ExecInPod(ctx, namespace, podName, cnpgi.KlioPluginContainerName, restoreCmd, &stdout, &stderr)
+	require.NoError(t, err, "klio restore failed unexpectedly; stdout: %s, stderr: %s", stdout.String(), stderr.String())
+
+	require.Contains(t, stdout.String()+stderr.String(), tier2GateLogMessage,
+		"expected klio restore to log that tier2 recovery is disabled")
 }
 
 // verifyWALRetention performs Level 3 WAL retention verification.
