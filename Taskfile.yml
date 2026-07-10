@@ -1259,7 +1259,7 @@ tasks:
       # renovate: datasource=docker depName=alpine/k8s versioning=docker
       ALPINE_K8S_VERSION: 1.36.1@sha256:692239d739589247c4a791205ed9619c28ae85a21286e19a6211c04a62c56668
       # renovate: datasource=helm depName=cert-manager versioning=semver registryUrl=https://charts.jetstack.io
-      CERT_MANAGER_VERSION: 'v1.20.3'
+      CERT_MANAGER_VERSION: 'v1.21.0'
       # Cache busting timestamp to prevent Dagger from caching helm deployments
       CACHE_BUST:
         sh: date +%s
