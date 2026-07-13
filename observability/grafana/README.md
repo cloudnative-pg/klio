@@ -8,20 +8,24 @@ The dashboard visualizes the Prometheus export of Klio's OpenTelemetry
 metrics. It is split into row sections:
 
 - **Client / Plugin** — backup lifecycle metrics emitted by the plugin
-  sidecar in each PostgreSQL pod (`klio_plugin_backup_*`). Built in
+  sidecar in each PostgreSQL pod (`klio_plugin_backup_*`), plus the streamed
+  timeline and per-block send latency of the WAL streaming client it
+  supervises as a child process (`klio_client_wal_*`). Built in
   [`client.go`](client.go).
-- **Server** — WAL ingest, backup verification, base snapshot and queue
-  metrics emitted by the Klio server StatefulSet (`klio_server_*`). Built in
-  [`server.go`](server.go).
+- **Server** — WAL ingest, backup verification, base snapshot, the retention
+  window of physical PostgreSQL backups (start/end time, LSN and timeline per
+  cluster and tier), and queue metrics emitted by the Klio server StatefulSet
+  (`klio_server_*`). Built in [`server.go`](server.go).
 - **WAL Replication Lag** — how far Klio's WAL streaming client trails the
   PostgreSQL primary, from CloudNativePG's `cnpg_pg_stat_replication_*`
   metrics (requires CloudNativePG monitoring scraped into the same
   Prometheus). Built in [`replication.go`](replication.go).
 
-[`main.go`](main.go) assembles the dashboard: it declares a `datasource`
+[`build.go`](build.go) assembles the dashboard: it declares a `datasource`
 template variable (so the dashboard is portable across Grafana
-installations) and adds the row sections with their panels. Shared panel
-and query helpers live there too.
+installations) and adds the row sections with their panels.
+[`main.go`](main.go) is just the CLI entrypoint (flag parsing, writing the
+JSON) plus the shared panel and query helpers every row section builds on.
 
 ## Regenerating the dashboard
 
@@ -46,8 +50,13 @@ go run . -output klio-dashboard.json
 
 ## Linting
 
-`task grafana:ci` runs three checks:
+`task grafana:ci` runs four checks:
 
+- `grafana:go-test` — `go test` on the generator: catches PromQL mistakes gcx
+  can't (a `histogram_quantile` query dropping the `le` label, a `rate()`
+  call with a hardcoded window instead of `$__rate_interval`, a query
+  referencing an undeclared dashboard variable) and duplicate panel titles
+  within a row.
 - `grafana:lint-builder` — `golangci-lint` on the generator Go code.
 - `grafana:lint-dashboard` — lints the generated dashboard JSON with
   [`gcx`](https://github.com/grafana/gcx), which validates the PromQL of every

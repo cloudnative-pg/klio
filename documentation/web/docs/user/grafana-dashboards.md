@@ -20,14 +20,23 @@ The dashboard is a single dashboard split into row sections:
 
 - **Client / Plugin** — the backup lifecycle as seen by the plugin sidecar
   running in each PostgreSQL pod: backups in progress, time since the last
-  success and failure, backup run and failure rates, the backup duration
-  distribution, and the backup success ratio.
+  backup started, succeeded and failed, the latest backup duration, the
+  p50/p95/p99 backup duration distribution, backup run and failure rates,
+  and the backup success ratio. Also the WAL
+  streaming client the sidecar supervises as a child process: the PostgreSQL
+  timeline it is currently streaming and the p50/p95/p99 latency of sending
+  a WAL block to the server.
 
 ![Klio client and plugin metrics](images/klio_client_and_plugin_metrics.png)
 
 - **Server** — the state of the Klio server StatefulSet: uptime, WAL ingest
   throughput and freshness per tier, the latest written LSN, backup
-  verification outcomes, the base snapshot inventory, and the embedded NATS
+  verification outcomes, the base snapshot inventory (including file and
+  directory counts), p50/p95/p99 WAL block/get/upload duration by path,
+  stage and tier, tier-2 relay and maintenance run rates, the retention
+  window of the
+  physical PostgreSQL backups (counts by tier, latest/oldest backup age,
+  start/end LSN and PostgreSQL timeline per cluster), and the embedded NATS
   JetStream queue.
 
 ![Klio server metrics](images/klio_server_metrics.png)
@@ -41,8 +50,8 @@ The dashboard is a single dashboard split into row sections:
 
 ![Klio WAL replication lag metrics](images/klio_wal_replication_lag_metrics.png)
 
-Some panels are derived from the alerting guidance in
-[OpenTelemetry](opentelemetry.md):
+Some panels need extra context to interpret correctly. Two are derived
+from the alerting guidance in [OpenTelemetry](opentelemetry.md):
 
 - **Time since last WAL written by tier** surfaces the staleness signal
   described under *Alerting on stalled WAL processing*: a stale tier-1 value
@@ -52,6 +61,22 @@ Some panels are derived from the alerting guidance in
   tier 1 (local disk) and tier 2 (remote storage). Read together with the
   staleness panel, it tells a slow pipeline (timestamps advancing, gap
   growing) apart from a stalled one (timestamps and LSN both frozen).
+
+Two more are a statistical caveat rather than an alerting signal. Both are
+histogram percentiles that need enough recent samples to be reliable:
+
+- **WAL block send duration (p50/p95/p99) by cluster** is most meaningful
+  under active write load. On an idle or low-write cluster, WAL blocks are
+  sent too infrequently for the underlying `histogram_quantile` to produce
+  a reliable percentile, so the line can look sparse or noisy rather than
+  simply absent.
+- **Backup duration (p50/p95/p99)** has the same limitation, more acutely:
+  backups are infrequent, so this panel is computed over the whole selected
+  range (rather than a short rate window) to stay populated between runs.
+  Widen the dashboard range to span several backups for a stable reading; if
+  the selected range contains no backup, the panel is empty. Use it to spot
+  backup runtime trending up over time rather than to read an instantaneous
+  value.
 
 ## Prerequisites
 

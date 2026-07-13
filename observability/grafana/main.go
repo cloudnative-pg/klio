@@ -2,9 +2,10 @@
 // grafana-foundation-sdk. The dashboard is built against the Prometheus names
 // of the OpenTelemetry metrics that Klio exports (see
 // documentation/web/docs/user/opentelemetry.md) and is split into row
-// sections: one for the client (plugin sidecar) metrics, one for the server
-// metrics, and one for WAL replication lag (sourced from CloudNativePG's
-// pg_stat_replication metrics).
+// sections: one for the client (plugin sidecar and the WAL streaming client
+// it supervises) metrics, one for the server metrics (including the retained
+// PostgreSQL backups), and one for WAL replication lag (sourced from
+// CloudNativePG's pg_stat_replication metrics).
 //
 // Running the command regenerates the committed JSON in place:
 //
@@ -16,6 +17,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/grafana/grafana-foundation-sdk/go/bargauge"
 	"github.com/grafana/grafana-foundation-sdk/go/cog"
@@ -28,11 +30,6 @@ import (
 )
 
 const (
-	// dashboardUID is a stable identifier so re-imports update the same
-	// dashboard instead of creating duplicates.
-	dashboardUID = "klio"
-	// dashboardTitle is the title shown in Grafana.
-	dashboardTitle = "Klio"
 	// datasourceVar is the name of the Prometheus data source template
 	// variable that every panel queries through, so the dashboard is portable
 	// across Grafana installations.
@@ -80,47 +77,6 @@ func main() {
 	}
 }
 
-// build assembles the full dashboard: the data source variable, then the
-// client and server row sections with their panels.
-func build() *dashboard.DashboardBuilder {
-	builder := dashboard.NewDashboardBuilder(dashboardTitle).
-		Uid(dashboardUID).
-		Description("Backup and WAL observability for Klio, built from the Prometheus "+
-			"export of Klio's OpenTelemetry metrics.").
-		Tags([]string{"klio", "postgresql", "backup"}).
-		Editable().
-		Refresh("30s").
-		Time("now-6h", "now").
-		WithVariable(
-			dashboard.NewDatasourceVariableBuilder(datasourceVar).
-				Label("Data source").
-				Type("prometheus").
-				// Leave the current value unset: on load Grafana auto-selects the
-				// default Prometheus data source and resolves $datasource to its
-				// real UID.
-				Current(dashboard.VariableOption{}),
-		).
-		WithVariable(
-			labelVariable("namespace", "Namespace",
-				`label_values({__name__=~"klio_.+"}, k8s_namespace_name)`),
-		).
-		WithVariable(
-			labelVariable("server", "Server",
-				`label_values(klio_server_uptime_seconds{k8s_namespace_name=~"$namespace"}, host_name)`),
-		).
-		WithVariable(
-			labelVariable("cluster", "Cluster",
-				`label_values(klio_server_wal_written_total{k8s_namespace_name=~"$namespace",host_name=~"$server"}, cluster_name)`),
-		)
-
-	y := 0
-	layoutSection(builder, &y, "Client / Plugin", clientPanels())
-	layoutSection(builder, &y, "Server", serverPanels())
-	layoutSection(builder, &y, "WAL Replication Lag", replicationPanels())
-
-	return builder
-}
-
 // sizedPanel is a panel with its grid footprint, ready to be positioned by
 // layoutSection.
 type sizedPanel struct {
@@ -139,70 +95,6 @@ func sized[B interface {
 	}}
 }
 
-// layoutSection adds a row header at the current y offset, then packs the
-// panels into a dense grid: each grid row is filled to the full 24-column width
-// (slack is distributed across the row's panels) so there are no empty gaps
-// between panels. y is advanced past the section.
-func layoutSection(builder *dashboard.DashboardBuilder, y *int, title string, panels []sizedPanel) {
-	builder.WithRow(dashboard.NewRowBuilder(title).
-		GridPos(dashboard.GridPos{X: 0, Y: uint32(*y), W: 24, H: 1})) //nolint:gosec // small positive ints
-	*y++
-
-	for i := 0; i < len(panels); {
-		// Greedily gather panels until the row would overflow 24 columns.
-		rowW, j := 0, i
-		for j < len(panels) && rowW+panels[j].w <= 24 {
-			rowW += panels[j].w
-			j++
-		}
-		if j == i { // a single panel wider than the grid: place it alone
-			j, rowW = i+1, panels[i].w
-		}
-		row := panels[i:j]
-		rowH, slack := 0, 24-rowW
-		for _, p := range row {
-			if p.h > rowH {
-				rowH = p.h
-			}
-		}
-		x := 0
-		for k, p := range row {
-			w := p.w + slack/len(row)
-			if k < slack%len(row) {
-				w++ // spread the remainder over the first panels
-			}
-			if k == len(row)-1 {
-				w = 24 - x // last panel closes the row exactly
-			}
-			builder.WithPanel(p.place(dashboard.GridPos{
-				X: uint32(x), Y: uint32(*y), W: uint32(w), H: uint32(rowH), //nolint:gosec // small positive ints
-			}))
-			x += w
-		}
-		*y += rowH
-		i = j
-	}
-}
-
-// labelVariable builds a multi-value Prometheus label_values template variable
-// that defaults to "All" so the dashboard shows every series until filtered.
-func labelVariable(name, label, query string) *dashboard.QueryVariableBuilder {
-	return dashboard.NewQueryVariableBuilder(name).
-		Label(label).
-		Datasource(datasourceRef()).
-		Query(dashboard.StringOrMap{String: cog.ToPtr(query)}).
-		Refresh(dashboard.VariableRefreshOnDashboardLoad).
-		Sort(dashboard.VariableSortAlphabeticalAsc).
-		Multi(true).
-		IncludeAll(true).
-		AllValue(".+").
-		Current(dashboard.VariableOption{
-			Selected: cog.ToPtr(true),
-			Text:     dashboard.StringOrArrayOfString{String: cog.ToPtr("All")},
-			Value:    dashboard.StringOrArrayOfString{String: cog.ToPtr("$__all")},
-		})
-}
-
 // datasourceRef returns a reference to the dashboard's Prometheus data source
 // variable, used by every panel and query.
 func datasourceRef() common.DataSourceRef {
@@ -218,6 +110,57 @@ func query(expr, legend string) *prometheus.DataqueryBuilder {
 		Expr(expr).
 		LegendFormat(legend).
 		Range()
+}
+
+// quantiles are the percentiles every latency panel renders together, so the
+// median, the tail and the extreme tail always appear side by side rather than
+// a single percentile hiding the shape of the distribution.
+//
+//nolint:gochecknoglobals
+var quantiles = []struct {
+	q     float64
+	label string
+}{
+	{0.50, "p50"},
+	{0.95, "p95"},
+	{0.99, "p99"},
+}
+
+// quantileTargetsWindow builds one p50/p95/p99 target for a histogram, applying
+// counterFn (`rate` or `increase`) over window (e.g. `$__rate_interval` or
+// `$__range`). It groups the _bucket series by groupBy (which MUST include
+// `le`, or histogram_quantile cannot find the bucket boundaries and the panel
+// renders no data) and labels each series "<pN> <legend>", dropping the
+// trailing space when legend is empty.
+func quantileTargetsWindow(
+	bucketMetric, groupBy, matcher, legend, counterFn, window string,
+) []cog.Builder[variants.Dataquery] {
+	targets := make([]cog.Builder[variants.Dataquery], 0, len(quantiles))
+	for _, p := range quantiles {
+		targets = append(targets, query(
+			fmt.Sprintf("histogram_quantile(%.2f, sum by (%s) (%s(%s{%s}[%s])))",
+				p.q, groupBy, counterFn, bucketMetric, matcher, window),
+			strings.TrimSpace(p.label+" "+legend)))
+	}
+
+	return targets
+}
+
+// quantileTargets builds p50/p95/p99 targets for a high-frequency histogram,
+// using rate() over $__rate_interval so the percentiles track the dashboard's
+// selected range and zoom.
+func quantileTargets(bucketMetric, groupBy, matcher, legend string) []cog.Builder[variants.Dataquery] {
+	return quantileTargetsWindow(bucketMetric, groupBy, matcher, legend, "rate", "$__rate_interval")
+}
+
+// quantileTargetsRange builds p50/p95/p99 targets for an infrequent-event
+// histogram (e.g. backups), using increase() over the whole visible range
+// ($__range). A short rate() window almost never catches a rare event, so the
+// percentiles would otherwise collapse to no data except at the instant the
+// event fires; the range window keeps them populated whenever the selected
+// range spans at least one event.
+func quantileTargetsRange(bucketMetric, groupBy, matcher, legend string) []cog.Builder[variants.Dataquery] {
+	return quantileTargetsWindow(bucketMetric, groupBy, matcher, legend, "increase", "$__range")
 }
 
 // tableLegend renders a compact table legend at the bottom of a panel.
@@ -263,12 +206,14 @@ func barPanel(title, unit string, targets ...cog.Builder[variants.Dataquery]) *t
 
 // barGaugePanel builds a horizontal bar gauge that renders one labeled bar per
 // series, so multi-series "by tier / by stream" values always show every series
-// (a narrow stat tile can hide all but the first).
-func barGaugePanel(title, unit string, targets ...cog.Builder[variants.Dataquery]) *bargauge.PanelBuilder {
+// (a narrow stat tile can hide all but the first). Every caller renders a
+// label-only classification (tier, cluster, stream), so the unit is always
+// "none".
+func barGaugePanel(title string, targets ...cog.Builder[variants.Dataquery]) *bargauge.PanelBuilder {
 	panel := bargauge.NewPanelBuilder().
 		Title(title).
 		Datasource(datasourceRef()).
-		Unit(unit).
+		Unit("none").
 		ReduceOptions(common.NewReduceDataOptionsBuilder().Calcs([]string{"lastNotNull"})).
 		Orientation(common.VizOrientationHorizontal).
 		Decimals(0)

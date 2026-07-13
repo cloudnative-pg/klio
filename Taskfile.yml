@@ -1371,6 +1371,7 @@ tasks:
   grafana:ci:
     desc: Run the Grafana dashboard CI pipeline
     deps:
+      - grafana:go-test
       - grafana:lint-builder
       - grafana:lint-dashboard
       - grafana:uncommitted
@@ -1401,6 +1402,27 @@ tasks:
     generates:
       - observability/grafana/klio-dashboard.json
 
+  grafana:go-test:
+    desc: Run go test on the Grafana dashboard generator
+    vars:
+      # renovate: datasource=docker depName=golang versioning=docker
+      GOLANG_IMAGE_VERSION: 1.26.4-alpine@sha256:3ad57304ad93bbec8548a0437ad9e06a455660655d9af011d58b993f6f615648
+    cmds:
+      - >
+        dagger core container from --address golang:{{ .GOLANG_IMAGE_VERSION }}
+        with-mounted-cache --cache go-mod --path "/go/pkg/mod"
+        with-env-variable --name GOMODCACHE --value /go/pkg/mod
+        with-mounted-cache --cache go-build --path "/go/build-cache"
+        with-env-variable --name GOCACHE --value /go/build-cache
+        with-directory --path /src --source observability/grafana/
+        with-workdir --path /src
+        with-exec --args sh --args '-c' --args "go test ./..."
+        stdout
+    sources:
+      - observability/grafana/**/*.go
+      - observability/grafana/go.mod
+      - observability/grafana/go.sum
+
   grafana:lint-builder:
     desc: Run golangci-lint on the Grafana dashboard generator
     cmds:
@@ -1413,7 +1435,7 @@ tasks:
   grafana:lint-dashboard:
     desc: Lint the generated Grafana dashboard JSON with gcx
     vars:
-      # renovate: datasource=github-releases depName=grafana/gcx extractVersion=^v(?<version>.+)$
+      # renovate: datasource=github-releases depName=grafana/gcx versioning=semver
       GCX_VERSION: 0.4.1
       # renovate: datasource=docker depName=golang versioning=docker
       GOLANG_IMAGE_VERSION: 1.26.5-alpine@sha256:0178a641fbb4858c5f1b48e34bdaabe0350a330a1b1149aabd498d0699ff5fb2

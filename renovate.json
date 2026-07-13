@@ -111,28 +111,6 @@
     },
     {
       "matchDatasources": [
-        "go"
-      ],
-      "matchPackageNames": [
-        "github.com/grafana/grafana-foundation-sdk/go"
-      ],
-      "groupName": "grafana-foundation-sdk",
-      "automerge": false,
-      "description": "Grafana dashboard SDK: bumps must be reviewed because they can change the generated dashboard. Regenerate observability/grafana/klio-dashboard.json with `task grafana:gen`; grafana:uncommitted guards against drift in CI."
-    },
-    {
-      "matchDatasources": [
-        "github-releases"
-      ],
-      "matchPackageNames": [
-        "grafana/gcx"
-      ],
-      "groupName": "gcx",
-      "automerge": false,
-      "description": "gcx lints observability/grafana/klio-dashboard.json in CI (task grafana:lint-dashboard); bumps must be reviewed because a new version can add or change lint rules."
-    },
-    {
-      "matchDatasources": [
         "git-refs"
       ],
       "matchPackageNames": [

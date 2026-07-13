@@ -4,10 +4,20 @@ import (
 	"fmt"
 )
 
+// clientWalMatcher selects the WAL streaming client's per-cluster series
+// (klio_client_wal_*). The streaming client runs as a child process of the
+// plugin sidecar (spawned via `klio send-wal`, same container, different
+// PID), but unlike klio_plugin_backup_* it carries cluster_name and no
+// host_name, so these panels are scoped by $namespace and $cluster.
+const clientWalMatcher = `k8s_namespace_name=~"$namespace",cluster_name=~"$cluster"`
+
 // clientPanels returns the "Client / Plugin" section panels. These metrics are
-// emitted by the Klio plugin sidecar that runs in each PostgreSQL pod (the
-// `klio.plugin.backup.*` family, exported to Prometheus as
-// `klio_plugin_backup_*`). Every query is scoped by the $namespace variable.
+// emitted by the Klio plugin sidecar that runs in each PostgreSQL pod: the
+// backup lifecycle (`klio.plugin.backup.*`, exported to Prometheus as
+// `klio_plugin_backup_*`) and the WAL streaming client it supervises as a
+// child process (`klio.client.wal.*`, exported as `klio_client_wal_*`).
+// Backup queries are scoped by $namespace; WAL streaming queries additionally
+// carry cluster_name and are scoped by $cluster.
 func clientPanels() []sizedPanel {
 	return []sizedPanel{
 		// Current backup state.
@@ -28,6 +38,11 @@ func clientPanels() []sizedPanel {
 		sized(4, panelHeight, statPanel("Latest backup duration", "dtdurations",
 			query(fmt.Sprintf("max(klio_plugin_backup_latest_duration_seconds{%s})", nsMatcher), "latest duration"),
 		).Description("Wall-clock duration of the most recent base backup.")),
+		sized(4, panelHeight, statPanel("Time since last backup started", "dtdurations",
+			query(fmt.Sprintf("time() - max(klio_plugin_backup_latest_start_time_seconds{%s})", nsMatcher),
+				"since start"),
+		).Description("Elapsed time since the most recent base backup started. Compare against the latest "+
+			"duration to tell whether a backup is still running or overdue.")),
 		// Derived: share of backup runs that succeeded over the selected range.
 		sized(4, panelHeight, statPanel("Backup success ratio", "percentunit",
 			query(
@@ -66,6 +81,15 @@ func clientPanels() []sizedPanel {
 			),
 		).Description("Rate of failed base backup runs, broken down by failure category, to show why "+
 			"backups are failing.")),
+		// Distribution of backup wall-clock durations. The latest-duration stat
+		// tile above shows only the most recent run; these percentiles show the
+		// spread and let an admin see backup runtime trending up over time.
+		sized(8, panelHeight, timeseriesPanel("Backup duration (p50/p95/p99)", "s",
+			quantileTargetsRange("klio_plugin_backup_duration_seconds_bucket", "le", nsMatcher, "")...,
+		).Description("Percentile wall-clock duration of base backup runs (across all outcomes), computed "+
+			"over the whole selected range so the lines stay populated between runs. Widen the dashboard "+
+			"range to span several backups for a stable reading; if the range contains no backup, the "+
+			"panel is empty.")),
 		// Backup volume over time: count of runs per bucket, split by outcome.
 		// Bars aggregate how many backups happened, which is more useful for
 		// infrequent backups than instantaneous duration percentiles.
@@ -75,5 +99,18 @@ func clientPanels() []sizedPanel {
 				"{{outcome}}"),
 		).Description("Count of base backup runs per time bucket, split by outcome. Bars aggregate the "+
 			"number of backups over each interval (per day on a multi-day range).")),
+
+		// WAL streaming client, run as a child process of this same sidecar.
+		sized(8, panelHeight, barGaugePanel("Streaming timeline by cluster",
+			query(fmt.Sprintf("max by (cluster_name) (klio_client_wal_timeline{%s})", clientWalMatcher),
+				"{{cluster_name}}"),
+		).Description("PostgreSQL timeline the WAL streaming client is currently streaming, per cluster.")),
+		sized(16, panelHeight, timeseriesPanel("WAL block send duration (p50/p95/p99) by cluster", "ns",
+			quantileTargets("klio_client_wal_block_duration_nanoseconds_bucket", "le, cluster_name",
+				clientWalMatcher, "{{cluster_name}}")...,
+		).Description("Percentile latency of the client's gRPC send of a WAL block to the server, per "+
+			"cluster. Most meaningful under active write load; on an idle or low-write cluster, WAL "+
+			"blocks are sent too infrequently for the underlying histogram_quantile to be reliable, so "+
+			"the line may look sparse or noisy rather than absent.")),
 	}
 }
