@@ -51,6 +51,7 @@ func (s *Client) RunServer(ctx context.Context, opts ServerOptions) error {
 	}
 
 	env := os.Environ()
+	env = append(env, tracingEnvironmentVariables()...)
 	// Note: Kopia's 'server start' command uses KOPIA_SERVER_CONTROL_* variables
 	if opts.ServerControlUser != "" {
 		env = append(env, "KOPIA_SERVER_CONTROL_USER="+opts.ServerControlUser)

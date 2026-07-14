@@ -38,6 +38,7 @@ func (s *Client) kopiaEnvironmentVariables() []string {
 	if s.Password != "" {
 		result = append(result, "KOPIA_PASSWORD="+s.Password)
 	}
+	result = append(result, tracingEnvironmentVariables()...)
 
 	return result
 }

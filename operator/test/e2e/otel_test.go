@@ -1103,6 +1103,35 @@ func assertOTELTracesReceived(
 			"expected span %q not found in OTEL collector logs", span)
 	}
 
+	// Verify Kopia's own spans are exported to the same collector. Klio
+	// enables Kopia's OTLP/gRPC trace exporter when its traces use gRPC.
+	//
+	// These checks match raw substrings in the collector's debug-exporter output
+	// and are therefore coupled to two things that can change on a dependency
+	// bump:
+	//   - the debug exporter's detailed-verbosity formatting (the service.name
+	//     value "kopia" renders as "Str(kopia)"), governed by the collector image
+	//     pinned in otel_collector.yaml;
+	//   - Kopia's internal span names ("OpenRepository", "UploadDir"), defined in
+	//     the leonardoce/kopia fork.
+	// If this starts failing after upgrading the collector image or the Kopia
+	// fork, re-derive the expected strings from the collector logs rather than
+	// assuming a regression in trace export.
+	t.Log("Verifying Kopia repository spans")
+
+	assert.Contains(t, logs, "Str(kopia)",
+		"expected Kopia spans (service.name=kopia) not found in OTEL collector logs")
+
+	kopiaSpans := []string{
+		"OpenRepository",
+		"UploadDir",
+	}
+
+	for _, span := range kopiaSpans {
+		assert.Contains(t, logs, span,
+			"expected Kopia span %q not found in OTEL collector logs", span)
+	}
+
 	// Verify resource attributes are present
 	t.Log("Verifying resource attributes in traces")
 

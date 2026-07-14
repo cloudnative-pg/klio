@@ -4,6 +4,11 @@ metadata:
   name: cluster-klio-otel-config
 data:
   OTEL_RESOURCE_DETECTORS: "telemetry.sdk,host,os.type,process.executable.name"
+  # Because traces use the gRPC protocol, Klio also enables Kopia's own
+  # OTLP/gRPC trace exporter during backup operations: Kopia spans
+  # (service.name=kopia) are sent to the same collector, reusing the
+  # OTEL_EXPORTER_OTLP_* settings below (endpoint and TLS). Kopia can only
+  # export traces over gRPC.
   OTEL_TRACES_EXPORTER: "otlp"
   OTEL_METRICS_EXPORTER: "otlp"
   OTEL_EXPORTER_OTLP_PROTOCOL: "grpc"

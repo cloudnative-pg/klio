@@ -100,6 +100,40 @@ timings that used to be spans are now recorded as the
 | `get_wal` | `klio.server.wal` | Per-file span for the gRPC Get of a WAL file (served from tier-1 or tier-2). |
 | `tier2_upload` | `klio.server.consumer` | One span per WAL file archived to tier-2 (remote storage). |
 
+### Kopia repository spans
+
+Klio runs Kopia as a subprocess to manage the deduplicated backup
+repository. Kopia emits its own OpenTelemetry traces (snapshot uploads,
+content and blob operations, and repository-server gRPC sessions) under
+the `kopia` service name. Klio enables Kopia's trace exporter
+automatically whenever its own traces are configured for the OTLP/gRPC
+protocol, so that Kopia exports to the same collector as Klio.
+
+The individual span names come from the Kopia version bundled with Klio
+and are Kopia internals rather than a Klio-defined contract; they may
+change across Kopia upgrades. To see what your deployment emits, inspect
+your tracing backend for traces whose `service.name` is `kopia` — for
+example, the `OpenRepository` and `UploadDir` spans produced while a
+backup runs.
+
+Unlike Klio's own telemetry, Kopia does not read `OTEL_SERVICE_NAME`,
+`OTEL_RESOURCE_ATTRIBUTES`, or `OTEL_RESOURCE_DETECTORS`: every Kopia span
+carries a fixed resource of just `service.name` (`kopia`) and
+`service.version`.
+
+Kopia can only export traces over OTLP/gRPC. When traces are configured
+for `http/protobuf`, Kopia tracing stays disabled and only Klio's own
+spans are exported. When traces are configured for `grpc`, Klio automatically
+enables Kopia tracing and exports both Klio and Kopia spans to the same
+collector. You can override this automatic behavior with the
+`KOPIA_ENABLE_OTLP_TRACE` variable in the same container environment:
+set it to `false` to disable Kopia tracing even when Klio's own traces
+use gRPC, or to `true` to force it on (Kopia still exports only over
+gRPC, so the configured endpoint must be a gRPC one).
+
+Kopia traces are exported as independent traces, under the
+`kopia` service, and are not correlated into Klio's trace tree.
+
 ## Metrics Reference
 
 Klio metric names follow the
@@ -495,8 +529,14 @@ When running in a Kubernetes environment, Klio will automatically define
 `CONTAINER_NAME`, `POD_NAME` and `NAMESPACE_NAME` environment variables.
 When any of these environment variables are set, Klio will automatically add
 the corresponding resource attributes (`k8s.container.name`, `k8s.pod.name`,
-`k8s.namespace.name`) to all telemetry data. Each attribute is added
+`k8s.namespace.name`) to all of Klio's own telemetry (the server, the plugin
+sidecars, the operator, and the WAL streaming client). Each attribute is added
 independently - you don't need all three environment variables to be present.
+
+This applies to telemetry Klio emits itself. The Kopia subprocess exports its
+own traces through a separate exporter that ignores these variables; see
+[Kopia repository spans](#kopia-repository-spans) for how resource attributes
+are populated on those spans.
 
 :::info
 If you have already defined any of these attributes in

@@ -65,7 +65,7 @@ spec:
                   fieldPath: metadata.uid
             # OTEL_SERVICE_NAME and OTEL_RESOURCE_ATTRIBUTES are set specifically for each container
             - name: OTEL_SERVICE_NAME
-              value: "klio-base"
+              value: "klio-server"
             - name: OTEL_RESOURCE_ATTRIBUTES
               value: "k8s.node.name=$(NODE_NAME),k8s.pod.uid=$(POD_UID)"
           envFrom:
