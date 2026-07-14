@@ -303,3 +303,28 @@ func TestReaderRecordsReadAndUnwrapStages(t *testing.T) {
 	assert.Equal(t, string(opentelemetry.PathGet), stagePath[string(opentelemetry.StageUnwrap)],
 		"unwrap stage must be recorded on the get path")
 }
+
+// TestNewReaderEmptyFileIsNotFound verifies that a WAL file which exists but has
+// no readable header (zero bytes) is reported as os.ErrNotExist. On an S3
+// backend a missing segment whose name is a prefix of an existing .partial
+// object surfaces this way, and callers must treat it as missing so they fall
+// back to the .partial variant instead of failing hard.
+func TestNewReaderEmptyFileIsNotFound(t *testing.T) {
+	opts := Options{FS: afero.NewMemMapFs(), Password: "this-password"}
+	require.NoError(t, Initialize(opts))
+
+	conn, err := Open(opts)
+	require.NoError(t, err)
+	defer conn.Close()
+
+	const (
+		clusterName = "cluster-example"
+		walName     = "000000010000000000000001"
+	)
+
+	// An empty file at the WAL archive path mimics a zero-byte object.
+	require.NoError(t, afero.WriteFile(conn.fs, getWALArchivePath(clusterName, walName), nil, 0o600))
+
+	_, err = NewReader(conn, clusterName, walName, NewDummyMetrics())
+	require.ErrorIs(t, err, os.ErrNotExist)
+}

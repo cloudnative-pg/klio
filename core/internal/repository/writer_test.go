@@ -65,6 +65,43 @@ func TestWriter(t *testing.T) {
 	assert.Greater(t, data.Size(), int64(len(block)))
 }
 
+// TestWriterWALFilePathAfterCloseMarkDone verifies that once a WAL segment is
+// marked done, WALFilePath returns the final name without the .partial suffix.
+func TestWriterWALFilePathAfterCloseMarkDone(t *testing.T) {
+	opts := Options{
+		FS:       afero.NewMemMapFs(),
+		Password: "this-password",
+	}
+	require.NoError(t, Initialize(opts))
+
+	conn, err := Open(opts)
+	require.NoError(t, err)
+	defer conn.Close()
+
+	const fileLen = 123
+	writer, err := conn.NewWriter(
+		WriterOptions{
+			ClusterName: "cluster-example",
+			WALName:     "0000001000000000000001F8",
+			SegmentSize: fileLen,
+			Metrics:     NewDummyMetrics(),
+		},
+	)
+	require.NoError(t, err)
+	require.NotNil(t, writer)
+	assert.Contains(t, writer.WALFilePath(), partialSuffix)
+
+	err = writer.WriteBlock(t.Context(), []byte("this-test"))
+	require.NoError(t, err)
+
+	err = writer.CloseMarkDone()
+	require.NoError(t, err)
+
+	expectedPath := path.Join("cluster-example", "0000001000000000", "0000001000000000000001F8")
+	assert.Equal(t, expectedPath, writer.WALFilePath())
+	assert.NotContains(t, writer.WALFilePath(), partialSuffix)
+}
+
 func TestDirectWriter(t *testing.T) {
 	opts := Options{
 		FS:       afero.NewMemMapFs(),

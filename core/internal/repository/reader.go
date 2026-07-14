@@ -52,6 +52,19 @@ func NewReader(
 	header := grpc.StartWALFile{}
 
 	if err := protodelim.UnmarshalFrom(reader, &header); err != nil {
+		_ = walFileReader.Close()
+
+		// A file with no readable header is not a usable WAL file. On an S3
+		// backend this is also how a *missing* segment surfaces when its name is
+		// a prefix of an existing object: requesting the bare "…000D" while only
+		// "…000D.partial" exists makes the store report the bare name as an empty
+		// directory rather than a not-found. Map the empty case to
+		// os.ErrNotExist so callers treat it as missing and fall back to the
+		// .partial variant instead of failing hard.
+		if errors.Is(err, io.EOF) {
+			return nil, fmt.Errorf("empty WAL file %s: %w", walFilePath, os.ErrNotExist)
+		}
+
 		return nil, fmt.Errorf("while reading WAL file header: %w", err)
 	}
 

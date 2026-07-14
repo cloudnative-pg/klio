@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"path"
 	"strconv"
 	"time"
 
@@ -430,11 +431,16 @@ func (h *putHandler) closeEmpty() error {
 // closeBuffer closes the WAL buffer, distinguishing between a partial and a
 // complete WAL segment.
 func (h *putHandler) closeBuffer(ctx context.Context) error {
-	if h.writtenSize != h.blockMeta.segmentSize || h.writtenSize == 0 {
+	if !h.isCompleted() {
 		return h.closePartial()
 	}
 
 	return h.closeComplete(ctx)
+}
+
+// isCompleted returns true if the WAL segment has been fully received.
+func (h *putHandler) isCompleted() bool {
+	return h.writtenSize == h.blockMeta.segmentSize && h.writtenSize != 0
 }
 
 // closePartial closes a partially received WAL file.
@@ -511,7 +517,7 @@ func (h *putHandler) notifyTier2(ctx context.Context) error {
 
 	if err := h.impl.queue.NotifyWALReceived(ctx, &queue.WALTask{
 		ClusterName: h.blockMeta.clusterName,
-		WALName:     h.blockMeta.walFileName,
+		WALName:     path.Base(h.walBuffer.WALFilePath()),
 	}); err != nil {
 		return status.Errorf(
 			grpccodes.Internal,

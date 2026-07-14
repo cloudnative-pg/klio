@@ -124,10 +124,25 @@ func (p *walPrefetcher) Request(ctx context.Context, walName, targetPath string)
 		return err
 	}
 
+	// Only a bare WAL segment can have a .partial variant, so don't fabricate a
+	// nonsensical "<name>.partial" request for a history or backup-label file:
+	// report it as missing and let the caller move on.
+	if !canHavePartial(walName) {
+		return err
+	}
+
 	// Complete WAL not found - try partial (direct to target, no cache).
 	contextLogger.Debug("Complete WAL not found, trying partial")
 
 	return p.getPartialWAL(ctx, walName, targetPath)
+}
+
+// canHavePartial reports whether walName could have a .partial variant. Only a
+// bare WAL segment can; a history or backup-label file (anything carrying an
+// extension) cannot. This matches the standalone get-wal command, which also
+// only falls back to a .partial for extension-less names.
+func canHavePartial(walName string) bool {
+	return filepath.Ext(walName) == ""
 }
 
 // Close shuts down the prefetcher, canceling pending downloads and waiting
@@ -268,11 +283,28 @@ func (p *walPrefetcher) downloadDirect(ctx context.Context, walName, targetPath 
 }
 
 // getPartialWAL downloads a partial WAL file directly to the target path.
-// Partial files are never cached as they may still be written to.
+// Partial files are never cached as they may still be written to. The outcome
+// is logged so that recovery from a .partial segment (the last segment of an
+// interrupted timeline) is visible, rather than being indistinguishable from a
+// complete-WAL restore.
 func (p *walPrefetcher) getPartialWAL(ctx context.Context, walName, targetPath string) error {
 	partialName := walName + ".partial"
+	contextLogger := log.FromContext(ctx).WithValues("walName", partialName, "downloadType", "partial")
 
-	return p.downloadWALToFile(ctx, partialName, targetPath)
+	start := time.Now()
+	err := p.downloadWALToFile(ctx, partialName, targetPath)
+	duration := time.Since(start)
+
+	switch {
+	case errors.Is(err, errWALNotFound):
+		contextLogger.Info("Partial WAL not found", "duration", duration)
+	case err != nil:
+		contextLogger.Info("Partial WAL download failed", "duration", duration, "error", err)
+	default:
+		contextLogger.Info("Partial WAL download completed", "duration", duration)
+	}
+
+	return err
 }
 
 // startDirectDownloadLocked starts downloading a WAL file to the spool directory

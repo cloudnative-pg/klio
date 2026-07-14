@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path"
+	"strings"
 	"time"
 
 	"github.com/spf13/afero"
@@ -20,10 +21,10 @@ import (
 // Writer writes a WAL file atomically: data is written to a `.partial`
 // file and renamed to the final path on CloseMarkDone.
 type Writer struct {
-	walFilePath        string
-	walFilePartialPath string
-	conn               *Connection
-	inner              *DirectWriter
+	walFilePath string
+
+	conn  *Connection
+	inner *DirectWriter
 }
 
 // WriterOptions configures a Writer.
@@ -57,21 +58,23 @@ type DirectWriter struct {
 	buffer *bufio.Writer
 }
 
+// partialSuffix is the suffix given to a WAL segment that has not been fully written and closed yet.
+const partialSuffix = ".partial"
+
 // NewWriter creates a new WAL file writer.
 func (c *Connection) NewWriter(opts WriterOptions) (*Writer, error) {
 	walFilePath := getWALArchivePath(opts.ClusterName, opts.WALName)
-	walFilePartialPath := walFilePath + ".partial"
+	walFilePath += partialSuffix
 
-	inner, err := c.newDirectWriterAtPath(walFilePartialPath, opts)
+	inner, err := c.newDirectWriterAtPath(walFilePath, opts)
 	if err != nil {
 		return nil, err
 	}
 
 	return &Writer{
-		walFilePath:        walFilePath,
-		walFilePartialPath: walFilePartialPath,
-		conn:               c,
-		inner:              inner,
+		walFilePath: walFilePath,
+		conn:        c,
+		inner:       inner,
 	}, nil
 }
 
@@ -121,11 +124,19 @@ func (w *Writer) CloseMarkDone() error {
 		return fmt.Errorf("while closing partial file: %w", err)
 	}
 
-	if err := w.conn.fs.Rename(w.walFilePartialPath, w.walFilePath); err != nil {
+	completedWalFilePath := strings.TrimSuffix(w.walFilePath, partialSuffix)
+	if err := w.conn.fs.Rename(w.walFilePath, completedWalFilePath); err != nil {
 		return fmt.Errorf("while renaming partial file: %w", err)
 	}
 
+	w.walFilePath = completedWalFilePath
+
 	return nil
+}
+
+// WALFilePath returns the path of the WAL file being written.
+func (w *Writer) WALFilePath() string {
+	return w.walFilePath
 }
 
 // Flush flushes all the buffers to disk and fsyncs the underlying file.

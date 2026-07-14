@@ -376,3 +376,13 @@ func TestWalState(t *testing.T) {
 	assert.Equal(t, walStateReady, walState(1))
 	assert.Equal(t, walStateFailed, walState(2))
 }
+
+// TestCanHavePartial verifies that only bare WAL segments are eligible for a
+// .partial fallback: history and backup-label files (which carry an extension)
+// must not trigger a nonsensical "<name>.partial" request.
+func TestCanHavePartial(t *testing.T) {
+	assert.True(t, canHavePartial("000000010000000000000001"))
+	assert.False(t, canHavePartial("00000002.history"))
+	assert.False(t, canHavePartial("000000010000000000000001.00000028.backup"))
+	assert.False(t, canHavePartial("000000010000000000000001.partial"))
+}

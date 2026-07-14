@@ -57,3 +57,98 @@ func TestWalHandlerRecordsErrorOnTier2UploadSpan(t *testing.T) {
 	require.Len(t, spans[0].Events, 1, "span must carry a recorded-error event")
 	assert.Equal(t, "exception", spans[0].Events[0].Name)
 }
+
+// TestWalHandlerArchivesPartialWALFile verifies that a WAL segment left on
+// tier-1 under its partial name, as happens when a failover interrupts the
+// Put stream before the segment is fully received, is archived to tier-2
+// under that same partial name instead of being silently dropped because
+// tier-2 was asked to look up the bare (non-partial) name.
+func TestWalHandlerArchivesPartialWALFile(t *testing.T) {
+	const (
+		clusterName = "cluster-example"
+		walName     = "000000010000000000000001.partial"
+	)
+
+	tier1Opts := repository.Options{FS: afero.NewMemMapFs(), Password: "tier1-password"}
+	require.NoError(t, repository.Initialize(tier1Opts))
+	tier1, err := repository.Open(tier1Opts)
+	require.NoError(t, err)
+	defer tier1.Close()
+
+	tier2Opts := repository.Options{FS: afero.NewMemMapFs(), Password: "tier2-password"}
+	require.NoError(t, repository.Initialize(tier2Opts))
+	tier2, err := repository.Open(tier2Opts)
+	require.NoError(t, err)
+	defer tier2.Close()
+
+	w := NewWAL(&WALOptions{Tier1: tier1, Tier2: tier2})
+
+	writer, err := tier1.NewWriter(repository.WriterOptions{
+		ClusterName: clusterName,
+		WALName:     "000000010000000000000001",
+		SegmentSize: 16,
+		Metrics:     w.metrics,
+	})
+	require.NoError(t, err)
+	require.NoError(t, writer.WriteBlock(t.Context(), []byte("partial-data")))
+	require.NoError(t, writer.Flush())
+	// Close, not CloseMarkDone: the file stays under its partial name, as it
+	// does when a Put stream is interrupted by a failover.
+	require.NoError(t, writer.Close())
+
+	task := &queue.WALTask{ClusterName: clusterName, WALName: walName}
+	require.NoError(t, w.walHandler(t.Context(), task))
+
+	exists, err := tier2.IsWALFileExisting(clusterName, walName)
+	require.NoError(t, err)
+	assert.True(t, exists, "partial WAL file must be archived to tier-2 under its partial name")
+}
+
+// TestIsPartialWALFile verifies that only the .partial variant of a valid WAL
+// segment is recognized as partial: bare segments, history and backup-label
+// files, and malformed .partial names are not.
+func TestIsPartialWALFile(t *testing.T) {
+	tests := map[string]bool{
+		"000000010000000000000001.partial":         true,
+		"000000010000000000000001":                 false,
+		"00000002.history":                         false,
+		"000000010000000000000001.00000028.backup": false,
+		"garbage.partial":                          false,
+	}
+
+	for name, want := range tests {
+		t.Run(name, func(t *testing.T) {
+			assert.Equal(t, want, isPartialWALFile(name))
+		})
+	}
+}
+
+// TestLatestWrittenLSN verifies that the reported LSN reflects the bytes
+// actually archived: a full segment reports the segment's end LSN, while a
+// .partial segment reports a lower LSN proportional to its written size.
+func TestLatestWrittenLSN(t *testing.T) {
+	const (
+		walName     = "000000010000000000000002"
+		segmentSize = 16 * 1024 * 1024
+	)
+
+	// The start LSN of segment 2 sits at 2 * segmentSize.
+	startPos := uint64(2) * segmentSize
+
+	complete, err := latestWrittenLSN(walName, segmentSize, segmentSize)
+	require.NoError(t, err)
+	assert.Equal(t, startPos+segmentSize-1, complete,
+		"a complete segment must report the segment's end LSN")
+
+	const partialSize = 4 * 1024 * 1024
+	partial, err := latestWrittenLSN(walName, segmentSize, partialSize)
+	require.NoError(t, err)
+	assert.Equal(t, startPos+partialSize-1, partial,
+		"a partial segment must report the LSN of the bytes actually written")
+	assert.Less(t, partial, complete,
+		"a partial segment must report a lower LSN than a complete one")
+
+	// A malformed (non-24-char) name yields an error rather than a bogus LSN.
+	_, err = latestWrittenLSN(walName+".partial", segmentSize, partialSize)
+	require.Error(t, err)
+}
