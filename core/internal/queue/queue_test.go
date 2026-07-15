@@ -387,6 +387,56 @@ func TestGetLatestUploadedWALMultipleClusters(t *testing.T) {
 	assert.Empty(t, latestWAL)
 }
 
+// TestWALConsumerSkipsLatestUploadedMarkerForNonSegment verifies that
+// ConsumeWALReceivedMessages only records the latest-uploaded-WAL marker for
+// real WAL segments (and their .partial variant): a task carrying a timeline
+// history file name must be processed successfully but must not overwrite the
+// marker, since a history file name is not usable for retention's LSN-based
+// WAL safety check.
+func TestWALConsumerSkipsLatestUploadedMarkerForNonSegment(t *testing.T) {
+	ns, url := startNATSServer(t)
+	defer ns.Shutdown()
+
+	nc, err := nats.Connect(url)
+	require.NoError(t, err)
+	defer nc.Close()
+
+	ctx := t.Context()
+	conn, err := New(ctx, nc)
+	require.NoError(t, err)
+
+	const (
+		clusterName = "history-cluster"
+		segmentName = "000000010000000000000001"
+		historyName = "00000002.history"
+	)
+
+	require.NoError(t, conn.NotifyWALReceived(ctx, &WALTask{
+		ClusterName: clusterName,
+		WALName:     segmentName,
+	}))
+	require.NoError(t, conn.NotifyWALReceived(ctx, &WALTask{
+		ClusterName: clusterName,
+		WALName:     historyName,
+	}))
+
+	handler := func(_ context.Context, _ *WALTask) error { return nil }
+	go func() {
+		_ = conn.ConsumeWALReceivedMessages(ctx, handler)
+	}()
+
+	require.Eventually(t, func() bool {
+		info, infoErr := streamHandle(ctx, t, conn.conn, klioWalStreamName).Info(ctx)
+		return infoErr == nil && info.State.Msgs == 0
+	}, 5*time.Second, 25*time.Millisecond,
+		"both the segment and the history file tasks must be processed")
+
+	latestWAL, err := conn.GetLatestUploadedWAL(ctx, clusterName)
+	require.NoError(t, err)
+	assert.Equal(t, segmentName, latestWAL,
+		"the history file task must not overwrite the latest-uploaded-WAL marker")
+}
+
 // TestConsumerRetryConfig pins the bounded-retry configuration of the
 // production WAL and backup consumers so that accidental regressions
 // (e.g. dropping MaxDeliver or BackOff) are caught.

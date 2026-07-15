@@ -17,6 +17,7 @@ import (
 	"go.opentelemetry.io/otel/sdk/metric/metricdata"
 
 	"github.com/cloudnative-pg/klio/core/internal/opentelemetry"
+	"github.com/cloudnative-pg/klio/core/internal/wal"
 )
 
 func TestWriter(t *testing.T) {
@@ -89,7 +90,7 @@ func TestWriterWALFilePathAfterCloseMarkDone(t *testing.T) {
 	)
 	require.NoError(t, err)
 	require.NotNil(t, writer)
-	assert.Contains(t, writer.WALFilePath(), partialSuffix)
+	assert.Contains(t, writer.WALFilePath(), wal.PartialSuffix)
 
 	err = writer.WriteBlock(t.Context(), []byte("this-test"))
 	require.NoError(t, err)
@@ -99,7 +100,7 @@ func TestWriterWALFilePathAfterCloseMarkDone(t *testing.T) {
 
 	expectedPath := path.Join("cluster-example", "0000001000000000", "0000001000000000000001F8")
 	assert.Equal(t, expectedPath, writer.WALFilePath())
-	assert.NotContains(t, writer.WALFilePath(), partialSuffix)
+	assert.NotContains(t, writer.WALFilePath(), wal.PartialSuffix)
 }
 
 func TestDirectWriter(t *testing.T) {

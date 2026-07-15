@@ -9,6 +9,8 @@ import (
 	"github.com/nats-io/jsm.go"
 	"github.com/nats-io/nats-server/v2/server"
 	"github.com/nats-io/nats.go"
+
+	"github.com/cloudnative-pg/klio/core/internal/wal"
 )
 
 // WALTask is the structure that is sent on NATS Stream when
@@ -56,6 +58,10 @@ func (q *Conn) ConsumeWALReceivedMessages(ctx context.Context, handler WALTaskHa
 					"dlqSequence", dlqSequence,
 				)
 			}
+		}
+
+		if !wal.IsWALSegmentOrPartial(t.WALName) {
+			return nil
 		}
 
 		if err := q.notifyMessage(

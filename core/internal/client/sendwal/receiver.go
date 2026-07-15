@@ -349,7 +349,7 @@ func (s *Process) downloadHistoryFiles(
 			continue
 		}
 
-		if err := s.client.StoreHistoryFile(ctx, result.FileName, result.Content); err != nil {
+		if err := s.client.StoreHistoryFile(ctx, result.FileName, result.Content, s.sendToTier2); err != nil {
 			span.RecordError(err)
 			errorList = errors.Join(errorList, err)
 			contextLogger.Error(err, "timeline history upload failed",

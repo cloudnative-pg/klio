@@ -7,7 +7,6 @@ import (
 	"io"
 	"os"
 	"os/signal"
-	"strings"
 	"time"
 
 	"github.com/cloudnative-pg/cloudnative-pg/pkg/postgres"
@@ -21,14 +20,11 @@ import (
 	"github.com/cloudnative-pg/klio/core/internal/opentelemetry"
 	"github.com/cloudnative-pg/klio/core/internal/queue"
 	"github.com/cloudnative-pg/klio/core/internal/repository"
+	"github.com/cloudnative-pg/klio/core/internal/wal"
 )
 
 // tier2BufferSize is the write buffer size for tier2 WAL streaming.
 const tier2BufferSize = 4 * 1024 * 1024
-
-// partialSuffix is the suffix carried by a WAL segment that was not fully
-// received, such as one left behind by a failover.
-const partialSuffix = ".partial"
 
 // WAL represents a WAL consumer.
 type WAL struct {
@@ -139,6 +135,7 @@ func (d *WAL) walHandler(ctx context.Context, task *queue.WALTask) (returnErr er
 
 			return
 		}
+
 		d.recordArchivedWALMetrics(ctx, task, reader.GetFileLength(), writtenSize)
 	}()
 
@@ -178,13 +175,13 @@ func (d *WAL) recordArchivedWALMetrics(ctx context.Context, task *queue.WALTask,
 	// Record LSN and timeline only for complete WAL segments and their .partial
 	// variants (such as one left behind by a failover). History and
 	// backup-label files carry neither.
-	if !postgres.IsWALFile(task.WALName) && !isPartialWALFile(task.WALName) {
+	if !wal.IsWALSegmentOrPartial(task.WALName) {
 		return
 	}
 
 	// The segment parsers below reject the .partial suffix, so recover the bare
 	// segment name for them.
-	walName := strings.TrimSuffix(task.WALName, partialSuffix)
+	walName := wal.TrimPartialSuffix(task.WALName)
 
 	// Report the LSN of the bytes actually written so a .partial segment does
 	// not overstate the archived LSN. An empty segment has no LSN to report.
@@ -202,13 +199,6 @@ func (d *WAL) recordArchivedWALMetrics(ctx context.Context, task *queue.WALTask,
 		logger.Error(err, "Could not parse timeline for latest written timeline metric",
 			"walName", walName)
 	}
-}
-
-// isPartialWALFile reports whether name is the .partial variant of a complete
-// WAL segment, such as one left behind by a failover.
-func isPartialWALFile(name string) bool {
-	bareName, isPartial := strings.CutSuffix(name, partialSuffix)
-	return isPartial && postgres.IsWALFile(bareName)
 }
 
 // latestWrittenLSN returns the byte offset of the last LSN durably archived for

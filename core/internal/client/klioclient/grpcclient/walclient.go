@@ -12,7 +12,7 @@ import (
 
 // StoreWAL uploads a WAL in the WAL server
 // Important: this function uploads a full WAL file.
-func (c *Connection) StoreWAL(ctx context.Context, name string, content []byte) error {
+func (c *Connection) StoreWAL(ctx context.Context, name string, content []byte, sendToTier2 bool) error {
 	stream, err := c.Put(ctx)
 	if err != nil {
 		return fmt.Errorf("while starting uploading a WAL file: %w", err)
@@ -32,6 +32,7 @@ func (c *Connection) StoreWAL(ctx context.Context, name string, content []byte) 
 			WalName:     name,
 			SegmentSize: uint64(len(content)),
 			WalBlock:    buffer[:readBytes],
+			SendToTier2: sendToTier2,
 		}); err != nil {
 			return fmt.Errorf("error while sending WAL block (sending via GRPC): %w", err)
 		}
@@ -57,6 +58,6 @@ func (c *Connection) StoreWAL(ctx context.Context, name string, content []byte) 
 }
 
 // StoreHistoryFile uses the underlying GRPC connection to store a history file.
-func (c *Connection) StoreHistoryFile(ctx context.Context, name string, content []byte) error {
-	return c.StoreWAL(ctx, name, content)
+func (c *Connection) StoreHistoryFile(ctx context.Context, name string, content []byte, sendToTier2 bool) error {
+	return c.StoreWAL(ctx, name, content, sendToTier2)
 }

@@ -104,23 +104,45 @@ func TestWalHandlerArchivesPartialWALFile(t *testing.T) {
 	assert.True(t, exists, "partial WAL file must be archived to tier-2 under its partial name")
 }
 
-// TestIsPartialWALFile verifies that only the .partial variant of a valid WAL
-// segment is recognized as partial: bare segments, history and backup-label
-// files, and malformed .partial names are not.
-func TestIsPartialWALFile(t *testing.T) {
-	tests := map[string]bool{
-		"000000010000000000000001.partial":         true,
-		"000000010000000000000001":                 false,
-		"00000002.history":                         false,
-		"000000010000000000000001.00000028.backup": false,
-		"garbage.partial":                          false,
-	}
+// TestWalHandlerArchivesHistoryFile verifies that a timeline history file is
+// archived to tier-2 like any other WAL task, without erroring on the LSN and
+// timeline metrics that only apply to real WAL segments.
+func TestWalHandlerArchivesHistoryFile(t *testing.T) {
+	const (
+		clusterName = "cluster-example"
+		historyName = "00000002.history"
+	)
 
-	for name, want := range tests {
-		t.Run(name, func(t *testing.T) {
-			assert.Equal(t, want, isPartialWALFile(name))
-		})
-	}
+	tier1Opts := repository.Options{FS: afero.NewMemMapFs(), Password: "tier1-password"}
+	require.NoError(t, repository.Initialize(tier1Opts))
+	tier1, err := repository.Open(tier1Opts)
+	require.NoError(t, err)
+	defer tier1.Close()
+
+	tier2Opts := repository.Options{FS: afero.NewMemMapFs(), Password: "tier2-password"}
+	require.NoError(t, repository.Initialize(tier2Opts))
+	tier2, err := repository.Open(tier2Opts)
+	require.NoError(t, err)
+	defer tier2.Close()
+
+	w := NewWAL(&WALOptions{Tier1: tier1, Tier2: tier2})
+
+	writer, err := tier1.NewWriter(repository.WriterOptions{
+		ClusterName: clusterName,
+		WALName:     historyName,
+		SegmentSize: 16,
+		Metrics:     w.metrics,
+	})
+	require.NoError(t, err)
+	require.NoError(t, writer.WriteBlock(t.Context(), []byte("history-data")))
+	require.NoError(t, writer.CloseMarkDone())
+
+	task := &queue.WALTask{ClusterName: clusterName, WALName: historyName}
+	require.NoError(t, w.walHandler(t.Context(), task))
+
+	exists, err := tier2.IsWALFileExisting(clusterName, historyName)
+	require.NoError(t, err)
+	assert.True(t, exists, "history file must be archived to tier-2")
 }
 
 // TestLatestWrittenLSN verifies that the reported LSN reflects the bytes

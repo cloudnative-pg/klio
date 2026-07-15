@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"os"
 	"path"
-	"strings"
 	"time"
 
 	"github.com/spf13/afero"
@@ -16,6 +15,7 @@ import (
 
 	"github.com/cloudnative-pg/klio/core/internal/grpc"
 	"github.com/cloudnative-pg/klio/core/internal/opentelemetry"
+	"github.com/cloudnative-pg/klio/core/internal/wal"
 )
 
 // Writer writes a WAL file atomically: data is written to a `.partial`
@@ -58,13 +58,10 @@ type DirectWriter struct {
 	buffer *bufio.Writer
 }
 
-// partialSuffix is the suffix given to a WAL segment that has not been fully written and closed yet.
-const partialSuffix = ".partial"
-
 // NewWriter creates a new WAL file writer.
 func (c *Connection) NewWriter(opts WriterOptions) (*Writer, error) {
 	walFilePath := getWALArchivePath(opts.ClusterName, opts.WALName)
-	walFilePath += partialSuffix
+	walFilePath = wal.WithPartialSuffix(walFilePath)
 
 	inner, err := c.newDirectWriterAtPath(walFilePath, opts)
 	if err != nil {
@@ -124,7 +121,7 @@ func (w *Writer) CloseMarkDone() error {
 		return fmt.Errorf("while closing partial file: %w", err)
 	}
 
-	completedWalFilePath := strings.TrimSuffix(w.walFilePath, partialSuffix)
+	completedWalFilePath := wal.TrimPartialSuffix(w.walFilePath)
 	if err := w.conn.fs.Rename(w.walFilePath, completedWalFilePath); err != nil {
 		return fmt.Errorf("while renaming partial file: %w", err)
 	}
