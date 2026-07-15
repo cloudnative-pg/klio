@@ -7,7 +7,7 @@
 set -euo pipefail
 
 # renovate: datasource=github-releases depName=kubernetes-csi/csi-driver-host-path
-CSI_DRIVER_HOST_PATH_VERSION="v1.17.1"
+CSI_DRIVER_HOST_PATH_VERSION="v1.18.0"
 
 # csi-hostpath-plugin.yaml bundles every sidecar into one pod and ships the
 # ClusterRoleBindings for csi-hostpathplugin-sa, but NOT the ClusterRoles they
