@@ -79,7 +79,7 @@ jobs:
         with:
           name: openshift_e2e_logs
           path: |
-            e2e_cluster_logs/
+            operator/test/e2e/e2e_cluster_logs/
           if-no-files-found: ignore
 
       - name: Delete CRC cluster
