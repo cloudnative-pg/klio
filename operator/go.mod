@@ -7,8 +7,8 @@ require (
 	github.com/cert-manager/cert-manager v1.21.0
 	github.com/cloudnative-pg/api v1.30.0
 	github.com/cloudnative-pg/cloudnative-pg v1.30.0
-	github.com/cloudnative-pg/cloudnative-pg/tests v0.0.0-20260717154907-e39ec6b41512
-	github.com/cloudnative-pg/cnpg-i v0.5.0
+	github.com/cloudnative-pg/cloudnative-pg/tests v0.0.0-20260720101308-4e57365d50cc
+	github.com/cloudnative-pg/cnpg-i v0.6.0
 	github.com/cloudnative-pg/cnpg-i-machinery v0.4.2
 	github.com/cloudnative-pg/machinery v0.5.0
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc
