@@ -268,3 +268,61 @@ The installation is complete when the CSV reaches the
 ```bash
 oc get csv -n openshift-operators -w
 ```
+
+## Red Hat certification
+
+Klio's operator image and OLM bundle are validated against Red Hat's
+[Preflight](https://github.com/redhat-openshift-ecosystem/openshift-preflight)
+certification policies. Two checks cover the two artifacts:
+
+- **`check container`** — static policy checks on the operator image
+  (labels, layers, license, base image). It needs no cluster and runs
+  in the Dagger engine on every PR via `task olm:preflight-container`
+  (see CNP-8641).
+- **`check operator`** — installs the bundle through OLM into a live
+  OpenShift cluster and verifies it is deployable. Because it needs a
+  real OpenShift cluster (OLM and Security Context Constraints), it runs
+  via `task olm:preflight-operator`: in the OpenShift E2E CI job (against
+  the CRC cluster it starts, before the e2e suite runs) and locally
+  against CRC. The bundle and catalog images are multi-arch
+  (`linux/amd64` and `linux/arm64`), so the check runs natively on either
+  architecture — including CRC on an Apple Silicon Mac.
+
+### Dry-run `check operator` against CRC
+
+Point `EXTERNAL_KUBECONFIG` at an OpenShift (CRC) cluster and run the
+task. The bundle and catalog (index) images must already be published
+for the build under test — build them first with
+`task olm:catalog ENVIRONMENT=testing` if needed; the certification runs
+against the existing bundle rather than rebuilding it.
+
+```bash
+export EXTERNAL_KUBECONFIG=/path/to/crc/kubeconfig
+export GHCR_USERNAME=<github-username>
+export GHCR_TOKEN=<github-token-with-read:packages>
+task olm:preflight-operator ENVIRONMENT=testing
+```
+
+`GHCR_USERNAME` and `GHCR_TOKEN` are required: preflight uses them to
+pull the private `ghcr.io` bundle and index images, and the task adds
+them to the cluster-wide pull secret so the kubelet can pull the
+operator image once OLM installs it.
+
+preflight installs the operator through OLM, runs the operator policy,
+and the Dagger `preflight` module evaluates the pass/fail verdict
+in-engine. Raw artifacts are written to `operator/preflight-artifacts/`.
+
+### Submitting results to Red Hat (releases only)
+
+At release time the same task submits the results to Red Hat Pyxis. This
+is gated behind `SUBMIT=true` and requires the Pyxis credentials to be
+exported:
+
+```bash
+export PFLT_PYXIS_API_TOKEN=<pyxis-api-token>
+export PFLT_CERTIFICATION_COMPONENT_ID=<component-id>
+task olm:preflight-operator ENVIRONMENT=production SUBMIT=true
+```
+
+Without `SUBMIT=true` the task never contacts Red Hat, so it is safe to
+run for local validation.

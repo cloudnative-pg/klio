@@ -23,6 +23,8 @@ jobs:
     timeout-minutes: 120
     env:
       ENVIRONMENT: "testing"
+      GHCR_USERNAME: ${{ github.actor }}
+      GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -56,22 +58,29 @@ jobs:
           memory: 20480
           disk: 80
 
+      - name: Export kubeconfig path
+        # EXTERNAL_KUBECONFIG points the olm/integration tasks below at the CRC
+        # cluster started above.
+        run: echo "EXTERNAL_KUBECONFIG=${HOME}/.kube/config" >> "$GITHUB_ENV"
+
       - name: Set up Go
         uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
         with:
           go-version-file: operator/go.mod
           cache-dependency-path: operator/go.sum
 
+      - name: Setup dagger
+        uses: ./.github/actions/setup-dagger
+
+      - name: Run Red Hat preflight (check operator)
+        # Certify the OLM bundle on the freshly started cluster, before the e2e
+        # suite installs the operator. preflight installs into its own namespace,
+        # so it stays isolated from the e2e install in openshift-operators.
+        continue-on-error: true
+        run: task olm:preflight-operator ENVIRONMENT=testing
+
       - name: Run e2e tests on OpenShift
-        env:
-          # The e2e-openshift dependencies (write-e2e-config-openshift and
-          # deploy-to-openshift) build the e2e config and GHCR pull secrets
-          # from these.
-          GHCR_USERNAME: ${{ github.actor }}
-          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          export EXTERNAL_KUBECONFIG="${HOME}/.kube/config"
-          task integration:e2e-openshift
+        run: task integration:e2e-openshift
 
       - name: Upload e2e logs
         if: always()

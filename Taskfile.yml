@@ -21,6 +21,11 @@ vars:
   # scorecard against it (olm:scorecard); the two must use the same version.
   # renovate: datasource=docker depName=quay.io/operator-framework/operator-sdk versioning=docker
   OPERATOR_SDK_IMAGE_VERSION: v1.42.3@sha256:b7378eb179b97fbdf1ff1304e86f62e9ff9f9c2d0089464111ce8eddd39e2013
+  # Red Hat Preflight image used by olm:preflight-container (check container, in
+  # the Dagger engine) and olm:preflight-operator (check operator, host-side);
+  # the two must use the same version.
+  # renovate: datasource=docker depName=quay.io/opdev/preflight versioning=docker
+  PREFLIGHT_VERSION: 1.19.2@sha256:58dba81f9643ecfd6329075d3dbafc612db6489e31780eaad10bd249d8da0435
   ALLOWED_ENVS: [testing, production]
 
 tasks:
@@ -467,6 +472,50 @@ tasks:
         --args "--save_path=licenses/go-licenses" --args "--ignore=github.com/cloudnative-pg/klio"
         directory --path licenses/ export --path licenses/
 
+  internal:ensure-ghcr-pull-secret:
+    desc: Add GHCR credentials to the OpenShift cluster-wide pull secret
+    internal: true
+    run: once
+    requires:
+      vars:
+        # EXTERNAL_KUBECONFIG points at the OpenShift cluster whose global pull
+        # secret is updated; GHCR_USERNAME/GHCR_TOKEN build the credential.
+        - EXTERNAL_KUBECONFIG
+        - GHCR_USERNAME
+        - GHCR_TOKEN
+    env:
+      KUBECONFIG: '{{ .EXTERNAL_KUBECONFIG }}'
+      GHCR_USERNAME: '{{ .GHCR_USERNAME }}'
+      GHCR_TOKEN: '{{ .GHCR_TOKEN }}'
+    cmds:
+      - |
+        set -euo pipefail
+        # Add GHCR credentials to the cluster-wide pull secret so the kubelet can
+        # pull the private Klio operator/bundle/operand images on every node.
+        # Required on both OLM install paths (preflight check operator and the
+        # e2e deploy): pods OLM creates fall back to the ServiceAccount dockercfg,
+        # which only covers the internal registry, so without this the private
+        # ghcr.io images fail to pull.
+
+        # Build the GHCR dockerconfigjson explicitly rather than reading
+        # ~/.docker/config.json, which may use a credential helper that omits the
+        # inline auth string.
+        ghcr_secret=$(mktemp)
+        global_secret=$(mktemp)
+        merged_secret=$(mktemp)
+        trap 'rm -f "${ghcr_secret}" "${global_secret}" "${merged_secret}"' EXIT
+        auth=$(printf '%s:%s' "${GHCR_USERNAME}" "${GHCR_TOKEN}" | base64 | tr -d '\n')
+        printf '{"auths":{"ghcr.io":{"auth":"%s"}}}' "${auth}" > "${ghcr_secret}"
+
+        kubectl get secret pull-secret -n openshift-config \
+          -o jsonpath='{.data.\.dockerconfigjson}' | base64 -d > "${global_secret}"
+        jq -s '.[0] * .[1]' "${global_secret}" "${ghcr_secret}" > "${merged_secret}"
+        kubectl create secret generic pull-secret \
+          --type=kubernetes.io/dockerconfigjson \
+          --from-file=.dockerconfigjson="${merged_secret}" \
+          -n openshift-config \
+          --dry-run=client -o yaml | kubectl apply -f -
+
   ####################################
   ## OPERATOR
   ####################################
@@ -807,6 +856,7 @@ tasks:
         docker buildx build
         --builder {{ .BUILDER_NAME }}
         --push
+        --platform linux/amd64,linux/arm64
         -t ${registry}/klio-operator${suffix}:${tag}-bundle
         -f operator/bundle.Dockerfile
         --output="type=image,registry.insecure=${insecure}"
@@ -895,6 +945,7 @@ tasks:
         docker buildx build
         --builder {{ .BUILDER_NAME }}
         --push
+        --platform linux/amd64,linux/arm64
         -t ${registry}/klio-operator${suffix}:${tag}-catalog
         -f operator/catalog.Dockerfile
         --output="type=image,registry.insecure=${insecure}"
@@ -940,20 +991,154 @@ tasks:
         # re-deriving the image name per environment.
         - IMAGE
     env:
-      # REGISTRY_AUTH_FILE is the registry credentials file used to pull the
-      # image under test (same convention as the OLM tasks).
+      # REGISTRY_AUTH_FILE is the fallback registry credentials file used to pull
+      # the image under test (same convention as the OLM tasks).
       REGISTRY_AUTH_FILE: '{{ .REGISTRY_AUTH_FILE | default (printf "%s/.docker/config.json" (env "HOME")) }}'
+      GHCR_USERNAME: '{{ .GHCR_USERNAME | default "" }}'
+      GHCR_TOKEN: '{{ .GHCR_TOKEN | default "" }}'
     # Preflight runs and the results are evaluated entirely inside the Dagger
     # engine: the `verdict` call fails on a non-passing check. Nothing is
     # written to the host.
     cmds:
       - |
+        set -euo pipefail
+        # Resolve a docker config for the pull. Prefer building it from
+        # GHCR_USERNAME/GHCR_TOKEN when set: ~/.docker/config.json often relies on
+        # a credential helper that omits the inline auth string (e.g. Docker
+        # Desktop on macOS), so reading it directly is unreliable for local/CRC
+        # runs. This matches integration:deploy-to-openshift. Fall back to
+        # REGISTRY_AUTH_FILE otherwise (e.g. CI, where `docker login` writes an
+        # inline auth).
+        dockerconfig="${REGISTRY_AUTH_FILE}"
+        if [ -n "${GHCR_USERNAME:-}" ] && [ -n "${GHCR_TOKEN:-}" ]; then
+          dockerconfig="$(mktemp)"
+          trap 'rm -f "${dockerconfig}"' EXIT
+          auth="$(printf '%s:%s' "${GHCR_USERNAME}" "${GHCR_TOKEN}" | base64 | tr -d '\n')"
+          printf '{"auths":{"ghcr.io":{"auth":"%s"}}}' "${auth}" > "${dockerconfig}"
+        fi
         docker_config_arg=""
-        if [ -f "${REGISTRY_AUTH_FILE}" ]; then
-          docker_config_arg="--docker-config file://${REGISTRY_AUTH_FILE}"
+        if [ -f "${dockerconfig}" ]; then
+          docker_config_arg="--docker-config file://${dockerconfig}"
         fi
         GITHUB_REF= dagger call -m dagger/preflight \
+          --preflight-image quay.io/opdev/preflight:{{ .PREFLIGHT_VERSION }} \
           check-container --image "{{ .IMAGE }}" ${docker_config_arg} verdict
+
+  olm:preflight-operator:
+    desc: Run Red Hat Preflight (check operator) certification against a live OpenShift cluster
+    summary: |
+      Runs `preflight check operator` against the OLM bundle already published
+      for this build, installing it through OLM into the OpenShift cluster
+      referenced by EXTERNAL_KUBECONFIG (CRC locally / in the OpenShift E2E CI
+      job) and evaluating the verdict in the Dagger engine.
+
+      Unlike check container, check operator needs a live OpenShift cluster
+      (OLM, SCC), which the Dagger engine cannot reach, so preflight runs
+      host-side against EXTERNAL_KUBECONFIG (like the other CRC tasks) and only
+      the pass/fail verdict is evaluated in-engine via the preflight module.
+
+      Dry run (default) evaluates the checks without contacting Red Hat. Set
+      SUBMIT=true (with PFLT_PYXIS_API_TOKEN and PFLT_CERTIFICATION_COMPONENT_ID
+      exported) to submit the results to Red Hat Pyxis; this is intended for
+      releases only.
+    dir: operator
+    run: once
+    requires:
+      vars:
+        # EXTERNAL_KUBECONFIG points at the OpenShift (CRC) cluster preflight
+        # installs the operator into. Named like the other CRC tasks so a run
+        # can share the same cluster.
+        - EXTERNAL_KUBECONFIG
+        # GHCR_USERNAME/GHCR_TOKEN authenticate the private Klio image pulls:
+        # both preflight's own bundle/index pulls and (via the dependency below)
+        # the cluster-wide pull secret the kubelet uses for the operator pod.
+        - GHCR_USERNAME
+        - GHCR_TOKEN
+        - name: ENVIRONMENT
+          enum:
+            ref: .ALLOWED_ENVS
+    deps:
+      - task: internal:ensure-ghcr-pull-secret
+        vars:
+          EXTERNAL_KUBECONFIG: '{{ .EXTERNAL_KUBECONFIG }}'
+          GHCR_USERNAME: '{{ .GHCR_USERNAME }}'
+          GHCR_TOKEN: '{{ .GHCR_TOKEN }}'
+    env:
+      registry: '{{ if .GITHUB_ACTIONS }}ghcr.io/enterprisedb{{ else }}{{ .REGISTRY_NAME }}:{{ .REGISTRY_PORT }}{{ end }}'
+      suffix: '{{ if ( ne .ENVIRONMENT "production" ) }}-testing{{end}}'
+      tag: '{{ .TAG | default .IMAGE_TAG }}'
+      # GHCR_USERNAME/GHCR_TOKEN build the docker config for the bundle/index
+      # pulls and feed the cluster pull secret via the
+      # internal:ensure-ghcr-pull-secret dependency. The OpenShift E2E CI job
+      # sets both.
+      GHCR_USERNAME: '{{ .GHCR_USERNAME }}'
+      GHCR_TOKEN: '{{ .GHCR_TOKEN }}'
+      # Export EXTERNAL_KUBECONFIG (otherwise only a required var) so the recipe
+      # below can reference it: with `set -u` an unexported var passed on the
+      # command line rather than via the environment would abort as unbound.
+      EXTERNAL_KUBECONFIG: '{{ .EXTERNAL_KUBECONFIG }}'
+    vars:
+      # SUBMIT toggles submission to Red Hat Pyxis. Dry run by default.
+      SUBMIT: '{{ .SUBMIT | default "false" }}'
+    cmds:
+      - |
+        set -euo pipefail
+        bundle="${registry}/klio-operator${suffix}:${tag}-bundle"
+        index="${registry}/klio-operator${suffix}:${tag}-catalog"
+
+        # Start from a clean artifacts dir so a previous run's results.json
+        # cannot poison the verdict.
+        artifacts="preflight-artifacts"
+        rm -rf "${artifacts}"
+        mkdir -p "${artifacts}"
+
+        # Build the docker config for the bundle/index pulls from
+        # GHCR_USERNAME/GHCR_TOKEN (required vars). We construct it explicitly
+        # rather than reading ~/.docker/config.json, which may use a credential
+        # helper that omits the inline auth string (e.g. Docker Desktop on
+        # macOS). This matches integration:deploy-to-openshift.
+        dockerconfig="$(mktemp)"
+        trap 'rm -f "${dockerconfig}"' EXIT
+        auth="$(printf '%s:%s' "${GHCR_USERNAME}" "${GHCR_TOKEN}" | base64 | tr -d '\n')"
+        printf '{"auths":{"ghcr.io":{"auth":"%s"}}}' "${auth}" > "${dockerconfig}"
+
+        docker_config="-e PFLT_DOCKERCONFIG=/dockerconfig -v ${dockerconfig}:/dockerconfig:ro"
+
+        submit=""
+        submit_env=""
+        if [ "{{ .SUBMIT }}" = "true" ]; then
+          : "${PFLT_PYXIS_API_TOKEN:?must be exported to submit results}"
+          : "${PFLT_CERTIFICATION_COMPONENT_ID:?must be exported to submit results}"
+          submit="--submit"
+          submit_env="-e PFLT_PYXIS_API_TOKEN -e PFLT_CERTIFICATION_COMPONENT_ID"
+        fi
+
+        # preflight must reach the OpenShift API server named in the kubeconfig
+        # (e.g. api.crc.testing). On Linux --network host shares the host network
+        # directly (as CI does). On macOS --network host joins the Docker Desktop
+        # VM instead of the host, where CRC serves the API on the host loopback,
+        # so map the API hostname to the host gateway on the default bridge.
+        net_args="--network host"
+        if [ "$(uname -s)" = "Darwin" ]; then
+          api_host="$(sed -n 's|.*server:[[:space:]]*https\{0,1\}://\([^:/]*\).*|\1|p' "${EXTERNAL_KUBECONFIG}" | head -1)"
+          net_args="--add-host=${api_host}:host-gateway"
+        fi
+
+        # The bundle, index and preflight images are all multi-arch, so docker
+        # selects the host-architecture variant and preflight runs natively (no
+        # emulation) — on an arm64 host it certifies the arm64 images end to end.
+        # Run as the host user so the exported artifacts are not root-owned.
+        docker run --rm ${net_args} -u "$(id -u)" -e HOME=/tmp \
+          -e KUBECONFIG=/kubeconfig -v "${EXTERNAL_KUBECONFIG}:/kubeconfig:ro" \
+          -e PFLT_INDEXIMAGE="${index}" \
+          -e PFLT_SCORECARD_WAIT_TIME=1200 \
+          -e PFLT_ARTIFACTS=/artifacts -v "$(pwd)/${artifacts}:/artifacts" \
+          ${docker_config} ${submit_env} \
+          quay.io/opdev/preflight:{{ .PREFLIGHT_VERSION }} \
+          check operator "${bundle}" ${submit}
+      # preflight exits non-zero only when it fails to run, not when checks fail,
+      # so the verdict is derived from the artifacts in-engine.
+      - GITHUB_REF= dagger call -m dagger/preflight verdict --artifacts preflight-artifacts
 
   olm:scorecard:
     desc: Run operator-sdk scorecard against the OLM bundle on an ephemeral k3s cluster
@@ -977,6 +1162,7 @@ tasks:
       - rm -fr operator/bundle*
       - rm -fr operator/config/manifest-build/
       - rm -fr operator/catalog*
+      - rm -fr operator/preflight-artifacts
 
   ####################################
   ## DOCUMENTATION
@@ -1421,6 +1607,14 @@ tasks:
       KUBECONFIG: '{{ .EXTERNAL_KUBECONFIG }}'
       GHCR_USERNAME: '{{ .GHCR_USERNAME }}'
       GHCR_TOKEN: '{{ .GHCR_TOKEN }}'
+    deps:
+      # Add GHCR auth to the cluster-wide pull secret so the kubelet can pull the
+      # private Klio images (shared with olm:preflight-operator).
+      - task: internal:ensure-ghcr-pull-secret
+        vars:
+          EXTERNAL_KUBECONFIG: '{{ .EXTERNAL_KUBECONFIG }}'
+          GHCR_USERNAME: '{{ .GHCR_USERNAME }}'
+          GHCR_TOKEN: '{{ .GHCR_TOKEN }}'
     vars:
       CERT_MANAGER_PACKAGE: 'openshift-cert-manager-operator'
       CERT_MANAGER_CHANNEL: 'stable-v1'
@@ -1445,29 +1639,18 @@ tasks:
         # Full OpenShift (CRC) already provides OLM, the openshift-marketplace
         # and openshift-operators namespaces (with a global OperatorGroup), the
         # redhat-operators/certified-operators catalogs, the console.openshift.io
-        # CRDs, and a cluster pull secret for registry.redhat.io. We only need to
-        # add GHCR auth (for the Klio images) and our own catalog on top.
+        # CRDs, and a cluster pull secret for registry.redhat.io. GHCR auth for
+        # the cluster-wide pull secret is added by the
+        # internal:ensure-ghcr-pull-secret dependency; here we add the
+        # marketplace pull secret our own catalog references.
 
         # Build a dockerconfigjson for GHCR from the username/token. We construct
         # it explicitly rather than reading ~/.docker/config.json, which may use a
         # credential helper that omits the inline auth string.
         ghcr_secret=$(mktemp)
-        global_secret=$(mktemp)
-        merged_secret=$(mktemp)
-        trap 'rm -f "${ghcr_secret}" "${global_secret}" "${merged_secret}"' EXIT
-        auth=$(printf '%s:%s' "${GHCR_USERNAME}" "${GHCR_TOKEN}" | base64 -w0)
+        trap 'rm -f "${ghcr_secret}"' EXIT
+        auth=$(printf '%s:%s' "${GHCR_USERNAME}" "${GHCR_TOKEN}" | base64 | tr -d '\n')
         printf '{"auths":{"ghcr.io":{"auth":"%s"}}}' "${auth}" > "${ghcr_secret}"
-
-        # Add GHCR credentials to the cluster-wide pull secret so the kubelet can
-        # pull the private Klio operator/bundle/operand images on every node.
-        kubectl get secret pull-secret -n openshift-config \
-          -o jsonpath='{.data.\.dockerconfigjson}' | base64 -d > "${global_secret}"
-        jq -s '.[0] * .[1]' "${global_secret}" "${ghcr_secret}" > "${merged_secret}"
-        kubectl create secret generic pull-secret \
-          --type=kubernetes.io/dockerconfigjson \
-          --from-file=.dockerconfigjson="${merged_secret}" \
-          -n openshift-config \
-          --dry-run=client -o yaml | kubectl apply -f -
 
         # The klio-catalog CatalogSource references this secret via spec.secrets
         # so its grpc pod can pull the catalog image from GHCR.

@@ -15,6 +15,9 @@ operator/catalog
 operator/catalog.Dockerfile
 operator/klio-operator-template.yaml
 
+# Red Hat Preflight artifacts (check operator)
+operator/preflight-artifacts/
+
 # E2E test logs
 e2e_cluster_logs/
 

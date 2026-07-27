@@ -1,9 +1,15 @@
 // A module for running Red Hat Preflight certification checks.
 //
 // Preflight (https://github.com/redhat-openshift-ecosystem/openshift-preflight)
-// validates container images against Red Hat's certification policies. Wrapping
-// it as a Dagger module lets the same checks run identically in local
-// development, commit/PR CI, and the Tekton certification pipeline.
+// validates container images and operator bundles against Red Hat's
+// certification policies. Wrapping it as a Dagger module lets the same checks
+// run identically in local development, commit/PR CI, and the OpenShift
+// certification flow.
+//
+// `check container` runs entirely in-engine (see CheckContainer). `check
+// operator` needs a live OpenShift cluster, which the engine cannot reach, so it
+// runs host-side (from the olm:preflight-operator Task, against CRC) and its
+// artifacts are gated in-engine via Verdict.
 
 package main
 
@@ -102,6 +108,16 @@ func (m *Preflight) CheckContainer(
 	return &Artifacts{
 		Directory: ctr.Directory(artifactsPath),
 	}
+}
+
+// Verdict gates a directory of Preflight artifacts produced by a run performed
+// outside the engine — in practice a `preflight check operator` run against a
+// live OpenShift cluster, which the engine cannot reach (see the
+// olm:preflight-operator Task). It delegates to Artifacts.Verdict so the
+// host-side operator check is evaluated exactly like CheckContainer's in-engine
+// run.
+func (m *Preflight) Verdict(ctx context.Context, artifacts *dagger.Directory) (string, error) {
+	return (&Artifacts{Directory: artifacts}).Verdict(ctx)
 }
 
 // Verdict reads every results.json in the artifacts directory in-engine and

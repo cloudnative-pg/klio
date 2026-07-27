@@ -1,0 +1,19 @@
+# On the OLM install path cert-manager is unavailable, so the plugin cert
+# secrets are absent at pod start. Marking the volumes optional lets the pod
+# start; CNPG will fail registering the klio plugin if the plugin-server and plugin-client
+# secrets are not present.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: controller-manager
+  namespace: system
+spec:
+  template:
+    spec:
+      volumes:
+        - name: plugin-server
+          secret:
+            optional: true
+        - name: plugin-client
+          secret:
+            optional: true

@@ -13,6 +13,9 @@ patches:
 - path: manager_sidecar_image_patch.yaml
   target:
     kind: Deployment
+# Mark the plugin cert volumes optional so the pod starts on OLM (no
+# cert-manager); see plugin_certs_optional_patch.yaml for details.
+- path: plugin_certs_optional_patch.yaml
 
 #patches:
 #- path: olm_changes.yaml
