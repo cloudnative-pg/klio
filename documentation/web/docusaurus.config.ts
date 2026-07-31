@@ -81,15 +81,16 @@ const config: Config = {
     announcementBar: {
       id: 'tech_preview',
       content:
-        '⚠️ Klio is distributed as a Tech Preview. See <a href="https://www.enterprisedb.com/legal/EDB-Eula" target="_blank" rel="noopener noreferrer">EDB EULA</a> section 9.4 for details. ⚠️',
+        '⚠️ Klio is distributed as a Tech Preview. ⚠️',
       backgroundColor: '#ffa500',
       textColor: '#000000',
       isCloseable: true,
     },
     navbar: {
       logo: {
-        alt: 'EDB Logo',
-        src: 'img/logo.svg',
+        alt: 'CloudNativePG Logo',
+        src: 'img/cloudnativepg-hero.svg',
+        href: 'https://cloudnative-pg.io',
       },
       items: [
           {
@@ -112,12 +113,20 @@ const config: Config = {
     },
     footer: {
         logo: {
-            alt: 'EDB Logo',
-            src: "img/logo.svg",
-            href: "https://enterprisedb.com",
+            alt: 'CloudNativePG Logo',
+            src: "img/cloudnativepg-landscape-white.png",
+            href: "https://cloudnative-pg.io",
         },
       style: 'dark',
-      copyright: `© ${new Date().getFullYear()} EDB. All rights reserved.`,
+      copyright: `
+      Copyright © ${new Date().getFullYear()} CloudNativePG a Series of LF Projects, LLC.<br><br>
+
+      For website terms of use, trademark policy and other project policies please see
+      <a href="https://lfprojects.org/policies/">LF Projects, LLC Policies</a>.<br>
+      <a href="https://www.linuxfoundation.org/trademark-usage/">The Linux Foundation has registered trademarks and uses trademarks</a>.<br>
+      <a href="https://www.postgresql.org/about/policies/trademarks">Postgres, PostgreSQL and the Slonik Logo are
+        trademarks or registered trademarks of the PostgreSQL Community Association of Canada, and
+        used with their permission</a>.`,
     },
     prism: {
       theme: prismThemes.github,
