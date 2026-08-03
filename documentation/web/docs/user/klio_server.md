@@ -325,7 +325,7 @@ metadata:
   namespace: default
 spec:
   # Container image for the Klio server
-  image: ghcr.io/enterprisedb/klio:v0.0.17
+  image: ghcr.io/cloudnative-pg/klio:v0.0.17
   imagePullPolicy: IfNotPresent
   imagePullSecrets: []  # Add image pull secrets if needed
 
@@ -504,7 +504,7 @@ spec:
   mode: read-only
 
   # Container image for the Klio server
-  image: ghcr.io/enterprisedb/klio:v0.0.17
+  image: ghcr.io/cloudnative-pg/klio:v0.0.17
   imagePullPolicy: IfNotPresent
 
   # TLS configuration

@@ -34,9 +34,8 @@
     "managerFilePatterns": ["/operator/config/samples/.+\\.yaml$/"]
   },
   "ignoreDeps": [
-    "ghcr.io/enterprisedb/klio-operator",
-    "ghcr.io/enterprisedb/klio",
-    "REDACTED-INTERNAL-REPO"
+    "ghcr.io/cloudnative-pg/klio-operator",
+    "ghcr.io/cloudnative-pg/klio"
   ],
   "lockFileMaintenance": {
     "enabled": true

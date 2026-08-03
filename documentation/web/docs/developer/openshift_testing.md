@@ -98,8 +98,8 @@ A CI run creates a catalog image, tagged with the branch name or the PR number:
 
 Examples:
 ```
-ghcr.io/enterprisedb/klio-operator-testing:main-catalog
-ghcr.io/enterprisedb/klio-operator-testing:pr-1325-catalog
+ghcr.io/cloudnative-pg/klio-operator-testing:main-catalog
+ghcr.io/cloudnative-pg/klio-operator-testing:pr-1325-catalog
 ```
 
 Create an `openshift_catalogsource.yaml` file pointing to the
