@@ -146,7 +146,7 @@ jobs:
     # Also build when the OpenShift suite runs: openshift-e2e pulls the
     # freshly built operand image from ghcr regardless of which module changed.
     if: needs.change-triage.outputs.core-changed == 'true' || needs.change-triage.outputs.run-openshift == 'true'
-    runs-on: ["edb", "2xlarge"]
+    runs-on: ${{ github.repository_owner == 'cloudnative-pg' && 'ubuntu-latest-16-cores' || 'ubuntu-latest' }}
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -188,7 +188,7 @@ jobs:
     # Also build when the OpenShift suite runs: the OLM catalog and tests pull
     # the freshly built operator image from ghcr regardless of what changed.
     if: needs.change-triage.outputs.operator-changed == 'true' || needs.change-triage.outputs.run-openshift == 'true'
-    runs-on: ["edb", "2xlarge"]
+    runs-on: ${{ github.repository_owner == 'cloudnative-pg' && 'ubuntu-latest-16-cores' || 'ubuntu-latest' }}
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -224,7 +224,7 @@ jobs:
     needs:
       - change-triage
     if: needs.change-triage.outputs.core-changed == 'true' || needs.change-triage.outputs.operator-changed == 'true'
-    runs-on: ["edb", "2xlarge"]
+    runs-on: ${{ github.repository_owner == 'cloudnative-pg' && 'ubuntu-latest-16-cores' || 'ubuntu-latest' }}
     steps:
       - name: Checkout Klio
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -343,7 +343,7 @@ jobs:
       && (needs.change-triage.outputs.core-changed == 'true' || needs.change-triage.outputs.operator-changed == 'true')
     needs:
       - change-triage
-    runs-on: ["edb", "2xlarge"]
+    runs-on: ${{ github.repository_owner == 'cloudnative-pg' && 'ubuntu-latest-16-cores' || 'ubuntu-latest' }}
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
