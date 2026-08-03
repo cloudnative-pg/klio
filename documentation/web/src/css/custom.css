@@ -6,21 +6,44 @@
 
 /* You can override the default Infima variables here. */
 :root {
-  --ifm-color-primary: #28495a;
-  --ifm-color-primary-dark: #132931;
-  --ifm-color-primary-darker: #132931;
-  --ifm-color-primary-darkest: #132931;
-  --ifm-color-primary-light: #335262;
-  --ifm-color-primary-lighter: #335262;
-  --ifm-color-primary-lightest: #335262;
+  --ifm-color-primary: #e63054;
+  --ifm-color-primary-dark: #d8244a;
+  --ifm-color-primary-darker: #cc2044;
+  --ifm-color-primary-darkest: #a81a38;
+  --ifm-color-primary-light: #e94a6a;
+  --ifm-color-primary-lighter: #eb5875;
+  --ifm-color-primary-lightest: #f07d94;
   --ifm-code-font-size: 95%;
-  --ifm-navbar-background-color: #132931;
-  --ifm-link-color: #1abc9c; /* Replace with your desired link color */
-  --ifm-navbar-link-color: #aaaaaa;
-  --ifm-navbar-link-hover-color: #ffffff;
   --docusaurus-highlighted-code-line-bg: rgba(0, 0, 0, 0.1);
 }
 
-.dropdown__link--active, .dropdown__link--active:hover {
-    color: #000000;
+/* For readability concerns, you should choose a lighter palette in dark mode. */
+[data-theme='dark'] {
+  --ifm-color-primary: #ff3054;
+  --ifm-color-primary-dark: #ff1642;
+  --ifm-color-primary-darker: #ff0638;
+  --ifm-color-primary-darkest: #d4002d;
+  --ifm-color-primary-light: #ff4a66;
+  --ifm-color-primary-lighter: #ff5a74;
+  --ifm-color-primary-lightest: #ff899c;
+  --docusaurus-highlighted-code-line-bg: rgba(0, 0, 0, 0.3);
+}
+
+/* Configuration for the GitHub link in the header */
+.header-github-link:hover {
+  opacity: 0.6;
+}
+
+.header-github-link:before {
+  content: '';
+  width: 24px;
+  height: 24px;
+  display: flex;
+  background: url("/img/github-mark.svg") no-repeat ;
+  background-size: 24px 24px;
+}
+
+html[data-theme='dark'] .header-github-link:before {
+  background: url("/img/github-mark-white.svg") no-repeat;
+  background-size: 24px 24px;
 }

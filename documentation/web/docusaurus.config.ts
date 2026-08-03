@@ -79,9 +79,8 @@ const config: Config = {
   ],
   themeConfig: {
     announcementBar: {
-      id: 'tech_preview',
       content:
-        '⚠️ Klio is distributed as a Tech Preview. ⚠️',
+        '⚠️ This software is experimental and under heavy development. ⚠️',
       backgroundColor: '#ffa500',
       textColor: '#000000',
       isCloseable: true,
@@ -109,6 +108,12 @@ const config: Config = {
             type: 'docsVersionDropdown',
             position: 'right',
         },
+        {
+            href: "https://github.com/cloudnative-pg/klio",
+            position: "right",
+            className: "header-github-link",
+            "aria-label": "GitHub repository",
+        },
       ],
     },
     footer: {
@@ -118,6 +123,34 @@ const config: Config = {
             href: "https://cloudnative-pg.io",
         },
       style: 'dark',
+      links: [
+          {
+              title: 'Community',
+              items: [
+                  {
+                      label: 'Slack',
+                      href: 'https://cloud-native.slack.com/messages/cloudnativepg-users',
+                  },
+                  {
+                      label: 'X',
+                      href: 'https://x.com/CloudNativePG',
+                  },
+              ],
+          },
+          {
+              title: 'More',
+              items: [
+                  {
+                      label: 'GitHub',
+                      href: 'https://github.com/cloudnative-pg/klio',
+                  },
+                  {
+                      label: 'CloudNativePG',
+                      href: 'https://cloudnative-pg.io',
+                  },
+              ],
+          },
+      ],
       copyright: `
       Copyright © ${new Date().getFullYear()} CloudNativePG a Series of LF Projects, LLC.<br><br>
 
@@ -134,7 +167,7 @@ const config: Config = {
     },
     colorMode: {
       defaultMode: 'light',
-      disableSwitch: true,
+      disableSwitch: false,
       respectPrefersColorScheme: true,
     }
   } satisfies Preset.ThemeConfig,
