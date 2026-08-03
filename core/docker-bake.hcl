@@ -1,11 +1,11 @@
-url = "https://www.enterprisedb.com"
-authors = "EnterpriseDB"
+url = "https://github.com/cloudnative-pg/klio"
+authors = "The CloudNativePG Contributors"
 title = "Klio"
 description = "Single container image for Klio client and server"
 # TODO: add revision information, documentation links, and license information
 revision = ""
-documentation = ""
-license = ""
+documentation = "https://cloudnative-pg.io/klio/"
+license = "Apache-2.0"
 now = timestamp()
 
 variable "environment" {
