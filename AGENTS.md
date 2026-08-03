@@ -258,4 +258,4 @@ docker run -ti --rm -v $(pwd):/website -w /website --net host node:24 bash -c "y
 `md` and `mdx` files in the documentation should have a maximum line length of
 80 characters.
 
-Official docs: https://enterprisedb.github.io/klio
+Official docs: https://cloudnative-pg.io/klio
