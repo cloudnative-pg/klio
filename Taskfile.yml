@@ -1640,8 +1640,6 @@ tasks:
     vars:
       CERT_MANAGER_PACKAGE: 'openshift-cert-manager-operator'
       CERT_MANAGER_CHANNEL: 'stable-v1'
-      # The certified catalog ships both community `cloudnative-pg` (used here)
-      # and EDB's `cloud-native-postgresql` (subscription-gated).
       CNPG_PACKAGE: 'cloudnative-pg'
       CNPG_CHANNEL: 'stable-v1'
       KLIO_PACKAGE: 'klio-operator'

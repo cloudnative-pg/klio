@@ -221,7 +221,7 @@ The only options in this case are:
 :::warning
 Maintenance requires some free disk space to run. If the disk is
 completely full, maintenance itself may fail. In that case, expand
-the PVC first or contact EDB support.
+the PVC first.
 :::
 
 If PVC expansion is not available, free space by deleting old backups
@@ -262,11 +262,6 @@ and running maintenance manually.
      --full \
      --disable-file-logging
    ```
-
-### Contact EDB Support
-
-If the above options are not viable or maintenance fails due to
-insufficient disk space, contact EDB support for assistance.
 
 ## Best Practices
 
