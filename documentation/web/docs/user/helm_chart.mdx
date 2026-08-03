@@ -27,8 +27,6 @@ Before installing the Klio Operator, ensure you have:
 
 - **Helm** – see the [Helm installation guide](https://helm.sh/docs/intro/install/)
 - **Kubernetes** cluster with appropriate permissions
-- **Credentials** to access the registry hosting the Helm chart, the Klio operator
-  image, and the Klio operand image.
 - **CloudNativePG Operator** already installed in your Kubernetes cluster.
   See the [CloudNativePG installation guide](https://cloudnative-pg.io/documentation/current/installation_upgrade/).
 - **cert-manager** (optional, but strongly recommended for managing TLS certificates).
@@ -38,43 +36,14 @@ Before installing the Klio Operator, ensure you have:
 
 ## Installation
 
-### Step 1: Registry Authentication
+### Step 1: Create a values file
 
-Authenticate with the EDB registry where the Helm chart is hosted:
-
-```sh
-helm registry login ghcr.io -u <GITHUB_USERNAME> -p <GITHUB_TOKEN>
-```
-
-Replace `<TOKEN>` with the required credentials.
-
-### Step 2: Create an Image Pull Secret
-
-Create a Kubernetes secret to allow the operator to pull container
-images from the registry:
-
-```sh
-kubectl create secret docker-registry klio-registry-secret \
-  --docker-server=ghcr.io \
-  --docker-username=k8s \
-  --namespace cnpg-system \
-  --docker-password=<TOKEN>
-```
-
-### Step 3: Create a values file
-
-Create a `values.yaml` file with your configuration. At minimum, set
-the image pull secret created in the previous step. If you have not
+Create a `values.yaml` file with your configuration, if you need to
+override some default values. If you have not
 installed cert-manager or the Prometheus Operator, disable them to
 avoid errors during installation:
 
 ```yaml
-controllerManager:
-  manager:
-    image:
-      pullSecrets:
-        - name: klio-registry-secret
-
 # Uncomment if cert-manager is not installed
 # certmanager:
 #   enable: false
@@ -87,7 +56,7 @@ controllerManager:
 See the [Configuration](#configuration) section for the full list of
 available parameters. You will reuse this file for future upgrades.
 
-### Step 4: Install the Helm Chart
+### Step 2: Install the Helm Chart
 
 Deploy the Klio Operator to your cluster:
 
@@ -101,7 +70,7 @@ helm install klio-operator \
 ```
 <!-- x-release-please-end -->
 
-### Step 5: Verify Installation
+### Step 3: Verify Installation
 
 After installation, verify that the Klio Operator is running:
 
