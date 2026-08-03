@@ -234,6 +234,7 @@ certmanager
 changelog
 clientSecret
 clusterDomain
+cnpg
 config
 containerSecurityContext
 contrib
