@@ -1,5 +1,5 @@
 ---
-title: EDB Klio Operator Helm Chart
+title: Klio Operator Helm Chart
 sidebar_position: 90
 ---
 
@@ -8,7 +8,7 @@ import PartialValues from './_helm_chart_values.md';
 
 <!-- spell-checker-enable -->
 
-The EDB Klio Operator Helm chart allows you to deploy the Klio
+The Klio Operator Helm chart allows you to deploy the Klio
 Operator in your Kubernetes cluster. It is distributed as a private
 OCI image.
 
@@ -151,9 +151,7 @@ the default `values.yaml`, and other chart files.
 ### CNPG API Group Detection
 
 Klio works with both [CloudNativePG](https://cloudnative-pg.io/) (API group
-`postgresql.cnpg.io`) and CNPG-based operators that use a different API group
-(for example,
-[EDB Postgres® AI for CloudNativePG™ Cluster](https://www.enterprisedb.com/docs/postgres_for_kubernetes/latest/)).
+`postgresql.cnpg.io`) and CNPG-based operators that use a different API group.
 The operator detects the CNPG API group and version automatically from each
 `Cluster` resource at runtime — no configuration is required.
 

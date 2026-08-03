@@ -358,7 +358,7 @@ spec:
         - urn:alm:descriptor:io.kubernetes.conditions
       version: v1alpha1
   description: |
-    # Klio — EDB Postgres Backup & Recovery Manager for CloudNativePG
+    # Klio — multi-tiered backup and recovery CNPG-I plugin for CloudNativePG
 
     **Klio** is an enterprise-grade backup and recovery manager for
     PostgreSQL databases on Kubernetes. It integrates natively with
@@ -400,7 +400,7 @@ spec:
     ## Getting started
 
     Full installation and configuration instructions are available in
-    the [official documentation](https://enterprisedb.github.io/klio).
+    the [official documentation](https://cloudnative-pg.io/klio).
   displayName: Klio
   icon:
   - base64data: |
@@ -3054,15 +3054,14 @@ spec:
   - edb
   links:
   - name: Klio Documentation
-    url: https://enterprisedb.github.io/klio
-  - name: EnterpriseDB
-    url: https://enterprisedb.com
+    url: https://cloudnative-pg.io/klio
+  - name: Klio GitHub Repository
+    url: https://github.com/cloudnative-pg/klio
   maintainers:
-  - email: sales@enterprisedb.com
-    name: EnterpriseDB
+  - email: francesco.canovai@enterprisedb.com
+    name: fcanovai
   maturity: alpha
   minKubeVersion: 1.29.0
   provider:
-    name: EnterpriseDB
-    url: https://enterprisedb.com
+    name: The CloudNativePG Contributors
   version: 0.0.0

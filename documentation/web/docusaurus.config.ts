@@ -7,17 +7,17 @@ import type * as Preset from '@docusaurus/preset-classic';
 const config: Config = {
   title: 'Klio',
   favicon: 'img/favicon.ico',
-  tagline: 'EDB Postgres Backup & Recovery Manager for CloudNativePG',
+  tagline: 'Multi-tiered backup and recovery CNPG-I plugin for CloudNativePG',
 
   // Set the production url of your site here
-  url: 'https://enterprisedb.github.io',
+  url: 'https://cloudnative-pg.github.io',
   // Set the /<baseUrl>/ pathname under which your site is served
   // For GitHub pages deployment, it is often '/<projectName>/'
-  baseUrl: '/',
+  baseUrl: '/klio/',
   trailingSlash: true,
 
   // GitHub pages deployment config.
-  organizationName: 'EnterpriseDB',
+  organizationName: 'cloudnative-pg',
   projectName: 'klio',
   deploymentBranch: 'gh-pages',
 
