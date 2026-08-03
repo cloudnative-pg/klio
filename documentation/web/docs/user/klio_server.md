@@ -926,13 +926,6 @@ kubectl create secret generic klio-age-identity \
 
 5. Securely delete the old identity and plaintext files.
 
-:::note
-If you are upgrading from a version that used the
-`encryptionKey` field (`SecretKeySelector`), see the
-[Upgrade Notes](upgrade_notes.md#encryption-key-management-breaking-change)
-for migration instructions.
-:::
-
 ## Authentication
 
 Klio uses mTLS Authentication for securing access to both the base backup server
