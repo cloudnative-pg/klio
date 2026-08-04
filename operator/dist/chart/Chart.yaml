@@ -12,8 +12,9 @@ keywords:
 type: application
 version: 0.0.17
 appVersion: 0.0.17
-home: https://enterprisedb.com
+home: https://github.com/cloudnative-pg/klio
 maintainers:
-  - name: EDB Klio development team
+  - name: fcanovai
+    email: francesco.canovai@enterprisedb.com
 annotations:
   org.opencontainers.image.source: https://github.com/cloudnative-pg/klio

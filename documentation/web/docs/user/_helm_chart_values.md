@@ -10,10 +10,10 @@
 | controllerManager.affinity | object | `{}` | Affinity rules for the operator deployment. |
 | controllerManager.manager.args | list | `["--metrics-bind-address=:8443","--leader-elect","--health-probe-bind-address=:8081","--plugin-server-cert=/pluginServer/tls.crt","--plugin-server-key=/pluginServer/tls.key","--plugin-client-cert=/pluginClient/tls.crt","--plugin-server-address=:9090"]` | List of command line arguments to pass to the controller manager. |
 | controllerManager.manager.containerSecurityContext | object | `{"allowPrivilegeEscalation":false,"capabilities":{"drop":["ALL"]}}` | The security context for the controller manager container. |
-| controllerManager.manager.env | object | `{"SIDECAR_IMAGE":"ghcr.io/enterprisedb/klio:v0.0.17"}` | The environment variables to set in the controller manager container. Set OTEL_* variables here to enable OpenTelemetry export. See the OpenTelemetry Observability page in the documentation. |
+| controllerManager.manager.env | object | `{"SIDECAR_IMAGE":"ghcr.io/cloudnative-pg/klio:v0.0.17"}` | The environment variables to set in the controller manager container. Set OTEL_* variables here to enable OpenTelemetry export. See the OpenTelemetry Observability page in the documentation. |
 | controllerManager.manager.image.pullPolicy | string | `"Always"` | The controller manager container imagePullPolicy. |
 | controllerManager.manager.image.pullSecrets | list | `[]` | The list of imagePullSecrets. |
-| controllerManager.manager.image.repository | string | `"ghcr.io/enterprisedb/klio-operator"` | The image to use for the controller manager container. |
+| controllerManager.manager.image.repository | string | `"ghcr.io/cloudnative-pg/klio-operator"` | The image to use for the controller manager container. |
 | controllerManager.manager.image.tag | string | `"v0.0.17"` | The tag to use for the controller manager container image. |
 | controllerManager.manager.livenessProbe | object | `{"httpGet":{"path":"/healthz","port":8081},"initialDelaySeconds":15,"periodSeconds":20}` | Liveness probe configuration. |
 | controllerManager.manager.readinessProbe | object | `{"httpGet":{"path":"/readyz","port":8081},"initialDelaySeconds":5,"periodSeconds":10}` | Readiness probe configuration. |

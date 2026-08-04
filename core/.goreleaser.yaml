@@ -31,7 +31,7 @@ nfpms:
   - id: klio
     package_name: klio
     file_name_template: "{{ .ConventionalFileName }}"
-    maintainer: Cloud Native Team <info@enterprisedb.com>
+    maintainer: Francesco Canovai <francesco.canovai@enterprisedb.com>
 
     contents:
       - src: hack/systemd/klio.service
@@ -73,5 +73,5 @@ changelog:
 release:
   mode: keep-existing
   github:
-    owner: EnterpriseDB
+    owner: cloudnative-pg
     name: klio

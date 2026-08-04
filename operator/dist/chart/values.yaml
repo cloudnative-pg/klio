@@ -22,7 +22,7 @@ controllerManager:
           - ALL
     image:
       # -- The image to use for the controller manager container.
-      repository: ghcr.io/enterprisedb/klio-operator
+      repository: ghcr.io/cloudnative-pg/klio-operator
       # -- The tag to use for the controller manager container image.
       tag: v0.0.17 # x-release-please-version
       # -- The controller manager container imagePullPolicy.
@@ -33,7 +33,7 @@ controllerManager:
     # Set OTEL_* variables here to enable OpenTelemetry export.
     # See the OpenTelemetry Observability page in the documentation.
     env: {
-      SIDECAR_IMAGE: "ghcr.io/enterprisedb/klio:v0.0.17" # x-release-please-version
+      SIDECAR_IMAGE: "ghcr.io/cloudnative-pg/klio:v0.0.17" # x-release-please-version
     }
     # -- Liveness probe configuration.
     livenessProbe:

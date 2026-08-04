@@ -325,7 +325,7 @@ metadata:
   namespace: default
 spec:
   # Container image for the Klio server
-  image: ghcr.io/enterprisedb/klio:v0.0.17
+  image: ghcr.io/cloudnative-pg/klio:v0.0.17
   imagePullPolicy: IfNotPresent
   imagePullSecrets: []  # Add image pull secrets if needed
 
@@ -504,7 +504,7 @@ spec:
   mode: read-only
 
   # Container image for the Klio server
-  image: ghcr.io/enterprisedb/klio:v0.0.17
+  image: ghcr.io/cloudnative-pg/klio:v0.0.17
   imagePullPolicy: IfNotPresent
 
   # TLS configuration
@@ -925,13 +925,6 @@ kubectl create secret generic klio-age-identity \
 4. Restart the Klio server pod to pick up the new files.
 
 5. Securely delete the old identity and plaintext files.
-
-:::note
-If you are upgrading from a version that used the
-`encryptionKey` field (`SecretKeySelector`), see the
-[Upgrade Notes](upgrade_notes.md#encryption-key-management-breaking-change)
-for migration instructions.
-:::
 
 ## Authentication
 

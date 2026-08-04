@@ -1,11 +1,11 @@
-url = "https://www.enterprisedb.com"
-authors = "EnterpriseDB"
+url = "https://github.com/cloudnative-pg/klio"
+authors = "The CloudNativePG Contributors"
 title = "Klio Operator Image"
 description = "Klio Operator is a Kubernetes operator designed to manage and deploy Klio servers on Kubernetes clusters. It automates the lifecycle of Klio server resources, streamlining deployment, configuration, and management tasks for cloud-native environments."
-# TODO: add revision information, documentation links, and license information
+# TODO: add revision information
 revision = ""
-documentation = ""
-license = ""
+documentation = "https://cloudnative-pg.io/klio/"
+license = "Apache-2.0"
 now = timestamp()
 
 variable "environment" {

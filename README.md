@@ -6,6 +6,11 @@
 The name *Klio* is inspired by Clio, the muse of history, symbolizing the
 preservation and recovery of past events, which resonates with database backup
 
+> [!WARNING]
+> Klio is **experimental** and under active development. APIs, CRDs, and
+> behavior may change without notice, and it is not yet recommended for
+> production use.
+
 ## Table of Contents
 
 - [Code of Conduct](CODE_OF_CONDUCT.md)

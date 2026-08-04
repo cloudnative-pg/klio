@@ -794,7 +794,7 @@ const file_proto_klio_admin_proto_rawDesc = "" +
 	"\x16QueueListFailedBackups\x12*.klio.wal.v1.QueueListFailedBackupsRequest\x1a+.klio.wal.v1.QueueListFailedBackupsResponse\"\x00\x12j\n" +
 	"\x13QueueListFailedWALs\x12'.klio.wal.v1.QueueListFailedWALsRequest\x1a(.klio.wal.v1.QueueListFailedWALsResponse\"\x00\x12R\n" +
 	"\vQueueStatus\x12\x1f.klio.wal.v1.QueueStatusRequest\x1a .klio.wal.v1.QueueStatusResponse\"\x00\x12U\n" +
-	"\fDeleteBackup\x12 .klio.wal.v1.DeleteBackupRequest\x1a!.klio.wal.v1.DeleteBackupResponse\"\x00B1Z/github.com/cloudnative-pg/klio/core/internal/grpcb\x06proto3"
+	"\fDeleteBackup\x12 .klio.wal.v1.DeleteBackupRequest\x1a!.klio.wal.v1.DeleteBackupResponse\"\x00B3Z1github.com/cloudnative-pg/klio/core/internal/grpcb\x06proto3"
 
 var (
 	file_proto_klio_admin_proto_rawDescOnce sync.Once

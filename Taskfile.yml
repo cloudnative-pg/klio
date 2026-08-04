@@ -230,7 +230,7 @@ tasks:
         vars:
           ENVIRONMENT: "testing"
           INSECURE: '{{ if .GITHUB_ACTIONS }}false{{ else }}true{{ end }}'
-          REGISTRY: '{{ if .GITHUB_ACTIONS }}ghcr.io/enterprisedb{{ else }}{{ .REGISTRY_NAME }}:{{ .REGISTRY_PORT }}{{ end }}'
+          REGISTRY: '{{ if .GITHUB_ACTIONS }}ghcr.io/cloudnative-pg{{ else }}{{ .REGISTRY_NAME }}:{{ .REGISTRY_PORT }}{{ end }}'
           VERSION: "{{ .TAG }}"
           LATEST: "false"
           WORKDIR: "core"
@@ -256,7 +256,7 @@ tasks:
         vars:
           ENVIRONMENT: "production"
           INSECURE: "false"
-          REGISTRY: "ghcr.io/enterprisedb"
+          REGISTRY: "ghcr.io/cloudnative-pg"
           VERSION: "main"
           LATEST: "false"
           WORKDIR: "core"
@@ -280,7 +280,7 @@ tasks:
       - task: internal:containerize
         vars:
           ENVIRONMENT: "production"
-          REGISTRY: "ghcr.io/enterprisedb"
+          REGISTRY: "ghcr.io/cloudnative-pg"
           INSECURE: "false"
           VERSION: "{{ .GITHUB_REF_NAME }}"
           LATEST: "true"
@@ -565,7 +565,7 @@ tasks:
         vars:
           ENVIRONMENT: "testing"
           INSECURE: '{{ if .GITHUB_ACTIONS }}false{{ else }}true{{ end }}'
-          REGISTRY: '{{ if .GITHUB_ACTIONS }}ghcr.io/enterprisedb{{ else }}{{ .REGISTRY_NAME }}:{{ .REGISTRY_PORT }}{{ end }}'
+          REGISTRY: '{{ if .GITHUB_ACTIONS }}ghcr.io/cloudnative-pg{{ else }}{{ .REGISTRY_NAME }}:{{ .REGISTRY_PORT }}{{ end }}'
           VERSION: "{{ .TAG }}"
           LATEST: "false"
           WORKDIR: "operator"
@@ -591,7 +591,7 @@ tasks:
         vars:
           ENVIRONMENT: "production"
           INSECURE: "false"
-          REGISTRY: "ghcr.io/enterprisedb"
+          REGISTRY: "ghcr.io/cloudnative-pg"
           VERSION: "main"
           LATEST: "false"
           WORKDIR: "operator"
@@ -613,7 +613,7 @@ tasks:
       - task: internal:containerize
         vars:
           ENVIRONMENT: "production"
-          REGISTRY: "ghcr.io/enterprisedb"
+          REGISTRY: "ghcr.io/cloudnative-pg"
           INSECURE: "false"
           VERSION: "{{ .GITHUB_REF_NAME }}"
           LATEST: "true"
@@ -727,9 +727,9 @@ tasks:
       # version from the Chart.yaml file.
       - >
         GITHUB_REF= dagger -s call -m github.com/sagikazarmark/daggerverse/helm@${DAGGER_HELM_SHA}
-        with-registry-auth --address "ghcr.io/enterprisedb" --username "{{ .GITHUB_ACTOR }}" --secret env://GITHUB_TOKEN
+        with-registry-auth --address "ghcr.io/cloudnative-pg" --username "{{ .GITHUB_ACTOR }}" --secret env://GITHUB_TOKEN
         push --pkg dist/chart/klio_chart.tgz
-        --registry "oci://ghcr.io/enterprisedb/"
+        --registry "oci://ghcr.io/cloudnative-pg/"
     sources:
       - dist/chart/**/*
 
@@ -776,7 +776,7 @@ tasks:
           enum:
             ref: .ALLOWED_ENVS
     env:
-      registry: '{{ if .GITHUB_ACTIONS }}ghcr.io/enterprisedb{{ else }}{{ .REGISTRY_NAME }}:{{ .REGISTRY_PORT }}{{ end }}'
+      registry: '{{ if .GITHUB_ACTIONS }}ghcr.io/cloudnative-pg{{ else }}{{ .REGISTRY_NAME }}:{{ .REGISTRY_PORT }}{{ end }}'
       insecure: '{{ if .GITHUB_ACTIONS }}false{{ else }}true{{ end }}'
       suffix: '{{ if ( ne .ENVIRONMENT "production" ) }}-testing{{end}}'
       tag: '{{ .TAG | default .IMAGE_TAG }}'
@@ -847,7 +847,7 @@ tasks:
       - internal:registry-network-connect
       - olm:bundle
     env:
-      registry: '{{ if .GITHUB_ACTIONS }}ghcr.io/enterprisedb{{ else }}{{ .REGISTRY_NAME }}:{{ .REGISTRY_PORT }}{{ end }}'
+      registry: '{{ if .GITHUB_ACTIONS }}ghcr.io/cloudnative-pg{{ else }}{{ .REGISTRY_NAME }}:{{ .REGISTRY_PORT }}{{ end }}'
       insecure: '{{ if .GITHUB_ACTIONS }}false{{ else }}true{{ end }}'
       suffix: '{{ if ( ne .ENVIRONMENT "production" ) }}-testing{{end}}'
       tag: '{{ .TAG | default .IMAGE_TAG }}'
@@ -873,7 +873,7 @@ tasks:
           enum:
             ref: .ALLOWED_ENVS
     env:
-      registry: '{{ if .GITHUB_ACTIONS }}ghcr.io/enterprisedb{{ else }}{{ .REGISTRY_NAME }}:{{ .REGISTRY_PORT }}{{ end }}'
+      registry: '{{ if .GITHUB_ACTIONS }}ghcr.io/cloudnative-pg{{ else }}{{ .REGISTRY_NAME }}:{{ .REGISTRY_PORT }}{{ end }}'
       insecure: '{{ if .GITHUB_ACTIONS }}false{{ else }}true{{ end }}'
       suffix: '{{ if ( ne .ENVIRONMENT "production" ) }}-testing{{end}}'
       tag: '{{ .TAG | default .IMAGE_TAG }}'
@@ -934,7 +934,7 @@ tasks:
           enum:
             ref: .ALLOWED_ENVS
     env:
-      registry: '{{ if .GITHUB_ACTIONS }}ghcr.io/enterprisedb{{ else }}{{ .REGISTRY_NAME }}:{{ .REGISTRY_PORT }}{{ end }}'
+      registry: '{{ if .GITHUB_ACTIONS }}ghcr.io/cloudnative-pg{{ else }}{{ .REGISTRY_NAME }}:{{ .REGISTRY_PORT }}{{ end }}'
       insecure: '{{ if .GITHUB_ACTIONS }}false{{ else }}true{{ end }}'
       suffix: '{{ if ( ne .ENVIRONMENT "production" ) }}-testing{{end}}'
       tag: '{{ .TAG | default .IMAGE_TAG }}'
@@ -959,7 +959,7 @@ tasks:
           enum:
             ref: .ALLOWED_ENVS
     env:
-      registry: '{{ if .GITHUB_ACTIONS }}ghcr.io/enterprisedb{{ else }}{{ .REGISTRY_NAME }}:{{ .REGISTRY_PORT }}{{ end }}'
+      registry: '{{ if .GITHUB_ACTIONS }}ghcr.io/cloudnative-pg{{ else }}{{ .REGISTRY_NAME }}:{{ .REGISTRY_PORT }}{{ end }}'
       insecure: '{{ if .GITHUB_ACTIONS }}false{{ else }}true{{ end }}'
       suffix: '{{ if ( ne .ENVIRONMENT "production" ) }}-testing{{end}}'
       tag: '{{ .TAG | default .IMAGE_TAG }}'
@@ -1064,7 +1064,7 @@ tasks:
           GHCR_USERNAME: '{{ .GHCR_USERNAME }}'
           GHCR_TOKEN: '{{ .GHCR_TOKEN }}'
     env:
-      registry: '{{ if .GITHUB_ACTIONS }}ghcr.io/enterprisedb{{ else }}{{ .REGISTRY_NAME }}:{{ .REGISTRY_PORT }}{{ end }}'
+      registry: '{{ if .GITHUB_ACTIONS }}ghcr.io/cloudnative-pg{{ else }}{{ .REGISTRY_NAME }}:{{ .REGISTRY_PORT }}{{ end }}'
       suffix: '{{ if ( ne .ENVIRONMENT "production" ) }}-testing{{end}}'
       tag: '{{ .TAG | default .IMAGE_TAG }}'
       # GHCR_USERNAME/GHCR_TOKEN build the docker config for the bundle/index
@@ -1177,7 +1177,9 @@ tasks:
       - documentation:apidoc
       - documentation:helm-chart
       - documentation:docusaurus-build-test
-      - documentation:docusaurus-version-is-aligned
+# TODO: re-enable after first open-source release
+# this task is currently failing because older versions of the documentation have not been imported.
+#      - documentation:docusaurus-version-is-aligned
       - documentation:uncommitted
 
   documentation:cli:
@@ -1640,8 +1642,6 @@ tasks:
     vars:
       CERT_MANAGER_PACKAGE: 'openshift-cert-manager-operator'
       CERT_MANAGER_CHANNEL: 'stable-v1'
-      # The certified catalog ships both community `cloudnative-pg` (used here)
-      # and EDB's `cloud-native-postgresql` (subscription-gated).
       CNPG_PACKAGE: 'cloudnative-pg'
       CNPG_CHANNEL: 'stable-v1'
       KLIO_PACKAGE: 'klio-operator'
@@ -1860,7 +1860,7 @@ tasks:
         - GHCR_USERNAME
         - GHCR_TOKEN
     vars:
-      OPERAND_IMAGE_REPOSITORY: '{{ .OPERAND_IMAGE_REPOSITORY | default "ghcr.io/enterprisedb/klio-testing" }}'
+      OPERAND_IMAGE_REPOSITORY: '{{ .OPERAND_IMAGE_REPOSITORY | default "ghcr.io/cloudnative-pg/klio-testing" }}'
       OPERAND_IMAGE_TAG: '{{ .OPERAND_IMAGE_TAG | default .IMAGE_TAG }}'
       # csi-hostpath-sc is provisioned by setup-crc-csi-hostpath.sh and matches
       # the StorageClass the Kind path uses (allowVolumeExpansion: true).
