@@ -227,7 +227,6 @@ func NewTier2RetentionFeatureConfig(
 			ServerTemplateOptions: klio.ServerTemplateOptions{
 				Image:              testCfg.ServerImage,
 				StorageClass:       testCfg.StorageClass,
-				ImagePullSecret:    pullSecretName(),
 				TLSSecretName:      serverCertificate.Spec.SecretName,
 				ClientCASecretName: caCertificate.Spec.SecretName,
 				Encryption: klio.EncryptionOptions{
@@ -258,7 +257,7 @@ func NewTier2RetentionFeatureConfig(
 	// CNPG cluster
 	cnpgCluster := cnpg.GetCnpgClusterObject(
 		cnpgClusterName, namespace, 1, pluginConfigurationName,
-		cnpg.ClusterTemplateOptions{ImagePullSecret: pullSecretName(), StorageClass: testCfg.StorageClass})
+		cnpg.ClusterTemplateOptions{StorageClass: testCfg.StorageClass})
 
 	// Plugin configuration with tier2 backup enabled and retention policy
 	klioPluginConfig := klio.GetPluginConfigurationObject(

@@ -137,10 +137,6 @@ type ServerTemplateOptions struct {
 	// storage class is used.
 	StorageClass string
 
-	// ImagePullSecret is the name of the Kubernetes secret used to pull the
-	// Klio server image. If empty, no pull secret is configured.
-	ImagePullSecret string
-
 	// TLSSecretName is the secret to be used to expose the Klio server.
 	TLSSecretName string
 
@@ -157,9 +153,6 @@ func newBaseServer(name, namespace string, opts ServerTemplateOptions) *kliov1al
 	imgCfg := kliov1alpha1.ImageConfiguration{
 		Image:           opts.Image,
 		ImagePullPolicy: corev1.PullAlways,
-	}
-	if opts.ImagePullSecret != "" {
-		imgCfg.ImagePullSecrets = []corev1.LocalObjectReference{{Name: opts.ImagePullSecret}}
 	}
 
 	return &kliov1alpha1.Server{

@@ -53,22 +53,6 @@ const (
 	envConfigFile     = "E2E_CONFIG_FILE"
 )
 
-// ImagePullSecretConfig holds registry credentials used to create a
-// kubernetes.io/dockerconfigjson pull secret in each test namespace.
-type ImagePullSecretConfig struct {
-	// Registry is the registry hostname (e.g. "ghcr.io").
-	Registry string `mapstructure:"registry"`
-	// Username is the registry username.
-	Username string `mapstructure:"username"`
-	// Password is the registry password or token.
-	Password string `mapstructure:"password"`
-}
-
-// IsConfigured returns true when all three credential fields are non-empty.
-func (c ImagePullSecretConfig) IsConfigured() bool {
-	return c.Registry != "" && c.Username != "" && c.Password != ""
-}
-
 // Config holds the e2e test configuration.
 type Config struct {
 	// ServerImage is the Klio server container image used in tests.
@@ -98,11 +82,6 @@ type Config struct {
 	// Deployment directly, which OLM reverts. Leave empty for the Helm/Kind
 	// install, where the Deployment is patched directly.
 	OperatorSubscription string `mapstructure:"operatorSubscription"`
-
-	// ImagePullSecret holds optional registry credentials. When all fields are
-	// non-empty, a pull secret named "e2e-pull-secret" is created in every test
-	// namespace and referenced by the Server and Cluster templates.
-	ImagePullSecret ImagePullSecretConfig `mapstructure:"imagePullSecret"`
 }
 
 // Load reads the e2e test configuration. It applies built-in defaults first,
