@@ -1,5 +1,40 @@
 # Changelog
 
+## [0.0.18](https://github.com/cloudnative-pg/klio/compare/v0.0.17...v0.0.18) (2026-08-04)
+
+
+### Features
+
+* **core:** Export Kopia traces via OTLP/gRPC (EnterpriseDB/klio[#1679](https://github.com/cloudnative-pg/klio/issues/1679)) ([245da93](https://github.com/cloudnative-pg/klio/commit/245da93ebdc24d0f301ceaa26134d143ac1cc732))
+* **ip:** Contribute Klio to CloudNativePG under the Apache License 2.0 (EnterpriseDB/klio[#1841](https://github.com/cloudnative-pg/klio/issues/1841)) ([a3dcd13](https://github.com/cloudnative-pg/klio/commit/a3dcd1377934dbbe6f025347488aa8c5918c41bd))
+* **observability:** Fill Grafana dashboard gaps for WAL and backup metrics (EnterpriseDB/klio[#1793](https://github.com/cloudnative-pg/klio/issues/1793)) ([c88d2f8](https://github.com/cloudnative-pg/klio/commit/c88d2f8fe1ee3b59360c83da0900667907f09694))
+* **operator:** Add preflight check operator certification (EnterpriseDB/klio[#1767](https://github.com/cloudnative-pg/klio/issues/1767)) ([295ea20](https://github.com/cloudnative-pg/klio/commit/295ea203c1e3dd9e9f1dc9b942944a47ace91528))
+
+
+### Bug Fixes
+
+* **ci:** Upload openshift e2e logs from the correct path (EnterpriseDB/klio[#1808](https://github.com/cloudnative-pg/klio/issues/1808)) ([e2fb58e](https://github.com/cloudnative-pg/klio/commit/e2fb58ef0d4dcc7ed3c67ac8c972d9770366cc90))
+* **core:** Archive partial WAL segments to tier2 and restore from them (EnterpriseDB/klio[#1747](https://github.com/cloudnative-pg/klio/issues/1747)) ([924914e](https://github.com/cloudnative-pg/klio/commit/924914e2df1ac73650ad455da32bd7e1a605a887))
+* **deps:** Pin jsm.go to main for StreamPager cross-delivery fix (EnterpriseDB/klio[#1806](https://github.com/cloudnative-pg/klio/issues/1806)) ([ae18c70](https://github.com/cloudnative-pg/klio/commit/ae18c701ce755b5d07e9379e113ef3459af9c80b))
+* **deps:** Update all non-major go dependencies (EnterpriseDB/klio[#1780](https://github.com/cloudnative-pg/klio/issues/1780)) ([c76337c](https://github.com/cloudnative-pg/klio/commit/c76337c45833d14b743fa9967bfd9fbf72409bad))
+* **deps:** Update all non-major go dependencies (EnterpriseDB/klio[#1797](https://github.com/cloudnative-pg/klio/issues/1797)) ([21c34a4](https://github.com/cloudnative-pg/klio/commit/21c34a4727e29efc45ea901a0cc0c3ca4f331008))
+* **deps:** Update all non-major go dependencies (EnterpriseDB/klio[#1833](https://github.com/cloudnative-pg/klio/issues/1833)) ([8bbd83f](https://github.com/cloudnative-pg/klio/commit/8bbd83fbf5e1c29983902a0f04a91459458caceb))
+* **deps:** Update all non-major go dependencies (EnterpriseDB/klio[#1845](https://github.com/cloudnative-pg/klio/issues/1845)) ([762f70d](https://github.com/cloudnative-pg/klio/commit/762f70d20d2124db797e117003c31b66f21fcb8d))
+* **deps:** Update all non-major go dependencies (EnterpriseDB/klio[#1848](https://github.com/cloudnative-pg/klio/issues/1848)) ([ef9330e](https://github.com/cloudnative-pg/klio/commit/ef9330e8602c567b3feee4acc4f4551f57ee6e97))
+* **deps:** Update documentation dependencies to v3.10.2 (EnterpriseDB/klio[#1798](https://github.com/cloudnative-pg/klio/issues/1798)) ([14c4161](https://github.com/cloudnative-pg/klio/commit/14c4161aec7d10fe4585e8e5555e3928f0cc4fbf))
+* **deps:** Update github.com/cloudnative-pg/cloudnative-pg/tests digest to 0552b9c (EnterpriseDB/klio[#1859](https://github.com/cloudnative-pg/klio/issues/1859)) ([e01f8d6](https://github.com/cloudnative-pg/klio/commit/e01f8d612dd2462055b05a38671db1304418955d))
+* **deps:** Update github.com/cloudnative-pg/cloudnative-pg/tests digest to 1a79065 (EnterpriseDB/klio[#1803](https://github.com/cloudnative-pg/klio/issues/1803)) ([42c7f9c](https://github.com/cloudnative-pg/klio/commit/42c7f9c8135ed3ff31fa9318347b06906229ed02))
+* **deps:** Update github.com/cloudnative-pg/cloudnative-pg/tests digest to 2af6cc5 (EnterpriseDB/klio[#1842](https://github.com/cloudnative-pg/klio/issues/1842)) ([a8c97ed](https://github.com/cloudnative-pg/klio/commit/a8c97eda63eefe671bda9b74cb837c2e96044415))
+* **deps:** Update github.com/cloudnative-pg/cloudnative-pg/tests digest to 308f3ea (EnterpriseDB/klio[#1794](https://github.com/cloudnative-pg/klio/issues/1794)) ([2d7ba7b](https://github.com/cloudnative-pg/klio/commit/2d7ba7b0a0be24ec7a58d7a82c05610228c498dc))
+* **deps:** Update github.com/cloudnative-pg/cloudnative-pg/tests digest to 83bfc38 (EnterpriseDB/klio[#1865](https://github.com/cloudnative-pg/klio/issues/1865)) ([e418675](https://github.com/cloudnative-pg/klio/commit/e4186751dae758e45e898802da90ad28e5f76648))
+* **deps:** Update github.com/cloudnative-pg/cloudnative-pg/tests digest to 91c9e02 (EnterpriseDB/klio[#1810](https://github.com/cloudnative-pg/klio/issues/1810)) ([a5c8de1](https://github.com/cloudnative-pg/klio/commit/a5c8de1dac06f2daefeac8416aa323e1b2904e9c))
+* **deps:** Update github.com/cloudnative-pg/cloudnative-pg/tests digest to e39ec6b (EnterpriseDB/klio[#1822](https://github.com/cloudnative-pg/klio/issues/1822)) ([9238238](https://github.com/cloudnative-pg/klio/commit/92382385048336e7de2578a1673fc4e964d5d124))
+* **deps:** Update kubernetes monorepo to v0.36.3 (EnterpriseDB/klio[#1854](https://github.com/cloudnative-pg/klio/issues/1854)) ([4189cfe](https://github.com/cloudnative-pg/klio/commit/4189cfeb9925a0ed3619d268c720132d5f96e5a5))
+* **deps:** Update module github.com/aws/aws-sdk-go-v2/service/s3 to v1.105.2 (EnterpriseDB/klio[#1816](https://github.com/cloudnative-pg/klio/issues/1816)) ([d66d8e1](https://github.com/cloudnative-pg/klio/commit/d66d8e1c60cce79d5394b688a93b5d80668d7ef3))
+* **deps:** Update module go.yaml.in/yaml/v3 to v3.0.5 (EnterpriseDB/klio[#1874](https://github.com/cloudnative-pg/klio/issues/1874)) ([2415112](https://github.com/cloudnative-pg/klio/commit/241511233e75462bbcde935cd69d46701635903e))
+* **deps:** Update module google.golang.org/grpc to v1.82.1 (EnterpriseDB/klio[#1813](https://github.com/cloudnative-pg/klio/issues/1813)) ([7a8df3c](https://github.com/cloudnative-pg/klio/commit/7a8df3cc948d3a439115ba8d82aec9e734b20c3c))
+* **wal:** Archive timeline history files to tier-2 (EnterpriseDB/klio[#1762](https://github.com/cloudnative-pg/klio/issues/1762)) ([20afc6f](https://github.com/cloudnative-pg/klio/commit/20afc6f09b34b7feb7aa17f9d96c91b0a8586076))
+
 ## [0.0.17](https://github.com/EnterpriseDB/klio/compare/v0.0.16...v0.0.17) (2026-07-10)
 
 
