@@ -21,8 +21,6 @@ package secrets
 
 import (
 	"bytes"
-	"encoding/base64"
-	"encoding/json"
 	"fmt"
 	"io"
 
@@ -89,34 +87,6 @@ func GetKlioAgeEncryptionSecrets(
 				"identity.txt": []byte(identityContent),
 			},
 		},
-	}
-}
-
-// dockerConfigJSON is the structure of a kubernetes.io/dockerconfigjson secret payload.
-type dockerConfigJSON struct {
-	Auths map[string]dockerConfigEntry `json:"auths"`
-}
-
-// dockerConfigEntry holds the base64-encoded "username:password" auth token for a single registry.
-type dockerConfigEntry struct {
-	Auth string `json:"auth"`
-}
-
-// GetDockerConfigJSONSecret returns a kubernetes.io/dockerconfigjson Secret
-// with credentials for a single registry.
-func GetDockerConfigJSONSecret(name, namespace, registry, username, password string) *corev1.Secret {
-	auth := base64.StdEncoding.EncodeToString([]byte(username + ":" + password))
-	payload, err := json.Marshal(dockerConfigJSON{
-		Auths: map[string]dockerConfigEntry{registry: {Auth: auth}},
-	})
-	if err != nil {
-		panic(fmt.Sprintf("marshalling dockerconfigjson: %v", err))
-	}
-
-	return &corev1.Secret{
-		ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: namespace},
-		Type:       corev1.SecretTypeDockerConfigJson,
-		Data:       map[string][]byte{corev1.DockerConfigJsonKey: payload},
 	}
 }
 

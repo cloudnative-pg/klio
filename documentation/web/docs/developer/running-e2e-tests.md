@@ -175,16 +175,6 @@ operatorAppLabel: "app.kubernetes.io/name=klio"
 # Subscription (which OLM propagates to the Deployment) rather than the
 # Deployment, which OLM reverts. Leave empty for the Helm/Kind install.
 operatorSubscription: ""
-
-# Registry credentials for pulling private images.
-# The secret is created automatically in every test namespace.
-# Leave all fields empty when images are publicly accessible.
-# Do NOT commit credentials — use a local, untracked copy of this
-# file or set them via environment variables instead.
-imagePullSecret:
-  registry: ""
-  username: ""
-  password: ""
 ```
 
 To use a custom configuration, either edit `e2e-config.yaml` directly
@@ -251,10 +241,21 @@ the pipeline requires:
 
 - A pre-built Klio OLM catalog artifact
   (`operator/klio-operator-catalog-source.yaml`)
-- A Red Hat pull secret (`REDHAT_REGISTRY_DOCKERCONFIG`) used to start
-  the CRC cluster
-- GHCR credentials (`GHCR_USERNAME`, `GHCR_TOKEN`) for the private Klio
-  images
+- A Red Hat pull secret (`REDHAT_PULL`) used to start the CRC cluster.
+  This is the same secret, under the same name, that `cloudnative-pg`
+  uses to install its own OpenShift test clusters.
+
+The Klio operator, bundle, catalog and operand images are public on
+`ghcr.io`, so no registry credentials are needed.
+
+:::note
+The Red Hat pull secret is not available to forks, so the
+`openshift-e2e` CI job is gated on the `OPENSHIFT_ENABLED` repository
+variable and is skipped unless a repository opts in. To run it on a
+fork, set the `OPENSHIFT_ENABLED` variable to `true` and add your own
+`REDHAT_PULL` secret. Running the suite locally against your own CRC
+cluster needs neither.
+:::
 
 ### Running locally
 
@@ -263,8 +264,6 @@ kubeconfig (CRC writes it to `~/.kube/config`):
 
 ```bash
 export EXTERNAL_KUBECONFIG="$HOME/.kube/config"
-export GHCR_USERNAME=<github-user>
-export GHCR_TOKEN=<github-token>
 
 # Generate the Klio OLM CatalogSource the deploy step requires (or
 # download the klio-olm artifact from the ci.yml olm job instead).
@@ -275,7 +274,6 @@ task integration:e2e-openshift
 
 This command will:
 
-- Add GHCR credentials to the cluster-wide pull secret
 - Deploy cert-manager, CNPG, and Klio via OLM subscriptions
 - Run the full e2e suite
 

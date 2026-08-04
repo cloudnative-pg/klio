@@ -416,7 +416,21 @@ jobs:
       - core
       - operator
       - olm
-    if: needs.change-triage.outputs.run-openshift == 'true'
+    # OPENSHIFT_ENABLED gates the job on repositories that have the Red Hat
+    # pull secret configured, so a repository without it skips the job instead
+    # of failing to start the CRC cluster.
+    #
+    # The head-repository check is separate and necessary: on `pull_request`
+    # the `vars` context resolves against the *base* repository, so a PR from a
+    # fork would otherwise see OPENSHIFT_ENABLED and be dispatched — but fork
+    # PRs receive no secrets, so REDHAT_PULL would be empty and CRC bring-up
+    # would fail. Contributors can still run this job inside their own fork by
+    # setting the variable and their own REDHAT_PULL secret.
+    if: |
+      needs.change-triage.outputs.run-openshift == 'true' &&
+      vars.OPENSHIFT_ENABLED == 'true' &&
+      (github.event_name != 'pull_request' ||
+       github.event.pull_request.head.repo.full_name == github.repository)
     permissions:
       contents: read
       packages: read
@@ -424,4 +438,4 @@ jobs:
     with:
       catalog-artifact-name: klio-olm
     secrets:
-      REDHAT_REGISTRY_DOCKERCONFIG: ${{ secrets.REDHAT_REGISTRY_DOCKERCONFIG }}
+      REDHAT_PULL: ${{ secrets.REDHAT_PULL }}

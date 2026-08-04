@@ -27,10 +27,3 @@ operatorAppLabel: "app.kubernetes.io/name=klio"
 # environment patch the Subscription (which OLM propagates to the Deployment)
 # instead of the Deployment, which OLM reverts. Leave empty for Helm/Kind.
 operatorSubscription: ""
-
-# Registry credentials used to create a pull secret in each test namespace.
-# Leave all fields empty if images are publicly accessible.
-imagePullSecret:
-  registry: ""
-  username: ""
-  password: ""

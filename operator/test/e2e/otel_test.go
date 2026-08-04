@@ -163,7 +163,6 @@ func newOTELMetricsScenario(namespace string) *otelMetricsScenario {
 			ServerTemplateOptions: klio.ServerTemplateOptions{
 				Image:              testCfg.ServerImage,
 				StorageClass:       testCfg.StorageClass,
-				ImagePullSecret:    pullSecretName(),
 				TLSSecretName:      serverCertificate.Spec.SecretName,
 				ClientCASecretName: caCertificate.Spec.SecretName,
 				Encryption:         encOpts,
@@ -246,7 +245,7 @@ func newOTELMetricsScenario(namespace string) *otelMetricsScenario {
 
 	// CNPG Cluster with OTEL configuration
 	cnpgCluster := cnpg.GetCnpgClusterObject("test-cluster", namespace, 1, klioPluginConfiguration.Name,
-		cnpg.ClusterTemplateOptions{ImagePullSecret: pullSecretName(), StorageClass: testCfg.StorageClass})
+		cnpg.ClusterTemplateOptions{StorageClass: testCfg.StorageClass})
 
 	// Add OTEL env vars as Spec.Env (not EnvFrom) so the Klio lifecycle webhook
 	// merges them into the sidecar container.

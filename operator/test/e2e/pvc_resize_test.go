@@ -183,7 +183,6 @@ func NewPVCResizeFeatureConfig(name string, namespace string) klioFeatures.PVCRe
 		klio.ServerTemplateOptions{
 			Image:              testCfg.ServerImage,
 			StorageClass:       testCfg.StorageClass,
-			ImagePullSecret:    pullSecretName(),
 			TLSSecretName:      serverCertificate.Spec.SecretName,
 			ClientCASecretName: caCertificate.Spec.SecretName,
 			Encryption: klio.EncryptionOptions{
