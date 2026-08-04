@@ -397,9 +397,16 @@ jobs:
       - core
       - operator
       - olm
-    if: needs.change-triage.outputs.run-openshift == 'true'
+    # OPENSHIFT_ENABLED gates the job on repositories that have the Red Hat
+    # pull secret configured. Forks do not set the variable, so the job is
+    # skipped there instead of failing to start the CRC cluster. A fork can
+    # opt in by setting the variable and the REDHAT_PULL
+    # secret.
+    if: |
+      needs.change-triage.outputs.run-openshift == 'true' &&
+      vars.OPENSHIFT_ENABLED == 'true'
     uses: ./.github/workflows/openshift-e2e.yml
     with:
       catalog-artifact-name: klio-olm
     secrets:
-      REDHAT_REGISTRY_DOCKERCONFIG: ${{ secrets.REDHAT_REGISTRY_DOCKERCONFIG }}
+      REDHAT_PULL: ${{ secrets.REDHAT_PULL }}

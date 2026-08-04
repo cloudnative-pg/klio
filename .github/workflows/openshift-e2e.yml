@@ -8,9 +8,12 @@ on:
         type: string
         required: true
     secrets:
-      REDHAT_REGISTRY_DOCKERCONFIG:
+      REDHAT_PULL:
         description: "Red Hat pull secret used to start the CRC cluster."
-        required: true
+        # Not required: forks have no Red Hat pull secret, so the caller gates
+        # this workflow on the OPENSHIFT_ENABLED repository variable and only
+        # repositories that opted in (and configured the secret) ever reach it.
+        required: false
 
 permissions:
   contents: read
@@ -23,8 +26,6 @@ jobs:
     timeout-minutes: 120
     env:
       ENVIRONMENT: "testing"
-      GHCR_USERNAME: ${{ github.actor }}
-      GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -52,7 +53,7 @@ jobs:
       - name: Start OpenShift cluster (CRC)
         uses: crc-org/crc-github-action@c32030519c129bdaeedf2f313670831c2195526e # v1
         with:
-          pull-secret: ${{ secrets.REDHAT_REGISTRY_DOCKERCONFIG }}
+          pull-secret: ${{ secrets.REDHAT_PULL }}
           preset: openshift
           cpus: 8
           memory: 20480
@@ -72,11 +73,21 @@ jobs:
       - name: Setup dagger
         uses: ./.github/actions/setup-dagger
 
+      - name: Login to ghcr.io
+        # The Klio images are public, but anonymous pulls share a per-IP rate
+        # limit across all GitHub Actions runners and can be throttled during a
+        # burst. GITHUB_TOKEN is auto-provisioned (forks included), so this needs
+        # no gating; it only grants the read access the pulls below require.
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Run Red Hat preflight (check operator)
         # Certify the OLM bundle on the freshly started cluster, before the e2e
         # suite installs the operator. preflight installs into its own namespace,
         # so it stays isolated from the e2e install in openshift-operators.
-        continue-on-error: true
         run: task olm:preflight-operator ENVIRONMENT=testing
 
       - name: Run e2e tests on OpenShift

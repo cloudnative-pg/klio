@@ -36,7 +36,7 @@ import (
 
 // TestServerWalTierCollapse verifies that tier-1 (walserver) and tier-2
 // (consumer) WAL recordings fold into a single instrument distinguished
-// by the `tier` attribute, per CNP-8324.
+// by the `tier` attribute.
 func TestServerWalTierCollapse(t *testing.T) {
 	reader := sdkmetric.NewManualReader()
 	provider := sdkmetric.NewMeterProvider(sdkmetric.WithReader(reader))
