@@ -1,0 +1,23 @@
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: klio-a
+spec:
+  secretName: klio-a-tls
+  commonName: klio-a
+  dnsNames:
+    - klio-a
+    - klio-a.default
+    - klio-a.default.svc
+
+  duration: 2160h # 90d
+  renewBefore: 360h # 15d
+
+  isCA: false
+  usages:
+    - server auth
+
+  issuerRef:
+    name: selfsigned-issuer
+    kind: Issuer
+    group: cert-manager.io

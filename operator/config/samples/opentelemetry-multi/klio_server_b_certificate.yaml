@@ -1,0 +1,28 @@
+# klio-b is reached both from cluster-b (same namespace, "default") and from
+# cluster-c (namespace "team-c", see ../team-c), so its dnsNames must cover
+# both the short in-namespace form and the fully-qualified cross-namespace
+# form used as PluginConfiguration.serverAddress by cluster-c.
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: klio-b
+spec:
+  secretName: klio-b-tls
+  commonName: klio-b
+  dnsNames:
+    - klio-b
+    - klio-b.default
+    - klio-b.default.svc
+    - klio-b.default.svc.cluster.local
+
+  duration: 2160h # 90d
+  renewBefore: 360h # 15d
+
+  isCA: false
+  usages:
+    - server auth
+
+  issuerRef:
+    name: selfsigned-issuer
+    kind: Issuer
+    group: cert-manager.io

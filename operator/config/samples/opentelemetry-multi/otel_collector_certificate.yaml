@@ -1,0 +1,13 @@
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: otel-collector
+spec:
+  secretName: otel-collector-tls
+  issuerRef:
+    name: selfsigned-issuer
+    kind: Issuer
+  dnsNames:
+    - otel-collector.default.svc.cluster.local
+    - otel-collector.default.svc
+    - otel-collector
