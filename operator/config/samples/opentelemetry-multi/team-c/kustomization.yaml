@@ -1,0 +1,9 @@
+# Apply ../kustomization.yaml first, then run ../copy-cross-namespace-secrets.sh
+# to populate the secrets this kustomization expects to already exist
+# (klio-b-tls, cluster-c-klio-user, otel-collector-ca,
+# klio-server-otel-client-tls), then apply this one.
+namespace: team-c
+resources:
+  - namespace.yaml
+  - cluster_klio_otel_config.yaml
+  - cluster_c.yaml

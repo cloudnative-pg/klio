@@ -1,0 +1,71 @@
+# This is a simple Jaeger all-in-one deployment for testing purposes.
+# It is NOT recommended for production use.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: jaeger
+  name: jaeger
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: jaeger
+  strategy: {}
+  template:
+    metadata:
+      labels:
+        app: jaeger
+    spec:
+      automountServiceAccountToken: false
+      containers:
+      - image: cr.jaegertracing.io/jaegertracing/jaeger:2.20.0@sha256:46a886260e04002d8f45e213fc39063fa11a50446048fdaa64786fc0840cb9f8
+        name: all-in-one
+        ports:
+          - containerPort: 16686
+            protocol: TCP
+          - containerPort: 4317
+            protocol: TCP
+          - containerPort: 4318
+            protocol: TCP
+          - containerPort: 5778
+            protocol: TCP
+          - containerPort: 9411
+            protocol: TCP
+        resources:
+          requests:
+            cpu: 100m
+            memory: 128Mi
+            ephemeral-storage: 100Mi
+status: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: jaeger
+  name: jaeger
+spec:
+  ports:
+    - name: port-1
+      port: 16686
+      protocol: TCP
+      targetPort: 16686
+    - name: port-2
+      port: 4317
+      protocol: TCP
+      targetPort: 4317
+    - name: port-3
+      port: 4318
+      protocol: TCP
+      targetPort: 4318
+    - name: port-4
+      port: 5778
+      protocol: TCP
+      targetPort: 5778
+    - name: port-5
+      port: 9411
+      protocol: TCP
+      targetPort: 9411
+  selector:
+    app: jaeger

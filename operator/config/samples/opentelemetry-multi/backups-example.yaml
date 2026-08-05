@@ -1,0 +1,44 @@
+# Triggers one base backup on each of the three clusters, so the Grafana
+# dashboard has backup/snapshot data to show for all three (namespace,
+# server, cluster) combinations. Apply after cluster-a, cluster-b and
+# cluster-c are all healthy:
+#
+#   kubectl apply -f operator/config/samples/opentelemetry-multi/backups-example.yaml
+apiVersion: postgresql.cnpg.io/v1
+kind: Backup
+metadata:
+  name: cluster-a-backup-1
+  namespace: default
+spec:
+  method: plugin
+  target: primary
+  cluster:
+    name: cluster-a
+  pluginConfiguration:
+    name: klio.cnpg.io
+---
+apiVersion: postgresql.cnpg.io/v1
+kind: Backup
+metadata:
+  name: cluster-b-backup-1
+  namespace: default
+spec:
+  method: plugin
+  target: primary
+  cluster:
+    name: cluster-b
+  pluginConfiguration:
+    name: klio.cnpg.io
+---
+apiVersion: postgresql.cnpg.io/v1
+kind: Backup
+metadata:
+  name: cluster-c-backup-1
+  namespace: team-c
+spec:
+  method: plugin
+  target: primary
+  cluster:
+    name: cluster-c
+  pluginConfiguration:
+    name: klio.cnpg.io

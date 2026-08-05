@@ -1,0 +1,32 @@
+# REQUIRES:
+# kubectl apply -f https://github.com/open-telemetry/opentelemetry-operator/releases/latest/download/opentelemetry-operator.yaml
+#
+# Deploys two Klio servers (klio-a, klio-b) and two CNPG clusters
+# (cluster-a -> klio-a, cluster-b -> klio-b) into the "default" namespace,
+# sharing one OTel collector / Jaeger / Prometheus stack. See ../team-c for
+# the third cluster, which lives in a different namespace and is backed by
+# klio-b.
+resources:
+  - cluster_klio_otel_config.yaml
+  - cluster_a.yaml
+  - cluster_a_klio_client_auth.yaml
+  - cluster_b.yaml
+  - cluster_b_klio_client_auth.yaml
+  - cluster_c_klio_client_auth.yaml
+  - issuer.yaml
+  - jaeger.yaml
+  - klio_encryption.yaml
+  - klio_server_a.yaml
+  - klio_server_a_certificate.yaml
+  - klio_server_b.yaml
+  - klio_server_b_certificate.yaml
+  - klio_server_ca.yaml
+  - klio_server_ca_issuer.yaml
+  - klio_server_otel_client_certificate.yaml
+  - klio_server_otel_config.yaml
+  - otel_collector.yaml
+  - otel_collector_certificate.yaml
+  - otel_collector_clusterrole.yaml
+  - otel_collector_clusterrolebinding.yaml
+  - otel_collector_sa.yaml
+  - otel_collector_svc_monitor.yaml
