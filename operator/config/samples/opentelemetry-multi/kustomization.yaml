@@ -3,9 +3,10 @@
 #
 # Deploys two Klio servers (klio-a, klio-b) and two CNPG clusters
 # (cluster-a -> klio-a, cluster-b -> klio-b) into the "default" namespace,
-# sharing one OTel collector / Jaeger / Prometheus stack. See ../team-c for
-# the third cluster, which lives in a different namespace and is backed by
-# klio-b.
+# sharing one OTel collector / Jaeger / Prometheus stack. See:
+#   ../team-c for a third cluster in a different namespace, backed by klio-b
+#   ../team-e for a second, independent server also named "klio-a" (so its
+#     StatefulSet pod, and therefore host_name, collides with the original)
 resources:
   - cluster_klio_otel_config.yaml
   - cluster_a.yaml
@@ -13,6 +14,7 @@ resources:
   - cluster_b.yaml
   - cluster_b_klio_client_auth.yaml
   - cluster_c_klio_client_auth.yaml
+  - cluster_e_klio_client_auth.yaml
   - issuer.yaml
   - jaeger.yaml
   - klio_encryption.yaml

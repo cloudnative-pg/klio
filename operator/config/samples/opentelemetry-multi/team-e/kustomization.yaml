@@ -1,0 +1,15 @@
+# Apply ../kustomization.yaml first, then run:
+#   ../bootstrap-remote-server.sh team-e cluster-e-klio-user
+# to populate the secrets this kustomization expects to already exist
+# (klio-server-ca, otel-collector-ca, klio-server-otel-client-tls,
+# cluster-e-klio-user), then apply this one.
+namespace: team-e
+resources:
+  - namespace.yaml
+  - issuer.yaml
+  - klio_server_a_certificate.yaml
+  - klio_encryption.yaml
+  - klio_server_otel_config.yaml
+  - cluster_klio_otel_config.yaml
+  - klio_server_a.yaml
+  - cluster_e.yaml

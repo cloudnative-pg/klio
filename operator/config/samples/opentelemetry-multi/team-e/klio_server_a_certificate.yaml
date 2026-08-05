@@ -1,0 +1,29 @@
+# A SECOND server named "klio-a" (same name as the one in "default"), in a
+# different namespace. Its StatefulSet pod is therefore also named
+# "klio-a-klio-0" -- an identical host_name to the original klio-a, testing
+# whether $server (built from host_name alone) can disambiguate two
+# same-named servers across namespaces.
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: klio-a
+  namespace: team-e
+spec:
+  secretName: klio-a-tls
+  commonName: klio-a
+  dnsNames:
+    - klio-a
+    - klio-a.team-e
+    - klio-a.team-e.svc
+
+  duration: 2160h # 90d
+  renewBefore: 360h # 15d
+
+  isCA: false
+  usages:
+    - server auth
+
+  issuerRef:
+    name: selfsigned-issuer
+    kind: Issuer
+    group: cert-manager.io
