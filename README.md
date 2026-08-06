@@ -6,6 +6,9 @@
 The name *Klio* is inspired by Clio, the muse of history, symbolizing the
 preservation and recovery of past events, which resonates with database backup
 
+Documentation for Klio is available at
+[https://cloudnative-pg.io/klio/](https://cloudnative-pg.io/klio/).
+
 > [!WARNING]
 > Klio is **experimental** and under active development. APIs, CRDs, and
 > behavior may change without notice, and it is not yet recommended for
