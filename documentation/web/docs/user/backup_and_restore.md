@@ -205,7 +205,8 @@ spec:
     recovery:
       source: source
       # OPTIONAL: Specify the backup to restore from
-      backupID: my-cluster-backup-YYYYMMDDHHMMSS
+      recoveryTarget:
+        backupID: my-cluster-backup-YYYYMMDDHHMMSS
 
   # Reference the Klio plugin configuration
   externalClusters:
