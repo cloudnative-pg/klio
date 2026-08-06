@@ -12,8 +12,9 @@ on:
     branches:
       - main
 
-jobs:
+permissions: read-all
 
+jobs:
   change-triage:
     name: Check changed files
     runs-on: ubuntu-latest
@@ -147,6 +148,9 @@ jobs:
     # freshly built operand image from ghcr regardless of which module changed.
     if: needs.change-triage.outputs.core-changed == 'true' || needs.change-triage.outputs.run-openshift == 'true'
     runs-on: ${{ github.repository_owner == 'cloudnative-pg' && 'ubuntu-latest-16-cores' || 'ubuntu-latest' }}
+    permissions:
+      contents: read
+      packages: write
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -189,6 +193,9 @@ jobs:
     # the freshly built operator image from ghcr regardless of what changed.
     if: needs.change-triage.outputs.operator-changed == 'true' || needs.change-triage.outputs.run-openshift == 'true'
     runs-on: ${{ github.repository_owner == 'cloudnative-pg' && 'ubuntu-latest-16-cores' || 'ubuntu-latest' }}
+    permissions:
+      contents: read
+      packages: write
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -225,6 +232,9 @@ jobs:
       - change-triage
     if: needs.change-triage.outputs.core-changed == 'true' || needs.change-triage.outputs.operator-changed == 'true'
     runs-on: ${{ github.repository_owner == 'cloudnative-pg' && 'ubuntu-latest-16-cores' || 'ubuntu-latest' }}
+    permissions:
+      contents: read
+      packages: write
     steps:
       - name: Checkout Klio
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -286,6 +296,9 @@ jobs:
       # The OpenShift Catalog is just for internal testing purpose until it won't.
       ENVIRONMENT: "testing"
     runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      packages: write
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -344,6 +357,9 @@ jobs:
     needs:
       - change-triage
     runs-on: ${{ github.repository_owner == 'cloudnative-pg' && 'ubuntu-latest-16-cores' || 'ubuntu-latest' }}
+    permissions:
+      contents: read
+      packages: write
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
