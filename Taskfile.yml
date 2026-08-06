@@ -1927,3 +1927,19 @@ tasks:
       - defer: rm -f "${E2E_CONFIG_FILE}"
       - mkdir -p e2e_cluster_logs
       - go test -timeout 30m -v ./...
+
+  renovate:validate:
+    desc: Validate the renovate configuration
+    run: once
+    vars:
+      # renovate: datasource=docker depName=renovate/renovate versioning=docker
+      RENOVATE_IMAGE_VERSION: 44.14.1@sha256:a34836ff19679185d51f78f84c5785c21cba57d28cdc2cd02bd88bb9024f235d
+    cmds:
+      - >
+        dagger core container from --address renovate/renovate
+        with-mounted-file --path /config/renovate.json --source ./renovate.json
+        with-workdir --path /config
+        with-exec --args renovate-config-validator --args "--strict" --args renovate.json
+        stdout
+    sources:
+      - renovate.json
