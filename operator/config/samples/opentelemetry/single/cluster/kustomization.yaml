@@ -4,3 +4,4 @@
 resources:
   - cluster.yaml
   - plugin_configuration.yaml
+  - cluster_pod_monitor.yaml

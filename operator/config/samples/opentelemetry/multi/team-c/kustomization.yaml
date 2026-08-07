@@ -55,3 +55,13 @@ patches:
       - op: replace
         path: /spec/clusterName
         value: cluster-c
+  - target:
+      kind: PodMonitor
+      name: cluster-example
+    patch: |-
+      - op: replace
+        path: /metadata/name
+        value: cluster-c
+      - op: replace
+        path: /spec/selector/matchLabels/cnpg.io~1cluster
+        value: cluster-c
