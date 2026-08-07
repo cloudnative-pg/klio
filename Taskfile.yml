@@ -1573,17 +1573,11 @@ tasks:
         sh: date +%s
     cmds:
       - kind get kubeconfig --name {{ .KIND_CLUSTER_NAME }} > {{ .KUBECONFIG_PATH }}
-      # alpine/k8s bundles whatever Helm was current at its own build time, which is currently
-      # v4.2.1 (helm/helm#32214: --wait can hang for the full timeout waiting on a hook's
-      # before-hook-creation deletion, e.g. cert-manager's startupapicheck) with no newer image
-      # tag available yet. Install a known-good Helm ourselves instead of relying on the base
-      # image's bundled version.
       - |
         dagger shell << "."
-        container | from alpine/k8s:{{ .ALPINE_K8S_VERSION }} |
-        with-mounted-file /kube/.config {{ .KUBECONFIG_PATH }} |
+        container | from alpine/k8s:{{ .ALPINE_K8S_VERSION }} | with-mounted-file /kube/.config {{ .KUBECONFIG_PATH }} |
         with-directory /chart operator/dist/chart |
-        with-exec -- sh -c "curl -fsSL https://get.helm.sh/helm-{{ .HELM_VERSION }}-linux-amd64.tar.gz | tar xz -C /tmp && mv /tmp/linux-amd64/helm /usr/local/bin/helm && chmod +x /usr/local/bin/helm" |
+        with-exec -- sh -c "curl https://raw.githubusercontent.com/helm/helm/refs/tags/{{ .HELM_VERSION }}/scripts/get-helm-4 | DESIRED_VERSION={{ .HELM_VERSION }} VERIFY_CHECKSUM=false sh" |
         with-env-variable KUBECONFIG /kube/.config |
         with-service-binding localhost tcp://127.0.0.1:{{ .KIND_HOSTPORT }} |
         with-exec -- sh -c "kubectl config set-cluster kind-{{ .KIND_CLUSTER_NAME }} --server=https://localhost:{{ .KIND_HOSTPORT }}" |
