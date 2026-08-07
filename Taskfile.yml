@@ -1805,9 +1805,9 @@ tasks:
       # Relative to dir (operator/test/e2e).
       E2E_CONFIG_FILE: e2e-config.openshift.yaml
     cmds:
-      # write-e2e-config-openshift (a dependency) generates this; remove it when
-      # the run finishes, pass or fail, so a later Kind run cannot pick up the
-      # OpenShift settings.
+      # write-e2e-config-openshift (a dependency) generates this; remove it
+      # when the run finishes, pass or fail, so it doesn't linger as stale
+      # state for the next OpenShift run to trip over.
       - defer: rm -f "${E2E_CONFIG_FILE}"
       - mkdir -p e2e_cluster_logs
       - go test -timeout 30m -v ./...
