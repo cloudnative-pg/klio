@@ -2,7 +2,12 @@
 
 This directory contains two sample environments exercising Klio's
 OpenTelemetry integration, both sharing the OTel collector / Jaeger /
-Prometheus stack defined in `base/`:
+Prometheus stack defined in `base/`. Every CNPG cluster also gets its own
+`PodMonitor` (see `single/cluster/cluster_pod_monitor.yaml`), so Prometheus
+scrapes CloudNativePG's own `cnpg_pg_stat_replication_*` metrics in
+addition to what the OTel collector exports — the Grafana dashboard's WAL
+Replication Lag row needs this (see
+`documentation/web/docs/user/grafana-dashboards.md`):
 
 - [`single/`](single): one Klio server and one CNPG cluster. Start here if
   you just want to see OpenTelemetry wired up.
