@@ -1,0 +1,10 @@
+# Local self-signed issuer for this namespace's OWN Klio server identity
+# (cert-manager Issuers are namespace-scoped, so ../issuer.yaml in "default"
+# can't be reused here).
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  name: selfsigned-issuer
+  namespace: team-d
+spec:
+  selfSigned: {}

@@ -1,0 +1,28 @@
+# Client cert for cluster-d, backed by a SECOND Klio server also named
+# "klio-a" (see ../team-d), living in a different namespace than the
+# original klio-a in "default". Since a Server's StatefulSet pod name
+# equals the Server's own name, this second klio-a's pod is ALSO named
+# "klio-a-klio-0" -- an identical host_name to the original, but in a
+# different namespace. Requested directly here via the cluster-scoped
+# klio-server-ca ClusterIssuer (see ../../base) — no cross-namespace copy
+# needed for this one, unlike the CA's own public cert and the OTel trust
+# anchor (see ../bootstrap-remote-server.sh).
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: cluster-d-klio-user
+spec:
+  commonName: klio@cluster-d
+  secretName: cluster-d-klio-user
+
+  duration: 2160h # 90d
+  renewBefore: 360h # 15d
+
+  isCA: false
+  usages:
+    - client auth
+
+  issuerRef:
+    name: klio-server-ca
+    kind: ClusterIssuer
+    group: cert-manager.io

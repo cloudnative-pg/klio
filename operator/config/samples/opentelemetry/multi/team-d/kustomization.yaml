@@ -1,0 +1,91 @@
+# Apply ../kustomization.yaml first, then run:
+#   ../bootstrap-remote-server.sh team-d
+# to populate the secrets this kustomization expects to already exist
+# (klio-server-ca, otel-collector-ca, klio-server-otel-client-tls), then
+# apply this one. Those three are all pinned-by-exact-bytes copies of
+# secrets that live in "default" (see the script's comments); cluster-d's
+# OWN client certificate (cluster_d_klio_client_auth.yaml) has no such
+# requirement, since it is signed by the cluster-scoped klio-server-ca
+# ClusterIssuer (see ../../base) and requested directly in this namespace.
+#
+# Reuses ../../single's Server and Cluster/PluginConfiguration (see
+# ../team-a for how that reuse looks). The server keeps the name "klio-a"
+# (same as ../team-a's), deliberately colliding with it: since a Server's
+# StatefulSet pod name equals the Server's own name, this second klio-a's
+# pod is ALSO named "klio-a-klio-0" -- an identical host_name to the
+# original, but in a different namespace. The cluster is named "cluster-d".
+namespace: team-d
+resources:
+  - namespace.yaml
+  - issuer.yaml
+  - klio_encryption.yaml
+  - klio_server_otel_config.yaml
+  - cluster_klio_otel_config.yaml
+  - cluster_d_klio_client_auth.yaml
+  - ../../single/server
+  - ../../single/cluster
+patches:
+  - target:
+      kind: Server
+      name: klio
+    patch: |-
+      - op: replace
+        path: /metadata/name
+        value: klio-a
+      - op: replace
+        path: /spec/tlsSecretName
+        value: klio-a-tls
+      - op: replace
+        path: /spec/template/spec/containers/0/env/2/value
+        value: klio-server-a-team-d
+      - op: replace
+        path: /spec/template/spec/volumes/0/projected/sources/0/secret/name
+        value: otel-collector-ca
+  - target:
+      kind: Certificate
+      name: klio-server
+    patch: |-
+      - op: replace
+        path: /metadata/name
+        value: klio-a
+      - op: replace
+        path: /spec/secretName
+        value: klio-a-tls
+      - op: replace
+        path: /spec/commonName
+        value: klio-a
+      - op: replace
+        path: /spec/dnsNames
+        value: [klio-a, klio-a.team-d, klio-a.team-d.svc]
+  - target:
+      kind: Cluster
+      name: cluster-example
+    patch: |-
+      - op: replace
+        path: /metadata/name
+        value: cluster-d
+      - op: replace
+        path: /spec/plugins/0/parameters/pluginConfigurationRef
+        value: client-config-cluster-d
+      - op: replace
+        path: /spec/projectedVolumeTemplate/sources/0/secret/name
+        value: otel-collector-ca
+  - target:
+      kind: PluginConfiguration
+      name: client-config-cluster-example
+    patch: |-
+      - op: replace
+        path: /metadata/name
+        value: client-config-cluster-d
+      - op: replace
+        path: /spec/serverAddress
+        value: klio-a
+      - op: replace
+        path: /spec/clientSecretName
+        value: cluster-d-klio-user
+      - op: replace
+        path: /spec/serverSecretName
+        value: klio-a-tls
+      - op: replace
+        path: /spec/clusterName
+        value: cluster-d
