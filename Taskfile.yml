@@ -1036,10 +1036,9 @@ tasks:
 
         # Hand preflight the registry credentials so the bundle and index pulls
         # are authenticated rather than anonymous. Require an inline auth entry
-        # rather than merely a file: Docker Desktop on macOS writes a config
-        # holding only {"credsStore":"desktop"}, and the helper binary it names
-        # does not exist inside the preflight container, which fails the pull.
-        # The images are public, so no config at all is the safe fallback.
+        # rather than merely a file, for the same Docker-Desktop-credential-helper
+        # reason as olm:preflight-container above. The images are public, so no
+        # config at all is the safe fallback.
         docker_config_args=""
         if [ -f "${REGISTRY_AUTH_FILE}" ] &&
            jq -e '(.auths // {}) | to_entries | map(select(.value.auth)) | length > 0' \
