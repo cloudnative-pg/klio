@@ -1564,17 +1564,22 @@ tasks:
       OPERAND_IMAGE_TAG: '{{ .OPERAND_IMAGE_TAG | default "dev" }}'
       # renovate: datasource=docker depName=alpine/k8s versioning=docker
       ALPINE_K8S_VERSION: 1.36.2@sha256:44ef4942e171939b9c665a4a84beb80e2dcdb9a24330d4651cfdfd2e9deecc47
+      # TODO: remove the HELM_VERSION once the new alpine/k8s image fixes the issue that caused this PR: https://github.com/cloudnative-pg/klio/pull/57
+      # renovate: datasource=github-releases depName=helm/helm versioning=semver
+      HELM_VERSION: 'v4.2.3'
       # renovate: datasource=helm depName=cert-manager versioning=semver registryUrl=https://charts.jetstack.io
       CERT_MANAGER_VERSION: 'v1.21.1'
       # Cache busting timestamp to prevent Dagger from caching helm deployments
       CACHE_BUST:
         sh: date +%s
+    # TODO: remove the Helm installation once the new alpine/k8s image fixes the issue that caused this PR: https://github.com/cloudnative-pg/klio/pull/57
     cmds:
       - kind get kubeconfig --name {{ .KIND_CLUSTER_NAME }} > {{ .KUBECONFIG_PATH }}
       - |
         dagger shell << "."
         container | from alpine/k8s:{{ .ALPINE_K8S_VERSION }} | with-mounted-file /kube/.config {{ .KUBECONFIG_PATH }} |
         with-directory /chart operator/dist/chart |
+        with-exec -- sh -c "curl https://raw.githubusercontent.com/helm/helm/refs/tags/{{ .HELM_VERSION }}/scripts/get-helm-4 | DESIRED_VERSION={{ .HELM_VERSION }} VERIFY_CHECKSUM=false sh" |
         with-env-variable KUBECONFIG /kube/.config |
         with-service-binding localhost tcp://127.0.0.1:{{ .KIND_HOSTPORT }} |
         with-exec -- sh -c "kubectl config set-cluster kind-{{ .KIND_CLUSTER_NAME }} --server=https://localhost:{{ .KIND_HOSTPORT }}" |
