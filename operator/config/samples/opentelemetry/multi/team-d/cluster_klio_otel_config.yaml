@@ -1,0 +1,20 @@
+# Same settings as ../cluster_klio_otel_config.yaml, but the endpoint is
+# fully-qualified since the otel-collector Service lives in "default", not
+# in this namespace.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: cluster-klio-otel-config
+  namespace: team-d
+data:
+  OTEL_RESOURCE_DETECTORS: "telemetry.sdk,host,os.type,process.executable.name"
+  OTEL_TRACES_EXPORTER: "otlp"
+  OTEL_METRICS_EXPORTER: "otlp"
+  OTEL_EXPORTER_OTLP_PROTOCOL: "grpc"
+  OTEL_EXPORTER_OTLP_ENDPOINT: "https://otel-collector.default.svc.cluster.local:4317"
+  OTEL_EXPORTER_OTLP_COMPRESSION: "gzip"
+  OTEL_EXPORTER_OTLP_TIMEOUT: "10000"
+  OTEL_EXPORTER_OTLP_INSECURE: "false"
+  OTEL_EXPORTER_OTLP_CERTIFICATE: "/projected/ca.crt"
+  OTEL_EXPORTER_OTLP_CLIENT_CERTIFICATE: "/projected/tls.crt"
+  OTEL_EXPORTER_OTLP_CLIENT_KEY: "/projected/tls.key"

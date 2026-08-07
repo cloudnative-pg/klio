@@ -1,0 +1,25 @@
+# cluster-c's client certificate, requested directly in "team-c" via the
+# cluster-scoped klio-server-ca ClusterIssuer (see ../../base). Unlike
+# klio-b's own certificate (which cluster-c's PluginConfiguration pins by
+# exact bytes, see ../copy-cross-namespace-secrets.sh), this is a genuinely
+# separate certificate signed by the shared CA — no cross-namespace copy
+# needed.
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: cluster-c-klio-user
+spec:
+  commonName: klio@cluster-c
+  secretName: cluster-c-klio-user
+
+  duration: 2160h # 90d
+  renewBefore: 360h # 15d
+
+  isCA: false
+  usages:
+    - client auth
+
+  issuerRef:
+    name: klio-server-ca
+    kind: ClusterIssuer
+    group: cert-manager.io

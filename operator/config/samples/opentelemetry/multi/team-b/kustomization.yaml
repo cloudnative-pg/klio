@@ -1,0 +1,75 @@
+# Instantiates ../../single's Klio server and CNPG cluster a third time, as
+# "klio-b"/"cluster-b" in the "default" namespace. klio-b is also reached
+# from cluster-c (namespace "team-c", see ../team-c), so its dnsNames must
+# cover both the short in-namespace form and the fully-qualified
+# cross-namespace form used as PluginConfiguration.serverAddress by
+# cluster-c.
+namespace: default
+resources:
+  - ../../single/server
+  - ../../single/cluster
+patches:
+  - target:
+      kind: Server
+      name: klio
+    patch: |-
+      - op: replace
+        path: /metadata/name
+        value: klio-b
+      - op: replace
+        path: /spec/tlsSecretName
+        value: klio-b-tls
+      - op: replace
+        path: /spec/template/spec/containers/0/env/2/value
+        value: klio-server-b
+  - target:
+      kind: Certificate
+      name: klio-server
+    patch: |-
+      - op: replace
+        path: /metadata/name
+        value: klio-b
+      - op: replace
+        path: /spec/secretName
+        value: klio-b-tls
+      - op: replace
+        path: /spec/commonName
+        value: klio-b
+      - op: replace
+        path: /spec/dnsNames
+        value:
+          [
+            klio-b,
+            klio-b.default,
+            klio-b.default.svc,
+            klio-b.default.svc.cluster.local,
+          ]
+  - target:
+      kind: Cluster
+      name: cluster-example
+    patch: |-
+      - op: replace
+        path: /metadata/name
+        value: cluster-b
+      - op: replace
+        path: /spec/plugins/0/parameters/pluginConfigurationRef
+        value: client-config-cluster-b
+  - target:
+      kind: PluginConfiguration
+      name: client-config-cluster-example
+    patch: |-
+      - op: replace
+        path: /metadata/name
+        value: client-config-cluster-b
+      - op: replace
+        path: /spec/serverAddress
+        value: klio-b.default
+      - op: replace
+        path: /spec/clientSecretName
+        value: cluster-b-klio-user
+      - op: replace
+        path: /spec/serverSecretName
+        value: klio-b-tls
+      - op: replace
+        path: /spec/clusterName
+        value: cluster-b
