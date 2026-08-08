@@ -46,32 +46,10 @@ import (
 
 const klioServerName = "test-klio-server"
 
-// imagePullSecretName is the fixed name of the pull secret created in each
-// test namespace when registry credentials are configured.
-const imagePullSecretName = "e2e-pull-secret" //nolint:gosec // This is a fixed name for the pull secret used in tests.
-
-// pullSecretName returns the pull secret name when registry credentials are
-// configured, or an empty string when they are not.
-func pullSecretName() string {
-	if testCfg.ImagePullSecret.IsConfigured() {
-		return imagePullSecretName
-	}
-
-	return ""
-}
-
-// createNamespace creates the namespace and, when registry credentials are
-// configured in testCfg, creates a dockerconfigjson pull secret inside it.
+// createNamespace creates the namespace used by a test.
 func createNamespace(ctx context.Context, t *testing.T, r *resources.Resources, ns *corev1.Namespace) {
 	t.Helper()
 	require.NoError(t, r.Create(ctx, ns), "failed to create namespace")
-	if !testCfg.ImagePullSecret.IsConfigured() {
-		return
-	}
-	cfg := testCfg.ImagePullSecret
-	secret := secrets.GetDockerConfigJSONSecret(
-		imagePullSecretName, ns.Name, cfg.Registry, cfg.Username, cfg.Password)
-	require.NoError(t, r.Create(ctx, secret), "failed to create pull secret")
 }
 
 // pluginTestResources holds the common Kubernetes resources needed by
@@ -116,7 +94,7 @@ func newPluginTestResources(namespace string) pluginTestResources {
 	)
 
 	cnpgCluster := cnpg.GetCnpgClusterObject("test-cluster", namespace, 1, "klio-plugin-configuration",
-		cnpg.ClusterTemplateOptions{ImagePullSecret: pullSecretName(), StorageClass: testCfg.StorageClass})
+		cnpg.ClusterTemplateOptions{StorageClass: testCfg.StorageClass})
 
 	ageSecrets := secrets.GetKlioAgeEncryptionSecrets("encryption", namespace, "testencryptionpassword123")
 	klioServer := klio.GetServerObject(
@@ -125,7 +103,6 @@ func newPluginTestResources(namespace string) pluginTestResources {
 		klio.ServerTemplateOptions{
 			Image:              testCfg.ServerImage,
 			StorageClass:       testCfg.StorageClass,
-			ImagePullSecret:    pullSecretName(),
 			TLSSecretName:      certificate.Spec.SecretName,
 			ClientCASecretName: caCertificate.Spec.SecretName,
 			Encryption: klio.EncryptionOptions{

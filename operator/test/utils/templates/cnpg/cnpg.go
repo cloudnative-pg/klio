@@ -28,9 +28,6 @@ import (
 
 // ClusterTemplateOptions configures optional fields for CNPG cluster templates.
 type ClusterTemplateOptions struct {
-	// ImagePullSecret is the name of a Kubernetes secret used to pull images.
-	// If empty, no pull secret is configured.
-	ImagePullSecret string
 	// StorageClass is the storage class for the cluster's data (and tablespace)
 	// PVCs. If empty, the cluster's default storage class is used.
 	StorageClass string
@@ -67,12 +64,6 @@ func GetCnpgClusterObject(
 				},
 			}},
 		},
-	}
-
-	if opts.ImagePullSecret != "" {
-		cluster.Spec.ImagePullSecrets = []cnpgv1.LocalObjectReference{
-			{Name: opts.ImagePullSecret},
-		}
 	}
 
 	if opts.StorageClass != "" {
