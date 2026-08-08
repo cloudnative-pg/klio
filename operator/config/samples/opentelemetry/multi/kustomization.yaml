@@ -1,0 +1,16 @@
+# Deploys two Klio servers (klio-a, klio-b) and two CNPG clusters
+# (cluster-a -> klio-a, cluster-b -> klio-b) into the "default" namespace,
+# reusing ../single's Server/Cluster definitions (see ./team-a, ./team-b),
+# and shares the OTel collector / Jaeger / Prometheus stack defined in
+# ../base. ./team-a and ./team-b are named for consistency with ./team-c
+# and ./team-d, but — unlike those two — both still deploy into "default",
+# not a namespace of their own. See:
+#   ./team-c for a third cluster in a different namespace, backed by klio-b
+#   ./team-d for a second, independent server also named "klio-a" (so its
+#     StatefulSet pod, and therefore host_name, collides with the original)
+resources:
+  - ../base
+  - team-a
+  - team-b
+  - cluster_a_klio_client_auth.yaml
+  - cluster_b_klio_client_auth.yaml

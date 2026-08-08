@@ -1,0 +1,67 @@
+# Apply ../kustomization.yaml first, then run ../copy-cross-namespace-secrets.sh
+# to populate the secrets this kustomization expects to already exist
+# (klio-b-tls, otel-collector-ca, klio-server-otel-client-tls), then apply
+# this one.
+#
+# cluster-c reuses ../../single's Cluster/PluginConfiguration (see ../team-a
+# for how that reuse looks); it is backed by klio-b, which lives in the
+# "default" namespace, not here. This exercises a single Klio server
+# serving clusters from more than one namespace. serverSecretName above
+# (klio-b-tls) and the OTel client secret are NOT created by this
+# kustomization: klio-b's certificate is pinned by exact bytes rather than
+# CA-validated (see connection.go, referenced from
+# ../copy-cross-namespace-secrets.sh), so its public half has to be copied
+# in from "default" by that script, which must be run before applying this
+# kustomization. cluster-c's OWN client certificate
+# (cluster_c_klio_client_auth.yaml) has no such requirement: it is signed
+# by the cluster-scoped klio-server-ca ClusterIssuer (see ../../base) and
+# requested directly in this namespace.
+namespace: team-c
+resources:
+  - namespace.yaml
+  - cluster_klio_otel_config.yaml
+  - cluster_c_klio_client_auth.yaml
+  - ../../single/cluster
+patches:
+  - target:
+      kind: Cluster
+      name: cluster-example
+    patch: |-
+      - op: replace
+        path: /metadata/name
+        value: cluster-c
+      - op: replace
+        path: /spec/plugins/0/parameters/pluginConfigurationRef
+        value: client-config-cluster-c
+      - op: replace
+        path: /spec/projectedVolumeTemplate/sources/0/secret/name
+        value: otel-collector-ca
+  - target:
+      kind: PluginConfiguration
+      name: client-config-cluster-example
+    patch: |-
+      - op: replace
+        path: /metadata/name
+        value: client-config-cluster-c
+      - op: replace
+        path: /spec/serverAddress
+        value: klio-b.default.svc.cluster.local
+      - op: replace
+        path: /spec/clientSecretName
+        value: cluster-c-klio-user
+      - op: replace
+        path: /spec/serverSecretName
+        value: klio-b-tls
+      - op: replace
+        path: /spec/clusterName
+        value: cluster-c
+  - target:
+      kind: PodMonitor
+      name: cluster-example
+    patch: |-
+      - op: replace
+        path: /metadata/name
+        value: cluster-c
+      - op: replace
+        path: /spec/selector/matchLabels/cnpg.io~1cluster
+        value: cluster-c

@@ -1,0 +1,6 @@
+# The Klio server + its self-signed Certificate, as their own buildable unit
+# so ../../multi can reuse them (as klio-a, klio-b, ...) without duplicating
+# their spec. See ../../multi/team-a for how that reuse looks.
+resources:
+  - server.yaml
+  - server_certificate.yaml

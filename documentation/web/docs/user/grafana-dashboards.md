@@ -100,7 +100,7 @@ When you route metrics through an OpenTelemetry Collector, enable
 `resource_to_telemetry_conversion` on the Prometheus exporter so that
 resource attributes such as the pod and namespace become Prometheus labels.
 The sample collector under
-`operator/config/samples/opentelemetry/otel_collector.yaml` already does
+`operator/config/samples/opentelemetry/base/otel_collector.yaml` already does
 this.
 :::
 
@@ -138,7 +138,7 @@ helm upgrade --install \
 Ensure Prometheus scrapes Klio's metrics by deploying a `ServiceMonitor` (or a
 `PodMonitor`, if the collector's `Service` has no labels) for the
 OpenTelemetry collector's Prometheus exporter — see
-`operator/config/samples/opentelemetry/otel_collector_svc_monitor.yaml`.
+`operator/config/samples/opentelemetry/base/otel_collector_svc_monitor.yaml`.
 
 Port-forward Grafana and log in with `admin` / `prom-operator`:
 
