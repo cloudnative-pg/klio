@@ -97,6 +97,18 @@ func (w *walServiceImplementation) Restore(
 	walName := request.GetSourceWalName()
 	destinationPath := request.GetDestinationFileName()
 
+	// Record the end-to-end restore duration on every exit path. The
+	// closure reads the final values of success/info/clusterName, so failures —
+	// including the fast validation bail-outs below — are measured too.
+	var (
+		success     bool
+		info        restoreOutcome
+		clusterName string
+	)
+	defer func() {
+		recordWalRestore(ctx, time.Since(startCall), success, info.cacheHit, info.tier, clusterName)
+	}()
+
 	if walName == "" || destinationPath == "" {
 		contextLogger.Warning("WAL restore operation failed. WAL name and destination file name must be specified")
 		return nil, errors.New("source WAL name and destination file name must be provided")
@@ -107,6 +119,7 @@ func (w *walServiceImplementation) Restore(
 	if err := json.Unmarshal(request.GetClusterDefinition(), &cluster); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal cluster definition: %w", err)
 	}
+	clusterName = cluster.Name
 	podName, ok := os.LookupEnv("POD_NAME") // Ensure PODNAME is set in the environment
 	if !ok {
 		return nil, errors.New("POD_NAME environment variable is not set")
@@ -120,7 +133,7 @@ func (w *walServiceImplementation) Restore(
 		return nil, errors.New("no WAL repository found for the cluster")
 	}
 
-	err = w.restoreWAL(ctx, walName, destinationPath, confPath)
+	info, err = w.restoreWAL(ctx, walName, destinationPath, confPath)
 	if errors.Is(err, errWALNotFound) {
 		return &wal.WALRestoreResult{}, status.Errorf(codes.NotFound, "WAL file not found: %q", walName)
 	}
@@ -128,24 +141,34 @@ func (w *walServiceImplementation) Restore(
 		return nil, err
 	}
 
+	success = true
 	contextLogger.Info("WAL.Restore", "walName", request.GetSourceWalName(), "duration", time.Since(startCall))
 
 	return &wal.WALRestoreResult{}, nil
+}
+
+// restoreOutcome carries the observable facts about a completed restore that
+// are only known deep in the restore path, so Restore can tag its end-to-end
+// duration metric. On failure the fields hold whatever was known so far (tier
+// is the last one attempted; cacheHit is false).
+type restoreOutcome struct {
+	tier     tier
+	cacheHit bool
 }
 
 func (w *walServiceImplementation) restoreWAL(
 	ctx context.Context,
 	walName, destinationPath string,
 	configPath string,
-) error {
+) (restoreOutcome, error) {
 	cfg, err := config.NewFromFile(afero.NewOsFs(), configPath)
 	if err != nil {
-		return fmt.Errorf("while loading configuration from file %q: %w", configPath, err)
+		return restoreOutcome{}, fmt.Errorf("while loading configuration from file %q: %w", configPath, err)
 	}
 
 	tiers := availableTiers(cfg)
 	if len(tiers) == 0 {
-		return errors.New("no WAL tier configured")
+		return restoreOutcome{}, errors.New("no WAL tier configured")
 	}
 
 	// Try the previously-successful tier first, when both are available.
@@ -155,20 +178,20 @@ func (w *walServiceImplementation) restoreWAL(
 	}
 
 	for _, t := range tiers {
-		err := w.mgr.restoreWAL(ctx, walRestoreOptions{
+		cacheHit, err := w.mgr.restoreWAL(ctx, walRestoreOptions{
 			configFile: configPath,
 			targetTier: t,
 		}, walName, destinationPath)
 		if err == nil {
 			w.currentTier.Store(t)
-			return nil
+			return restoreOutcome{tier: t, cacheHit: cacheHit}, nil
 		}
 		if !errors.Is(err, errWALNotFound) {
-			return err
+			return restoreOutcome{tier: t}, err
 		}
 	}
 
-	return errWALNotFound
+	return restoreOutcome{}, errWALNotFound
 }
 
 // availableTiers returns the tiers the user has opted in to as recovery
@@ -297,15 +320,18 @@ func (mgr *grpcClientManager) setupSpoolDir(ctx context.Context, opts walRestore
 	return spoolDir, nil
 }
 
+// restoreWAL restores a single WAL file via the given tier's client. The
+// returned bool reports whether the file was served from the prefetch spool
+// (a cache hit); it is only meaningful when the error is nil.
 func (mgr *grpcClientManager) restoreWAL(
 	ctx context.Context,
 	opts walRestoreOptions,
 	walName string,
 	targetFileName string,
-) error {
+) (bool, error) {
 	client, err := mgr.getClient(ctx, opts)
 	if err != nil {
-		return err
+		return false, err
 	}
 
 	return client.prefetcher.Request(ctx, walName, targetFileName)

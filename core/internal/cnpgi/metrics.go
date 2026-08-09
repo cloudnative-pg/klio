@@ -53,6 +53,30 @@ func recordBackupSuccess(ctx context.Context, duration time.Duration) {
 		metric.WithAttributes(opentelemetry.OutcomeSuccess.Attribute()))
 }
 
+// recordWalRestore records the end-to-end duration of one plugin WAL restore,
+// tagged with outcome, cache_hit, tier and cluster_name. tier may be
+// empty and cacheHit false when the restore failed before a tier served it.
+func recordWalRestore(
+	ctx context.Context,
+	duration time.Duration,
+	success, cacheHit bool,
+	t tier,
+	clusterName string,
+) {
+	outcome := opentelemetry.OutcomeSuccess
+	if !success {
+		outcome = opentelemetry.OutcomeFailure
+	}
+
+	opentelemetry.PluginWal.RestoreDuration.Record(ctx, duration.Nanoseconds(),
+		metric.WithAttributes(
+			outcome.Attribute(),
+			opentelemetry.CacheHitOf(cacheHit).Attribute(),
+			opentelemetry.AttributeKeyTier.Of(string(t)),
+			opentelemetry.AttributeKeyClusterName.Of(clusterName),
+		))
+}
+
 // recordBackupFailure records a failed backup.
 func recordBackupFailure(ctx context.Context, duration time.Duration, err error) {
 	category := classifyRunBackupError(ctx, err)

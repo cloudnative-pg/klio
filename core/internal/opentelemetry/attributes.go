@@ -58,6 +58,34 @@ func (o Outcome) Attribute() attribute.KeyValue {
 	return AttributeKeyOutcome.Of(string(o))
 }
 
+// CacheHit identifies whether a plugin WAL restore was served from the local
+// prefetch spool (`true`) or required a fresh download from the Klio server
+// (`false`), used as the value of the `cache_hit` attribute.
+type CacheHit string
+
+const (
+	// CacheHitTrue marks a restore served from a speculative prefetch already
+	// waiting in the local spool.
+	CacheHitTrue CacheHit = "true"
+	// CacheHitFalse marks a restore that had to download the WAL (no prefetch
+	// hit, or a partial/fallback download).
+	CacheHitFalse CacheHit = "false"
+)
+
+// CacheHitOf maps a boolean prefetch-hit result to its CacheHit value.
+func CacheHitOf(hit bool) CacheHit {
+	if hit {
+		return CacheHitTrue
+	}
+
+	return CacheHitFalse
+}
+
+// Attribute returns the `cache_hit` attribute for this value.
+func (c CacheHit) Attribute() attribute.KeyValue {
+	return AttributeKeyCacheHit.Of(string(c))
+}
+
 // Stage identifies a single step in the per-block WAL pipeline, used as the
 // value of the `stage` attribute to split a block-duration histogram across
 // its constituent steps instead of emitting one instrument per step.
@@ -138,6 +166,9 @@ const (
 	// AttributeKeyPath is the attribute key for the WAL data-flow path (put or
 	// get) of a per-block WAL duration histogram.
 	AttributeKeyPath AttributeKey = "path"
+	// AttributeKeyCacheHit is the attribute key for whether a plugin WAL restore
+	// was served from the prefetch spool (true) or downloaded (false).
+	AttributeKeyCacheHit AttributeKey = "cache_hit"
 )
 
 // Of builds an OTEL string attribute with the attribute key and the given value.
