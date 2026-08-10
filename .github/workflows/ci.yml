@@ -73,6 +73,9 @@ jobs:
               - '.github/workflows/ci.yml'
             renovate-changed:
               - 'renovate.json'
+              - 'Taskfile.yml'
+              - '.github/actions/setup-dagger/**'
+              - '.github/workflows/ci.yml'
 
       - name: Evaluate branches
         id: event-filter
@@ -403,11 +406,12 @@ jobs:
           fetch-depth: 0
           ref: ${{ github.event.pull_request.head.sha }}
 
+      - name: Setup dagger
+        uses: ./.github/actions/setup-dagger
+
       - name: Validate Renovate JSON
-        env:
-          # renovate: datasource=npm depName=renovate versioning=semver
-          RENOVATE_VERSION: 43.288.0
-        run: npx --yes --package renovate@${RENOVATE_VERSION} -- renovate-config-validator
+        run:
+          task renovate:validate
 
   openshift-e2e:
     name: OpenShift E2E
