@@ -55,22 +55,14 @@ A running Kubernetes cluster with the following operators installed:
 and `multi/bootstrap-remote-server.sh`).
 
 All of `multi`'s client certificates (cluster-a's through cluster-d's) are
-issued through a `ClusterIssuer`, which resolves its backing CA secret in
-cert-manager's `--cluster-resource-namespace` rather than in the namespace
-of the `Certificate` requesting it. This matters only for cluster-c's and
-cluster-d's, which request their certificate from `team-c`/`team-d`
-directly instead of `default` — cluster-a's and cluster-b's already live in
-`default`, so the same lookup is a same-namespace no-op for them. This
-sample assumes cert-manager's cluster resource namespace is `default`
-(where `base/klio_server_ca.yaml` is deployed), so install cert-manager
-accordingly, e.g. with the Jetstack Helm chart:
-
-```shell
-helm upgrade --install cert-manager jetstack/cert-manager \
-  --namespace cert-manager --create-namespace \
-  --set crds.enabled=true \
-  --set clusterResourceNamespace=default
-```
+issued through a `ClusterIssuer`, which always resolves its backing CA
+secret in cert-manager's `--cluster-resource-namespace`, regardless of
+which namespace the requesting `Certificate` lives in: this is a single,
+fixed lookup location for the whole cert-manager installation, not a
+per-request one, so it affects cluster-a's and cluster-b's certificates
+(both in `default`) exactly as much as cluster-c's and cluster-d's. This
+sample assumes that namespace is `default` (where `base/klio_server_ca.yaml`
+is deployed); see the next section for the command that configures it.
 
 ## Deploying a Kubernetes cluster with the required operators
 
@@ -80,6 +72,16 @@ the klio task
 
 ```shell
 KIND_CLUSTER_NAME=$(kind get clusters | grep pg-operator-e2e) task integration:deploy-to-kind
+```
+
+That task's cert-manager install does not set `--cluster-resource-namespace`,
+so it defaults to the `cert-manager` namespace, not `default`. Reconfigure
+it, or every client certificate in this sample fails to issue:
+
+```shell
+helm upgrade cert-manager jetstack/cert-manager \
+  --namespace cert-manager --reuse-values \
+  --set clusterResourceNamespace=default
 ```
 
 you can install the OpenTelemetry operator by running:
