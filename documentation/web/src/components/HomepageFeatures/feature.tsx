@@ -28,12 +28,12 @@ export function FeatureList(): ReactElement<null> {
         <div className="row">
             <Feature
                 title={'Multi-tiered storage support'}
-                description={"Store your backups on local volumes relay them to object stores."}
+                description={"Store your backups on local volumes and relay them to object stores."}
                 Svg={require('@site/static/img/undraw_going-up_g8av.svg').default}
             />
             <Feature
                 title={'WAL streaming support'}
-                description={"Reduce RPO streaming WALs to the archive."}
+                description={"Reduce RPO by streaming WALs to the archive."}
                 Svg={require('@site/static/img/undraw_season-change_ohe6.svg').default}
             />
             <Feature
@@ -43,7 +43,7 @@ export function FeatureList(): ReactElement<null> {
             />
             <Feature
                 title={'Deduplication'}
-                description={"Reduce storage usage and backup time deduplicating data."}
+                description={"Reduce storage usage and backup time by deduplicating data."}
                 Svg={require('@site/static/img/undraw_building-blocks_h5jb.svg').default}
             />
         </div>
