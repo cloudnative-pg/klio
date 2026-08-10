@@ -73,6 +73,9 @@ jobs:
               - '.github/workflows/ci.yml'
             renovate-changed:
               - 'renovate.json'
+              - 'Taskfile.yml'
+              - '.github/actions/setup-dagger/**'
+              - '.github/workflows/ci.yml'
 
       - name: Evaluate branches
         id: event-filter
