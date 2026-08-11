@@ -28,7 +28,7 @@ import (
 	"go.opentelemetry.io/contrib/detectors/autodetect"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/sdk/resource"
-	semconv "go.opentelemetry.io/otel/semconv/v1.40.0"
+	semconv "go.opentelemetry.io/otel/semconv/v1.43.0"
 )
 
 // buildResource builds the OpenTelemetry resource for the operator.
