@@ -54,10 +54,25 @@ type Manifest struct {
 	Pins []string `json:"pins,omitempty"`
 }
 
+// Entry types reported by Kopia for a directory entry. A snapshot's root entry
+// is a directory for a directory snapshot and a file when a single file was
+// snapshotted, and the two need different flags when verifying by object ID.
+const (
+	// EntryTypeDirectory marks an entry backed by a directory object.
+	EntryTypeDirectory = "d"
+
+	// EntryTypeFile marks an entry backed by a file object.
+	EntryTypeFile = "f"
+)
+
 // DirEntry represents a directory entry as stored in JSON stream.
 type DirEntry struct {
 	// Name is the name of the file or directory.
 	Name string `json:"name,omitempty"`
+
+	// Type is the kind of object the entry points at, one of
+	// EntryTypeDirectory or EntryTypeFile.
+	Type string `json:"type,omitempty"`
 
 	// FileSize is the size of the file in bytes.
 	FileSize int64 `json:"size,omitempty"`
