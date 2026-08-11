@@ -956,16 +956,25 @@ tasks:
     cmds:
       - |
         set -euo pipefail
+        # Scope the credentials handed to the third-party preflight image down
+        # to the one registry IMAGE is pulled from, rather than its whole
+        # config: REGISTRY_AUTH_FILE may hold unrelated registries' auth too.
         # Require an inline auth entry rather than merely a file: Docker Desktop
         # on macOS writes a config holding only {"credsStore":"desktop"}, whose
         # helper binary preflight cannot invoke. The image is public, so falling
         # back to an anonymous pull is correct.
-        dockerconfig="${REGISTRY_AUTH_FILE}"
         docker_config_arg=""
-        if [ -f "${dockerconfig}" ] &&
-           jq -e '(.auths // {}) | to_entries | map(select(.value.auth)) | length > 0' \
-             "${dockerconfig}" >/dev/null 2>&1; then
-          docker_config_arg="--docker-config file://${dockerconfig}"
+        if [ -f "${REGISTRY_AUTH_FILE}" ]; then
+          image="{{ .IMAGE }}"
+          registry_host="${image%%/*}"
+          scoped_dockerconfig="$(mktemp)"
+          trap 'rm -f "${scoped_dockerconfig}"' EXIT
+          jq --arg reg "${registry_host}" \
+            '{auths: ((.auths // {}) | to_entries | map(select(.key == $reg and .value.auth)) | from_entries)}' \
+            "${REGISTRY_AUTH_FILE}" > "${scoped_dockerconfig}"
+          if jq -e '.auths | length > 0' "${scoped_dockerconfig}" >/dev/null 2>&1; then
+            docker_config_arg="--docker-config file://${scoped_dockerconfig}"
+          fi
         fi
         GITHUB_REF= dagger call -m dagger/preflight \
           --preflight-image quay.io/opdev/preflight:{{ .PREFLIGHT_VERSION }} \
@@ -1035,15 +1044,23 @@ tasks:
         fi
 
         # Hand preflight the registry credentials so the bundle and index pulls
-        # are authenticated rather than anonymous. Require an inline auth entry
-        # rather than merely a file, for the same Docker-Desktop-credential-helper
-        # reason as olm:preflight-container above. The images are public, so no
+        # are authenticated rather than anonymous, scoped to the one registry
+        # they are pulled from: REGISTRY_AUTH_FILE may hold unrelated
+        # registries' auth too. Require an inline auth entry rather than
+        # merely a file, for the same Docker-Desktop-credential-helper reason
+        # as olm:preflight-container above. The images are public, so no
         # config at all is the safe fallback.
         docker_config_args=""
-        if [ -f "${REGISTRY_AUTH_FILE}" ] &&
-           jq -e '(.auths // {}) | to_entries | map(select(.value.auth)) | length > 0' \
-             "${REGISTRY_AUTH_FILE}" >/dev/null 2>&1; then
-          docker_config_args="-e PFLT_DOCKERCONFIG=/dockerconfig -v ${REGISTRY_AUTH_FILE}:/dockerconfig:ro"
+        if [ -f "${REGISTRY_AUTH_FILE}" ]; then
+          registry_host="${registry%%/*}"
+          scoped_dockerconfig="$(mktemp)"
+          trap 'rm -f "${scoped_dockerconfig}"' EXIT
+          jq --arg reg "${registry_host}" \
+            '{auths: ((.auths // {}) | to_entries | map(select(.key == $reg and .value.auth)) | from_entries)}' \
+            "${REGISTRY_AUTH_FILE}" > "${scoped_dockerconfig}"
+          if jq -e '.auths | length > 0' "${scoped_dockerconfig}" >/dev/null 2>&1; then
+            docker_config_args="-e PFLT_DOCKERCONFIG=/dockerconfig -v ${scoped_dockerconfig}:/dockerconfig:ro"
+          fi
         fi
 
         # The bundle, index and preflight images are all multi-arch, so docker
