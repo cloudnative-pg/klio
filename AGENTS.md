@@ -198,8 +198,8 @@ confirm after that warning.
   canonical case: `kopia snapshot pin` rewrites the snapshot manifest to a *new*
   ID and deletes the old one, so without a refresh the server keeps serving the
   now-deleted ID for a backup that still exists, and a later client
-  `klio backup delete` deletes the wrong ID — leaving the real backup (and its
-  WALs) pinned forever.
+  `klio backup delete` asks Kopia to delete an ID that no longer matches
+  anything: the command fails and the real backup (and its WALs) stay pinned.
 - A direct write that only **deletes** snapshots (the tier1/tier2 retention
   apply) does **not** need a refresh: it removes IDs the server may still list,
   but it never rewrites a live backup's ID, and WAL retention is recomputed from
@@ -211,6 +211,34 @@ confirm after that warning.
 Do not introduce direct-write paths anywhere else. If, after warning the user, a
 new direct write is genuinely unavoidable, it must be paired with a server
 refresh of the affected tier.
+
+### Snapshot identity: manifest ID vs root object ID
+
+A snapshot's **manifest ID is not a stable identity**. `kopia snapshot pin`
+(the tier1 unpin above) rewrites a snapshot's manifest under a new ID and
+deletes the old one, so any code that lists snapshots and then acts on them a
+moment later can be holding an ID that no longer exists. Pick the identity by
+what the operation does:
+
+- **Reads that must survive a concurrent rewrite** use the root object ID
+  (`Manifest.RootEntry.ObjID`), which the rewrite leaves untouched. Backup
+  verification (`core/internal/client/klioclient/kopia/verify.go`) and the
+  consumer's unpin (`getPinnedSnapshots`) both do this. Root objects come in two
+  kinds and take different flags: `--directory-id` for the pgdata and metadata
+  snapshots, `--file-id` for the control data file, which is snapshotted on its
+  own. Passing a file root to `--directory-id` makes Kopia parse file content as
+  a directory listing and report healthy data as corrupt.
+- **Deletions must NOT use the root object ID.** Unchanged content dedupes to
+  the same root across backups (two backups of an idle tablespace share one), and
+  `kopia snapshot delete` removes *every* snapshot matching the ID it is given,
+  so deleting one backup by root ID can take another backup's snapshot with it.
+  Delete by manifest ID, and on failure re-list and retry so a concurrent
+  rewrite is picked up (`DeleteBackup` in the same package).
+
+Also note that a Kopia verify result reporting only "found 0 of the N requested
+snapshot IDs to verify" is **not** corruption: nothing was read, so it carries
+no evidence about repository integrity. Treat it as retryable. Errors naming a
+missing object or blob are genuine corruption.
 
 ### Dagger caching issues
 
