@@ -112,7 +112,7 @@ func TestDeleteBackupSnapshots(t *testing.T) {
 
 	// A concurrent "kopia snapshot pin" rewrites a snapshot's manifest under a
 	// new ID, so deleting the ID we listed matches nothing. Re-resolving must
-	// pick up the new ID and finish the deletion (CNP-9006).
+	// pick up the new ID and finish the deletion.
 	t.Run("retries with the rewritten manifest ID", func(t *testing.T) {
 		store := &fakeSnapshotStore{
 			listings: [][]kopia.Manifest{
