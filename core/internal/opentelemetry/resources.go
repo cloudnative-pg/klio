@@ -29,7 +29,7 @@ import (
 	"go.opentelemetry.io/contrib/detectors/autodetect"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/sdk/resource"
-	semconv "go.opentelemetry.io/otel/semconv/v1.41.0"
+	semconv "go.opentelemetry.io/otel/semconv/v1.43.0"
 )
 
 // createResource creates an OpenTelemetry resource with automatic detection support.
