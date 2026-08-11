@@ -144,7 +144,7 @@ func newBackupFeature(
 	caIssuer := certificates.GetCAIssuerObject("test-ca-issuer", namespace, caCertificate.Spec.SecretName)
 
 	cnpgCluster := cnpg.GetCnpgClusterObject("test-cluster", namespace, instances, "klio-plugin-configuration",
-		cnpg.ClusterTemplateOptions{ImagePullSecret: pullSecretName(), StorageClass: testCfg.StorageClass})
+		cnpg.ClusterTemplateOptions{StorageClass: testCfg.StorageClass})
 
 	userCertificate := certificates.GetUserCertificateObject("klio-user", namespace, "klio-user@test-cluster", caIssuer)
 	klioPluginConfiguration := klio.GetPluginConfigurationObject(
@@ -163,7 +163,6 @@ func newBackupFeature(
 		klio.ServerTemplateOptions{
 			Image:              testCfg.ServerImage,
 			StorageClass:       testCfg.StorageClass,
-			ImagePullSecret:    pullSecretName(),
 			TLSSecretName:      certificate.Spec.SecretName,
 			ClientCASecretName: caCertificate.Spec.SecretName,
 			Encryption: klio.EncryptionOptions{

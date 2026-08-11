@@ -531,7 +531,6 @@ func newWALRetentionScenario(name string, namespace string) *walRetentionScenari
 			ServerTemplateOptions: klio.ServerTemplateOptions{
 				Image:              testCfg.ServerImage,
 				StorageClass:       testCfg.StorageClass,
-				ImagePullSecret:    pullSecretName(),
 				TLSSecretName:      serverCertificate.Spec.SecretName,
 				ClientCASecretName: caCertificate.Spec.SecretName,
 				Encryption: klio.EncryptionOptions{
@@ -562,7 +561,7 @@ func newWALRetentionScenario(name string, namespace string) *walRetentionScenari
 	// Source CNPG cluster
 	cnpgCluster := cnpg.GetCnpgClusterObject(
 		cnpgClusterName, namespace, 1, pluginConfigurationName,
-		cnpg.ClusterTemplateOptions{ImagePullSecret: pullSecretName(), StorageClass: testCfg.StorageClass})
+		cnpg.ClusterTemplateOptions{StorageClass: testCfg.StorageClass})
 
 	// Plugin configuration with tier2 backup enabled
 	klioPluginConfiguration := klio.GetPluginConfigurationObject(
