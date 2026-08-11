@@ -376,15 +376,13 @@ spec:
 
     * Native WAL streaming from the primary, removing the need for
       `archive_command`, with support for partial WAL file handling,
-      compression, and user-provided encryption keys.
+      and user-provided encryption keys.
     * Physical online base backups with deduplication, compression, and
       encryption, stored in a Tier 1 PVC catalog.
     * Retention policy enforcement for both base backups and WAL files.
     * Asynchronous replication of base backups and WAL files to Tier 2
       object storage.
     * End-to-end encryption, both in transit (TLS) and at rest.
-    * Integration with Kubernetes Volume Snapshots when the underlying
-      storage class supports them.
 
     Klio requires **PostgreSQL 15 or newer** because its WAL management
     uses the `READ_REPLICATION_SLOT` streaming replication command

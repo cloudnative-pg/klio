@@ -7,7 +7,7 @@ sidebar_position: 3
 Klio employs a multi-tiered architecture designed to balance performance,
 resilience, and cost. This approach separates immediate, high-speed backup and
 recovery operations from long-term archival and disaster recovery (DR) needs.
-The architecture is built around three distinct storage tiers, each serving a
+The architecture is built around two distinct storage tiers, each serving a
 specific purpose in the data lifecycle.
 
 ![Multi-tiered architecture overview](images/overview-multi-tiers.png)
