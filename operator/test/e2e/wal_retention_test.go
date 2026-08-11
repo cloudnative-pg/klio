@@ -492,9 +492,11 @@ func (f *WALRetentionFeature) Run() types.StepFunc {
 			len(walFiles), boundary)
 
 		// Step 7: the newest backup has been through a full maintenance pass, so
-		// the tier2 unpin rewrote its snapshot manifests. Verifying it now
-		// asserts that verification still resolves it, which is what the
-		// manifest-ID rewrite used to break.
+		// the tier2 unpin has already rewritten its snapshot manifests by the
+		// time we get here. Verifying it now exercises real resolution by root
+		// object ID against a backup that mixes directory and file roots. It
+		// does not reproduce the manifest-rewrite race itself, since maintenance
+		// has settled long before this step runs.
 		//
 		// Only the newest backup is verified: "klio backup list" spans both
 		// tiers, so it also reports the backup deleted in step 4, which no

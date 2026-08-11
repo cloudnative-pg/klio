@@ -80,6 +80,10 @@ func manifest(id, host string) kopia.Manifest {
 func TestDeleteBackupSnapshots(t *testing.T) {
 	ctx := context.Background()
 
+	oldDelay := deleteBackupRetryDelay
+	deleteBackupRetryDelay = 0
+	t.Cleanup(func() { deleteBackupRetryDelay = oldDelay })
+
 	t.Run("deletes every snapshot of the backup on the host", func(t *testing.T) {
 		store := &fakeSnapshotStore{
 			listings: [][]kopia.Manifest{
