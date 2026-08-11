@@ -23,7 +23,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"strings"
 
 	"github.com/cloudnative-pg/machinery/pkg/log"
 
@@ -35,11 +34,6 @@ var (
 	// ErrNoSnapshotsForBackup is returned when no verifiable snapshot can be
 	// found for a backup name.
 	ErrNoSnapshotsForBackup = errors.New("no snapshots found for backup")
-
-	// ErrSnapshotsUnresolved is returned when Kopia could not resolve the
-	// snapshots it was asked to verify, so no integrity check was performed.
-	// It is retryable and must not be reported as corruption.
-	ErrSnapshotsUnresolved = errors.New("backup verification could not resolve the requested snapshots")
 
 	// ErrUnsupportedRootEntryType is returned when a snapshot's root entry is
 	// neither a directory nor a file, so it cannot be verified by object ID.
@@ -109,24 +103,42 @@ func (s *Connection) verifyAllBackups(ctx context.Context, hostname string) erro
 
 // verifySpecificBackups verifies the specified backups by resolving them to the
 // root object IDs of their snapshots.
+//
+// A backup whose snapshots fail to resolve does not stop the others from being
+// verified: their resolution errors are joined and returned alongside whatever
+// verification result the successfully resolved backups produce.
 func (s *Connection) verifySpecificBackups(ctx context.Context, hostname string, backupNames []string) error {
 	contextLogger := log.FromContext(ctx)
 
 	var verifyOpts kopiaClient.VerifySnapshotsOptions
+
+	var resolveErr error
+
 	for _, name := range backupNames {
 		opts, err := s.getRootObjectsForBackup(ctx, hostname, name)
 		if err != nil {
-			return fmt.Errorf("backup %q: %w", name, err)
+			resolveErr = errors.Join(resolveErr, fmt.Errorf("backup %q: %w", name, err))
+
+			continue
 		}
+
 		verifyOpts.DirectoryIDs = append(verifyOpts.DirectoryIDs, opts.DirectoryIDs...)
 		verifyOpts.FileIDs = append(verifyOpts.FileIDs, opts.FileIDs...)
+	}
+
+	if verifyOpts.IsEmpty() {
+		return resolveErr
 	}
 
 	contextLogger.Info("Verifying backups", "backupNames", backupNames, "snapshotCount", verifyOpts.Len())
 
 	result, err := s.kopia.VerifySnapshots(ctx, verifyOpts)
 	if err != nil {
-		return classifyVerifyError(ctx, result, err)
+		return errors.Join(resolveErr, classifyVerifyError(ctx, result, err))
+	}
+
+	if resolveErr != nil {
+		return resolveErr
 	}
 
 	contextLogger.Info("All backups verified successfully")
@@ -193,39 +205,12 @@ func (s *Connection) getRootObjectsForBackup(
 	return opts, nil
 }
 
-// unresolvedSnapshotMarker appears in a Kopia verify error when the snapshot
-// manifests it was asked to verify could not be resolved, as in
-// "found 0 of the 3 requested snapshot IDs to verify". Kopia emits it from the
-// manifest lookup that precedes any object walk, so it means "nothing was
-// verified", never "the data is damaged". Errors about a missing object or blob
-// use different wording and are genuine corruption evidence.
-const unresolvedSnapshotMarker = "requested snapshot IDs to verify"
-
-// isUnresolvedSnapshotSet reports whether every error in the result is Kopia
-// failing to resolve the requested snapshots. Such a result carries no
-// information about repository integrity: it is retryable, and treating it as
-// corruption fails a backup that is in fact intact.
-func isUnresolvedSnapshotSet(result kopiaClient.VerifyResult) bool {
-	if len(result.ErrorStrings) == 0 {
-		return false
-	}
-
-	for _, e := range result.ErrorStrings {
-		if !strings.Contains(e, unresolvedSnapshotMarker) {
-			return false
-		}
-	}
-
-	return true
-}
-
 // classifyVerifyError inspects the verify result to distinguish corruption
-// (errorCount > 0 with integrity evidence) from errors that say nothing about
-// the data, which the caller retries.
+// (errorCount > 0) from infrastructure errors.
 func classifyVerifyError(ctx context.Context, result kopiaClient.VerifyResult, err error) error {
 	contextLogger := log.FromContext(ctx)
 
-	if result.ErrorCount > 0 && !isUnresolvedSnapshotSet(result) {
+	if result.ErrorCount > 0 {
 		contextLogger.Error(err, "Backup verification detected corruption",
 			"errorCount", result.ErrorCount,
 			"errors", result.ErrorStrings,
@@ -235,16 +220,6 @@ func classifyVerifyError(ctx context.Context, result kopiaClient.VerifyResult, e
 			Result: result,
 			Err:    err,
 		}
-	}
-
-	if result.ErrorCount > 0 {
-		contextLogger.Info("Backup verification could not resolve the requested snapshots, "+
-			"nothing was verified; reporting a retryable error rather than corruption",
-			"errorCount", result.ErrorCount,
-			"errors", result.ErrorStrings,
-		)
-
-		return fmt.Errorf("%w: %w", ErrSnapshotsUnresolved, err)
 	}
 
 	return fmt.Errorf("backup verification encountered an infrastructure error: %w", err)

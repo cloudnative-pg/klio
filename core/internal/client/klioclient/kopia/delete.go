@@ -23,6 +23,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/cloudnative-pg/machinery/pkg/log"
 
@@ -36,6 +37,14 @@ var ErrBackupNotFound = errors.New("backup not found")
 // deleteBackupAttempts bounds how many times DeleteBackup re-resolves the
 // snapshots of a backup before giving up.
 const deleteBackupAttempts = 3
+
+// deleteBackupRetryDelay is the wait between DeleteBackup attempts, giving a
+// concurrent "kopia snapshot pin" rewrite time to settle before the next
+// attempt re-resolves snapshot IDs. Tests override this to keep the suite
+// fast.
+//
+//nolint:gochecknoglobals
+var deleteBackupRetryDelay = 200 * time.Millisecond
 
 // snapshotStore is the subset of the Kopia client that DeleteBackup needs.
 type snapshotStore interface {
@@ -74,26 +83,8 @@ func deleteBackupSnapshots(ctx context.Context, store snapshotStore, hostname, n
 			return fmt.Errorf("while listing snapshots: %w", err)
 		}
 
-		var pending int
-
-		var attemptErr error
-
-		for _, entry := range entries {
-			if entry.Source.Host != hostname {
-				continue
-			}
-
-			pending++
-
-			contextLogger.Info("DeleteBackup: deleting snapshot", "snapshotID", entry.ID)
-			if deleteErr := store.DeleteSnapshot(ctx, entry.ID); deleteErr != nil {
-				attemptErr = errors.Join(attemptErr, deleteErr)
-
-				continue
-			}
-
-			deleted++
-		}
+		pending, deletedNow, attemptErr := deleteHostSnapshots(ctx, store, contextLogger, hostname, entries)
+		deleted += deletedNow
 
 		// Nothing left to delete: either we removed everything, or the backup
 		// was not there to begin with.
@@ -113,7 +104,59 @@ func deleteBackupSnapshots(ctx context.Context, store snapshotStore, hostname, n
 
 		contextLogger.Info("DeleteBackup: retrying with freshly resolved snapshot IDs",
 			"backupName", name, "attempt", attempt, "error", attemptErr)
+
+		if attempt < deleteBackupAttempts {
+			if waitErr := waitBeforeDeleteRetry(ctx); waitErr != nil {
+				return waitErr
+			}
+		}
 	}
 
 	return lastErr
+}
+
+// deleteHostSnapshots deletes every entry belonging to hostname, returning how
+// many of them matched the host (pending), how many were deleted, and the
+// deletion errors joined together.
+func deleteHostSnapshots(
+	ctx context.Context,
+	store snapshotStore,
+	contextLogger log.Logger,
+	hostname string,
+	entries []kopia.Manifest,
+) (int, int, error) {
+	var pending, deleted int
+
+	var err error
+
+	for _, entry := range entries {
+		if entry.Source.Host != hostname {
+			continue
+		}
+
+		pending++
+
+		contextLogger.Info("DeleteBackup: deleting snapshot", "snapshotID", entry.ID)
+		if deleteErr := store.DeleteSnapshot(ctx, entry.ID); deleteErr != nil {
+			err = errors.Join(err, deleteErr)
+
+			continue
+		}
+
+		deleted++
+	}
+
+	return pending, deleted, err
+}
+
+// waitBeforeDeleteRetry pauses deleteBackupRetryDelay before the next
+// DeleteBackup attempt, returning early with ctx's error if it is cancelled
+// first.
+func waitBeforeDeleteRetry(ctx context.Context) error {
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-time.After(deleteBackupRetryDelay):
+		return nil
+	}
 }

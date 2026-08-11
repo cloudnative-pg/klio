@@ -228,23 +228,25 @@ what the operation does:
 
 - **Reads that must survive a concurrent rewrite** use the root object ID
   (`Manifest.RootEntry.ObjID`), which the rewrite leaves untouched. Backup
-  verification (`core/internal/client/klioclient/kopia/verify.go`) and the
-  consumer's unpin (`getPinnedSnapshots`) both do this. Root objects come in two
-  kinds and take different flags: `--directory-id` for the pgdata and metadata
-  snapshots, `--file-id` for the control data file, which is snapshotted on its
-  own. Passing a file root to `--directory-id` makes Kopia parse file content as
-  a directory listing and report healthy data as corrupt.
+  verification (`core/internal/client/klioclient/kopia/verify.go`) does this.
+  Root objects come in two kinds and take different flags: `--directory-id`
+  for the pgdata and metadata snapshots, `--file-id` for the control data
+  file, which is snapshotted on its own. Passing a file root to
+  `--directory-id` makes Kopia parse file content as a directory listing and
+  report healthy data as corrupt.
 - **Deletions must NOT use the root object ID.** Unchanged content dedupes to
   the same root across backups (two backups of an idle tablespace share one), and
   `kopia snapshot delete` removes *every* snapshot matching the ID it is given,
   so deleting one backup by root ID can take another backup's snapshot with it.
   Delete by manifest ID, and on failure re-list and retry so a concurrent
   rewrite is picked up (`DeleteBackup` in the same package).
-
-Also note that a Kopia verify result reporting only "found 0 of the N requested
-snapshot IDs to verify" is **not** corruption: nothing was read, so it carries
-no evidence about repository integrity. Treat it as retryable. Errors naming a
-missing object or blob are genuine corruption.
+- **The tier1 unpin is a write, not a read, and knowingly accepts the same
+  collision as delete.** The consumer's `getPinnedSnapshots`/`maintainTier2`
+  (`core/internal/consumer/backup.go`) also targets the root object ID, so a
+  root shared with another backup gets unpinned too. This is tolerated only
+  because the step is best-effort and the affected snapshot would be unpinned
+  anyway on the next tier2 migration — it is not a safe pattern to copy for
+  anything that isn't equally tolerant of that collision.
 
 ### Dagger caching issues
 
