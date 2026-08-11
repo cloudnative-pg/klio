@@ -102,7 +102,7 @@ func TestClassifyVerifyError(t *testing.T) {
 
 	// An unresolved snapshot set means Kopia never walked any object, so the
 	// result carries no integrity evidence: reporting corruption there fails an
-	// intact backup. This is the CNP-9006 failure mode.
+	// intact backup.
 	t.Run("unresolved snapshot set is retryable, not corruption", func(t *testing.T) {
 		verifyErr := errors.New("while verifying Kopia snapshots: command failed: exit status 1")
 		result := kopiaClient.VerifyResult{

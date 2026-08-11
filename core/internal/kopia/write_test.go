@@ -66,7 +66,7 @@ func TestBuildVerifyArgs(t *testing.T) {
 
 	// Root object IDs are passed as --directory-id/--file-id rather than as
 	// positional snapshot manifest IDs, which "kopia snapshot pin" can rewrite
-	// while a verification is in flight (CNP-9006).
+	// while a verification is in flight.
 	t.Run("directory IDs are passed as --directory-id flags", func(t *testing.T) {
 		args := buildVerifyArgs("/etc/kopia/config", VerifySnapshotsOptions{
 			DirectoryIDs: []string{"kaaa", "kbbb"},
