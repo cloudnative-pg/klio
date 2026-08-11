@@ -399,6 +399,11 @@ This is expected, safe behavior: the server detects the mismatched
 system ID and refuses to mix data from the two clusters. If you hit
 this error, check whether another cluster on the same server is
 already using the same `clusterName`.
+
+This also applies across time: deleting a cluster and later reusing its
+`clusterName` on the same server hits the same error, since the server
+can't tell the old cluster is gone. Use a different `clusterName` even for
+unrelated clusters that reuse a retired one.
 :::
 
 ### Tier 2 configuration
