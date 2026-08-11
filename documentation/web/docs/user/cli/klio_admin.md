@@ -31,7 +31,7 @@ Server administration commands
 
 ### SEE ALSO
 
-* [klio](klio.md)	 - Klio is a Cloud Native Backup & Recovery solution
+* [klio](klio.md)	 - PostgreSQL Backup & Recovery for CloudNativePG
 * [klio admin delete-backup](klio_admin_delete-backup.md)	 - Delete a backup from the Klio server
 * [klio admin list-backups](klio_admin_list-backups.md)	 - List the backups available in the Klio server
 * [klio admin queue](klio_admin_queue.md)	 - Manage the queue tasks

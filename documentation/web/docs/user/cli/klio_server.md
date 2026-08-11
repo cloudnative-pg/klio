@@ -31,6 +31,6 @@ Starts and manage a Klio server
 
 ### SEE ALSO
 
-* [klio](klio.md)	 - Klio is a Cloud Native Backup & Recovery solution
+* [klio](klio.md)	 - PostgreSQL Backup & Recovery for CloudNativePG
 * [klio server start](klio_server_start.md)	 - Starts a Klio server
 

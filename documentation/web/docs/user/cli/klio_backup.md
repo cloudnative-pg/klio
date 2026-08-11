@@ -31,7 +31,7 @@ Manage physical backups
 
 ### SEE ALSO
 
-* [klio](klio.md)	 - Klio is a Cloud Native Backup & Recovery solution
+* [klio](klio.md)	 - PostgreSQL Backup & Recovery for CloudNativePG
 * [klio backup delete](klio_backup_delete.md)	 - Deletes the metadata with the provided name
 * [klio backup get-metadata](klio_backup_get-metadata.md)	 - Gets the metadata of the backup with the provided name
 * [klio backup list](klio_backup_list.md)	 - Gets the metadata of all backups

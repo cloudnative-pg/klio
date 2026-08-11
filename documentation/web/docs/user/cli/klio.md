@@ -4,11 +4,11 @@ title: klio
 
 ## klio
 
-Klio is a Cloud Native Backup & Recovery solution
+PostgreSQL Backup & Recovery for CloudNativePG
 
 ### Synopsis
 
-Klio is a Cloud Native Backup & Recovery solution.
+Klio is a backup and recovery engine for PostgreSQL clusters managed by CloudNativePG.
 
 This CLI is primarily invoked internally by the Klio Operator: it runs inside
 Klio Server pods and as sidecar containers in the PostgreSQL instance pods

@@ -38,5 +38,5 @@ klio restore [destination] [flags]
 
 ### SEE ALSO
 
-* [klio](klio.md)	 - Klio is a Cloud Native Backup & Recovery solution
+* [klio](klio.md)	 - PostgreSQL Backup & Recovery for CloudNativePG
 
