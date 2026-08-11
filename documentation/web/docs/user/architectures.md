@@ -7,38 +7,10 @@ sidebar_position: 3
 Klio employs a multi-tiered architecture designed to balance performance,
 resilience, and cost. This approach separates immediate, high-speed backup and
 recovery operations from long-term archival and disaster recovery (DR) needs.
-The architecture is built around three distinct storage tiers, each serving a
+The architecture is built around two distinct storage tiers, each serving a
 specific purpose in the data lifecycle.
 
 ![Multi-tiered architecture overview](images/overview-multi-tiers.png)
-
----
-
-## Tier 0: Volume Snapshots
-
-:::note
-Tier 0 is part of our long-term vision and will be introduced in a future
-release.
-:::
-
-**Tier 0** leverages Kubernetes Volume Snapshots, if supported by the
-underlying storage class. It consists of instantaneous, point-in-time snapshots
-of all volumes used by the PostgreSQL cluster, including the `PGDATA` directory
-and any tablespaces.
-
-This tier is not intended for long-term storage but acts as the **initial
-source** for a base backup. By reading from a static snapshot, Klio avoids
-impacting the performance of the running database. From a disaster recovery
-perspective, these snapshots are often considered "ephemeral," as most local
-storage solutions keep them within the same disks, unlike some cloud providers
-or storage classes that allow them to be archived to object storage.
-Volume snapshot objects reside in the same Kubernetes namespace of a PostgreSQL
-cluster.
-
-Klio coordinates the creation of the snapshot as supported by CloudNativePG and
-then uses it to **asynchronously offload** the base backup data to Tier 1.
-Klio also manages retention policies for volume snapshots objects for a given
-PostgreSQL cluster.
 
 ---
 
@@ -59,7 +31,7 @@ tasks:
 
 - Receiving a continuous stream of WAL files directly from the PostgreSQL
   primary.
-- Storing base backups created from the primary or offloaded from Tier 0.
+- Storing base backups created from the primary.
 - Serving as the source for asynchronously replicating data to Tier 2.
 - Managing retention policies for all tiers.
 
@@ -227,12 +199,6 @@ layer** to define architecturally. You have several options, ranging from
 running Klio servers on any worker node using your cluster's primary storage
 solution, to dedicating a single worker node with local storage for a
 centralized Klio server.
-
-**Tier 0** capabilities are determined by the underlying Kubernetes
-`StorageClass`. Klio is particularly valuable when using local storage
-solutions (such as LVM with TopoLVM or OpenEBS), as it can **offload** volume
-snapshot backups to Tier 1, freeing up high-performance local disk space via
-retention policies.
 
 **Tier 2** is often determined by your organization's infrastructure teams, who
 have likely already selected one or more standard object storage solutions for

@@ -33,10 +33,17 @@ import (
 
 // categoryConfig represents the _category_.json structure.
 type categoryConfig struct {
-	Label       string `json:"label"`
-	Position    int    `json:"position"`
-	Collapsed   bool   `json:"collapsed"`
-	Collapsible bool   `json:"collapsible"`
+	Label       string       `json:"label"`
+	Position    int          `json:"position"`
+	Collapsed   bool         `json:"collapsed"`
+	Collapsible bool         `json:"collapsible"`
+	Link        categoryLink `json:"link"`
+}
+
+// categoryLink configures the Docusaurus generated category index page.
+type categoryLink struct {
+	Type        string `json:"type"`
+	Description string `json:"description"`
 }
 
 // genDocCmd represents the gen-doc command
@@ -114,6 +121,13 @@ func createCategoryFile(outputDir string) error {
 		Position:    150,
 		Collapsed:   true,
 		Collapsible: true,
+		Link: categoryLink{
+			Type: "generated-index",
+			Description: "This CLI is primarily invoked internally by the Klio Operator, " +
+				"running inside Klio Server pods and as sidecar containers in " +
+				"PostgreSQL instance pods managed by CloudNativePG. Most of its " +
+				"commands are not generally meant to be run directly by end users.",
+		},
 	}
 
 	filePath := filepath.Join(outputDir, "_category_.json")

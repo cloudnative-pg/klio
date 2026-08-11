@@ -8,20 +8,13 @@ The Klio server is a central component of the Klio backup solution. It is
 defined as the `Server` custom resource in Kubernetes, which creates a
 StatefulSet running the Klio server application.
 
-The Klio server is composed of two main containers:
+The Klio server runs as a single `server` container. On startup, it first
+initializes the Kopia repository, then starts serving both base backups
+(using Kopia) and the incoming stream of PostgreSQL Write-Ahead Logs (WAL).
 
-- `base`: Manages full and incremental backups using Kopia.
-- `wal`: Receives the stream of PostgreSQL Write-Ahead Logs (WAL).
-
-An additional init container, `init`, is responsible for initializing the
-Kopia repository and setting up the necessary configuration.
-
-The base backups and WAL files are stored in multiple PersistentVolume attached
-to the Klio server pod in the `/data/base` and `/data/wal` directories, respectively.
-
-An additional cache defined by a PersistentVolume is used for the Kopia cache.
-This cache allows Kopia to quickly browse repository contents without
-having to download from the storage location.
+The base backups and WAL files are stored on a single PersistentVolume attached
+to the Klio server pod, in the `/data/base` and `/data/wal` directories,
+respectively.
 
 ## Storage Tiers
 
@@ -43,8 +36,8 @@ configured. This is useful for disaster recovery sites that need to restore
 from object storage without the overhead of local storage. See the
 [Read-Only Mode](#read-only-mode) section for details.
 
-Currently, Klio supports Amazon S3 and S3-compatible storage providers. See
-the [Object Store](#object-store) section for configuration details.
+Currently, Klio supports only Amazon S3 and S3-compatible storage providers.
+See the [Object Store](#object-store) section for configuration details.
 
 ### The Work Queue
 
@@ -60,7 +53,7 @@ The queue serves two purposes:
 
 ## Storage Requirements
 
-The Klio Server uses three distinct PersistentVolumeClaims (PVCs), each
+The Klio Server uses multiple PersistentVolumeClaims (PVCs), each
 serving a different purpose. Understanding what each PVC contains helps you
 size them appropriately for your environment. For guidance on managing
 storage capacity and resizing PVCs, see
@@ -145,7 +138,7 @@ keep the safety margin.
 
 :::tip
 Start with 50 MiB as a conservative default. Monitor queue usage with the
-`klio admin queue-status` command and adjust based on actual WAL production
+`klio admin queue status` command and adjust based on actual WAL production
 rates in your environment.
 :::
 
@@ -593,9 +586,8 @@ Always test changes in a non-production environment first.
 
 :::note
 The `containers` field within `.spec.template.spec` is mandatory but will be
-merged with the default Klio server containers `base` and `wal`. If you do not
-need to add containers or modify the default ones, you must still include an
-empty list.
+merged with the default Klio `server` container. If you do not need to add
+containers or modify the default one, you must still include an empty list.
 :::
 
 ### Node Affinity and Tolerations
@@ -667,7 +659,7 @@ For S3-compatible providers, add the `endpoint` field:
 tier2:
   s3:
     bucketName: klio-backups
-    endpoint: https://minio.example.com:9000
+    endpoint: https://<endpoint>:<port>
     region: us-east-1  # May be required depending on provider
     accessKeyId:
       name: s3-credentials
@@ -685,7 +677,7 @@ For providers using self-signed certificates or custom CAs:
 tier2:
   s3:
     bucketName: klio-backups
-    endpoint: https://minio.example.com:9000
+    endpoint: https://<endpoint>:<port>
     customCaBundle:
       name: minio-ca-cert
       key: ca.crt

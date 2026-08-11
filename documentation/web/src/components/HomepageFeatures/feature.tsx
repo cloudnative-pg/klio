@@ -11,7 +11,7 @@ type FeatureItem = {
 
 function Feature({title, Svg, description}: FeatureItem): ReactElement<FeatureItem> {
     return (
-        <div className={clsx('col col--4')}>
+        <div className={clsx('col col--3')}>
             <div className="text--center">
                 <Svg className={styles.featureSvg} role="img"/>
             </div>
@@ -28,19 +28,23 @@ export function FeatureList(): ReactElement<null> {
         <div className="row">
             <Feature
                 title={'Multi-tiered storage support'}
-                description={"Store your backups on local volumes and object stores."}
+                description={"Store your backups on local volumes and relay them to object stores."}
                 Svg={require('@site/static/img/undraw_going-up_g8av.svg').default}
             />
             <Feature
-                title={'Restore to any point in time'}
-                description={"Perform flexible restores to any point in time using a combination of " +
-                    "volume snapshots and WAL archives."}
+                title={'WAL streaming support'}
+                description={"Reduce RPO by streaming WALs to the archive."}
                 Svg={require('@site/static/img/undraw_season-change_ohe6.svg').default}
             />
             <Feature
                 title={'Data security'}
                 description={"Encrypt your backups at rest and in transit."}
                 Svg={require('@site/static/img/undraw_security_0ubl.svg').default}
+            />
+            <Feature
+                title={'Deduplication'}
+                description={"Reduce storage usage and backup time by deduplicating data."}
+                Svg={require('@site/static/img/undraw_building-blocks_h5jb.svg').default}
             />
         </div>
     )

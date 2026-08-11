@@ -57,7 +57,13 @@ var pprofServerAddress string
 //nolint:gochecknoglobals
 var rootCmd = &cobra.Command{
 	Use:   "klio",
-	Short: "Klio is a Cloud Native Backup & Recovery solution",
+	Short: "PostgreSQL Backup & Recovery for CloudNativePG",
+	Long: `Klio is a backup and recovery engine for PostgreSQL clusters managed by CloudNativePG.
+
+This CLI is primarily invoked internally by the Klio Operator: it runs inside
+Klio Server pods and as sidecar containers in the PostgreSQL instance pods
+managed by CloudNativePG. Most of its commands are not generally meant to be
+run directly by end users.`,
 	PersistentPreRunE: func(cmd *cobra.Command, _ []string) error {
 		// Silence usage for runtime errors.
 		// Usage is still shown for flag parsing and args validation errors

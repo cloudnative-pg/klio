@@ -31,7 +31,7 @@ WAL Player Commands
 
 ### SEE ALSO
 
-* [klio](klio.md)	 - Klio is a Cloud Native Backup & Recovery solution
+* [klio](klio.md)	 - PostgreSQL Backup & Recovery for CloudNativePG
 * [klio wal-player generate](klio_wal-player_generate.md)	 - Generate a directory of WAL files
 * [klio wal-player play](klio_wal-player_play.md)	 - Send to Klio a directory of WAL files
 

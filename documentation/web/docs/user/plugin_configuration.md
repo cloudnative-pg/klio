@@ -6,10 +6,13 @@ sidebar_position: 6
 
 The Klio plugin for CloudNativePG allows you to leverage the backup and WAL
 streaming capabilities of Klio for your PostgreSQL clusters managed by
-CloudNativePG. It will add two containers to each PostgreSQL instance pod:
+CloudNativePG. It adds a `klio-plugin` container to each PostgreSQL instance
+pod, handling both backup creation/management and WAL streaming to the Klio
+server in real-time.
 
-- A `klio-plugin` container that handles backup creation and management
-- A `klio-wal` container that streams WAL files to the Klio server in real-time
+During recovery, Klio also injects a `klio-restore` container into the
+CloudNativePG recovery Job to restore backups from the Klio server. See
+[Available sidecar containers](#available-sidecar-containers) for details.
 
 ## Configuration
 
@@ -51,6 +54,7 @@ spec:
   serverAddress: klio-server.default
   clientSecretName: client-sample-tls
   serverSecretName: klio-server-tls
+  clusterName: my-cluster
   # mode: standard  # Optional: standard (default) or read-only
 ```
 
@@ -72,8 +76,8 @@ can be:
 - A fully qualified domain name: `klio-server.default.svc.cluster.local`
 - An external address: `klio.example.com`
 
-Connections will be done using the default ports of the Klio base and WAL
-servers, respectively 51515 and 52000.
+Connections are made to the Klio server's two default listening ports: 51515
+for base backups and 52000 for WAL streaming.
 
 ### TLS configuration
 
@@ -158,8 +162,8 @@ the new configuration. This restart is intentional and expected.
 
 **What to expect during configuration updates:**
 
-- The `klio-plugin`, `klio-wal`, and `klio-restore` sidecar containers
-  will restart to pick up the new configuration
+- The `klio-plugin` sidecar container will restart to pick up the new
+  configuration
 - Container restart counts will increment - this is normal behavior and
   indicates the configuration was successfully applied
 - Restarts are graceful and brief (typically 5-10 seconds)
@@ -203,7 +207,7 @@ After applying this change, a Pods rollout will be triggered by
 CloudNativePG to remove the Klio sidecar containers.
 
 :::warning Replication slot cleanup
-When the Klio plugin is active, the WAL streaming sidecar creates
+When the Klio plugin is active, the `klio-plugin` sidecar creates
 a physical replication slot named `klio` on the PostgreSQL
 primary. Disabling the plugin does **not** automatically remove
 this replication slot. An orphaned replication slot will cause
@@ -247,6 +251,7 @@ spec:
   serverAddress: klio-server.default
   clientSecretName: klio-client-credentials
   serverSecretName: klio-server-tls
+  clusterName: my-cluster
   tier1:
     retention:
       keepLatest: 5
@@ -333,6 +338,9 @@ spec:
   clientSecretName: dr-client-credentials
   serverSecretName: dr-server-tls
   mode: read-only
+  # Must match the name of the original cluster whose backups you are
+  # restoring from, not the name of the new cluster being created.
+  clusterName: my-cluster
 
   # Read-only mode requires:
   # - tier2 configuration with enableRecovery: true
@@ -354,16 +362,23 @@ for details on setting up a read-only Klio server.
 
 ### Cluster name override
 
-By default, the plugin uses the name of the CloudNativePG `Cluster` resource.
-You can override this if needed:
+The `clusterName` field is required and tells Klio which PostgreSQL cluster's
+backups and WAL archive to use. In most cases, set it to the name of the
+CloudNativePG `Cluster` resource itself:
+
+```yaml
+spec:
+  clusterName: my-cluster
+```
+
+Override it to a different value when the plugin needs to reference a
+*different* cluster's data, for example when restoring into a new cluster
+from an existing cluster's backups, or when configuring replica clusters:
 
 ```yaml
 spec:
   clusterName: my-custom-cluster-name
 ```
-
-This can be useful working with backups from different clusters, for example
-when restoring clusters or configuring replica clusters.
 
 ### Tier 2 configuration
 
@@ -401,9 +416,9 @@ for more details on Tier 2 storage.
 
 ### WAL Prefetch Configuration
 
-During recovery operations, Klio can prefetch WAL files ahead of PostgreSQL's
-requests to speed up recovery. Configure prefetching using the `walPrefetch`
-section:
+During recovery operations, Klio can download upcoming WAL files in the
+background, ahead of PostgreSQL's requests, to speed up recovery. Configure
+this behavior using the `walPrefetch` section:
 
 ```yaml
 spec:
@@ -414,12 +429,13 @@ spec:
 
 #### Options
 
-- **`count`**: The number of WAL files to prefetch ahead during recovery.
-  Set to `0` to disable prefetching. Default is `2`.
+- **`count`**: How many WAL files ahead of the current one to prefetch in
+  the background. Set to `0` to disable prefetching. Default is `2`.
 
-- **`maxConcurrentDownloads`**: The maximum number of concurrent WAL
-  downloads. Higher values can improve recovery speed on high-bandwidth
-  connections but use more resources. Default is `4`.
+- **`maxConcurrentDownloads`**: The maximum number of WAL downloads —
+  prefetch and on-demand combined — that can run concurrently. Higher values
+  can improve recovery speed on high-bandwidth connections but use more
+  resources. Default is `4`.
 
 ### Observability
 
@@ -464,6 +480,7 @@ spec:
   serverAddress: klio-server.default
   clientSecretName: klio-client-credentials
   serverSecretName: klio-server-tls
+  clusterName: my-cluster
   containers:
     - name: klio-plugin
       env:
@@ -471,10 +488,6 @@ spec:
           value: "my-value"
         - name: DEBUG_LEVEL
           value: "info"
-    - name: klio-wal
-      env:
-        - name: WAL_BUFFER_SIZE
-          value: "8192"
 ```
 
 ### How container merging works
@@ -485,7 +498,7 @@ following merge behavior:
 1. **Your container is the base**: When you define a container
    (e.g., `klio-plugin`), your specification serves as the starting point
 1. **Klio enforces required values**: Klio sets its essential configuration:
-   - Container `name` (klio-plugin, klio-wal, or klio-restore)
+   - Container `name` (klio-plugin or klio-restore)
    - Container `args` (the command arguments needed for operation)
    - `CONTAINER_NAME` environment variable
 1. **Your customizations are preserved**: All other fields you define remain
@@ -554,8 +567,8 @@ above.
 
 The following containers can be customized:
 
-- **`klio-plugin`**: Handles backup creation and management in PostgreSQL pods
-- **`klio-wal`**: Streams WAL files to the Klio server in PostgreSQL pods
+- **`klio-plugin`**: Handles backup creation/management and WAL streaming to
+  the Klio server in PostgreSQL instance pods
 - **`klio-restore`**: Restores backups during recovery jobs
 
 ### Example: Resource limits and environment variables
@@ -569,6 +582,7 @@ spec:
   serverAddress: klio-server.default
   clientSecretName: klio-client-credentials
   serverSecretName: klio-server-tls
+  clusterName: my-cluster
   containers:
     - name: klio-plugin
       env:
@@ -583,15 +597,4 @@ spec:
         requests:
           memory: "256Mi"
           cpu: "500m"
-    - name: klio-wal
-      env:
-        - name: WAL_STREAM_TIMEOUT
-          value: "30s"
-      resources:
-        limits:
-          memory: "256Mi"
-          cpu: "500m"
-        requests:
-          memory: "128Mi"
-          cpu: "250m"
 ```

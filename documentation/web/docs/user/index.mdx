@@ -37,11 +37,6 @@ These critical backup artifacts are stored across two distinct storage tiers:
 
 ## Key Features
 
-:::note
-Some of the following features are currently aspirational and under active
-development.
-:::
-
 ### WAL Management
 
 - Native WAL streaming from the primary, eliminating the need for
@@ -66,28 +61,14 @@ Therefore, Klio requires PostgreSQL version 15 or greater to function properly.
 - Physical online base backups from the primary node to Tier 1, with support
   for:
    - Data deduplication for efficient remote incremental backups
-   - Compression to optimize storage usage
    - Encryption using user-provided keys for data confidentiality
 - Backup catalog stored on a file system Persistent Volume Claim (PVC) in Tier 1
-- Integration with CloudNativePG Kubernetes Volume Snapshots (Tier 0),
-  enabling asynchronous offload to Tier 1 using the same physical backup
-  process[^1]
 - Retention policy enforcement
 - Asynchronous replication of base backups to Tier 2 object storage for
   long-term durability and disaster recovery
 
-:::info
-Kubernetes Volume Snapshot integration (Tier 0) is only available for storage
-classes that support volume snapshots.
-:::
-
 ### General Capabilities
 
 - End-to-end encryption: both in-transit and at-rest
-- Designed for seamless integration with Kubernetes-native data protection
-  tools such as Veeam Kasten, Velero, and others[^1]
 - Delivered as a CNPG-I plugin, with an accompanying Kubernetes Operator
-- Available as a Certified Red Hat OpenShift Operator[^1]
 - Distributed via a Helm chart for streamlined deployment
-
-[^1]: Not yet available; planned for a future release.
