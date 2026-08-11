@@ -99,4 +99,75 @@ func TestClassifyVerifyError(t *testing.T) {
 		require.ErrorIs(t, err, infraErr)
 		require.NotErrorAs(t, err, &backupErr)
 	})
+
+	// An unresolved snapshot set means Kopia never walked any object, so the
+	// result carries no integrity evidence: reporting corruption there fails an
+	// intact backup. This is the CNP-9006 failure mode.
+	t.Run("unresolved snapshot set is retryable, not corruption", func(t *testing.T) {
+		verifyErr := errors.New("while verifying Kopia snapshots: command failed: exit status 1")
+		result := kopiaClient.VerifyResult{
+			ErrorCount:   1,
+			ErrorStrings: []string{"found 0 of the 3 requested snapshot IDs to verify"},
+		}
+
+		err := classifyVerifyError(ctx, result, verifyErr)
+
+		var backupErr *BackupVerificationError
+		require.NotErrorAs(t, err, &backupErr)
+		require.ErrorIs(t, err, ErrSnapshotsUnresolved)
+		require.ErrorIs(t, err, verifyErr)
+	})
+
+	// A missing object or blob is real data loss and must stay fatal, even
+	// though Kopia reports it with wording that also contains "not found".
+	t.Run("missing blob is still corruption", func(t *testing.T) {
+		verifyErr := errors.New("while verifying Kopia snapshots: command failed: exit status 1")
+		result := kopiaClient.VerifyResult{
+			ErrorCount: 1,
+			ErrorStrings: []string{
+				"object 8f848427a18ebe0fbc2f063b4616e362 is backed by missing blob " +
+					"p79f56bafb33cd7823558352ea947c830-s59fd9cbc252f04f7143",
+			},
+		}
+
+		err := classifyVerifyError(ctx, result, verifyErr)
+
+		var backupErr *BackupVerificationError
+		require.ErrorAs(t, err, &backupErr)
+		require.NotErrorIs(t, err, ErrSnapshotsUnresolved)
+	})
+
+	t.Run("missing object referenced by a directory id is still corruption", func(t *testing.T) {
+		verifyErr := errors.New("while verifying Kopia snapshots: command failed: exit status 1")
+		result := kopiaClient.VerifyResult{
+			ErrorCount: 1,
+			ErrorStrings: []string{
+				"error reading directory: unable to open object: kdeadbeef: " +
+					"content kdeadbeef not found: object not found",
+			},
+		}
+
+		err := classifyVerifyError(ctx, result, verifyErr)
+
+		var backupErr *BackupVerificationError
+		require.ErrorAs(t, err, &backupErr)
+	})
+
+	// A mixed result must not be downgraded: one unresolved snapshot alongside
+	// genuine damage is still corruption.
+	t.Run("corruption mixed with an unresolved snapshot stays corruption", func(t *testing.T) {
+		verifyErr := errors.New("while verifying Kopia snapshots: command failed: exit status 1")
+		result := kopiaClient.VerifyResult{
+			ErrorCount: 2,
+			ErrorStrings: []string{
+				"found 0 of the 3 requested snapshot IDs to verify",
+				"object abc is backed by missing blob p123",
+			},
+		}
+
+		err := classifyVerifyError(ctx, result, verifyErr)
+
+		var backupErr *BackupVerificationError
+		require.ErrorAs(t, err, &backupErr)
+	})
 }
