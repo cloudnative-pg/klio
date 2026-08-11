@@ -252,9 +252,6 @@ func addExternalClusterConfiguration(
 		return fmt.Errorf("failed to get '%s' configuration, error: %w", ref, err)
 	}
 
-	if klioPluginConfiguration.Spec.ClusterName == "" {
-		klioPluginConfiguration.Spec.ClusterName = serverName
-	}
 	configurations[serverName].klioPluginConfiguration = klioPluginConfiguration
 
 	return nil
@@ -312,11 +309,6 @@ func getArchivePluginConfigurations(
 
 		return configurations, fmt.Errorf("failed to get '%s' configuration, error: %w", ref, err)
 	}
-	if klioPluginConfiguration.Spec.ClusterName == "" {
-		// if the host name is not set, use the cluster name as the host name
-		klioPluginConfiguration.Spec.ClusterName = cluster.Name
-	}
-
 	configurations[ArchiveConfigKey].klioPluginConfiguration = klioPluginConfiguration.DeepCopy()
 
 	return configurations, nil
