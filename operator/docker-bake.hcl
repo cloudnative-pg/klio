@@ -89,7 +89,7 @@ target "default" {
     "index,manifest:org.opencontainers.image.documentation=${documentation}",
     "index,manifest:org.opencontainers.image.authors=${authors}",
     "index,manifest:org.opencontainers.image.licenses=${license}",
-    "index,manifest:org.opencontainers.image.base.name=ubi10/ubi-micro",
+    "index,manifest:org.opencontainers.image.base.name=gcr.io/distroless/static-debian13",
     "index,manifest:org.opencontainers.image.base.digest=${digest(base_image)}",
   ]
   labels = {
@@ -104,7 +104,7 @@ target "default" {
     "org.opencontainers.image.documentation" = "${documentation}",
     "org.opencontainers.image.authors"       = "${authors}",
     "org.opencontainers.image.licenses"      = "${license}",
-    "org.opencontainers.image.base.name"     = "ubi10/ubi-micro",
+    "org.opencontainers.image.base.name"     = "gcr.io/distroless/static-debian13",
     "org.opencontainers.image.base.digest"   = "${digest(base_image)}",
     "name"                                   = "${title}",
     "maintainer"                             = "${authors}",
