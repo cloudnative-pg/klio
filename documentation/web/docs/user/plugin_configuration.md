@@ -403,6 +403,10 @@ server hits the same error, since the original cluster backups and
 WALs will still exist on the Klio server.
 :::
 
+Whichever value you use, it must match the host name in the Common Name of the
+client certificate (`userName@hostName`), otherwise the connection to the Klio
+server is refused.
+
 ### Tier 2 configuration
 
 Tier 2 provides secondary storage (typically object storage like S3) for

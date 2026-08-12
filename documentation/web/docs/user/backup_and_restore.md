@@ -240,7 +240,7 @@ spec:
   clientSecretName: my-client-credentials
   serverSecretName: klio-server-tls
 
-  # Optional: specify the original cluster name if different
+  # Required: the name of the original cluster that was backed up
   clusterName: my-cluster
 ```
 
