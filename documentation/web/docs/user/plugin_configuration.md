@@ -404,8 +404,10 @@ WALs will still exist on the Klio server.
 :::
 
 Whichever value you use, it must match the host name in the Common Name of the
-client certificate (`userName@hostName`), otherwise the connection to the Klio
-server is refused.
+client certificate (`userName@hostName`). For tier 1 base backups, a mismatch
+is rejected at connection time; for WAL streaming, a mismatch is not currently
+detected and can lead to WALs being stored or retrieved under the wrong
+cluster path.
 
 ### Tier 2 configuration
 

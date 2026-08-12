@@ -87,7 +87,6 @@ const ConfigDataKey = "config.yaml"
 
 // GenerateConfig builds a config.Data from a PluginConfigurationSpec.
 // configKey is the configuration key (e.g. "klio-archive").
-// clusterName is the default cluster name when the PC doesn't set one.
 func GenerateConfig(
 	spec kliov1alpha1.PluginConfigurationSpec,
 	configKey string,
