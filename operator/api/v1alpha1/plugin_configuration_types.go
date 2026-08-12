@@ -87,17 +87,17 @@ type PluginConfigurationSpec struct {
 	// resource limits, and other container settings without polluting the PostgreSQL container environment.
 	//
 	// Merge behavior:
-	// - Containers are matched by name (klio-plugin, klio-wal, klio-restore)
+	// - Containers are matched by name (klio-plugin, klio-restore)
 	// - User customizations serve as the base
 	// - Klio required values (name, args, CONTAINER_NAME env var) always override user values
 	// - User-defined environment variables and volume mounts are preserved
 	// - Template defaults are applied only for fields not set by the user or Klio
 	//
 	// +optional
-	// +kubebuilder:validation:MaxItems=3
+	// +kubebuilder:validation:MaxItems=2
 	// +listType=map
 	// +listMapKey=name
-	// +kubebuilder:validation:XValidation:rule="self.all(c, c.name in ['klio-plugin', 'klio-wal', 'klio-restore'])",message="container name must be one of: klio-plugin, klio-wal, klio-restore"
+	// +kubebuilder:validation:XValidation:rule="self.all(c, c.name in ['klio-plugin', 'klio-restore'])",message="container name must be one of: klio-plugin, klio-restore"
 	Containers []corev1.Container `json:"containers,omitempty"`
 }
 

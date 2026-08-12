@@ -162,7 +162,7 @@ func TestFindUserContainer(t *testing.T) {
 			containerName: KlioPluginContainerName,
 			customContainers: []corev1.Container{
 				{
-					Name:  "klio-wal",
+					Name:  "klio-restore",
 					Image: "other-image:latest",
 				},
 			},
