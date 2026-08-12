@@ -228,7 +228,7 @@ jobs:
           task operator:ci
 
       # TODO(fcanovai): this has been disabled in #85 because the image build there is now Debian based and
-      # the Red Hat preflight certification fails. It should be re-enable once we have an image built on Red Hat UBI.
+      # the Red Hat preflight certification fails. It should be re-enabled once we have an image built on Red Hat UBI.
       #- name: Run Red Hat preflight certification
       #  run: |
       #    # Certify the operator image just built and pushed by operator:ci

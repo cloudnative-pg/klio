@@ -235,16 +235,28 @@ certification policies. Two checks cover the two artifacts:
 
 - **`check container`** — static policy checks on the operator image
   (labels, layers, license, base image). It needs no cluster and runs
-  in the Dagger engine on every PR via `task olm:preflight-container`.
+  in the Dagger engine via `task olm:preflight-container`.
 - **`check operator`** — installs the bundle through OLM into a live
   OpenShift cluster and verifies it is deployable. Because it needs a
   real OpenShift cluster (OLM and Security Context Constraints), it runs
-  via `task olm:preflight-operator`: in the OpenShift E2E CI job (against
-  the CRC cluster it starts, before the e2e suite runs) and locally
-  against CRC. A failing check fails the job. The bundle and catalog
-  images are multi-arch (`linux/amd64` and `linux/arm64`), so the check
-  runs natively on either architecture — including CRC on an Apple
-  Silicon Mac.
+  via `task olm:preflight-operator`, against the CRC cluster the
+  OpenShift E2E job starts or against a local CRC. The bundle and
+  catalog images are multi-arch (`linux/amd64` and `linux/arm64`), so
+  the check runs natively on either architecture — including CRC on an
+  Apple Silicon Mac.
+
+:::note
+
+Both checks are currently **disabled in CI**. The operator and operand
+images are built on Debian instead of Red Hat UBI, which the
+`check container` base-image policy rejects, and `check operator` is
+parked alongside it. The steps are commented out in
+`.github/workflows/ci.yml` and `.github/workflows/openshift-e2e.yml`,
+ready to be restored once a UBI-based image variant is built again — see
+[issue #85](https://github.com/cloudnative-pg/klio/issues/85). Both
+tasks still work when run manually, as described below.
+
+:::
 
 ### Run `check operator` against CRC
 

@@ -30,8 +30,8 @@ variable "registry" {
 }
 
 variable "base_image" {
-  // renovate image: datasource=docker depName=gcr.io/distroless/static-debian13 versioning=docker
-  default = "gcr.io/distroless/static-debian13@sha256:9197324ba51d9cd071af8505989365c006adf9d6d2067eada25aef00abbb5278"
+  // renovate image: datasource=docker depName=static-debian13 lookupName=gcr.io/distroless/static-debian13 versioning=docker
+  default = "gcr.io/distroless/static-debian13:nonroot@sha256:f7f8f729987ad0fdf6b05eeeae94b26e6a0f613bdf46feea7fc40f7bd72953e6"
 }
 
 function "getRegistry" {
@@ -89,7 +89,7 @@ target "default" {
     "index,manifest:org.opencontainers.image.documentation=${documentation}",
     "index,manifest:org.opencontainers.image.authors=${authors}",
     "index,manifest:org.opencontainers.image.licenses=${license}",
-    "index,manifest:org.opencontainers.image.base.name=gcr.io/distroless/static-debian13",
+    "index,manifest:org.opencontainers.image.base.name=${baseName(base_image)}",
     "index,manifest:org.opencontainers.image.base.digest=${digest(base_image)}",
   ]
   labels = {
@@ -104,7 +104,7 @@ target "default" {
     "org.opencontainers.image.documentation" = "${documentation}",
     "org.opencontainers.image.authors"       = "${authors}",
     "org.opencontainers.image.licenses"      = "${license}",
-    "org.opencontainers.image.base.name"     = "gcr.io/distroless/static-debian13",
+    "org.opencontainers.image.base.name"     = "${baseName(base_image)}",
     "org.opencontainers.image.base.digest"   = "${digest(base_image)}",
     "name"                                   = "${title}",
     "maintainer"                             = "${authors}",
@@ -120,6 +120,13 @@ target "default" {
 function digest {
   params = [ imageNameWithSha ]
   result = index(split("@", imageNameWithSha), 1)
+}
+
+// We get the image reference without the sha256, so that the base.name label
+// is always derived from base_image and cannot drift away from it.
+function baseName {
+  params = [ imageNameWithSha ]
+  result = index(split("@", imageNameWithSha), 0)
 }
 
 function latest {

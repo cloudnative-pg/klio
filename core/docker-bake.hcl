@@ -89,7 +89,7 @@ target "default" {
     "index,manifest:org.opencontainers.image.documentation=${documentation}",
     "index,manifest:org.opencontainers.image.authors=${authors}",
     "index,manifest:org.opencontainers.image.licenses=${license}",
-    "index,manifest:org.opencontainers.image.base.name=debian",
+    "index,manifest:org.opencontainers.image.base.name=${baseName(base_image)}",
     "index,manifest:org.opencontainers.image.base.digest=${digest(base_image)}",
   ]
   labels = {
@@ -104,7 +104,7 @@ target "default" {
     "org.opencontainers.image.documentation" = "${documentation}",
     "org.opencontainers.image.authors"       = "${authors}",
     "org.opencontainers.image.licenses"      = "${license}",
-    "org.opencontainers.image.base.name"     = "debian",
+    "org.opencontainers.image.base.name"     = "${baseName(base_image)}",
     "org.opencontainers.image.base.digest"   = "${digest(base_image)}",
     "name"                                   = "${title}",
     "maintainer"                             = "${authors}",
@@ -120,6 +120,13 @@ target "default" {
 function digest {
   params = [ imageNameWithSha ]
   result = index(split("@", imageNameWithSha), 1)
+}
+
+// We get the image reference without the sha256, so that the base.name label
+// is always derived from base_image and cannot drift away from it.
+function baseName {
+  params = [ imageNameWithSha ]
+  result = index(split("@", imageNameWithSha), 0)
 }
 
 function latest {
