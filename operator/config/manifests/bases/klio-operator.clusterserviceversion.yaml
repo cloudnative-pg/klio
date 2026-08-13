@@ -344,7 +344,7 @@ spec:
         - urn:alm:descriptor:com.tectonic.ui:booleanSwitch
         - urn:alm:descriptor:com.tectonic.ui:advanced
       - description: Advanced overrides for the Klio sidecar containers (klio-plugin,
-          klio-wal, klio-restore). Use at your own risk.
+          klio-restore). Use at your own risk.
         displayName: Sidecar Container Overrides
         path: containers
         x-descriptors:

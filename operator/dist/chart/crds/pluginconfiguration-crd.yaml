@@ -57,7 +57,7 @@ spec:
                   resource limits, and other container settings without polluting the PostgreSQL container environment.
 
                   Merge behavior:
-                  - Containers are matched by name (klio-plugin, klio-wal, klio-restore)
+                  - Containers are matched by name (klio-plugin, klio-restore)
                   - User customizations serve as the base
                   - Klio required values (name, args, CONTAINER_NAME env var) always override user values
                   - User-defined environment variables and volume mounts are preserved
@@ -1581,15 +1581,14 @@ spec:
                   required:
                   - name
                   type: object
-                maxItems: 3
+                maxItems: 2
                 type: array
                 x-kubernetes-list-map-keys:
                 - name
                 x-kubernetes-list-type: map
                 x-kubernetes-validations:
-                - message: 'container name must be one of: klio-plugin, klio-wal,
-                    klio-restore'
-                  rule: self.all(c, c.name in ['klio-plugin', 'klio-wal', 'klio-restore'])
+                - message: 'container name must be one of: klio-plugin, klio-restore'
+                  rule: self.all(c, c.name in ['klio-plugin', 'klio-restore'])
               mode:
                 default: standard
                 description: Mode selects the operation mode of the plugin.
