@@ -28,7 +28,7 @@
     ".": {}
   },
   "plugins": [ "sentence-case" ],
-  "release-as": "0.0.18",
+  "release-as": "0.0.19",
   "signoff": "Peggie <info@cloudnative-pg.io>",
   "$schema": "https://raw.githubusercontent.com/googleapis/release-please/main/schemas/config.json"
 }
