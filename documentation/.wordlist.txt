@@ -29,6 +29,7 @@ ClusterMetadata
 ClusterName
 CodeReady
 DNS
+Debian
 DeleteBackup
 DeleteBackupRequest
 DeleteBackupResponse
@@ -176,6 +177,7 @@ Taskfile
 Tolerations
 TopoLVM
 TrueClass
+UBI
 UID
 UIDs
 UTF

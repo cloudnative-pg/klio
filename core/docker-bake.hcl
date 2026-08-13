@@ -30,8 +30,8 @@ variable "registry" {
 }
 
 variable "base_image" {
-  // renovate image: datasource=docker depName=registry.access.redhat.com/ubi10/ubi-micro versioning=docker
-  default = "registry.access.redhat.com/ubi10/ubi-micro:10.2-1786324819@sha256:cabedb588644e9da2c95ebb173a67b78d58aaedcb0eaa42a86f880bcef8a0b2f"
+  // renovate image: datasource=docker depName=debian versioning=docker
+  default = "debian:13.6-slim@sha256:3a39a0592364683e6bab97937b72cad5a8fa6dcbbee90edb3bb48c7f8e94f258"
 }
 
 function "getRegistry" {
@@ -89,7 +89,7 @@ target "default" {
     "index,manifest:org.opencontainers.image.documentation=${documentation}",
     "index,manifest:org.opencontainers.image.authors=${authors}",
     "index,manifest:org.opencontainers.image.licenses=${license}",
-    "index,manifest:org.opencontainers.image.base.name=ubi10/ubi-micro",
+    "index,manifest:org.opencontainers.image.base.name=${baseName(base_image)}",
     "index,manifest:org.opencontainers.image.base.digest=${digest(base_image)}",
   ]
   labels = {
@@ -104,7 +104,7 @@ target "default" {
     "org.opencontainers.image.documentation" = "${documentation}",
     "org.opencontainers.image.authors"       = "${authors}",
     "org.opencontainers.image.licenses"      = "${license}",
-    "org.opencontainers.image.base.name"     = "ubi10/ubi-micro",
+    "org.opencontainers.image.base.name"     = "${baseName(base_image)}",
     "org.opencontainers.image.base.digest"   = "${digest(base_image)}",
     "name"                                   = "${title}",
     "maintainer"                             = "${authors}",
@@ -120,6 +120,13 @@ target "default" {
 function digest {
   params = [ imageNameWithSha ]
   result = index(split("@", imageNameWithSha), 1)
+}
+
+// We get the image reference without the sha256, so that the base.name label
+// is always derived from base_image and cannot drift away from it.
+function baseName {
+  params = [ imageNameWithSha ]
+  result = index(split("@", imageNameWithSha), 0)
 }
 
 function latest {
