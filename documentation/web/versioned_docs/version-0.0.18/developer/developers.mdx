@@ -1,0 +1,168 @@
+---
+sidebar_position: 1
+---
+
+# Developers guide
+
+## Development environment prerequisites
+
+* A [dagger](https://dagger.io/) installation
+
+## How to get an ephemeral development environment
+
+For a quick and convenient development experience, you can create an ephemeral
+development environment using the `integration:devenv` task from the Taskfile:
+
+```sh
+task integration:devenv
+```
+
+This command creates and connects you to an ephemeral development environment
+with all the necessary components pre-configured, making it easier to test and
+develop Klio features without affecting your local setup.
+
+Here are the instructions to deploy the Klio server and the CNPG cluster with
+the Klio plugin, using manifests under `operator/config/samples`.
+The following commands are executed inside the dagger container created from
+the previous step:
+
+```sh
+# Deploy the Klio server with the related resources
+dagger /apps $ kubectl apply -f ../operator/config/samples/klio_v1alpha1_server.yaml
+
+# Deploy the CNPG Cluster with a patch for the plugin and the related PluginConfiguration CR
+dagger /apps $ kubectl apply -f ../operator/config/samples/cluster-example-plugin.yaml
+```
+
+## How to test Klio in a kind cluster during development
+
+During the development phase, it is recommended to test any changes in a test
+environment as soon as they are implemented. To perform such a test, a developer
+can build and deploy the binaries and the images in a reusable Kubernetes environment.
+
+This section will guide you through the steps required to deploy the Klio operator and
+its resources inside a kind cluster.
+
+1. Create a kind cluster using the `hack/setup-cluster.sh` script from the CNPG repository.
+2. To build and deploy Klio images and operator, exec the command: `KIND_CLUSTER_NAME=$(kind get clusters) task integration:deploy-to-kind`
+3. Once the operator is in `Ready` state, you can deploy the resources:
+  * Klio server: `kubectl apply -f operator/config/samples/klio_v1alpha1_server.yaml`
+  * CNPG Cluster with Klio plugin and related PluginConfiguration CR: `kubectl apply -f operator/config/samples/cluster-example-plugin.yaml`
+  The PluginConfiguration CR name should be equal to the value of `ref` parameter,
+  set inside the Cluster manifest `.spec.plugins` section.
+
+  ```yaml
+    plugins:
+      - name: klio.cnpg.io
+        enabled: true
+        parameters:
+          pluginConfigurationRef: client-config-example-plugin
+   ```
+
+Repeat step 2 to deploy the new changes applied to the code, and reset the operator.
+Then rollout the new binary in both server and cluster pods:
+
+1. delete the Klio Server pod: `kubectl delete pod server-sample-klio-0`
+2. delete the Cluster's pods: `kubectl delete pod -l cnpg.io/cluster=cluster-example`
+3. delete the PluginConfiguration CR: `kubectl delete pluginconfiguration client-config-example-plugin`
+
+### How to get performance profiles with pprof
+
+1. Open a port forward connection to port 6061: `kubectl port-forward pod/server-sample-klio-0 6061`
+2. run pprof tool, e.g.: `go tool pprof -http=:9999 http://localhost:6061/debug/pprof/profile\?seconds=30`
+
+## How to recreate the GRPC stub and skeleton
+
+```sh
+dagger call protoc --source . -o internal/grpc
+```
+
+## How to setup manually a Klio server
+
+Given the following configuration file in `/home/klio/.klio.yaml`:
+
+```yaml
+tier1:
+  encryption_key: thiskey
+  base:
+    repository: /home/klio/klio_data/base
+    cache: /home/klio/klio_data/base
+    listen_address: 0.0.0.0:52000
+  wal:
+    listen_address: 0.0.0.0:52001
+    path: /home/klio/klio_data/wals
+tls:
+  client_ca_cert: /home/klio/ca-cert.pem
+  cert: /home/klio/server.crt
+  key: /home/klio/server.key
+```
+
+A new Klio repository for both WAL and base backups can be bootstrapped with:
+
+```sh
+openssl genrsa -out ca-key.pem 2048
+
+openssl req -new -key ca-key.pem -out ca-csr.pem -subj "/CN=KlioClientsCA"
+
+openssl x509 -req -in ca-csr.pem -signkey ca-key.pem -out ca-cert.pem -days 365 -extfile <(printf "basicConstraints=CA:TRUE,pathlen:0\nkeyUsage=critical,cRLSign,keyCertSign")
+
+openssl req -x509 -newkey rsa:4096 -sha256 -days 3650 \
+  -nodes -keyout server.key -out server.crt -subj "/CN=klio-server" \
+  -addext "subjectAltName=DNS:klio-server,IP:127.0.0.1"
+
+~/klio server initialize
+```
+
+The Klio server hosts both the WAL streaming server and the base backup
+server in a single process. Start them with:
+
+```sh
+~/klio server start
+```
+
+## How to setup manually a Klio client
+
+Given the following configuration file in `/var/lib/postgresql/.klio.yaml`:
+
+```yaml
+client:
+  cluster_name: pg-dev-1
+  wal:
+    server_cert_path: /home/klio/server.crt
+    client_cert_path: /home/klio/client-cert.pem
+    client_key_path: /home/klio/client-key.pem
+    address: klio-server:52000
+
+  base:
+    url: https://klio-server:52001
+    server_cert_path: /home/klio/server.crt
+    client_cert_path: /home/klio/client-cert.pem
+    client_key_path: /home/klio/client-key.pem
+
+source:
+  dsn: "user=postgres replication=yes"
+  standard_dsn: "dbname=postgres"
+  slot: klio
+```
+
+The client certificates can be created with:
+
+```sh
+openssl genrsa -out client-key.pem 2048
+
+openssl req -new -key client-key.pem -out client-csr.pem -subj "/CN=klio@cluster-example"
+
+cat <<EOF > client-ext.cnf
+[ req ]
+distinguished_name = req_distinguished_name
+
+[ req_distinguished_name ]
+CN = klio@cluster-example
+
+[ usr_cert ]
+keyUsage = critical, digitalSignature
+extendedKeyUsage = clientAuth
+EOF
+
+openssl x509 -req -in client-csr.pem -CA ca-cert.pem -CAkey ca-key.pem -CAcreateserial -out client-cert.pem -days 365 -extfile client-ext.cnf -extensions usr_cert
+```
