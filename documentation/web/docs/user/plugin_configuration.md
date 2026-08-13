@@ -380,6 +380,29 @@ spec:
   clusterName: my-custom-cluster-name
 ```
 
+:::warning Uniqueness across namespaces
+`clusterName` is the sole identity key for a cluster's WAL/backup stream
+on the Klio server it is registered with. It must be unique among all
+clusters backed by the same Klio server, regardless of the Kubernetes
+namespace they live in. Two clusters in different namespaces that share
+a `clusterName` on the same server are not a supported configuration:
+the second cluster to connect will have its WAL streaming rejected by
+the server with an error such as:
+
+```
+Error: during server-side replication point validation: rpc error: code = InvalidArgument desc = invalid system ID, expected "<the other cluster's system ID>"
+```
+
+This is expected, safe behavior: the server detects the mismatched
+system ID and refuses to mix data from the two clusters. If you hit
+this error, check whether another cluster on the same server is
+already using the same `clusterName`.
+
+Deleting a cluster and later reusing its `clusterName` on the same
+server hits the same error, since the original cluster backups and
+WALs will still exist on the Klio server.
+:::
+
 ### Tier 2 configuration
 
 Tier 2 provides secondary storage (typically object storage like S3) for
