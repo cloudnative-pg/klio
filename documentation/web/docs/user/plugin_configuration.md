@@ -403,6 +403,12 @@ server hits the same error, since the original cluster backups and
 WALs will still exist on the Klio server.
 :::
 
+Whichever value you use, it must match the host name in the Common Name of the
+client certificate (`userName@hostName`). For tier 1 base backups, a mismatch
+is rejected at connection time; for WAL streaming, a mismatch is not currently
+detected and can lead to WALs being stored or retrieved under the wrong
+cluster path.
+
 ### Tier 2 configuration
 
 Tier 2 provides secondary storage (typically object storage like S3) for

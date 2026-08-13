@@ -87,7 +87,6 @@ const ConfigDataKey = "config.yaml"
 
 // GenerateConfig builds a config.Data from a PluginConfigurationSpec.
 // configKey is the configuration key (e.g. "klio-archive").
-// clusterName is the default cluster name when the PC doesn't set one.
 func GenerateConfig(
 	spec kliov1alpha1.PluginConfigurationSpec,
 	configKey string,
@@ -252,9 +251,6 @@ func addExternalClusterConfiguration(
 		return fmt.Errorf("failed to get '%s' configuration, error: %w", ref, err)
 	}
 
-	if klioPluginConfiguration.Spec.ClusterName == "" {
-		klioPluginConfiguration.Spec.ClusterName = serverName
-	}
 	configurations[serverName].klioPluginConfiguration = klioPluginConfiguration
 
 	return nil
@@ -312,11 +308,6 @@ func getArchivePluginConfigurations(
 
 		return configurations, fmt.Errorf("failed to get '%s' configuration, error: %w", ref, err)
 	}
-	if klioPluginConfiguration.Spec.ClusterName == "" {
-		// if the host name is not set, use the cluster name as the host name
-		klioPluginConfiguration.Spec.ClusterName = cluster.Name
-	}
-
 	configurations[ArchiveConfigKey].klioPluginConfiguration = klioPluginConfiguration.DeepCopy()
 
 	return configurations, nil
