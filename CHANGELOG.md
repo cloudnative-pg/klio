@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.0.19](https://github.com/cloudnative-pg/klio/compare/v0.0.18...v0.0.19) (2026-08-13)
+
+
+### Bug Fixes
+
+* Empty commit to trigger 0.0.19 release ([#105](https://github.com/cloudnative-pg/klio/issues/105)) ([cfb3e2c](https://github.com/cloudnative-pg/klio/commit/cfb3e2cabb08660d1ba262a7896defb7b1166629))
+
 ## [0.0.18](https://github.com/cloudnative-pg/klio/compare/v0.0.17...v0.0.18) (2026-08-13)
 
 
