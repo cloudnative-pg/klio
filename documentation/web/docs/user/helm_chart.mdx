@@ -64,7 +64,7 @@ Deploy the Klio Operator to your cluster:
 ```sh
 helm install klio-operator \
   oci://ghcr.io/cloudnative-pg/klio-operator-chart \
-  --version 0.0.19 \
+  --version 0.0.20 \
   --namespace cnpg-system \
   -f values.yaml
 ```
@@ -104,7 +104,7 @@ default values, and understand what resources it will create:
 <!-- x-release-please-start-version -->
 ```sh
 helm pull oci://ghcr.io/cloudnative-pg/klio-operator-chart \
-  --version 0.0.19 \
+  --version 0.0.20 \
   --untar
 ```
 <!-- x-release-please-end -->
@@ -158,7 +158,7 @@ manifests:
 <!-- x-release-please-start-version -->
 ```sh
 helm pull oci://ghcr.io/cloudnative-pg/klio-operator-chart \
-  --version 0.0.19 \
+  --version 0.0.20 \
   --untar
 ```
 <!-- x-release-please-end -->
@@ -197,7 +197,7 @@ Helm upgrade command:
 ```sh
 helm upgrade klio-operator \
   oci://ghcr.io/cloudnative-pg/klio-operator-chart \
-  --version 0.0.19 \
+  --version 0.0.20 \
   --namespace cnpg-system \
   -f values.yaml
 ```
@@ -228,7 +228,7 @@ released. Update the `spec.image` field with the new image reference:
 ```sh
 kubectl patch server <server-name> -n <namespace> \
   --type merge \
-  -p '{"spec":{"image":"ghcr.io/cloudnative-pg/klio:v0.0.19"}}'
+  -p '{"spec":{"image":"ghcr.io/cloudnative-pg/klio:v0.0.20"}}'
 ```
 <!-- x-release-please-end -->
 
