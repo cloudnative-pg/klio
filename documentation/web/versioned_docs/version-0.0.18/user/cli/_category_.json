@@ -1,0 +1,10 @@
+{
+  "label": "CLI Reference",
+  "position": 150,
+  "collapsed": true,
+  "collapsible": true,
+  "link": {
+    "type": "generated-index",
+    "description": "This CLI is primarily invoked internally by the Klio Operator, running inside Klio Server pods and as sidecar containers in PostgreSQL instance pods managed by CloudNativePG. Most of its commands are not generally meant to be run directly by end users."
+  }
+}
