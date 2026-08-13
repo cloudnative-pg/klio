@@ -390,9 +390,7 @@ the second cluster to connect will have its WAL streaming rejected by
 the server with an error such as:
 
 ```
-during server-side replication point validation: rpc error:
-code = InvalidArgument
-desc = invalid system ID, expected "<the other cluster's system ID>"
+Error: during server-side replication point validation: rpc error: code = InvalidArgument desc = invalid system ID, expected "<the other cluster's system ID>"
 ```
 
 This is expected, safe behavior: the server detects the mismatched
@@ -400,10 +398,9 @@ system ID and refuses to mix data from the two clusters. If you hit
 this error, check whether another cluster on the same server is
 already using the same `clusterName`.
 
-This also applies across time: deleting a cluster and later reusing its
-`clusterName` on the same server hits the same error, since the server
-can't tell the old cluster is gone. Use a different `clusterName` even for
-unrelated clusters that reuse a retired one.
+Deleting a cluster and later reusing its `clusterName` on the same
+server hits the same error, since the original cluster backups and
+WALs will still exist on the Klio server.
 :::
 
 ### Tier 2 configuration
