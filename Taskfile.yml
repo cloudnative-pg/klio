@@ -25,7 +25,7 @@ vars:
   # the Dagger engine) and olm:preflight-operator (check operator, host-side);
   # the two must use the same version.
   # renovate: datasource=docker depName=quay.io/opdev/preflight versioning=docker
-  PREFLIGHT_VERSION: 1.19.2@sha256:58dba81f9643ecfd6329075d3dbafc612db6489e31780eaad10bd249d8da0435
+  PREFLIGHT_VERSION: 1.20.0@sha256:b8fa820097c088957a00f83b729595d26a9e0a97da568188bdc3361f9346aa26
   ALLOWED_ENVS: [testing, production]
 
 tasks:
