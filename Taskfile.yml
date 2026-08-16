@@ -143,7 +143,7 @@ tasks:
       # renovate: datasource=github-tags depName=goreleaser/goreleaser versioning=semver
       GORELEASER_VERSION: v2.17.1
       # renovate: datasource=docker depName=golang versioning=docker
-      GOLANG_IMAGE_VERSION: 1.26.6@sha256:640a234f4bea3e399c056b7b8f9c667c4939befae8db2f14e9785e16eccd4205
+      GOLANG_IMAGE_VERSION: 1.26.6@sha256:0d1d3a794be25f809dd2cb3160d8c73276c4056a9f8242a138e908ddeee7b6b6
     run: once
     cmds:
       # Goreleaser needs the .git directory to figure out the version from the tags.
@@ -194,7 +194,7 @@ tasks:
       # renovate: datasource=github-tags depName=goreleaser/goreleaser versioning=semver
       GORELEASER_VERSION: v2.17.1
       # renovate: datasource=docker depName=golang versioning=docker
-      GOLANG_IMAGE_VERSION: 1.26.6@sha256:640a234f4bea3e399c056b7b8f9c667c4939befae8db2f14e9785e16eccd4205
+      GOLANG_IMAGE_VERSION: 1.26.6@sha256:0d1d3a794be25f809dd2cb3160d8c73276c4056a9f8242a138e908ddeee7b6b6
     cmds:
       # Goreleaser needs the .git directory to figure out the version from the tags.
       # Given that it is easier to have .goreleaser.yaml in the core directory, we
@@ -433,7 +433,7 @@ tasks:
     dir: '{{ .WORKDIR }}'
     env:
       # renovate: datasource=docker depName=golang versioning=docker
-      GOLANG_IMAGE_VERSION: 1.26.6@sha256:640a234f4bea3e399c056b7b8f9c667c4939befae8db2f14e9785e16eccd4205
+      GOLANG_IMAGE_VERSION: 1.26.6@sha256:0d1d3a794be25f809dd2cb3160d8c73276c4056a9f8242a138e908ddeee7b6b6
       # renovate: datasource=custom.envtest depName=kubernetes packageName=https://github.com/kubernetes/kubernetes versioning=semver
       K8S_VERSION: 1.36.2
       # renovate: datasource=git-refs depName=controller-runtime packageName=https://github.com/kubernetes-sigs/controller-runtime versioning=semver
