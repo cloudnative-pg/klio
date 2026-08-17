@@ -1,5 +1,9 @@
 ---
-sidebar_position: 4
+sidebar_position: 2
+description: >-
+  Klio's two storage tiers, a local Klio Server for fast recovery and
+  object storage for long-term retention, and the deployment layouts
+  each one supports.
 ---
 
 # Architectures & Tiers
@@ -10,7 +14,7 @@ recovery operations from long-term archival and disaster recovery (DR) needs.
 The architecture is built around two distinct storage tiers, each serving a
 specific purpose in the data lifecycle.
 
-![Multi-tiered architecture overview](images/overview-multi-tiers.png)
+![Multi-tiered architecture overview](../images/overview-multi-tiers.png)
 
 ---
 
@@ -64,12 +68,12 @@ PostgreSQL cluster(s).
 
 This can be a **dedicated 1:1 mapping** (one Klio Server per cluster):
 
-![Cluster and Klio server in the same namespace](images/tier1-namespace-single.png)
+![Cluster and Klio server in the same namespace](../images/tier1-namespace-single.png)
 
 Or a **shared N:1 mapping** where one server manages all clusters in the
 namespace.
 
-![Multiple clusters share a Klio server in the same namespace](images/tier1-namespace-multi.png)
+![Multiple clusters share a Klio server in the same namespace](../images/tier1-namespace-multi.png)
 
 #### Clusters and Klio Server in Different Namespaces
 
@@ -79,12 +83,12 @@ deployed in a namespace separate from the PostgreSQL clusters it protects.
 The following diagram shows a PostgreSQL cluster being backed up by a Klio
 Server in another namespace:
 
-![Cluster and Klio server in a different namespace](images/tier1-shared-single.png)
+![Cluster and Klio server in a different namespace](../images/tier1-shared-single.png)
 
 This model also allows a central Klio Server to manage clusters that reside in
 different namespaces, as shown below:
 
-![Multiple clusters share a Klio server in the same namespace](images/tier1-shared-multi.png)
+![Multiple clusters share a Klio server in the same namespace](../images/tier1-shared-multi.png)
 
 ### Reserving Nodes for Klio Workloads
 
@@ -187,7 +191,7 @@ In read-only mode, all read and restore operations from Tier 2 function
 normally, while write operations (backup creation, WAL streaming, retention
 policies) are rejected.
 
-See the [Configuring Read-Only Mode](klio_server.md#read-only-mode)
+See the [Configuring Read-Only Mode](../klio_server.md#read-only-mode)
 section for configuration examples.
 
 ---

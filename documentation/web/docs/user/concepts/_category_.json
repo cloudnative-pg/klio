@@ -1,0 +1,10 @@
+{
+  "label": "Concepts",
+  "position": 3,
+  "collapsed": true,
+  "collapsible": true,
+  "link": {
+    "type": "generated-index",
+    "description": "How Klio works: the PostgreSQL backup concepts it builds on, its architecture and storage tiers, and how WAL streaming replaces archive_command."
+  }
+}

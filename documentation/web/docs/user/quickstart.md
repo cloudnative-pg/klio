@@ -426,7 +426,7 @@ You should see lines with the `Received completed WAL file` message.
   authentication
 - [The Klio Plugin](plugin_configuration.md) — retention policies,
   Tier 2, WAL prefetch and sidecar customization
-- [Architectures & Tiers](architectures.md) — planning a backup
+- [Architectures & Tiers](concepts/architectures.md) — planning a backup
   strategy
 - [Klio Operator Helm Chart](helm_chart.mdx) — the full chart
   configuration reference and the upgrade procedure

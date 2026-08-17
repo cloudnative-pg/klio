@@ -266,7 +266,7 @@ source through a PluginConfiguration. The server will fetch backups and WAL
 files from Tier 2 object storage transparently.
 
 See the Read-Only Server Mode section in the
-[Architectures](architectures.md) documentation for detailed use cases and
+[Architectures](concepts/architectures.md) documentation for detailed use cases and
 architectural patterns.
 
 ### Restrictions
@@ -323,7 +323,7 @@ spec:
                     operator: Exists
 ```
 
-See [Reserving Nodes for Klio Workloads](architectures.md#reserving-nodes-for-klio-workloads)
+See [Reserving Nodes for Klio Workloads](concepts/architectures.md#reserving-nodes-for-klio-workloads)
 for details on node tainting.
 
 ### Monitoring

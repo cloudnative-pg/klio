@@ -411,7 +411,7 @@ spec:
   Typically, you would configure longer retention periods for Tier 2 since
   object storage is more cost-effective for long-term storage.
 
-See the [Architecture documentation](./architectures.md#tier-2-secondary-storage-object-storage)
+See the [Architecture documentation](./concepts/architectures.md#tier-2-secondary-storage-object-storage)
 for more details on Tier 2 storage.
 
 ### WAL Prefetch Configuration
