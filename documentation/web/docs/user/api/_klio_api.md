@@ -153,6 +153,7 @@ _Appears in:_
 | `tier1` _[Tier1PluginConfiguration](#tier1pluginconfiguration)_ | Tier1 is the Tier 1 configuration |  |  | Optional: \{\} <br /> |
 | `tier2` _[Tier2PluginConfiguration](#tier2pluginconfiguration)_ | Tier2 is the Tier 2 configuration |  |  | Optional: \{\} <br /> |
 | `walPrefetch` _[WALPrefetchConfiguration](#walprefetchconfiguration)_ | WALPrefetch configures WAL prefetching behavior during recovery operations. |  |  | Optional: \{\} <br /> |
+| `requireDurableAck` _boolean_ | RequireDurableAck makes the WAL streamer advance the flush position it<br />reports to PostgreSQL only up to WAL data the Klio server has confirmed as<br />durably persisted (fsynced). Enable it when using Klio as a synchronous<br />replication target for zero RPO. When false (the default), the flush<br />position tracks data handed to the send buffer, which is faster but does<br />not guarantee durability on the server. |  |  | Optional: \{\} <br /> |
 | `clientSecretName` _string_ | ClientSecretName is the name of the secret containing the client credentials | True |  | MinLength: 1 <br />Required: \{\} <br /> |
 | `serverSecretName` _string_ | ServerSecretName is the name of the secret containing the server TLS certificate | True |  | MinLength: 1 <br />Required: \{\} <br /> |
 | `clusterName` _string_ | ClusterName is the name of the PostgreSQL cluster we are connecting to | True |  | MinLength: 1 <br />Required: \{\} <br /> |

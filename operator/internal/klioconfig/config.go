@@ -100,9 +100,10 @@ func GenerateConfig(
 
 	klioConfig := &config.Data{
 		Source: config.SourceConfig{
-			DSN:         "user=postgres replication=yes application_name=klio",
-			StandardDSN: "user=postgres application_name=klio",
-			Slot:        "klio",
+			DSN:               "user=postgres replication=yes application_name=klio",
+			StandardDSN:       "user=postgres application_name=klio",
+			Slot:              "klio",
+			RequireDurableAck: spec.RequireDurableAck,
 			// The following parameters are not used by the plugin, but here with their default for completeness
 			StandbyMessageTimeoutSeconds: 0,
 			FlushTimeoutMilliseconds:     0,

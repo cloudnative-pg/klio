@@ -1603,6 +1603,15 @@ spec:
               pprof:
                 description: Pprof enables the pprof endpoint for performance profiling
                 type: boolean
+              requireDurableAck:
+                description: |-
+                  RequireDurableAck makes the WAL streamer advance the flush position it
+                  reports to PostgreSQL only up to WAL data the Klio server has confirmed as
+                  durably persisted (fsynced). Enable it when using Klio as a synchronous
+                  replication target for zero RPO. When false (the default), the flush
+                  position tracks data handed to the send buffer, which is faster but does
+                  not guarantee durability on the server.
+                type: boolean
               serverAddress:
                 description: ServerAddress is the address of the Klio server
                 minLength: 1

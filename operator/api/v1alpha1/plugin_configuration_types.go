@@ -57,6 +57,15 @@ type PluginConfigurationSpec struct {
 	// +optional
 	WALPrefetch *WALPrefetchConfiguration `json:"walPrefetch,omitempty"`
 
+	// RequireDurableAck makes the WAL streamer advance the flush position it
+	// reports to PostgreSQL only up to WAL data the Klio server has confirmed as
+	// durably persisted (fsynced). Enable it when using Klio as a synchronous
+	// replication target for zero RPO. When false (the default), the flush
+	// position tracks data handed to the send buffer, which is faster but does
+	// not guarantee durability on the server.
+	// +optional
+	RequireDurableAck bool `json:"requireDurableAck,omitempty"`
+
 	// ClientSecretName is the name of the secret containing the client credentials
 	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:MinLength=1
