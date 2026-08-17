@@ -1,5 +1,5 @@
 ---
-sidebar_position: 6
+sidebar_position: 7
 ---
 
 # The Klio Plugin
@@ -26,12 +26,9 @@ your PostgreSQL clusters. To use Klio with a CloudNativePG cluster, you need to:
 
 ## Prerequisites
 
-Before configuring a cluster to use the Klio plugin, ensure you have:
-
-- A running Klio `Server` resource deployed in your namespace
-- A client TLS certificate stored in a Kubernetes Secret (see
-  [Klio server authentication](klio_server.md#authentication))
-- The server's TLS certificate available in a Secret
+Before configuring a cluster to use the Klio plugin you need a running
+Klio `Server`, a client TLS certificate and the server's TLS
+certificate. The [Quickstart](quickstart.md) creates all three.
 
 ## Creating a PluginConfiguration resource
 
@@ -40,23 +37,11 @@ to and communicates with the Klio server. This resource contains connection
 details, authentication credentials, and optional configuration for metrics,
 profiling, and backup retention policies.
 
-### Basic example
-
-Here's a minimal `PluginConfiguration` example:
-
-```yaml
-apiVersion: klio.cnpg.io/v1alpha1
-kind: PluginConfiguration
-metadata:
-  name: klio-plugin-config
-  namespace: default
-spec:
-  serverAddress: klio-server.default
-  clientSecretName: client-sample-tls
-  serverSecretName: klio-server-tls
-  clusterName: my-cluster
-  # mode: standard  # Optional: standard (default) or read-only
-```
+A minimal `PluginConfiguration` requires only `serverAddress`,
+`clientSecretName`, `serverSecretName` and `clusterName` — see
+[Configure the PostgreSQL cluster](quickstart.md#step-5-configure-the-postgresql-cluster)
+for an example. The sections below document each field and the
+optional settings.
 
 ### Client credentials secret
 
@@ -87,35 +72,21 @@ certificate configured on the `Server` resource.
 
 ## Configuring a Cluster to use the Klio plugin
 
-Once you have created a `PluginConfiguration`, reference it in your CloudNativePG
-`Cluster` resource:
-
-```yaml
-apiVersion: postgresql.cnpg.io/v1
-kind: Cluster
-metadata:
-  name: my-cluster
-  namespace: default
-spec:
-  instances: 3
-
-  postgresql:
-    pg_hba:
-      - local replication all peer map=local # Allow replication connections locally
-
-  plugins:
-    - name: klio.cnpg.io
-      enabled: true # Activate the Klio plugin (default)
-      parameters:
-        pluginConfigurationRef: klio-plugin-config
-
-  storage:
-    size: 10Gi
-```
+Once you have created a `PluginConfiguration`, reference it from the
+`plugins` section of your CloudNativePG `Cluster` resource. See
+[Configure the PostgreSQL cluster](quickstart.md#step-5-configure-the-postgresql-cluster)
+for a complete `Cluster` manifest.
 
 To be able to stream WAL files, ensure that your PostgreSQL configuration
 allows local replication connections. You can do this by adding an entry to the
-`pg_hba` section, as shown in the example above.
+`pg_hba` section:
+
+```yaml
+spec:
+  postgresql:
+    pg_hba:
+      - local replication all peer map=local
+```
 
 ### Plugin parameters
 
@@ -249,9 +220,9 @@ metadata:
   name: klio-plugin-config
 spec:
   serverAddress: klio-server.default
-  clientSecretName: klio-client-credentials
+  clientSecretName: cluster-example-klio-user
   serverSecretName: klio-server-tls
-  clusterName: my-cluster
+  clusterName: cluster-example
   tier1:
     retention:
       keepLatest: 5
@@ -340,7 +311,7 @@ spec:
   mode: read-only
   # Must match the name of the original cluster whose backups you are
   # restoring from, not the name of the new cluster being created.
-  clusterName: my-cluster
+  clusterName: cluster-example
 
   # Read-only mode requires:
   # - tier2 configuration with enableRecovery: true
@@ -368,7 +339,7 @@ CloudNativePG `Cluster` resource itself:
 
 ```yaml
 spec:
-  clusterName: my-cluster
+  clusterName: cluster-example
 ```
 
 Override it to a different value when the plugin needs to reference a
@@ -507,9 +478,9 @@ metadata:
   name: klio-plugin-config
 spec:
   serverAddress: klio-server.default
-  clientSecretName: klio-client-credentials
+  clientSecretName: cluster-example-klio-user
   serverSecretName: klio-server-tls
-  clusterName: my-cluster
+  clusterName: cluster-example
   containers:
     - name: klio-plugin
       env:
@@ -609,9 +580,9 @@ metadata:
   name: klio-plugin-config
 spec:
   serverAddress: klio-server.default
-  clientSecretName: klio-client-credentials
+  clientSecretName: cluster-example-klio-user
   serverSecretName: klio-server-tls
-  clusterName: my-cluster
+  clusterName: cluster-example
   containers:
     - name: klio-plugin
       env:
