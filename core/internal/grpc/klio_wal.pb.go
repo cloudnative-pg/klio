@@ -117,9 +117,15 @@ func (x *PutRequest) GetSendToTier2() bool {
 	return false
 }
 
+// This is streamed back by the WAL server on the Put stream. Each message
+// acknowledges that the bytes up to written_size have been durably persisted
+// (fsynced) on the server. The client uses it to advance the flush position it
+// reports to PostgreSQL only up to data that is genuinely durable.
 type PutResult struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	WrittenSize   uint64                 `protobuf:"varint,1,opt,name=written_size,json=writtenSize,proto3" json:"written_size,omitempty"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Cumulative number of bytes of the current WAL file that have been durably
+	// persisted (fsynced) on the server.
+	WrittenSize   uint64 `protobuf:"varint,1,opt,name=written_size,json=writtenSize,proto3" json:"written_size,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -934,9 +940,9 @@ const file_proto_klio_wal_proto_rawDesc = "" +
 	"\x16tier2_retention_policy\x18\t \x01(\tR\x14tier2RetentionPolicy\"f\n" +
 	"\x11CloseBackupResult\x12%\n" +
 	"\x0etier2_schedule\x18\x01 \x01(\bR\rtier2Schedule\x12*\n" +
-	"\x11missing_wal_files\x18\x02 \x03(\tR\x0fmissingWalFiles2\xd8\x03\n" +
-	"\x03WAL\x12:\n" +
-	"\x03Put\x12\x17.klio.wal.v1.PutRequest\x1a\x16.klio.wal.v1.PutResult\"\x00(\x01\x12:\n" +
+	"\x11missing_wal_files\x18\x02 \x03(\tR\x0fmissingWalFiles2\xda\x03\n" +
+	"\x03WAL\x12<\n" +
+	"\x03Put\x12\x17.klio.wal.v1.PutRequest\x1a\x16.klio.wal.v1.PutResult\"\x00(\x010\x01\x12:\n" +
 	"\x03Get\x12\x17.klio.wal.v1.GetRequest\x1a\x16.klio.wal.v1.GetResult\"\x000\x01\x12N\n" +
 	"\vGetMetadata\x12\x1f.klio.wal.v1.GetMetadataRequest\x1a\x1c.klio.wal.v1.ClusterMetadata\"\x00\x12\\\n" +
 	"\x0fRequestWALStart\x12#.klio.wal.v1.RequestWALStartRequest\x1a\".klio.wal.v1.RequestWALStartResult\"\x00\x12Y\n" +

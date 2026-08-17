@@ -46,13 +46,13 @@ func (c *Connection) StoreWALStreaming(
 		return nil, fmt.Errorf("while starting uploading a WAL file: %w", err)
 	}
 
-	return klioclient.NewWALUploader(&grpcWALStream{
-		innerStream: stream,
-		segmentSize: segmentSize,
-		clusterName: c.clientConfig.ClusterName,
-		walName:     name,
-		sendToTier2: sendToTier2,
-	}), nil
+	return klioclient.NewWALUploader(newGRPCWALStream(
+		stream,
+		name,
+		segmentSize,
+		c.clientConfig.ClusterName,
+		sendToTier2,
+	)), nil
 }
 
 // GetWALStreaming get a WAL from a remote connection.

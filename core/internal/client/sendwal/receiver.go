@@ -445,6 +445,7 @@ func (s *Process) startReplication(
 			walSegmentSize,
 			klioHandler,
 			s.config.Source.BufferSize,
+			s.config.Source.RequireDurableAck,
 		)
 
 		copyDoneResult, err := s.manageWALStream(ctx, conn, walBuffer)

@@ -222,6 +222,28 @@ func (h *putHandler) processBlock(ctx context.Context, request *grpc.PutRequest)
 	h.writtenSize += uint64(len(request.GetWalBlock()))
 	h.recordLatestWrittenLSN(ctx)
 
+	// The block has been fsynced by writeBlock, so acknowledge the newly
+	// durable position back to the client. This lets a client that requires
+	// durable acknowledgements advance the flush position it reports to
+	// PostgreSQL at a per-block granularity instead of once per whole segment.
+	return h.sendAck()
+}
+
+// sendAck reports the cumulative number of durably persisted bytes to the
+// client on the Put stream.
+func (h *putHandler) sendAck() error {
+	if err := h.req.Send(&grpc.PutResult{WrittenSize: h.writtenSize}); err != nil {
+		h.logger.Warning(
+			"Error while sending WAL Put acknowledgement",
+			"writtenSize", h.writtenSize,
+			"walFileName", h.blockMeta.walFileName,
+			"clusterName", h.blockMeta.clusterName,
+			"err", err,
+		)
+
+		return status.Errorf(grpccodes.Internal, "error while sending acknowledgement: %v", err.Error())
+	}
+
 	return nil
 }
 
@@ -417,18 +439,11 @@ func (h *putHandler) finalize(ctx context.Context) error {
 		return err
 	}
 
-	if err := h.req.SendAndClose(&grpc.PutResult{
-		WrittenSize: h.writtenSize,
-	}); err != nil {
-		h.logger.Warning(
-			"Error while sending WAL Put response",
-			"writtenSize", h.writtenSize,
-			"walFileName", h.blockMeta.walFileName,
-			"clusterName", h.blockMeta.clusterName,
-			"err", err,
-		)
-
-		return status.Errorf(grpccodes.Internal, "error while sending response: %v", err.Error())
+	// Send a terminal acknowledgement carrying the final durable size. This
+	// mirrors the last per-block acknowledgement and guarantees the client
+	// observes the complete size before the stream is closed.
+	if err := h.sendAck(); err != nil {
+		return err
 	}
 
 	return h.notifyTier2(ctx)
@@ -436,12 +451,10 @@ func (h *putHandler) finalize(ctx context.Context) error {
 
 // closeEmpty reports an empty result when no WAL block was ever received.
 func (h *putHandler) closeEmpty() error {
-	if err := h.req.SendAndClose(&grpc.PutResult{
-		WrittenSize: 0,
-	}); err != nil {
+	if err := h.sendAck(); err != nil {
 		h.logger.Error(err, "Error while closing empty WAL file")
 
-		return status.Errorf(grpccodes.Internal, "error while closing (partial) WAL: %v", err.Error())
+		return err
 	}
 
 	return nil

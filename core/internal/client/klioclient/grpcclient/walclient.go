@@ -61,19 +61,40 @@ func (c *Connection) StoreWAL(ctx context.Context, name string, content []byte, 
 		}
 	}
 
-	result, err := stream.CloseAndRecv()
-	if err != nil {
-		return fmt.Errorf("while flushing WAL file: %w", err)
+	if err := stream.CloseSend(); err != nil {
+		return fmt.Errorf("while closing the WAL upload stream: %w", err)
 	}
 
-	if result.GetWrittenSize() != uint64(len(content)) {
+	writtenSize, err := drainPutAcks(stream)
+	if err != nil {
+		return err
+	}
+
+	if writtenSize != uint64(len(content)) {
 		return &IncompleteWALFileError{
-			uploadedSize: result.GetWrittenSize(),
+			uploadedSize: writtenSize,
 			expectedSize: uint64(len(content)),
 		}
 	}
 
 	return nil
+}
+
+// drainPutAcks consumes the durability acknowledgements of a Put stream until
+// it ends, returning the last (cumulative) durable size reported by the server.
+func drainPutAcks(stream klioGRPC.WAL_PutClient) (uint64, error) {
+	var writtenSize uint64
+	for {
+		result, err := stream.Recv()
+		if errors.Is(err, io.EOF) {
+			return writtenSize, nil
+		}
+		if err != nil {
+			return 0, fmt.Errorf("while flushing WAL file: %w", err)
+		}
+
+		writtenSize = result.GetWrittenSize()
+	}
 }
 
 // StoreHistoryFile uses the underlying GRPC connection to store a history file.

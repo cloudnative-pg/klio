@@ -103,6 +103,10 @@ type WALUploaderImpl interface {
 	// SendBlock sends a WAL Block
 	SendBlock(ctx context.Context, block []byte) error
 
+	// SyncedOffset returns the number of bytes the server has acknowledged as
+	// durably persisted for the current WAL file.
+	SyncedOffset() (uint64, error)
+
 	// Close closes the WAL streaming session
 	Close(ctx context.Context) error
 }
@@ -122,6 +126,12 @@ func NewWALUploader(impl WALUploaderImpl) *WALUploader {
 // SendBlock sends a WAL Block.
 func (u *WALUploader) SendBlock(ctx context.Context, block []byte) error {
 	return u.impl.SendBlock(ctx, block) //nolint:wrapcheck
+}
+
+// SyncedOffset returns the number of bytes the server has acknowledged as
+// durably persisted for the current WAL file.
+func (u *WALUploader) SyncedOffset() (uint64, error) {
+	return u.impl.SyncedOffset() //nolint:wrapcheck
 }
 
 // Close closes the WAL streaming session.

@@ -90,6 +90,14 @@ type SourceConfig struct {
 	// BufferSize is the maximum size in bytes of the in-memory WAL buffer before
 	// triggering an automatic flush
 	BufferSize int `json:"buffer_size" mapstructure:"buffer_size"`
+
+	// RequireDurableAck makes the WAL receiver advance the flush position it
+	// reports to PostgreSQL only up to data the Klio server has acknowledged as
+	// durably persisted (fsynced). When false (the default), the flush position
+	// tracks data handed to the send buffer, which is faster but does not
+	// guarantee durability on the server. Enable this when Klio is used as a
+	// synchronous replication target.
+	RequireDurableAck bool `json:"require_durable_ack" mapstructure:"require_durable_ack"`
 }
 
 // ClientConfig is the configuration of the Klio client.

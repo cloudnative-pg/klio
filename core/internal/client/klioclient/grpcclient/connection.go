@@ -23,8 +23,11 @@ import (
 	"context"
 	"crypto/tls"
 	"crypto/x509"
+	"errors"
 	"fmt"
+	"io"
 	"os"
+	"sync/atomic"
 
 	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
 	"google.golang.org/grpc"
@@ -42,23 +45,100 @@ type grpcWALStream struct {
 	sentBytes   uint64
 	walName     string
 	sendToTier2 bool
+
+	// syncedBytes is the highest cumulative durable size acknowledged by the
+	// server for this WAL file. It is written by the ack reader goroutine and
+	// read by the WAL processing goroutine, so it must be accessed atomically.
+	syncedBytes atomic.Uint64
+
+	// ackDone is closed when the ack reader goroutine has consumed every
+	// acknowledgement up to the end of the stream. ackErr, set before ackDone
+	// is closed, carries any non-EOF error observed while reading.
+	ackDone chan struct{}
+	ackErr  error
 }
 
-// Close implements common.WALStream.
-func (g *grpcWALStream) Close(_ context.Context) error {
-	result, err := g.innerStream.CloseAndRecv()
-	if err != nil {
-		return fmt.Errorf("while flushing WAL file: %w", err)
+// newGRPCWALStream wraps a freshly opened Put stream and starts the background
+// goroutine that consumes the server durability acknowledgements.
+func newGRPCWALStream(
+	stream klioGRPC.WAL_PutClient,
+	name string,
+	segmentSize uint64,
+	clusterName string,
+	sendToTier2 bool,
+) *grpcWALStream {
+	g := &grpcWALStream{
+		innerStream: stream,
+		segmentSize: segmentSize,
+		clusterName: clusterName,
+		walName:     name,
+		sendToTier2: sendToTier2,
+		ackDone:     make(chan struct{}),
 	}
 
-	if result.GetWrittenSize() != g.sentBytes {
+	go g.readAcks()
+
+	return g
+}
+
+// SyncedOffset implements common.WALStream. It returns the highest durable size
+// acknowledged so far for this WAL file.
+func (g *grpcWALStream) SyncedOffset() (uint64, error) {
+	// If the reader has already terminated with a non-EOF error, the
+	// acknowledgements can no longer be trusted.
+	select {
+	case <-g.ackDone:
+		if g.ackErr != nil {
+			return 0, fmt.Errorf("while receiving WAL acknowledgements: %w", g.ackErr)
+		}
+	default:
+	}
+
+	return g.syncedBytes.Load(), nil
+}
+
+// Close implements common.WALStream. It stops sending, waits for every
+// acknowledgement to be drained and verifies that the whole file is durable.
+func (g *grpcWALStream) Close(_ context.Context) error {
+	if err := g.innerStream.CloseSend(); err != nil {
+		return fmt.Errorf("while closing the WAL upload stream: %w", err)
+	}
+
+	// Wait for the reader to drain all acknowledgements up to the end of the
+	// stream, so syncedBytes reflects the final durable size.
+	<-g.ackDone
+	if g.ackErr != nil {
+		return fmt.Errorf("while receiving WAL acknowledgements: %w", g.ackErr)
+	}
+
+	if synced := g.syncedBytes.Load(); synced != g.sentBytes {
 		return &IncompleteWALFileError{
-			uploadedSize: result.GetWrittenSize(),
+			uploadedSize: synced,
 			expectedSize: g.sentBytes,
 		}
 	}
 
 	return nil
+}
+
+// readAcks consumes the server acknowledgements until the stream ends, tracking
+// the latest durable size. gRPC allows a single concurrent reader alongside the
+// single writer used by SendBlock.
+func (g *grpcWALStream) readAcks() {
+	defer close(g.ackDone)
+
+	for {
+		result, err := g.innerStream.Recv()
+		if err != nil {
+			if !errors.Is(err, io.EOF) {
+				g.ackErr = err
+			}
+
+			return
+		}
+
+		g.syncedBytes.Store(result.GetWrittenSize())
+	}
 }
 
 // Connection represents a connection to a Klio server.

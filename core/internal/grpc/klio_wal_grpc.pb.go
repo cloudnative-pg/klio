@@ -50,7 +50,7 @@ const (
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type WALClient interface {
-	Put(ctx context.Context, opts ...grpc.CallOption) (grpc.ClientStreamingClient[PutRequest, PutResult], error)
+	Put(ctx context.Context, opts ...grpc.CallOption) (grpc.BidiStreamingClient[PutRequest, PutResult], error)
 	Get(ctx context.Context, in *GetRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[GetResult], error)
 	GetMetadata(ctx context.Context, in *GetMetadataRequest, opts ...grpc.CallOption) (*ClusterMetadata, error)
 	RequestWALStart(ctx context.Context, in *RequestWALStartRequest, opts ...grpc.CallOption) (*RequestWALStartResult, error)
@@ -66,7 +66,7 @@ func NewWALClient(cc grpc.ClientConnInterface) WALClient {
 	return &wALClient{cc}
 }
 
-func (c *wALClient) Put(ctx context.Context, opts ...grpc.CallOption) (grpc.ClientStreamingClient[PutRequest, PutResult], error) {
+func (c *wALClient) Put(ctx context.Context, opts ...grpc.CallOption) (grpc.BidiStreamingClient[PutRequest, PutResult], error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	stream, err := c.cc.NewStream(ctx, &WAL_ServiceDesc.Streams[0], WAL_Put_FullMethodName, cOpts...)
 	if err != nil {
@@ -77,7 +77,7 @@ func (c *wALClient) Put(ctx context.Context, opts ...grpc.CallOption) (grpc.Clie
 }
 
 // This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
-type WAL_PutClient = grpc.ClientStreamingClient[PutRequest, PutResult]
+type WAL_PutClient = grpc.BidiStreamingClient[PutRequest, PutResult]
 
 func (c *wALClient) Get(ctx context.Context, in *GetRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[GetResult], error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
@@ -142,7 +142,7 @@ func (c *wALClient) CloseBackup(ctx context.Context, in *CloseBackupRequest, opt
 // All implementations must embed UnimplementedWALServer
 // for forward compatibility.
 type WALServer interface {
-	Put(grpc.ClientStreamingServer[PutRequest, PutResult]) error
+	Put(grpc.BidiStreamingServer[PutRequest, PutResult]) error
 	Get(*GetRequest, grpc.ServerStreamingServer[GetResult]) error
 	GetMetadata(context.Context, *GetMetadataRequest) (*ClusterMetadata, error)
 	RequestWALStart(context.Context, *RequestWALStartRequest) (*RequestWALStartResult, error)
@@ -158,7 +158,7 @@ type WALServer interface {
 // pointer dereference when methods are called.
 type UnimplementedWALServer struct{}
 
-func (UnimplementedWALServer) Put(grpc.ClientStreamingServer[PutRequest, PutResult]) error {
+func (UnimplementedWALServer) Put(grpc.BidiStreamingServer[PutRequest, PutResult]) error {
 	return status.Error(codes.Unimplemented, "method Put not implemented")
 }
 func (UnimplementedWALServer) Get(*GetRequest, grpc.ServerStreamingServer[GetResult]) error {
@@ -202,7 +202,7 @@ func _WAL_Put_Handler(srv interface{}, stream grpc.ServerStream) error {
 }
 
 // This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
-type WAL_PutServer = grpc.ClientStreamingServer[PutRequest, PutResult]
+type WAL_PutServer = grpc.BidiStreamingServer[PutRequest, PutResult]
 
 func _WAL_Get_Handler(srv interface{}, stream grpc.ServerStream) error {
 	m := new(GetRequest)
@@ -315,6 +315,7 @@ var WAL_ServiceDesc = grpc.ServiceDesc{
 		{
 			StreamName:    "Put",
 			Handler:       _WAL_Put_Handler,
+			ServerStreams: true,
 			ClientStreams: true,
 		},
 		{
