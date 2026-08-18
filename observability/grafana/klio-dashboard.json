@@ -875,6 +875,108 @@
       }
     },
     {
+      "type": "timeseries",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "expr": "histogram_quantile(0.95, sum by (le, cache_hit) (rate(klio_plugin_wal_restore_duration_nanoseconds_bucket{k8s_namespace_name=~\"$namespace\",cluster_name=~\"$cluster\"}[$__rate_interval])))",
+          "instant": false,
+          "legendFormat": "p95 cache_hit={{cache_hit}}",
+          "range": true
+        }
+      ],
+      "title": "WAL restore latency (p95) by cache hit",
+      "description": "95th-percentile end-to-end WAL restore latency measured by the plugin: the latency PostgreSQL actually experiences, and in a replica cluster the speed of the replication path itself. cache_hit=true means the segment was already in the prefetch spool and the restore was a local rename; cache_hit=false means PostgreSQL had to wait on a download, so a falling hit ratio means prefetch is not keeping ahead of replay and the prefetch count may need raising. The two are orders of magnitude apart, hence the split rather than one pooled line.",
+      "transparent": false,
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 31
+      },
+      "repeatDirection": "h",
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true,
+          "calcs": []
+        },
+        "tooltip": {
+          "mode": "",
+          "sort": ""
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ns",
+          "custom": {
+            "gradientMode": "opacity",
+            "fillOpacity": 10
+          }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "type": "timeseries",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "expr": "sum by (outcome) (rate(klio_plugin_wal_restore_duration_nanoseconds_count{k8s_namespace_name=~\"$namespace\",cluster_name=~\"$cluster\"}[$__rate_interval]))",
+          "instant": false,
+          "legendFormat": "{{outcome}}",
+          "range": true
+        }
+      ],
+      "title": "WAL restore rate by outcome",
+      "description": "Rate of WAL restore requests handled by the plugin, split by outcome (success or failure).",
+      "transparent": false,
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 31
+      },
+      "repeatDirection": "h",
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true,
+          "calcs": []
+        },
+        "tooltip": {
+          "mode": "",
+          "sort": ""
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ops",
+          "custom": {
+            "gradientMode": "opacity",
+            "fillOpacity": 10
+          }
+        },
+        "overrides": []
+      }
+    },
+    {
       "type": "row",
       "collapsed": false,
       "title": "Server",
@@ -882,7 +984,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 31
+        "y": 39
       },
       "id": 0,
       "panels": []
@@ -894,7 +996,7 @@
         "h": 2,
         "w": 24,
         "x": 0,
-        "y": 32
+        "y": 40
       },
       "repeatDirection": "h",
       "options": {
@@ -927,7 +1029,7 @@
         "h": 6,
         "w": 8,
         "x": 0,
-        "y": 34
+        "y": 42
       },
       "repeatDirection": "h",
       "options": {
@@ -984,7 +1086,7 @@
         "h": 6,
         "w": 8,
         "x": 8,
-        "y": 34
+        "y": 42
       },
       "repeatDirection": "h",
       "options": {
@@ -1042,7 +1144,7 @@
         "h": 6,
         "w": 8,
         "x": 16,
-        "y": 34
+        "y": 42
       },
       "repeatDirection": "h",
       "options": {
@@ -1099,7 +1201,7 @@
         "h": 6,
         "w": 8,
         "x": 0,
-        "y": 40
+        "y": 48
       },
       "repeatDirection": "h",
       "options": {
@@ -1156,7 +1258,7 @@
         "h": 6,
         "w": 8,
         "x": 8,
-        "y": 40
+        "y": 48
       },
       "repeatDirection": "h",
       "options": {
@@ -1213,7 +1315,7 @@
         "h": 6,
         "w": 8,
         "x": 16,
-        "y": 40
+        "y": 48
       },
       "repeatDirection": "h",
       "options": {
@@ -1319,7 +1421,7 @@
         "h": 6,
         "w": 24,
         "x": 0,
-        "y": 46
+        "y": 54
       },
       "repeatDirection": "h",
       "options": {
@@ -1368,7 +1470,7 @@
         "h": 6,
         "w": 8,
         "x": 0,
-        "y": 52
+        "y": 60
       },
       "repeatDirection": "h",
       "options": {
@@ -1425,7 +1527,7 @@
         "h": 6,
         "w": 8,
         "x": 8,
-        "y": 52
+        "y": 60
       },
       "repeatDirection": "h",
       "options": {
@@ -1482,7 +1584,7 @@
         "h": 6,
         "w": 8,
         "x": 16,
-        "y": 52
+        "y": 60
       },
       "repeatDirection": "h",
       "options": {
@@ -1588,7 +1690,7 @@
         "h": 6,
         "w": 24,
         "x": 0,
-        "y": 58
+        "y": 66
       },
       "repeatDirection": "h",
       "options": {
@@ -1637,7 +1739,7 @@
         "h": 6,
         "w": 4,
         "x": 0,
-        "y": 64
+        "y": 72
       },
       "repeatDirection": "h",
       "options": {
@@ -1695,7 +1797,7 @@
         "h": 6,
         "w": 4,
         "x": 4,
-        "y": 64
+        "y": 72
       },
       "repeatDirection": "h",
       "options": {
@@ -1752,7 +1854,7 @@
         "h": 6,
         "w": 4,
         "x": 8,
-        "y": 64
+        "y": 72
       },
       "repeatDirection": "h",
       "options": {
@@ -1810,7 +1912,7 @@
         "h": 6,
         "w": 4,
         "x": 12,
-        "y": 64
+        "y": 72
       },
       "repeatDirection": "h",
       "options": {
@@ -1868,7 +1970,7 @@
         "h": 6,
         "w": 4,
         "x": 16,
-        "y": 64
+        "y": 72
       },
       "repeatDirection": "h",
       "options": {
@@ -1925,7 +2027,7 @@
         "h": 6,
         "w": 4,
         "x": 20,
-        "y": 64
+        "y": 72
       },
       "repeatDirection": "h",
       "options": {
@@ -1982,7 +2084,7 @@
         "h": 6,
         "w": 8,
         "x": 0,
-        "y": 70
+        "y": 78
       },
       "repeatDirection": "h",
       "options": {
@@ -2036,7 +2138,7 @@
         "h": 6,
         "w": 8,
         "x": 8,
-        "y": 70
+        "y": 78
       },
       "repeatDirection": "h",
       "options": {
@@ -2111,7 +2213,7 @@
         "h": 6,
         "w": 8,
         "x": 16,
-        "y": 70
+        "y": 78
       },
       "repeatDirection": "h",
       "options": {
@@ -2160,7 +2262,7 @@
         "h": 6,
         "w": 12,
         "x": 0,
-        "y": 76
+        "y": 84
       },
       "repeatDirection": "h",
       "options": {
@@ -2211,7 +2313,7 @@
         "h": 6,
         "w": 12,
         "x": 12,
-        "y": 76
+        "y": 84
       },
       "repeatDirection": "h",
       "options": {
@@ -2262,7 +2364,7 @@
         "h": 6,
         "w": 12,
         "x": 0,
-        "y": 82
+        "y": 90
       },
       "repeatDirection": "h",
       "options": {
@@ -2313,7 +2415,7 @@
         "h": 6,
         "w": 12,
         "x": 12,
-        "y": 82
+        "y": 90
       },
       "repeatDirection": "h",
       "options": {
@@ -2384,7 +2486,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 88
+        "y": 96
       },
       "repeatDirection": "h",
       "options": {
@@ -2455,7 +2557,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 88
+        "y": 96
       },
       "repeatDirection": "h",
       "options": {
@@ -2526,7 +2628,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 96
+        "y": 104
       },
       "repeatDirection": "h",
       "options": {
@@ -2597,7 +2699,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 96
+        "y": 104
       },
       "repeatDirection": "h",
       "options": {
@@ -2668,7 +2770,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 104
+        "y": 112
       },
       "repeatDirection": "h",
       "options": {
@@ -2739,7 +2841,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 104
+        "y": 112
       },
       "repeatDirection": "h",
       "options": {
@@ -2790,7 +2892,7 @@
         "h": 6,
         "w": 8,
         "x": 0,
-        "y": 112
+        "y": 120
       },
       "repeatDirection": "h",
       "options": {
@@ -2841,7 +2943,7 @@
         "h": 6,
         "w": 8,
         "x": 8,
-        "y": 112
+        "y": 120
       },
       "repeatDirection": "h",
       "options": {
@@ -2892,7 +2994,7 @@
         "h": 6,
         "w": 8,
         "x": 16,
-        "y": 112
+        "y": 120
       },
       "repeatDirection": "h",
       "options": {
@@ -2943,7 +3045,7 @@
         "h": 6,
         "w": 12,
         "x": 0,
-        "y": 118
+        "y": 126
       },
       "repeatDirection": "h",
       "options": {
@@ -2994,7 +3096,7 @@
         "h": 6,
         "w": 12,
         "x": 12,
-        "y": 118
+        "y": 126
       },
       "repeatDirection": "h",
       "options": {
@@ -3028,7 +3130,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 124
+        "y": 132
       },
       "id": 0,
       "panels": []
@@ -3040,7 +3142,7 @@
         "h": 2,
         "w": 24,
         "x": 0,
-        "y": 125
+        "y": 133
       },
       "repeatDirection": "h",
       "options": {
@@ -3083,7 +3185,7 @@
         "h": 6,
         "w": 8,
         "x": 0,
-        "y": 127
+        "y": 135
       },
       "repeatDirection": "h",
       "options": {
@@ -3144,7 +3246,7 @@
         "h": 6,
         "w": 8,
         "x": 8,
-        "y": 127
+        "y": 135
       },
       "repeatDirection": "h",
       "options": {
@@ -3195,7 +3297,7 @@
         "h": 6,
         "w": 8,
         "x": 16,
-        "y": 127
+        "y": 135
       },
       "repeatDirection": "h",
       "options": {

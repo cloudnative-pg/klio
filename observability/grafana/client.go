@@ -34,6 +34,8 @@ import (
 // families carry a cluster_name, so every panel groups by cluster_name and is
 // scoped by $namespace and $cluster; nothing folds several clusters that share
 // a namespace into a single value.
+// It also records the end-to-end WAL restore latency the plugin serves to
+// PostgreSQL (`klio.plugin.wal.*`, exported as `klio_plugin_wal_*`).
 func clientPanels() []sizedPanel {
 	return []sizedPanel{
 		sized(gridWidth, descriptionPanelHeight, descriptionPanel(
@@ -149,5 +151,28 @@ func clientPanels() []sizedPanel {
 					clientMatcher, "{{cluster_name}}")...,
 			).Description("50th/90th/99th-percentile duration of the client's gRPC send of a WAL block to the "+
 				"server, per cluster. Reflects all activity since the server last restarted.")),
+
+		// WAL restore latency and throughput. The plugin records
+		// klio.plugin.wal.restore_duration for every RESTORE_WAL request it serves
+		// to PostgreSQL, exported as the klio_plugin_wal_restore_duration_nanoseconds
+		// histogram. Scoped by $namespace like the backup family.
+		sized(8, largePanelHeight, timeseriesPanel("WAL restore latency (p95) by cache hit", "ns",
+			query(
+				fmt.Sprintf("histogram_quantile(0.95, sum by (le, cache_hit) "+
+					"(rate(klio_plugin_wal_restore_duration_nanoseconds_bucket{%s}[$__rate_interval])))", clientMatcher),
+				"p95 cache_hit={{cache_hit}}"),
+		).Description("95th-percentile end-to-end WAL restore latency measured by the plugin: the latency "+
+			"PostgreSQL actually experiences, and in a replica cluster the speed of the replication path "+
+			"itself. cache_hit=true means the segment was already in the prefetch spool and the restore "+
+			"was a local rename; cache_hit=false means PostgreSQL had to wait on a download, so a falling "+
+			"hit ratio means prefetch is not keeping ahead of replay and the prefetch count may need "+
+			"raising. The two are orders of magnitude apart, hence the split rather than one pooled line.")),
+		sized(8, largePanelHeight, timeseriesPanel("WAL restore rate by outcome", "ops",
+			query(
+				fmt.Sprintf("sum by (outcome) "+
+					"(rate(klio_plugin_wal_restore_duration_nanoseconds_count{%s}[$__rate_interval]))", clientMatcher),
+				"{{outcome}}"),
+		).Description("Rate of WAL restore requests handled by the plugin, split by outcome (success or "+
+			"failure).")),
 	}
 }
