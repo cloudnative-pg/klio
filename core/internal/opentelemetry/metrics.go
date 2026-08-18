@@ -79,6 +79,7 @@ func WalDurationViews() []metric.View {
 		explicitBucketView(ClientWalBlockDurationMetric, walBlockDurationBuckets()),
 		explicitBucketView(ServerWalGetDurationMetric, walFileDurationBuckets()),
 		explicitBucketView(ServerWalUploadDurationMetric, walFileDurationBuckets()),
+		explicitBucketView(PluginWalRestoreDurationMetric, walFileDurationBuckets()),
 	}
 }
 
