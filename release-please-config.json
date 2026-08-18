@@ -17,6 +17,7 @@
     },
     "operator/dist/chart/values.yaml",
     "operator/internal/cnpgi/metadata.go",
+    "core/internal/cnpgi/metadata.go",
     "documentation/web/docs/user/klio_server.md",
     "documentation/web/docs/user/quickstart.md",
     "documentation/web/docs/user/api_service.md",
