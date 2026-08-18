@@ -73,6 +73,15 @@ type walEntry struct {
 	isPrefetch bool // true if this was a speculative prefetch, false if PG requested it
 }
 
+// isReadyPrefetch reports whether this entry is a speculative prefetch that has
+// already finished downloading, the only case a restore can be served straight
+// from the spool. A prefetch still in flight is not a hit: the caller has to
+// wait for its download just as it would for its own. Callers must hold the
+// prefetcher lock, since it reads state.
+func (e *walEntry) isReadyPrefetch() bool {
+	return e.isPrefetch && e.state == walStateReady
+}
+
 // walPrefetcher manages prefetching of WAL files for faster recovery.
 type walPrefetcher struct {
 	mu              sync.Mutex
@@ -120,12 +129,14 @@ func newWALPrefetcher(
 }
 
 // Request retrieves a WAL file, using the prefetch cache if available.
-// It also triggers prefetching of subsequent WAL files.
-func (p *walPrefetcher) Request(ctx context.Context, walName, targetPath string) error {
+// It also triggers prefetching of subsequent WAL files. The returned bool
+// reports whether the WAL was served from the prefetch spool (a cache hit);
+// it is only meaningful when the error is nil.
+func (p *walPrefetcher) Request(ctx context.Context, walName, targetPath string) (bool, error) {
 	contextLogger := log.FromContext(ctx).WithValues("walName", walName)
 
 	// Try to get complete WAL from cache or download.
-	err := p.getCompleteWAL(ctx, walName, targetPath)
+	cacheHit, err := p.getCompleteWAL(ctx, walName, targetPath)
 	if err == nil {
 		// Success - trigger prefetch of next N complete WALs.
 		p.mu.Lock()
@@ -136,24 +147,25 @@ func (p *walPrefetcher) Request(ctx context.Context, walName, targetPath string)
 			p.triggerPrefetch(walName)
 		}
 
-		return nil
+		return cacheHit, nil
 	}
 
 	if !errors.Is(err, errWALNotFound) {
-		return err
+		return false, err
 	}
 
 	// Only a bare WAL segment can have a .partial variant, so don't fabricate a
 	// nonsensical "<name>.partial" request for a history or backup-label file:
 	// report it as missing and let the caller move on.
 	if !canHavePartial(walName) {
-		return err
+		return false, err
 	}
 
 	// Complete WAL not found - try partial (direct to target, no cache).
 	contextLogger.Debug("Complete WAL not found, trying partial")
 
-	return p.getPartialWAL(ctx, walName, targetPath)
+	// Partial WALs are never cached, so this is never a cache hit.
+	return false, p.getPartialWAL(ctx, walName, targetPath)
 }
 
 // canHavePartial reports whether walName could have a .partial variant. Only a
@@ -172,10 +184,13 @@ func (p *walPrefetcher) Close() error {
 	return p.downloadPool.Wait()
 }
 
-// getCompleteWAL retrieves a complete WAL file from cache or downloads it.
+// getCompleteWAL retrieves a complete WAL file from cache or downloads it. The
+// returned bool reports whether the file was served from a speculative prefetch
+// already waiting in the spool (a cache hit); it is only meaningful when the
+// error is nil. A rename fallback to a direct download is not a cache hit.
 //
 //nolint:cyclop // complexity is slightly over limit but refactoring would hurt readability
-func (p *walPrefetcher) getCompleteWAL(ctx context.Context, walName, targetPath string) error {
+func (p *walPrefetcher) getCompleteWAL(ctx context.Context, walName, targetPath string) (bool, error) {
 	contextLogger := log.FromContext(ctx).WithValues("walName", walName)
 
 	p.mu.Lock()
@@ -190,7 +205,7 @@ func (p *walPrefetcher) getCompleteWAL(ctx context.Context, walName, targetPath 
 	}
 
 	// A cache hit is when we have a prefetched entry that's already ready.
-	prefetchHit := exists && entry.isPrefetch && entry.state == walStateReady
+	prefetchHit := exists && entry.isReadyPrefetch()
 
 	if !exists {
 		// Not prefetched - start download now (direct request from PG).
@@ -206,11 +221,11 @@ func (p *walPrefetcher) getCompleteWAL(ctx context.Context, walName, targetPath 
 	select {
 	case <-entry.done:
 	case <-ctx.Done():
-		return ctx.Err()
+		return false, ctx.Err()
 	}
 
 	if entry.err != nil {
-		return entry.err
+		return false, entry.err
 	}
 
 	// Rename from spool to target (atomic on same filesystem).
@@ -227,14 +242,14 @@ func (p *walPrefetcher) getCompleteWAL(ctx context.Context, walName, targetPath 
 		p.cleanupEntry(walName)
 		_ = os.Remove(entry.spoolPath)
 
-		// Download directly to target.
-		return p.downloadDirect(ctx, walName, targetPath)
+		// Download directly to target - no longer a cache hit.
+		return false, p.downloadDirect(ctx, walName, targetPath)
 	}
 
 	// Cleanup entry from map (file already moved).
 	p.cleanupEntry(walName)
 
-	return nil
+	return prefetchHit, nil
 }
 
 // downloadWALToFile downloads a WAL file to the specified path.
