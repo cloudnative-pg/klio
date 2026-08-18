@@ -35,8 +35,10 @@ const clientWalMatcher = `k8s_namespace_name=~"$namespace",cluster_name=~"$clust
 // backup lifecycle (`klio.plugin.backup.*`, exported to Prometheus as
 // `klio_plugin_backup_*`) and the WAL streaming client it supervises as a
 // child process (`klio.client.wal.*`, exported as `klio_client_wal_*`).
-// Backup queries are scoped by $namespace; WAL streaming queries additionally
-// carry cluster_name and are scoped by $cluster.
+// It also records the end-to-end WAL restore latency the plugin serves to
+// PostgreSQL (`klio.plugin.wal.*`, exported as `klio_plugin_wal_*`).
+// Backup and plugin WAL queries are scoped by $namespace; WAL streaming
+// queries additionally carry cluster_name and are scoped by $cluster.
 func clientPanels() []sizedPanel {
 	return []sizedPanel{
 		// Current backup state.
@@ -131,5 +133,28 @@ func clientPanels() []sizedPanel {
 			"cluster. Most meaningful under active write load; on an idle or low-write cluster, WAL "+
 			"blocks are sent too infrequently for the underlying histogram_quantile to be reliable, so "+
 			"the line may look sparse or noisy rather than absent.")),
+
+		// WAL restore latency and throughput. The plugin records
+		// klio.plugin.wal.restore_duration for every RESTORE_WAL request it serves
+		// to PostgreSQL, exported as the klio_plugin_wal_restore_duration_nanoseconds
+		// histogram. Scoped by $namespace like the backup family.
+		sized(8, panelHeight, timeseriesPanel("WAL restore latency (p95) by cache hit", "ns",
+			query(
+				fmt.Sprintf("histogram_quantile(0.95, sum by (le, cache_hit) "+
+					"(rate(klio_plugin_wal_restore_duration_nanoseconds_bucket{%s}[$__rate_interval])))", nsMatcher),
+				"p95 cache_hit={{cache_hit}}"),
+		).Description("95th-percentile end-to-end WAL restore latency measured by the plugin: the latency "+
+			"PostgreSQL actually experiences, and in a replica cluster the speed of the replication path "+
+			"itself. cache_hit=true means the segment was already in the prefetch spool and the restore "+
+			"was a local rename; cache_hit=false means PostgreSQL had to wait on a download, so a falling "+
+			"hit ratio means prefetch is not keeping ahead of replay and the prefetch count may need "+
+			"raising. The two are orders of magnitude apart, hence the split rather than one pooled line.")),
+		sized(8, panelHeight, timeseriesPanel("WAL restore rate by outcome", "ops",
+			query(
+				fmt.Sprintf("sum by (outcome) "+
+					"(rate(klio_plugin_wal_restore_duration_nanoseconds_count{%s}[$__rate_interval]))", nsMatcher),
+				"{{outcome}}"),
+		).Description("Rate of WAL restore requests handled by the plugin, split by outcome (success or "+
+			"failure).")),
 	}
 }
