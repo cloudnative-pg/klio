@@ -35,7 +35,7 @@ const (
 	// CollectorImage is the OTEL collector image.
 	//nolint:godot,lll
 	// renovate image: datasource=docker depName=otel/opentelemetry-collector-contrib versioning=docker
-	CollectorImage = "otel/opentelemetry-collector-contrib:0.158.0@sha256:c5918f78992ee73b0d6f0e599423ac5ec52dd5d9726733114d6eca53d5a32ed5"
+	CollectorImage = "otel/opentelemetry-collector-contrib:0.159.0@sha256:1f2c54a30e713fac6b3ae77a1ec84010c2007e29ced8ec666214fc2f6739c1cc"
 	// CollectorPort is the gRPC port for the OTEL collector.
 	CollectorPort = 4317
 	// CollectorMetricsPort is the Prometheus metrics port for the OTEL collector.
