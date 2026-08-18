@@ -95,6 +95,8 @@ const (
 	PluginBackupInProgressMetric           = "klio.plugin.backup.in_progress"
 	PluginBackupRunsMetric                 = "klio.plugin.backup.runs"
 
+	PluginWalRestoreDurationMetric = "klio.plugin.wal.restore_duration"
+
 	ServerWalWrittenSizeMetric           = "klio.server.wal.written_size"
 	ServerWalWrittenMetric               = "klio.server.wal.written"
 	ServerWalLatestWrittenTimeMetric     = "klio.server.wal.latest_written_time"
@@ -226,6 +228,18 @@ type ClientWalMetrics struct {
 	Timeline      metric.Int64Gauge
 }
 
+// PluginWalMetrics holds OTel instruments the CNPG-I plugin records for WAL
+// restore. RestoreDuration is the end-to-end time the plugin takes to satisfy
+// one RESTORE_WAL request (config resolution, tier failover, prefetch lookup or
+// download, and the spool→destination rename). Each recording carries an
+// `outcome` (`success` / `failure`), a `cache_hit` (`true` when the segment was
+// already complete in the prefetch spool when PostgreSQL asked for it), a `tier`
+// (which storage tier served it), and a `cluster_name`. A restore that fails
+// before a tier is chosen reports `tier` and `cluster_name` as `unknown`.
+type PluginWalMetrics struct {
+	RestoreDuration metric.Int64Histogram
+}
+
 // Centralized metric instrument instances.
 //
 //nolint:gochecknoglobals
@@ -234,6 +248,7 @@ var (
 	ServerBackup ServerBackupMetrics
 	ServerWal    ServerWalMetrics
 	ClientWal    ClientWalMetrics
+	PluginWal    PluginWalMetrics
 )
 
 // All metric instruments are created when this package is loaded, in the
@@ -247,6 +262,7 @@ func init() {
 	InitServerBackupMetrics()
 	InitServerWalMetrics()
 	InitClientWalMetrics()
+	InitPluginWalMetrics()
 }
 
 // InitPluginBackupMetrics creates OTel instruments for backup lifecycle tracking.
@@ -470,5 +486,22 @@ func InitClientWalMetrics() {
 	)
 	ClientWal.Timeline, _ = meter.Int64Gauge(ClientWalTimelineMetric,
 		metric.WithDescription("Timeline ID the WAL streaming client is currently streaming."),
+	)
+}
+
+// InitPluginWalMetrics creates the OTel instrument for the plugin end-to-end WAL
+// restore path. It is called once when this package is loaded; tests can call it
+// again after swapping the meter provider to rebind the instrument.
+func InitPluginWalMetrics() {
+	meter := otel.Meter(Meter)
+
+	PluginWal.RestoreDuration, _ = meter.Int64Histogram(PluginWalRestoreDurationMetric,
+		metric.WithDescription("Distribution of end-to-end WAL restore durations measured by the "+
+			"CNPG-I plugin (the full RESTORE_WAL request: config resolution, tier failover, prefetch "+
+			"lookup or download, and spool→destination rename). The `outcome` attribute is `success` "+
+			"or `failure`; `cache_hit` is `true` when the segment was already complete in the "+
+			"prefetch spool when PostgreSQL asked for it, so no download wait was needed; `tier` is the "+
+			"storage tier that served the restore; `cluster_name` identifies the PostgreSQL cluster."),
+		metric.WithUnit("ns"),
 	)
 }
