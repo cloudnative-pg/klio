@@ -36,7 +36,7 @@ jobs:
         shell: bash
         env:
           # renovate: datasource=github-tags depName=go-task/task versioning=semver
-          TASK_VERSION: 3.52.0
+          TASK_VERSION: 3.53.1
         run: |
           curl -sSfL "https://github.com/go-task/task/releases/download/v${TASK_VERSION}/task_linux_amd64.tar.gz" \
             | sudo tar -xz -C /usr/local/bin task
