@@ -426,9 +426,18 @@ You should see lines with the `Received completed WAL file` message.
   authentication
 - [The Klio Plugin](plugin_configuration.md) — retention policies,
   Tier 2, WAL prefetch and sidecar customization
-- [Architectures & Tiers](concepts/architectures.md) — planning a backup
-  strategy
 - [Klio Operator Helm Chart](helm_chart.mdx) — the full chart
   configuration reference and the upgrade procedure
 - [OpenTelemetry](opentelemetry.md) and
   [Grafana dashboards](grafana-dashboards.md) — monitoring
+
+The concepts behind what you just deployed:
+
+- [PostgreSQL Backup and Recovery](concepts/continuous_backup.md) —
+  the WAL archive, base backups and point-in-time recovery
+- [WAL Streaming](concepts/wal_streaming.md) — why Klio replaces
+  `archive_command`
+- [Architectures & Tiers](concepts/architectures.md) — planning a
+  backup strategy
+- [Data deduplication in Klio](concepts/kopia_deduplication.md) — how
+  Kopia stores base backups efficiently
