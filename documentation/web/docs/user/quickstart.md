@@ -384,8 +384,10 @@ A few details worth noting:
 
 - The `pg_hba` entry is what allows Klio to open a local replication
   connection and stream WAL.
-- Do **not** set `isWALArchiver`. Klio streams WAL files directly to
-  the server rather than going through PostgreSQL's `archive_command`.
+- Do **not** set `isWALArchiver`. Klio does not rely on PostgreSQL's
+  `archive_command` at all: it streams WAL records to the server
+  directly, over physical replication, which is more efficient. See
+  [WAL Streaming](concepts/wal_streaming.md) for how this works.
 - `clusterName` in the `PluginConfiguration` must match the host part
   of the client certificate Common Name (`klio@cluster-example`
   above). Klio refuses the connection on a mismatch.
