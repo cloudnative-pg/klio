@@ -44,8 +44,8 @@ with your namespace.
 
 ## Step 1: Install the Klio operator
 
-Create a `values.yaml` file. The chart expects the Prometheus Operator
-by default, so disable it unless you have it installed:
+Create a `values.yaml` file. The chart expects the Prometheus Operator by
+default, so disable it unless you have it installed:
 
 ```yaml
 # The Prometheus Operator is not needed for this guide
@@ -81,10 +81,9 @@ You should see the operator pod in a `Running` state, along with the
 
 ## Step 2: Create the encryption key
 
-Klio encrypts your backups at rest. The encryption key is itself
-protected with [Age](https://github.com/FiloSottile/age), so that the
-credential can be rotated later without touching the backup
-repository.
+Klio encrypts your backups at rest. The encryption key is itself protected with
+[Age](https://github.com/FiloSottile/age), so that the credential can be
+rotated later without touching the backup repository.
 
 Generate an Age key pair:
 
