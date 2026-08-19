@@ -124,7 +124,7 @@ to every backup. There is no key recovery mechanism.
 ## Step 3: Create the certificates
 
 Klio secures all traffic with TLS and authenticates clients with
-mutual TLS. This step creates four certificates with cert-manager:
+mutual TLS. This step creates three certificates with cert-manager:
 
 - a **CA**, used to sign and verify client certificates
 - a **server certificate**, presented by the Klio server
