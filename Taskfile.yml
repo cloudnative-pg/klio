@@ -47,7 +47,7 @@ tasks:
     desc: Check for conventional commits
     env:
       # renovate: datasource=git-refs depName=commitlint lookupName=https://github.com/cloudnative-pg/daggerverse currentValue=main
-      DAGGER_COMMITLINT_SHA: 7174b66d283da487638a98b431b7707b311a9a32
+      DAGGER_COMMITLINT_SHA: 26cd57fb6ad66e88c036b675b0478d38df93962d
     cmds:
       - >
         GITHUB_REF= dagger -s call -m github.com/cloudnative-pg/daggerverse/commitlint@${DAGGER_COMMITLINT_SHA}
@@ -92,7 +92,7 @@ tasks:
     run: once
     env:
       # renovate: datasource=git-refs depName=protolint lookupName=https://github.com/cloudnative-pg/daggerverse currentValue=main
-      DAGGER_PROTOLINT_SHA: 7174b66d283da487638a98b431b7707b311a9a32
+      DAGGER_PROTOLINT_SHA: 26cd57fb6ad66e88c036b675b0478d38df93962d
     cmds:
       - >
         GITHUB_REF= dagger -s call -m github.com/cloudnative-pg/daggerverse/protolint@${DAGGER_PROTOLINT_SHA}
@@ -108,7 +108,7 @@ tasks:
     run: once
     env:
       # renovate: datasource=git-refs depName=protoc-gen-go-grpc lookupName=https://github.com/cloudnative-pg/daggerverse currentValue=main
-      DAGGER_PROTOC_GEN_GO_GRPC_SHA: 7174b66d283da487638a98b431b7707b311a9a32
+      DAGGER_PROTOC_GEN_GO_GRPC_SHA: 26cd57fb6ad66e88c036b675b0478d38df93962d
     cmds:
       - >
         GITHUB_REF= dagger -s call
@@ -452,7 +452,7 @@ tasks:
     internal: true
     env:
       # renovate: datasource=git-refs depName=uncommitted lookupName=https://github.com/cloudnative-pg/daggerverse currentValue=main
-      DAGGER_UNCOMMITTED_SHA: 7174b66d283da487638a98b431b7707b311a9a32
+      DAGGER_UNCOMMITTED_SHA: 26cd57fb6ad66e88c036b675b0478d38df93962d
     cmds:
       - >
         GITHUB_REF= dagger -s call -m github.com/cloudnative-pg/daggerverse/uncommitted@${DAGGER_UNCOMMITTED_SHA}
@@ -581,7 +581,7 @@ tasks:
     run: once
     env:
       # renovate: datasource=git-refs depName=controller-gen lookupName=https://github.com/cloudnative-pg/daggerverse currentValue=main
-      DAGGER_CONTROLLER_GEN_SHA: 7174b66d283da487638a98b431b7707b311a9a32
+      DAGGER_CONTROLLER_GEN_SHA: 26cd57fb6ad66e88c036b675b0478d38df93962d
       # renovate: datasource=docker depName=golang versioning=docker
       GOLANG_IMAGE_VERSION: 1.26.6@sha256:0d1d3a794be25f809dd2cb3160d8c73276c4056a9f8242a138e908ddeee7b6b6
     cmds:
@@ -1168,7 +1168,7 @@ tasks:
       - documentation:protoc-gen-doc
     env:
       # renovate: datasource=git-refs depName=spellcheck lookupName=https://github.com/cloudnative-pg/daggerverse currentValue=main
-      DAGGER_SPELLCHECK_SHA: 7174b66d283da487638a98b431b7707b311a9a32
+      DAGGER_SPELLCHECK_SHA: 26cd57fb6ad66e88c036b675b0478d38df93962d
     cmds:
       - >
         GITHUB_REF= dagger -s call -m github.com/cloudnative-pg/daggerverse/spellcheck@${DAGGER_SPELLCHECK_SHA}
@@ -1184,7 +1184,7 @@ tasks:
     run: once
     env:
       # renovate: datasource=git-refs depName=protoc-gen-doc lookupName=https://github.com/cloudnative-pg/daggerverse currentValue=main
-      DAGGER_PROTOC_GEN_DOC_SHA: 7174b66d283da487638a98b431b7707b311a9a32
+      DAGGER_PROTOC_GEN_DOC_SHA: 26cd57fb6ad66e88c036b675b0478d38df93962d
     cmds:
       - >
         GITHUB_REF= dagger -s call -m github.com/cloudnative-pg/daggerverse/protoc-gen-doc@${DAGGER_PROTOC_GEN_DOC_SHA}
@@ -1199,7 +1199,7 @@ tasks:
     run: once
     env:
       # renovate: datasource=git-refs depName=crd-gen-refs lookupName=https://github.com/cloudnative-pg/daggerverse currentValue=main
-      DAGGER_CRDGENREF_SHA: 7174b66d283da487638a98b431b7707b311a9a32
+      DAGGER_CRDGENREF_SHA: 26cd57fb6ad66e88c036b675b0478d38df93962d
       # renovate: datasource=docker depName=golang versioning=docker
       GOLANG_IMAGE_VERSION: 1.26.6-alpine@sha256:3889b425f035be855a72fb4755265311293b6d414521f0a519d819df32222d83
     cmds:
