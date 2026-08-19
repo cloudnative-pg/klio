@@ -411,7 +411,20 @@ kubectl get cluster cluster-example
 ```
 
 Finally, confirm that WAL streaming has started. The plugin creates a
-physical replication slot named `klio` on the primary:
+physical replication slot named `klio` on the primary, so PostgreSQL
+itself can tell you it's connected:
+
+```sh
+kubectl cnpg psql cluster-example -- -x -c \
+  "SELECT state, sent_lsn, flush_lsn, sync_state
+   FROM pg_stat_replication WHERE application_name = 'klio'"
+```
+
+`state` should read `streaming`. See
+[Monitoring Klio WAL streamer in PostgreSQL](concepts/wal_streaming.md#monitoring-klio-wal-streamer-in-postgresql)
+for what each field means.
+
+You can also check it from the Klio server side:
 
 ```sh
 kubectl logs -l klio.cnpg.io/klio-server=klio-server
