@@ -61,7 +61,7 @@ their base backups reinforce each other's deduplication.
 
 Tier 1 and Tier 2 are separate repositories, so the sharing happens
 independently within each of them. See
-[Architectures &amp; Tiers](architectures.md).
+[Architectures & Tiers](architectures.md).
 
 ## Why deleting a backup may not free space
 
