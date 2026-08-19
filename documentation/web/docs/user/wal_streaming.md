@@ -10,7 +10,9 @@ streaming for PostgreSQL. This architecture enables:
 - Partial WAL segment streaming, ensuring real-time data transfer
 - Built-in compression and encryption using user-provided keys
 - Controlled replication slot advancement, protecting against WAL loss
-- Optional synchronous replication, offering zero RPO when enabled
+- Optional synchronous replication, offering zero RPO when durable
+  acknowledgments are required (see
+  [Durable flush feedback](#durable-flush-feedback))
 
 ## Architecture
 
@@ -46,7 +48,8 @@ approach:
 
 - **Near-zero RPO:** WAL changes are streamed incrementally in near real-time,
   reducing the worst-case recovery point objective (RPO) from 5 minutes to
-  near-zero, or even zero in synchronous mode.
+  near-zero, or even zero in synchronous mode when durable acknowledgments are
+  required (see [Durable flush feedback](#durable-flush-feedback)).
 
 - **Improved efficiency and scalability:** A single, continuously running WAL
   streamer process replaces the need to spawn a new process for each WAL
@@ -113,8 +116,53 @@ explanation of the key fields:
   streaming).
 - `sent_lsn`, `write_lsn`, `flush_lsn`, `replay_lsn`: Positions in the WAL
   indicating how far data has been sent, written, flushed, and replayed on the
-  Klio server (replayed and flushed are always identical).
+  Klio server (replayed and flushed are always identical). By default,
+  `flush_lsn` tracks data handed to the WAL send buffer; when durable
+  acknowledgments are required, it only advances up to data the Klio server
+  has confirmed as durably persisted (see
+  [Durable flush feedback](#durable-flush-feedback)).
 - `write_lag`, `flush_lag`, `replay_lag`: Delays between WAL positions
   indicating replication latency.
 - `sync_state`: The synchronization state of this standby (e.g., `async`,
   `sync`, `potential`, `quorum`).
+
+## Durable flush feedback
+
+The flush position (`flush_lsn`) that the WAL streamer reports to PostgreSQL
+also drives two safety-critical decisions: it acknowledges commits when Klio is
+a synchronous standby, and it governs how far the physical replication slot's
+`restart_lsn` advances, which controls when PostgreSQL may recycle WAL segments.
+
+By default, the WAL streamer advances the flush position as soon as WAL data is
+handed to its send buffer, before the Klio server confirms that the data is
+durable. This is the fastest option and is appropriate for asynchronous WAL
+archiving, where a small window of not-yet-durable data is acceptable.
+
+When Klio is used as a **synchronous replication target** for zero RPO
+(`synchronous_standby_names` includes `klio` and `synchronous_commit` is set to
+`remote_flush` or `on`), this default is not safe: PostgreSQL could acknowledge
+a commit as durable, or recycle a WAL segment, before the corresponding bytes
+are guaranteed to survive a Klio server or network failure.
+
+For these deployments, set `requireDurableAck` to `true` in the
+`PluginConfiguration`. The Klio server then acknowledges each WAL block once it
+has been fsynced, and the WAL streamer only advances the flush position up to
+data that has been durably persisted:
+
+```yaml
+apiVersion: klio.cnpg.io/v1alpha1
+kind: PluginConfiguration
+metadata:
+  name: my-config
+spec:
+  serverAddress: klio-server.default
+  clientSecretName: my-client-credentials
+  serverSecretName: klio-server-tls
+  clusterName: my-cluster
+  requireDurableAck: true
+```
+
+Requiring durable acknowledgments adds a per-flush latency equal to the
+round-trip time to the Klio server plus its fsync time, so the flush position
+lags the write position by that amount. WAL upload throughput is unaffected,
+because WAL blocks are still sent without waiting for each acknowledgment.

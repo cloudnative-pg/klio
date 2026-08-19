@@ -99,3 +99,9 @@ func (wal *MemBufferHandler) CurrentOffset() (uint64, error) {
 func (wal *MemBufferHandler) Write(_ context.Context, p []byte) (int, error) {
 	return wal.buffer.Write(p) //nolint:wrapcheck
 }
+
+// SyncedOffset implements the Handler interface. The in-memory handler has no
+// remote durability round-trip, so the synced offset equals the written one.
+func (wal *MemBufferHandler) SyncedOffset() (uint64, error) {
+	return wal.CurrentOffset()
+}

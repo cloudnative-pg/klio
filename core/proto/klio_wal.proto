@@ -25,7 +25,7 @@ import "google/protobuf/timestamp.proto";
 option go_package = "github.com/cloudnative-pg/klio/core/internal/grpc";
 
 service WAL {
-  rpc Put(stream PutRequest) returns (PutResult) {}
+  rpc Put(stream PutRequest) returns (stream PutResult) {}
   rpc Get(GetRequest) returns (stream GetResult) {}
 
   rpc GetMetadata(GetMetadataRequest) returns (ClusterMetadata) {}
@@ -47,7 +47,13 @@ message PutRequest {
   bool send_to_tier2 = 7;
 }
 
+// This is streamed back by the WAL server on the Put stream. Each message
+// acknowledges that the bytes up to written_size have been durably persisted
+// (fsynced) on the server. The client uses it to advance the flush position it
+// reports to PostgreSQL only up to data that is genuinely durable.
 message PutResult {
+  // Cumulative number of bytes of the current WAL file that have been durably
+  // persisted (fsynced) on the server.
   uint64 written_size = 1;
 }
 

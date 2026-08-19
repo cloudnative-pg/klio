@@ -40,19 +40,27 @@ type Data struct {
 
 	handler Handler
 
-	writeLSN   uint64
-	flushLSN   uint64
-	buffer     *bytes.Buffer
-	bufferSize int
+	writeLSN     uint64
+	flushLSN     uint64
+	fileStartLSN uint64
+	buffer       *bytes.Buffer
+	bufferSize   int
+
+	// requireDurableAck gates flushLSN advancement on the destination
+	// acknowledging that the data has been durably persisted, instead of
+	// advancing it as soon as the data has been handed to the send buffer.
+	requireDurableAck bool
 }
 
-// New creates a new WAL buffer.
-func New(tli int, walSegmentSize uint64, handler Handler, bufferSize int) *Data {
+// New creates a new WAL buffer. When requireDurableAck is true, the flush LSN
+// only advances up to data the handler reports as durably persisted.
+func New(tli int, walSegmentSize uint64, handler Handler, bufferSize int, requireDurableAck bool) *Data {
 	result := &Data{
-		segmentSize: walSegmentSize,
-		tli:         tli,
-		handler:     handler,
-		bufferSize:  bufferSize,
+		segmentSize:       walSegmentSize,
+		tli:               tli,
+		handler:           handler,
+		bufferSize:        bufferSize,
+		requireDurableAck: requireDurableAck,
 	}
 
 	result.buffer = result.newBuffer()
@@ -167,6 +175,7 @@ func (wal *Data) openWALPos(ctx context.Context, blockpos uint64) error {
 
 	wal.writeLSN = blockpos
 	wal.flushLSN = blockpos
+	wal.fileStartLSN = blockpos
 
 	return nil
 }
@@ -188,26 +197,50 @@ func (wal *Data) writeToWALFile(ctx context.Context, data []byte) error {
 func (wal *Data) flushInternal(ctx context.Context) error {
 	contextLogger := log.FromContext(ctx)
 
-	if wal.handler == nil || !wal.handler.HasWALFileOpened() || wal.buffer.Len() == 0 {
+	if wal.handler == nil || !wal.handler.HasWALFileOpened() {
 		return nil
 	}
 
-	contextLogger.Debug("Writing block",
-		"blockpos", types.Int64ToLSN(wal.writeLSN), "blocksize", wal.buffer.Len())
-	_, err := wal.handler.Write(ctx, wal.buffer.Bytes())
+	if wal.buffer.Len() > 0 {
+		contextLogger.Debug("Writing block",
+			"blockpos", types.Int64ToLSN(wal.writeLSN), "blocksize", wal.buffer.Len())
+		_, err := wal.handler.Write(ctx, wal.buffer.Bytes())
+		if err != nil {
+			return fmt.Errorf("while writing to WAL handler: %w", err)
+		}
+
+		// Clear content but keeps the slice capacity
+		wal.buffer.Reset()
+
+		// Prevent memory bloat in long-running processes.
+		if wal.buffer.Cap() > wal.bufferSize*maximumBufferSizeFactor {
+			wal.buffer = wal.newBuffer()
+		}
+	}
+
+	return wal.advanceFlushLSN()
+}
+
+// advanceFlushLSN moves the flush position forward. In durable-ack mode it only
+// advances up to data the handler reports as durably persisted by the server,
+// which may lag the written position; otherwise it tracks the written position.
+// It is also called on idle flush ticks so that acknowledgements arriving after
+// the last write are still reflected in the flush position.
+func (wal *Data) advanceFlushLSN() error {
+	if !wal.requireDurableAck {
+		wal.flushLSN = wal.writeLSN
+		return nil
+	}
+
+	synced, err := wal.handler.SyncedOffset()
 	if err != nil {
-		return fmt.Errorf("while writing to WAL handler: %w", err)
+		return fmt.Errorf("while reading the durable offset: %w", err)
 	}
 
-	// Clear content but keeps the slice capacity
-	wal.buffer.Reset()
-
-	// Prevent memory bloat in long-running processes.
-	if wal.buffer.Cap() > wal.bufferSize*maximumBufferSizeFactor {
-		wal.buffer = wal.newBuffer()
+	durableLSN := wal.fileStartLSN + synced
+	if durableLSN > wal.flushLSN {
+		wal.flushLSN = durableLSN
 	}
-
-	wal.flushLSN = wal.writeLSN
 
 	return nil
 }
@@ -223,6 +256,11 @@ func (wal *Data) closeCurrentWAL(ctx context.Context) error {
 	if err := wal.handler.CloseWAL(ctx); err != nil {
 		return fmt.Errorf("while closing current WAL file: %w", err)
 	}
+
+	// Closing the WAL file drains and verifies every outstanding
+	// acknowledgement, so the whole segment is now durable: advance the flush
+	// position to the segment boundary regardless of the mode.
+	wal.flushLSN = wal.writeLSN
 
 	return nil
 }

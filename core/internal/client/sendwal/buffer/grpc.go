@@ -118,3 +118,13 @@ func (wal *KlioClientStreamingHandler) Write(ctx context.Context, block []byte) 
 
 	return len(block), nil
 }
+
+// SyncedOffset implements the Handler interface. It reports the number of bytes
+// of the current WAL file the Klio server has acknowledged as durable.
+func (wal *KlioClientStreamingHandler) SyncedOffset() (uint64, error) {
+	if wal.stream == nil {
+		return 0, nil
+	}
+
+	return wal.stream.SyncedOffset()
+}

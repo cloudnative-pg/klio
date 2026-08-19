@@ -39,4 +39,9 @@ type Handler interface {
 
 	// Write writes data in the current WAL file
 	Write(ctx context.Context, p []byte) (n int, err error)
+
+	// SyncedOffset returns the number of bytes of the current WAL file that the
+	// destination has acknowledged as durably persisted. For handlers that do
+	// not receive durability acknowledgements, this equals the written offset.
+	SyncedOffset() (uint64, error)
 }

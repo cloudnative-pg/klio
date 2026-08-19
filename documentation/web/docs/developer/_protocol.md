@@ -414,12 +414,15 @@ file
 <a name="klio-wal-v1-PutResult"></a>
 
 ### PutResult
-
+This is streamed back by the WAL server on the Put stream. Each message
+acknowledges that the bytes up to written_size have been durably persisted
+(fsynced) on the server. The client uses it to advance the flush position it
+reports to PostgreSQL only up to data that is genuinely durable.
 
 
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
-| written_size | [uint64](#uint64) |  |  |
+| written_size | [uint64](#uint64) |  | Cumulative number of bytes of the current WAL file that have been durably persisted (fsynced) on the server. |
 
 
 
@@ -539,7 +542,7 @@ feature.
 
 | Method Name | Request Type | Response Type | Description |
 | ----------- | ------------ | ------------- | ------------|
-| Put | [PutRequest](#klio-wal-v1-PutRequest) stream | [PutResult](#klio-wal-v1-PutResult) |  |
+| Put | [PutRequest](#klio-wal-v1-PutRequest) stream | [PutResult](#klio-wal-v1-PutResult) stream |  |
 | Get | [GetRequest](#klio-wal-v1-GetRequest) | [GetResult](#klio-wal-v1-GetResult) stream |  |
 | GetMetadata | [GetMetadataRequest](#klio-wal-v1-GetMetadataRequest) | [ClusterMetadata](#klio-wal-v1-ClusterMetadata) |  |
 | RequestWALStart | [RequestWALStartRequest](#klio-wal-v1-RequestWALStartRequest) | [RequestWALStartResult](#klio-wal-v1-RequestWALStartResult) |  |

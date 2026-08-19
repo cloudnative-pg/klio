@@ -145,6 +145,7 @@ RefreshResult
 RequestWALStart
 RequestWALStartRequest
 RequestWALStartResult
+RequireDurableAck
 ResetWALStream
 ResetWALStreamRequest
 ResetWALStreamResult
@@ -235,6 +236,8 @@ env
 failover
 fileReference
 filesystem
+fsync
+fsynced
 fullnameOverride
 gRPC
 ghcr
