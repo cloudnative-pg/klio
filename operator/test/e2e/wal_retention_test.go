@@ -251,6 +251,47 @@ func (s *walRetentionScenario) deleteBackup(
 	return nil
 }
 
+// verifyBackups runs "klio backup verify" on tier1 for the given backup names
+// using the klio CLI.
+//
+// The backups it is given have already been relayed to tier2 and unpinned, so
+// their Kopia snapshot manifests were rewritten under new IDs after they were
+// taken. Verification resolves each snapshot to its root object ID, which the
+// rewrite leaves untouched, and routes directory and file roots to different
+// Kopia flags: a backup has both, since pgdata and metadata are directory
+// snapshots while the control data file is snapshotted on its own. Verifying
+// here covers that resolution against real backups.
+func (s *walRetentionScenario) verifyBackups(
+	ctx context.Context,
+	r *resources.Resources,
+	backupNames []string,
+) error {
+	const klioConfigPath = "/var/lib/postgresql/klio/klio-archive"
+
+	var stdout, stderr bytes.Buffer
+
+	verifyCmd := make([]string, 0, 6+len(backupNames))
+	verifyCmd = append(verifyCmd,
+		"klio",
+		"backup",
+		"verify",
+		"--config",
+		klioConfigPath,
+		"--tiers=tier1",
+	)
+	verifyCmd = append(verifyCmd, backupNames...)
+
+	err := r.ExecInPod(
+		ctx, s.namespace.Name, s.sourcePrimaryPod.Name, cnpgi.KlioPluginContainerName, verifyCmd, &stdout, &stderr)
+	if err != nil {
+		return fmt.Errorf(
+			"failed to verify backups %v: %w; stdout: %s; stderr: %s",
+			backupNames, err, stdout.String(), stderr.String())
+	}
+
+	return nil
+}
+
 // kopiaBackupInfo mirrors the subset of klioclient.BackupMetadata fields
 // needed to identify and order the backups printed by "klio backup list".
 type kopiaBackupInfo struct {
@@ -449,6 +490,27 @@ func (f *WALRetentionFeature) Run() types.StepFunc {
 
 		t.Logf("Server-side WAL retention verified: %d WAL files remain, all >= begin WAL %q",
 			len(walFiles), boundary)
+
+		// Step 7: the newest backup has been through a full maintenance pass, so
+		// the tier2 unpin has already rewritten its snapshot manifests by the
+		// time we get here. Verifying it now exercises real resolution by root
+		// object ID against a backup that mixes directory and file roots. It
+		// does not reproduce the manifest-rewrite race itself, since maintenance
+		// has settled long before this step runs.
+		//
+		// Only the newest backup is verified: "klio backup list" spans both
+		// tiers, so it also reports the backup deleted in step 4, which no
+		// longer has tier1 snapshots to verify.
+		t.Log("Verifying the newest backup on tier1...")
+		remainingBackups, err := f.scenario.listBackups(ctx, r)
+		require.NoError(t, err, "failed to list backups before verification")
+		require.NotEmpty(t, remainingBackups, "no backups left to verify")
+
+		newestBackup := remainingBackups[len(remainingBackups)-1]
+		require.NoError(t, f.scenario.verifyBackups(ctx, r, []string{newestBackup}),
+			"verification failed for backup %q", newestBackup)
+
+		t.Logf("Verified newest backup %q on tier1", newestBackup)
 
 		return ctx
 	}
