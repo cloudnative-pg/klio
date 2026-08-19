@@ -1,0 +1,29 @@
+# cluster-c's client certificate, requested here since klio-b's Issuer
+# lives here too — a namespace-scoped Issuer can't be referenced from
+# "team-c" directly. kubernetes-reflector mirrors the result there.
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: cluster-c-klio-user
+spec:
+  secretTemplate:
+    annotations:
+      reflector.v1.k8s.emberstack.com/reflection-allowed: "true"
+      reflector.v1.k8s.emberstack.com/reflection-allowed-namespaces: "team-c"
+      reflector.v1.k8s.emberstack.com/reflection-auto-enabled: "true"
+      reflector.v1.k8s.emberstack.com/reflection-auto-namespaces: "team-c"
+
+  commonName: klio@cluster-c
+  secretName: cluster-c-klio-user
+
+  duration: 2160h # 90d
+  renewBefore: 360h # 15d
+
+  isCA: false
+  usages:
+    - client auth
+
+  issuerRef:
+    name: klio-b-ca
+    kind: Issuer
+    group: cert-manager.io

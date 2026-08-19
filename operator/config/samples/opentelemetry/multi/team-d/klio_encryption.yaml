@@ -1,5 +1,7 @@
 # Same content as ../klio_encryption.yaml: reusing the same encryption
-# identity across servers is fine for this demo.
+# identity across servers is fine for this demo. This is a literal
+# byte-for-byte copy (team-d can't reference base/'s Secret across
+# namespaces), so keep both in sync.
 apiVersion: v1
 stringData:
   secret-key: AGE-SECRET-KEY-1P7TWJ8H837DPVLSRVHAP0ZCZVHXJRTUS7S0A5VZAR49URW0Z9Q0SFW4HVM

@@ -1,5 +1,18 @@
 # README
 
+> **Warning**
+> This directory is a **test environment for validating the Klio Grafana
+> dashboard**, not a reference architecture. Do not copy its patterns into a
+> production deployment. In particular:
+> - It reflects the private-key half of TLS secrets into namespaces that
+>   never use them (see the Topology section below), purely to keep the
+>   sample declarative. A real deployment should never let a private key
+>   leave the namespace that needs it.
+> - It deliberately reuses/overloads names across namespaces (e.g. two
+>   independent Klio servers both named `klio-a`) to exercise a dashboard
+>   disambiguation edge case. Overloading names like this is a testing
+>   device here, not something to replicate on purpose.
+
 This directory contains two sample environments exercising Klio's
 OpenTelemetry integration, both sharing the OTel collector / Jaeger /
 Prometheus stack defined in `base/`. Every CNPG cluster also gets its own
@@ -41,6 +54,34 @@ alone, both servers' pods are named "klio-a-klio-0", giving them an
 identical host_name label — a case the dashboard's `$server` variable
 cannot disambiguate on its own.
 
+Every Klio server has its own certificate authority, signing only that
+server's own **client** certificates — no CA is ever shared between
+servers for that purpose. `cluster-c`'s client certificate is therefore
+requested next to `klio-b`'s CA/`Issuer` in `default` and mirrored into
+`team-c` by kubernetes-reflector; `cluster-a`, `cluster-b` and `cluster-d`
+need no such mirroring, since each already lives in the same namespace as
+its own server's CA.
+
+Separately, every Klio server's **own** TLS identity, and the shared OTel
+collector's own TLS identity, are signed by one cluster-wide root CA (see
+`base/root_ca.yaml`), backing a `ClusterIssuer` reachable from any
+namespace — a distinct trust chain from the per-server client-cert CAs
+above, used only to identify servers/the collector, never to validate
+clients. The root CA's own secret lives in the `cert-manager` namespace,
+matching where cert-manager looks for a `ClusterIssuer`'s secret by
+default.
+
+`klio-b`'s own certificate needs an exact copy in `team-c`: Kopia
+(`connection.go`) validates a Klio server's certificate by exact
+fingerprint, not by CA chain, regardless of who signed it, so
+kubernetes-reflector mirrors `klio-b-tls` *whole*, private key included,
+even though only the public half is ever used there.
+
+The OTel collector's own certificate needs no copying: since it's issued
+by the root CA, OTel's exporters validate it through normal CA-chain
+trust, so `team-c`/`team-d` only need the root CA's *public* certificate,
+delivered by trust-manager.
+
 ## Prerequisites
 
 A running Kubernetes cluster with the following operators installed:
@@ -48,56 +89,52 @@ A running Kubernetes cluster with the following operators installed:
 - CloudNativePG
 - Klio
 - cert-manager
+- kubernetes-reflector
+- trust-manager
 - OpenTelemetry
 - Prometheus
 
-`jq` must also be available locally (used by `multi/copy-cross-namespace-secrets.sh`
-and `multi/bootstrap-remote-server.sh`).
-
-All of `multi`'s client certificates (cluster-a's through cluster-d's) are
-issued through a `ClusterIssuer`, which always resolves its backing CA
-secret in cert-manager's `--cluster-resource-namespace`, regardless of
-which namespace the requesting `Certificate` lives in: this is a single,
-fixed lookup location for the whole cert-manager installation, not a
-per-request one, so it affects cluster-a's and cluster-b's certificates
-(both in `default`) exactly as much as cluster-c's and cluster-d's. This
-sample assumes that namespace is `default` (where `base/klio_server_ca.yaml`
-is deployed); see the next section for the command that configures it.
+`multi`'s `cluster-c` is a client of `klio-b`, whose CA/Issuer lives in
+`default`; kubernetes-reflector mirrors the resulting client certificate
+and `klio-b`'s own TLS certificate into `team-c` (Kopia validates the
+latter by exact fingerprint, so an exact copy is unavoidable). trust-manager
+delivers the root CA's public certificate into `team-c`/`team-d` as the
+OTel collector's trust anchor. See the next section for both install
+commands.
 
 ## Deploying a Kubernetes cluster with the required operators
 
-Assuming an environment with CloudNativePG, Klio and cert-manager
-created through the CloudNativePG `hack/setup-cluster.sh` script and
-the klio task
+Assuming a Kubernetes cluster with CloudNativePG and cert-manager already
+installed (e.g. via the CloudNativePG `hack/setup-cluster.sh` script),
+deploy Klio:
 
 ```shell
 KIND_CLUSTER_NAME=$(kind get clusters | grep pg-operator-e2e) task integration:deploy-to-kind
 ```
 
-That task's cert-manager install does not set `--cluster-resource-namespace`,
-so it defaults to the `cert-manager` namespace, not `default`. Reconfigure
-it, or every client certificate in this sample fails to issue:
+Then install everything else this sample needs: kubernetes-reflector
+(mirrors `cluster-c`'s client certificate and `klio-b`'s own TLS
+certificate from `default` into `team-c`), trust-manager (restricted to
+reading source secrets only from `cert-manager`, where the root CA's
+secret lives, with Secret targets enabled and authorized for the one
+secret this sample distributes), the OpenTelemetry operator, and
+Prometheus (via the CloudNativePG example configuration):
 
 ```shell
-helm upgrade cert-manager jetstack/cert-manager \
-  --namespace cert-manager --reuse-values \
-  --set clusterResourceNamespace=default
-```
-
-you can install the OpenTelemetry operator by running:
-
-```shell
-kubectl apply -f https://github.com/open-telemetry/opentelemetry-operator/releases/latest/download/opentelemetry-operator.yaml
-```
-
-You can install Prometheus using the Prometheus community Helm chart and
-the CloudNativePG example configuration:
-
-```shell
+helm repo add emberstack https://emberstack.github.io/helm-charts
 helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
-```
+helm repo update
 
-```shell
+helm upgrade --install reflector emberstack/reflector
+
+helm upgrade trust-manager oci://quay.io/jetstack/charts/trust-manager \
+  --install --namespace cert-manager --wait \
+  --set app.trust.namespace=cert-manager \
+  --set secretTargets.enabled=true \
+  --set secretTargets.authorizedSecrets='{otel-collector-ca}'
+
+kubectl apply -f https://github.com/open-telemetry/opentelemetry-operator/releases/latest/download/opentelemetry-operator.yaml
+
 helm upgrade --install \
   -f https://raw.githubusercontent.com/cloudnative-pg/cloudnative-pg/main/docs/src/samples/monitoring/kube-stack-config.yaml \
   prometheus-community prometheus-community/kube-prometheus-stack
@@ -118,50 +155,13 @@ kubectl apply -f operator/config/samples/opentelemetry/single/backups-example.ya
 
 ## Deploying the "multi" sample
 
-1. Deploy the two servers, the two same-namespace clusters (cluster-a,
-   cluster-b) and the shared OTel/Jaeger stack, all in `default`:
+```shell
+kubectl apply -k operator/config/samples/opentelemetry/multi
+```
 
-   ```shell
-   kubectl apply -k operator/config/samples/opentelemetry/multi
-   ```
-
-   Wait for `klio-a`, `klio-b`, `cluster-a` and `cluster-b` to become ready
-   before continuing.
-
-1. cluster-c's own client certificate is requested directly in `team-c`
-   through the cluster-scoped `klio-server-ca` `ClusterIssuer`, so it needs
-   no copying. klio-b's server certificate and the OTel collector's
-   certificate are pinned by exact bytes rather than CA-validated (see the
-   script's comments), so those still have to be copied from `default`
-   into the `team-c` namespace:
-
-   ```shell
-   ./operator/config/samples/opentelemetry/multi/copy-cross-namespace-secrets.sh
-   ```
-
-1. Deploy cluster-c into `team-c`:
-
-   ```shell
-   kubectl apply -k operator/config/samples/opentelemetry/multi/team-c
-   ```
-
-1. cluster-d's own client certificate is likewise requested directly in
-   `team-d` through the `klio-server-ca` `ClusterIssuer`. `team-d`'s server
-   (its own "klio-a") is independently self-signed rather than a copy of
-   `default`'s CA-issued certificate, but it still needs to validate
-   clients signed by the shared `klio-server-ca` and to export telemetry to
-   the shared collector. Copy the CA's public certificate and the OTel
-   collector's trust anchor into the `team-d` namespace:
-
-   ```shell
-   ./operator/config/samples/opentelemetry/multi/bootstrap-remote-server.sh team-d
-   ```
-
-1. Deploy cluster-d (and its own klio-a server) into `team-d`:
-
-   ```shell
-   kubectl apply -k operator/config/samples/opentelemetry/multi/team-d
-   ```
+This deploys `default` (klio-a/cluster-a, klio-b/cluster-b), `team-c`
+(cluster-c) and `team-d` (a second, independent klio-a, and cluster-d) in
+one shot.
 
 ## Validating the Grafana dashboard with the "multi" sample
 
@@ -176,8 +176,11 @@ Once all backups complete and Prometheus has scraped a metrics-collection
 cycle, open the Klio Grafana dashboard and confirm:
 
 - The `$namespace` variable offers `default`, `team-c` and `team-d`.
-- The `$server` variable offers `klio-a-klio-0` (twice, once per namespace)
-  and `klio-b-klio-0` (the value is each server's pod hostname).
+- The `$server` variable offers only `klio-a-klio-0` and `klio-b-klio-0`
+  (the value is each server's pod hostname): Grafana's variable query
+  dedupes identical label values, so the two independent `klio-a` servers
+  (`default` and `team-d`) collapse into a single, ambiguous entry — this
+  is the disambiguation gap described above, not a deployment error.
 - The `$cluster` variable offers `cluster-a`, `cluster-b`, `cluster-c` and
   `cluster-d`, and narrows correctly when `$namespace`/`$server` are
   filtered (e.g. selecting `$namespace=team-c` should only ever offer

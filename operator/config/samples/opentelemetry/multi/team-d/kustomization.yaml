@@ -1,19 +1,13 @@
-# Apply ../kustomization.yaml first, then run:
-#   ../bootstrap-remote-server.sh team-d
-# to populate the secrets this kustomization expects to already exist
-# (klio-server-ca, otel-collector-ca, klio-server-otel-client-tls), then
-# apply this one. Those three are all pinned-by-exact-bytes copies of
-# secrets that live in "default" (see the script's comments); cluster-d's
-# OWN client certificate (cluster_d_klio_client_auth.yaml) has no such
-# requirement, since it is signed by the cluster-scoped klio-server-ca
-# ClusterIssuer (see ../../base) and requested directly in this namespace.
+# klio-a-ca (client-cert CA) is generated locally, signed by this
+# namespace's own selfsigned-issuer (issuer.yaml); klio-a's own TLS
+# identity comes straight from the cluster-wide root CA's ClusterIssuer.
+# Only the OTel collector's trust anchor ("otel-collector-ca") arrives
+# from "default", via trust-manager.
 #
-# Reuses ../../single's Server and Cluster/PluginConfiguration (see
-# ../team-a for how that reuse looks). The server keeps the name "klio-a"
-# (same as ../team-a's), deliberately colliding with it: since a Server's
-# StatefulSet pod name equals the Server's own name, this second klio-a's
-# pod is ALSO named "klio-a-klio-0" -- an identical host_name to the
-# original, but in a different namespace. The cluster is named "cluster-d".
+# Reuses ../../single's Server/Cluster (see ../team-a). The server keeps
+# the name "klio-a" (same as ../team-a's) deliberately, colliding
+# host_names since a Server's pod name derives from its own name. The
+# cluster is "cluster-d".
 namespace: team-d
 resources:
   - namespace.yaml
@@ -36,6 +30,9 @@ patches:
         path: /spec/tlsSecretName
         value: klio-a-tls
       - op: replace
+        path: /spec/caSecretName
+        value: klio-a-ca
+      - op: replace
         path: /spec/template/spec/containers/0/env/2/value
         value: klio-server-a-team-d
       - op: replace
@@ -57,6 +54,29 @@ patches:
       - op: replace
         path: /spec/dnsNames
         value: [klio-a, klio-a.team-d, klio-a.team-d.svc]
+  - target:
+      kind: Certificate
+      name: klio-server-ca
+    patch: |-
+      - op: replace
+        path: /metadata/name
+        value: klio-a-ca
+      - op: replace
+        path: /spec/secretName
+        value: klio-a-ca
+      - op: replace
+        path: /spec/commonName
+        value: klio-a-ca
+  - target:
+      kind: Issuer
+      name: klio-server-ca
+    patch: |-
+      - op: replace
+        path: /metadata/name
+        value: klio-a-ca
+      - op: replace
+        path: /spec/ca/secretName
+        value: klio-a-ca
   - target:
       kind: Cluster
       name: cluster-example

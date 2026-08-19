@@ -1,0 +1,8 @@
+# ClusterIssuer backed by the root CA (see root_ca.yaml)
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: cluster-root-ca
+spec:
+  ca:
+    secretName: cluster-root-ca

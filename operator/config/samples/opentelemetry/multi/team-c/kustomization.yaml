@@ -1,26 +1,13 @@
-# Apply ../kustomization.yaml first, then run ../copy-cross-namespace-secrets.sh
-# to populate the secrets this kustomization expects to already exist
-# (klio-b-tls, otel-collector-ca, klio-server-otel-client-tls), then apply
-# this one.
-#
-# cluster-c reuses ../../single's Cluster/PluginConfiguration (see ../team-a
-# for how that reuse looks); it is backed by klio-b, which lives in the
-# "default" namespace, not here. This exercises a single Klio server
-# serving clusters from more than one namespace. serverSecretName above
-# (klio-b-tls) and the OTel client secret are NOT created by this
-# kustomization: klio-b's certificate is pinned by exact bytes rather than
-# CA-validated (see connection.go, referenced from
-# ../copy-cross-namespace-secrets.sh), so its public half has to be copied
-# in from "default" by that script, which must be run before applying this
-# kustomization. cluster-c's OWN client certificate
-# (cluster_c_klio_client_auth.yaml) has no such requirement: it is signed
-# by the cluster-scoped klio-server-ca ClusterIssuer (see ../../base) and
-# requested directly in this namespace.
+# cluster-c reuses ../../single's Cluster/PluginConfiguration, backed by
+# klio-b in "default" (see ../team-a for how the reuse looks). Its client
+# certificate (../team-b/cluster_c_klio_client_auth.yaml) and klio-b's own
+# TLS certificate (klio-b-tls) arrive via kubernetes-reflector; the OTel
+# collector's trust anchor arrives as "otel-collector-ca" via
+# trust-manager (see ../../base/otel_collector_ca_bundle.yaml).
 namespace: team-c
 resources:
   - namespace.yaml
   - cluster_klio_otel_config.yaml
-  - cluster_c_klio_client_auth.yaml
   - ../../single/cluster
 patches:
   - target:

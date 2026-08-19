@@ -1,0 +1,8 @@
+# Self-signed issuer for the root CA (see root_ca.yaml).
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  name: selfsigned-issuer
+  namespace: cert-manager
+spec:
+  selfSigned: {}

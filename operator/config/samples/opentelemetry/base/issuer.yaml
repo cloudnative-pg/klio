@@ -1,4 +1,5 @@
-# cert-manager self-signed issuer, used to generate the certificates in this example.
+# Self-signed issuer for each default-namespace server's client-cert CA
+# (see ../single/server/klio_ca.yaml).
 apiVersion: cert-manager.io/v1
 kind: Issuer
 metadata:

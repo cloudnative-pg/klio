@@ -15,5 +15,5 @@ spec:
 
   issuerRef:
     name: klio-server-ca
-    kind: ClusterIssuer
+    kind: Issuer
     group: cert-manager.io

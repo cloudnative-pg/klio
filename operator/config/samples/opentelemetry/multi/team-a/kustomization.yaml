@@ -1,12 +1,11 @@
-# Instantiates ../../single's Klio server and CNPG cluster a second time,
-# as "klio-a"/"cluster-a" in the "default" namespace. Only the fields that
-# derive from the resource's own name are patched here; everything else
-# (PVC templates, volumes, cert usages/issuerRef, plugin container list...)
-# is inherited unchanged from ../../single.
+# Instantiates ../../single's server/cluster as "klio-a"/"cluster-a" in
+# "default". Only name-derived fields are patched; the rest, including its
+# own CA (klio-a-ca), is inherited unchanged.
 namespace: default
 resources:
   - ../../single/server
   - ../../single/cluster
+  - cluster_a_klio_client_auth.yaml
 patches:
   - target:
       kind: Server
@@ -18,6 +17,9 @@ patches:
       - op: replace
         path: /spec/tlsSecretName
         value: klio-a-tls
+      - op: replace
+        path: /spec/caSecretName
+        value: klio-a-ca
       - op: replace
         path: /spec/template/spec/containers/0/env/2/value
         value: klio-server-a
@@ -37,6 +39,29 @@ patches:
       - op: replace
         path: /spec/dnsNames
         value: [klio-a, klio-a.default, klio-a.default.svc]
+  - target:
+      kind: Certificate
+      name: klio-server-ca
+    patch: |-
+      - op: replace
+        path: /metadata/name
+        value: klio-a-ca
+      - op: replace
+        path: /spec/secretName
+        value: klio-a-ca
+      - op: replace
+        path: /spec/commonName
+        value: klio-a-ca
+  - target:
+      kind: Issuer
+      name: klio-server-ca
+    patch: |-
+      - op: replace
+        path: /metadata/name
+        value: klio-a-ca
+      - op: replace
+        path: /spec/ca/secretName
+        value: klio-a-ca
   - target:
       kind: Cluster
       name: cluster-example

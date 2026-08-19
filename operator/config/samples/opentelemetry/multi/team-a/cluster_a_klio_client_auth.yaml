@@ -1,10 +1,10 @@
 apiVersion: cert-manager.io/v1
 kind: Certificate
 metadata:
-  name: cluster-b-klio-user
+  name: cluster-a-klio-user
 spec:
-  commonName: klio@cluster-b
-  secretName: cluster-b-klio-user
+  commonName: klio@cluster-a
+  secretName: cluster-a-klio-user
 
   duration: 2160h # 90d
   renewBefore: 360h # 15d
@@ -14,6 +14,6 @@ spec:
     - client auth
 
   issuerRef:
-    name: klio-server-ca
-    kind: ClusterIssuer
+    name: klio-a-ca
+    kind: Issuer
     group: cert-manager.io

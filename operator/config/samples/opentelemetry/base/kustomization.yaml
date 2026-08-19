@@ -1,7 +1,8 @@
-# Shared infrastructure for both the "single" and "multi" OpenTelemetry
-# samples: the OTel collector, Jaeger, the self-signed CA/issuer chain, the
-# shared encryption identity, and the default-namespace OTel ConfigMaps used
-# by the Klio server(s) and cluster(s) that live in "default".
+# Shared infrastructure for "single" and "multi": the OTel collector,
+# Jaeger, the root CA/ClusterIssuer for server-identity certificates (see
+# root_ca.yaml), the selfsigned-issuer for each default-namespace server's
+# client-cert CA (see ../single/server), the shared encryption identity,
+# and the default-namespace OTel ConfigMaps.
 #
 # REQUIRES:
 # kubectl apply -f https://github.com/open-telemetry/opentelemetry-operator/releases/latest/download/opentelemetry-operator.yaml
@@ -10,13 +11,14 @@ resources:
   - issuer.yaml
   - jaeger.yaml
   - klio_encryption.yaml
-  - klio_server_ca.yaml
-  - klio_server_ca_issuer.yaml
-  - klio_server_otel_client_certificate.yaml
   - klio_server_otel_config.yaml
   - otel_collector.yaml
+  - otel_collector_ca_bundle.yaml
   - otel_collector_certificate.yaml
   - otel_collector_clusterrole.yaml
   - otel_collector_clusterrolebinding.yaml
   - otel_collector_sa.yaml
   - otel_collector_svc_monitor.yaml
+  - root_ca.yaml
+  - root_ca_cluster_issuer.yaml
+  - root_ca_issuer.yaml
