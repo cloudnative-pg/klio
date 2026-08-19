@@ -1,13 +1,13 @@
 module github.com/cloudnative-pg/klio/operator
 
-go 1.26.5
+go 1.26.6
 
 require (
 	filippo.io/age v1.3.1
 	github.com/cert-manager/cert-manager v1.21.1
 	github.com/cloudnative-pg/api v1.30.0
 	github.com/cloudnative-pg/cloudnative-pg v1.30.0
-	github.com/cloudnative-pg/cloudnative-pg/tests v0.0.0-20260813085452-0603a9caadfe
+	github.com/cloudnative-pg/cloudnative-pg/tests v0.0.0-20260815054937-011ba50586cf
 	github.com/cloudnative-pg/cnpg-i v0.6.0
 	github.com/cloudnative-pg/cnpg-i-machinery v0.4.2
 	github.com/cloudnative-pg/machinery v0.5.1-0.20260806070238-63039051f683
