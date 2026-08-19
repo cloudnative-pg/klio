@@ -9,6 +9,12 @@ It has special integrations for CloudNativePG on Kubernetes, but should
 work with any PostgreSQL setup.
 It consists of two main Go modules in a monorepo structure.
 
+Klio is part of the [CloudNativePG](https://cloudnative-pg.io) project, a
+Cloud Native Computing Foundation (CNCF) Sandbox project. Org-wide
+contribution guidelines, Code of Conduct, and the AI-assistance policy live in
+[`cloudnative-pg/governance`](https://github.com/cloudnative-pg/governance)
+and apply here as the baseline.
+
 ## Build System
 
 This project uses [Task](https://taskfile.dev/) (not Make) as the primary build system. The main `Taskfile.yml` is in the repository root.
@@ -234,6 +240,11 @@ cached index, run tests, then revert.
     Co-Authored-By: Name <email>
     Signed-off-by: Name <email>
     ```
+- Per the [CNPG AI Policy](https://github.com/cloudnative-pg/governance/blob/main/AI_POLICY.md),
+  commits with significant AI assistance must also carry an
+  `Assisted-by: <tool name>` trailer (e.g. `Assisted-by: Claude`), separated
+  from `Signed-off-by` by a blank line. `git commit -s` alone does not add
+  this (write both trailers out explicitly).
 - Before committing, run:
   - `golangci-lint run` in `core/`
   - `golangci-lint run` in `operator/`
