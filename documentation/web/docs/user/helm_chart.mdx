@@ -21,78 +21,13 @@ The Klio Operator must reside in the same namespace as the CloudNativePG
 operator.
 :::
 
-## Prerequisites
-
-Before installing the Klio Operator, ensure you have:
-
-- **Helm** – see the [Helm installation guide](https://helm.sh/docs/intro/install/)
-- **Kubernetes** cluster with appropriate permissions
-- **CloudNativePG Operator** already installed in your Kubernetes cluster.
-  See the [CloudNativePG installation guide](https://cloudnative-pg.io/documentation/current/installation_upgrade/).
-- **cert-manager** (optional, but strongly recommended for managing TLS certificates).
-  See the [cert-manager installation guide](https://cert-manager.io/docs/installation/).
-- **Prometheus Operator** (optional, for operator monitoring).
-  See the [Prometheus Operator installation guide](https://prometheus-operator.dev/docs/getting-started/installation/).
-
 ## Installation
 
-### Step 1: Create a values file
+For installation instructions, including the prerequisites and the
+`helm install` command, follow the [Quickstart](quickstart.md).
 
-Create a `values.yaml` file with your configuration, if you need to
-override some default values. If you have not
-installed cert-manager or the Prometheus Operator, disable them to
-avoid errors during installation:
-
-```yaml
-# Uncomment if cert-manager is not installed
-# certmanager:
-#   enable: false
-
-# Uncomment if the Prometheus Operator is not installed
-# prometheus:
-#   enable: false
-```
-
-See the [Configuration](#configuration) section for the full list of
-available parameters. You will reuse this file for future upgrades.
-
-### Step 2: Install the Helm Chart
-
-Deploy the Klio Operator to your cluster:
-
-<!-- x-release-please-start-version -->
-```sh
-helm install klio-operator \
-  oci://ghcr.io/cloudnative-pg/klio-operator-chart \
-  --version 0.0.20 \
-  --namespace cnpg-system \
-  -f values.yaml
-```
-<!-- x-release-please-end -->
-
-### Step 3: Verify Installation
-
-After installation, verify that the Klio Operator is running:
-
-```sh
-kubectl get pods -n cnpg-system -l app.kubernetes.io/name=klio
-```
-
-You should see the operator pod in a `Running` state. Check the logs to ensure
-there are no errors:
-
-```sh
-kubectl logs -n cnpg-system -l app.kubernetes.io/name=klio -f
-```
-
-Verify that the Custom Resource Definitions (CRDs) were created:
-
-```sh
-kubectl get crds | grep klio.cnpg.io
-```
-
-You should see CRDs like `servers.klio.cnpg.io` and
-`pluginconfigurations.klio.cnpg.io`.
+This page is the reference for the chart itself: its configuration
+parameters, the upgrade procedure and how to uninstall it.
 
 ## Configuration
 
@@ -191,7 +126,8 @@ rm -rf klio-operator-chart
 ### Upgrade the Operator
 
 To upgrade the Klio Operator to a newer version, run the following
-Helm upgrade command:
+Helm upgrade command, reusing the `values.yaml` file you created when
+[installing the operator](quickstart.md#step-1-install-the-klio-operator):
 
 <!-- x-release-please-start-version -->
 ```sh

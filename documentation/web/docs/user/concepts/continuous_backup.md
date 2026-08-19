@@ -1,8 +1,11 @@
 ---
-sidebar_position: 2
+sidebar_position: 1
+description: >-
+  The PostgreSQL backup model Klio builds on: the WAL archive, physical
+  base backups and point-in-time recovery, and how Klio implements each.
 ---
 
-# Main Concepts
+# PostgreSQL Backup and Recovery
 
 Klio is built on top of two foundational technologies:
 
@@ -44,7 +47,7 @@ In a PostgreSQL backup solution, the infrastructure typically consists of:
 The diagram below illustrates the relationship between physical base backups
 and the WAL archive over time:
 
-![Physical backups, WAL archive, and time](images/basebackups_walarchive.png)
+![Physical backups, WAL archive, and time](../images/basebackups_walarchive.png)
 
 
 ---

@@ -1,5 +1,8 @@
 ---
-sidebar_position: 4
+sidebar_position: 3
+description: >-
+  How Klio streams WAL records from the PostgreSQL primary in real time,
+  and why that replaces the traditional archive command.
 ---
 
 # WAL Streaming
@@ -29,9 +32,9 @@ It continuously pushes data to a remote Klio WAL server (Tier 1), which handles
 partial WAL file synchronization and archives completed segments into the
 central WAL archive for the PostgreSQL cluster.
 
-![WAL streaming architectural overview](images/wal-streaming.png)
+![WAL streaming architectural overview](../images/wal-streaming.png)
 
-## Moving Beyond `archive_command`
+## Moving beyond `archive_command`
 
 Klio replaces the traditional PostgreSQL `archive_command` method for WAL
 handling in CloudNativePG clusters, providing improved reliability, efficiency,
@@ -62,7 +65,7 @@ approach:
   monitoring, anomaly detection, and troubleshooting compared to the opaque
   nature of `archive_command`.
 
-## Monitoring Klio WAL Streamer in PostgreSQL
+## Monitoring Klio WAL streamer in PostgreSQL
 
 The Klio WAL streamer is a PostgreSQL streaming replication client and,
 as such, can be monitored using the standard `pg_stat_replication`
@@ -79,8 +82,6 @@ SELECT * FROM pg_stat_replication WHERE application_name = 'klio';
 ```
 
 An example output might look like this:
-
-The following excerpt is an a example:
 
 ```console
 -[ RECORD 1 ]----+------------------------------

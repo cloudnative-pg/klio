@@ -1,5 +1,5 @@
 ---
-sidebar_position: 8
+sidebar_position: 9
 ---
 
 # Managing Storage
@@ -100,7 +100,7 @@ a larger value:
 apiVersion: klio.cnpg.io/v1alpha1
 kind: Server
 metadata:
-  name: my-server
+  name: klio-server
 spec:
   tier1:
     data:
@@ -171,13 +171,13 @@ resource when a PVC is successfully expanded. You can view these events
 with:
 
 ```bash
-kubectl describe server my-server
+kubectl describe server klio-server
 ```
 
 Check the PVC status to monitor the resize operation:
 
 ```bash
-kubectl get pvc -l klio.cnpg.io/klio-server=my-server
+kubectl get pvc -l klio.cnpg.io/klio-server=klio-server
 ```
 
 The PVC will show the new requested size in
@@ -187,7 +187,7 @@ The PVC will show the new requested size in
 For detailed status, including any resize conditions:
 
 ```bash
-kubectl describe pvc data-my-server-klio-0
+kubectl describe pvc data-klio-server-klio-0
 ```
 
 #### Limitations
@@ -230,9 +230,9 @@ and running maintenance manually.
 1. **Delete old backups:**
 
    ```bash
-   kubectl exec -it my-server-klio-0 -- \
+   kubectl exec -it klio-server-klio-0 -- \
      klio admin delete-backup <oldest-backup-name> \
-       --cluster my-cluster --tier1
+       --cluster cluster-example --tier1
    ```
 
    To delete from both tiers, add `--tier2`.

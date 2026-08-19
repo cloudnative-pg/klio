@@ -1,5 +1,5 @@
 ---
-sidebar_position: 5
+sidebar_position: 6
 ---
 
 # The Klio Server
@@ -150,307 +150,13 @@ default). Account for this when estimating your WAL segment rate.
 
 ## Setting up a new Klio server
 
-Setting up a Klio server involves creating a `Server` resource along with the
-required Kubernetes secrets and certificates.
+The [Quickstart](quickstart.md) walks through a complete minimal
+setup: the encryption key, the certificates, a Tier 1 `Server` and a
+PostgreSQL cluster streaming to it. Start there.
 
-### Prerequisites
-
-Before setting up a Klio server, ensure you have:
-
-- A Kubernetes cluster with the Klio operator installed
-- `kubectl` configured to access your cluster
-- [cert-manager](https://cert-manager.io/) installed for certificate
-  management (recommended)
-- [Age](https://github.com/FiloSottile/age) CLI installed locally
-  (for encrypting the backup encryption key)
-- Enough storage resources for the data and cache PersistentVolumeClaims
-- Enough storage resources for the queue PersistentVolumeClaim
-
-### Required Components
-
-A Klio server setup requires the following components:
-
-1. **Server Resource**: The main `Server` custom resource
-1. **TLS Certificate**: For secure communication
-1. **Encryption Key**: Age-encrypted key for backup data at rest
-1. **CA Certificate**: For client authentication via mTLS
-1. **Storage**: PersistentVolumeClaims for data, cache, and queue
-
-### Step-by-step setup
-
-#### 1. Create the Encryption Key
-
-The encryption key is used to encrypt backup data at rest.
-Klio uses [Age](https://github.com/FiloSottile/age) encryption
-to protect the key, enabling credential rotation without
-touching the Kopia repository.
-
-See the [Age Encryption](#age-encryption) section for full
-setup details. In summary:
-
-1. Generate an Age key pair (`age-keygen -o identity.txt`)
-2. Generate and encrypt a random key
-   (`openssl rand -hex 32 | age -r <pubkey> -o key.age`)
-3. Create Kubernetes Secrets for both files
-4. Reference them in the Server spec
-
-:::tip
-Use a strong, randomly generated key. This key is critical
-for data security and recovery.
-:::
-
-#### 2. Create CA Certificate
-
-Using cert-manager, a CA certificate can be created by using the following
-Certificate resource:
-
-```yaml
----
-apiVersion: cert-manager.io/v1
-kind: Issuer
-metadata:
-  name: selfsigned-issuer
-  namespace: default
-spec:
-  selfSigned: { }
----
-apiVersion: cert-manager.io/v1
-kind: Certificate
-metadata:
-  name: server-sample-ca
-spec:
-  commonName: server-sample-ca
-  secretName: server-sample-ca
-
-  duration: 2160h # 90d
-  renewBefore: 360h # 15d
-
-  isCA: true
-  usages:
-    - cert sign
-
-  issuerRef:
-    name: selfsigned-issuer
-    kind: Issuer
-    group: cert-manager.io
-```
-
-Apply the CA configuration with:
-
-```bash
-kubectl apply -f ca-configuration.yaml
-```
-
-In the previous example, the CA to be used for authentication is signed by a
-self-signed issuer. This doesn't pose any security issue as this CA is only
-used internally and trust is established through configuration.
-
-The primary concern is the relationship between the client and the certificates
-signed by the CA.
-
-:::info
-The usage of a self-signed CA is not required by the Klio server. If your
-PKI infrastructure already includes a CA for this scope, that CA can be used
-for the Klio server, too.
-:::
-
-#### 3. Create TLS Certificate
-
-Using cert-manager, create a self-signed certificate (for development) or use
-your organization's certificate issuer:
-
-```yaml
----
-apiVersion: cert-manager.io/v1
-kind: Issuer
-metadata:
-  name: selfsigned-issuer
-  namespace: default
-spec:
-  selfSigned: { }
----
-apiVersion: cert-manager.io/v1
-kind: Certificate
-metadata:
-  name: my-server-cert
-  namespace: default
-spec:
-  secretName: my-server-tls
-  commonName: my-server
-  dnsNames:
-    - my-server
-    - my-server.default
-    - my-server.default.svc
-    - my-server.default.svc.cluster.local
-  duration: 2160h # 90 days
-  renewBefore: 360h # 15 days
-  isCA: false
-  usages:
-    - server auth
-  issuerRef:
-    name: selfsigned-issuer
-    kind: Issuer
-    group: cert-manager.io
-```
-
-Apply the certificate configuration:
-
-```bash
-kubectl apply -f tls-certificate.yaml
-```
-
-:::info
-For production environments, use certificates signed by your organization's
-Certificate Authority (CA) or a trusted public CA instead of self-signed
-certificates.
-:::
-
-#### 4. Create the Server Resource
-
-Now create the main `Server` resource:
-
-<!-- x-release-please-start-version -->
-```yaml
-apiVersion: klio.cnpg.io/v1alpha1
-kind: Server
-metadata:
-  name: my-server
-  namespace: default
-spec:
-  # Container image for the Klio server
-  image: ghcr.io/cloudnative-pg/klio:v0.0.20
-  imagePullPolicy: IfNotPresent
-  imagePullSecrets: []  # Add image pull secrets if needed
-
-  # TLS configuration
-  tlsSecretName: my-server-tls
-
-  # Client authentication configuration
-  caSecretName: server-sample-ca
-
-  # Mode: standard (default) or read-only
-  # Omit this field or set to "standard" for normal read-write operation
-  # Set to "read-only" for DR/restore-only servers (see Read-Only Mode section)
-  # mode: standard
-
-  # tier 1 configuration
-  tier1:
-    # Cache storage configuration
-    cache:
-      pvcTemplate:
-        storageClassName: standard  # Adjust to your storage class (use 'kubectl get storageclass' to see available options)
-        accessModes:
-          - ReadWriteOnce
-        resources:
-          requests:
-            storage: 10Gi  # Adjust based on your needs
-    # Data storage pvcTemplate (for backups and WAL)
-    data:
-      pvcTemplate:
-        storageClassName: standard  # Adjust to your storage class (use 'kubectl get storageclass' to see available options)
-        accessModes:
-          - ReadWriteOnce
-        resources:
-          requests:
-            storage: 100Gi  # Adjust based on your backup needs
-    # Age-encrypted encryption key file
-    encryptionKeyFile:
-      fileReference:
-        volume:
-          secret:
-            secretName: my-server-encryption-key
-        path: encryption-key.age
-    # Age identity file for decryption
-    identityFile:
-      fileReference:
-        volume:
-          secret:
-            secretName: my-server-age-identity
-        path: identity.txt
-
-  # Queue storage configuration (for NATS work queue)
-  # Required when tier1 is configured
-  # See "Queue Sizing Guidelines" section for recommendations
-  queue:
-    pvcTemplate:
-      storageClassName: standard  # Adjust to your storage class
-      accessModes:
-        - ReadWriteOnce
-      resources:
-        requests:
-          storage: 50Mi  # See Queue Sizing Guidelines; 50Mi suits most workloads
-
-  # tier 2 configuration
-  tier2:
-    # Cache storage configuration
-    cache:
-      pvcTemplate:
-        resources:
-          requests:
-            storage: 1Gi
-        accessModes:
-          - ReadWriteOnce
-    # Age-encrypted encryption key file
-    encryptionKeyFile:
-      fileReference:
-        volume:
-          secret:
-            secretName: my-server-encryption-key
-        path: encryption-key.age
-    # Age identity file for decryption
-    identityFile:
-      fileReference:
-        volume:
-          secret:
-            secretName: my-server-age-identity
-        path: identity.txt
-    # S3 access configuration
-    s3:
-      prefix: klio
-      bucketName: klio-bucket
-      endpoint: https://rustfs:9000
-      region: us-east-1
-      accessKeyId:
-        name: rustfs
-        key: RUSTFS_ACCESS_KEY
-      secretAccessKey:
-        name: rustfs
-        key: RUSTFS_SECRET_KEY
-      customCaBundle:
-        name: rustfs-tls
-        key: tls.crt
-```
-<!-- x-release-please-end -->
-
-The example above uses credential-based S3 authentication. For alternative
-authentication methods (IAM roles, IRSA, Pod Identity) and S3-compatible
-storage providers, see the [Object Store](#object-store) section.
-
-Apply the Server resource:
-
-```bash
-kubectl apply -f klio-server.yaml
-```
-
-#### 5. Verify the Server is Running
-
-Check the status of your Klio server:
-
-```bash
-# Check the Server resource status
-kubectl get server my-server -n default
-
-# Check the StatefulSet
-kubectl get statefulset my-server-klio -n default
-
-# Check the Pod
-kubectl get pods -l klio.cnpg.io/klio-server=my-server -n default
-
-# View logs
-kubectl logs -l klio.cnpg.io/klio-server=my-server -n default -f
-```
-
-The server should create a StatefulSet with a pod named `my-server-klio-0`.
+The rest of this page is the reference for the `Server` resource — the
+storage tiers and how to size them, read-only servers, object storage,
+encryption and authentication.
 
 ## Read-Only Mode
 
@@ -504,7 +210,7 @@ spec:
   tlsSecretName: dr-server-tls
 
   # Client authentication configuration
-  caSecretName: server-sample-ca
+  caSecretName: klio-server-ca
 
   # Tier 2 configuration (required for read-only mode)
   tier2:
@@ -560,7 +266,7 @@ source through a PluginConfiguration. The server will fetch backups and WAL
 files from Tier 2 object storage transparently.
 
 See the Read-Only Server Mode section in the
-[Architectures](architectures.md) documentation for detailed use cases and
+[Architectures](concepts/architectures.md) documentation for detailed use cases and
 architectural patterns.
 
 ### Restrictions
@@ -617,7 +323,7 @@ spec:
                     operator: Exists
 ```
 
-See [Reserving Nodes for Klio Workloads](architectures.md#reserving-nodes-for-klio-workloads)
+See [Reserving Nodes for Klio Workloads](concepts/architectures.md#reserving-nodes-for-klio-workloads)
 for details on node tainting.
 
 ### Monitoring
@@ -813,33 +519,12 @@ This enables:
 - **Offline operations** — re-encryption can be done with the
   standard `age` CLI.
 
-#### Setup
+#### Referencing the key files
 
-1. Generate an Age key pair:
+To generate the Age key pair and the encrypted encryption key, see
+[Create the encryption key](quickstart.md#step-2-create-the-encryption-key).
 
-```bash
-age-keygen -o identity.txt
-# Public key: age1ql3z7hjy54pw3hyww5ayyfg7zqgvc7w3j2elw8zmrj2kg5sfn9aqmcac8p
-```
-
-2. Generate a random encryption key and encrypt it:
-
-```bash
-openssl rand -hex 32 | age \
-    -r age1ql3z7hjy54pw3hyww5ayyfg7zqgvc7w3j2elw8zmrj2kg5sfn9aqmcac8p \
-    -o encryption-key.age
-```
-
-3. Create Kubernetes Secrets for both files:
-
-```bash
-kubectl create secret generic klio-encryption-key-age \
-    --from-file=encryption-key.age
-kubectl create secret generic klio-age-identity \
-    --from-file=identity.txt
-```
-
-4. Reference them in the Server spec:
+Once the Secrets exist, reference them in the Server spec:
 
 ```yaml
 tier1:
@@ -927,42 +612,24 @@ the Klio server.
 
 ### Creating a client-side certificate
 
-To create a client-side certificate, you need a issuer that will sign all the
-certificates with a CA known by the Klio server. Supposing that such a issuer is
-called `server-sample-ca` and available in the current namespace, you can create
-a client certificate with the following Certificate object:
+A client certificate is accepted by the Klio server when it satisfies
+all of the following:
 
-```yaml
-apiVersion: cert-manager.io/v1
-kind: Certificate
-metadata:
-  name: client-sample-tls
-spec:
-  secretName: client-sample-tls
-  commonName: klio@cluster-1
+- It is signed by the CA whose secret is referenced by
+  `.spec.caSecretName` on the `Server`. In practice this means signing
+  it with a cert-manager `Issuer` backed by that CA secret.
+- It carries the `client auth` usage.
+- Its Common Name has the form `userName@hostName`. The host part
+  identifies the cluster whose backups and WAL archive the client may
+  access, and must match the `clusterName` of the
+  `PluginConfiguration` using it.
 
-  duration: 2160h # 90d
-  renewBefore: 360h # 15d
+The host part of the Common Name is load bearing. For Tier 1 base
+backups a mismatch is rejected at connection time; for WAL streaming it
+is not currently detected and can lead to WAL files being stored under
+the wrong cluster path. See
+[Cluster name override](plugin_configuration.md#cluster-name-override).
 
-  isCA: false
-  usages:
-    - client auth
-
-  issuerRef:
-    name: server-sample-ca
-    kind: Issuer
-    group: cert-manager.io
-```
-
-If used the example proposed in the [server configuration documentation
-page](#2-create-ca-certificate), the issuer can be created with:
-
-```yaml
-apiVersion: cert-manager.io/v1
-kind: Issuer
-metadata:
-  name: server-sample-ca
-spec:
-  ca:
-    secretName: server-sample-ca
-```
+For a worked example creating the CA, the CA-backed issuer and a client
+certificate together, see
+[Create the certificates](quickstart.md#step-3-create-the-certificates).

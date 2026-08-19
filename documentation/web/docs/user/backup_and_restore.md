@@ -1,5 +1,5 @@
 ---
-sidebar_position: 7
+sidebar_position: 8
 ---
 
 # Backup and Restore
@@ -28,10 +28,12 @@ recovery procedures.
 
 ## Prerequisites
 
-Before performing backup and restore operations, ensure you have:
-
-- A running [Klio server](./klio_server.md) with proper configuration
-- A PostgreSQL cluster configured with the [Klio plugin](./plugin_configuration.md)
+Before performing backup and restore operations, you need a running
+Klio server and a PostgreSQL cluster configured with the Klio plugin.
+The [Quickstart](./quickstart.md) sets both up from scratch; see
+[The Klio Server](./klio_server.md) and
+[The Klio Plugin](./plugin_configuration.md) for the full
+configuration reference.
 
 ## Taking a Backup
 
@@ -48,13 +50,13 @@ You can trigger a new backup by creating a `Backup` resource.
 apiVersion: postgresql.cnpg.io/v1
 kind: Backup
 metadata:
-  name: my-cluster-backup-20251027
+  name: cluster-example-backup-20251027
   namespace: default
 spec:
   method: plugin
   target: primary
   cluster:
-    name: my-cluster
+    name: cluster-example
   pluginConfiguration:
     name: klio.cnpg.io
 ```
@@ -69,7 +71,7 @@ Alternatively, you can request a backup directly using the
  [`kubectl cnpg` plugin](https://cloudnative-pg.io/documentation/current/kubectl-plugin/#requesting-a-new-physical-backup):
 
 ```bash
-kubectl cnpg backup my-cluster \
+kubectl cnpg backup cluster-example \
   --method plugin \
   --plugin-name klio.cnpg.io \
   --backup-target primary
@@ -91,17 +93,17 @@ Check the backup status:
 
 ```bash
 # Watch the backup status
-kubectl get backup my-cluster-backup-20251027 -w
+kubectl get backup cluster-example-backup-20251027 -w
 
 # Get detailed backup information
-kubectl describe backup my-cluster-backup-20251027
+kubectl describe backup cluster-example-backup-20251027
 ```
 
 A successful backup will show:
 
 ```
-NAME                          AGE   CLUSTER      METHOD   PHASE       ERROR
-my-cluster-backup-20251027    2m    my-cluster   plugin   Completed
+NAME                             AGE   CLUSTER           METHOD   PHASE       ERROR
+cluster-example-backup-20251027  2m    cluster-example   plugin   Completed
 ```
 
 ### Scheduled Backups
@@ -113,7 +115,7 @@ You can schedule automatic backups using CloudNativePG's
 apiVersion: postgresql.cnpg.io/v1
 kind: ScheduledBackup
 metadata:
-  name: my-cluster-daily-backup
+  name: cluster-example-daily-backup
   namespace: default
 spec:
   # Cron schedule: daily at 2:00 AM
@@ -121,7 +123,7 @@ spec:
   method: plugin
   target: primary
   cluster:
-    name: my-cluster
+    name: cluster-example
   pluginConfiguration:
     name: klio.cnpg.io
 ```
@@ -195,7 +197,7 @@ To restore from a backup, create a new `Cluster` resource with a
 apiVersion: postgresql.cnpg.io/v1
 kind: Cluster
 metadata:
-  name: my-restored-cluster
+  name: cluster-restore
   namespace: default
 spec:
   instances: 3
@@ -205,8 +207,8 @@ spec:
     recovery:
       source: source
       # OPTIONAL: Specify the backup to restore from
-      recoveryTarget:
-        backupID: my-cluster-backup-YYYYMMDDHHMMSS
+      # recoveryTarget:
+      #   backupID: cluster-example-backup-YYYYMMDDHHMMSS
 
   # Reference the Klio plugin configuration
   externalClusters:
@@ -214,7 +216,7 @@ spec:
       plugin:
         name: klio.cnpg.io
         parameters:
-          pluginConfigurationRef: my-restore-config
+          pluginConfigurationRef: klio-restore-config
 
   storage:
     size: 10Gi
@@ -232,21 +234,22 @@ restore:
 apiVersion: klio.cnpg.io/v1alpha1
 kind: PluginConfiguration
 metadata:
-  name: my-restore-config
+  name: klio-restore-config
   namespace: default
 spec:
   # Connection details
   serverAddress: klio-server.default
-  clientSecretName: my-client-credentials
+  clientSecretName: cluster-example-klio-user
   serverSecretName: klio-server-tls
 
   # Required: the name of the original cluster that was backed up
-  clusterName: my-cluster
+  clusterName: cluster-example
 ```
 
-The client credentials secret (`my-client-credentials`) should contain the
-necessary authentication information to access the Klio server, as described
-in the [Klio plugin configuration guide](./plugin_configuration.md#client-credentials-secret).
+The client credentials secret (`cluster-example-klio-user`) should contain the
+necessary authentication information to access the Klio server. See the
+[Klio plugin configuration guide](./plugin_configuration.md#client-credentials-secret)
+for the requirements a client secret must satisfy.
 
 :::note
 The `clusterName` field in the `PluginConfiguration` and the `commonName`
@@ -279,7 +282,7 @@ Restore to a specific timestamp:
 apiVersion: postgresql.cnpg.io/v1
 kind: Cluster
 metadata:
-  name: my-pitr-cluster
+  name: cluster-pitr
 spec:
   bootstrap:
     recovery:
