@@ -10,8 +10,8 @@ PostgreSQL cluster streaming its WAL files and base backups to it.
 
 Follow the steps in order — each one builds on the previous.
 
-:::info
-This is a deliberately minimal setup. It uses self-signed
+:::important
+**This is a deliberately minimal setup**. It uses self-signed
 certificates, a single PostgreSQL instance and Tier 1 storage only.
 See [Next steps](#next-steps) for the reference documentation covering
 object storage, retention, sizing and production concerns.
