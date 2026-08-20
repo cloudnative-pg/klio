@@ -5,6 +5,7 @@ linters:
     - mnd
     - depguard
     - exhaustruct
+    - exhaustruct_v5
     - funlen
     - paralleltest
     - testpackage
