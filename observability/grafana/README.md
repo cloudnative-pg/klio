@@ -91,7 +91,7 @@ helm upgrade --install \
 Make Prometheus scrape Klio's metrics by deploying a `ServiceMonitor` — or a
 `PodMonitor` if the collector's `Service` has no labels — for the OTel
 collector (see
-[`operator/config/samples/opentelemetry/otel_collector_svc_monitor.yaml`](../../operator/config/samples/opentelemetry/otel_collector_svc_monitor.yaml)
+[`operator/config/samples/opentelemetry/base/otel_collector_svc_monitor.yaml`](../../operator/config/samples/opentelemetry/base/otel_collector_svc_monitor.yaml)
 and the [OpenTelemetry guide](../../documentation/web/docs/user/opentelemetry.md)).
 
 Port-forward Grafana (log in with `admin` / `prom-operator`):

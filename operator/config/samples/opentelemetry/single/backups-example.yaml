@@ -1,0 +1,16 @@
+# Triggers one base backup on cluster-example, so the Grafana dashboard has
+# backup/snapshot data to show. Apply after cluster-example is healthy:
+#
+#   kubectl apply -f operator/config/samples/opentelemetry/single/backups-example.yaml
+apiVersion: postgresql.cnpg.io/v1
+kind: Backup
+metadata:
+  name: cluster-example-backup-1
+  namespace: default
+spec:
+  method: plugin
+  target: primary
+  cluster:
+    name: cluster-example
+  pluginConfiguration:
+    name: klio.cnpg.io

@@ -1,23 +1,19 @@
 apiVersion: cert-manager.io/v1
 kind: Certificate
 metadata:
-  name: klio-server
+  name: cluster-a-klio-user
 spec:
-  secretName: klio-server-tls
-  commonName: klio
-  dnsNames:
-    - klio
-    - klio.default
-    - klio.default.svc
+  commonName: klio@cluster-a
+  secretName: cluster-a-klio-user
 
   duration: 2160h # 90d
   renewBefore: 360h # 15d
 
   isCA: false
   usages:
-    - server auth
+    - client auth
 
   issuerRef:
-    name: selfsigned-issuer
+    name: klio-a-ca
     kind: Issuer
     group: cert-manager.io

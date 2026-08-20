@@ -1,0 +1,22 @@
+# Root CA for server-identity certificates: each Klio server's own TLS
+# certificate, and the OTel collector's own certificate.
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: cluster-root-ca
+  namespace: cert-manager
+spec:
+  commonName: klio-cluster-root
+  secretName: cluster-root-ca
+
+  duration: 2160h # 90d
+  renewBefore: 360h # 15d
+
+  isCA: true
+  usages:
+    - cert sign
+
+  issuerRef:
+    name: selfsigned-issuer
+    kind: Issuer
+    group: cert-manager.io

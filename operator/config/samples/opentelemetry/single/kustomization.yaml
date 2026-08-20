@@ -1,0 +1,9 @@
+# One Klio server + one CNPG cluster, sharing the OTel collector / Jaeger /
+# Prometheus stack defined in ../base. See ../multi for a scenario covering
+# more than one server/cluster/namespace, which reuses ./server and
+# ./cluster rather than duplicating them.
+resources:
+  - ../base
+  - server
+  - cluster
+  - cluster_klio_client_auth.yaml

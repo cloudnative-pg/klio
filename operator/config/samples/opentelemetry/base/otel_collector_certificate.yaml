@@ -1,3 +1,6 @@
+# Signed by the root CA (see root_ca.yaml) so team-c/team-d can validate it
+# via the CA's public certificate (otel_collector_ca_bundle.yaml) instead
+# of mirroring this secret whole.
 apiVersion: cert-manager.io/v1
 kind: Certificate
 metadata:
@@ -5,8 +8,8 @@ metadata:
 spec:
   secretName: otel-collector-tls
   issuerRef:
-    name: selfsigned-issuer
-    kind: Issuer
+    name: cluster-root-ca
+    kind: ClusterIssuer
   dnsNames:
     - otel-collector.default.svc.cluster.local
     - otel-collector.default.svc

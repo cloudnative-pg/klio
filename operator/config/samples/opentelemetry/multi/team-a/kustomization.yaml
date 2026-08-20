@@ -1,0 +1,103 @@
+# Instantiates ../../single's server/cluster as "klio-a"/"cluster-a" in
+# "default". Only name-derived fields are patched; the rest, including its
+# own CA (klio-a-ca), is inherited unchanged.
+namespace: default
+resources:
+  - ../../single/server
+  - ../../single/cluster
+  - cluster_a_klio_client_auth.yaml
+patches:
+  - target:
+      kind: Server
+      name: klio
+    patch: |-
+      - op: replace
+        path: /metadata/name
+        value: klio-a
+      - op: replace
+        path: /spec/tlsSecretName
+        value: klio-a-tls
+      - op: replace
+        path: /spec/caSecretName
+        value: klio-a-ca
+      - op: replace
+        path: /spec/template/spec/containers/0/env/2/value
+        value: klio-server-a
+  - target:
+      kind: Certificate
+      name: klio-server
+    patch: |-
+      - op: replace
+        path: /metadata/name
+        value: klio-a
+      - op: replace
+        path: /spec/secretName
+        value: klio-a-tls
+      - op: replace
+        path: /spec/commonName
+        value: klio-a
+      - op: replace
+        path: /spec/dnsNames
+        value: [klio-a, klio-a.default, klio-a.default.svc]
+  - target:
+      kind: Certificate
+      name: klio-server-ca
+    patch: |-
+      - op: replace
+        path: /metadata/name
+        value: klio-a-ca
+      - op: replace
+        path: /spec/secretName
+        value: klio-a-ca
+      - op: replace
+        path: /spec/commonName
+        value: klio-a-ca
+  - target:
+      kind: Issuer
+      name: klio-server-ca
+    patch: |-
+      - op: replace
+        path: /metadata/name
+        value: klio-a-ca
+      - op: replace
+        path: /spec/ca/secretName
+        value: klio-a-ca
+  - target:
+      kind: Cluster
+      name: cluster-example
+    patch: |-
+      - op: replace
+        path: /metadata/name
+        value: cluster-a
+      - op: replace
+        path: /spec/plugins/0/parameters/pluginConfigurationRef
+        value: client-config-cluster-a
+  - target:
+      kind: PluginConfiguration
+      name: client-config-cluster-example
+    patch: |-
+      - op: replace
+        path: /metadata/name
+        value: client-config-cluster-a
+      - op: replace
+        path: /spec/serverAddress
+        value: klio-a.default
+      - op: replace
+        path: /spec/clientSecretName
+        value: cluster-a-klio-user
+      - op: replace
+        path: /spec/serverSecretName
+        value: klio-a-tls
+      - op: replace
+        path: /spec/clusterName
+        value: cluster-a
+  - target:
+      kind: PodMonitor
+      name: cluster-example
+    patch: |-
+      - op: replace
+        path: /metadata/name
+        value: cluster-a
+      - op: replace
+        path: /spec/selector/matchLabels/cnpg.io~1cluster
+        value: cluster-a

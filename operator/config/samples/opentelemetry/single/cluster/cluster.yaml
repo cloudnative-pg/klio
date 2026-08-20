@@ -13,13 +13,6 @@ spec:
           items:
             - key: ca.crt
               path: ca.crt
-      - secret:
-          name: klio-server-otel-client-tls
-          items:
-            - key: tls.crt
-              path: tls.crt
-            - key: tls.key
-              path: tls.key
 
   postgresql:
     pg_hba:

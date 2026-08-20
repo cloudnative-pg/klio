@@ -1,0 +1,9 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: team-c
+  labels:
+    # Selected by ../../base/otel_collector_ca_bundle.yaml's Bundle,
+    # telling trust-manager to deliver the OTel collector's trust anchor
+    # here.
+    klio.cnpg.io/trust-otel-collector-ca: "true"

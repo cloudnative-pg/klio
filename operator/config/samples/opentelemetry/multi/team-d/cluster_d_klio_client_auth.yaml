@@ -1,0 +1,23 @@
+# Client cert for cluster-d, signed by this namespace's own klio-a-ca (see
+# ./kustomization.yaml) — a second, independent server also named
+# "klio-a" (see ../team-d), deliberately colliding host_names with the
+# original in "default".
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: cluster-d-klio-user
+spec:
+  commonName: klio@cluster-d
+  secretName: cluster-d-klio-user
+
+  duration: 2160h # 90d
+  renewBefore: 360h # 15d
+
+  isCA: false
+  usages:
+    - client auth
+
+  issuerRef:
+    name: klio-a-ca
+    kind: Issuer
+    group: cert-manager.io

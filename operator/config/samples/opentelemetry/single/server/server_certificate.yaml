@@ -1,9 +1,11 @@
+# This server's own TLS identity, signed by the root CA (../../base/root_ca.yaml)
+# — unrelated to this server's own client-cert CA (klio_ca.yaml).
 apiVersion: cert-manager.io/v1
 kind: Certificate
 metadata:
-  name: klio-server-otel-client
+  name: klio-server
 spec:
-  secretName: klio-server-otel-client-tls
+  secretName: klio-server-tls
   commonName: klio
   dnsNames:
     - klio
@@ -18,6 +20,6 @@ spec:
     - server auth
 
   issuerRef:
-    name: selfsigned-issuer
-    kind: Issuer
+    name: cluster-root-ca
+    kind: ClusterIssuer
     group: cert-manager.io

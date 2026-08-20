@@ -1,0 +1,122 @@
+# Instantiates ../../single's server/cluster as "klio-b"/"cluster-b" in
+# "default". klio-b is also reached from cluster-c (../team-c), so its
+# dnsNames cover both forms, and klio-b-ca signs cluster-c's client cert
+# too (cluster_c_klio_client_auth.yaml, requested here since that's where
+# the Issuer lives, and mirrored into team-c by kubernetes-reflector).
+namespace: default
+resources:
+  - ../../single/server
+  - ../../single/cluster
+  - cluster_b_klio_client_auth.yaml
+  - cluster_c_klio_client_auth.yaml
+patches:
+  - target:
+      kind: Server
+      name: klio
+    patch: |-
+      - op: replace
+        path: /metadata/name
+        value: klio-b
+      - op: replace
+        path: /spec/tlsSecretName
+        value: klio-b-tls
+      - op: replace
+        path: /spec/caSecretName
+        value: klio-b-ca
+      - op: replace
+        path: /spec/template/spec/containers/0/env/2/value
+        value: klio-server-b
+  - target:
+      kind: Certificate
+      name: klio-server
+    patch: |-
+      - op: replace
+        path: /metadata/name
+        value: klio-b
+      - op: replace
+        path: /spec/secretName
+        value: klio-b-tls
+      - op: replace
+        path: /spec/commonName
+        value: klio-b
+      - op: replace
+        path: /spec/dnsNames
+        value:
+          [
+            klio-b,
+            klio-b.default,
+            klio-b.default.svc,
+            klio-b.default.svc.cluster.local,
+          ]
+      # cluster-c pins this exact certificate by fingerprint (Kopia), so
+      # kubernetes-reflector mirrors it whole into team-c.
+      - op: add
+        path: /spec/secretTemplate
+        value:
+          annotations:
+            reflector.v1.k8s.emberstack.com/reflection-allowed: "true"
+            reflector.v1.k8s.emberstack.com/reflection-allowed-namespaces: "team-c"
+            reflector.v1.k8s.emberstack.com/reflection-auto-enabled: "true"
+            reflector.v1.k8s.emberstack.com/reflection-auto-namespaces: "team-c"
+  - target:
+      kind: Certificate
+      name: klio-server-ca
+    patch: |-
+      - op: replace
+        path: /metadata/name
+        value: klio-b-ca
+      - op: replace
+        path: /spec/secretName
+        value: klio-b-ca
+      - op: replace
+        path: /spec/commonName
+        value: klio-b-ca
+  - target:
+      kind: Issuer
+      name: klio-server-ca
+    patch: |-
+      - op: replace
+        path: /metadata/name
+        value: klio-b-ca
+      - op: replace
+        path: /spec/ca/secretName
+        value: klio-b-ca
+  - target:
+      kind: Cluster
+      name: cluster-example
+    patch: |-
+      - op: replace
+        path: /metadata/name
+        value: cluster-b
+      - op: replace
+        path: /spec/plugins/0/parameters/pluginConfigurationRef
+        value: client-config-cluster-b
+  - target:
+      kind: PluginConfiguration
+      name: client-config-cluster-example
+    patch: |-
+      - op: replace
+        path: /metadata/name
+        value: client-config-cluster-b
+      - op: replace
+        path: /spec/serverAddress
+        value: klio-b.default
+      - op: replace
+        path: /spec/clientSecretName
+        value: cluster-b-klio-user
+      - op: replace
+        path: /spec/serverSecretName
+        value: klio-b-tls
+      - op: replace
+        path: /spec/clusterName
+        value: cluster-b
+  - target:
+      kind: PodMonitor
+      name: cluster-example
+    patch: |-
+      - op: replace
+        path: /metadata/name
+        value: cluster-b
+      - op: replace
+        path: /spec/selector/matchLabels/cnpg.io~1cluster
+        value: cluster-b

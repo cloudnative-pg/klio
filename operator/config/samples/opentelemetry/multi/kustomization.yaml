@@ -1,0 +1,10 @@
+# Deploys klio-a/cluster-a and klio-b/cluster-b into "default" (see
+# ./team-a, ./team-b), cluster-c into "team-c" backed by klio-b (see
+# ./team-c), and a second independent server also named "klio-a" with
+# cluster-d into "team-d" (see ./team-d) — host_name collides by design.
+resources:
+  - ../base
+  - team-a
+  - team-b
+  - team-c
+  - team-d
