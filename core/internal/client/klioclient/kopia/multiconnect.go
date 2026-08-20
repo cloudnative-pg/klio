@@ -144,8 +144,7 @@ func (s *MultiConnection) GetMetadata(
 			return markTier1(meta), nil
 		}
 
-		var noBackup NoBackupFoundError
-		if !errors.As(err, &noBackup) {
+		if err, ok := errors.AsType[NoBackupFoundError](err); !ok {
 			return nil, fmt.Errorf("while getting metadata from tier1: %w", err)
 		}
 	}
