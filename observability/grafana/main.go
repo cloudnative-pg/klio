@@ -58,17 +58,25 @@ const (
 	// dashboard grid packs flush without vertical gaps.
 	panelHeight = 6
 
-	// nsMatcher is the namespace label selector every klio metric carries
-	// (the Prometheus export of the k8s.namespace.name resource attribute).
-	nsMatcher = `k8s_namespace_name=~"$namespace"`
-	// serverMatcher additionally selects on host_name, which the klio_server_*
-	// series carry as the Klio server host (the StatefulSet pod), and combines
-	// it with the namespace selector.
-	serverMatcher = `k8s_namespace_name=~"$namespace",host_name=~"$server"`
-	// walMatcher additionally selects on cluster_name, which only the
-	// klio_server_wal_* series carry, and combines it with the namespace and
-	// server selectors.
-	walMatcher = `k8s_namespace_name=~"$namespace",host_name=~"$server",cluster_name=~"$cluster"`
+	// clientMatcher selects the plugin sidecar's per-cluster series
+	// (klio_plugin_backup_* and klio_client_wal_*). These carry the PostgreSQL
+	// pod's k8s.namespace.name and a cluster_name, so they are scoped by
+	// $namespace and $cluster. Because they identify their cluster directly,
+	// several clusters sharing one namespace never fold into a single series.
+	clientMatcher = `k8s_namespace_name=~"$namespace",cluster_name=~"$cluster"`
+	// serverMatcher selects the server-level klio_server_* series that carry no
+	// cluster_name (uptime, the embedded queue, verifications and the Kopia base
+	// snapshots) by the Klio server's OpenTelemetry service.name. service.name
+	// identifies a server uniquely even when two servers share a pod host name
+	// (host_name collides when two Servers have the same name in different
+	// namespaces); k8s.namespace.name is deliberately NOT used here because a
+	// server tags every series with its OWN namespace, which would hide the
+	// metrics of a cluster it serves cross-namespace.
+	serverMatcher = `service_name=~"$server"`
+	// walMatcher additionally selects on cluster_name, which the per-cluster
+	// klio_server_wal_* and klio_server_backup_* (backups / latest_backup_* /
+	// oldest_backup_*) series carry, and combines it with the server selector.
+	walMatcher = `service_name=~"$server",cluster_name=~"$cluster"`
 )
 
 func main() {
@@ -172,16 +180,6 @@ func quantileTargets(bucketMetric, groupBy, matcher, legend string) []cog.Builde
 	return quantileTargetsWindow(bucketMetric, groupBy, matcher, legend, "rate", "$__rate_interval")
 }
 
-// quantileTargetsRange builds p50/p95/p99 targets for an infrequent-event
-// histogram (e.g. backups), using increase() over the whole visible range
-// ($__range). A short rate() window almost never catches a rare event, so the
-// percentiles would otherwise collapse to no data except at the instant the
-// event fires; the range window keeps them populated whenever the selected
-// range spans at least one event.
-func quantileTargetsRange(bucketMetric, groupBy, matcher, legend string) []cog.Builder[variants.Dataquery] {
-	return quantileTargetsWindow(bucketMetric, groupBy, matcher, legend, "increase", "$__range")
-}
-
 // tableLegend renders a compact table legend at the bottom of a panel.
 func tableLegend() *common.VizLegendOptionsBuilder {
 	return common.NewVizLegendOptionsBuilder().
@@ -211,6 +209,18 @@ func timeseriesPanel(title, unit string, targets ...cog.Builder[variants.Dataque
 	}
 
 	return panel
+}
+
+// timelinePanel renders an integer PostgreSQL timeline ID over time as a
+// stepped line, so an operator sees not only the current timeline but exactly
+// when it changed (a promotion or failover), which a single current value (a
+// stat or bar gauge) cannot convey. The unit is a plain count with no decimals.
+func timelinePanel(title string, targets ...cog.Builder[variants.Dataquery]) *timeseries.PanelBuilder {
+	return timeseriesPanel(title, "short", targets...).
+		FillOpacity(0).
+		LineInterpolation(common.LineInterpolationStepAfter).
+		LineWidth(2).
+		Decimals(0)
 }
 
 // barPanel builds a stacked bar chart (a timeseries in bar draw style) for

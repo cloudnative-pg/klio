@@ -56,13 +56,21 @@ func build() *dashboard.DashboardBuilder {
 			labelVariable("namespace", "Namespace",
 				`label_values({__name__=~"klio_.+"}, k8s_namespace_name)`),
 		).
+		// Server identity is the OpenTelemetry service.name, not the pod
+		// host_name: two Servers with the same name in different namespaces
+		// share a host_name (e.g. both "klio-a-klio-0") and would collapse into
+		// one ambiguous entry, whereas their service.name stays distinct.
 		WithVariable(
 			labelVariable("server", "Server",
-				`label_values(klio_server_uptime_seconds{k8s_namespace_name=~"$namespace"}, host_name)`),
+				`label_values(klio_server_uptime_seconds, service_name)`),
 		).
+		// The cluster list is narrowed by the selected server (service.name),
+		// NOT by namespace: a server tags its series with its own namespace, so
+		// filtering clusters by $namespace would drop clusters served
+		// cross-namespace.
 		WithVariable(
 			labelVariable("cluster", "Cluster",
-				`label_values(klio_server_wal_written_total{k8s_namespace_name=~"$namespace",host_name=~"$server"}, cluster_name)`),
+				`label_values(klio_server_wal_written_total{service_name=~"$server"}, cluster_name)`),
 		)
 
 	y := 0
