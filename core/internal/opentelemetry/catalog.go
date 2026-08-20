@@ -137,7 +137,10 @@ const (
 )
 
 // PluginBackupMetrics holds OTel instruments for backup lifecycle tracking.
-// The Runs counter carries an `outcome` attribute (`success` / `failure`)
+// Every instrument carries a `cluster_name` attribute identifying the
+// PostgreSQL cluster the plugin sidecar serves, so panels can attribute backup
+// activity per cluster even when several clusters share a namespace. The Runs
+// counter additionally carries an `outcome` attribute (`success` / `failure`)
 // so a single instrument exposes both flavors. Runs failure data points
 // additionally carry a `failure_category` attribute classifying the failure
 // (see opentelemetry.FailureCategory); verification failures are recorded
@@ -254,34 +257,37 @@ func InitPluginBackupMetrics() {
 	meter := otel.Meter(Meter)
 
 	PluginBackup.LatestStartTime, _ = meter.Int64Gauge(PluginBackupLatestStartTimeMetric,
-		metric.WithDescription("Unix epoch timestamp when the most recent backup started."),
+		metric.WithDescription("Unix epoch timestamp when the most recent backup started, "+
+			"broken down by `cluster_name`."),
 		metric.WithUnit("s"),
 	)
 	PluginBackup.LatestCompletionTime, _ = meter.Int64Gauge(PluginBackupLatestCompletionTimeMetric,
-		metric.WithDescription("Unix epoch timestamp when the most recent backup completed successfully."),
+		metric.WithDescription("Unix epoch timestamp when the most recent backup completed "+
+			"successfully, broken down by `cluster_name`."),
 		metric.WithUnit("s"),
 	)
 	PluginBackup.LatestFailureTime, _ = meter.Int64Gauge(PluginBackupLatestFailureTimeMetric,
-		metric.WithDescription("Unix epoch timestamp when the most recent backup failed."),
+		metric.WithDescription("Unix epoch timestamp when the most recent backup failed, "+
+			"broken down by `cluster_name`."),
 		metric.WithUnit("s"),
 	)
 	PluginBackup.LatestDuration, _ = meter.Float64Gauge(PluginBackupLatestDurationMetric,
-		metric.WithDescription("Duration of the most recent backup."),
+		metric.WithDescription("Duration of the most recent backup, broken down by `cluster_name`."),
 		metric.WithUnit("s"),
 	)
 	PluginBackup.Duration, _ = meter.Float64Histogram(PluginBackupDurationMetric,
-		metric.WithDescription("Distribution of backup durations, split by the `outcome` "+
-			"attribute (`success` / `failure`)."),
+		metric.WithDescription("Distribution of backup durations, broken down by `cluster_name` "+
+			"and split by the `outcome` attribute (`success` / `failure`)."),
 		metric.WithUnit("s"),
 	)
 	PluginBackup.InProgress, _ = meter.Int64UpDownCounter(PluginBackupInProgressMetric,
-		metric.WithDescription("Number of backups currently in progress."),
+		metric.WithDescription("Number of backups currently in progress, broken down by `cluster_name`."),
 		metric.WithUnit("{backups}"),
 	)
 	PluginBackup.Runs, _ = meter.Int64Counter(PluginBackupRunsMetric,
-		metric.WithDescription("Total number of backup runs, split by the `outcome` "+
-			"attribute (`success` / `failure`). Failure data points additionally "+
-			"carry a `failure_category` attribute (`"+
+		metric.WithDescription("Total number of backup runs, broken down by `cluster_name` and "+
+			"split by the `outcome` attribute (`success` / `failure`). Failure data points "+
+			"additionally carry a `failure_category` attribute (`"+
 			strings.Join(backupfailure.Names(), "`, `")+"`)."),
 		metric.WithUnit("{backups}"),
 	)
