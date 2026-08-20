@@ -465,14 +465,17 @@ func (r *ServerReconciler) reconcileService(ctx context.Context, server *kliov1a
 func buildFileSourceVolMount(volName string, src kliov1alpha1.FileSource) (corev1.Volume, corev1.VolumeMount) {
 	mountPath := path.Join(fileSourceBasePath, volName)
 
-	return corev1.Volume{
-			Name:         volName,
-			VolumeSource: src.FileReference.Volume,
-		}, corev1.VolumeMount{
-			Name:      volName,
-			MountPath: mountPath,
-			ReadOnly:  true,
-		}
+	vol := corev1.Volume{
+		Name:         volName,
+		VolumeSource: src.FileReference.Volume,
+	}
+	mount := corev1.VolumeMount{
+		Name:      volName,
+		MountPath: mountPath,
+		ReadOnly:  true,
+	}
+
+	return vol, mount
 }
 
 // identityVolumeDefaultMode is the file mode for identity file volumes.
