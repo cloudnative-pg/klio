@@ -113,8 +113,25 @@ this.
 
 The dashboard declares a `datasource` template variable, so it is portable
 across Grafana installations and is not tied to a specific data source UID.
-The `namespace` and `cluster` template variables at the top filter the panels
-by Kubernetes namespace and PostgreSQL cluster.
+Three more template variables at the top filter the panels:
+
+- `namespace`: the Kubernetes namespace, matched against
+  `k8s.namespace.name`. It scopes the Client / Plugin and WAL Replication
+  Lag panels, whose metrics are emitted from the PostgreSQL pods and
+  therefore carry the *cluster's* namespace.
+- `server`: the Klio server, matched against the OpenTelemetry
+  `service.name` (not the pod host name, which two servers of the same name
+  in different namespaces would share). It scopes the Server panels.
+- `cluster`: the PostgreSQL cluster, matched against `cluster_name`. It
+  scopes every per-cluster panel across all sections. Because the
+  server-side metrics carry the server's own namespace, per-cluster Server
+  panels are filtered by `server` and `cluster` rather than `namespace`, so a
+  cluster backed up by a server in another namespace is still attributed
+  correctly.
+
+Every aggregation groups by the identifying label (cluster, server, tier),
+so multiple clusters or servers are never folded into a single misleading
+value.
 
 ### Example: kube-prometheus-stack
 

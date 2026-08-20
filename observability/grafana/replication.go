@@ -56,19 +56,20 @@ func replicationPanels() []sizedPanel {
 			"corresponding WAL, from CloudNativePG's pg_stat_replication.")),
 		// Derived: tier-2 archival backlog as the LSN gap between what the
 		// server has on local disk (tier1) and what has been archived remotely
-		// (tier2), in MiB. max by (cluster_name) collapses each tier to one
-		// series per cluster so the subtraction is one-to-one even when several
-		// namespaces or server instances export the metric.
+		// (tier2), in MiB. Each side is reduced with max by (cluster_name) first
+		// so the subtraction is a one-to-one vector match on cluster_name even
+		// when several servers export the same cluster's WAL series.
 		sized(8, panelHeight, timeseriesPanel("Tier-2 archival lag (Tier-1 LSN gap)", "mbytes",
 			query(
 				fmt.Sprintf(
-					"(klio_server_wal_latest_written_lsn_bytes{tier=\"tier1\",%s} - "+
-						"on (cluster_name) klio_server_wal_latest_written_lsn_bytes{tier=\"tier2\",%s}) "+
+					"(max by (cluster_name) (klio_server_wal_latest_written_lsn_bytes{tier=\"tier1\",%s}) - "+
+						"max by (cluster_name) (klio_server_wal_latest_written_lsn_bytes{tier=\"tier2\",%s})) "+
 						"/ 1024 / 1024",
 					walMatcher, walMatcher),
 				"{{cluster_name}}",
 			),
 		).Description("LSN distance between tier 1 (local disk) and tier 2 (remote storage) per cluster. "+
-			"A growing gap means remote archival is falling behind.")),
+			"A growing gap means remote archival is falling behind. Scoped by $server and $cluster (not "+
+			"$namespace), since the server tags these series with its own namespace.")),
 	}
 }
