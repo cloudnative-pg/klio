@@ -227,13 +227,13 @@ jobs:
         run: |
           task operator:ci
 
-      # TODO(fcanovai): this has been disabled in #85 because the image build there is now Debian based and
-      # the Red Hat preflight certification fails. It should be re-enabled once we have an image built on Red Hat UBI.
-      #- name: Run Red Hat preflight certification
-      #  run: |
-      #    # Certify the operator image just built and pushed by operator:ci
-      #    IMAGE=$(jq -r '.default."image.name" | split(",")[0]' operator/metadata.json)
-      #    task olm:preflight-container IMAGE="${IMAGE}"
+      - name: Run Red Hat preflight certification
+        run: |
+          # Certify the UBI variant of the operator image just built and pushed
+          # by operator:ci. Preflight only accepts a Red Hat UBI base, so the
+          # distroless variant is not a candidate.
+          IMAGE=$(jq -r '.ubi."image.name" | split(",")[0]' operator/metadata.json)
+          task olm:preflight-container IMAGE="${IMAGE}"
 
   integration-tests:
     name: Integration Tests

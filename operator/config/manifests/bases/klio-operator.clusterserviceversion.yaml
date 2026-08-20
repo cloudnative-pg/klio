@@ -5,7 +5,7 @@ metadata:
     alm-examples: '[]'
     capabilities: Basic Install
     categories: Database
-    containerImage: ghcr.io/cloudnative-pg/klio-operator:latest
+    containerImage: ghcr.io/cloudnative-pg/klio-operator:latest-ubi9
     createdAt:
     description: Enterprise-grade backup and recovery manager for PostgreSQL
       clusters managed by CloudNativePG on Kubernetes.
