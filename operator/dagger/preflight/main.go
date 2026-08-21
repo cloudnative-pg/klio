@@ -54,7 +54,7 @@ type Preflight struct {
 func New(
 	// preflightImage overrides the Preflight container image.
 	// renovate image: datasource=docker depName=preflight lookupName=quay.io/opdev/preflight versioning=docker
-	// +default="quay.io/opdev/preflight:1.20.0@sha256:b8fa820097c088957a00f83b729595d26a9e0a97da568188bdc3361f9346aa26"
+	// +default="quay.io/opdev/preflight:1.21.0@sha256:a5ee1785e7def527aec34573e19e8e4959341d378a8f3e92f0f8fba35fc23304"
 	// +optional
 	preflightImage string,
 ) *Preflight {
