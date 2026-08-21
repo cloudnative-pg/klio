@@ -34,6 +34,26 @@ variable "base_image" {
   default = "gcr.io/distroless/static-debian13:nonroot@sha256:f7f8f729987ad0fdf6b05eeeae94b26e6a0f613bdf46feea7fc40f7bd72953e6"
 }
 
+variable "ubi_base_image" {
+  // renovate image: datasource=docker depName=registry.access.redhat.com/ubi9/ubi-micro versioning=docker
+  default = "registry.access.redhat.com/ubi9/ubi-micro:9.8-1786321990@sha256:7e7f79ab747bf2b452e3043dd89f388e92be4c7fdcc8b815b58adf6c99c39c95"
+}
+
+// The image variants we build. Each one is a separate target of the "default"
+// group, built from the same Dockerfile with a different base image. The
+// distroless variant is the primary one and keeps the plain tag; the UBI
+// variant is the one submitted to Red Hat certification.
+distros = {
+  distroless = {
+    baseImage = base_image
+    tagSuffix = ""
+  }
+  ubi = {
+    baseImage = ubi_base_image
+    tagSuffix = "-ubi9"
+  }
+}
+
 function "getRegistry" {
   params = []
   result = lower(registry)
@@ -49,6 +69,11 @@ variable "version" {
 }
 
 target "default" {
+  matrix = {
+    distro = ["distroless", "ubi"]
+  }
+  name = distro
+
   dockerfile = "Dockerfile"
   context = "."
   platforms = [
@@ -57,12 +82,12 @@ target "default" {
   ]
 
   tags = [
-    latest("${getImageName()}", "${latest}"),
-    "${getImageName()}:${version}",
+    latest("${getImageName()}", "${latest}", "${distros[distro].tagSuffix}"),
+    "${getImageName()}:${version}${distros[distro].tagSuffix}",
   ]
 
   args = {
-    "BASE_IMAGE" = "${base_image}",
+    "BASE_IMAGE" = "${distros[distro].baseImage}",
   }
 
   output = [
@@ -89,8 +114,8 @@ target "default" {
     "index,manifest:org.opencontainers.image.documentation=${documentation}",
     "index,manifest:org.opencontainers.image.authors=${authors}",
     "index,manifest:org.opencontainers.image.licenses=${license}",
-    "index,manifest:org.opencontainers.image.base.name=${baseName(base_image)}",
-    "index,manifest:org.opencontainers.image.base.digest=${digest(base_image)}",
+    "index,manifest:org.opencontainers.image.base.name=${baseName(distros[distro].baseImage)}",
+    "index,manifest:org.opencontainers.image.base.digest=${digest(distros[distro].baseImage)}",
   ]
   labels = {
     "org.opencontainers.image.created"       = "${now}",
@@ -104,8 +129,8 @@ target "default" {
     "org.opencontainers.image.documentation" = "${documentation}",
     "org.opencontainers.image.authors"       = "${authors}",
     "org.opencontainers.image.licenses"      = "${license}",
-    "org.opencontainers.image.base.name"     = "${baseName(base_image)}",
-    "org.opencontainers.image.base.digest"   = "${digest(base_image)}",
+    "org.opencontainers.image.base.name"     = "${baseName(distros[distro].baseImage)}",
+    "org.opencontainers.image.base.digest"   = "${digest(distros[distro].baseImage)}",
     "name"                                   = "${title}",
     "maintainer"                             = "${authors}",
     "vendor"                                 = "${authors}",
@@ -123,13 +148,15 @@ function digest {
 }
 
 // We get the image reference without the sha256, so that the base.name label
-// is always derived from base_image and cannot drift away from it.
+// is always derived from the variant's base image and cannot drift away from it.
 function baseName {
   params = [ imageNameWithSha ]
   result = index(split("@", imageNameWithSha), 0)
 }
 
+// The moving tag of each variant: ":latest" for the primary one and
+// ":latest<suffix>" for the others, so the variants never collide on it.
 function latest {
-  params = [ image, latest ]
-  result = (latest == "true") ? "${image}:latest" : ""
+  params = [ image, latest, tagSuffix ]
+  result = (latest == "true") ? "${image}:latest${tagSuffix}" : ""
 }
