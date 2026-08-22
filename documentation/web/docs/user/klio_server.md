@@ -203,7 +203,7 @@ spec:
   mode: read-only
 
   # Container image for the Klio server
-  image: ghcr.io/cloudnative-pg/klio:v0.0.20
+  image: ghcr.io/cloudnative-pg/klio:v0.0.21
   imagePullPolicy: IfNotPresent
 
   # TLS configuration

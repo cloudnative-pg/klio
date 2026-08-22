@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.0.21](https://github.com/cloudnative-pg/klio/compare/v0.0.20...v0.0.21) (2026-08-22)
+
+
+### Bug Fixes
+
+* **core:** Add release-please marker to core plugin version ([#131](https://github.com/cloudnative-pg/klio/issues/131)) ([4a3b20c](https://github.com/cloudnative-pg/klio/commit/4a3b20c3cd883077c63cca5b7d26a51ac5a53932)), closes [#130](https://github.com/cloudnative-pg/klio/issues/130)
+* **deps:** Update all non-major go dependencies ([#116](https://github.com/cloudnative-pg/klio/issues/116)) ([5270d42](https://github.com/cloudnative-pg/klio/commit/5270d42f0ca576de8715588098cfed9287191542))
+* **deps:** Update all non-major go dependencies ([#142](https://github.com/cloudnative-pg/klio/issues/142)) ([12cd4ba](https://github.com/cloudnative-pg/klio/commit/12cd4bae1e821f8711cce7ad77ebd65a46022352))
+* **deps:** Update all non-major go dependencies ([#153](https://github.com/cloudnative-pg/klio/issues/153)) ([bd1e401](https://github.com/cloudnative-pg/klio/commit/bd1e401b181ac87fc122796f8c33771a64667e0f))
+* **deps:** Update kubernetes monorepo to v0.36.4 ([#156](https://github.com/cloudnative-pg/klio/issues/156)) ([a14763c](https://github.com/cloudnative-pg/klio/commit/a14763c9581b78005e6706abbabb63eaa59e7c65))
+
 ## [0.0.20](https://github.com/cloudnative-pg/klio/compare/v0.0.19...v0.0.20) (2026-08-13)
 
 
