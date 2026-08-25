@@ -26,6 +26,10 @@ vars:
   # the two must use the same version.
   # renovate: datasource=docker depName=quay.io/opdev/preflight versioning=docker
   PREFLIGHT_VERSION: 1.21.0@sha256:a5ee1785e7def527aec34573e19e8e4959341d378a8f3e92f0f8fba35fc23304
+  # Tag suffix of the UBI variant of the operator image, as produced by the
+  # "ubi" target of operator/docker-bake.hcl. The OLM bundle ships the UBI
+  # image, since that is the variant submitted to Red Hat certification.
+  UBI_TAG_SUFFIX: '-ubi9'
   ALLOWED_ENVS: [testing, production]
 
 tasks:
@@ -740,6 +744,7 @@ tasks:
       insecure: '{{ if .GITHUB_ACTIONS }}false{{ else }}true{{ end }}'
       suffix: '{{ if ( ne .ENVIRONMENT "production" ) }}-testing{{end}}'
       tag: '{{ .TAG | default .IMAGE_TAG }}'
+      ubi_suffix: '{{ .UBI_TAG_SUFFIX }}'
       # renovate: datasource=git-refs depName=kustomize lookupName=https://github.com/sagikazarmark/daggerverse currentValue=main
       DAGGER_KUSTOMIZE_SHA: ff27cd50f6b4eed2e3753c520632cd6099e1ce52
     cmds:
@@ -761,7 +766,7 @@ tasks:
         GITHUB_REF= dagger -s call -m github.com/sagikazarmark/daggerverse/kustomize@${DAGGER_KUSTOMIZE_SHA}
         edit --source .
         --dir operator/config/manifests
-        set image --image controller=${registry}/klio-operator${suffix}:${tag}
+        set image --image controller=${registry}/klio-operator${suffix}:${tag}${ubi_suffix}
         directory directory --path operator/config/manifests export --path operator/config/manifest-build
       - >
         GITHUB_REF= dagger -s call -m github.com/sagikazarmark/daggerverse/kustomize@${DAGGER_KUSTOMIZE_SHA}

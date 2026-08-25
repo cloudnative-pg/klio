@@ -235,7 +235,9 @@ certification policies. Two checks cover the two artifacts:
 
 - **`check container`** — static policy checks on the operator image
   (labels, layers, license, base image). It needs no cluster and runs
-  in the Dagger engine via `task olm:preflight-container`.
+  in the Dagger engine on every PR via `task olm:preflight-container`.
+  It is run against the UBI variant of the operator image, since the
+  base-image policy only accepts a Red Hat UBI base.
 - **`check operator`** — installs the bundle through OLM into a live
   OpenShift cluster and verifies it is deployable. Because it needs a
   real OpenShift cluster (OLM and Security Context Constraints), it runs
@@ -247,14 +249,12 @@ certification policies. Two checks cover the two artifacts:
 
 :::note
 
-Both checks are currently **disabled in CI**. The operator and operand
-images are built on Debian instead of Red Hat UBI, which the
-`check container` base-image policy rejects, and `check operator` is
-parked alongside it. The steps are commented out in
-`.github/workflows/ci.yml` and `.github/workflows/openshift-e2e.yml`,
-ready to be restored once a UBI-based image variant is built again — see
-[issue #85](https://github.com/cloudnative-pg/klio/issues/85). Both
-tasks still work when run manually, as described below.
+The operator image is built in two variants: a distroless Debian one,
+which is the default and carries the plain tag, and a Red Hat UBI one,
+tagged with a `-ubi9` suffix. Certification concerns the UBI variant
+only: `check container` runs against it, and the OLM bundle references
+it, so `check operator` exercises it too. The operand (`klio`) image is
+Debian based and is not part of the operator certification.
 
 :::
 
