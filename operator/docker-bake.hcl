@@ -29,27 +29,19 @@ variable "registry" {
   default = "localhost:5000"
 }
 
-variable "base_image" {
-  // renovate image: datasource=docker depName=static-debian13 lookupName=gcr.io/distroless/static-debian13 versioning=docker
-  default = "gcr.io/distroless/static-debian13:nonroot@sha256:1c2c046bc09ed40fad370b599a0b1ae7987f55b01e247cf27a7c27cd97e5bbc7"
-}
-
-variable "ubi_base_image" {
-  // renovate image: datasource=docker depName=registry.access.redhat.com/ubi9/ubi-micro versioning=docker
-  default = "registry.access.redhat.com/ubi9/ubi-micro:9.8-1786321990@sha256:7e7f79ab747bf2b452e3043dd89f388e92be4c7fdcc8b815b58adf6c99c39c95"
-}
-
 // The image variants we build. Each one is a separate target of the "default"
 // group, built from the same Dockerfile with a different base image. The
 // distroless variant is the primary one and keeps the plain tag; the UBI
 // variant is the one submitted to Red Hat certification.
 distros = {
   distroless = {
-    baseImage = base_image
+    // renovate image: datasource=docker depName=static-debian13 lookupName=gcr.io/distroless/static-debian13 versioning=docker
+    baseImage = "gcr.io/distroless/static-debian13:nonroot@sha256:1c2c046bc09ed40fad370b599a0b1ae7987f55b01e247cf27a7c27cd97e5bbc7"
     tagSuffix = ""
   }
   ubi = {
-    baseImage = ubi_base_image
+    // renovate image: datasource=docker depName=registry.access.redhat.com/ubi9/ubi-micro versioning=docker
+    baseImage = "registry.access.redhat.com/ubi9/ubi-micro:9.8-1786321990@sha256:7e7f79ab747bf2b452e3043dd89f388e92be4c7fdcc8b815b58adf6c99c39c95"
     tagSuffix = "-ubi9"
   }
 }
