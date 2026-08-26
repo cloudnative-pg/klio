@@ -29,6 +29,43 @@ _Appears in:_
 | `pvcTemplate` _[PersistentVolumeClaimSpec](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.37/#persistentvolumeclaimspec-v1-core)_ |  | True |  |  |
 
 
+#### CompressionAlgorithm
+
+_Underlying type:_ _string_
+
+CompressionAlgorithm is the name of a Kopia compression algorithm.
+The special value "none" disables compression.
+
+_Validation:_
+- Enum: [none deflate-best-compression deflate-best-speed deflate-default gzip gzip-best-compression gzip-best-speed pgzip pgzip-best-compression pgzip-best-speed s2-better s2-default s2-parallel-4 s2-parallel-8 zstd zstd-better-compression zstd-fastest]
+
+_Appears in:_
+- [CompressionPolicy](#compressionpolicy)
+
+
+
+#### CompressionPolicy
+
+
+
+CompressionPolicy configures the Kopia compression policy applied to base
+backup data.
+
+
+
+_Appears in:_
+- [Tier1Configuration](#tier1configuration)
+- [Tier1PluginConfiguration](#tier1pluginconfiguration)
+- [Tier2Configuration](#tier2configuration)
+- [Tier2PluginConfiguration](#tier2pluginconfiguration)
+
+| Field | Description | Required | Default | Validation |
+| --- | --- | --- | --- | --- |
+| `algorithm` _[CompressionAlgorithm](#compressionalgorithm)_ | Algorithm is the name of the Kopia compression algorithm to use. | True |  | Enum: [none deflate-best-compression deflate-best-speed deflate-default gzip gzip-best-compression gzip-best-speed pgzip pgzip-best-compression pgzip-best-speed s2-better s2-default s2-parallel-4 s2-parallel-8 zstd zstd-better-compression zstd-fastest] <br />Required: \{\} <br /> |
+| `minSize` _integer_ | MinSize is the minimum file size, in bytes, to attempt compression for.<br />Files smaller than this are stored uncompressed. Zero means no minimum. |  |  | Minimum: 0 <br />Optional: \{\} <br /> |
+| `maxSize` _integer_ | MaxSize is the maximum file size, in bytes, to attempt compression for.<br />Files larger than this are stored uncompressed. Zero means no maximum. |  |  | Minimum: 0 <br />Optional: \{\} <br /> |
+
+
 #### Data
 
 
@@ -366,6 +403,7 @@ _Appears in:_
 | `data` _[Data](#data)_ | Data is the configuration of the PVC that should be used<br />for the base backups. | True |  |  |
 | `encryptionKeyFile` _[FileSource](#filesource)_ | EncryptionKeyFile specifies the Age-encrypted encryption key file. | True |  | ExactlyOneOf: [fileReference] <br /> |
 | `identityFile` _[FileSource](#filesource)_ | IdentityFile specifies the Age identity (private key) file used to<br />decrypt the encryption key. | True |  | ExactlyOneOf: [fileReference] <br /> |
+| `compression` _[CompressionPolicy](#compressionpolicy)_ | Compression defines the repository-wide (global) compression policy<br />applied to base backups stored on tier1. Individual clusters can<br />override it through their PluginConfiguration. |  |  | Optional: \{\} <br /> |
 
 
 #### Tier1PluginConfiguration
@@ -382,6 +420,7 @@ _Appears in:_
 | Field | Description | Required | Default | Validation |
 | --- | --- | --- | --- | --- |
 | `retention` _[RetentionPolicy](#retentionpolicy)_ | RetentionPolicy defines how many backups we should keep |  |  | Optional: \{\} <br /> |
+| `compression` _[CompressionPolicy](#compressionpolicy)_ | Compression defines the compression policy applied to this cluster's<br />base backups on tier1. It overrides the tier1 repository-wide policy<br />configured on the Server. |  |  | Optional: \{\} <br /> |
 
 
 #### Tier2Configuration
@@ -401,6 +440,7 @@ _Appears in:_
 | `s3` _[S3Configuration](#s3configuration)_ | S3 contains the configuration parameters for an S3-based tier 2. | True |  |  |
 | `encryptionKeyFile` _[FileSource](#filesource)_ | EncryptionKeyFile specifies the Age-encrypted encryption key file. | True |  | ExactlyOneOf: [fileReference] <br /> |
 | `identityFile` _[FileSource](#filesource)_ | IdentityFile specifies the Age identity (private key) file used to<br />decrypt the encryption key. | True |  | ExactlyOneOf: [fileReference] <br /> |
+| `compression` _[CompressionPolicy](#compressionpolicy)_ | Compression defines the repository-wide (global) compression policy<br />applied to base backups stored on tier2. Individual clusters can<br />override it through their PluginConfiguration. |  |  | Optional: \{\} <br /> |
 
 
 #### Tier2PluginConfiguration
@@ -419,6 +459,7 @@ _Appears in:_
 | `enableBackup` _boolean_ | EnableBackup controls whether WAL and base backups should be stored in tier2 |  |  | Optional: \{\} <br /> |
 | `enableRecovery` _boolean_ | EnableRecovery controls whether tier2 should be included in the recovery source list |  |  | Optional: \{\} <br /> |
 | `retention` _[RetentionPolicy](#retentionpolicy)_ | RetentionPolicy defines how many backups we should keep |  |  | Optional: \{\} <br /> |
+| `compression` _[CompressionPolicy](#compressionpolicy)_ | Compression defines the compression policy applied to this cluster's<br />base backups on tier2. It overrides the tier2 repository-wide policy<br />configured on the Server. |  |  | Optional: \{\} <br /> |
 
 
 #### WALPrefetchConfiguration

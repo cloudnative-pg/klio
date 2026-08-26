@@ -105,6 +105,56 @@ func TestTierConfigsValidate(t *testing.T) {
 	})
 }
 
+func TestTierConfigCompressionValidate(t *testing.T) {
+	validTier1 := func() Tier1Config {
+		return Tier1Config{
+			EncryptionKeyFile: "/path/to/key",
+			Base: BaseServerConfig{
+				CacheDirectory:      "cache",
+				RepositoryDirectory: "repo",
+				ListenAddress:       "address",
+			},
+			Wal: WalServerConfig{
+				ListenAddress: "address",
+				WALPath:       "walPath",
+			},
+		}
+	}
+
+	t.Run("Tier1 valid compression", func(t *testing.T) {
+		cfg := validTier1()
+		cfg.Compression = CompressionServerConfig{Algorithm: "zstd"}
+		if err := cfg.Validate(); err != nil {
+			t.Errorf("Validate() unexpected error = %v", err)
+		}
+	})
+
+	t.Run("Tier1 empty compression", func(t *testing.T) {
+		cfg := validTier1()
+		if err := cfg.Validate(); err != nil {
+			t.Errorf("Validate() unexpected error = %v", err)
+		}
+	})
+
+	t.Run("Tier1 invalid compression", func(t *testing.T) {
+		cfg := validTier1()
+		cfg.Compression = CompressionServerConfig{Algorithm: "bogus"}
+		if err := cfg.Validate(); err == nil {
+			t.Errorf("Validate() expected an error for invalid compression")
+		}
+	})
+
+	t.Run("Tier2 invalid compression", func(t *testing.T) {
+		cfg := Tier2Config{
+			S3:          S3Configuration{Enabled: false},
+			Compression: CompressionServerConfig{Algorithm: "bogus"},
+		}
+		if err := cfg.Validate(); err == nil {
+			t.Errorf("Validate() expected an error for invalid compression")
+		}
+	})
+}
+
 func TestS3ConfigurationValidate(t *testing.T) {
 	tests := []struct {
 		name    string

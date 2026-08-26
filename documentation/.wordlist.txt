@@ -28,6 +28,8 @@ CloudNativePG's
 ClusterMetadata
 ClusterName
 CodeReady
+CompressionAlgorithm
+CompressionPolicy
 DNS
 Debian
 DeleteBackup
@@ -75,6 +77,7 @@ KeepHourly
 KeepLatest
 KeepMonthly
 KeepWeekly
+KiB
 Klio
 Klio's
 KlioAPI
@@ -89,8 +92,10 @@ Liveness
 LocalObjectReference
 MaxConcurrentDownloads
 MaxItems
+MaxSize
 MiB
 MinLength
+MinSize
 ModeReadOnly
 ModeStandard
 NATS
@@ -193,6 +198,7 @@ WALPrefetch
 WALPrefetchConfiguration
 WALs
 YAML
+Zstandard
 api
 args
 aspirational
@@ -226,7 +232,9 @@ datacenters
 decrypt
 decrypted
 deduplicated
+deduplicates
 deduplication
+deflate
 deployable
 dev
 distroless
@@ -280,6 +288,7 @@ observability
 opentelemetry
 otel
 otlp
+pgzip
 plaintext
 pluginConfigurationRef
 podSecurityContext
@@ -299,6 +308,7 @@ pullPolicy
 pullSecrets
 quickstart
 readinessProbe
+recompressed
 renewBefore
 restorable
 rollout
@@ -324,3 +334,4 @@ verifications
 wal
 wals
 yaml
+zstd

@@ -9307,6 +9307,51 @@ spec:
                     required:
                     - pvcTemplate
                     type: object
+                  compression:
+                    description: |-
+                      Compression defines the repository-wide (global) compression policy
+                      applied to base backups stored on tier1. Individual clusters can
+                      override it through their PluginConfiguration.
+                    properties:
+                      algorithm:
+                        description: Algorithm is the name of the Kopia compression
+                          algorithm to use.
+                        enum:
+                        - none
+                        - deflate-best-compression
+                        - deflate-best-speed
+                        - deflate-default
+                        - gzip
+                        - gzip-best-compression
+                        - gzip-best-speed
+                        - pgzip
+                        - pgzip-best-compression
+                        - pgzip-best-speed
+                        - s2-better
+                        - s2-default
+                        - s2-parallel-4
+                        - s2-parallel-8
+                        - zstd
+                        - zstd-better-compression
+                        - zstd-fastest
+                        type: string
+                      maxSize:
+                        description: |-
+                          MaxSize is the maximum file size, in bytes, to attempt compression for.
+                          Files larger than this are stored uncompressed. Zero means no maximum.
+                        format: int64
+                        minimum: 0
+                        type: integer
+                      minSize:
+                        description: |-
+                          MinSize is the minimum file size, in bytes, to attempt compression for.
+                          Files smaller than this are stored uncompressed. Zero means no minimum.
+                        format: int64
+                        minimum: 0
+                        type: integer
+                    required:
+                    - algorithm
+                    type: object
                   data:
                     description: |-
                       Data is the configuration of the PVC that should be used
@@ -13808,6 +13853,51 @@ spec:
                         type: object
                     required:
                     - pvcTemplate
+                    type: object
+                  compression:
+                    description: |-
+                      Compression defines the repository-wide (global) compression policy
+                      applied to base backups stored on tier2. Individual clusters can
+                      override it through their PluginConfiguration.
+                    properties:
+                      algorithm:
+                        description: Algorithm is the name of the Kopia compression
+                          algorithm to use.
+                        enum:
+                        - none
+                        - deflate-best-compression
+                        - deflate-best-speed
+                        - deflate-default
+                        - gzip
+                        - gzip-best-compression
+                        - gzip-best-speed
+                        - pgzip
+                        - pgzip-best-compression
+                        - pgzip-best-speed
+                        - s2-better
+                        - s2-default
+                        - s2-parallel-4
+                        - s2-parallel-8
+                        - zstd
+                        - zstd-better-compression
+                        - zstd-fastest
+                        type: string
+                      maxSize:
+                        description: |-
+                          MaxSize is the maximum file size, in bytes, to attempt compression for.
+                          Files larger than this are stored uncompressed. Zero means no maximum.
+                        format: int64
+                        minimum: 0
+                        type: integer
+                      minSize:
+                        description: |-
+                          MinSize is the minimum file size, in bytes, to attempt compression for.
+                          Files smaller than this are stored uncompressed. Zero means no minimum.
+                        format: int64
+                        minimum: 0
+                        type: integer
+                    required:
+                    - algorithm
                     type: object
                   encryptionKeyFile:
                     description: EncryptionKeyFile specifies the Age-encrypted encryption

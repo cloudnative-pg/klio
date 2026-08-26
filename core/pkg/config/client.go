@@ -38,6 +38,12 @@ type Data struct {
 	// Tier2RetentionPolicy is the retention policy to be applied to tier2.
 	Tier2RetentionPolicy *RetentionPolicy `json:"tier2_retention,omitempty" mapstructure:"tier2_retention"`
 
+	// Tier1CompressionPolicy is the compression policy to be applied to tier1.
+	Tier1CompressionPolicy *CompressionPolicy `json:"tier1_compression,omitempty" mapstructure:"tier1_compression"`
+
+	// Tier2CompressionPolicy is the compression policy to be applied to tier2.
+	Tier2CompressionPolicy *CompressionPolicy `json:"tier2_compression,omitempty" mapstructure:"tier2_compression"`
+
 	// Tier1Enabled records whether the client archives base backups and WAL
 	// to tier1. False on read-only clients, which do not write to tier1 but
 	// may still restore from it when Client.Wal.Address is set. Not consulted

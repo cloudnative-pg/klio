@@ -162,6 +162,26 @@ type RetentionPolicy struct {
 	KeepAnnual *int `json:"keepAnnual,omitempty"`
 }
 
+// CompressionPolicy describes the compression policy for a source.
+type CompressionPolicy struct {
+	// Algorithm is the name of the Kopia compression algorithm to use.
+	// The special value "none" disables compression.
+	Algorithm string `json:"compressionAlgorithm,omitempty"`
+
+	// MinSize is the minimum file size, in bytes, to attempt compression for.
+	// Files smaller than this are stored uncompressed. Zero means no minimum.
+	MinSize int64 `json:"compressionMinSize,omitempty"`
+
+	// MaxSize is the maximum file size, in bytes, to attempt compression for.
+	// Files larger than this are stored uncompressed. Zero means no maximum.
+	MaxSize int64 `json:"compressionMaxSize,omitempty"`
+}
+
+// IsZero reports whether the policy carries no compression settings.
+func (p CompressionPolicy) IsZero() bool {
+	return p.Algorithm == "" && p.MinSize == 0 && p.MaxSize == 0
+}
+
 // Target is used to point a Kopia transaction to the set of snapshots
 // having the specified Hostname and Username.
 type Target struct {

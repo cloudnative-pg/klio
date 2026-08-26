@@ -296,6 +296,42 @@ merged with the default Klio `server` container. If you do not need to add
 containers or modify the default one, you must still include an empty list.
 :::
 
+### Compression
+
+By default, Kopia stores base backup data uncompressed. You can set a
+repository-wide compression policy per tier on the `Server`. This becomes the
+default for every cluster that backs up to this server; individual clusters can
+override it through their
+[PluginConfiguration](./plugin_configuration.md#compression-policies).
+
+```yaml
+apiVersion: klio.cnpg.io/v1alpha1
+kind: Server
+metadata:
+  name: klio-server
+spec:
+  # ...
+  tier1:
+    # ...
+    compression:
+      algorithm: zstd
+  tier2:
+    # ...
+    compression:
+      algorithm: zstd-better-compression
+```
+
+The `algorithm` field accepts any compression algorithm supported by Kopia
+(for example `zstd`, `s2-default`, `gzip`, or `none` to disable compression).
+The optional `minSize` and `maxSize` fields (in bytes, `0` meaning no limit)
+restrict compression to files within a size range, matching the per-cluster
+[PluginConfiguration](./plugin_configuration.md#compression-policies) fields.
+The global policy is applied to the repository when the server starts, so it
+only affects backups taken afterwards; existing backups are not recompressed.
+No manual step is needed beyond configuring the field. Because content is
+deduplicated by hash, only new or changed data is compressed with the new
+algorithm, so storage savings appear gradually as data churns.
+
 ### Node Affinity and Tolerations
 
 To dedicate specific nodes for Klio workloads (e.g., for performance isolation

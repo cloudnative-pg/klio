@@ -20,6 +20,7 @@ SPDX-License-Identifier: Apache-2.0
 package backup
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -95,6 +96,13 @@ func runBackup(cmd *cobra.Command, _ []string) error {
 	}
 	defer kopiaClient.Close(cmd.Context())
 
+	// Overrides the repository's global policy for this cluster's source.
+	if err := setTier1CompressionPolicy(cmd.Context(), kopiaClient, &configuration); err != nil {
+		return cli.NewCodedError(
+			fmt.Errorf("while setting the tier1 compression policy: %w", err),
+			backupfailure.RepositoryError.ExitCode)
+	}
+
 	conn, err := pgx.Connect(cmd.Context(), configuration.Source.StandardDSN)
 	if err != nil {
 		return cli.NewCodedError(
@@ -139,34 +147,19 @@ func runBackup(cmd *cobra.Command, _ []string) error {
 	}
 
 	for {
-		var tier2RetentionPolicy string
-		if configuration.Tier2RetentionPolicy != nil {
-			policy := kopiaWrapper.RetentionPolicy{
-				KeepLatest:  configuration.Tier2RetentionPolicy.KeepLatest,
-				KeepHourly:  configuration.Tier2RetentionPolicy.KeepHourly,
-				KeepDaily:   configuration.Tier2RetentionPolicy.KeepDaily,
-				KeepWeekly:  configuration.Tier2RetentionPolicy.KeepWeekly,
-				KeepMonthly: configuration.Tier2RetentionPolicy.KeepMonthly,
-				KeepAnnual:  configuration.Tier2RetentionPolicy.KeepAnnual,
-			}
-
-			content, err := json.Marshal(policy)
-			if err != nil {
-				contextLogger.Error(err, "Error while serializing the tier2 retention policy, skipping")
-			} else {
-				tier2RetentionPolicy = string(content)
-			}
-		}
+		//nolint:gosec // postgres timeline is uint32 in practice, fits int32
+		timeline := int32(metadata.Timeline)
 
 		result, err := grpcClient.CloseBackup(cmd.Context(), &grpc.CloseBackupRequest{
-			ClusterName:          kopiaClient.GetHostname(),
-			BackupName:           metadata.Name,
-			Timeline:             int32(metadata.Timeline), //nolint:gosec // postgres timeline is uint32 in practice, fits int32
-			StartWal:             metadata.StartWAL,
-			EndWal:               metadata.EndWAL,
-			SegmentSize:          metadata.SegmentSize,
-			SendToTier2:          tier2,
-			Tier2RetentionPolicy: tier2RetentionPolicy,
+			ClusterName:            kopiaClient.GetHostname(),
+			BackupName:             metadata.Name,
+			Timeline:               timeline,
+			StartWal:               metadata.StartWAL,
+			EndWal:                 metadata.EndWAL,
+			SegmentSize:            metadata.SegmentSize,
+			SendToTier2:            tier2,
+			Tier2RetentionPolicy:   marshalTier2RetentionPolicy(cmd.Context(), &configuration),
+			Tier2CompressionPolicy: marshalTier2CompressionPolicy(cmd.Context(), &configuration),
 		})
 		if err != nil {
 			return cli.NewCodedError(
@@ -197,6 +190,86 @@ func runBackup(cmd *cobra.Command, _ []string) error {
 	}
 
 	return nil
+}
+
+// setTier1CompressionPolicy applies the per-cluster tier1 compression policy,
+// if configured, to the cluster's source in the tier1 repository.
+func setTier1CompressionPolicy(
+	ctx context.Context,
+	client *kopia.MultiConnection,
+	configuration *config.Data,
+) error {
+	policy := toKopiaCompressionPolicy(configuration.Tier1CompressionPolicy)
+	if policy.IsZero() {
+		return nil
+	}
+
+	target := kopiaWrapper.Target{
+		Username: client.GetUsername(),
+		Hostname: client.GetHostname(),
+	}
+
+	return client.SetCompressionPolicy(ctx, target, policy)
+}
+
+// toKopiaCompressionPolicy converts a config compression policy into the Kopia
+// wrapper representation. A nil input yields the zero policy.
+func toKopiaCompressionPolicy(p *config.CompressionPolicy) kopiaWrapper.CompressionPolicy {
+	if p == nil {
+		return kopiaWrapper.CompressionPolicy{}
+	}
+
+	return kopiaWrapper.CompressionPolicy{
+		Algorithm: p.Algorithm,
+		MinSize:   p.MinSize,
+		MaxSize:   p.MaxSize,
+	}
+}
+
+// marshalTier2RetentionPolicy serializes the tier2 retention policy to the
+// JSON representation expected by the WAL server. It returns an empty string
+// when no policy is configured or serialization fails.
+func marshalTier2RetentionPolicy(ctx context.Context, configuration *config.Data) string {
+	if configuration.Tier2RetentionPolicy == nil {
+		return ""
+	}
+
+	policy := kopiaWrapper.RetentionPolicy{
+		KeepLatest:  configuration.Tier2RetentionPolicy.KeepLatest,
+		KeepHourly:  configuration.Tier2RetentionPolicy.KeepHourly,
+		KeepDaily:   configuration.Tier2RetentionPolicy.KeepDaily,
+		KeepWeekly:  configuration.Tier2RetentionPolicy.KeepWeekly,
+		KeepMonthly: configuration.Tier2RetentionPolicy.KeepMonthly,
+		KeepAnnual:  configuration.Tier2RetentionPolicy.KeepAnnual,
+	}
+
+	content, err := json.Marshal(policy)
+	if err != nil {
+		log.FromContext(ctx).Error(err, "Error while serializing the tier2 retention policy, skipping")
+
+		return ""
+	}
+
+	return string(content)
+}
+
+// marshalTier2CompressionPolicy serializes the tier2 compression policy to the
+// JSON representation expected by the WAL server. It returns an empty string
+// when no policy is configured or serialization fails.
+func marshalTier2CompressionPolicy(ctx context.Context, configuration *config.Data) string {
+	policy := toKopiaCompressionPolicy(configuration.Tier2CompressionPolicy)
+	if policy.IsZero() {
+		return ""
+	}
+
+	content, err := json.Marshal(policy)
+	if err != nil {
+		log.FromContext(ctx).Error(err, "Error while serializing the tier2 compression policy, skipping")
+
+		return ""
+	}
+
+	return string(content)
 }
 
 //nolint:gochecknoinits

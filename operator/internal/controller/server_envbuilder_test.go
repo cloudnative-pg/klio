@@ -101,6 +101,106 @@ func TestGetCoreEnvVarsIncludesTier1EnvVars(t *testing.T) {
 	assert.Equal(t, "/files/tier1-identity/identity.txt", identityFile.Value)
 }
 
+func TestGetCoreEnvVarsIncludesTier1Compression(t *testing.T) {
+	t.Run("compression set with sizes", func(t *testing.T) {
+		builder := &envBuilder{
+			tier1: &kliov1alpha1.Tier1Configuration{
+				EncryptionKeyFile: newTestFileSource("enc-secret", "encryption-key.age"),
+				IdentityFile:      newTestFileSource("id-secret", "identity.txt"),
+				Compression: &kliov1alpha1.CompressionPolicy{
+					Algorithm: "zstd",
+					MinSize:   4096,
+					MaxSize:   1048576,
+				},
+			},
+		}
+
+		envVars := builder.getCoreEnvVars()
+
+		algorithm := findEnvVar(envVars, "TIER1_COMPRESSION_ALGORITHM")
+		require.NotNil(t, algorithm)
+		assert.Equal(t, "zstd", algorithm.Value)
+
+		minSize := findEnvVar(envVars, "TIER1_COMPRESSION_MIN_SIZE")
+		require.NotNil(t, minSize)
+		assert.Equal(t, "4096", minSize.Value)
+
+		maxSize := findEnvVar(envVars, "TIER1_COMPRESSION_MAX_SIZE")
+		require.NotNil(t, maxSize)
+		assert.Equal(t, "1048576", maxSize.Value)
+	})
+
+	t.Run("algorithm only omits size vars", func(t *testing.T) {
+		builder := &envBuilder{
+			tier1: &kliov1alpha1.Tier1Configuration{
+				EncryptionKeyFile: newTestFileSource("enc-secret", "encryption-key.age"),
+				IdentityFile:      newTestFileSource("id-secret", "identity.txt"),
+				Compression:       &kliov1alpha1.CompressionPolicy{Algorithm: "zstd"},
+			},
+		}
+
+		envVars := builder.getCoreEnvVars()
+		require.NotNil(t, findEnvVar(envVars, "TIER1_COMPRESSION_ALGORITHM"))
+		assert.Nil(t, findEnvVar(envVars, "TIER1_COMPRESSION_MIN_SIZE"))
+		assert.Nil(t, findEnvVar(envVars, "TIER1_COMPRESSION_MAX_SIZE"))
+	})
+
+	t.Run("compression unset", func(t *testing.T) {
+		builder := &envBuilder{
+			tier1: &kliov1alpha1.Tier1Configuration{
+				EncryptionKeyFile: newTestFileSource("enc-secret", "encryption-key.age"),
+				IdentityFile:      newTestFileSource("id-secret", "identity.txt"),
+			},
+		}
+
+		assert.Nil(t, findEnvVar(builder.getCoreEnvVars(), "TIER1_COMPRESSION_ALGORITHM"))
+	})
+}
+
+func TestGetTier2EnvVarsIncludesCompression(t *testing.T) {
+	t.Run("compression set with sizes", func(t *testing.T) {
+		builder := &envBuilder{
+			tier2: &kliov1alpha1.Tier2Configuration{
+				S3: &kliov1alpha1.S3Configuration{
+					BucketName: "test-bucket",
+				},
+				EncryptionKeyFile: newTestFileSource("enc-secret", "encryption-key.age"),
+				IdentityFile:      newTestFileSource("id-secret", "identity.txt"),
+				Compression: &kliov1alpha1.CompressionPolicy{
+					Algorithm: "s2-default",
+					MinSize:   8192,
+				},
+			},
+		}
+
+		envVars := builder.getTier2EnvVars()
+
+		algorithm := findEnvVar(envVars, "TIER2_COMPRESSION_ALGORITHM")
+		require.NotNil(t, algorithm)
+		assert.Equal(t, "s2-default", algorithm.Value)
+
+		minSize := findEnvVar(envVars, "TIER2_COMPRESSION_MIN_SIZE")
+		require.NotNil(t, minSize)
+		assert.Equal(t, "8192", minSize.Value)
+
+		assert.Nil(t, findEnvVar(envVars, "TIER2_COMPRESSION_MAX_SIZE"))
+	})
+
+	t.Run("compression unset", func(t *testing.T) {
+		builder := &envBuilder{
+			tier2: &kliov1alpha1.Tier2Configuration{
+				S3: &kliov1alpha1.S3Configuration{
+					BucketName: "test-bucket",
+				},
+				EncryptionKeyFile: newTestFileSource("enc-secret", "encryption-key.age"),
+				IdentityFile:      newTestFileSource("id-secret", "identity.txt"),
+			},
+		}
+
+		assert.Nil(t, findEnvVar(builder.getTier2EnvVars(), "TIER2_COMPRESSION_ALGORITHM"))
+	})
+}
+
 func TestGetCoreEnvVarsOnlyTLSWhenNoTier1(t *testing.T) {
 	builder := &envBuilder{
 		tier1: nil,

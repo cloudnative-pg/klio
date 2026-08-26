@@ -86,6 +86,9 @@ type Client interface {
 	// SetRetentionPolicy sets the retention policy for backups of this cluster.
 	SetRetentionPolicy(ctx context.Context, t kopia.Target, p kopia.RetentionPolicy) error
 
+	// SetCompressionPolicy sets the compression policy for backups of this cluster.
+	SetCompressionPolicy(ctx context.Context, t kopia.Target, policy kopia.CompressionPolicy) error
+
 	// GetRetentionPolicy gets the currently applied retention policy for this cluster.
 	GetRetentionPolicy(ctx context.Context, t kopia.Target) (*kopia.RetentionPolicy, error)
 

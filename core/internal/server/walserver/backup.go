@@ -91,10 +91,21 @@ func (w *Implementation) scheduleBackupRelay(ctx context.Context, request *grpc.
 		}
 	}
 
+	var tier2Compression *kopia.CompressionPolicy
+	if request.GetTier2CompressionPolicy() != "" {
+		var policy kopia.CompressionPolicy
+		if err := json.Unmarshal([]byte(request.GetTier2CompressionPolicy()), &policy); err != nil {
+			contextLogger.Error(err, "Unable to unmarshal tier2 compression policy, skipping")
+		} else {
+			tier2Compression = &policy
+		}
+	}
+
 	if err := w.queue.NotifyBackupReceived(ctx, &queue.BackupTask{
-		ClusterName:          request.GetClusterName(),
-		SendToTier2:          request.GetSendToTier2(),
-		Tier2RetentionPolicy: tier2Policy,
+		ClusterName:            request.GetClusterName(),
+		SendToTier2:            request.GetSendToTier2(),
+		Tier2RetentionPolicy:   tier2Policy,
+		Tier2CompressionPolicy: tier2Compression,
 	}); err != nil {
 		return fmt.Errorf("while sending task to queue: %w", err)
 	}
