@@ -71,6 +71,11 @@ type Tier1Config struct {
 
 	// Wal is the configuration of the Wal server
 	Wal WalServerConfig `mapstructure:"wal"`
+
+	// Compression is the repository-wide (global) compression policy applied
+	// to base backups stored on tier1. When empty, the Kopia default (no
+	// compression) is left untouched.
+	Compression CompressionServerConfig `mapstructure:"compression"`
 }
 
 // Tier2Config is the configuration of tier 2.
@@ -98,8 +103,34 @@ type Tier2Config struct {
 	// CacheDirectory is the directory of the Kopia cache
 	CacheDirectory string `mapstructure:"cache"`
 
+	// Compression is the repository-wide (global) compression policy applied
+	// to base backups stored on tier2. When empty, the Kopia default (no
+	// compression) is left untouched.
+	Compression CompressionServerConfig `mapstructure:"compression"`
+
 	// S3 contains the configuration parameters for an S3-based tier 2
 	S3 S3Configuration `json:"s3" mapstructure:"s3"`
+}
+
+// CompressionServerConfig is the repository-wide (global) compression policy
+// applied to a tier when the Kopia server starts.
+type CompressionServerConfig struct {
+	// Algorithm is the name of the Kopia compression algorithm to use.
+	// The special value "none" disables compression.
+	Algorithm string `mapstructure:"algorithm"`
+
+	// MinSize is the minimum file size, in bytes, to attempt compression for.
+	// Zero means no minimum.
+	MinSize int64 `mapstructure:"min_size"`
+
+	// MaxSize is the maximum file size, in bytes, to attempt compression for.
+	// Zero means no maximum.
+	MaxSize int64 `mapstructure:"max_size"`
+}
+
+// IsZero reports whether the compression policy carries no settings.
+func (c CompressionServerConfig) IsZero() bool {
+	return c.Algorithm == "" && c.MinSize == 0 && c.MaxSize == 0
 }
 
 // BaseServerConfig is the configuration that will be used for

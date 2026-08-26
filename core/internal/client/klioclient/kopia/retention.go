@@ -30,6 +30,11 @@ func (s *Connection) SetRetentionPolicy(ctx context.Context, t kopia.Target, p k
 	return s.kopia.SetKopiaPolicy(ctx, t, &p)
 }
 
+// SetCompressionPolicy sets the compression policy for backups of this cluster.
+func (s *Connection) SetCompressionPolicy(ctx context.Context, t kopia.Target, policy kopia.CompressionPolicy) error {
+	return s.kopia.SetKopiaCompressionPolicy(ctx, t, policy)
+}
+
 // GetRetentionPolicy gets the currently applied retention policy for this cluster.
 func (s *Connection) GetRetentionPolicy(ctx context.Context, t kopia.Target) (*kopia.RetentionPolicy, error) {
 	policy, err := s.kopia.GetCurrentKopiaPolicy(ctx, t)

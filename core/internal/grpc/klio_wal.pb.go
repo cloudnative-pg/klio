@@ -728,8 +728,10 @@ type CloseBackupRequest struct {
 	SendToTier2 bool `protobuf:"varint,8,opt,name=send_to_tier2,json=sendToTier2,proto3" json:"send_to_tier2,omitempty"`
 	// When present, set the tier2 retention policy to the specified JSON-serialized policy.
 	Tier2RetentionPolicy string `protobuf:"bytes,9,opt,name=tier2_retention_policy,json=tier2RetentionPolicy,proto3" json:"tier2_retention_policy,omitempty"`
-	unknownFields        protoimpl.UnknownFields
-	sizeCache            protoimpl.SizeCache
+	// When present, set the tier2 compression policy to the specified JSON-serialized policy.
+	Tier2CompressionPolicy string `protobuf:"bytes,10,opt,name=tier2_compression_policy,json=tier2CompressionPolicy,proto3" json:"tier2_compression_policy,omitempty"`
+	unknownFields          protoimpl.UnknownFields
+	sizeCache              protoimpl.SizeCache
 }
 
 func (x *CloseBackupRequest) Reset() {
@@ -814,6 +816,13 @@ func (x *CloseBackupRequest) GetSendToTier2() bool {
 func (x *CloseBackupRequest) GetTier2RetentionPolicy() string {
 	if x != nil {
 		return x.Tier2RetentionPolicy
+	}
+	return ""
+}
+
+func (x *CloseBackupRequest) GetTier2CompressionPolicy() string {
+	if x != nil {
+		return x.Tier2CompressionPolicy
 	}
 	return ""
 }
@@ -921,7 +930,7 @@ const file_proto_klio_wal_proto_rawDesc = "" +
 	"\fStartWALFile\x12!\n" +
 	"\fklio_version\x18\x01 \x01(\x04R\vklioVersion\x12\x1f\n" +
 	"\vfile_length\x18\x02 \x01(\x04R\n" +
-	"fileLength\"\xa7\x02\n" +
+	"fileLength\"\xe1\x02\n" +
 	"\x12CloseBackupRequest\x12!\n" +
 	"\fcluster_name\x18\x01 \x01(\tR\vclusterName\x12\x1f\n" +
 	"\vbackup_name\x18\x03 \x01(\tR\n" +
@@ -931,7 +940,9 @@ const file_proto_klio_wal_proto_rawDesc = "" +
 	"\aend_wal\x18\x06 \x01(\tR\x06endWal\x12!\n" +
 	"\fsegment_size\x18\a \x01(\x04R\vsegmentSize\x12\"\n" +
 	"\rsend_to_tier2\x18\b \x01(\bR\vsendToTier2\x124\n" +
-	"\x16tier2_retention_policy\x18\t \x01(\tR\x14tier2RetentionPolicy\"f\n" +
+	"\x16tier2_retention_policy\x18\t \x01(\tR\x14tier2RetentionPolicy\x128\n" +
+	"\x18tier2_compression_policy\x18\n" +
+	" \x01(\tR\x16tier2CompressionPolicy\"f\n" +
 	"\x11CloseBackupResult\x12%\n" +
 	"\x0etier2_schedule\x18\x01 \x01(\bR\rtier2Schedule\x12*\n" +
 	"\x11missing_wal_files\x18\x02 \x03(\tR\x0fmissingWalFiles2\xd8\x03\n" +

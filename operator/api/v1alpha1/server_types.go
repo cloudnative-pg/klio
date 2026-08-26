@@ -191,6 +191,12 @@ type Tier1Configuration struct {
 	// IdentityFile specifies the Age identity (private key) file used to
 	// decrypt the encryption key.
 	IdentityFile FileSource `json:"identityFile"`
+
+	// Compression defines the repository-wide (global) compression policy
+	// applied to base backups stored on tier1. Individual clusters can
+	// override it through their PluginConfiguration.
+	// +optional
+	Compression *CompressionPolicy `json:"compression,omitempty"`
 }
 
 // Tier2Configuration is the tier 2 configuration.
@@ -208,6 +214,12 @@ type Tier2Configuration struct {
 	// IdentityFile specifies the Age identity (private key) file used to
 	// decrypt the encryption key.
 	IdentityFile FileSource `json:"identityFile"`
+
+	// Compression defines the repository-wide (global) compression policy
+	// applied to base backups stored on tier2. Individual clusters can
+	// override it through their PluginConfiguration.
+	// +optional
+	Compression *CompressionPolicy `json:"compression,omitempty"`
 }
 
 // S3Configuration is the configuration to a S3 defined tier 2.

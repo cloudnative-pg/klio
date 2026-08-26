@@ -161,6 +161,9 @@ message CloseBackupRequest {
 
   // When present, set the tier2 retention policy to the specified JSON-serialized policy.
   string tier2_retention_policy = 9;
+
+  // When present, set the tier2 compression policy to the specified JSON-serialized policy.
+  string tier2_compression_policy = 10;
 }
 
 // This is sent by the WAL server in response to a CloseBackupRequest
