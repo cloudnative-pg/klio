@@ -228,12 +228,10 @@ what the operation does:
 
 - **Reads that must survive a concurrent rewrite** use the root object ID
   (`Manifest.RootEntry.ObjID`), which the rewrite leaves untouched. Backup
-  verification (`core/internal/client/klioclient/kopia/verify.go`) does this.
-  Root objects come in two kinds and take different flags: `--directory-id`
-  for the pgdata and metadata snapshots, `--file-id` for the control data
-  file, which is snapshotted on its own. Passing a file root to
-  `--directory-id` makes Kopia parse file content as a directory listing and
-  report healthy data as corrupt.
+  verification (`core/internal/client/klioclient/kopia/verify.go`) does this,
+  passing every root to Kopia as `--file-id` regardless of whether it is a
+  directory root (pgdata, metadata) or a file root (the control data file,
+  snapshotted on its own).
 - **Deletions must NOT use the root object ID.** Unchanged content dedupes to
   the same root across backups (two backups of an idle tablespace share one), and
   `kopia snapshot delete` removes *every* snapshot matching the ID it is given,

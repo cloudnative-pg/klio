@@ -239,66 +239,13 @@ func (s *Client) SnapshotFileContent(
 	return nil
 }
 
-// VerifySnapshotsOptions selects what a verification run covers.
-//
-// Root object IDs are used rather than snapshot manifest IDs because they are a
-// stable identity: "kopia snapshot pin" rewrites a snapshot's manifest under a
-// new ID and deletes the old one, so a manifest ID resolved a moment earlier can
-// already be gone by the time verification runs. The root object ID is
-// unaffected by that rewrite.
-//
-// Directory and file objects take different flags: passing a file object to
-// --directory-id makes Kopia parse file content as a directory listing and
-// report it as corruption.
-type VerifySnapshotsOptions struct {
-	// DirectoryIDs restricts verification to the given directory object IDs.
-	DirectoryIDs []string
-
-	// FileIDs restricts verification to the given file object IDs.
-	FileIDs []string
-}
-
-// IsEmpty returns true when no object is selected, meaning every snapshot
-// visible to the client is verified.
-func (o VerifySnapshotsOptions) IsEmpty() bool {
-	return len(o.DirectoryIDs) == 0 && len(o.FileIDs) == 0
-}
-
-// Len returns the number of selected objects.
-func (o VerifySnapshotsOptions) Len() int {
-	return len(o.DirectoryIDs) + len(o.FileIDs)
-}
-
-// buildVerifyArgs builds the "kopia snapshot verify" arguments.
-func buildVerifyArgs(configFile string, opts VerifySnapshotsOptions) []string {
-	args := make([]string, 0, 5+opts.Len())
-	args = append(args,
-		"snapshot",
-		"verify",
-		"--json",
-		"--disable-file-logging",
-		"--config-file="+configFile,
-	)
-
-	for _, id := range opts.DirectoryIDs {
-		args = append(args, "--directory-id="+id)
-	}
-
-	for _, id := range opts.FileIDs {
-		args = append(args, "--file-id="+id)
-	}
-
-	return args
-}
-
-// VerifySnapshots verifies snapshot integrity. When opts selects nothing, all
-// snapshots visible to the client are verified.
+// VerifySnapshots verifies snapshots integrity by targeting directly their root object IDs.
 // It uses --json output to distinguish corruption (errorCount > 0) from
 // infrastructure errors (command failed but no corruption detected).
-func (s *Client) VerifySnapshots(ctx context.Context, opts VerifySnapshotsOptions) (VerifyResult, error) {
+func (s *Client) VerifySnapshots(ctx context.Context, objectIDs ...string) (VerifyResult, error) {
 	contextLogger := log.FromContext(ctx)
 
-	args := buildVerifyArgs(s.ConfigFile, opts)
+	args := buildVerifyArgs(s.ConfigFile, objectIDs...)
 
 	contextLogger.Info("Verifying Kopia snapshots", "args", args)
 
@@ -312,4 +259,22 @@ func (s *Client) VerifySnapshots(ctx context.Context, opts VerifySnapshotsOption
 	}
 
 	return parseVerifyOutput(stdout.Bytes()), nil
+}
+
+// buildVerifyArgs builds the "kopia snapshot verify" arguments.
+func buildVerifyArgs(configFile string, objectIDs ...string) []string {
+	args := make([]string, 0, 5+len(objectIDs))
+	args = append(args,
+		"snapshot",
+		"verify",
+		"--json",
+		"--disable-file-logging",
+		"--config-file="+configFile,
+	)
+
+	for _, id := range objectIDs {
+		args = append(args, "--file-id="+id)
+	}
+
+	return args
 }

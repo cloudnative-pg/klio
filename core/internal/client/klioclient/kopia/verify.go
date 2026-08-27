@@ -30,15 +30,9 @@ import (
 	kopiaClient "github.com/cloudnative-pg/klio/core/internal/kopia"
 )
 
-var (
-	// ErrNoSnapshotsForBackup is returned when no verifiable snapshot can be
-	// found for a backup name.
-	ErrNoSnapshotsForBackup = errors.New("no snapshots found for backup")
-
-	// ErrUnsupportedRootEntryType is returned when a snapshot's root entry is
-	// neither a directory nor a file, so it cannot be verified by object ID.
-	ErrUnsupportedRootEntryType = errors.New("unsupported snapshot root entry type")
-)
+// ErrNoSnapshotsForBackup is returned when no verifiable snapshot can be
+// found for a backup name.
+var ErrNoSnapshotsForBackup = errors.New("no snapshots found for backup")
 
 // BackupVerificationError is returned when backup verification detects corruption.
 type BackupVerificationError struct {
@@ -91,7 +85,7 @@ func (s *Connection) verifyAllBackups(ctx context.Context, hostname string) erro
 	// verify all snapshots for this hostname.
 	contextLogger.Info("Verifying all backups for hostname", "hostname", hostname)
 
-	result, err := s.kopia.VerifySnapshots(ctx, kopiaClient.VerifySnapshotsOptions{})
+	result, err := s.kopia.VerifySnapshots(ctx)
 	if err != nil {
 		return classifyVerifyError(ctx, result, err)
 	}
@@ -103,42 +97,29 @@ func (s *Connection) verifyAllBackups(ctx context.Context, hostname string) erro
 
 // verifySpecificBackups verifies the specified backups by resolving them to the
 // root object IDs of their snapshots.
-//
-// A backup whose snapshots fail to resolve does not stop the others from being
-// verified: their resolution errors are joined and returned alongside whatever
-// verification result the successfully resolved backups produce.
 func (s *Connection) verifySpecificBackups(ctx context.Context, hostname string, backupNames []string) error {
 	contextLogger := log.FromContext(ctx)
 
-	var verifyOpts kopiaClient.VerifySnapshotsOptions
+	if len(backupNames) == 0 {
+		return nil
+	}
 
-	var resolveErr error
+	var rootObjectIDs []string
 
 	for _, name := range backupNames {
-		opts, err := s.getRootObjectsForBackup(ctx, hostname, name)
+		ids, err := s.getBackupRootObjIDs(ctx, hostname, name)
 		if err != nil {
-			resolveErr = errors.Join(resolveErr, fmt.Errorf("backup %q: %w", name, err))
-
-			continue
+			return fmt.Errorf("backup %q: %w", name, err)
 		}
 
-		verifyOpts.DirectoryIDs = append(verifyOpts.DirectoryIDs, opts.DirectoryIDs...)
-		verifyOpts.FileIDs = append(verifyOpts.FileIDs, opts.FileIDs...)
+		rootObjectIDs = append(rootObjectIDs, ids...)
 	}
 
-	if verifyOpts.IsEmpty() {
-		return resolveErr
-	}
+	contextLogger.Info("Verifying backups", "backupNames", backupNames, "objectsCount", len(rootObjectIDs))
 
-	contextLogger.Info("Verifying backups", "backupNames", backupNames, "snapshotCount", verifyOpts.Len())
-
-	result, err := s.kopia.VerifySnapshots(ctx, verifyOpts)
+	result, err := s.kopia.VerifySnapshots(ctx, rootObjectIDs...)
 	if err != nil {
-		return errors.Join(resolveErr, classifyVerifyError(ctx, result, err))
-	}
-
-	if resolveErr != nil {
-		return resolveErr
+		return classifyVerifyError(ctx, result, err)
 	}
 
 	contextLogger.Info("All backups verified successfully")
@@ -146,31 +127,22 @@ func (s *Connection) verifySpecificBackups(ctx context.Context, hostname string,
 	return nil
 }
 
-// getRootObjectsForBackup resolves a backup name to the root objects of its
-// constituent Kopia snapshots, split by object kind.
-//
-// The root object ID is used rather than the snapshot manifest ID because it is
-// a stable identity. Post-backup maintenance unpins the snapshots of a backup
-// that reached tier2, and "kopia snapshot pin" rewrites the manifest under a
-// new ID, so a manifest ID resolved here can already have been replaced by the
-// time verification runs. The root object ID is untouched by that rewrite.
-//
-// A backup mixes both kinds: pgdata and metadata are directory snapshots, while
-// the control data file is snapshotted on its own and so has a file root.
-func (s *Connection) getRootObjectsForBackup(
+// getBackupRootObjIDs resolves a backup name to the root object IDs of its
+// constituent Kopia snapshots.
+func (s *Connection) getBackupRootObjIDs(
 	ctx context.Context,
 	hostname, backupName string,
-) (kopiaClient.VerifySnapshotsOptions, error) {
+) ([]string, error) {
 	contextLogger := log.FromContext(ctx)
-
-	var opts kopiaClient.VerifySnapshotsOptions
 
 	entries, err := s.kopia.ListSnapshots(ctx, map[string]string{
 		klioclient.BackupNameTagName: backupName,
 	}, contextLogger.Debug)
 	if err != nil {
-		return opts, err
+		return nil, err
 	}
+
+	rootObjIDs := make([]string, 0, len(entries))
 
 	for _, e := range entries {
 		if e.Source.Host != hostname {
@@ -185,24 +157,14 @@ func (s *Connection) getRootObjectsForBackup(
 			continue
 		}
 
-		switch e.RootEntry.Type {
-		case kopiaClient.EntryTypeDirectory:
-			opts.DirectoryIDs = append(opts.DirectoryIDs, e.RootEntry.ObjID)
-		case kopiaClient.EntryTypeFile:
-			opts.FileIDs = append(opts.FileIDs, e.RootEntry.ObjID)
-		default:
-			// Verifying with the wrong flag reports a healthy object as
-			// corrupt, so refuse rather than guess.
-			return opts, fmt.Errorf("%w: snapshot %q has root entry type %q",
-				ErrUnsupportedRootEntryType, e.ID, e.RootEntry.Type)
-		}
+		rootObjIDs = append(rootObjIDs, e.RootEntry.ObjID)
 	}
 
-	if opts.IsEmpty() {
-		return opts, fmt.Errorf("%w: %q", ErrNoSnapshotsForBackup, backupName)
+	if len(rootObjIDs) == 0 {
+		return nil, fmt.Errorf("%w: %q", ErrNoSnapshotsForBackup, backupName)
 	}
 
-	return opts, nil
+	return rootObjIDs, nil
 }
 
 // classifyVerifyError inspects the verify result to distinguish corruption
