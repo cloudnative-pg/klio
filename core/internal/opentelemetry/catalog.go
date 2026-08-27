@@ -295,6 +295,27 @@ func InitPluginBackupMetrics() {
 	)
 }
 
+// InitPluginBackupSeries seeds the plugin backup runs counter at 0 for every
+// outcome and failure category of clusterName (and the in-progress gauge), so
+// the first backup is a visible 0->1 that rate()/increase() can measure. See
+// https://prometheus.io/docs/practices/instrumentation/#avoid-missing-metrics
+func InitPluginBackupSeries(ctx context.Context, clusterName string) {
+	if clusterName == "" {
+		return
+	}
+	cluster := AttributeKeyClusterName.Of(clusterName)
+
+	PluginBackup.InProgress.Add(ctx, 0, metric.WithAttributes(cluster))
+	PluginBackup.Runs.Add(ctx, 0, metric.WithAttributes(cluster, OutcomeSuccess.Attribute()))
+	for _, category := range backupfailure.Names() {
+		PluginBackup.Runs.Add(ctx, 0, metric.WithAttributes(
+			cluster,
+			OutcomeFailure.Attribute(),
+			AttributeKeyFailureCategory.Of(category),
+		))
+	}
+}
+
 // InitServerBackupMetrics creates OTel instruments for server-side backup
 // state: verification counters and Kopia base snapshot gauges. It is called
 // once automatically when this package is loaded; tests can call it again

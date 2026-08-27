@@ -104,12 +104,10 @@ func findInProgressValue(rm metricdata.ResourceMetrics) (int64, bool) {
 	return 0, false
 }
 
-func findInt64SumDataPoints(
-	rm metricdata.ResourceMetrics, name string,
-) []metricdata.DataPoint[int64] {
+func findInt64SumDataPoints(rm metricdata.ResourceMetrics) []metricdata.DataPoint[int64] {
 	for _, sm := range rm.ScopeMetrics {
 		for _, m := range sm.Metrics {
-			if m.Name == name {
+			if m.Name == opentelemetry.PluginBackupRunsMetric {
 				if s, ok := m.Data.(metricdata.Sum[int64]); ok {
 					return s.DataPoints
 				}
@@ -128,7 +126,7 @@ func findBackupInt64SumValueByOutcome(
 ) (int64, bool) {
 	var total int64
 	var found bool
-	for _, dp := range findInt64SumDataPoints(rm, opentelemetry.PluginBackupRunsMetric) {
+	for _, dp := range findInt64SumDataPoints(rm) {
 		v, ok := dp.Attributes.Value("outcome")
 		if !ok {
 			continue
@@ -148,7 +146,7 @@ func findBackupInt64SumValueByOutcome(
 func findBackupInt64SumValueByFailureCategory(
 	rm metricdata.ResourceMetrics, category backupfailure.Category,
 ) (int64, bool) {
-	for _, dp := range findInt64SumDataPoints(rm, opentelemetry.PluginBackupRunsMetric) {
+	for _, dp := range findInt64SumDataPoints(rm) {
 		v, ok := dp.Attributes.Value("failure_category")
 		if !ok {
 			continue
@@ -423,13 +421,45 @@ func TestBackupMetricsClustersAreSeparateSeries(t *testing.T) {
 	// The runs counter must expose one data point per (cluster_name, outcome),
 	// not a single folded series.
 	perCluster := map[string]int64{}
-	for _, dp := range findInt64SumDataPoints(rm, opentelemetry.PluginBackupRunsMetric) {
+	for _, dp := range findInt64SumDataPoints(rm) {
 		v, ok := dp.Attributes.Value("cluster_name")
 		require.True(t, ok, "runs data point missing cluster_name")
 		perCluster[v.AsString()] += dp.Value
 	}
 	assert.Equal(t, int64(1), perCluster["cluster-a"])
 	assert.Equal(t, int64(1), perCluster["cluster-b"])
+}
+
+func TestInitPluginBackupSeriesSeedsZero(t *testing.T) {
+	reader := setupTestMeter(t)
+
+	opentelemetry.InitPluginBackupSeries(context.Background(), testClusterName)
+
+	rm := collectOTelMetrics(t, reader)
+
+	inProgress, ok := findInProgressValue(rm)
+	require.True(t, ok)
+	assert.Equal(t, int64(0), inProgress, "in-progress must be seeded at 0")
+
+	dps := findInt64SumDataPoints(rm)
+	require.NotEmpty(t, dps)
+
+	sawSuccess := false
+	seededCategories := map[string]bool{}
+	for _, dp := range dps {
+		assert.Equal(t, int64(0), dp.Value, "seeded runs series must start at 0")
+		if v, ok := dp.Attributes.Value("outcome"); ok &&
+			v.AsString() == string(opentelemetry.OutcomeSuccess) {
+			sawSuccess = true
+		}
+		if v, ok := dp.Attributes.Value("failure_category"); ok {
+			seededCategories[v.AsString()] = true
+		}
+	}
+	assert.True(t, sawSuccess, "the success runs series must be seeded")
+	for _, name := range backupfailure.Names() {
+		assert.True(t, seededCategories[name], "failure category %q must be seeded", name)
+	}
 }
 
 func TestBackupMetricsMultipleRuns(t *testing.T) {
