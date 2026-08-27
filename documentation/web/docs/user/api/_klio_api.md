@@ -26,7 +26,7 @@ _Appears in:_
 
 | Field | Description | Required | Default | Validation |
 | --- | --- | --- | --- | --- |
-| `pvcTemplate` _[PersistentVolumeClaimSpec](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.36/#persistentvolumeclaimspec-v1-core)_ |  | True |  |  |
+| `pvcTemplate` _[PersistentVolumeClaimSpec](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.37/#persistentvolumeclaimspec-v1-core)_ |  | True |  |  |
 
 
 #### Data
@@ -42,7 +42,7 @@ _Appears in:_
 
 | Field | Description | Required | Default | Validation |
 | --- | --- | --- | --- | --- |
-| `pvcTemplate` _[PersistentVolumeClaimSpec](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.36/#persistentvolumeclaimspec-v1-core)_ | Template to be used to generate the Persistent Volume Claim needed for the data folder,<br />containing base backups and WAL files. | True |  |  |
+| `pvcTemplate` _[PersistentVolumeClaimSpec](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.37/#persistentvolumeclaimspec-v1-core)_ | Template to be used to generate the Persistent Volume Claim needed for the data folder,<br />containing base backups and WAL files. | True |  |  |
 
 
 #### EmbeddedObjectMeta
@@ -75,7 +75,7 @@ _Appears in:_
 
 | Field | Description | Required | Default | Validation |
 | --- | --- | --- | --- | --- |
-| `volume` _[VolumeSource](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.36/#volumesource-v1-core)_ | Volume is the volume source to mount. | True |  |  |
+| `volume` _[VolumeSource](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.37/#volumesource-v1-core)_ | Volume is the volume source to mount. | True |  |  |
 | `path` _string_ | Path is the file path within the mounted volume. | True |  |  |
 
 
@@ -113,8 +113,8 @@ _Appears in:_
 | Field | Description | Required | Default | Validation |
 | --- | --- | --- | --- | --- |
 | `image` _string_ | Image is the image to be used for the Klio server | True |  |  |
-| `imagePullPolicy` _[PullPolicy](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.36/#pullpolicy-v1-core)_ | ImagePullPolicy defines the policy for pulling the image |  | IfNotPresent | Optional: \{\} <br /> |
-| `imagePullSecrets` _[LocalObjectReference](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.36/#localobjectreference-v1-core) array_ | ImagePullSecrets is an optional list of references to secrets in the same namespace to use for pulling any of the<br />images |  |  | Optional: \{\} <br /> |
+| `imagePullPolicy` _[PullPolicy](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.37/#pullpolicy-v1-core)_ | ImagePullPolicy defines the policy for pulling the image |  | IfNotPresent | Optional: \{\} <br /> |
+| `imagePullSecrets` _[LocalObjectReference](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.37/#localobjectreference-v1-core) array_ | ImagePullSecrets is an optional list of references to secrets in the same namespace to use for pulling any of the<br />images |  |  | Optional: \{\} <br /> |
 
 
 #### PluginConfiguration
@@ -131,7 +131,7 @@ PluginConfiguration is the Schema for the client configuration API.
 | --- | --- | --- | --- | --- |
 | `apiVersion` _string_ | `klio.cnpg.io/v1alpha1` | True | | |
 | `kind` _string_ | `PluginConfiguration` | True | | |
-| `metadata` _[ObjectMeta](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.36/#objectmeta-v1-meta)_ | Refer to Kubernetes API documentation for fields of `metadata`. | True |  |  |
+| `metadata` _[ObjectMeta](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.37/#objectmeta-v1-meta)_ | Refer to Kubernetes API documentation for fields of `metadata`. | True |  |  |
 | `spec` _[PluginConfigurationSpec](#pluginconfigurationspec)_ |  | True |  |  |
 | `status` _[PluginConfigurationStatus](#pluginconfigurationstatus)_ |  |  |  | Optional: \{\} <br /> |
 
@@ -158,7 +158,7 @@ _Appears in:_
 | `clusterName` _string_ | ClusterName is the name of the PostgreSQL cluster we are connecting to | True |  | MinLength: 1 <br />Required: \{\} <br /> |
 | `pprof` _boolean_ | Pprof enables the pprof endpoint for performance profiling |  |  | Optional: \{\} <br /> |
 | `mode` _[ServerMode](#servermode)_ | Mode selects the operation mode of the plugin. | True | standard | Enum: [standard read-only] <br /> |
-| `containers` _[Container](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.36/#container-v1-core) array_ | Containers allows defining a list of containers that will be merged with the Klio sidecar containers.<br />This enables users to customize the sidecars with additional environment variables, volume mounts,<br />resource limits, and other container settings without polluting the PostgreSQL container environment.<br />Merge behavior:<br />- Containers are matched by name (klio-plugin, klio-restore)<br />- User customizations serve as the base<br />- Klio required values (name, args, CONTAINER_NAME env var) always override user values<br />- User-defined environment variables and volume mounts are preserved<br />- Template defaults are applied only for fields not set by the user or Klio |  |  | MaxItems: 2 <br />Optional: \{\} <br /> |
+| `containers` _[Container](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.37/#container-v1-core) array_ | Containers allows defining a list of containers that will be merged with the Klio sidecar containers.<br />This enables users to customize the sidecars with additional environment variables, volume mounts,<br />resource limits, and other container settings without polluting the PostgreSQL container environment.<br />Merge behavior:<br />- Containers are matched by name (klio-plugin, klio-restore)<br />- User customizations serve as the base<br />- Klio required values (name, args, CONTAINER_NAME env var) always override user values<br />- User-defined environment variables and volume mounts are preserved<br />- Template defaults are applied only for fields not set by the user or Klio |  |  | MaxItems: 2 <br />Optional: \{\} <br /> |
 
 
 #### PluginConfigurationStatus
@@ -174,7 +174,7 @@ _Appears in:_
 
 | Field | Description | Required | Default | Validation |
 | --- | --- | --- | --- | --- |
-| `conditions` _[Condition](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.36/#condition-v1-meta) array_ | Conditions represent the latest available observations of the<br />PluginConfiguration's state. |  |  | Optional: \{\} <br /> |
+| `conditions` _[Condition](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.37/#condition-v1-meta) array_ | Conditions represent the latest available observations of the<br />PluginConfiguration's state. |  |  | Optional: \{\} <br /> |
 
 
 #### PodTemplateSpec
@@ -191,7 +191,7 @@ _Appears in:_
 | Field | Description | Required | Default | Validation |
 | --- | --- | --- | --- | --- |
 | `metadata` _[EmbeddedObjectMeta](#embeddedobjectmeta)_ | Refer to Kubernetes API documentation for fields of `metadata`. |  |  | Optional: \{\} <br /> |
-| `spec` _[PodSpec](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.36/#podspec-v1-core)_ |  |  |  | Optional: \{\} <br /> |
+| `spec` _[PodSpec](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.37/#podspec-v1-core)_ |  |  |  | Optional: \{\} <br /> |
 
 
 #### Queue
@@ -208,7 +208,7 @@ _Appears in:_
 
 | Field | Description | Required | Default | Validation |
 | --- | --- | --- | --- | --- |
-| `pvcTemplate` _[PersistentVolumeClaimSpec](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.36/#persistentvolumeclaimspec-v1-core)_ | PersistentVolumeClaimTemplate is used to generate the configuration for<br />the PVC hosting the work queue. | True |  |  |
+| `pvcTemplate` _[PersistentVolumeClaimSpec](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.37/#persistentvolumeclaimspec-v1-core)_ | PersistentVolumeClaimTemplate is used to generate the configuration for<br />the PVC hosting the work queue. | True |  |  |
 
 
 #### RetentionPolicy
@@ -270,7 +270,7 @@ Server is the Schema for the servers API.
 | --- | --- | --- | --- | --- |
 | `apiVersion` _string_ | `klio.cnpg.io/v1alpha1` | True | | |
 | `kind` _string_ | `Server` | True | | |
-| `metadata` _[ObjectMeta](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.36/#objectmeta-v1-meta)_ | Refer to Kubernetes API documentation for fields of `metadata`. | True |  |  |
+| `metadata` _[ObjectMeta](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.37/#objectmeta-v1-meta)_ | Refer to Kubernetes API documentation for fields of `metadata`. | True |  |  |
 | `spec` _[ServerSpec](#serverspec)_ |  | True |  |  |
 | `status` _[ServerStatus](#serverstatus)_ |  |  |  | Optional: \{\} <br /> |
 
@@ -307,8 +307,8 @@ _Appears in:_
 | Field | Description | Required | Default | Validation |
 | --- | --- | --- | --- | --- |
 | `image` _string_ | Image is the image to be used for the Klio server | True |  |  |
-| `imagePullPolicy` _[PullPolicy](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.36/#pullpolicy-v1-core)_ | ImagePullPolicy defines the policy for pulling the image |  | IfNotPresent | Optional: \{\} <br /> |
-| `imagePullSecrets` _[LocalObjectReference](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.36/#localobjectreference-v1-core) array_ | ImagePullSecrets is an optional list of references to secrets in the same namespace to use for pulling any of the<br />images |  |  | Optional: \{\} <br /> |
+| `imagePullPolicy` _[PullPolicy](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.37/#pullpolicy-v1-core)_ | ImagePullPolicy defines the policy for pulling the image |  | IfNotPresent | Optional: \{\} <br /> |
+| `imagePullSecrets` _[LocalObjectReference](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.37/#localobjectreference-v1-core) array_ | ImagePullSecrets is an optional list of references to secrets in the same namespace to use for pulling any of the<br />images |  |  | Optional: \{\} <br /> |
 | `tlsSecretName` _string_ | TLSSecretName is the name of the Kubernetes secret containing the server-side certificate<br />to be used for the Klio server. | True |  |  |
 | `caSecretName` _string_ | ClientCASecretName is the name of the Kubernetes secret containing the CA certificate<br />to be used by the Klio server to validate the users. | True |  |  |
 | `mode` _[ServerMode](#servermode)_ | Mode selects the operation mode of the server. | True | standard | Enum: [standard read-only] <br /> |
