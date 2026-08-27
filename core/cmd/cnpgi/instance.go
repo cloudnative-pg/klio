@@ -57,6 +57,10 @@ var instanceCmd = &cobra.Command{
 		clusterNamespace, _ := cmd.Flags().GetString("cluster-namespace")
 		pgData, _ := cmd.Flags().GetString("pgdata")
 
+		// Seed the backup counter series at 0 so a first failure (or success)
+		// is a visible increment for rate()/increase()-based panels.
+		opentelemetry.InitPluginBackupSeries(cmd.Context(), clusterName)
+
 		// One sidecar serves every phase of the instance: the restore hooks
 		// while the cluster bootstraps from a Klio backup, backup and WAL
 		// archiving afterwards. Each service picks its repository per request
