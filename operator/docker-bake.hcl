@@ -41,7 +41,7 @@ distros = {
   }
   ubi = {
     // renovate image: datasource=docker depName=registry.access.redhat.com/ubi9/ubi-micro versioning=docker
-    baseImage = "registry.access.redhat.com/ubi9/ubi-micro:9.8-1786321990@sha256:7e7f79ab747bf2b452e3043dd89f388e92be4c7fdcc8b815b58adf6c99c39c95"
+    baseImage = "registry.access.redhat.com/ubi9/ubi-micro:9.8-1787778798@sha256:f332c99eb8f798a8486821c91937f10ad64ee83d7e739303be2df051040918f6"
     tagSuffix = "-ubi9"
   }
 }
