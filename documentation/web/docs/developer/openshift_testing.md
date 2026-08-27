@@ -146,7 +146,7 @@ The Klio sidecar (operand) image is baked into the operator
 Deployment by the bundle, as both the `SIDECAR_IMAGE` and the
 `RELATED_IMAGE_SIDECAR` environment variables; the operator prefers
 the latter, and only the OLM bundle sets it. `RELATED_IMAGE_SIDECAR`
-is the name operator-sdk expects, so that `--use-image-digests`
+is the name `operator-sdk` expects, so that `--use-image-digests`
 pins the operand to a digest and copies it into the CSV's
 `relatedImages`, which is what disconnected installs mirror. Digest
 pinning only happens in CI, where the images live on `ghcr.io`; a
