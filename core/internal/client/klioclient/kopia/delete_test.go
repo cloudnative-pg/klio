@@ -26,6 +26,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"k8s.io/apimachinery/pkg/util/wait"
 
 	"github.com/cloudnative-pg/klio/core/internal/kopia"
 )
@@ -80,9 +81,10 @@ func manifest(id, host string) kopia.Manifest {
 func TestDeleteBackupSnapshots(t *testing.T) {
 	ctx := context.Background()
 
-	oldDelay := deleteBackupRetryDelay
-	deleteBackupRetryDelay = 0
-	t.Cleanup(func() { deleteBackupRetryDelay = oldDelay })
+	oldBackoff := deleteBackupBackoff
+	deleteBackupBackoff.Duration = 0
+	deleteBackupBackoff.Cap = 0
+	t.Cleanup(func() { deleteBackupBackoff = oldBackoff })
 
 	t.Run("deletes every snapshot of the backup on the host", func(t *testing.T) {
 		store := &fakeSnapshotStore{
@@ -120,7 +122,8 @@ func TestDeleteBackupSnapshots(t *testing.T) {
 	t.Run("retries with the rewritten manifest ID", func(t *testing.T) {
 		store := &fakeSnapshotStore{
 			listings: [][]kopia.Manifest{
-				{manifest("a", "cluster"), manifest("stale", "cluster")},
+				{manifest("stale", "cluster")},
+				{manifest("stale", "cluster")},
 				{manifest("rewritten", "cluster")},
 				{},
 			},
@@ -128,8 +131,8 @@ func TestDeleteBackupSnapshots(t *testing.T) {
 		}
 
 		require.NoError(t, deleteBackupSnapshots(ctx, store, "cluster", "backup-1"))
-		assert.Equal(t, []string{"a", "rewritten"}, store.deleted)
-		assert.Equal(t, 2, store.listCalls)
+		assert.Equal(t, []string{"rewritten"}, store.deleted)
+		assert.Equal(t, 3, store.listCalls)
 	})
 
 	t.Run("gives up after the attempt budget and reports the failure", func(t *testing.T) {
@@ -140,8 +143,9 @@ func TestDeleteBackupSnapshots(t *testing.T) {
 
 		err := deleteBackupSnapshots(ctx, store, "cluster", "backup-1")
 
-		require.ErrorIs(t, err, errDeleteFailed)
-		assert.Equal(t, deleteBackupAttempts, store.listCalls)
+		require.Error(t, err)
+		assert.True(t, wait.Interrupted(err), "expected the attempt budget to be exhausted, got: %v", err)
+		assert.Equal(t, deleteBackupBackoff.Steps, store.listCalls)
 		assert.Empty(t, store.deleted)
 	})
 

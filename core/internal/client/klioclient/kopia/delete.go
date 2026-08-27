@@ -23,9 +23,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
 	"time"
 
 	"github.com/cloudnative-pg/machinery/pkg/log"
+	"k8s.io/apimachinery/pkg/util/wait"
 
 	"github.com/cloudnative-pg/klio/core/internal/client/klioclient"
 	"github.com/cloudnative-pg/klio/core/internal/kopia"
@@ -34,17 +36,15 @@ import (
 // ErrBackupNotFound is returned when attempting to delete a backup that does not exist.
 var ErrBackupNotFound = errors.New("backup not found")
 
-// deleteBackupAttempts bounds how many times DeleteBackup re-resolves the
-// snapshots of a backup before giving up.
-const deleteBackupAttempts = 3
-
-// deleteBackupRetryDelay is the wait between DeleteBackup attempts, giving a
-// concurrent "kopia snapshot pin" rewrite time to settle before the next
-// attempt re-resolves snapshot IDs. Tests override this to keep the suite
-// fast.
+// deleteBackupBackoff defines the backoff between failed attempts to delete snapshots of a backup.
 //
 //nolint:gochecknoglobals
-var deleteBackupRetryDelay = 200 * time.Millisecond
+var deleteBackupBackoff = wait.Backoff{
+	Duration: time.Second,
+	Factor:   2,
+	Cap:      2 * time.Second,
+	Steps:    3,
+}
 
 // snapshotStore is the subset of the Kopia client that DeleteBackup needs.
 type snapshotStore interface {
@@ -58,105 +58,61 @@ func (s *Connection) DeleteBackup(ctx context.Context, hostname string, name str
 }
 
 // deleteBackupSnapshots removes every snapshot of a backup on the given host.
-//
-// Snapshots are deleted by manifest ID, which post-backup maintenance can
-// rewrite underneath us: "kopia snapshot pin" replaces a snapshot's manifest
-// with a new ID, and deleting a replaced ID matches nothing and fails, leaving
-// the backup in place. Deleting by root object ID is not an option, because
-// unchanged content dedupes to the same root across backups and Kopia deletes
-// every snapshot matching the ID it is given. Instead, resolve the snapshots
-// again and retry: each attempt lists the current IDs, and snapshots deleted by
-// an earlier attempt are simply no longer listed.
 func deleteBackupSnapshots(ctx context.Context, store snapshotStore, hostname, name string) error {
 	contextLogger := log.FromContext(ctx)
 
-	var deleted int
-
-	var lastErr error
-
-	for attempt := 1; attempt <= deleteBackupAttempts; attempt++ {
-		// List all snapshots for this backup (all content types)
-		entries, err := store.ListSnapshots(ctx, map[string]string{
-			klioclient.BackupNameTagName: name,
-		}, contextLogger.Debug)
-		if err != nil {
-			return fmt.Errorf("while listing snapshots: %w", err)
-		}
-
-		pending, deletedNow, attemptErr := deleteHostSnapshots(ctx, store, contextLogger, hostname, entries)
-		deleted += deletedNow
-
-		// Nothing left to delete: either we removed everything, or the backup
-		// was not there to begin with.
-		if pending == 0 {
-			if deleted > 0 {
-				return nil
+	// Concurrent operations on the same snapshots (e.g. post-backup
+	// maintenance) can invalidate the IDs resolved below before they are
+	// used, so this race condition is tolerated with retries.
+	retryErr := wait.ExponentialBackoffWithContext(ctx, deleteBackupBackoff,
+		func(ctx context.Context) (bool, error) {
+			entries, err := store.ListSnapshots(ctx, map[string]string{
+				klioclient.BackupNameTagName: name,
+			}, contextLogger.Debug)
+			if err != nil {
+				return false, fmt.Errorf("while listing snapshots: %w", err)
 			}
 
-			return fmt.Errorf("%w: %s", ErrBackupNotFound, name)
-		}
+			entries = slices.DeleteFunc(entries, func(e kopia.Manifest) bool {
+				return e.Source.Host != hostname
+			})
 
-		if attemptErr == nil {
-			return nil
-		}
-
-		lastErr = attemptErr
-
-		contextLogger.Info("DeleteBackup: retrying with freshly resolved snapshot IDs",
-			"backupName", name, "attempt", attempt, "error", attemptErr)
-
-		if attempt < deleteBackupAttempts {
-			if waitErr := waitBeforeDeleteRetry(ctx); waitErr != nil {
-				return waitErr
+			if len(entries) == 0 {
+				return false, fmt.Errorf("%w: %s", ErrBackupNotFound, name)
 			}
-		}
-	}
 
-	return lastErr
+			err = deleteSnapshots(ctx, store, entries)
+			if err == nil {
+				return true, nil
+			}
+
+			contextLogger.Info("DeleteBackup: an error occurred while trying to delete backup's snapshots, retrying...",
+				"backupName", name, "error", err)
+
+			return false, nil
+		},
+	)
+
+	return retryErr
 }
 
-// deleteHostSnapshots deletes every entry belonging to hostname, returning how
-// many of them matched the host (pending), how many were deleted, and the
-// deletion errors joined together.
-func deleteHostSnapshots(
+// deleteSnapshots deletes every given entry, joining and returning any
+// deletion errors.
+func deleteSnapshots(
 	ctx context.Context,
 	store snapshotStore,
-	contextLogger log.Logger,
-	hostname string,
 	entries []kopia.Manifest,
-) (int, int, error) {
-	var pending, deleted int
+) error {
+	contextLogger := log.FromContext(ctx)
 
 	var err error
 
 	for _, entry := range entries {
-		if entry.Source.Host != hostname {
-			continue
-		}
-
-		pending++
-
 		contextLogger.Info("DeleteBackup: deleting snapshot", "snapshotID", entry.ID)
 		if deleteErr := store.DeleteSnapshot(ctx, entry.ID); deleteErr != nil {
 			err = errors.Join(err, deleteErr)
-
-			continue
 		}
-
-		deleted++
 	}
 
-	return pending, deleted, err
-}
-
-// waitBeforeDeleteRetry pauses deleteBackupRetryDelay before the next
-// DeleteBackup attempt, returning early with ctx's error if it is cancelled
-// first.
-func waitBeforeDeleteRetry(ctx context.Context) error {
-	select {
-	case <-ctx.Done():
-		return ctx.Err()
-	case <-time.After(deleteBackupRetryDelay):
-		return nil
-	}
+	return err
 }
