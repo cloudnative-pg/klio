@@ -15,6 +15,7 @@ CRC
 CRC's
 CRDs
 CSV
+CSV's
 CatalogSource
 CheckpointTime
 ClientCASecretName
@@ -290,6 +291,7 @@ pre
 prefetch
 prefetching
 preflight
+prereleases
 priorityClassName
 prometheus
 proto
@@ -319,6 +321,7 @@ uint
 ulong
 unicode
 unreferenced
+unupgradable
 uptime
 verifications
 wal
