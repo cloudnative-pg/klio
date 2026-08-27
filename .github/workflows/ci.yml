@@ -300,9 +300,23 @@ jobs:
 
   olm:
     name: OLM Bundle & Catalog
+    needs:
+      - change-triage
+      - core
+      - operator
+      # the bundle needs the core and operator images
+
+    if: |
+      !cancelled() &&
+      (needs.change-triage.outputs.operator-changed == 'true' ||
+       needs.change-triage.outputs.run-openshift == 'true') &&
+      needs.operator.result == 'success' &&
+      (needs.core.result == 'success' || needs.core.result == 'skipped')
     env:
-      # The OpenShift Catalog is just for internal testing purpose until it won't.
       ENVIRONMENT: "testing"
+      SKIP_IMAGE_DIGESTS: >-
+        ${{ (needs.change-triage.outputs.core-changed != 'true' &&
+             needs.change-triage.outputs.run-openshift != 'true') && 'true' || '' }}
     runs-on: ubuntu-24.04
     permissions:
       contents: read

@@ -481,7 +481,7 @@ func reconcilePodSpec( // NOSONAR
 	}
 
 	sidecarTemplate := corev1.Container{
-		Image:           os.Getenv("SIDECAR_IMAGE"),
+		Image:           sidecarImage(),
 		RestartPolicy:   new(corev1.ContainerRestartPolicyAlways),
 		ImagePullPolicy: cluster.Spec.ImagePullPolicy,
 		SecurityContext: sidecarSecurityContext(cfg.haveSCC),
@@ -576,6 +576,22 @@ func reconcilePodSpec( // NOSONAR
 	}
 
 	return nil
+}
+
+// sidecarImage returns the Klio plugin sidecar (operand) image the operator
+// injects into PostgreSQL pods.
+//
+// RELATED_IMAGE_SIDECAR takes precedence over SIDECAR_IMAGE because it is the
+// name OLM tooling recognizes: operator-sdk pins RELATED_IMAGE_* env vars to
+// image digests and copies them into the CSV's relatedImages, which is what
+// disconnected installs mirror. Only the OLM bundle sets it; the Helm chart and
+// every other deployment path keep using SIDECAR_IMAGE.
+func sidecarImage() string {
+	if image := os.Getenv("RELATED_IMAGE_SIDECAR"); image != "" {
+		return image
+	}
+
+	return os.Getenv("SIDECAR_IMAGE")
 }
 
 // sidecarSecurityContext returns the SecurityContext for the Klio plugin

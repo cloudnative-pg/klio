@@ -395,6 +395,24 @@ spec:
       TLS certificates for the Klio server and its clients.
     * Persistent Volume Claims that support `ReadWriteOnce`.
 
+    ## Before creating a Server
+
+    A `Server` names the TLS and encryption material it needs, and the
+    operator does not create it: the Secrets must already exist in the
+    `Server`'s namespace. The example `Server` below expects three that
+    are **not** part of this bundle:
+
+    * `server-sample-tls`, the certificate the Klio server presents, and
+      `server-sample-ca`, the CA it validates clients against. Both are
+      normally issued by cert-manager `Certificate` resources.
+    * `server-sample-encryption`, holding an `encryption-key` entry (the
+      Age-encrypted encryption key) and a `secret-key` entry (the Age
+      identity that decrypts it).
+
+    Those names are only the example's defaults: any names work, as long
+    as `tlsSecretName`, `caSecretName`, and the
+    `encryptionKeyFile`/`identityFile` references agree with them.
+
     ## Getting started
 
     Full installation and configuration instructions are available in

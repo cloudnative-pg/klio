@@ -31,6 +31,24 @@ vars:
   # image, since that is the variant submitted to Red Hat certification.
   UBI_TAG_SUFFIX: '-ubi9'
   ALLOWED_ENVS: [testing, production]
+  # OLM channel the bundle is published on. "stable" is the support tier and
+  # "v0" pins the major version, per the OLM channel-naming convention
+  # (https://olm.operatorframework.io/docs/best-practices/channel-naming/).
+  # Bump to stable-v1 at the 1.0 release, by adding the new channel instead
+  # of renaming this one.
+  OLM_CHANNELS: 'stable-v0'
+  OLM_DEFAULT_CHANNEL: 'stable-v0'
+  # Minimum OpenShift version the bundle declares support for
+  OPENSHIFT_VERSIONS: 'v4.14'
+  # First release that ships an OLM bundle. It is the lower bound of the CSV's
+  # olm.skipRange, which is what lets a catalog carrying a single bundle still
+  # offer an upgrade from any earlier release (see olm:manifest). Never lower
+  # it, and only raise it if a version range is ever declared unupgradable.
+  OLM_FIRST_BUNDLE_VERSION: '0.0.21'
+  # Set to a non-empty value to build the OLM bundle without pinning images to
+  # digests. Defaults to empty, so digest pinning is on wherever it can work;
+  # see olm:bundle for when CI turns it off.
+  SKIP_IMAGE_DIGESTS: '{{ .SKIP_IMAGE_DIGESTS | default "" }}'
 
 tasks:
 
@@ -754,6 +772,10 @@ tasks:
       # registry and tag, differing only by the "klio" repository instead of
       # "klio-operator". The patch is consumed by
       # operator/config/olm-default/kustomization.yaml.
+      #
+      # RELATED_IMAGE_SIDECAR carries the same value under the name OLM
+      # tooling recognizes: operator-sdk's --use-image-digests only discovers
+      # container images and RELATED_IMAGE_* env vars,
       - |
         cat > operator/config/olm-default/manager_sidecar_image_patch.yaml <<EOF
         - op: add
@@ -761,6 +783,28 @@ tasks:
           value:
             - name: SIDECAR_IMAGE
               value: ${registry}/klio${suffix}:${tag}
+            - name: RELATED_IMAGE_SIDECAR
+              value: ${registry}/klio${suffix}:${tag}
+        EOF
+      - |
+        cat > operator/config/manifests/csv_container_image_patch.yaml <<EOF
+        - op: add
+          path: /metadata/annotations/containerImage
+          value: ${registry}/klio-operator${suffix}:${tag}${ubi_suffix}
+        EOF
+      # Declare the range of already-released versions this bundle can be
+      # installed over, as olm.skipRange.
+      - |
+        cat > operator/config/manifests/csv_skip_range_patch.yaml <<EOF
+        - op: add
+          path: /metadata/annotations/olm.skipRange
+          value: ">={{ .OLM_FIRST_BUNDLE_VERSION }} <{{ .GIT_TAG_VERSION }}"
+        EOF
+      - |
+        cat > operator/config/manifests/sample_image_patch.yaml <<EOF
+        - op: add
+          path: /spec/image
+          value: ${registry}/klio${suffix}:${tag}
         EOF
       - >
         GITHUB_REF= dagger -s call -m github.com/sagikazarmark/daggerverse/kustomize@${DAGGER_KUSTOMIZE_SHA}
@@ -780,9 +824,31 @@ tasks:
 
   olm:bundle:
     desc: Generate the OLM bundle for the operator
+    summary: |
+      Note that --use-image-digests makes operator-sdk resolve every image in
+      the CSV against its registry, so the operator image for this ref must
+      already be pushed when this runs. Callers must therefore order themselves
+      after the operator build (in CI, the olm job needs the operator job).
+
+      Digest pinning is enabled only when running in GitHub Actions, where the
+      images live on ghcr.io. 
+
+      Resolution covers *every* image in the CSV, the operand included, so a
+      caller that cannot guarantee the operand image was pushed for this ref
+      must set SKIP_IMAGE_DIGESTS. The CI olm job does that on pull requests
+      where the core job is skipped; releases always build both, and never set
+      it.
+
     run: once
+    requires:
+      vars:
+        - name: ENVIRONMENT
+          enum:
+            ref: .ALLOWED_ENVS
     deps:
       - olm:manifest
+    env:
+      use_image_digests: '{{ if and .GITHUB_ACTIONS (not .SKIP_IMAGE_DIGESTS) }}--use-image-digests{{ end }}'
     cmds:
       - >
         docker
@@ -794,11 +860,20 @@ tasks:
         generate bundle
         --input-dir olm-manifests/
         --kustomize-dir config/manifests
+        --package klio-operator
+        --channels {{ .OLM_CHANNELS }}
+        --default-channel {{ .OLM_DEFAULT_CHANNEL }}
+        ${use_image_digests}
         --version {{ .GIT_TAG_VERSION }}
+      - |
+        printf '\n  # OpenShift annotations.\n  com.redhat.openshift.versions: "%s"\n' \
+          '{{ .OPENSHIFT_VERSIONS }}' >> operator/bundle/metadata/annotations.yaml
+        printf '\n# OpenShift labels.\nLABEL com.redhat.openshift.versions="%s"\n' \
+          '{{ .OPENSHIFT_VERSIONS }}' >> operator/bundle.Dockerfile
     sources:
       - operator/olm-manifests/**
     generates:
-      - bundle/
+      - operator/bundle/**
 
   olm:build:
     desc: Build the require OLM bundle image after generating the bundle
@@ -940,6 +1015,37 @@ tasks:
            sourceType: grpc
            image: ${registry}/klio-operator${suffix}:${tag}-catalog
         EOF
+
+  olm:publish:
+    desc: Publish the OLM bundle and catalog images for a release
+    summary: |
+      Release counterpart of olm:all. Builds and pushes the production bundle
+      and catalog images (no "-testing" suffix) for the tag being released, and
+      leaves operator/bundle/ on disk for the release workflow to upload and
+      forward to the artifacts repository.
+
+      Scorecard is deliberately not re-run here: it already ran against the
+      same bundle in the CI olm job, and it needs a k3s-capable engine that the
+      release runner is not set up for.
+    requires:
+      # We expect this to run in a GitHub workflow, so we put a few
+      # GitHub-specific vars here to prevent running this task locally by
+      # accident.
+      vars:
+        - CI
+        - GITHUB_REPOSITORY
+        - GITHUB_REF
+        - GITHUB_REF_NAME
+    preconditions:
+      - sh: "[[ {{.GITHUB_REF}} =~ 'refs/tags/v.*' ]]"
+        msg: not a tag, failing
+      - sh: '[[ "{{ .GIT_TAG_VERSION }}" == "{{ trimPrefix "v" .GITHUB_REF_NAME }}" ]]'
+        msg: >-
+          bundle version {{ .GIT_TAG_VERSION }} does not match tag
+          {{ .GITHUB_REF_NAME }}; refusing to publish an inconsistent bundle
+    cmds:
+      - task: olm:catalog
+      - task: olm:catalog-source
 
   olm:preflight-container:
     desc: Run Red Hat Preflight (check container) certification on the operator image
