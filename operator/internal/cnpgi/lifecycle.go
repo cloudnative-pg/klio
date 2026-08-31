@@ -144,66 +144,38 @@ func (impl LifecycleImplementation) LifecycleHook(
 	}
 }
 
-//nolint:cyclop
-func (impl LifecycleImplementation) reconcileJob(
+// buildRestoreSidecar resolves the Klio recovery source plugin configuration and
+// returns the restore-mode sidecar to inject into a recovery bootstrap. It
+// returns ok=false when the cluster is not recovering through the Klio plugin.
+func (impl LifecycleImplementation) buildRestoreSidecar(
 	ctx context.Context,
 	cluster *cnpgv1.Cluster,
-	request *lifecycle.OperatorLifecycleRequest,
-) (*lifecycle.OperatorLifecycleResponse, error) {
-	contextLogger := log.FromContext(ctx).WithName("klio-job-lifecycle")
-	plugins, err := klioconfig.ResolveClusterPlugins(ctx, impl.Client, cluster)
-	if err != nil {
-		contextLogger.Error(err, "Failed to get klio configuration from cluster definition")
-		return nil, err
-	}
+) (corev1.Container, bool, error) {
+	contextLogger := log.FromContext(ctx).WithName("klio-restore-sidecar")
 
 	recoveryPluginConfig := cluster.GetRecoverySourcePlugin()
 	if recoveryPluginConfig == nil ||
 		recoveryPluginConfig.Name != klioconfig.PluginName ||
 		!recoveryPluginConfig.IsEnabled() {
 		// not our plugin, skip
-		return nil, nil
+		return corev1.Container{}, false, nil
 	}
 
 	if recoveryPluginConfig.Parameters[klioconfig.PluginConfigurationRefParam] == "" {
 		contextLogger.Warning("recovery plugin configuration missing 'ref' parameter")
-		return nil, errors.New("recovery plugin configuration missing 'ref' parameter")
+		return corev1.Container{}, false, errors.New("recovery plugin configuration missing 'ref' parameter")
 	}
 
 	clusterPC := &kliov1alpha1.PluginConfiguration{}
-	err = impl.Client.Get(ctx,
+	if err := impl.Client.Get(ctx,
 		client.ObjectKey{
 			Namespace: cluster.Namespace,
 			Name:      recoveryPluginConfig.Parameters[klioconfig.PluginConfigurationRefParam],
 		},
-		clusterPC)
-	if err != nil {
+		clusterPC); err != nil {
 		contextLogger.Error(err, "Failed to get client configuration")
-		return nil, fmt.Errorf("failed to get client configuration: %w", err)
+		return corev1.Container{}, false, fmt.Errorf("failed to get client configuration: %w", err)
 	}
-
-	var job batchv1.Job
-	if err := decoder.DecodeObjectStrict(
-		request.GetObjectDefinition(),
-		&job,
-		batchv1.SchemeGroupVersion.WithKind("Job"),
-	); err != nil {
-		contextLogger.Error(err, "Failed to decode job")
-		return nil, err
-	}
-
-	contextLogger = log.FromContext(ctx).WithName("klio-job-lifecycle").
-		WithValues("jobName", job.Name)
-	contextLogger.Debug("starting job reconciliation")
-
-	jobRole := getCNPGJobRole(&job)
-	if jobRole != "full-recovery" &&
-		jobRole != "snapshot-recovery" {
-		contextLogger.Debug("job is not a recovery job, skipping")
-		return nil, nil
-	}
-
-	mutatedJob := job.DeepCopy()
 
 	// Resolve the config key for the recovery source.
 	recoverySource := cluster.Spec.Bootstrap.Recovery.Source
@@ -226,15 +198,62 @@ func (impl LifecycleImplementation) reconcileJob(
 		Value: "klio-restore",
 	})
 
-	sidecarsToEnrich := []corev1.Container{restoreSidecar}
+	return restoreSidecar, true, nil
+}
 
+// reconcileJob injects the restore sidecar into a recovery Job. Older
+// CloudNativePG releases run recovery bootstrap as a dedicated Job; newer
+// versions run it inside the instance pod instead (handled by reconcilePod).
+func (impl LifecycleImplementation) reconcileJob(
+	ctx context.Context,
+	cluster *cnpgv1.Cluster,
+	request *lifecycle.OperatorLifecycleRequest,
+) (*lifecycle.OperatorLifecycleResponse, error) {
+	contextLogger := log.FromContext(ctx).WithName("klio-job-lifecycle")
+
+	plugins, err := klioconfig.ResolveClusterPlugins(ctx, impl.Client, cluster)
+	if err != nil {
+		contextLogger.Error(err, "Failed to get klio configuration from cluster definition")
+		return nil, err
+	}
+
+	restoreSidecar, ok, err := impl.buildRestoreSidecar(ctx, cluster)
+	if err != nil {
+		return nil, err
+	}
+	if !ok {
+		// not our plugin, skip
+		return nil, nil
+	}
+
+	var job batchv1.Job
+	if err := decoder.DecodeObjectStrict(
+		request.GetObjectDefinition(),
+		&job,
+		batchv1.SchemeGroupVersion.WithKind("Job"),
+	); err != nil {
+		contextLogger.Error(err, "Failed to decode job")
+		return nil, err
+	}
+
+	contextLogger = contextLogger.WithValues("jobName", job.Name)
+	contextLogger.Debug("starting job reconciliation")
+
+	jobRole := getCNPGJobRole(&job)
+	if jobRole != "full-recovery" &&
+		jobRole != "snapshot-recovery" {
+		contextLogger.Debug("job is not a recovery job, skipping")
+		return nil, nil
+	}
+
+	mutatedJob := job.DeepCopy()
 	cnpgGroup, cnpgVersion := cnpgGroupVersion(cluster)
 	if err := reconcilePodSpec(
 		cluster,
 		&mutatedJob.Spec.Template.Spec,
 		jobRole,
 		reconcilePodSpecConfiguration{
-			sidecarsToEnrich: sidecarsToEnrich,
+			sidecarsToEnrich: []corev1.Container{restoreSidecar},
 			cnpgGroup:        cnpgGroup,
 			cnpgVersion:      cnpgVersion,
 			plugins:          plugins,
@@ -277,8 +296,19 @@ func (impl LifecycleImplementation) reconcilePod(
 		return nil, err
 	}
 
-	contextLogger = log.FromContext(ctx).WithName("klio-pod-lifecycle").
-		WithValues("podName", pod.Name)
+	// When CloudNativePG runs recovery bootstrap inside the instance pod (as an
+	// init container), the restore hooks must be served by a sidecar in this
+	// pod. Inject the restore sidecar while the cluster performs its initial
+	// recovery bootstrap.
+	if cluster.Status.CurrentPrimary == "" {
+		restoreSidecar, ok, rerr := impl.buildRestoreSidecar(ctx, cluster)
+		if rerr != nil {
+			return nil, rerr
+		}
+		if ok {
+			return impl.injectPodSidecars(ctx, cluster, pod, plugins, []corev1.Container{restoreSidecar})
+		}
+	}
 
 	archiveConfigKey := klioconfig.ArchiveConfigKey
 	targetPC, ok := plugins[klioconfig.ArchiveConfigKey]
@@ -301,11 +331,23 @@ func (impl LifecycleImplementation) reconcilePod(
 		}
 	}
 
-	mutatedPod := pod.DeepCopy()
+	return impl.injectPodSidecars(ctx, cluster, pod, plugins,
+		[]corev1.Container{buildInstanceSidecarTemplate(pod, cluster, targetPC, archiveConfigKey)})
+}
 
-	sidecarsToEnrich := []corev1.Container{
-		buildInstanceSidecarTemplate(pod, cluster, targetPC, archiveConfigKey),
-	}
+// injectPodSidecars enriches the pod spec with the given Klio sidecars and
+// returns the resulting lifecycle patch.
+func (impl LifecycleImplementation) injectPodSidecars(
+	ctx context.Context,
+	cluster *cnpgv1.Cluster,
+	pod *corev1.Pod,
+	plugins klioconfig.ClusterPlugins,
+	sidecars []corev1.Container,
+) (*lifecycle.OperatorLifecycleResponse, error) {
+	contextLogger := log.FromContext(ctx).WithName("klio-pod-lifecycle").
+		WithValues("podName", pod.Name)
+
+	mutatedPod := pod.DeepCopy()
 
 	cnpgGroup, cnpgVersion := cnpgGroupVersion(cluster)
 	if err := reconcilePodSpec(
@@ -313,7 +355,7 @@ func (impl LifecycleImplementation) reconcilePod(
 		&mutatedPod.Spec,
 		"postgres",
 		reconcilePodSpecConfiguration{
-			sidecarsToEnrich: sidecarsToEnrich,
+			sidecarsToEnrich: sidecars,
 			cnpgGroup:        cnpgGroup,
 			cnpgVersion:      cnpgVersion,
 			plugins:          plugins,
