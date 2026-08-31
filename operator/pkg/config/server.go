@@ -34,6 +34,11 @@ type ServerConfig struct {
 	// QueueDirectory is the directory where the persistent queue
 	// messages will be stored.
 	QueueDirectory string `mapstructure:"queue_directory"`
+
+	// QueueMigrationSource is the previous location of the persistent queue.
+	// When it holds data and QueueDirectory is empty, the content is moved
+	// before the queue is opened. Empty when there is nothing to migrate.
+	QueueMigrationSource string `mapstructure:"queue_migration_source"`
 }
 
 // TLSConfig is the TLS configuration of the server.
