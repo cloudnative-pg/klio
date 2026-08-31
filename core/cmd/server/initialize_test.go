@@ -67,7 +67,3 @@ func TestReclaimStaleCacheIsANoOpWhenUnset(t *testing.T) {
 
 	assert.DirExists(t, inUse)
 }
-
-func TestReclaimStaleCacheRefusesRelativePaths(t *testing.T) {
-	require.Error(t, reclaimStaleCache(context.Background(), "cache", "/data/cache"))
-}

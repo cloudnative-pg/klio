@@ -23,64 +23,30 @@ import (
 	"context"
 	"fmt"
 
-	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/resource"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
 	kliov1alpha1 "github.com/cloudnative-pg/klio/operator/api/v1alpha1"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
 
-func cacheTestPVCTemplate(size string) corev1.PersistentVolumeClaimSpec {
-	return corev1.PersistentVolumeClaimSpec{
-		AccessModes: []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce},
-		Resources: corev1.VolumeResourceRequirements{
-			Requests: corev1.ResourceList{
-				corev1.ResourceStorage: resource.MustParse(size),
-			},
-		},
-	}
-}
-
-func cacheTestFileSource(secretName, path string) kliov1alpha1.FileSource {
-	return kliov1alpha1.FileSource{
-		FileReference: &kliov1alpha1.FileReference{
-			Volume: corev1.VolumeSource{
-				Secret: &corev1.SecretVolumeSource{SecretName: secretName},
-			},
-			Path: path,
-		},
-	}
-}
-
+// cacheTestServer returns a Server accepted by the API server, with no
+// dedicated cache volume on tier1. Each test needs its own name because the
+// objects live in the same namespace for the whole suite.
 func cacheTestServer(name string) *kliov1alpha1.Server {
-	return &kliov1alpha1.Server{
-		ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: "default"},
-		Spec: kliov1alpha1.ServerSpec{
-			ImageConfiguration: kliov1alpha1.ImageConfiguration{Image: "klio:test"},
-			TLSConfiguration: kliov1alpha1.TLSConfiguration{
-				TLSSecretName:      "tls-secret",
-				ClientCASecretName: "ca-secret",
-			},
-			Mode: kliov1alpha1.ModeStandard,
-			Tier1: &kliov1alpha1.Tier1Configuration{
-				Data:              kliov1alpha1.Data{PersistentVolumeClaimTemplate: cacheTestPVCTemplate("1Gi")},
-				EncryptionKeyFile: cacheTestFileSource("enc-secret", "encryption-key.age"),
-				IdentityFile:      cacheTestFileSource("id-secret", "identity.txt"),
-			},
-			Queue: &kliov1alpha1.Queue{PersistentVolumeClaimTemplate: cacheTestPVCTemplate("1Gi")},
-		},
-	}
+	server := newTestServerForStatefulSet()
+	server.Name = name
+	server.UID = ""
+	server.Spec.Tier1.Cache = nil
+
+	return server
 }
 
 func cacheTestTier2(cache *kliov1alpha1.Cache) *kliov1alpha1.Tier2Configuration {
 	return &kliov1alpha1.Tier2Configuration{
 		Cache:             cache,
 		S3:                &kliov1alpha1.S3Configuration{BucketName: "test-bucket"},
-		EncryptionKeyFile: cacheTestFileSource("enc-secret", "encryption-key.age"),
-		IdentityFile:      cacheTestFileSource("id-secret", "identity.txt"),
+		EncryptionKeyFile: newTestFileSource("enc-secret", "encryption-key.age"),
+		IdentityFile:      newTestFileSource("id-secret", "identity.txt"),
 	}
 }
 
@@ -132,7 +98,7 @@ var _ = Describe("Server cache validation", func() {
 		server.Spec.Tier1 = nil
 		server.Spec.Queue = nil
 		server.Spec.Tier2 = cacheTestTier2(&kliov1alpha1.Cache{
-			PersistentVolumeClaimTemplate: cacheTestPVCTemplate("1Gi"),
+			PersistentVolumeClaimTemplate: newPVCSpec("1Gi"),
 		})
 
 		Expect(create(server)).To(Succeed())
@@ -151,18 +117,18 @@ var _ = Describe("Server cache validation", func() {
 			server.Spec.Tier2.Cache = after
 			Expect(k8sClient.Update(ctx, server)).To(Succeed())
 		},
-		Entry("adding", nil, &kliov1alpha1.Cache{PersistentVolumeClaimTemplate: cacheTestPVCTemplate("2Gi")}),
-		Entry("removing", &kliov1alpha1.Cache{PersistentVolumeClaimTemplate: cacheTestPVCTemplate("2Gi")}, nil),
+		Entry("adding", nil, &kliov1alpha1.Cache{PersistentVolumeClaimTemplate: newPVCSpec("2Gi")}),
+		Entry("removing", &kliov1alpha1.Cache{PersistentVolumeClaimTemplate: newPVCSpec("2Gi")}, nil),
 	)
 
 	It("still refuses to shrink a cache volume that stays configured", func() {
 		server := cacheTestServer("cache-shrink")
 		server.Spec.Tier1.Cache = &kliov1alpha1.Cache{
-			PersistentVolumeClaimTemplate: cacheTestPVCTemplate("2Gi"),
+			PersistentVolumeClaimTemplate: newPVCSpec("2Gi"),
 		}
 		Expect(create(server)).To(Succeed())
 
-		server.Spec.Tier1.Cache.PersistentVolumeClaimTemplate = cacheTestPVCTemplate("1Gi")
+		server.Spec.Tier1.Cache.PersistentVolumeClaimTemplate = newPVCSpec("1Gi")
 		Expect(k8sClient.Update(ctx, server)).To(MatchError(
 			ContainSubstring("tier1.cache PVC size cannot be decreased")))
 	})

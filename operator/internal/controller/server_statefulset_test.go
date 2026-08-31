@@ -248,26 +248,35 @@ func newTestServerWithBothTiers(t *testing.T) *kliov1alpha1.Server {
 	return server
 }
 
-func TestVolumeClaimTemplatesIncludeTheRequestedCaches(t *testing.T) {
-	server := newTestServerWithBothTiers(t)
+func TestVolumeClaimTemplatesFollowTheCacheConfiguration(t *testing.T) {
+	tests := map[string]struct {
+		tier1Cache bool
+		tier2Cache bool
+		expected   []string
+	}{
+		"dedicated caches":    {true, true, []string{"data", "cachetier1", "queue", "cachetier2"}},
+		"no dedicated caches": {false, false, []string{"data", "queue"}},
+		"only tier1":          {true, false, []string{"data", "cachetier1", "queue"}},
+		"only tier2":          {false, true, []string{"data", "queue", "cachetier2"}},
+	}
 
-	ss := &appsv1.StatefulSet{}
-	injectTier1VolumeClaimTemplates(ss, *server)
-	injectTier2VolumeClaimTemplates(ss, *server)
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			server := newTestServerWithBothTiers(t)
+			if !tc.tier1Cache {
+				server.Spec.Tier1.Cache = nil
+			}
+			if !tc.tier2Cache {
+				server.Spec.Tier2.Cache = nil
+			}
 
-	assert.Equal(t, []string{"data", "cachetier1", "cachetier2"}, volumeClaimTemplateNames(ss))
-}
+			ss := &appsv1.StatefulSet{Spec: appsv1.StatefulSetSpec{
+				VolumeClaimTemplates: volumeClaimTemplates(*server),
+			}}
 
-func TestVolumeClaimTemplatesOmitTheCachesThatFallBackToData(t *testing.T) {
-	server := newTestServerWithBothTiers(t)
-	server.Spec.Tier1.Cache = nil
-	server.Spec.Tier2.Cache = nil
-
-	ss := &appsv1.StatefulSet{}
-	injectTier1VolumeClaimTemplates(ss, *server)
-	injectTier2VolumeClaimTemplates(ss, *server)
-
-	assert.Equal(t, []string{"data"}, volumeClaimTemplateNames(ss))
+			assert.Equal(t, tc.expected, volumeClaimTemplateNames(ss))
+		})
+	}
 }
 
 func TestVolumeMountsFollowTheCacheConfiguration(t *testing.T) {
