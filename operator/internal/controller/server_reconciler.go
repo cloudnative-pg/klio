@@ -118,8 +118,14 @@ func (r *ServerReconciler) reconcileStatefulSet(
 		return ctrl.Result{}, fmt.Errorf("invalid server spec: %w", err)
 	}
 
-	volumes := r.buildVolumes(server)
-	volumeMounts := r.buildVolumeMounts(server)
+	queuePVCPresent, err := r.isQueuePVCPresent(ctx, server.Namespace, klioName)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+	queue := buildQueueLayout(server, klioName, queuePVCPresent)
+
+	volumes := r.buildVolumes(server, queue)
+	volumeMounts := r.buildVolumeMounts(server, queue)
 
 	// Build container ports - always include tier1 ports, add tier2 ports if tier2 is enabled
 	containerPorts := []corev1.ContainerPort{
@@ -182,7 +188,7 @@ func (r *ServerReconciler) reconcileStatefulSet(
 							ImagePullPolicy: server.Spec.ImagePullPolicy,
 							VolumeMounts:    volumeMounts,
 							Ports:           containerPorts,
-							Env:             newServerEnvBuilder(server).addCommonEnvs().addServerEnvs().build(),
+							Env:             newServerEnvBuilder(server, queue).addCommonEnvs().addServerEnvs().build(),
 						},
 					},
 					Volumes: volumes,
@@ -310,7 +316,7 @@ func (r *ServerReconciler) reconcileStatefulSet(
 func injectQueueConfiguration(expected *appsv1.StatefulSet, server kliov1alpha1.Server) {
 	expected.Spec.VolumeClaimTemplates = append(expected.Spec.VolumeClaimTemplates, corev1.PersistentVolumeClaim{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: "queue",
+			Name: queueVolumeName,
 			Labels: map[string]string{
 				klioServerLabel: server.Name,
 				pvcTypeLabel:    pvcTypeQueue,
@@ -500,7 +506,7 @@ func buildIdentityVolMount(volName string, src kliov1alpha1.FileSource) (corev1.
 	return vol, mount
 }
 
-func (r *ServerReconciler) buildVolumes(server *kliov1alpha1.Server) []corev1.Volume {
+func (r *ServerReconciler) buildVolumes(server *kliov1alpha1.Server, queue queueLayout) []corev1.Volume {
 	volumes := []corev1.Volume{
 		{
 			Name: "tls",
@@ -532,6 +538,21 @@ func (r *ServerReconciler) buildVolumes(server *kliov1alpha1.Server) []corev1.Vo
 
 		vol, _ = buildIdentityVolMount(tier1IdentityVolName, server.Spec.Tier1.IdentityFile)
 		volumes = append(volumes, vol)
+	}
+
+	// The dedicated queue volume normally comes from a VolumeClaimTemplate.
+	// Once it is dropped from the spec its PVC is no longer templated, so it
+	// is mounted by claim name until the queue has been migrated away and the
+	// PVC deleted.
+	if queue.claimName != "" {
+		volumes = append(volumes, corev1.Volume{
+			Name: queueVolumeName,
+			VolumeSource: corev1.VolumeSource{
+				PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
+					ClaimName: queue.claimName,
+				},
+			},
+		})
 	}
 
 	if server.Spec.Tier2 != nil {
@@ -574,7 +595,7 @@ func (r *ServerReconciler) buildVolumes(server *kliov1alpha1.Server) []corev1.Vo
 	return volumes
 }
 
-func (r *ServerReconciler) buildVolumeMounts(server *kliov1alpha1.Server) []corev1.VolumeMount {
+func (r *ServerReconciler) buildVolumeMounts(server *kliov1alpha1.Server, queue queueLayout) []corev1.VolumeMount {
 	volumeMounts := []corev1.VolumeMount{
 		{
 			Name:      "tls",
@@ -609,12 +630,12 @@ func (r *ServerReconciler) buildVolumeMounts(server *kliov1alpha1.Server) []core
 		volumeMounts = append(volumeMounts, mount)
 	}
 
-	if server.Spec.Queue != nil {
+	if queue.mountDedicatedVolume {
 		volumeMounts = append(
 			volumeMounts,
 			corev1.VolumeMount{
-				Name:      "queue",
-				MountPath: "/queue",
+				Name:      queueVolumeName,
+				MountPath: queueVolumeMountPath,
 			},
 		)
 	}

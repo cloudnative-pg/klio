@@ -216,6 +216,55 @@ The only options in this case are:
 
 :::
 
+### Moving the Work Queue
+
+The work queue lives either on a dedicated PVC or in the `queue` directory of
+the Tier 1 data volume, depending on whether the `queue` section is set in the
+Server spec. Changing that section moves the queue to the new location: the
+operator recreates the StatefulSet, and the server migrates the queue content
+during the resulting restart, before opening it.
+
+#### Adding a Dedicated Queue Volume
+
+Add the `queue` section to the Server spec:
+
+```yaml
+spec:
+  queue:
+    pvcTemplate:
+      accessModes:
+        - ReadWriteOnce
+      resources:
+        requests:
+          storage: 50Mi
+```
+
+The new PVC is created, the queue is copied from the data volume into it, and
+the `queue` directory of the data volume is removed.
+
+#### Removing the Dedicated Queue Volume
+
+Remove the `queue` section from the Server spec. The server keeps mounting the
+existing queue PVC, copies the queue into the `queue` directory of the data
+volume, and empties the old location.
+
+Once the server is `Ready` again, delete the leftover PVC to reclaim its
+storage:
+
+```bash
+kubectl delete pvc queue-<server-name>-klio-0
+```
+
+The operator reacts to the deletion by dropping the mount, which lets the PVC
+go away on the next pod restart.
+
+:::warning
+The queue holds the WAL files still pending transfer to Tier 2. If both
+locations hold a queue, the server keeps the one it is configured to use and
+logs a warning instead of overwriting it: do not delete the PVC before checking
+the server logs of the restart that followed the change.
+:::
+
 ### Delete Backups and Run Maintenance
 
 :::warning

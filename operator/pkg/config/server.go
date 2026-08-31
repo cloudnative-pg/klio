@@ -35,9 +35,9 @@ type ServerConfig struct {
 	// messages will be stored.
 	QueueDirectory string `mapstructure:"queue_directory"`
 
-	// QueueMigrationSource is the previous location of the persistent queue.
-	// When it holds data and QueueDirectory is empty, the content is moved
-	// before the queue is opened. Empty when there is nothing to migrate.
+	// QueueMigrationSource is the previous location of the persistent queue,
+	// whose content is moved into QueueDirectory before the queue is opened.
+	// Empty when there is nothing to migrate.
 	QueueMigrationSource string `mapstructure:"queue_migration_source"`
 }
 

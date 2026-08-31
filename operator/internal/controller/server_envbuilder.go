@@ -35,12 +35,14 @@ type envBuilder struct {
 
 	tier1 *kliov1alpha1.Tier1Configuration
 	tier2 *kliov1alpha1.Tier2Configuration
+	queue queueLayout
 }
 
-func newServerEnvBuilder(server *kliov1alpha1.Server) *envBuilder {
+func newServerEnvBuilder(server *kliov1alpha1.Server, queue queueLayout) *envBuilder {
 	return &envBuilder{
 		tier1: server.Spec.Tier1,
 		tier2: server.Spec.Tier2,
+		queue: queue,
 	}
 }
 
@@ -149,8 +151,15 @@ func (e *envBuilder) getCoreEnvVars() []corev1.EnvVar {
 		// retention policy enforcement.
 		tier1Envs = append(tier1Envs, corev1.EnvVar{
 			Name:  "QUEUE_DIRECTORY",
-			Value: "/queue",
+			Value: e.queue.directory,
 		})
+
+		if e.queue.migrationSource != "" {
+			tier1Envs = append(tier1Envs, corev1.EnvVar{
+				Name:  "QUEUE_MIGRATION_SOURCE",
+				Value: e.queue.migrationSource,
+			})
+		}
 
 		result = append(result, tier1Envs...)
 	}

@@ -40,7 +40,6 @@ const (
 // +kubebuilder:validation:XValidation:rule="self.mode != 'read-only' || has(self.tier2)",message="tier2 is required when mode is read-only"
 // +kubebuilder:validation:XValidation:rule="!(self.mode == 'read-only' && has(self.tier1))",message="tier1 cannot be set when mode is read-only"
 // +kubebuilder:validation:XValidation:rule="!(self.mode == 'read-only' && has(self.queue))",message="queue cannot be set when mode is read-only"
-// +kubebuilder:validation:XValidation:rule="self.mode == 'read-only' || has(self.queue)",message="queue is required when tier1 is configured"
 type ServerSpec struct {
 	// ImageConfiguration tells how to download the Klio
 	// image.
@@ -63,7 +62,10 @@ type ServerSpec struct {
 	Tier2 *Tier2Configuration `json:"tier2,omitempty"`
 
 	// Queue is the configuration of the PVC that should host
-	// the task queue.
+	// the task queue. When omitted, the task queue is stored in the
+	// `queue` directory of the tier1 data volume. Adding or removing this
+	// section on an existing server moves the queue content to the new
+	// location during the resulting rolling restart.
 	// +optional
 	Queue *Queue `json:"queue,omitempty"`
 
