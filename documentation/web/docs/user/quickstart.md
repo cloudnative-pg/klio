@@ -256,23 +256,16 @@ spec:
   caSecretName: klio-server-ca
 
   tier1:
-    # Kopia cache. The default Kopia cache is 5 GB of content plus
-    # 5 GB of metadata, so leave some headroom.
-    cache:
-      pvcTemplate:
-        accessModes:
-          - ReadWriteOnce
-        resources:
-          requests:
-            storage: 10Gi
-    # Base backups and the WAL archive
+    # Base backups, the WAL archive and, with no dedicated cache volume, the
+    # Kopia cache. The default Kopia cache is 5 GB of content plus 5 GB of
+    # metadata, so leave some headroom on top of your backup size.
     data:
       pvcTemplate:
         accessModes:
           - ReadWriteOnce
         resources:
           requests:
-            storage: 20Gi
+            storage: 30Gi
     encryptionKeyFile:
       fileReference:
         volume:

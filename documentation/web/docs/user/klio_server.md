@@ -74,9 +74,20 @@ The following factors should be considered when defining the PVC size:
 
 ### Cache PVCs
 
-The cache PVCs (one for Tier 1 and Tier 2 each) are used by Kopia for its
-[caching operations](https://kopia.io/docs/advanced/caching/).
-They are used to speed up snapshot operations.
+Kopia keeps a [cache](https://kopia.io/docs/advanced/caching/) to speed up
+snapshot operations. Each tier has its own cache, and the optional
+`tier1.cache` and `tier2.cache` stanzas dedicate a PVC to it.
+
+When a tier has no `cache` stanza, its cache is stored inside the Tier 1 data
+volume, under `/data/cache_tier1` and `/data/cache_tier2` respectively. This is
+the simplest configuration and the one to start from: size the data PVC so that
+it accommodates the cache as well. Dedicate a cache PVC when you want the cache
+on a different storage class, or when you want its growth to be unable to eat
+into the space of your backups.
+
+Since the fallback location lives in the Tier 1 data volume, `tier2.cache` is
+required on a [read-only server](#read-only-mode), where Tier 1 is not
+configured.
 
 :::warning
 Klio is currently limited to use the default cache size when creating a Kopia
@@ -85,6 +96,17 @@ The cache sizes are not hard limits, as the cache is swept periodically,
 so users should have a space buffer to account for this additional space.
 This limitation will be removed in a future version.
 :::
+
+#### Moving a cache between volumes
+
+The `cache` stanza can be added to, or removed from, a running server. The
+operator recreates the StatefulSet, which restarts the server pod, and Kopia
+rebuilds the cache in its new location on demand: no backup or WAL file is
+affected, only the first operations after the restart are slower.
+
+The old location is reclaimed without manual intervention. The PVC of a cache
+that is no longer dedicated is deleted once the pod no longer mounts it, and a
+cache left behind in the data volume is removed when the server starts.
 
 ### Queue PVC
 
