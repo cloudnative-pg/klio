@@ -59,7 +59,7 @@ func newTestServerForStatefulSet() *kliov1alpha1.Server {
 			Mode: kliov1alpha1.ModeStandard,
 			Tier1: &kliov1alpha1.Tier1Configuration{
 				Data:              kliov1alpha1.Data{PersistentVolumeClaimTemplate: newPVCSpec("10Gi")},
-				Cache:             kliov1alpha1.Cache{PersistentVolumeClaimTemplate: newPVCSpec("5Gi")},
+				Cache:             &kliov1alpha1.Cache{PersistentVolumeClaimTemplate: newPVCSpec("5Gi")},
 				EncryptionKeyFile: newTestFileSource("enc-secret", "encryption-key.age"),
 				IdentityFile:      newTestFileSource("id-secret", "identity.txt"),
 			},
@@ -214,4 +214,74 @@ func TestServerPodSecurityContext(t *testing.T) {
 		sc := r.serverPodSecurityContext()
 		assert.Nil(t, sc)
 	})
+}
+
+func volumeClaimTemplateNames(ss *appsv1.StatefulSet) []string {
+	names := make([]string, 0, len(ss.Spec.VolumeClaimTemplates))
+	for i := range ss.Spec.VolumeClaimTemplates {
+		names = append(names, ss.Spec.VolumeClaimTemplates[i].Name)
+	}
+
+	return names
+}
+
+func volumeMountNames(mounts []corev1.VolumeMount) []string {
+	names := make([]string, 0, len(mounts))
+	for i := range mounts {
+		names = append(names, mounts[i].Name)
+	}
+
+	return names
+}
+
+func newTestServerWithBothTiers(t *testing.T) *kliov1alpha1.Server {
+	t.Helper()
+
+	server := newTestServerForStatefulSet()
+	server.Spec.Tier2 = &kliov1alpha1.Tier2Configuration{
+		Cache:             &kliov1alpha1.Cache{PersistentVolumeClaimTemplate: newPVCSpec("5Gi")},
+		S3:                &kliov1alpha1.S3Configuration{BucketName: "test-bucket"},
+		EncryptionKeyFile: newTestFileSource("enc-secret", "encryption-key.age"),
+		IdentityFile:      newTestFileSource("id-secret", "identity.txt"),
+	}
+
+	return server
+}
+
+func TestVolumeClaimTemplatesIncludeTheRequestedCaches(t *testing.T) {
+	server := newTestServerWithBothTiers(t)
+
+	ss := &appsv1.StatefulSet{}
+	injectTier1VolumeClaimTemplates(ss, *server)
+	injectTier2VolumeClaimTemplates(ss, *server)
+
+	assert.Equal(t, []string{"data", "cachetier1", "cachetier2"}, volumeClaimTemplateNames(ss))
+}
+
+func TestVolumeClaimTemplatesOmitTheCachesThatFallBackToData(t *testing.T) {
+	server := newTestServerWithBothTiers(t)
+	server.Spec.Tier1.Cache = nil
+	server.Spec.Tier2.Cache = nil
+
+	ss := &appsv1.StatefulSet{}
+	injectTier1VolumeClaimTemplates(ss, *server)
+	injectTier2VolumeClaimTemplates(ss, *server)
+
+	assert.Equal(t, []string{"data"}, volumeClaimTemplateNames(ss))
+}
+
+func TestVolumeMountsFollowTheCacheConfiguration(t *testing.T) {
+	reconciler := &ServerReconciler{}
+	server := newTestServerWithBothTiers(t)
+
+	assert.Subset(t, volumeMountNames(reconciler.buildVolumeMounts(server)),
+		[]string{"data", "cachetier1", "cachetier2"})
+
+	server.Spec.Tier1.Cache = nil
+	server.Spec.Tier2.Cache = nil
+
+	mounts := volumeMountNames(reconciler.buildVolumeMounts(server))
+	assert.Contains(t, mounts, "data")
+	assert.NotContains(t, mounts, "cachetier1")
+	assert.NotContains(t, mounts, "cachetier2")
 }

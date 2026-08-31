@@ -9107,7 +9107,8 @@ spec:
                   cache:
                     description: |-
                       Cache is the configuration of the PVC that should be
-                      used for the cache.
+                      used for the cache. When omitted, the Kopia cache is stored in a
+                      directory inside the tier1 data volume.
                     properties:
                       pvcTemplate:
                         description: |-
@@ -13598,7 +13599,6 @@ spec:
                       rule: '[has(self.fileReference)].filter(x,x==true).size() ==
                         1'
                 required:
-                - cache
                 - data
                 - encryptionKeyFile
                 - identityFile
@@ -13609,7 +13609,9 @@ spec:
                   cache:
                     description: |-
                       Cache is the configuration of the PVC that should be
-                      used for the cache.
+                      used for the cache. When omitted, the Kopia cache is stored in a
+                      directory inside the tier1 data volume, and is therefore required
+                      when tier1 is not configured.
                     properties:
                       pvcTemplate:
                         description: |-
@@ -17969,7 +17971,6 @@ spec:
                     - bucketName
                     type: object
                 required:
-                - cache
                 - encryptionKeyFile
                 - identityFile
                 - s3
@@ -17996,6 +17997,8 @@ spec:
               rule: '!(self.mode == ''read-only'' && has(self.queue))'
             - message: queue is required when tier1 is configured
               rule: self.mode == 'read-only' || has(self.queue)
+            - message: tier2.cache is required when tier1 is not configured
+              rule: '!has(self.tier2) || has(self.tier1) || has(self.tier2.cache)'
           status:
             description: ServerStatus defines the observed state of Server.
             type: object
@@ -18009,13 +18012,15 @@ spec:
             in oldSelf.spec.tier1.data.pvcTemplate.resources.requests) || !(''storage''
             in self.spec.tier1.data.pvcTemplate.resources.requests) || !quantity(self.spec.tier1.data.pvcTemplate.resources.requests[''storage'']).isLessThan(quantity(oldSelf.spec.tier1.data.pvcTemplate.resources.requests[''storage'']))'
         - message: tier1.cache PVC size cannot be decreased
-          rule: '!has(oldSelf.spec.tier1) || !has(self.spec.tier1) || !(''storage''
-            in oldSelf.spec.tier1.cache.pvcTemplate.resources.requests) || !(''storage''
-            in self.spec.tier1.cache.pvcTemplate.resources.requests) || !quantity(self.spec.tier1.cache.pvcTemplate.resources.requests[''storage'']).isLessThan(quantity(oldSelf.spec.tier1.cache.pvcTemplate.resources.requests[''storage'']))'
+          rule: '!has(oldSelf.spec.tier1) || !has(self.spec.tier1) || !has(oldSelf.spec.tier1.cache)
+            || !has(self.spec.tier1.cache) || !(''storage'' in oldSelf.spec.tier1.cache.pvcTemplate.resources.requests)
+            || !(''storage'' in self.spec.tier1.cache.pvcTemplate.resources.requests)
+            || !quantity(self.spec.tier1.cache.pvcTemplate.resources.requests[''storage'']).isLessThan(quantity(oldSelf.spec.tier1.cache.pvcTemplate.resources.requests[''storage'']))'
         - message: tier2.cache PVC size cannot be decreased
-          rule: '!has(oldSelf.spec.tier2) || !has(self.spec.tier2) || !(''storage''
-            in oldSelf.spec.tier2.cache.pvcTemplate.resources.requests) || !(''storage''
-            in self.spec.tier2.cache.pvcTemplate.resources.requests) || !quantity(self.spec.tier2.cache.pvcTemplate.resources.requests[''storage'']).isLessThan(quantity(oldSelf.spec.tier2.cache.pvcTemplate.resources.requests[''storage'']))'
+          rule: '!has(oldSelf.spec.tier2) || !has(self.spec.tier2) || !has(oldSelf.spec.tier2.cache)
+            || !has(self.spec.tier2.cache) || !(''storage'' in oldSelf.spec.tier2.cache.pvcTemplate.resources.requests)
+            || !(''storage'' in self.spec.tier2.cache.pvcTemplate.resources.requests)
+            || !quantity(self.spec.tier2.cache.pvcTemplate.resources.requests[''storage'']).isLessThan(quantity(oldSelf.spec.tier2.cache.pvcTemplate.resources.requests[''storage'']))'
         - message: queue PVC size cannot be decreased
           rule: '!has(oldSelf.spec.queue) || !has(self.spec.queue) || !(''storage''
             in oldSelf.spec.queue.pvcTemplate.resources.requests) || !(''storage''

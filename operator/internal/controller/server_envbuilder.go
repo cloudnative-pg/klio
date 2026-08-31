@@ -30,6 +30,29 @@ import (
 
 const kopiaCacheSubdirectory = "kopia-cache"
 
+// cacheDirectory returns the Kopia cache directory for a tier: the dedicated
+// cache volume when one is configured, the fallback location inside the tier1
+// data volume otherwise. The cache always lives one level below the mount
+// point so that wiping it never touches the volume root.
+func cacheDirectory(cache *kliov1alpha1.Cache, mountPath, fallbackPath string) string {
+	if cache == nil {
+		return path.Join(fallbackPath, kopiaCacheSubdirectory)
+	}
+
+	return path.Join(mountPath, kopiaCacheSubdirectory)
+}
+
+// staleCacheDirectory returns the cache location a tier is configured *not* to
+// use, so that the server can reclaim the space of a cache left behind by a
+// migration to a dedicated cache volume.
+func staleCacheDirectory(cache *kliov1alpha1.Cache, fallbackPath string) string {
+	if cache == nil {
+		return ""
+	}
+
+	return path.Join(fallbackPath, kopiaCacheSubdirectory)
+}
+
 type envBuilder struct {
 	builtEnvs []corev1.EnvVar
 
@@ -114,7 +137,11 @@ func (e *envBuilder) getCoreEnvVars() []corev1.EnvVar {
 		tier1Envs = append(tier1Envs,
 			corev1.EnvVar{
 				Name:  "TIER1_BASE_CACHE",
-				Value: path.Join(kopiaCacheTier1MountPath, kopiaCacheSubdirectory),
+				Value: cacheDirectory(e.tier1.Cache, kopiaCacheTier1MountPath, fallbackCacheTier1Path),
+			},
+			corev1.EnvVar{
+				Name:  "TIER1_BASE_STALE_CACHE",
+				Value: staleCacheDirectory(e.tier1.Cache, fallbackCacheTier1Path),
 			},
 			corev1.EnvVar{
 				Name:  "TIER1_BASE_REPOSITORY",
@@ -177,7 +204,11 @@ func (e *envBuilder) getTier2EnvVars() []corev1.EnvVar {
 		},
 		{
 			Name:  "TIER2_CACHE",
-			Value: path.Join(kopiaCacheTier2MountPath, kopiaCacheSubdirectory),
+			Value: cacheDirectory(e.tier2.Cache, kopiaCacheTier2MountPath, fallbackCacheTier2Path),
+		},
+		{
+			Name:  "TIER2_STALE_CACHE",
+			Value: staleCacheDirectory(e.tier2.Cache, fallbackCacheTier2Path),
 		},
 		{
 			Name:  "TIER2_BASE_LISTEN_ADDRESS",

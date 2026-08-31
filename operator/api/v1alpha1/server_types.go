@@ -41,6 +41,7 @@ const (
 // +kubebuilder:validation:XValidation:rule="!(self.mode == 'read-only' && has(self.tier1))",message="tier1 cannot be set when mode is read-only"
 // +kubebuilder:validation:XValidation:rule="!(self.mode == 'read-only' && has(self.queue))",message="queue cannot be set when mode is read-only"
 // +kubebuilder:validation:XValidation:rule="self.mode == 'read-only' || has(self.queue)",message="queue is required when tier1 is configured"
+// +kubebuilder:validation:XValidation:rule="!has(self.tier2) || has(self.tier1) || has(self.tier2.cache)",message="tier2.cache is required when tier1 is not configured"
 type ServerSpec struct {
 	// ImageConfiguration tells how to download the Klio
 	// image.
@@ -178,8 +179,10 @@ type FileSource struct {
 // Tier1Configuration is the tier 1 configuration.
 type Tier1Configuration struct {
 	// Cache is the configuration of the PVC that should be
-	// used for the cache.
-	Cache Cache `json:"cache"`
+	// used for the cache. When omitted, the Kopia cache is stored in a
+	// directory inside the tier1 data volume.
+	// +optional
+	Cache *Cache `json:"cache,omitempty"`
 
 	// Data is the configuration of the PVC that should be used
 	// for the base backups.
@@ -196,8 +199,11 @@ type Tier1Configuration struct {
 // Tier2Configuration is the tier 2 configuration.
 type Tier2Configuration struct {
 	// Cache is the configuration of the PVC that should be
-	// used for the cache.
-	Cache Cache `json:"cache"`
+	// used for the cache. When omitted, the Kopia cache is stored in a
+	// directory inside the tier1 data volume, and is therefore required
+	// when tier1 is not configured.
+	// +optional
+	Cache *Cache `json:"cache,omitempty"`
 
 	// S3 contains the configuration parameters for an S3-based tier 2.
 	S3 *S3Configuration `json:"s3"`
@@ -254,8 +260,8 @@ type ServerStatus struct {
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
 // +kubebuilder:validation:XValidation:rule="!has(oldSelf.spec.tier1) || !has(self.spec.tier1) || !('storage' in oldSelf.spec.tier1.data.pvcTemplate.resources.requests) || !('storage' in self.spec.tier1.data.pvcTemplate.resources.requests) || !quantity(self.spec.tier1.data.pvcTemplate.resources.requests['storage']).isLessThan(quantity(oldSelf.spec.tier1.data.pvcTemplate.resources.requests['storage']))",message="tier1.data PVC size cannot be decreased"
-// +kubebuilder:validation:XValidation:rule="!has(oldSelf.spec.tier1) || !has(self.spec.tier1) || !('storage' in oldSelf.spec.tier1.cache.pvcTemplate.resources.requests) || !('storage' in self.spec.tier1.cache.pvcTemplate.resources.requests) || !quantity(self.spec.tier1.cache.pvcTemplate.resources.requests['storage']).isLessThan(quantity(oldSelf.spec.tier1.cache.pvcTemplate.resources.requests['storage']))",message="tier1.cache PVC size cannot be decreased"
-// +kubebuilder:validation:XValidation:rule="!has(oldSelf.spec.tier2) || !has(self.spec.tier2) || !('storage' in oldSelf.spec.tier2.cache.pvcTemplate.resources.requests) || !('storage' in self.spec.tier2.cache.pvcTemplate.resources.requests) || !quantity(self.spec.tier2.cache.pvcTemplate.resources.requests['storage']).isLessThan(quantity(oldSelf.spec.tier2.cache.pvcTemplate.resources.requests['storage']))",message="tier2.cache PVC size cannot be decreased"
+// +kubebuilder:validation:XValidation:rule="!has(oldSelf.spec.tier1) || !has(self.spec.tier1) || !has(oldSelf.spec.tier1.cache) || !has(self.spec.tier1.cache) || !('storage' in oldSelf.spec.tier1.cache.pvcTemplate.resources.requests) || !('storage' in self.spec.tier1.cache.pvcTemplate.resources.requests) || !quantity(self.spec.tier1.cache.pvcTemplate.resources.requests['storage']).isLessThan(quantity(oldSelf.spec.tier1.cache.pvcTemplate.resources.requests['storage']))",message="tier1.cache PVC size cannot be decreased"
+// +kubebuilder:validation:XValidation:rule="!has(oldSelf.spec.tier2) || !has(self.spec.tier2) || !has(oldSelf.spec.tier2.cache) || !has(self.spec.tier2.cache) || !('storage' in oldSelf.spec.tier2.cache.pvcTemplate.resources.requests) || !('storage' in self.spec.tier2.cache.pvcTemplate.resources.requests) || !quantity(self.spec.tier2.cache.pvcTemplate.resources.requests['storage']).isLessThan(quantity(oldSelf.spec.tier2.cache.pvcTemplate.resources.requests['storage']))",message="tier2.cache PVC size cannot be decreased"
 // +kubebuilder:validation:XValidation:rule="!has(oldSelf.spec.queue) || !has(self.spec.queue) || !('storage' in oldSelf.spec.queue.pvcTemplate.resources.requests) || !('storage' in self.spec.queue.pvcTemplate.resources.requests) || !quantity(self.spec.queue.pvcTemplate.resources.requests['storage']).isLessThan(quantity(oldSelf.spec.queue.pvcTemplate.resources.requests['storage']))",message="queue PVC size cannot be decreased"
 
 // Server is the Schema for the servers API.

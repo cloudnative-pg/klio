@@ -94,7 +94,7 @@ func newTestServerTier1(dataSize, cacheSize string) *kliov1alpha1.Server {
 		Spec: kliov1alpha1.ServerSpec{
 			Tier1: &kliov1alpha1.Tier1Configuration{
 				Data:  kliov1alpha1.Data{PersistentVolumeClaimTemplate: newPVCSpec(dataSize)},
-				Cache: kliov1alpha1.Cache{PersistentVolumeClaimTemplate: newPVCSpec(cacheSize)},
+				Cache: &kliov1alpha1.Cache{PersistentVolumeClaimTemplate: newPVCSpec(cacheSize)},
 			},
 		},
 	}
@@ -119,7 +119,7 @@ func TestBuildDesiredPVCSizesTier2Only(t *testing.T) {
 		Spec: kliov1alpha1.ServerSpec{
 			Mode: kliov1alpha1.ModeReadOnly,
 			Tier2: &kliov1alpha1.Tier2Configuration{
-				Cache: kliov1alpha1.Cache{PersistentVolumeClaimTemplate: newPVCSpec("20Gi")},
+				Cache: &kliov1alpha1.Cache{PersistentVolumeClaimTemplate: newPVCSpec("20Gi")},
 				S3:    &kliov1alpha1.S3Configuration{BucketName: "test-bucket"},
 			},
 		},
@@ -134,7 +134,7 @@ func TestBuildDesiredPVCSizesTier2Only(t *testing.T) {
 func TestBuildDesiredPVCSizesBothTiers(t *testing.T) {
 	server := newTestServerTier1("100Gi", "10Gi")
 	server.Spec.Tier2 = &kliov1alpha1.Tier2Configuration{
-		Cache: kliov1alpha1.Cache{PersistentVolumeClaimTemplate: newPVCSpec("20Gi")},
+		Cache: &kliov1alpha1.Cache{PersistentVolumeClaimTemplate: newPVCSpec("20Gi")},
 		S3:    &kliov1alpha1.S3Configuration{BucketName: "test-bucket"},
 	}
 	server.Spec.Queue = &kliov1alpha1.Queue{PersistentVolumeClaimTemplate: newPVCSpec("5Gi")}
@@ -393,4 +393,62 @@ func TestExpandPVC(t *testing.T) {
 	actualSize := updatedPVC.Spec.Resources.Requests[corev1.ResourceStorage]
 	assert.Equal(t, 0, expectedSize.Cmp(actualSize),
 		"PVC size mismatch: expected %s, got %s", expectedSize.String(), actualSize.String())
+}
+
+// --- deleteOrphanCachePVCs tests ---
+
+func TestBuildDesiredPVCSizesSkipsTiersWithoutCache(t *testing.T) {
+	server := newTestServerTier1("100Gi", "10Gi")
+	server.Spec.Tier1.Cache = nil
+	server.Spec.Tier2 = &kliov1alpha1.Tier2Configuration{}
+
+	sizes := (&ServerReconciler{}).buildDesiredPVCSizes(server)
+
+	assert.NotContains(t, sizes, pvcTypeCacheTier1)
+	assert.NotContains(t, sizes, pvcTypeCacheTier2)
+	assert.Contains(t, sizes, pvcTypeData)
+}
+
+func TestDeleteOrphanCachePVCsRemovesOnlyUnusedCaches(t *testing.T) {
+	dataPVC := newTestPVC("data-test-server-klio-0", "test-server", pvcTypeData, "100Gi")
+	queuePVC := newTestPVC("queue-test-server-klio-0", "test-server", pvcTypeQueue, "1Gi")
+	tier1CachePVC := newTestPVC("cachetier1-test-server-klio-0", "test-server", pvcTypeCacheTier1, "10Gi")
+	tier2CachePVC := newTestPVC("cachetier2-test-server-klio-0", "test-server", pvcTypeCacheTier2, "10Gi")
+
+	reconciler, fakeClient := newTestReconciler(dataPVC, queuePVC, tier1CachePVC, tier2CachePVC)
+
+	// tier1 keeps its dedicated cache, tier2 does not.
+	server := newTestServerTier1("100Gi", "10Gi")
+	server.Spec.Tier2 = &kliov1alpha1.Tier2Configuration{}
+
+	require.NoError(t, reconciler.deleteOrphanCachePVCs(context.Background(), server))
+
+	var pvcList corev1.PersistentVolumeClaimList
+	require.NoError(t, fakeClient.List(context.Background(), &pvcList))
+
+	names := make([]string, 0, len(pvcList.Items))
+	for i := range pvcList.Items {
+		names = append(names, pvcList.Items[i].Name)
+	}
+
+	assert.ElementsMatch(t, []string{
+		"data-test-server-klio-0",
+		"queue-test-server-klio-0",
+		"cachetier1-test-server-klio-0",
+	}, names)
+}
+
+func TestDeleteOrphanCachePVCsIgnoresOtherServers(t *testing.T) {
+	otherPVC := newTestPVC("cachetier1-other-server-klio-0", "other-server", pvcTypeCacheTier1, "10Gi")
+	reconciler, fakeClient := newTestReconciler(otherPVC)
+
+	server := newTestServerTier1("100Gi", "10Gi")
+	server.Spec.Tier1.Cache = nil
+
+	require.NoError(t, reconciler.deleteOrphanCachePVCs(context.Background(), server))
+
+	var pvc corev1.PersistentVolumeClaim
+	assert.NoError(t, fakeClient.Get(context.Background(), client.ObjectKey{
+		Name: "cachetier1-other-server-klio-0", Namespace: "default",
+	}, &pvc))
 }

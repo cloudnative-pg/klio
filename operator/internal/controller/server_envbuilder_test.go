@@ -333,3 +333,59 @@ func TestBuildIdentityVolMountProjected(t *testing.T) {
 	assert.Equal(t, int32(0o400), *vol.Projected.DefaultMode)
 	assert.True(t, mount.ReadOnly)
 }
+
+func TestCacheEnvVarsUseTheDedicatedVolumeWhenConfigured(t *testing.T) {
+	builder := &envBuilder{
+		tier1: &kliov1alpha1.Tier1Configuration{
+			Cache:             &kliov1alpha1.Cache{},
+			EncryptionKeyFile: newTestFileSource("enc-secret", "encryption-key.age"),
+			IdentityFile:      newTestFileSource("id-secret", "identity.txt"),
+		},
+		tier2: &kliov1alpha1.Tier2Configuration{
+			Cache:             &kliov1alpha1.Cache{},
+			S3:                &kliov1alpha1.S3Configuration{BucketName: "test-bucket"},
+			EncryptionKeyFile: newTestFileSource("enc-secret", "encryption-key.age"),
+			IdentityFile:      newTestFileSource("id-secret", "identity.txt"),
+		},
+	}
+
+	envVars := append(builder.getCoreEnvVars(), builder.getTier2EnvVars()...)
+
+	assert.Equal(t, "/cache_tier1/kopia-cache", findEnvVar(envVars, "TIER1_BASE_CACHE").Value)
+	assert.Equal(t, "/cache_tier2/kopia-cache", findEnvVar(envVars, "TIER2_CACHE").Value)
+
+	// The fallback locations are reported as stale so that a cache left there by
+	// a previous configuration is reclaimed.
+	assert.Equal(t, "/data/cache_tier1/kopia-cache", findEnvVar(envVars, "TIER1_BASE_STALE_CACHE").Value)
+	assert.Equal(t, "/data/cache_tier2/kopia-cache", findEnvVar(envVars, "TIER2_STALE_CACHE").Value)
+}
+
+func TestCacheEnvVarsFallBackToTheDataVolume(t *testing.T) {
+	builder := &envBuilder{
+		tier1: &kliov1alpha1.Tier1Configuration{
+			EncryptionKeyFile: newTestFileSource("enc-secret", "encryption-key.age"),
+			IdentityFile:      newTestFileSource("id-secret", "identity.txt"),
+		},
+		tier2: &kliov1alpha1.Tier2Configuration{
+			S3:                &kliov1alpha1.S3Configuration{BucketName: "test-bucket"},
+			EncryptionKeyFile: newTestFileSource("enc-secret", "encryption-key.age"),
+			IdentityFile:      newTestFileSource("id-secret", "identity.txt"),
+		},
+	}
+
+	envVars := append(builder.getCoreEnvVars(), builder.getTier2EnvVars()...)
+
+	assert.Equal(t, "/data/cache_tier1/kopia-cache", findEnvVar(envVars, "TIER1_BASE_CACHE").Value)
+	assert.Equal(t, "/data/cache_tier2/kopia-cache", findEnvVar(envVars, "TIER2_CACHE").Value)
+
+	// Nothing to reclaim: the fallback locations are the ones in use.
+	assert.Empty(t, findEnvVar(envVars, "TIER1_BASE_STALE_CACHE").Value)
+	assert.Empty(t, findEnvVar(envVars, "TIER2_STALE_CACHE").Value)
+}
+
+// The two tiers must never share a cache directory: the server refuses to start
+// when they do.
+func TestFallbackCachePathsDiffer(t *testing.T) {
+	assert.NotEqual(t, fallbackCacheTier1Path, fallbackCacheTier2Path)
+	assert.NotEqual(t, fallbackCacheTier1Path, kopiaDataMountPath)
+}

@@ -79,6 +79,12 @@ const (
 	kopiaCacheTier1MountPath = "/cache_tier1"
 	kopiaCacheTier2MountPath = "/cache_tier2"
 
+	// Cache locations inside the tier1 data volume, used by a tier that has no
+	// dedicated cache PVC. They are siblings of the repository (/data/base) and
+	// of the WAL archive (/data/wal).
+	fallbackCacheTier1Path = kopiaDataMountPath + "/cache_tier1"
+	fallbackCacheTier2Path = kopiaDataMountPath + "/cache_tier2"
+
 	fileSourceBasePath     = "/files"
 	tier1EncKeyFileVolName = "tier1-enc-key-file"
 	tier1IdentityVolName   = "tier1-identity"
@@ -102,7 +108,14 @@ func (r *ServerReconciler) reconcile(ctx context.Context, server *kliov1alpha1.S
 		return result, nil
 	}
 
-	return r.reconcileStatefulSet(ctx, server)
+	result, err := r.reconcileStatefulSet(ctx, server)
+	if err != nil || !result.IsZero() {
+		return result, err
+	}
+
+	// The StatefulSet now matches the spec, so a cache volume that is no longer
+	// requested is not mounted by any pod and its PVC can be reclaimed.
+	return ctrl.Result{}, r.deleteOrphanCachePVCs(ctx, server)
 }
 
 //nolint:cyclop
@@ -367,6 +380,13 @@ func injectTier1VolumeClaimTemplates(
 			},
 			Spec: server.Spec.Tier1.Data.PersistentVolumeClaimTemplate,
 		},
+	)
+
+	if server.Spec.Tier1.Cache == nil {
+		return
+	}
+
+	ss.Spec.VolumeClaimTemplates = append(ss.Spec.VolumeClaimTemplates,
 		corev1.PersistentVolumeClaim{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "cachetier1",
@@ -383,6 +403,10 @@ func injectTier2VolumeClaimTemplates(
 	ss *appsv1.StatefulSet,
 	server kliov1alpha1.Server,
 ) {
+	if server.Spec.Tier2.Cache == nil {
+		return
+	}
+
 	ss.Spec.VolumeClaimTemplates = append(ss.Spec.VolumeClaimTemplates,
 		corev1.PersistentVolumeClaim{
 			ObjectMeta: metav1.ObjectMeta{
@@ -597,11 +621,15 @@ func (r *ServerReconciler) buildVolumeMounts(server *kliov1alpha1.Server) []core
 				Name:      "data",
 				MountPath: kopiaDataMountPath,
 			},
-			corev1.VolumeMount{
+		)
+
+		if server.Spec.Tier1.Cache != nil {
+			volumeMounts = append(volumeMounts, corev1.VolumeMount{
 				Name:      "cachetier1",
 				MountPath: kopiaCacheTier1MountPath,
-			},
-		)
+			})
+		}
+
 		_, mount := buildFileSourceVolMount(tier1EncKeyFileVolName, server.Spec.Tier1.EncryptionKeyFile)
 		volumeMounts = append(volumeMounts, mount)
 
@@ -626,11 +654,15 @@ func (r *ServerReconciler) buildVolumeMounts(server *kliov1alpha1.Server) []core
 				Name:      "tier2",
 				MountPath: "/tier2",
 			},
-			corev1.VolumeMount{
+		)
+
+		if server.Spec.Tier2.Cache != nil {
+			volumeMounts = append(volumeMounts, corev1.VolumeMount{
 				Name:      "cachetier2",
 				MountPath: kopiaCacheTier2MountPath,
-			},
-		)
+			})
+		}
+
 		_, mount := buildFileSourceVolMount(tier2EncKeyFileVolName, server.Spec.Tier2.EncryptionKeyFile)
 		volumeMounts = append(volumeMounts, mount)
 
