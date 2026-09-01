@@ -332,6 +332,15 @@ No manual step is needed beyond configuring the field. Because content is
 deduplicated by hash, only new or changed data is compressed with the new
 algorithm, so storage savings appear gradually as data churns.
 
+:::warning
+The global policy is stored in the Kopia repository. While a `compression`
+section is present, its `minSize` and `maxSize` are reapplied whenever the
+server starts, so dropping either field does clear the corresponding bound.
+Removing the whole section, however, leaves the policy already written to the
+repository in place. To stop compressing repository-wide, set
+`algorithm: none` explicitly rather than deleting the section.
+:::
+
 ### Node Affinity and Tolerations
 
 To dedicate specific nodes for Klio workloads (e.g., for performance isolation
