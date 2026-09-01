@@ -9352,6 +9352,10 @@ spec:
                     required:
                     - algorithm
                     type: object
+                    x-kubernetes-validations:
+                    - message: minSize must not be greater than maxSize
+                      rule: '!has(self.maxSize) || self.maxSize == 0 || !has(self.minSize)
+                        || self.minSize <= self.maxSize'
                   data:
                     description: |-
                       Data is the configuration of the PVC that should be used
@@ -13899,6 +13903,10 @@ spec:
                     required:
                     - algorithm
                     type: object
+                    x-kubernetes-validations:
+                    - message: minSize must not be greater than maxSize
+                      rule: '!has(self.maxSize) || self.maxSize == 0 || !has(self.minSize)
+                        || self.minSize <= self.maxSize'
                   encryptionKeyFile:
                     description: EncryptionKeyFile specifies the Age-encrypted encryption
                       key file.

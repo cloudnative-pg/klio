@@ -44,6 +44,10 @@ type CompressionPolicy struct {
 // algorithm is configured.
 var ErrInvalidCompressionAlgorithm = errors.New("invalid compression algorithm")
 
+// ErrInvalidCompressionSizeRange is returned when the configured compression
+// size bounds exclude every file.
+var ErrInvalidCompressionSizeRange = errors.New("invalid compression size range")
+
 // IsValidCompressionAlgorithm returns true when the passed algorithm is a
 // supported Kopia compression algorithm. The list matches the compressors
 // registered by Kopia, plus the special value "none" that explicitly disables
@@ -74,17 +78,35 @@ func IsValidCompressionAlgorithm(algorithm string) bool {
 	}
 }
 
-// Validate checks that the configured compression algorithm is supported.
-// A nil policy or an empty algorithm is considered valid and means the Kopia
-// default (inherited) policy is left untouched.
-func (c *CompressionPolicy) Validate() error {
-	if c == nil || c.Algorithm == "" {
-		return nil
+// ValidateCompressionSettings checks a compression algorithm together with its
+// size bounds. An empty algorithm is valid and means the Kopia default
+// (inherited) policy is left untouched. The size bounds are validated even
+// when no algorithm is set, because they are applied independently of it.
+//
+// It is shared by the client-side CompressionPolicy and the server-side
+// CompressionServerConfig, which carry the same fields.
+func ValidateCompressionSettings(algorithm string, minSize, maxSize int64) error {
+	if algorithm != "" && !IsValidCompressionAlgorithm(algorithm) {
+		return fmt.Errorf("%w: %q", ErrInvalidCompressionAlgorithm, algorithm)
 	}
 
-	if !IsValidCompressionAlgorithm(c.Algorithm) {
-		return fmt.Errorf("%w: %q", ErrInvalidCompressionAlgorithm, c.Algorithm)
+	// A minimum above the maximum matches no file at all: Kopia accepts the
+	// policy and then silently skips compression for every file.
+	if maxSize > 0 && minSize > maxSize {
+		return fmt.Errorf("%w: min_size %d is greater than max_size %d",
+			ErrInvalidCompressionSizeRange, minSize, maxSize)
 	}
 
 	return nil
+}
+
+// Validate checks that the configured compression algorithm is supported and
+// that the size bounds are consistent. A nil policy is considered valid and
+// means the Kopia default (inherited) policy is left untouched.
+func (c *CompressionPolicy) Validate() error {
+	if c == nil {
+		return nil
+	}
+
+	return ValidateCompressionSettings(c.Algorithm, c.MinSize, c.MaxSize)
 }

@@ -50,6 +50,9 @@ _Appears in:_
 
 CompressionPolicy configures the Kopia compression policy applied to base
 backup data.
+A `minSize` above a non-zero `maxSize` would match no file at all: Kopia
+accepts such a policy and then silently skips compression for every file, so
+it is rejected at admission instead.
 
 
 

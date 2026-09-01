@@ -77,9 +77,10 @@ func (c *Tier1Config) Validate() error {
 	if err := c.Wal.Validate(); err != nil {
 		errs = errors.Join(errs, err)
 	}
-	if c.Compression.Algorithm != "" && !IsValidCompressionAlgorithm(c.Compression.Algorithm) {
-		errs = errors.Join(errs, fmt.Errorf("invalid tier1 config: %w: %q",
-			ErrInvalidCompressionAlgorithm, c.Compression.Algorithm))
+	if err := ValidateCompressionSettings(
+		c.Compression.Algorithm, c.Compression.MinSize, c.Compression.MaxSize,
+	); err != nil {
+		errs = errors.Join(errs, fmt.Errorf("invalid tier1 config: %w", err))
 	}
 
 	return errs
@@ -110,9 +111,10 @@ func (c *Tier2Config) Validate() error {
 		errs = errors.Join(errs, err)
 	}
 
-	if c.Compression.Algorithm != "" && !IsValidCompressionAlgorithm(c.Compression.Algorithm) {
-		errs = errors.Join(errs, fmt.Errorf("invalid tier2 config: %w: %q",
-			ErrInvalidCompressionAlgorithm, c.Compression.Algorithm))
+	if err := ValidateCompressionSettings(
+		c.Compression.Algorithm, c.Compression.MinSize, c.Compression.MaxSize,
+	); err != nil {
+		errs = errors.Join(errs, fmt.Errorf("invalid tier2 config: %w", err))
 	}
 
 	return errs

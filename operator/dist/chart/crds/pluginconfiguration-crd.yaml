@@ -1718,6 +1718,10 @@ spec:
                     required:
                     - algorithm
                     type: object
+                    x-kubernetes-validations:
+                    - message: minSize must not be greater than maxSize
+                      rule: '!has(self.maxSize) || self.maxSize == 0 || !has(self.minSize)
+                        || self.minSize <= self.maxSize'
                   retention:
                     description: RetentionPolicy defines how many backups we should
                       keep
@@ -1802,6 +1806,10 @@ spec:
                     required:
                     - algorithm
                     type: object
+                    x-kubernetes-validations:
+                    - message: minSize must not be greater than maxSize
+                      rule: '!has(self.maxSize) || self.maxSize == 0 || !has(self.minSize)
+                        || self.minSize <= self.maxSize'
                   enableBackup:
                     description: EnableBackup controls whether WAL and base backups
                       should be stored in tier2
