@@ -143,6 +143,10 @@ type CompressionAlgorithm string
 
 // CompressionPolicy configures the Kopia compression policy applied to base
 // backup data.
+// A `minSize` above a non-zero `maxSize` would match no file at all: Kopia
+// accepts such a policy and then silently skips compression for every file, so
+// it is rejected at admission instead.
+// +kubebuilder:validation:XValidation:rule="!has(self.maxSize) || self.maxSize == 0 || !has(self.minSize) || self.minSize <= self.maxSize",message="minSize must not be greater than maxSize"
 type CompressionPolicy struct {
 	// Algorithm is the name of the Kopia compression algorithm to use.
 	// +kubebuilder:validation:Required

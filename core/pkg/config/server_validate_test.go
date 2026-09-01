@@ -20,6 +20,7 @@ SPDX-License-Identifier: Apache-2.0
 package config
 
 import (
+	"errors"
 	"testing"
 )
 
@@ -141,6 +142,38 @@ func TestTierConfigCompressionValidate(t *testing.T) {
 		cfg.Compression = CompressionServerConfig{Algorithm: "bogus"}
 		if err := cfg.Validate(); err == nil {
 			t.Errorf("Validate() expected an error for invalid compression")
+		}
+	})
+
+	t.Run("Tier1 valid compression size range", func(t *testing.T) {
+		cfg := validTier1()
+		cfg.Compression = CompressionServerConfig{
+			Algorithm: "zstd", MinSize: 4096, MaxSize: 1048576,
+		}
+		if err := cfg.Validate(); err != nil {
+			t.Errorf("Validate() unexpected error = %v", err)
+		}
+	})
+
+	t.Run("Tier1 inconsistent compression size range", func(t *testing.T) {
+		cfg := validTier1()
+		cfg.Compression = CompressionServerConfig{
+			Algorithm: "zstd", MinSize: 1048576, MaxSize: 4096,
+		}
+		if err := cfg.Validate(); !errors.Is(err, ErrInvalidCompressionSizeRange) {
+			t.Errorf("Validate() error = %v, want ErrInvalidCompressionSizeRange", err)
+		}
+	})
+
+	t.Run("Tier2 inconsistent compression size range", func(t *testing.T) {
+		cfg := Tier2Config{
+			S3: S3Configuration{Enabled: false},
+			Compression: CompressionServerConfig{
+				Algorithm: "zstd", MinSize: 1048576, MaxSize: 4096,
+			},
+		}
+		if err := cfg.Validate(); !errors.Is(err, ErrInvalidCompressionSizeRange) {
+			t.Errorf("Validate() error = %v, want ErrInvalidCompressionSizeRange", err)
 		}
 	})
 
