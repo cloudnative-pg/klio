@@ -153,9 +153,13 @@ func (s *Client) setKopiaCompressionPolicy(
 
 // buildCompressionPolicyArgs builds the argument list for the
 // `kopia policy set` compression command. policyTarget is either a
-// "user@host" source or the "--global" selector. Only the flags for the
-// fields that are set are emitted, so an unset field leaves the corresponding
-// Kopia policy value untouched.
+// "user@host" source or the "--global" selector.
+//
+// An unset algorithm emits no flag, leaving whatever the repository already
+// holds. The size bounds, in contrast, are always emitted: a zero value is
+// sent as "inherit", which Kopia resets to its inherited default. Skipping
+// them instead would make a bound impossible to clear once written, because
+// no value of the configuration field could ever remove it.
 func buildCompressionPolicyArgs(configFile, policyTarget string, policy CompressionPolicy) []string {
 	args := []string{
 		"policy",
@@ -171,14 +175,27 @@ func buildCompressionPolicyArgs(configFile, policyTarget string, policy Compress
 	if policy.Algorithm != "" {
 		args = append(args, "--compression="+policy.Algorithm)
 	}
-	if policy.MinSize > 0 {
-		args = append(args, "--compression-min-size="+strconv.FormatInt(policy.MinSize, 10))
-	}
-	if policy.MaxSize > 0 {
-		args = append(args, "--compression-max-size="+strconv.FormatInt(policy.MaxSize, 10))
-	}
+	args = append(args,
+		"--compression-min-size="+compressionSizeArg(policy.MinSize),
+		"--compression-max-size="+compressionSizeArg(policy.MaxSize),
+	)
 
 	return append(args, policyTarget)
+}
+
+// kopiaInheritPolicyValue is the value Kopia's `policy set` accepts to reset a
+// field to the value inherited from its parent policy.
+const kopiaInheritPolicyValue = "inherit"
+
+// compressionSizeArg renders a compression size bound as a `kopia policy set`
+// flag value, mapping the zero value to "inherit" so that clearing the bound in
+// the configuration also clears it in the repository.
+func compressionSizeArg(size int64) string {
+	if size <= 0 {
+		return kopiaInheritPolicyValue
+	}
+
+	return strconv.FormatInt(size, 10)
 }
 
 // ApplyKopiaPolicy applies the retention policy by expiring old snapshots.

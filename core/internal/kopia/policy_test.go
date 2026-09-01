@@ -71,13 +71,37 @@ func TestBuildCompressionPolicyArgs(t *testing.T) {
 		assertArgContains(t, args, "--compression-max-size=1048576")
 	})
 
-	t.Run("unset fields emit no flag", func(t *testing.T) {
+	t.Run("an unset algorithm emits no flag", func(t *testing.T) {
 		args := buildCompressionPolicyArgs("/etc/kopia/config", "--global",
 			CompressionPolicy{MinSize: 4096})
 
 		assertNoArgWithPrefix(t, args, "--compression=")
-		assertNoArgWithPrefix(t, args, "--compression-max-size=")
 		assertArgContains(t, args, "--compression-min-size=4096")
+	})
+
+	t.Run("an unset size bound is reset to inherit", func(t *testing.T) {
+		// Emitting no flag would leave a previously stored bound in the
+		// repository forever, with no configuration value able to clear it.
+		args := buildCompressionPolicyArgs("/etc/kopia/config", "--global",
+			CompressionPolicy{Algorithm: "zstd"})
+
+		assertArgContains(t, args, "--compression-min-size=inherit")
+		assertArgContains(t, args, "--compression-max-size=inherit")
+	})
+
+	t.Run("one bound set leaves the other inherited", func(t *testing.T) {
+		args := buildCompressionPolicyArgs("/etc/kopia/config", "--global",
+			CompressionPolicy{Algorithm: "zstd", MaxSize: 1048576})
+
+		assertArgContains(t, args, "--compression-min-size=inherit")
+		assertArgContains(t, args, "--compression-max-size=1048576")
+	})
+
+	t.Run("a negative size bound is treated as unset", func(t *testing.T) {
+		args := buildCompressionPolicyArgs("/etc/kopia/config", "--global",
+			CompressionPolicy{Algorithm: "zstd", MinSize: -1})
+
+		assertArgContains(t, args, "--compression-min-size=inherit")
 	})
 
 	t.Run("last argument is the target", func(t *testing.T) {
