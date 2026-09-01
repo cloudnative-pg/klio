@@ -132,3 +132,66 @@ func (c *Connection) GetLatestWALFileForCluster(
 
 	return lastWal, nil
 }
+
+// GetEarliestWALFileForCluster gets the earliest archived WAL for a certain
+// cluster, or an empty string when the archive is empty. Because the WAL stream
+// only ever appends segments going forward, no segment older than this one will
+// ever be archived.
+//
+//nolint:cyclop
+func (c *Connection) GetEarliestWALFileForCluster(
+	ctx context.Context,
+	clusterName string,
+) (string, error) {
+	logger := log.FromContext(ctx)
+
+	readClusterDir, err := afero.ReadDir(c.fs, clusterName)
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return "", nil
+		}
+
+		logger.Error(
+			err,
+			"while reading cluster directory",
+			"clusterName", clusterName,
+		)
+
+		return "", fmt.Errorf("while reading cluster directory: %w", err)
+	}
+
+	var earliestWalDirectoryName string
+	for _, entry := range readClusterDir {
+		if !entry.IsDir() {
+			continue
+		}
+
+		if earliestWalDirectoryName == "" || strings.Compare(entry.Name(), earliestWalDirectoryName) == -1 {
+			earliestWalDirectoryName = entry.Name()
+		}
+	}
+
+	if earliestWalDirectoryName == "" {
+		return "", nil
+	}
+
+	earliestWalDirectoryName = path.Join(clusterName, earliestWalDirectoryName)
+	readWalDirectory, err := afero.ReadDir(c.fs, earliestWalDirectoryName)
+	if err != nil {
+		logger.Error(err, "while reading directory", "earliestWalDirectoryName", earliestWalDirectoryName)
+		return "", fmt.Errorf("while reading WAL directory: %w", err)
+	}
+
+	var earliestWal string
+	for _, entry := range readWalDirectory {
+		if entry.IsDir() {
+			continue
+		}
+
+		if earliestWal == "" || strings.Compare(entry.Name(), earliestWal) == -1 {
+			earliestWal = entry.Name()
+		}
+	}
+
+	return earliestWal, nil
+}

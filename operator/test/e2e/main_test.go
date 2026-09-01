@@ -50,6 +50,7 @@ func TestMain(m *testing.M) {
 
 	runner.RegisterFeature(BackupFromPrimary(envconf.RandomName("backup-from-primary", 32)))
 	runner.RegisterFeature(BackupFromStandby(envconf.RandomName("backup-from-standby", 32)))
+	runner.RegisterFeature(BackupFromReplicaCluster(envconf.RandomName("backup-from-replica-cluster", 32)))
 	runner.RegisterFeature(Tier1ServerSideMaintenance(envconf.RandomName("tier1-maintenance", 32)))
 	runner.RegisterFeature(RecoverClusterFromBackupID(envconf.RandomName("recovery-from-backup-id", 32)))
 	runner.RegisterFeature(RecoverClusterFromLatestBackup(envconf.RandomName("recovery-from-latest-backup", 32)))

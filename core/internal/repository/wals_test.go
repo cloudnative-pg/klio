@@ -116,3 +116,65 @@ func TestGetLatestWALFileForCluster(t *testing.T) {
 	require.NoError(t, err)
 	assert.Empty(t, latestWal)
 }
+
+func TestGetEarliestWALFileForCluster(t *testing.T) {
+	opts := Options{
+		FS:       afero.NewMemMapFs(),
+		Password: "test-password",
+	}
+	require.NoError(t, Initialize(opts))
+
+	conn, err := Open(opts)
+	require.NoError(t, err)
+	require.NotNil(t, conn)
+	defer conn.Close()
+
+	tests := []struct {
+		name        string
+		clusterName string
+		createDir   bool
+		walNames    []string
+		expected    string
+	}{
+		{
+			name:        "non-existent cluster",
+			clusterName: "non-existent-cluster",
+			expected:    "",
+		},
+		{
+			name:        "several WAL files returns the smallest",
+			clusterName: "test-cluster",
+			createDir:   true,
+			walNames: []string{
+				"00000001000000000000000A",
+				"00000001000000000000000B",
+				"00000001000000000000000C",
+			},
+			expected: "00000001000000000000000A",
+		},
+		{
+			name:        "empty cluster directory",
+			clusterName: "empty-cluster",
+			createDir:   true,
+			expected:    "",
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			if tc.createDir {
+				walDir := path.Join(tc.clusterName, "0000000100000000")
+				require.NoError(t, opts.FS.MkdirAll(walDir, 0o750))
+				for _, walName := range tc.walNames {
+					file, err := opts.FS.Create(path.Join(walDir, walName))
+					require.NoError(t, err)
+					require.NoError(t, file.Close())
+				}
+			}
+
+			earliestWal, err := conn.GetEarliestWALFileForCluster(context.Background(), tc.clusterName)
+			require.NoError(t, err)
+			assert.Equal(t, tc.expected, earliestWal)
+		})
+	}
+}
