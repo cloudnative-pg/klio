@@ -46,6 +46,26 @@ func (w *Implementation) CloseBackup(
 	}
 
 	if len(missingWALFiles) > 0 {
+		// If a required WAL predates the earliest segment the archive will ever
+		// hold, it can never be archived: the stream only appends segments going
+		// forward. Fail the backup instead of letting the client wait for a WAL
+		// that will never arrive.
+		earliestWAL, err := w.conn.GetEarliestWALFileForCluster(ctx, request.GetClusterName())
+		if err != nil {
+			return nil, status.Errorf(codes.Internal, "while reading earliest archived WAL: %v", err.Error())
+		}
+		if earliestWAL != "" {
+			for _, missing := range missingWALFiles {
+				if missing < earliestWAL {
+					return nil, status.Errorf(
+						codes.FailedPrecondition,
+						"backup requires WAL %q which predates the earliest archived WAL %q "+
+							"and can never be archived",
+						missing, earliestWAL)
+				}
+			}
+		}
+
 		return &grpc.CloseBackupResult{
 			Tier2Schedule:   false,
 			MissingWalFiles: missingWALFiles,
