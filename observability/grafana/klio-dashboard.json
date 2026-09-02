@@ -907,6 +907,57 @@
             "type": "prometheus",
             "uid": "${datasource}"
           },
+          "expr": "sum(rate(klio_plugin_wal_restore_duration_nanoseconds_count{k8s_namespace_name=~\"$namespace\",cache_hit=\"true\"}[$__rate_interval])) / sum(rate(klio_plugin_wal_restore_duration_nanoseconds_count{k8s_namespace_name=~\"$namespace\"}[$__rate_interval])) * 100",
+          "instant": false,
+          "legendFormat": "hit ratio",
+          "range": true
+        }
+      ],
+      "title": "WAL restore hit ratio",
+      "description": "Fraction of WAL restores served directly from the prefetch spool instead of waiting on a download. A falling ratio means prefetch is not keeping pace with PostgreSQL replay.",
+      "transparent": false,
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "gridPos": {
+        "h": 6,
+        "w": 12,
+        "x": 0,
+        "y": 25
+      },
+      "repeatDirection": "h",
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true,
+          "calcs": []
+        },
+        "tooltip": {
+          "mode": "",
+          "sort": ""
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "%",
+          "custom": {
+            "gradientMode": "opacity",
+            "fillOpacity": 10
+          }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "type": "timeseries",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
           "expr": "sum by (outcome) (rate(klio_plugin_wal_restore_duration_nanoseconds_count{k8s_namespace_name=~\"$namespace\"}[$__rate_interval]))",
           "instant": false,
           "legendFormat": "{{outcome}}",
@@ -922,8 +973,8 @@
       },
       "gridPos": {
         "h": 6,
-        "w": 24,
-        "x": 0,
+        "w": 12,
+        "x": 12,
         "y": 25
       },
       "repeatDirection": "h",

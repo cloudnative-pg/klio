@@ -149,6 +149,12 @@ func clientPanels() []sizedPanel {
 			"was a local rename; cache_hit=false means PostgreSQL had to wait on a download, so a falling "+
 			"hit ratio means prefetch is not keeping ahead of replay and the prefetch count may need "+
 			"raising. The two are orders of magnitude apart, hence the split rather than one pooled line.")),
+		sized(8, panelHeight, timeseriesPanel("WAL restore hit ratio", "%",
+			query(
+				fmt.Sprintf("sum(rate(klio_plugin_wal_restore_duration_nanoseconds_count{%s,cache_hit=\"true\"}[$__rate_interval])) / "+
+					"sum(rate(klio_plugin_wal_restore_duration_nanoseconds_count{%s}[$__rate_interval])) * 100", nsMatcher, nsMatcher),
+				"hit ratio"),
+		).Description("Fraction of WAL restores served directly from the prefetch spool instead of waiting on a download. A falling ratio means prefetch is not keeping pace with PostgreSQL replay.")),
 		sized(8, panelHeight, timeseriesPanel("WAL restore rate by outcome", "ops",
 			query(
 				fmt.Sprintf("sum by (outcome) "+
