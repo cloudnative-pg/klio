@@ -180,7 +180,9 @@ func (w *walServiceImplementation) restoreWAL(
 		tiers[0], tiers[1] = tiers[1], tiers[0]
 	}
 
+	var lastTier tier
 	for _, t := range tiers {
+		lastTier = t
 		cacheHit, err := w.mgr.restoreWAL(ctx, walRestoreOptions{
 			configFile: configPath,
 			targetTier: t,
@@ -194,7 +196,7 @@ func (w *walServiceImplementation) restoreWAL(
 		}
 	}
 
-	return restoreOutcome{}, errWALNotFound
+	return restoreOutcome{tier: lastTier}, errWALNotFound
 }
 
 // availableTiers returns the tiers the user has opted in to as recovery
