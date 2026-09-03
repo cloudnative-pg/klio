@@ -77,7 +77,7 @@ func New(
 	operatorSdkImage string,
 	// k3SImage is the k3s image used for the ephemeral cluster.
 	// renovate image: datasource=docker depName=k3s lookupName=rancher/k3s versioning=docker
-	// +default="rancher/k3s:v1.36.3-k3s1@sha256:d0f79175794edd9694b4a12bafc5c52ae1977369a2f7cf256264e7bd2dae0be9"
+	// +default="rancher/k3s:v1.36.4-k3s1@sha256:edad48e12bf81c3a09ac1c05c0c0ffaaa22145980b989d6fae84543a76b83657"
 	// +optional
 	k3SImage string,
 ) *Scorecard {
