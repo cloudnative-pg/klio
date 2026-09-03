@@ -78,18 +78,14 @@ source:
   dsn: "postgres://localhost:5432/mydb"
   standard_dsn: "postgres://localhost:5432/mydb"
   slot: my_slot
-  standby_message_timeout_seconds: 15
-  flush_timeout_ms: 300
   buffer_size: 4096
 `,
 			want: Data{
 				Source: SourceConfig{
-					DSN:                          "postgres://localhost:5432/mydb",
-					StandardDSN:                  "postgres://localhost:5432/mydb",
-					Slot:                         "my_slot",
-					StandbyMessageTimeoutSeconds: 15,
-					FlushTimeoutMilliseconds:     300,
-					BufferSize:                   4096,
+					DSN:         "postgres://localhost:5432/mydb",
+					StandardDSN: "postgres://localhost:5432/mydb",
+					Slot:        "my_slot",
+					BufferSize:  4096,
 				},
 			},
 		},

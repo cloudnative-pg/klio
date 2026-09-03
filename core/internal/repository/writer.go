@@ -57,6 +57,9 @@ type WriterOptions struct {
 	// SegmentSize is the length, in bytes, of the WAL segment.
 	SegmentSize uint64
 
+	// The LSN corresponding to the start of the WAL segment.
+	WALStartLSN uint64
+
 	// Metrics collects per-write metrics for this Writer.
 	Metrics *Metrics
 
