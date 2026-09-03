@@ -215,16 +215,12 @@ func (s *Process) getReplicationStartPointFromClient(
 	// reports the last restartpoint, which lags the flush position: streaming
 	// from the flush position would leave the segments in between permanently
 	// out of tier1.
+	// Failing rather than falling back to the flush position: the fallback
+	// reinstates the gap permanently, since once the slot and the server hold a
+	// resume point past it, no later run comes back to it.
 	redoStart, err := s.getCheckpointRedoStartLSN(ctx, segmentSize)
 	if err != nil {
-		contextLogger.Info(
-			"Could not read the checkpoint redo LSN, falling back to the current flush position",
-			"err", err.Error(),
-			"xlogFlushPos", xlogFlushPos,
-			"segmentSize", segmentSize,
-		)
-
-		return getStartWALLSN(xlogFlushPos, segmentSize), nil
+		return 0, err
 	}
 
 	contextLogger.Debug(
