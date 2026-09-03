@@ -29,10 +29,13 @@ import (
 	"github.com/cloudnative-pg/machinery/pkg/log"
 )
 
-// migrationSuffix is appended to the destination to stage a migration. Staging
-// next to the destination keeps the final step a rename within the same
-// filesystem, so an interrupted copy never leaves a partial queue in place.
-const migrationSuffix = ".migrating"
+// migrationStagingName is the directory the migration is staged into, nested
+// inside destination. destination can be the mount point of a just-attached
+// volume, e.g. when a dedicated queue volume is added to the Server: it
+// cannot be removed or renamed onto (a mount point rejects both), so staging
+// has to be a subdirectory of it rather than a sibling, which is guaranteed
+// to share its filesystem.
+const migrationStagingName = ".migrating"
 
 // MigrateQueueDirectory moves the NATS work queue to destination when the
 // dedicated queue volume was added to, or removed from, the Server resource.
@@ -99,7 +102,11 @@ func migrationNeeded(ctx context.Context, source, destination string) (bool, err
 
 // copyQueue copies the queue into destination through the staging directory.
 func copyQueue(source, destination string) error {
-	staging := destination + migrationSuffix
+	if err := os.MkdirAll(destination, 0o750); err != nil {
+		return fmt.Errorf("while creating queue destination %q: %w", destination, err)
+	}
+
+	staging := filepath.Join(destination, migrationStagingName)
 	if err := os.RemoveAll(staging); err != nil {
 		return fmt.Errorf("while clearing queue migration staging directory %q: %w", staging, err)
 	}
@@ -118,25 +125,44 @@ func copyQueue(source, destination string) error {
 		return fmt.Errorf("while flushing the copied work queue: %w", err)
 	}
 
-	// The destination is empty, but it exists as soon as its volume is
-	// mounted, and rename refuses to replace an existing directory.
-	if err := os.RemoveAll(destination); err != nil {
-		return fmt.Errorf("while clearing queue destination %q: %w", destination, err)
+	if err := adoptStagedQueue(staging, destination); err != nil {
+		return fmt.Errorf("while moving the copied work queue into %q: %w", destination, err)
 	}
 
-	if err := os.Rename(staging, destination); err != nil {
-		return fmt.Errorf("while moving %q to %q: %w", staging, destination, err)
+	if err := os.RemoveAll(staging); err != nil {
+		return fmt.Errorf("while removing queue migration staging directory %q: %w", staging, err)
 	}
 
-	if err := syncDir(filepath.Dir(destination)); err != nil {
-		return fmt.Errorf("while flushing %q: %w", filepath.Dir(destination), err)
+	if err := syncDir(destination); err != nil {
+		return fmt.Errorf("while flushing %q: %w", destination, err)
 	}
 
 	return nil
 }
 
-// isEmptyDir reports whether the given path holds no entries. A missing path
-// counts as empty.
+// adoptStagedQueue moves every entry of staging into destination. Each rename
+// is atomic and, since staging is a subdirectory of destination, guaranteed
+// to stay on one filesystem, even when destination is itself a mount point
+// and so cannot be removed or replaced as a whole.
+func adoptStagedQueue(staging, destination string) error {
+	entries, err := os.ReadDir(staging)
+	if err != nil {
+		return err
+	}
+
+	for _, entry := range entries {
+		oldPath := filepath.Join(staging, entry.Name())
+		newPath := filepath.Join(destination, entry.Name())
+		if err := os.Rename(oldPath, newPath); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+// isEmptyDir reports whether the given path holds no entries besides a
+// leftover migration staging directory. A missing path counts as empty.
 func isEmptyDir(path string) (bool, error) {
 	entries, err := os.ReadDir(path)
 	if err != nil {
@@ -147,7 +173,13 @@ func isEmptyDir(path string) (bool, error) {
 		return false, err
 	}
 
-	return len(entries) == 0, nil
+	for _, entry := range entries {
+		if entry.Name() != migrationStagingName {
+			return false, nil
+		}
+	}
+
+	return true, nil
 }
 
 // syncTree fsyncs every file and directory of the tree rooted at root.
