@@ -119,3 +119,28 @@ func TestCloseBackupWaitsForRecentMissingWAL(t *testing.T) {
 	require.NotNil(t, result)
 	assert.Equal(t, []string{"000000010000000000000006"}, result.GetMissingWalFiles())
 }
+
+// TestCloseBackupWaitsForWALStillBeingStreamed verifies that the in-flight
+// `.partial` file the WAL writer creates for the segment it is receiving does
+// not make that same segment look permanently un-archivable. This is the state
+// a freshly created cluster is in when its first backup closes.
+func TestCloseBackupWaitsForWALStillBeingStreamed(t *testing.T) {
+	const clusterName = "test-cluster"
+
+	// Nothing is archived yet: segment 05 is still being received.
+	impl := newTestImplementation(t, clusterName, []string{
+		"000000010000000000000005.partial",
+	})
+
+	result, err := impl.CloseBackup(context.Background(), &grpc.CloseBackupRequest{
+		ClusterName: clusterName,
+		Timeline:    1,
+		StartWal:    "000000010000000000000005",
+		EndWal:      "000000010000000000000005",
+		SegmentSize: closeBackupSegmentSize,
+	})
+
+	require.NoError(t, err)
+	require.NotNil(t, result)
+	assert.Equal(t, []string{"000000010000000000000005"}, result.GetMissingWalFiles())
+}
