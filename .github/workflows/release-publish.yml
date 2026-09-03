@@ -9,6 +9,7 @@ permissions:
 
 jobs:
   release-publish:
+    if: github.repository_owner == 'cloudnative-pg'
     runs-on: ${{ github.repository_owner == 'cloudnative-pg' && 'ubuntu-latest-16-cores' || 'ubuntu-latest' }}
     steps:
       - name: Checkout
@@ -63,7 +64,8 @@ jobs:
     needs:
       - release-publish
       - check-release
-    if: needs.check-release.outputs.is-latest == 'true'
+    if: needs.check-release.outputs.is-latest == 'true' &&
+        github.repository_owner == 'cloudnative-pg'
     env:
       ENVIRONMENT: "production"
     runs-on: ubuntu-24.04
@@ -111,6 +113,7 @@ jobs:
     name: Publish the OLM bundle to the artifacts repository
     needs:
       - olm-bundle
+    if: github.repository_owner == 'cloudnative-pg'
     env:
       VERSION: ${{ github.event.release.tag_name }}
       BUNDLE_DIR: klio/bundles
@@ -158,6 +161,16 @@ jobs:
           git commit -sm "klio-operator (${VERSION#v})"
           # The checkout above persisted REPO_GHA_PAT, so no separate push
           # action is needed. Rebase first: the artifacts repository is shared
-          # with the other CloudNativePG projects and main may have moved.
-          git pull --rebase origin main
-          git push origin HEAD:main
+          # with the other CloudNativePG projects, so main may have moved
+          # between our checkout and our push. Retry a few times in case
+          # another project's release races ours.
+          for attempt in 1 2 3 4 5; do
+            git pull --rebase origin main
+            if git push origin HEAD:main; then
+              exit 0
+            fi
+            echo "Push attempt ${attempt} failed, retrying..." >&2
+            sleep $((attempt * 5))
+          done
+          echo "Failed to push the bundle after 5 attempts" >&2
+          exit 1
