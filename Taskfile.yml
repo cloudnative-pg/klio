@@ -1515,7 +1515,7 @@ tasks:
       OPERAND_IMAGE_REPOSITORY: '{{ .OPERAND_IMAGE_REPOSITORY | default (printf "%s:%s/klio-testing" .REGISTRY_NAME .REGISTRY_PORT) }}'
       OPERAND_IMAGE_TAG: '{{ .OPERAND_IMAGE_TAG | default "dev" }}'
       # renovate: datasource=docker depName=alpine/k8s versioning=docker
-      ALPINE_K8S_VERSION: 1.36.2@sha256:44ef4942e171939b9c665a4a84beb80e2dcdb9a24330d4651cfdfd2e9deecc47
+      ALPINE_K8S_VERSION: 1.37.0@sha256:b421c2e9419edb98db39b6ab641669f4db7bb2acf354f22450c6b7e7176d1ff4
       # TODO: remove the HELM_VERSION once the new alpine/k8s image fixes the issue that caused this PR: https://github.com/cloudnative-pg/klio/pull/57
       # renovate: datasource=github-releases depName=helm/helm versioning=semver
       HELM_VERSION: 'v4.2.4'
