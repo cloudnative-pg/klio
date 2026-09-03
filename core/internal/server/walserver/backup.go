@@ -32,6 +32,7 @@ import (
 	"github.com/cloudnative-pg/klio/core/internal/grpc"
 	"github.com/cloudnative-pg/klio/core/internal/kopia"
 	"github.com/cloudnative-pg/klio/core/internal/queue"
+	"github.com/cloudnative-pg/klio/core/internal/repository"
 )
 
 // CloseBackup implements the CloseBackup GRPC call.
@@ -39,6 +40,10 @@ func (w *Implementation) CloseBackup(
 	ctx context.Context,
 	request *grpc.CloseBackupRequest,
 ) (*grpc.CloseBackupResult, error) {
+	if err := repository.ValidatePathComponent(request.GetClusterName()); err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "invalid cluster name: %v", err.Error())
+	}
+
 	// Step 1: verify if the WALs have been archived
 	missingWALFiles, err := w.checkWALFiles(request)
 	if err != nil {
@@ -46,24 +51,26 @@ func (w *Implementation) CloseBackup(
 	}
 
 	if len(missingWALFiles) > 0 {
-		// If a required WAL predates the earliest segment the archive will ever
-		// hold, it can never be archived: the stream only appends segments going
-		// forward. Fail the backup instead of letting the client wait for a WAL
-		// that will never arrive.
+		// If a required WAL predates the earliest segment the archive holds, it
+		// can never be archived: this cluster started streaming from a later
+		// point, and nothing will go back to fill the gap. Fail the backup
+		// instead of letting the client wait for a WAL that will never arrive.
+		//
+		// checkWALFiles walks a single timeline by ascending position, so the
+		// missing list is already sorted and only its first entry can be the
+		// oldest required segment.
 		earliestWAL, err := w.conn.GetEarliestWALFileForCluster(ctx, request.GetClusterName())
 		if err != nil {
 			return nil, status.Errorf(codes.Internal, "while reading earliest archived WAL: %v", err.Error())
 		}
-		if earliestWAL != "" {
-			for _, missing := range missingWALFiles {
-				if missing < earliestWAL {
-					return nil, status.Errorf(
-						codes.FailedPrecondition,
-						"backup requires WAL %q which predates the earliest archived WAL %q "+
-							"and can never be archived",
-						missing, earliestWAL)
-				}
-			}
+		if earliestWAL != "" && missingWALFiles[0] < earliestWAL {
+			return nil, status.Errorf(
+				codes.FailedPrecondition,
+				"backup requires WAL %q which predates the earliest archived WAL %q and can never be "+
+					"archived: the backup ran on an instance whose last checkpoint precedes the point "+
+					"the WAL stream started from. Retry the backup targeting the primary, or wait for a "+
+					"checkpoint to be replayed on this instance",
+				missingWALFiles[0], earliestWAL)
 		}
 
 		return &grpc.CloseBackupResult{
