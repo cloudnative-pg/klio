@@ -19,8 +19,6 @@ SPDX-License-Identifier: Apache-2.0
 
 package config
 
-import "time"
-
 // Data is the configuration.
 //
 // This struct is used to generate a secret in the Kubernetes cluster, so its serialization must be stable.
@@ -78,14 +76,6 @@ type SourceConfig struct {
 
 	// Slot is the name of the replication slot to be used
 	Slot string `json:"slot" mapstructure:"slot"`
-
-	// StandbyMessageTimeoutSeconds is the timeout after which the WAL
-	// receiver will send a status update
-	StandbyMessageTimeoutSeconds int `json:"standby_message_timeout_seconds" mapstructure:"standby_message_timeout_seconds"` //nolint:lll
-
-	// FlushTimeoutMilliseconds is the timeout in milliseconds after which buffered
-	// WAL data is automatically flushed to the Klio server
-	FlushTimeoutMilliseconds int `json:"flush_timeout_ms" mapstructure:"flush_timeout_ms"`
 
 	// BufferSize is the maximum size in bytes of the in-memory WAL buffer before
 	// triggering an automatic flush
@@ -155,19 +145,5 @@ type WALPrefetchConfig struct {
 
 // SetDefaults sets the default values of the configuration.
 func (s *SourceConfig) SetDefaults() {
-	s.StandbyMessageTimeoutSeconds = 10
-	s.FlushTimeoutMilliseconds = 200
-	s.BufferSize = 2 * 1024 * 1024 // 2 MB
-}
-
-// StandbyMessageTimeout returns the stanby message timeout in a
-// time.Duration.
-func (s *SourceConfig) StandbyMessageTimeout() time.Duration {
-	return time.Second * time.Duration(s.StandbyMessageTimeoutSeconds)
-}
-
-// FlushTimeout returns the timeout after which the WALs are
-// flushed.
-func (s *SourceConfig) FlushTimeout() time.Duration {
-	return time.Millisecond * time.Duration(s.FlushTimeoutMilliseconds)
+	s.BufferSize = 4 * 1024 * 1024 // 4 MB
 }

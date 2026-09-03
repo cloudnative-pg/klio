@@ -25,7 +25,6 @@ import (
 	"fmt"
 	"path"
 	"strings"
-	"time"
 
 	"github.com/cloudnative-pg/cloudnative-pg/pkg/postgres"
 	"github.com/cloudnative-pg/machinery/pkg/log"
@@ -42,6 +41,7 @@ import (
 	"github.com/cloudnative-pg/klio/core/internal/client/sendwal/infrastructure"
 	klioGRPC "github.com/cloudnative-pg/klio/core/internal/grpc"
 	"github.com/cloudnative-pg/klio/core/internal/opentelemetry"
+	"github.com/cloudnative-pg/klio/core/internal/wal"
 	"github.com/cloudnative-pg/klio/core/pkg/config"
 )
 
@@ -63,7 +63,7 @@ func New(cfg *config.Data, logger log.Logger, client *grpcclient.Connection, sen
 	}
 }
 
-// ResetReplicationStatus reset the replication status on the server side and then
+// ResetReplicationStatus resets the replication status on the server side and then
 // drops the Klio replication slot.
 func (s *Process) ResetReplicationStatus(
 	ctx context.Context,
@@ -368,7 +368,7 @@ func (s *Process) downloadHistoryFiles(
 			continue
 		}
 
-		if err := s.client.StoreHistoryFile(ctx, result.FileName, result.Content, s.sendToTier2); err != nil {
+		if err := s.client.UploadFile(ctx, result.FileName, result.Content, s.sendToTier2); err != nil {
 			span.RecordError(err)
 			errorList = errors.Join(errorList, err)
 			contextLogger.Error(err, "timeline history upload failed",
@@ -433,11 +433,14 @@ func (s *Process) startReplication(
 			"timeline", timeline,
 		)
 
-		klioHandler := buffer.NewKlioClientHandler(
+		feedbackChannel := make(chan wal.Feedback, 100)
+
+		klioHandler := buffer.NewKlioClientTimelineHandler(
 			int(timeline),
 			walSegmentSize,
 			s.client,
 			s.sendToTier2,
+			feedbackChannel,
 		)
 
 		walBuffer := buffer.New(
@@ -447,18 +450,9 @@ func (s *Process) startReplication(
 			s.config.Source.BufferSize,
 		)
 
-		copyDoneResult, err := s.manageWALStream(ctx, conn, walBuffer)
+		copyDoneResult, err := s.manageWALStream(ctx, conn, walBuffer, feedbackChannel)
 		if err != nil {
 			return err
-		}
-
-		if klioHandler.HasWALFileOpened() {
-			// If the transmission terminated but there is still a WAL file in progress,
-			// we close it.
-			// This happens when PG is shut down.
-			if err := klioHandler.CloseWAL(ctx); err != nil {
-				return fmt.Errorf("while closing the WAL file: %w", err)
-			}
 		}
 
 		// Check if the timeline has changed and restart replication if needed
@@ -491,121 +485,106 @@ func (s *Process) manageWALStream(
 	ctx context.Context,
 	conn *pgconn.PgConn,
 	buffer *buffer.Data,
+	feedbackChannel chan wal.Feedback,
 ) (*pglogrepl.CopyDoneResult, error) {
 	contextLogger := log.FromContext(ctx)
 
-	flushDeadline := s.config.Source.FlushTimeout()
-	nextFlushDeadline := time.Now().Add(flushDeadline)
-
-	feedbackDeadline := s.config.Source.StandbyMessageTimeout()
-	nextFeedbackDeadline := time.Now().Add(feedbackDeadline)
+	walReceiver := newMessageReceiver(ctx, conn)
+	feedbackSender := newFeedbackSender(ctx, conn, feedbackChannel)
 
 loop:
 	for {
-		if time.Now().After(nextFlushDeadline) {
-			flushedLSN := buffer.FlushLSN()
-
-			if err := buffer.Flush(ctx); err != nil {
-				contextLogger.Error(err, "Failed flush WAL data")
-				return nil, fmt.Errorf("while flushing WAL data: %w", err)
-			}
-
-			// When flush really written something down to the Klio server,
-			// the FlushedLSN will be different. In that case, we want to immediately
-			// give feedback to the PostgreSQL server. This ultimately
-			// will result in updated data in pg_stat_replication.
-			if flushedLSN != buffer.FlushLSN() {
-				nextFeedbackDeadline = time.Time{}
-			}
-
-			nextFlushDeadline = time.Now().Add(flushDeadline)
-		}
-
-		if time.Now().After(nextFeedbackDeadline) {
-			// We communicate back to PostgreSQL the feedback when:
-			//
-			// 1. the feedback deadline exceeded
-			// 2. we received something from streaming replication
-			s.sendFeedback(ctx, conn, buffer)
-			nextFeedbackDeadline = time.Now().Add(feedbackDeadline)
-		}
-
-		standbyMessageDeadlineContext, cancel := context.WithDeadline(ctx, nextFlushDeadline)
-		msg, err := conn.ReceiveMessage(standbyMessageDeadlineContext)
-		cancel()
-
+		messages, err := walReceiver.ReceiveAvailable(ctx)
 		if err != nil {
-			if pgconn.Timeout(err) {
-				continue
-			}
-			if errors.Is(err, context.Canceled) {
-				break
-			}
 			contextLogger.Error(err, "receive message failed")
-
-			break
+			break loop
 		}
 
-		log.FromContext(ctx).Trace(
-			"Received message",
-			"msgType", fmt.Sprintf("%T", msg))
+		for _, msg := range messages {
+			switch msg := msg.(type) {
+			case *pgproto3.CopyData:
+				switch msg.Data[0] {
+				case pglogrepl.PrimaryKeepaliveMessageByteID:
+					pkm, err := pglogrepl.ParsePrimaryKeepaliveMessage(msg.Data[1:])
+					if err != nil {
+						contextLogger.Error(err, "parsePrimaryKeepaliveMessage failed")
+						continue
+					}
+					contextLogger.Debug(
+						"Primary Keepalive Message",
+						"ServerWALEnd", pkm.ServerWALEnd,
+						"ServerTime", pkm.ServerTime,
+						"ReplyRequested", pkm.ReplyRequested,
+					)
 
-		switch msg := msg.(type) {
-		case *pgproto3.CopyData:
-			switch msg.Data[0] {
-			case pglogrepl.PrimaryKeepaliveMessageByteID:
-				pkm, err := pglogrepl.ParsePrimaryKeepaliveMessage(msg.Data[1:])
-				if err != nil {
-					contextLogger.Error(err, "parsePrimaryKeepaliveMessage failed")
-					continue
+					if pkm.ReplyRequested {
+						feedbackSender.Send()
+					}
+
+				case pglogrepl.XLogDataByteID:
+					xld, err := pglogrepl.ParseXLogData(msg.Data[1:])
+					if err != nil {
+						contextLogger.Error(err, "ParseXLogData failed")
+						continue
+					}
+
+					err = buffer.ProcessWALData(ctx, xld.WALData, xld.WALStart)
+					if err != nil {
+						contextLogger.Error(err, "Error while processing WAL data", "lsn", xld.WALStart)
+						break loop
+					}
+
+				default:
+					contextLogger.Info("Received unexpected copydata message", "msg", msg)
+					break loop
 				}
-				contextLogger.Debug(
-					"Primary Keepalive Message",
-					"ServerWALEnd", pkm.ServerWALEnd,
-					"ServerTime", pkm.ServerTime,
-					"ReplyRequested", pkm.ReplyRequested,
-				)
 
-				if pkm.ReplyRequested {
-					s.sendFeedback(ctx, conn, buffer)
-				}
+			case *pgproto3.CommandComplete:
+				contextLogger.Info("Streaming replication terminated by the backend with success")
+				break loop
 
-			case pglogrepl.XLogDataByteID:
-				xld, err := pglogrepl.ParseXLogData(msg.Data[1:])
-				if err != nil {
-					contextLogger.Error(err, "ParseXLogData failed")
-					continue
-				}
-
-				err = buffer.ProcessWALData(ctx, xld.WALData, types.LSN(xld.WALStart.String()))
-				if err != nil {
-					contextLogger.Error(err, "Error while processing WAL data", "lsn", xld.WALStart)
-
-					return nil, fmt.Errorf("could not process WAL data at %s: %w", xld.WALStart, err)
-				}
-
-				// Force the code to communicate back to PostgreSQL the current status without waiting for
-				// a flush
-				nextFeedbackDeadline = time.Time{}
+			case *pgproto3.CopyDone:
+				contextLogger.Info("Streaming replication terminated by the backend with CopyDone")
+				break loop
 
 			default:
-				contextLogger.Info("Received unexpected copydata message", "msg", msg)
-				return nil, NewUnexpectedCopydataMessageError(msg.Data)
+				contextLogger.Info("Received unexpected message", "msg", msg)
+				return nil, NewUnexpectedMessageError(msg)
 			}
+		}
 
-		case *pgproto3.CommandComplete:
-			contextLogger.Info("Streaming replication terminated by the backend with success")
-			return nil, nil
-
-		case *pgproto3.CopyDone:
-			contextLogger.Info("Streaming replication terminated by the backend with CopyDone")
+		// Reporting the write position and the flushed position to PG is
+		// handled reactively by feedbackSender (started above), driven
+		// directly off buffer's write-position and ack updates - not from
+		// here, so neither has to wait for Flush, which can block on the
+		// Klio server. One Flush per drained batch, rather than one per
+		// XLogData message, turns a burst of messages already on the wire
+		// into a single write to the Klio server.
+		if err := buffer.Flush(ctx); err != nil {
+			contextLogger.Error(err, "cannot flush data to Klio server")
 			break loop
-
-		default:
-			contextLogger.Info("Received unexpected message", "msg", msg)
-			return nil, NewUnexpectedMessageError(msg)
 		}
 	}
+
+	// Stop both background goroutines before touching conn directly below:
+	// SendStandbyCopyDone reads off the same underlying frontend, and would
+	// race with a still-running receiver for the messages it expects.
+	contextLogger.Info("Stopping WAL receiver from PostgreSQL")
+	walReceiver.Stop()
+
+	// We close the WAL we're writing, and this ensures we received all the feedback.
+	contextLogger.Info("Closing WAL sender to Klio server")
+	if err := buffer.CloseCurrentWAL(ctx); err != nil {
+		return nil, fmt.Errorf("cannot close WAL sender to Klio server: %w", err)
+	}
+
+	// The reader is stopped and we read everything in it. We can close the feedback
+	// channel allowing the feedback sender to stop.
+	close(feedbackChannel)
+
+	// Stop the feedback sender and flush the final status.
+	contextLogger.Info("Stopping feedback sender to PostgreSQL")
+	feedbackSender.Stop()
 
 	contextLogger.Info("WAL streaming loop terminated, sending CopyDone")
 	copyDoneResult, err := pglogrepl.SendStandbyCopyDone(ctx, conn)
@@ -620,26 +599,4 @@ loop:
 	)
 
 	return copyDoneResult, nil
-}
-
-func (s *Process) sendFeedback(ctx context.Context, conn *pgconn.PgConn, buffer *buffer.Data) {
-	contextLogger := log.FromContext(ctx)
-
-	err := pglogrepl.SendStandbyStatusUpdate(
-		ctx,
-		conn,
-		pglogrepl.StandbyStatusUpdate{
-			WALWritePosition: pglogrepl.LSN(buffer.WriteLSN()),
-			WALFlushPosition: pglogrepl.LSN(buffer.FlushLSN()),
-			WALApplyPosition: pglogrepl.LSN(buffer.FlushLSN()),
-		},
-	)
-	if err != nil {
-		contextLogger.Error(err, "Failed to send standby status update, skipping")
-	} else {
-		contextLogger.Debug(
-			"Sent Standby status message",
-			"write_lsn", types.Int64ToLSN(buffer.WriteLSN()),
-			"flush_lsn", types.Int64ToLSN(buffer.FlushLSN()))
-	}
 }

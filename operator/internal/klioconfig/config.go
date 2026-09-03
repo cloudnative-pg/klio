@@ -104,9 +104,7 @@ func GenerateConfig(
 			StandardDSN: "user=postgres application_name=klio",
 			Slot:        "klio",
 			// The following parameters are not used by the plugin, but here with their default for completeness
-			StandbyMessageTimeoutSeconds: 0,
-			FlushTimeoutMilliseconds:     0,
-			BufferSize:                   0,
+			BufferSize: 0,
 		},
 		Client: config.ClientConfig{
 			ClusterName: spec.ClusterName,

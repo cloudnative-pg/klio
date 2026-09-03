@@ -47,6 +47,7 @@ type PutRequest struct {
 	WalName       string                 `protobuf:"bytes,2,opt,name=wal_name,json=walName,proto3" json:"wal_name,omitempty"`
 	WalBlock      []byte                 `protobuf:"bytes,3,opt,name=wal_block,json=walBlock,proto3" json:"wal_block,omitempty"`
 	SegmentSize   uint64                 `protobuf:"varint,4,opt,name=segment_size,json=segmentSize,proto3" json:"segment_size,omitempty"`
+	WalStartLsn   uint64                 `protobuf:"varint,8,opt,name=wal_start_lsn,json=walStartLsn,proto3" json:"wal_start_lsn,omitempty"`
 	SendToTier2   bool                   `protobuf:"varint,7,opt,name=send_to_tier2,json=sendToTier2,proto3" json:"send_to_tier2,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -110,6 +111,13 @@ func (x *PutRequest) GetSegmentSize() uint64 {
 	return 0
 }
 
+func (x *PutRequest) GetWalStartLsn() uint64 {
+	if x != nil {
+		return x.WalStartLsn
+	}
+	return 0
+}
+
 func (x *PutRequest) GetSendToTier2() bool {
 	if x != nil {
 		return x.SendToTier2
@@ -119,7 +127,8 @@ func (x *PutRequest) GetSendToTier2() bool {
 
 type PutResult struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	WrittenSize   uint64                 `protobuf:"varint,1,opt,name=written_size,json=writtenSize,proto3" json:"written_size,omitempty"`
+	WriteLsn      uint64                 `protobuf:"varint,3,opt,name=write_lsn,json=writeLsn,proto3" json:"write_lsn,omitempty"`
+	FlushLsn      uint64                 `protobuf:"varint,2,opt,name=flush_lsn,json=flushLsn,proto3" json:"flush_lsn,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -154,9 +163,16 @@ func (*PutResult) Descriptor() ([]byte, []int) {
 	return file_proto_klio_wal_proto_rawDescGZIP(), []int{1}
 }
 
-func (x *PutResult) GetWrittenSize() uint64 {
+func (x *PutResult) GetWriteLsn() uint64 {
 	if x != nil {
-		return x.WrittenSize
+		return x.WriteLsn
+	}
+	return 0
+}
+
+func (x *PutResult) GetFlushLsn() uint64 {
+	if x != nil {
+		return x.FlushLsn
 	}
 	return 0
 }
@@ -880,16 +896,18 @@ var File_proto_klio_wal_proto protoreflect.FileDescriptor
 
 const file_proto_klio_wal_proto_rawDesc = "" +
 	"\n" +
-	"\x14proto/klio_wal.proto\x12\vklio.wal.v1\x1a\x1fgoogle/protobuf/timestamp.proto\"\xcd\x01\n" +
+	"\x14proto/klio_wal.proto\x12\vklio.wal.v1\x1a\x1fgoogle/protobuf/timestamp.proto\"\xf1\x01\n" +
 	"\n" +
 	"PutRequest\x12!\n" +
 	"\fcluster_name\x18\x01 \x01(\tR\vclusterName\x12\x19\n" +
 	"\bwal_name\x18\x02 \x01(\tR\awalName\x12\x1b\n" +
 	"\twal_block\x18\x03 \x01(\fR\bwalBlock\x12!\n" +
 	"\fsegment_size\x18\x04 \x01(\x04R\vsegmentSize\x12\"\n" +
-	"\rsend_to_tier2\x18\a \x01(\bR\vsendToTier2J\x04\b\x05\x10\x06J\x04\b\x06\x10\aR\btrace_idR\aspan_id\".\n" +
-	"\tPutResult\x12!\n" +
-	"\fwritten_size\x18\x01 \x01(\x04R\vwrittenSize\"7\n" +
+	"\rwal_start_lsn\x18\b \x01(\x04R\vwalStartLsn\x12\"\n" +
+	"\rsend_to_tier2\x18\a \x01(\bR\vsendToTier2J\x04\b\x05\x10\x06J\x04\b\x06\x10\aR\btrace_idR\aspan_id\"Y\n" +
+	"\tPutResult\x12\x1b\n" +
+	"\twrite_lsn\x18\x03 \x01(\x04R\bwriteLsn\x12\x1b\n" +
+	"\tflush_lsn\x18\x02 \x01(\x04R\bflushLsnJ\x04\b\x01\x10\x02R\fwritten_size\"7\n" +
 	"\x12GetMetadataRequest\x12!\n" +
 	"\fcluster_name\x18\x01 \x01(\tR\vclusterName\"J\n" +
 	"\n" +
@@ -934,9 +952,9 @@ const file_proto_klio_wal_proto_rawDesc = "" +
 	"\x16tier2_retention_policy\x18\t \x01(\tR\x14tier2RetentionPolicy\"f\n" +
 	"\x11CloseBackupResult\x12%\n" +
 	"\x0etier2_schedule\x18\x01 \x01(\bR\rtier2Schedule\x12*\n" +
-	"\x11missing_wal_files\x18\x02 \x03(\tR\x0fmissingWalFiles2\xd8\x03\n" +
-	"\x03WAL\x12:\n" +
-	"\x03Put\x12\x17.klio.wal.v1.PutRequest\x1a\x16.klio.wal.v1.PutResult\"\x00(\x01\x12:\n" +
+	"\x11missing_wal_files\x18\x02 \x03(\tR\x0fmissingWalFiles2\xda\x03\n" +
+	"\x03WAL\x12<\n" +
+	"\x03Put\x12\x17.klio.wal.v1.PutRequest\x1a\x16.klio.wal.v1.PutResult\"\x00(\x010\x01\x12:\n" +
 	"\x03Get\x12\x17.klio.wal.v1.GetRequest\x1a\x16.klio.wal.v1.GetResult\"\x000\x01\x12N\n" +
 	"\vGetMetadata\x12\x1f.klio.wal.v1.GetMetadataRequest\x1a\x1c.klio.wal.v1.ClusterMetadata\"\x00\x12\\\n" +
 	"\x0fRequestWALStart\x12#.klio.wal.v1.RequestWALStartRequest\x1a\".klio.wal.v1.RequestWALStartResult\"\x00\x12Y\n" +
