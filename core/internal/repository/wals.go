@@ -133,12 +133,18 @@ func (c *Connection) GetLatestWALFileForCluster(
 	return lastWal, nil
 }
 
-// GetEarliestWALFileForCluster gets the earliest archived WAL for a certain
-// cluster, or an empty string when the archive is empty. Because the WAL stream
-// only ever appends segments going forward, no segment older than this one will
-// ever be archived.
+// GetEarliestWALFileForCluster gets the earliest archived WAL segment for a
+// certain cluster, or an empty string when the archive holds none.
 //
-//nolint:cyclop
+// Only complete WAL segments are considered. The archive also stores the
+// in-flight `.partial` file, backup labels and history files, and a name such
+// as "000000010000000000000005.partial" would otherwise be reported as older
+// than the very segment "000000010000000000000005" that is being written into
+// it.
+//
+// This is the earliest WAL that currently survives in the archive, not the
+// earliest one ever archived: the retention removes older segments, and
+// `klio reset-lsn` can leave a gap behind.
 func (c *Connection) GetEarliestWALFileForCluster(
 	ctx context.Context,
 	clusterName string,
@@ -160,38 +166,45 @@ func (c *Connection) GetEarliestWALFileForCluster(
 		return "", fmt.Errorf("while reading cluster directory: %w", err)
 	}
 
-	var earliestWalDirectoryName string
+	// afero.ReadDir sorts its result by name, and a WAL directory sorts in the
+	// same order as the segments it holds. The earliest directories may hold no
+	// complete segment at all: the retention skips files carrying an extension,
+	// so an orphan `.partial` keeps a directory alive. The scan therefore
+	// continues until a directory yields a segment.
 	for _, entry := range readClusterDir {
 		if !entry.IsDir() {
 			continue
 		}
 
-		if earliestWalDirectoryName == "" || strings.Compare(entry.Name(), earliestWalDirectoryName) == -1 {
-			earliestWalDirectoryName = entry.Name()
+		earliestWal, err := c.getEarliestWALFileInDirectory(ctx, path.Join(clusterName, entry.Name()))
+		if err != nil {
+			return "", err
+		}
+
+		if earliestWal != "" {
+			return earliestWal, nil
 		}
 	}
 
-	if earliestWalDirectoryName == "" {
-		return "", nil
-	}
+	return "", nil
+}
 
-	earliestWalDirectoryName = path.Join(clusterName, earliestWalDirectoryName)
-	readWalDirectory, err := afero.ReadDir(c.fs, earliestWalDirectoryName)
+// getEarliestWALFileInDirectory gets the earliest complete WAL segment held by
+// the passed WAL archive directory, or an empty string when it holds none.
+func (c *Connection) getEarliestWALFileInDirectory(ctx context.Context, directory string) (string, error) {
+	readWalDirectory, err := afero.ReadDir(c.fs, directory)
 	if err != nil {
-		logger.Error(err, "while reading directory", "earliestWalDirectoryName", earliestWalDirectoryName)
+		log.FromContext(ctx).Error(err, "while reading directory", "directory", directory)
 		return "", fmt.Errorf("while reading WAL directory: %w", err)
 	}
 
-	var earliestWal string
 	for _, entry := range readWalDirectory {
-		if entry.IsDir() {
+		if entry.IsDir() || len(entry.Name()) != expectedWalFileNameLength {
 			continue
 		}
 
-		if earliestWal == "" || strings.Compare(entry.Name(), earliestWal) == -1 {
-			earliestWal = entry.Name()
-		}
+		return entry.Name(), nil
 	}
 
-	return earliestWal, nil
+	return "", nil
 }
