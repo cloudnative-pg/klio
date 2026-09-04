@@ -23,6 +23,14 @@ import "context"
 
 // Handler is the interface used to process WAL data.
 // This is vastly modeled around the pg_basebackup codebase.
+//
+// .. note::
+//
+//	This interface is expected to change shape once Klio's own durability
+//	work (see cloudnative-pg/klio#98) settles, to let a Handler report back
+//	how much of what it was given is durably persisted, rather than only
+//	how much was written. Consumers should not assume this exact shape is
+//	final.
 type Handler interface {
 	// HasWALFileOpened Checks whether there is a WAL file transmission opened
 	HasWALFileOpened() bool

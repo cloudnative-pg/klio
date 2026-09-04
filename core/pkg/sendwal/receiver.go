@@ -34,37 +34,95 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgproto3"
 	"go.opentelemetry.io/otel/attribute"
-	"go.opentelemetry.io/otel/metric"
 	"go.opentelemetry.io/otel/trace"
 
-	"github.com/cloudnative-pg/klio/core/internal/client/klioclient/grpcclient"
-	"github.com/cloudnative-pg/klio/core/internal/client/sendwal/buffer"
-	"github.com/cloudnative-pg/klio/core/internal/client/sendwal/infrastructure"
-	klioGRPC "github.com/cloudnative-pg/klio/core/internal/grpc"
-	"github.com/cloudnative-pg/klio/core/internal/opentelemetry"
-	"github.com/cloudnative-pg/klio/core/pkg/config"
+	"github.com/cloudnative-pg/klio/core/pkg/sendwal/buffer"
+	"github.com/cloudnative-pg/klio/core/pkg/sendwal/infrastructure"
 )
 
-// Process implements the WAL sender service.
-type Process struct {
-	config         *config.Data
-	infrastructure *infrastructure.Postgres
-	client         *grpcclient.Connection
-	sendToTier2    bool
+// downloadHistoryFileSpanName identifies the span emitted while fetching and
+// storing timeline history files.
+const downloadHistoryFileSpanName = "sendwal.downloadHistoryFiles"
+
+// ReplicationCoordinator negotiates the WAL stream with whatever system
+// ultimately owns the received WAL data. Implementations are expected to
+// talk to that destination over whichever transport it exposes (a gRPC
+// service, an HTTP API, a local filesystem, ...); this package only needs
+// the three operations below.
+type ReplicationCoordinator interface {
+	// RequestStart negotiates the replication start position with the
+	// destination, given the WAL file name the source is currently at. It
+	// returns the WAL file name the destination wants the stream to
+	// (re)start from.
+	RequestStart(ctx context.Context, clusterName, systemID, currentWALName string) (string, error)
+
+	// ResetStream tells the destination to reset its replication status,
+	// given the WAL file name the source is currently at. It returns the
+	// WAL file name known to the destination, for logging purposes.
+	ResetStream(ctx context.Context, clusterName, systemID, currentWALName string) (string, error)
+
+	// StoreHistoryFile stores a timeline history file at the destination.
+	StoreHistoryFile(ctx context.Context, name string, content []byte) error
 }
 
-// New creates a new receiver.
-func New(cfg *config.Data, logger log.Logger, client *grpcclient.Connection, sendToTier2 bool) *Process {
+// HandlerFactory creates the buffer.Handler that will receive WAL data once
+// replication starts (or restarts, after a timeline switch) for the given
+// timeline and WAL segment size.
+type HandlerFactory func(tli int, segmentSize uint64) buffer.Handler
+
+// Options carries the receiver's tunables. Callers own filling this in from
+// whatever configuration mechanism they use.
+type Options struct {
+	// Slot is the name of the physical replication slot to use. It is
+	// created if it does not already exist.
+	Slot string
+
+	// ClusterName identifies the PostgreSQL cluster to the
+	// ReplicationCoordinator.
+	ClusterName string
+
+	// BufferSize is the maximum size, in bytes, of the in-memory WAL
+	// buffer before it is automatically flushed.
+	BufferSize int
+
+	// FlushTimeout is the interval after which buffered WAL data is
+	// automatically flushed, even if BufferSize has not been reached.
+	FlushTimeout time.Duration
+
+	// StandbyMessageTimeout is the interval after which a standby status
+	// update is sent to the source, absent other activity that would
+	// trigger one anyway.
+	StandbyMessageTimeout time.Duration
+}
+
+// Process implements the WAL receiver service.
+type Process struct {
+	infrastructure *infrastructure.Postgres
+	coordinator    ReplicationCoordinator
+	newHandler     HandlerFactory
+	options        Options
+}
+
+// New creates a new receiver. dsn is used to connect to the source
+// PostgreSQL instance; coordinator negotiates streaming with the
+// destination; newHandler builds the sink that will receive WAL bytes.
+func New(
+	dsn string,
+	logger log.Logger,
+	coordinator ReplicationCoordinator,
+	newHandler HandlerFactory,
+	options Options,
+) *Process {
 	return &Process{
-		config:         cfg,
-		infrastructure: infrastructure.NewPostgres(cfg, logger),
-		client:         client,
-		sendToTier2:    sendToTier2,
+		infrastructure: infrastructure.NewPostgres(dsn, logger),
+		coordinator:    coordinator,
+		newHandler:     newHandler,
+		options:        options,
 	}
 }
 
-// ResetReplicationStatus reset the replication status on the server side and then
-// drops the Klio replication slot.
+// ResetReplicationStatus resets the replication status on the destination
+// side and then drops the replication slot.
 func (s *Process) ResetReplicationStatus(
 	ctx context.Context,
 ) error {
@@ -96,20 +154,16 @@ func (s *Process) ResetReplicationStatus(
 		return fmt.Errorf("while converting LSN to WAL file name: %q %w", identifyData.XLogPos, err)
 	}
 
-	result, err := s.client.ResetWALStream(ctx, &klioGRPC.ResetWALStreamRequest{
-		ClusterName:    s.config.Client.ClusterName,
-		SystemId:       identifyData.SystemID,
-		CurrentWalName: clientWALFileName,
-	})
+	result, err := s.coordinator.ResetStream(ctx, s.options.ClusterName, identifyData.SystemID, clientWALFileName)
 	if err != nil {
-		return fmt.Errorf("while invoking server-side replication reset: %w", err)
+		return fmt.Errorf("while invoking destination-side replication reset: %w", err)
 	}
 
 	contextLogger.Info(
-		"Reset server-side replication status",
+		"Reset destination-side replication status",
 		"walName", result)
 
-	slotName := s.config.Source.Slot
+	slotName := s.options.Slot
 	if err := pglogrepl.DropReplicationSlot(
 		ctx,
 		conn,
@@ -157,7 +211,7 @@ func (s *Process) Start(ctx context.Context) error {
 		"systemID", identifyData.SystemID,
 	)
 
-	// Negotiate the starting point with the server
+	// Negotiate the starting point with the destination
 	point, err := s.getReplicationStartPoint(ctx, conn, identifyData, walSegmentSize)
 	if err != nil {
 		return err
@@ -180,7 +234,7 @@ func (s *Process) Start(ctx context.Context) error {
 	return s.startReplication(ctx, conn, point, walSegmentSize)
 }
 
-func (s *Process) getReplicationStartPointFromClient(
+func (s *Process) getReplicationStartPointFromDestination(
 	ctx context.Context,
 	conn *pgconn.PgConn,
 	xlogFlushPos pglogrepl.LSN,
@@ -189,7 +243,7 @@ func (s *Process) getReplicationStartPointFromClient(
 	contextLogger := log.FromContext(ctx)
 
 	// Find the latest replication point reading the replication slot
-	slotResult, err := ReadReplicationSlot(ctx, conn, s.config.Source.Slot)
+	slotResult, err := ReadReplicationSlot(ctx, conn, s.options.Slot)
 	if err != nil {
 		return 0, fmt.Errorf("while reading replication slot: %w", err)
 	}
@@ -202,9 +256,9 @@ func (s *Process) getReplicationStartPointFromClient(
 		return slotResult.RestartLSN, nil
 	}
 
-	// If nor the Klio server nor the replication slot are set,
-	// we use the XLOG flush position, taking care of
-	// starting streaming from the beginning of the WAL file.
+	// If neither the destination nor the replication slot know a start
+	// point, we use the XLOG flush position, taking care of starting
+	// streaming from the beginning of the WAL file.
 	//
 	// This usually happens when we are running against this
 	// PostgreSQL instance for the first time.
@@ -230,52 +284,47 @@ func (s *Process) getReplicationStartPoint(
 ) (*walCoordinate, error) {
 	contextLogger := log.FromContext(ctx)
 
-	clientStartLSN, err := s.getReplicationStartPointFromClient(ctx, conn, data.XLogPos, segmentSize)
+	startLSN, err := s.getReplicationStartPointFromDestination(ctx, conn, data.XLogPos, segmentSize)
 	if err != nil {
 		return nil, err
 	}
 
-	clientWALFileName, err := types.Int64ToLSN(uint64(clientStartLSN)).WALFileName(int(data.Timeline), segmentSize)
+	currentWALFileName, err := types.Int64ToLSN(uint64(startLSN)).WALFileName(int(data.Timeline), segmentSize)
 	if err != nil {
-		return nil, fmt.Errorf("while converting LSN to WAL file name: %q %w", clientStartLSN, err)
+		return nil, fmt.Errorf("while converting LSN to WAL file name: %q %w", startLSN, err)
 	}
 
-	opts := &klioGRPC.RequestWALStartRequest{
-		ClusterName:    s.config.Client.ClusterName,
-		SystemId:       data.SystemID,
-		CurrentWalName: clientWALFileName,
-	}
+	contextLogger.Debug("Requesting destination-side replication start",
+		"cluster", s.options.ClusterName,
+		"systemId", data.SystemID,
+		"currentWAL", currentWALFileName)
 
-	contextLogger.Debug("Requesting server-side replication start",
-		"cluster", opts.GetClusterName(),
-		"systemId", opts.GetSystemId(),
-		"currentWAL", opts.GetCurrentWalName())
-
-	serverWALFileName, err := s.client.RequestWALStart(ctx, opts)
+	destinationWALFileName, err := s.coordinator.RequestStart(
+		ctx, s.options.ClusterName, data.SystemID, currentWALFileName)
 	if err != nil {
-		return nil, fmt.Errorf("during server-side replication point validation: %w", err)
+		return nil, fmt.Errorf("during destination-side replication point validation: %w", err)
 	}
 
-	contextLogger.Debug("Received server-side replication start WAL", "name", serverWALFileName.GetWalName())
+	contextLogger.Debug("Received destination-side replication start WAL", "name", destinationWALFileName)
 
 	// Extract the timeline from the WAL file name. We remove the extension, as we may work on .partial files.
 	// TODO: this should probably go to machinery
 	segment, err := postgres.SegmentFromName(
-		strings.TrimSuffix(serverWALFileName.GetWalName(), path.Ext(serverWALFileName.GetWalName())))
+		strings.TrimSuffix(destinationWALFileName, path.Ext(destinationWALFileName)))
 	if err != nil {
 		return nil, fmt.Errorf("while extracting segment from WAL file name %s: %w",
-			serverWALFileName.GetWalName(),
+			destinationWALFileName,
 			err)
 	}
 	tli := segment.Tli
 
-	lsn, err := getReplicationStartFromWALFileName(serverWALFileName.GetWalName(), segmentSize)
+	lsn, err := getReplicationStartFromWALFileName(destinationWALFileName, segmentSize)
 	if err != nil {
 		return nil, err
 	}
 
 	contextLogger.Info(
-		"Negotiated replication start with the server",
+		"Negotiated replication start with the destination",
 		"timeline", tli,
 		"lsn", lsn,
 	)
@@ -297,7 +346,7 @@ func (s *Process) ensureReplicationSlotExists(
 ) error {
 	contextLogger := log.FromContext(ctx)
 
-	slotResult, err := ReadReplicationSlot(ctx, conn, s.config.Source.Slot)
+	slotResult, err := ReadReplicationSlot(ctx, conn, s.options.Slot)
 	if err != nil {
 		return fmt.Errorf("while reading replication slot: %w", err)
 	}
@@ -311,7 +360,7 @@ func (s *Process) ensureReplicationSlotExists(
 	replicationSlotResult, err := pglogrepl.CreateReplicationSlot(
 		ctx,
 		conn,
-		s.config.Source.Slot,
+		s.options.Slot,
 		"", // output plugin name: this is meaningful only for logical replication
 		pglogrepl.CreateReplicationSlotOptions{
 			Temporary: false,
@@ -353,7 +402,7 @@ func (s *Process) downloadHistoryFiles(
 ) error {
 	var errorList error
 
-	ctx, span := tracer.Start(ctx, opentelemetry.DownloadHistoryFileSpan,
+	ctx, span := tracer.Start(ctx, downloadHistoryFileSpanName,
 		trace.WithAttributes(attribute.Int("currentTLI", int(currentTli))))
 	defer span.End()
 
@@ -368,7 +417,7 @@ func (s *Process) downloadHistoryFiles(
 			continue
 		}
 
-		if err := s.client.StoreHistoryFile(ctx, result.FileName, result.Content, s.sendToTier2); err != nil {
+		if err := s.coordinator.StoreHistoryFile(ctx, result.FileName, result.Content); err != nil {
 			span.RecordError(err)
 			errorList = errors.Join(errorList, err)
 			contextLogger.Error(err, "timeline history upload failed",
@@ -395,11 +444,6 @@ func (s *Process) startReplication(
 	timeline := coordinate.timeline
 
 	for {
-		// Publish the timeline we are about to stream: this covers both the
-		// initial timeline and every subsequent switch handled below.
-		opentelemetry.ClientWal.Timeline.Record(ctx, int64(timeline),
-			metric.WithAttributes(opentelemetry.AttributeKeyClusterName.Of(s.config.Client.ClusterName)))
-
 		// To find the replication start position, we go back to the start of the WAL file
 		startWalLSNString, err := types.Int64ToLSN(uint64(startXlog)).WALFileStart(walSegmentSize)
 		if err != nil {
@@ -416,7 +460,7 @@ func (s *Process) startReplication(
 		err = pglogrepl.StartReplication(
 			ctx,
 			conn,
-			s.config.Source.Slot,
+			s.options.Slot,
 			startXLogPos,
 			pglogrepl.StartReplicationOptions{
 				Timeline: timeline,
@@ -428,23 +472,18 @@ func (s *Process) startReplication(
 
 		contextLogger.Info(
 			"Physical replication started",
-			"slotName", s.config.Source.Slot,
+			"slotName", s.options.Slot,
 			"startWalLSN", startWalLSN,
 			"timeline", timeline,
 		)
 
-		klioHandler := buffer.NewKlioClientHandler(
-			int(timeline),
-			walSegmentSize,
-			s.client,
-			s.sendToTier2,
-		)
+		handler := s.newHandler(int(timeline), walSegmentSize)
 
 		walBuffer := buffer.New(
 			int(timeline),
 			walSegmentSize,
-			klioHandler,
-			s.config.Source.BufferSize,
+			handler,
+			s.options.BufferSize,
 		)
 
 		copyDoneResult, err := s.manageWALStream(ctx, conn, walBuffer)
@@ -452,11 +491,11 @@ func (s *Process) startReplication(
 			return err
 		}
 
-		if klioHandler.HasWALFileOpened() {
+		if handler.HasWALFileOpened() {
 			// If the transmission terminated but there is still a WAL file in progress,
 			// we close it.
 			// This happens when PG is shut down.
-			if err := klioHandler.CloseWAL(ctx); err != nil {
+			if err := handler.CloseWAL(ctx); err != nil {
 				return fmt.Errorf("while closing the WAL file: %w", err)
 			}
 		}
@@ -470,8 +509,7 @@ func (s *Process) startReplication(
 				"newStartLSN", copyDoneResult.LSN,
 			)
 
-			// Update timeline and starting position for restart. The streaming
-			// timeline gauge is republished at the top of the loop.
+			// Update timeline and starting position for restart.
 			timeline = copyDoneResult.Timeline
 			startXlog = copyDoneResult.LSN
 
@@ -494,10 +532,10 @@ func (s *Process) manageWALStream(
 ) (*pglogrepl.CopyDoneResult, error) {
 	contextLogger := log.FromContext(ctx)
 
-	flushDeadline := s.config.Source.FlushTimeout()
+	flushDeadline := s.options.FlushTimeout
 	nextFlushDeadline := time.Now().Add(flushDeadline)
 
-	feedbackDeadline := s.config.Source.StandbyMessageTimeout()
+	feedbackDeadline := s.options.StandbyMessageTimeout
 	nextFeedbackDeadline := time.Now().Add(feedbackDeadline)
 
 loop:
@@ -510,10 +548,10 @@ loop:
 				return nil, fmt.Errorf("while flushing WAL data: %w", err)
 			}
 
-			// When flush really written something down to the Klio server,
-			// the FlushedLSN will be different. In that case, we want to immediately
-			// give feedback to the PostgreSQL server. This ultimately
-			// will result in updated data in pg_stat_replication.
+			// When flush really wrote something down to the destination,
+			// the FlushedLSN will be different. In that case, we want to
+			// immediately give feedback to the PostgreSQL server. This
+			// ultimately will result in updated data in pg_stat_replication.
 			if flushedLSN != buffer.FlushLSN() {
 				nextFeedbackDeadline = time.Time{}
 			}
