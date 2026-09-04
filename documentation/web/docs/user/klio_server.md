@@ -79,11 +79,11 @@ snapshot operations. Each tier has its own cache, and the optional
 `tier1.cache` and `tier2.cache` stanzas dedicate a PVC to it.
 
 When a tier has no `cache` stanza, its cache is stored inside the Tier 1 data
-volume, under `/data/cache_tier1` and `/data/cache_tier2` respectively. This is
-the simplest configuration and the one to start from: size the data PVC so that
-it accommodates the cache as well. Dedicate a cache PVC when you want the cache
-on a different storage class, or when you want its growth to be unable to eat
-into the space of your backups.
+volume, under `/data/cache_tier1` and `/data/cache_tier2` respectively. This
+is the simplest configuration and the one to start from: size the data PVC
+so that it accommodates the cache as well. Dedicate a cache PVC when you want
+the cache on a different storage class, or when you want its growth to be
+unable to eat into the space of your backups.
 
 Since the fallback location lives in the Tier 1 data volume, `tier2.cache` is
 required on a [read-only server](#read-only-mode), where Tier 1 is not
