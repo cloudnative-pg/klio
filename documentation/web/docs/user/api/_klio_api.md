@@ -314,7 +314,7 @@ _Appears in:_
 | `mode` _[ServerMode](#servermode)_ | Mode selects the operation mode of the server. | True | standard | Enum: [standard read-only] <br /> |
 | `tier1` _[Tier1Configuration](#tier1configuration)_ | Tier1 is the Tier 1 configuration | True |  |  |
 | `tier2` _[Tier2Configuration](#tier2configuration)_ | Tier2 is the Tier 2 configuration | True |  |  |
-| `queue` _[Queue](#queue)_ | Queue is the configuration of the PVC that should host<br />the task queue. |  |  | Optional: \{\} <br /> |
+| `queue` _[Queue](#queue)_ | Queue is the configuration of the PVC that should host<br />the task queue. When omitted, the task queue is stored in the<br />`queue` directory of the tier1 data volume. Adding or removing this<br />section on an existing server moves the queue content to the new<br />location during the resulting rolling restart. |  |  | Optional: \{\} <br /> |
 | `template` _[PodTemplateSpec](#podtemplatespec)_ | Template to override the default StatefulSet of the Klio server.<br />WARNING: Modifying this template may break the server functionality if not done carefully.<br />This field is primarily intended for advanced configuration such as telemetry setup.<br />Use at your own risk and ensure thorough testing before applying changes. |  |  | Optional: \{\} <br /> |
 
 

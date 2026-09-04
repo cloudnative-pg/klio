@@ -286,7 +286,8 @@ spec:
             secretName: klio-age-identity
         path: identity.txt
 
-  # Work queue, required whenever tier1 is configured
+  # Work queue. Optional: when omitted, the queue is stored in the
+  # `queue` directory of the tier1 data volume
   queue:
     pvcTemplate:
       accessModes:

@@ -58,6 +58,7 @@ func TestGetCoreEnvVarsIncludesQueueWhenTier1Configured(t *testing.T) {
 			EncryptionKeyFile: newTestFileSource("enc-secret", "encryption-key.age"),
 			IdentityFile:      newTestFileSource("id-secret", "identity.txt"),
 		},
+		queue: queueLayout{directory: "/queue"},
 	}
 
 	envVars := builder.getCoreEnvVars()
@@ -159,7 +160,7 @@ func TestQueueDirectoryAppearsOnceWithBothTiers(t *testing.T) {
 		},
 	}
 
-	envVars := newServerEnvBuilder(server).addCommonEnvs().build()
+	envVars := newServerEnvBuilder(server, buildQueueLayout(server, "test-server-klio", false)).addCommonEnvs().build()
 
 	var count int
 	for _, env := range envVars {
@@ -208,7 +209,7 @@ func TestBuildVolumes(t *testing.T) {
 		},
 	}
 
-	volumes := r.buildVolumes(server)
+	volumes := r.buildVolumes(server, buildQueueLayout(server, "test-server-klio", false))
 
 	findVolume := func(name string) *corev1.Volume {
 		for i := range volumes {
@@ -240,7 +241,7 @@ func TestBuildVolumeMounts(t *testing.T) {
 		},
 	}
 
-	mounts := r.buildVolumeMounts(server)
+	mounts := r.buildVolumeMounts(server, buildQueueLayout(server, "test-server-klio", false))
 
 	findMount := func(name string) *corev1.VolumeMount {
 		for i := range mounts {
@@ -278,7 +279,7 @@ func TestBuildIdentityVolumeDefaultMode(t *testing.T) {
 		},
 	}
 
-	volumes := r.buildVolumes(server)
+	volumes := r.buildVolumes(server, buildQueueLayout(server, "test-server-klio", false))
 
 	findVolume := func(name string) *corev1.Volume {
 		for i := range volumes {

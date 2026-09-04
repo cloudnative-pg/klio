@@ -158,6 +158,10 @@ func runServer(ctx context.Context, opts serverOpts) error {
 			return errors.New("queue is required when tier1 is enabled")
 		}
 
+		if err := server.MigrateQueueDirectory(ctx, opts.cfg.QueueMigrationSource, opts.cfg.QueueDirectory); err != nil {
+			return err
+		}
+
 		nats, err := server.NewNatsService(opts.cfg.QueueDirectory)
 		if err != nil {
 			return err

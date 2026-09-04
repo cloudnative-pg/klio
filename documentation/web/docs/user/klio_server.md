@@ -42,8 +42,9 @@ See the [Object Store](#object-store) section for configuration details.
 ### The Work Queue
 
 When Tier 1 is configured, the Klio Server pods will use a work queue.
-The work queue is backed by NATS JetStream with file storage on a separate
-`PersistentVolume` mounted at `/queue`.
+The work queue is backed by NATS JetStream with file storage, either on a
+dedicated `PersistentVolume` mounted at `/queue` or, when the `queue` section
+is omitted, in the `queue` directory of the Tier 1 data volume.
 The queue serves two purposes:
 
 - **Retention policy enforcement**: Tracks which WAL files are in use before
@@ -88,9 +89,19 @@ This limitation will be removed in a future version.
 
 ### Queue PVC
 
-The queue PVC is required when Tier 1 is configured. It stores the NATS
-JetStream work queue used for retention policy enforcement and asynchronous
-Tier 2 replication.
+The queue PVC stores the NATS JetStream work queue used for retention policy
+enforcement and asynchronous Tier 2 replication. It is optional: when the
+`queue` section is omitted, the queue is stored in the `queue` directory of
+the Tier 1 data volume instead.
+
+A dedicated volume is recommended in production. The queue is what drives
+retention and maintenance, that is, the operations that free space on the data
+volume; keeping it on a separate volume means a full data volume cannot also
+stall the queue. It also lets you put the queue, whose writes are small and
+synchronous, on a different StorageClass.
+
+See [Moving the work queue](managing_storage.md#moving-the-work-queue) to add or
+remove the dedicated volume on an existing server.
 
 #### Queue Sizing Guidelines
 
