@@ -20,8 +20,12 @@ SPDX-License-Identifier: Apache-2.0
 package e2e
 
 import (
+	"bytes"
 	"context"
+	"fmt"
 	"slices"
+	"strconv"
+	"strings"
 	"testing"
 	"time"
 
@@ -192,6 +196,36 @@ func waitForPVCDeleted(
 	), "cache PVC %s was not reclaimed", pvcName)
 }
 
+// fallbackTier1CacheDir is where Kopia stores the tier1 cache when the server
+// has no dedicated cache volume, mirroring fallbackCacheTier1Path in the
+// controller package.
+const fallbackTier1CacheDir = "/data/cache_tier1/kopia-cache"
+
+// cacheDirDiskUsage returns the disk usage, in KB, of a directory inside the
+// server pod, or 0 when the directory does not exist.
+func cacheDirDiskUsage(
+	ctx context.Context,
+	t *testing.T,
+	r *resources.Resources,
+	namespace, podName, dir string,
+) int {
+	t.Helper()
+
+	var stdout, stderr bytes.Buffer
+	cmd := []string{"sh", "-c", fmt.Sprintf("du -sk %s 2>/dev/null", dir)}
+	_ = r.ExecInPod(ctx, namespace, podName, serverContainerName, cmd, &stdout, &stderr)
+
+	output := strings.TrimSpace(stdout.String())
+	if output == "" {
+		return 0
+	}
+
+	size, err := strconv.Atoi(strings.Fields(output)[0])
+	require.NoError(t, err, "unexpected du output for %s: %q (stderr: %q)", dir, output, stderr.String())
+
+	return size
+}
+
 // serverReconfigFeature implements the Feature interface for server tier reconfiguration testing.
 type serverReconfigFeature struct {
 	name     string
@@ -335,6 +369,13 @@ func (f *serverReconfigFeature) Run() types.StepFunc {
 		)
 		require.NoError(t, err, "server Pod not ready after the cache volumes were removed")
 
+		// Kopia must have populated the fallback cache directory in the data
+		// volume, so that removing it later is a meaningful check.
+		podName := stsName + "-0"
+		require.Positive(t,
+			cacheDirDiskUsage(ctx, t, r, f.scenario.namespace.Name, podName, fallbackTier1CacheDir),
+			"fallback tier1 cache directory %s was not populated", fallbackTier1CacheDir)
+
 		waitForPVCDeleted(t, r, "cachetier1-"+stsName+"-0", f.scenario.namespace.Name)
 		waitForPVCDeleted(t, r, cachetier2PVCName, f.scenario.namespace.Name)
 
@@ -373,6 +414,12 @@ func (f *serverReconfigFeature) Run() types.StepFunc {
 				&corev1.PersistentVolumeClaim{}),
 			"cachetier1 PVC was not recreated",
 		)
+
+		// The dedicated cache volume is back, so the fallback cache directory
+		// left behind in the data volume must have been reclaimed at startup.
+		require.Zero(t,
+			cacheDirDiskUsage(ctx, t, r, f.scenario.namespace.Name, podName, fallbackTier1CacheDir),
+			"stale tier1 cache directory %s was not reclaimed", fallbackTier1CacheDir)
 
 		t.Log("Server tier reconfiguration test passed: all verifications succeeded")
 
