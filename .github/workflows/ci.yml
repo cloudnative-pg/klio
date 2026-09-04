@@ -268,10 +268,17 @@ jobs:
         uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
         with:
           go-version-file: 'cloudnativepg/go.mod'
+          check-latest: true
 
       - name: Start Kind cluster
         id: kind-cluster
         working-directory: cloudnativepg
+        env:
+          # setup-go pins GOTOOLCHAIN=local to the version resolved from
+          # cloudnativepg/go.mod, but cloudnativepg's own Makefile can
+          # `go run` tools (e.g. goreleaser) that require a newer Go than
+          # that.
+          GOTOOLCHAIN: auto
         run: |
           hack/setup-cluster.sh create load deploy
           CLUSTERS=$(kind get clusters)
