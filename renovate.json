@@ -88,8 +88,7 @@
         "go"
       ],
       "matchPackageNames": [
-        "github.com/leonardoce/kopia",
-        "github.com/leonardoce/afero-s3"
+        "github.com/leonardoce/kopia"
       ],
       "enabled": false,
       "description": "These packages are replaced with forks - updates are ignored"
