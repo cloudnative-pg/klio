@@ -184,6 +184,46 @@ func TestFindUserContainer(t *testing.T) {
 	}
 }
 
+func TestSidecarImage(t *testing.T) {
+	tests := []struct {
+		name          string
+		relatedImage  string
+		sidecarImage  string
+		expectedImage string
+	}{
+		{
+			name:          "only SIDECAR_IMAGE set",
+			sidecarImage:  "ghcr.io/cloudnative-pg/klio:v1",
+			expectedImage: "ghcr.io/cloudnative-pg/klio:v1",
+		},
+		{
+			name:          "RELATED_IMAGE_SIDECAR wins when both are set",
+			relatedImage:  "ghcr.io/cloudnative-pg/klio@sha256:abc",
+			sidecarImage:  "ghcr.io/cloudnative-pg/klio:v1",
+			expectedImage: "ghcr.io/cloudnative-pg/klio@sha256:abc",
+		},
+		{
+			name:          "empty RELATED_IMAGE_SIDECAR falls back",
+			relatedImage:  "",
+			sidecarImage:  "ghcr.io/cloudnative-pg/klio:v1",
+			expectedImage: "ghcr.io/cloudnative-pg/klio:v1",
+		},
+		{
+			name:          "neither set",
+			expectedImage: "",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Setenv("RELATED_IMAGE_SIDECAR", tt.relatedImage)
+			t.Setenv("SIDECAR_IMAGE", tt.sidecarImage)
+
+			assert.Equal(t, tt.expectedImage, sidecarImage())
+		})
+	}
+}
+
 func TestEnsureEnvVar(t *testing.T) {
 	tests := []struct {
 		name        string

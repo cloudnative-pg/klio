@@ -61,6 +61,12 @@ This procedure is for development and testing only. It requires
 a catalog image built from the branch under test.
 :::
 
+The bundle declares OpenShift 4.14 as the minimum supported version,
+through the `com.redhat.openshift.versions` annotation. The value comes
+from the `OPENSHIFT_VERSIONS` variable in `Taskfile.yml`, which
+`olm:bundle` writes into both `bundle/metadata/annotations.yaml` and
+the labels of `bundle.Dockerfile`.
+
 ## Prerequisites
 
 - An OpenShift cluster with `oc` CLI configured
@@ -137,10 +143,17 @@ the `openshift-operators` namespace.
 
 :::note
 The Klio sidecar (operand) image is baked into the operator
-Deployment by the bundle as the `SIDECAR_IMAGE` environment
-variable. It uses the same registry and tag as the operator
-image by default, with the `klio` repository instead of
-`klio-operator`. The Subscription can override it.
+Deployment by the bundle, as both the `SIDECAR_IMAGE` and the
+`RELATED_IMAGE_SIDECAR` environment variables; the operator prefers
+the latter, and only the OLM bundle sets it. `RELATED_IMAGE_SIDECAR`
+is the name `operator-sdk` expects, so that `--use-image-digests`
+pins the operand to a digest and copies it into the CSV's
+`relatedImages`, which is what disconnected installs mirror. Digest
+pinning only happens in CI, where the images live on `ghcr.io`; a
+local build leaves both variables on a tag. The images use the same
+registry and tag as the operator image by default, with the `klio`
+repository instead of `klio-operator`. The Subscription can override
+either variable.
 :::
 
 ## 3. Create TLS certificates
@@ -277,3 +290,28 @@ in-engine. Raw artifacts are written to `operator/preflight-artifacts/`.
 
 The task never contacts Red Hat: the checks are always evaluated
 locally.
+
+## Publishing the bundle and catalog
+
+`olm:publish` is the release counterpart of `olm:all`: it builds and
+pushes the production bundle and catalog images (no `-testing` suffix)
+for the tag being released, and leaves `operator/bundle/` on disk. It
+refuses to run outside a tagged CI checkout, and refuses to run if the
+CSV version derived from `git describe` does not match the tag.
+
+The `olm-bundle` job in `.github/workflows/release-publish.yml` runs
+it, attaches the resulting `CatalogSource` manifest to the GitHub
+release, and hands `operator/bundle/` to the `publish-bundle` job,
+which commits it to `klio/bundles/<version>` in the
+[artifacts repository](https://github.com/cloudnative-pg/artifacts).
+Both jobs only run for the release GitHub marks as the latest one,
+which excludes drafts and prereleases, so a release candidate never
+reaches the `stable-v0` channel.
+
+Each release publishes its own catalog image, tagged with the release
+version, and that catalog carries exactly one bundle. The upgrade edge
+back to the installed version comes from the `olm.skipRange` annotation
+`olm:manifest` writes into the CSV, which spans every release from
+`OLM_FIRST_BUNDLE_VERSION` up to (but excluding) the one being built.
+Raise that variable only to declare a version range unupgradable, and
+never lower it.

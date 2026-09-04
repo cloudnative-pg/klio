@@ -11,6 +11,9 @@ bundle/
 operator/olm-manifests/
 operator/config/manifest-build/
 operator/config/olm-default/manager_sidecar_image_patch.yaml
+operator/config/manifests/csv_container_image_patch.yaml
+operator/config/manifests/csv_skip_range_patch.yaml
+operator/config/manifests/sample_image_patch.yaml
 operator/catalog
 operator/catalog.Dockerfile
 operator/klio-operator-template.yaml
