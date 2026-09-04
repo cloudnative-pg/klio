@@ -56,6 +56,10 @@ var instanceCmd = &cobra.Command{
 		clusterName, _ := cmd.Flags().GetString("cluster-name")
 		clusterNamespace, _ := cmd.Flags().GetString("cluster-namespace")
 
+		// Seed the backup counter series at 0 so a first failure (or success)
+		// is a visible increment for rate()/increase()-based panels.
+		opentelemetry.InitPluginBackupSeries(cmd.Context(), clusterName)
+
 		capabilities := func(server *cnpgi.CNPGI) {
 			server.AddBackupCapability(cnpgi.BackupCapabilityOptions{
 				Tier2: configuration.Tier2BackupEnabled,
