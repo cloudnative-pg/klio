@@ -106,6 +106,10 @@ The E2E tests are located in `operator/test/e2e/` and include:
    - `BackupFromPrimary`: backup from a single-instance cluster
    - `BackupFromStandby`: backup from a standby in a multi-instance
     cluster
+- **`backup_from_replica_cluster_test.go`** - Immediate backup from a
+  freshly-created replica cluster: verifies the backup completes even
+  when the WAL streamer and `pg_backup_start` disagree on the starting
+  WAL (`BackupFromReplicaCluster`)
 - **`maintenance_test.go`** - Server-side post-backup maintenance on a
   tier1-only deployment: verifies the backup queue consumer applies
   tier1 WAL retention after a backup even when tier2 is not configured

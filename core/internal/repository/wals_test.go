@@ -116,3 +116,94 @@ func TestGetLatestWALFileForCluster(t *testing.T) {
 	require.NoError(t, err)
 	assert.Empty(t, latestWal)
 }
+
+func TestGetEarliestWALFileForCluster(t *testing.T) {
+	opts := Options{
+		FS:       afero.NewMemMapFs(),
+		Password: "test-password",
+	}
+	require.NoError(t, Initialize(opts))
+
+	conn, err := Open(opts)
+	require.NoError(t, err)
+	require.NotNil(t, conn)
+	defer conn.Close()
+
+	tests := []struct {
+		name        string
+		clusterName string
+		// walDirs maps each WAL archive directory to the files it holds. A
+		// directory with no files is still created.
+		walDirs  map[string][]string
+		expected string
+	}{
+		{
+			name:        "non-existent cluster",
+			clusterName: "non-existent-cluster",
+			expected:    "",
+		},
+		{
+			name:        "several WAL files returns the smallest",
+			clusterName: "test-cluster",
+			walDirs: map[string][]string{
+				"0000000100000000": {
+					"00000001000000000000000A",
+					"00000001000000000000000B",
+					"00000001000000000000000C",
+				},
+			},
+			expected: "00000001000000000000000A",
+		},
+		{
+			name:        "empty cluster directory",
+			clusterName: "empty-cluster",
+			walDirs:     map[string][]string{"0000000100000000": {}},
+			expected:    "",
+		},
+		{
+			name:        "in-flight partial is not a segment",
+			clusterName: "partial-only-cluster",
+			walDirs: map[string][]string{
+				"0000000100000000": {"000000010000000000000005.partial"},
+			},
+			expected: "",
+		},
+		{
+			name:        "backup label is not a segment",
+			clusterName: "label-only-cluster",
+			walDirs: map[string][]string{
+				"0000000100000000": {"000000010000000000000004.00000028.backup"},
+			},
+			expected: "",
+		},
+		{
+			name:        "scan continues past a directory holding no segment",
+			clusterName: "partial-then-segments-cluster",
+			walDirs: map[string][]string{
+				"0000000100000000": {"000000010000000000000005.partial"},
+				"0000000100000001": {
+					"000000010000000100000002",
+					"000000010000000100000003",
+				},
+			},
+			expected: "000000010000000100000002",
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			for walDir, walNames := range tc.walDirs {
+				require.NoError(t, opts.FS.MkdirAll(path.Join(tc.clusterName, walDir), 0o750))
+				for _, walName := range walNames {
+					file, err := opts.FS.Create(path.Join(tc.clusterName, walDir, walName))
+					require.NoError(t, err)
+					require.NoError(t, file.Close())
+				}
+			}
+
+			earliestWal, err := conn.GetEarliestWALFileForCluster(context.Background(), tc.clusterName)
+			require.NoError(t, err)
+			assert.Equal(t, tc.expected, earliestWal)
+		})
+	}
+}
