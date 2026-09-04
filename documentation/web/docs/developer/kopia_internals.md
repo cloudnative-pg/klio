@@ -157,6 +157,9 @@ Metadata is stored in **manifests** - JSON documents identified by labels rather
 
 1. **Snapshot Manifests**: Record what was backed up, when, and the root object ID
 2. **Policy Manifests**: Define retention rules, compression settings, etc.
+   Policy changes are read at snapshot-creation time, so they affect only
+   future snapshots; changing the compression algorithm never rewrites data
+   already stored.
 3. **Other Manifests**: Maintenance schedules, ACLs, etc.
 
 Each manifest has:

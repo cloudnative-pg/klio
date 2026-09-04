@@ -290,6 +290,31 @@ func TestGenerateConfig(t *testing.T) {
 			},
 		},
 		{
+			name: "tier1 and tier2 compression policies are set",
+			spec: kliov1alpha1.PluginConfigurationSpec{
+				ServerAddress: testServerAddress,
+				Mode:          kliov1alpha1.ModeStandard,
+				ClusterName:   testClusterName,
+				Tier1: &kliov1alpha1.Tier1PluginConfiguration{
+					Compression: &kliov1alpha1.CompressionPolicy{Algorithm: "zstd", MinSize: 4096},
+				},
+				Tier2: &kliov1alpha1.Tier2PluginConfiguration{
+					EnableBackup: true,
+					Compression:  &kliov1alpha1.CompressionPolicy{Algorithm: "s2-default", MaxSize: 1048576},
+				},
+			},
+			configKey: ArchiveConfigKey,
+			assertions: func(t *testing.T, cfg *config.Data) {
+				t.Helper()
+				assert.NotNil(t, cfg.Tier1CompressionPolicy)
+				assert.Equal(t, "zstd", cfg.Tier1CompressionPolicy.Algorithm)
+				assert.Equal(t, int64(4096), cfg.Tier1CompressionPolicy.MinSize)
+				assert.NotNil(t, cfg.Tier2CompressionPolicy)
+				assert.Equal(t, "s2-default", cfg.Tier2CompressionPolicy.Algorithm)
+				assert.Equal(t, int64(1048576), cfg.Tier2CompressionPolicy.MaxSize)
+			},
+		},
+		{
 			name: "source config has default values",
 			spec: kliov1alpha1.PluginConfigurationSpec{
 				ServerAddress: testServerAddress,
@@ -384,6 +409,64 @@ func TestConvertTier1RetentionPolicy(t *testing.T) {
 
 		assert.NotNil(t, result)
 		assert.Equal(t, new(10), result.KeepLatest)
+	})
+}
+
+func TestConvertCompressionPolicy(t *testing.T) {
+	t.Run("nil returns nil", func(t *testing.T) {
+		assert.Nil(t, convertCompressionPolicy(nil))
+	})
+
+	t.Run("copies the algorithm and sizes", func(t *testing.T) {
+		result := convertCompressionPolicy(&kliov1alpha1.CompressionPolicy{
+			Algorithm: "zstd",
+			MinSize:   4096,
+			MaxSize:   1048576,
+		})
+
+		assert.NotNil(t, result)
+		assert.Equal(t, "zstd", result.Algorithm)
+		assert.Equal(t, int64(4096), result.MinSize)
+		assert.Equal(t, int64(1048576), result.MaxSize)
+	})
+}
+
+func TestConvertTier1CompressionPolicy(t *testing.T) {
+	t.Run("nil tier1 returns nil", func(t *testing.T) {
+		assert.Nil(t, convertTier1CompressionPolicy(nil))
+	})
+
+	t.Run("tier1 with nil compression returns nil", func(t *testing.T) {
+		assert.Nil(t, convertTier1CompressionPolicy(&kliov1alpha1.Tier1PluginConfiguration{}))
+	})
+
+	t.Run("tier1 with compression", func(t *testing.T) {
+		result := convertTier1CompressionPolicy(&kliov1alpha1.Tier1PluginConfiguration{
+			Compression: &kliov1alpha1.CompressionPolicy{Algorithm: "gzip"},
+		})
+
+		assert.NotNil(t, result)
+		assert.Equal(t, "gzip", result.Algorithm)
+	})
+}
+
+func TestConvertTier2CompressionPolicy(t *testing.T) {
+	t.Run("nil tier2 returns nil", func(t *testing.T) {
+		assert.Nil(t, convertTier2CompressionPolicy(nil))
+	})
+
+	t.Run("tier2 with nil compression returns nil", func(t *testing.T) {
+		assert.Nil(t, convertTier2CompressionPolicy(&kliov1alpha1.Tier2PluginConfiguration{EnableBackup: true}))
+	})
+
+	t.Run("tier2 with compression", func(t *testing.T) {
+		result := convertTier2CompressionPolicy(&kliov1alpha1.Tier2PluginConfiguration{
+			EnableBackup: true,
+			Compression:  &kliov1alpha1.CompressionPolicy{Algorithm: "s2-default"},
+		})
+
+		assert.NotNil(t, result)
+		assert.Equal(t, "s2-default", result.Algorithm)
 	})
 }
 

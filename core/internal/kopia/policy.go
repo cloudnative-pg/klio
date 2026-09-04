@@ -107,6 +107,97 @@ func (s *Client) SetKopiaPolicy(
 	return nil
 }
 
+// SetKopiaCompressionPolicy sets the compression policy for a source. This
+// overrides the repository-wide global policy for that source.
+func (s *Client) SetKopiaCompressionPolicy(
+	ctx context.Context,
+	t Target,
+	policy CompressionPolicy,
+) error {
+	return s.setKopiaCompressionPolicy(ctx, t.String(), policy)
+}
+
+// SetKopiaGlobalCompressionPolicy sets the repository-wide (global)
+// compression policy, which applies to every source that does not define its
+// own compression policy.
+func (s *Client) SetKopiaGlobalCompressionPolicy(
+	ctx context.Context,
+	policy CompressionPolicy,
+) error {
+	return s.setKopiaCompressionPolicy(ctx, "--global", policy)
+}
+
+// setKopiaCompressionPolicy runs `kopia policy set` with the compression flags
+// against the passed policy target (a "user@host" source or the "--global"
+// selector).
+func (s *Client) setKopiaCompressionPolicy(
+	ctx context.Context,
+	policyTarget string,
+	policy CompressionPolicy,
+) error {
+	contextLogger := log.FromContext(ctx)
+
+	args := buildCompressionPolicyArgs(s.ConfigFile, policyTarget, policy)
+
+	contextLogger.Info("Setting Kopia compression policy", "args", args)
+
+	setPolicyCmd := exec.CommandContext(ctx, s.KopiaBinary, args...) //nolint:gosec
+	setPolicyCmd.Env = s.kopiaEnvironmentVariables()
+
+	if err := RunWithLogCapture(ctx, setPolicyCmd, nil); err != nil {
+		return fmt.Errorf("error while setting Kopia compression policy: %w", err)
+	}
+
+	return nil
+}
+
+// buildCompressionPolicyArgs builds the argument list for the
+// `kopia policy set` compression command. policyTarget is either a
+// "user@host" source or the "--global" selector.
+//
+// An unset algorithm emits no flag, leaving whatever the repository already
+// holds. The size bounds, in contrast, are always emitted: a zero value is
+// sent as "inherit", which Kopia resets to its inherited default. Skipping
+// them instead would make a bound impossible to clear once written, because
+// no value of the configuration field could ever remove it.
+func buildCompressionPolicyArgs(configFile, policyTarget string, policy CompressionPolicy) []string {
+	args := []string{
+		"policy",
+		"set",
+		"--config-file=" + configFile,
+		// Kopia's own on-disk log files are suppressed on every invocation:
+		// Klio captures the subprocess output via RunWithLogCapture and
+		// re-emits it as structured logs, so the files would only accumulate
+		// redundantly on the cache volume.
+		"--disable-file-logging",
+	}
+
+	if policy.Algorithm != "" {
+		args = append(args, "--compression="+policy.Algorithm)
+	}
+	args = append(args,
+		"--compression-min-size="+compressionSizeArg(policy.MinSize),
+		"--compression-max-size="+compressionSizeArg(policy.MaxSize),
+	)
+
+	return append(args, policyTarget)
+}
+
+// kopiaInheritPolicyValue is the value Kopia's `policy set` accepts to reset a
+// field to the value inherited from its parent policy.
+const kopiaInheritPolicyValue = "inherit"
+
+// compressionSizeArg renders a compression size bound as a `kopia policy set`
+// flag value, mapping the zero value to "inherit" so that clearing the bound in
+// the configuration also clears it in the repository.
+func compressionSizeArg(size int64) string {
+	if size <= 0 {
+		return kopiaInheritPolicyValue
+	}
+
+	return strconv.FormatInt(size, 10)
+}
+
 // ApplyKopiaPolicy applies the retention policy by expiring old snapshots.
 func (s *Client) ApplyKopiaPolicy(ctx context.Context, t Target) error {
 	contextLogger := log.FromContext(ctx)

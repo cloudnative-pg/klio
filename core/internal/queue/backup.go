@@ -41,6 +41,9 @@ type BackupTask struct {
 
 	// The retention policy to apply to tier2.
 	Tier2RetentionPolicy *kopia.RetentionPolicy `json:"tier2RetentionPolicy,omitzero"`
+
+	// The compression policy to apply to tier2.
+	Tier2CompressionPolicy *kopia.CompressionPolicy `json:"tier2CompressionPolicy,omitzero"`
 }
 
 // Cluster returns the name of the cluster associated with this task.

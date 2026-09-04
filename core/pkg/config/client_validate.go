@@ -38,6 +38,14 @@ func (d *Data) Validate() error {
 		errs = errors.Join(errs, err)
 	}
 
+	if err := d.Tier1CompressionPolicy.Validate(); err != nil {
+		errs = errors.Join(errs, err)
+	}
+
+	if err := d.Tier2CompressionPolicy.Validate(); err != nil {
+		errs = errors.Join(errs, err)
+	}
+
 	return errs
 }
 

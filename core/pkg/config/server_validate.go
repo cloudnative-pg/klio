@@ -21,6 +21,7 @@ package config
 
 import (
 	"errors"
+	"fmt"
 	"path/filepath"
 )
 
@@ -76,6 +77,11 @@ func (c *Tier1Config) Validate() error {
 	if err := c.Wal.Validate(); err != nil {
 		errs = errors.Join(errs, err)
 	}
+	if err := ValidateCompressionSettings(
+		c.Compression.Algorithm, c.Compression.MinSize, c.Compression.MaxSize,
+	); err != nil {
+		errs = errors.Join(errs, fmt.Errorf("invalid tier1 config: %w", err))
+	}
 
 	return errs
 }
@@ -103,6 +109,12 @@ func (c *Tier2Config) Validate() error {
 	// the other parameters may be empty
 	if err := c.S3.Validate(); err != nil {
 		errs = errors.Join(errs, err)
+	}
+
+	if err := ValidateCompressionSettings(
+		c.Compression.Algorithm, c.Compression.MinSize, c.Compression.MaxSize,
+	); err != nil {
+		errs = errors.Join(errs, fmt.Errorf("invalid tier2 config: %w", err))
 	}
 
 	return errs

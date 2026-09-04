@@ -267,6 +267,81 @@ keepAnnual: 1
 
 Set a rule to `0` to disable that retention level.
 
+### Compression policies
+
+By default, Kopia stores base backup data uncompressed. You can enable
+compression for a cluster's base backups by configuring a compression policy
+per tier. The policy overrides the repository-wide default configured on the
+[Klio server](./klio_server.md#compression):
+
+```yaml
+apiVersion: klio.cnpg.io/v1alpha1
+kind: PluginConfiguration
+metadata:
+  name: klio-plugin-config
+spec:
+  serverAddress: klio-server.default
+  clientSecretName: cluster-example-klio-user
+  serverSecretName: klio-server-tls
+  clusterName: cluster-example
+  tier1:
+    compression:
+      algorithm: zstd
+  tier2:
+    enableBackup: true
+    compression:
+      algorithm: zstd-better-compression
+```
+
+The `algorithm` field selects one of the compression algorithms supported by
+Kopia. Common choices are:
+
+- `none`: explicitly disable compression. This is what a repository with no
+  compression policy configured does, and it is also how you turn compression
+  back off once a policy has been applied.
+- `zstd`, `zstd-fastest`, `zstd-better-compression`: the Zstandard family,
+  offering a good balance of ratio and speed.
+- `s2-default`, `s2-better`: the S2 family, optimized for throughput.
+- `gzip`, `gzip-best-compression`, `gzip-best-speed`.
+- `pgzip`, `pgzip-best-compression`, `pgzip-best-speed`.
+- `deflate-default`, `deflate-best-compression`, `deflate-best-speed`.
+
+You can optionally bound which files are compressed by size, in bytes:
+
+- `minSize`: files smaller than this are stored uncompressed. Useful to skip
+  the per-file overhead of compressing very small files.
+- `maxSize`: files larger than this are stored uncompressed.
+
+Both default to `0`, which means no limit. For example, to compress only files
+of at least 4 KiB:
+
+```yaml
+  tier1:
+    compression:
+      algorithm: zstd
+      minSize: 4096
+```
+
+Compression only affects backups taken after the policy is applied; existing
+backups are not recompressed. WAL files are always compressed independently
+and are not affected by this setting.
+
+:::warning
+A compression policy is stored in the Kopia repository, not derived from the
+`PluginConfiguration` on every backup. While a `compression` section is
+present, its `minSize` and `maxSize` are reconciled on every backup, so
+dropping either field does clear the corresponding bound. Removing the whole
+section, however, leaves the policy already written to the repository in
+place. To stop compressing, set `algorithm: none` explicitly rather than
+deleting the section.
+:::
+
+No manual step is needed for a policy change to take effect: the next backup
+picks it up automatically. Because Kopia deduplicates content by hash, a new
+algorithm applies only to data that is new or changed in later backups; blocks
+already stored uncompressed are reused as they are, so repository savings
+appear gradually as data churns rather than all at once.
+
 ### Operation Mode
 
 The `mode` field controls whether the plugin can perform both backup and

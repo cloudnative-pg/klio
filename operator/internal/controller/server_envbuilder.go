@@ -21,6 +21,7 @@ package controller
 
 import (
 	"path"
+	"strconv"
 
 	machineryapi "github.com/cloudnative-pg/machinery/pkg/api"
 	corev1 "k8s.io/api/core/v1"
@@ -152,6 +153,8 @@ func (e *envBuilder) getCoreEnvVars() []corev1.EnvVar {
 			Value: "/queue",
 		})
 
+		tier1Envs = appendCompressionEnvs(tier1Envs, "TIER1", e.tier1.Compression)
+
 		result = append(result, tier1Envs...)
 	}
 
@@ -232,7 +235,38 @@ func (e *envBuilder) getTier2EnvVars() []corev1.EnvVar {
 	result = appendEnvIfNotEmpty(result, "TIER2_S3_PREFIX", e.tier2.S3.Prefix)
 	result = appendEnvIfNotEmpty(result, "TIER2_S3_REGION", e.tier2.S3.Region)
 
+	result = appendCompressionEnvs(result, "TIER2", e.tier2.Compression)
+
 	return result
+}
+
+// appendCompressionEnvs emits the compression policy environment variables for
+// the given tier prefix (e.g. "TIER1"). Only the fields that are set produce a
+// variable, so an unset field leaves the corresponding Kopia policy untouched.
+func appendCompressionEnvs(
+	envs []corev1.EnvVar,
+	prefix string,
+	compression *kliov1alpha1.CompressionPolicy,
+) []corev1.EnvVar {
+	if compression == nil {
+		return envs
+	}
+
+	envs = appendEnvIfNotEmpty(envs, prefix+"_COMPRESSION_ALGORITHM", string(compression.Algorithm))
+	if compression.MinSize > 0 {
+		envs = append(envs, corev1.EnvVar{
+			Name:  prefix + "_COMPRESSION_MIN_SIZE",
+			Value: strconv.FormatInt(compression.MinSize, 10),
+		})
+	}
+	if compression.MaxSize > 0 {
+		envs = append(envs, corev1.EnvVar{
+			Name:  prefix + "_COMPRESSION_MAX_SIZE",
+			Value: strconv.FormatInt(compression.MaxSize, 10),
+		})
+	}
+
+	return envs
 }
 
 func appendEnvIfNotEmpty(envs []corev1.EnvVar, name, value string) []corev1.EnvVar {

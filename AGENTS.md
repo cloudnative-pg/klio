@@ -138,6 +138,7 @@ Klio-only assertions) must live outside `machinery` — e.g. under
 - These files must be kept in sync:
   - `operator/pkg/config/server.go` ↔ `core/pkg/config/server.go`
   - `operator/pkg/config/client.go` ↔ `core/pkg/config/client.go`
+  - `operator/pkg/config/compression.go` ↔ `core/pkg/config/compression.go`
 
 - When you change a metric in `core/internal/opentelemetry/catalog.go`
   (rename, add, remove, or change a metric's unit, type, or attributes),
@@ -198,6 +199,11 @@ confirm after that warning.
   those steps: tier1/tier2 retention apply, tier2 relay/migrate, tier2 policy
   set, and tier1 unpin. This is a deliberate, contained exception — not a pattern
   to copy, and one that should be removed in the future.
+- A second, narrower exception: `applyGlobalCompressionPolicy` in
+  `core/cmd/server/server.go` sets the repository-wide (global) compression
+  policy with a raw `kopia.Client{ConfigFile: ...}`, before the tier's Kopia
+  server starts. This is safe only because no server is running yet to hold a
+  stale cache. Do not reuse this pattern once the server is up.
 - A direct write that **rewrites the manifest of a live backup** MUST be followed
   by `refreshTier1KopiaServer` / `refreshTier2KopiaServer` so the servers
   reconcile their caches; skipping the refresh is a bug. The tier1 unpin is the

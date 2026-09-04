@@ -305,6 +305,7 @@ been completed.
 | segment_size | [uint64](#uint64) |  | The size of a WAL segment. Needed to generate the sequence of WAL files between the start and the end. |
 | send_to_tier2 | [bool](#bool) |  | Require this backup to be sent to tier2. |
 | tier2_retention_policy | [string](#string) |  | When present, set the tier2 retention policy to the specified JSON-serialized policy. |
+| tier2_compression_policy | [string](#string) |  | When present, set the tier2 compression policy to the specified JSON-serialized policy. |
 
 
 

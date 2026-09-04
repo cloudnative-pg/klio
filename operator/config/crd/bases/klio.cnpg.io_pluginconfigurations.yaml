@@ -1674,6 +1674,55 @@ spec:
               tier1:
                 description: Tier1 is the Tier 1 configuration
                 properties:
+                  compression:
+                    description: |-
+                      Compression defines the compression policy applied to this cluster's
+                      base backups on tier1. It overrides the tier1 repository-wide policy
+                      configured on the Server.
+                    properties:
+                      algorithm:
+                        description: Algorithm is the name of the Kopia compression
+                          algorithm to use.
+                        enum:
+                        - none
+                        - deflate-best-compression
+                        - deflate-best-speed
+                        - deflate-default
+                        - gzip
+                        - gzip-best-compression
+                        - gzip-best-speed
+                        - pgzip
+                        - pgzip-best-compression
+                        - pgzip-best-speed
+                        - s2-better
+                        - s2-default
+                        - s2-parallel-4
+                        - s2-parallel-8
+                        - zstd
+                        - zstd-better-compression
+                        - zstd-fastest
+                        type: string
+                      maxSize:
+                        description: |-
+                          MaxSize is the maximum file size, in bytes, to attempt compression for.
+                          Files larger than this are stored uncompressed. Zero means no maximum.
+                        format: int64
+                        minimum: 0
+                        type: integer
+                      minSize:
+                        description: |-
+                          MinSize is the minimum file size, in bytes, to attempt compression for.
+                          Files smaller than this are stored uncompressed. Zero means no minimum.
+                        format: int64
+                        minimum: 0
+                        type: integer
+                    required:
+                    - algorithm
+                    type: object
+                    x-kubernetes-validations:
+                    - message: minSize must not be greater than maxSize
+                      rule: '!has(self.maxSize) || self.maxSize == 0 || !has(self.minSize)
+                        || self.minSize <= self.maxSize'
                   retention:
                     description: RetentionPolicy defines how many backups we should
                       keep
@@ -1713,6 +1762,55 @@ spec:
               tier2:
                 description: Tier2 is the Tier 2 configuration
                 properties:
+                  compression:
+                    description: |-
+                      Compression defines the compression policy applied to this cluster's
+                      base backups on tier2. It overrides the tier2 repository-wide policy
+                      configured on the Server.
+                    properties:
+                      algorithm:
+                        description: Algorithm is the name of the Kopia compression
+                          algorithm to use.
+                        enum:
+                        - none
+                        - deflate-best-compression
+                        - deflate-best-speed
+                        - deflate-default
+                        - gzip
+                        - gzip-best-compression
+                        - gzip-best-speed
+                        - pgzip
+                        - pgzip-best-compression
+                        - pgzip-best-speed
+                        - s2-better
+                        - s2-default
+                        - s2-parallel-4
+                        - s2-parallel-8
+                        - zstd
+                        - zstd-better-compression
+                        - zstd-fastest
+                        type: string
+                      maxSize:
+                        description: |-
+                          MaxSize is the maximum file size, in bytes, to attempt compression for.
+                          Files larger than this are stored uncompressed. Zero means no maximum.
+                        format: int64
+                        minimum: 0
+                        type: integer
+                      minSize:
+                        description: |-
+                          MinSize is the minimum file size, in bytes, to attempt compression for.
+                          Files smaller than this are stored uncompressed. Zero means no minimum.
+                        format: int64
+                        minimum: 0
+                        type: integer
+                    required:
+                    - algorithm
+                    type: object
+                    x-kubernetes-validations:
+                    - message: minSize must not be greater than maxSize
+                      rule: '!has(self.maxSize) || self.maxSize == 0 || !has(self.minSize)
+                        || self.minSize <= self.maxSize'
                   enableBackup:
                     description: EnableBackup controls whether WAL and base backups
                       should be stored in tier2
