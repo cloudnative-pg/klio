@@ -204,8 +204,8 @@ confirm after that warning.
   canonical case: `kopia snapshot pin` rewrites the snapshot manifest to a *new*
   ID and deletes the old one, so without a refresh the server keeps serving the
   now-deleted ID for a backup that still exists, and a later client
-  `klio backup delete` deletes the wrong ID — leaving the real backup (and its
-  WALs) pinned forever.
+  `klio backup delete` asks Kopia to delete an ID that no longer matches
+  anything: the command fails and the real backup (and its WALs) stay pinned.
 - A direct write that only **deletes** snapshots (the tier1/tier2 retention
   apply) does **not** need a refresh: it removes IDs the server may still list,
   but it never rewrites a live backup's ID, and WAL retention is recomputed from
@@ -217,6 +217,34 @@ confirm after that warning.
 Do not introduce direct-write paths anywhere else. If, after warning the user, a
 new direct write is genuinely unavoidable, it must be paired with a server
 refresh of the affected tier.
+
+### Snapshot identity: manifest ID vs root object ID
+
+A snapshot's **manifest ID is not a stable identity**. `kopia snapshot pin`
+(the tier1 unpin above) rewrites a snapshot's manifest under a new ID and
+deletes the old one, so any code that lists snapshots and then acts on them a
+moment later can be holding an ID that no longer exists. Pick the identity by
+what the operation does:
+
+- **Reads that must survive a concurrent rewrite** use the root object ID
+  (`Manifest.RootEntry.ObjID`), which the rewrite leaves untouched. Backup
+  verification (`core/internal/client/klioclient/kopia/verify.go`) does this,
+  passing every root to Kopia as `--file-id` regardless of whether it is a
+  directory root (pgdata, metadata) or a file root (the control data file,
+  snapshotted on its own).
+- **Deletions must NOT use the root object ID.** Unchanged content dedupes to
+  the same root across backups (two backups of an idle tablespace share one), and
+  `kopia snapshot delete` removes *every* snapshot matching the ID it is given,
+  so deleting one backup by root ID can take another backup's snapshot with it.
+  Delete by manifest ID, and on failure re-list and retry so a concurrent
+  rewrite is picked up (`DeleteBackup` in the same package).
+- **The tier1 unpin is a write, not a read, and knowingly accepts the same
+  collision as delete.** The consumer's `getPinnedSnapshots`/`maintainTier2`
+  (`core/internal/consumer/backup.go`) also targets the root object ID, so a
+  root shared with another backup gets unpinned too. This is tolerated only
+  because the step is best-effort and the affected snapshot would be unpinned
+  anyway on the next tier2 migration — it is not a safe pattern to copy for
+  anything that isn't equally tolerant of that collision.
 
 ### Dagger caching issues
 

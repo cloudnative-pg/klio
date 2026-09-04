@@ -50,3 +50,35 @@ func TestParseVerifyOutput(t *testing.T) {
 		assert.Equal(t, VerifyResult{}, result)
 	})
 }
+
+func TestBuildVerifyArgs(t *testing.T) {
+	t.Run("no selection verifies everything visible to the client", func(t *testing.T) {
+		args := buildVerifyArgs("/etc/kopia/config")
+
+		assert.Equal(t, []string{
+			"snapshot",
+			"verify",
+			"--json",
+			"--disable-file-logging",
+			"--config-file=/etc/kopia/config",
+		}, args)
+	})
+
+	// Root object IDs are passed as --file-id rather than as positional
+	// snapshot manifest IDs, which "kopia snapshot pin" can rewrite while a
+	// verification is in flight. Kopia auto-detects a directory root passed
+	// this way, so both directory and file roots go through --file-id.
+	t.Run("object IDs are passed as --file-id flags", func(t *testing.T) {
+		args := buildVerifyArgs("/etc/kopia/config", "kaaa", "kbbb")
+
+		assert.Equal(t, []string{
+			"snapshot",
+			"verify",
+			"--json",
+			"--disable-file-logging",
+			"--config-file=/etc/kopia/config",
+			"--file-id=kaaa",
+			"--file-id=kbbb",
+		}, args)
+	})
+}

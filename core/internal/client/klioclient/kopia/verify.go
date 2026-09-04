@@ -21,6 +21,7 @@ package kopia
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/cloudnative-pg/machinery/pkg/log"
@@ -28,6 +29,10 @@ import (
 	"github.com/cloudnative-pg/klio/core/internal/client/klioclient"
 	kopiaClient "github.com/cloudnative-pg/klio/core/internal/kopia"
 )
+
+// ErrNoSnapshotsForBackup is returned when no verifiable snapshot can be
+// found for a backup name.
+var ErrNoSnapshotsForBackup = errors.New("no snapshots found for backup")
 
 // BackupVerificationError is returned when backup verification detects corruption.
 type BackupVerificationError struct {
@@ -90,22 +95,29 @@ func (s *Connection) verifyAllBackups(ctx context.Context, hostname string) erro
 	return nil
 }
 
-// verifySpecificBackups verifies the specified backups by resolving their snapshot IDs.
+// verifySpecificBackups verifies the specified backups by resolving them to the
+// root object IDs of their snapshots.
 func (s *Connection) verifySpecificBackups(ctx context.Context, hostname string, backupNames []string) error {
 	contextLogger := log.FromContext(ctx)
 
-	var allSnapshotIDs []string
+	if len(backupNames) == 0 {
+		return nil
+	}
+
+	var rootObjectIDs []string
+
 	for _, name := range backupNames {
-		ids, err := s.getSnapshotIDsForBackup(ctx, hostname, name)
+		ids, err := s.getBackupRootObjIDs(ctx, hostname, name)
 		if err != nil {
 			return fmt.Errorf("backup %q: %w", name, err)
 		}
-		allSnapshotIDs = append(allSnapshotIDs, ids...)
+
+		rootObjectIDs = append(rootObjectIDs, ids...)
 	}
 
-	contextLogger.Info("Verifying backups", "backupNames", backupNames, "snapshotCount", len(allSnapshotIDs))
+	contextLogger.Info("Verifying backups", "backupNames", backupNames, "objectsCount", len(rootObjectIDs))
 
-	result, err := s.kopia.VerifySnapshots(ctx, allSnapshotIDs...)
+	result, err := s.kopia.VerifySnapshots(ctx, rootObjectIDs...)
 	if err != nil {
 		return classifyVerifyError(ctx, result, err)
 	}
@@ -115,8 +127,12 @@ func (s *Connection) verifySpecificBackups(ctx context.Context, hostname string,
 	return nil
 }
 
-// getSnapshotIDsForBackup resolves a backup name to its constituent Kopia snapshot IDs.
-func (s *Connection) getSnapshotIDsForBackup(ctx context.Context, hostname, backupName string) ([]string, error) {
+// getBackupRootObjIDs resolves a backup name to the root object IDs of its
+// constituent Kopia snapshots.
+func (s *Connection) getBackupRootObjIDs(
+	ctx context.Context,
+	hostname, backupName string,
+) ([]string, error) {
 	contextLogger := log.FromContext(ctx)
 
 	entries, err := s.kopia.ListSnapshots(ctx, map[string]string{
@@ -126,18 +142,29 @@ func (s *Connection) getSnapshotIDsForBackup(ctx context.Context, hostname, back
 		return nil, err
 	}
 
-	var ids []string
+	rootObjIDs := make([]string, 0, len(entries))
+
 	for _, e := range entries {
-		if e.Source.Host == hostname {
-			ids = append(ids, e.ID)
+		if e.Source.Host != hostname {
+			continue
 		}
+
+		// An incomplete snapshot has no root entry to verify.
+		if e.RootEntry == nil || e.RootEntry.ObjID == "" {
+			contextLogger.Info("Skipping snapshot without a root object ID",
+				"backupName", backupName, "snapshotID", e.ID)
+
+			continue
+		}
+
+		rootObjIDs = append(rootObjIDs, e.RootEntry.ObjID)
 	}
 
-	if len(ids) == 0 {
-		return nil, fmt.Errorf("no snapshots found for backup %q", backupName)
+	if len(rootObjIDs) == 0 {
+		return nil, fmt.Errorf("%w: %q", ErrNoSnapshotsForBackup, backupName)
 	}
 
-	return ids, nil
+	return rootObjIDs, nil
 }
 
 // classifyVerifyError inspects the verify result to distinguish corruption

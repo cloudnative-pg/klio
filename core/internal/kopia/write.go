@@ -239,22 +239,13 @@ func (s *Client) SnapshotFileContent(
 	return nil
 }
 
-// VerifySnapshots verifies snapshot integrity. When called with no
-// snapshotIDs, all snapshots in the repository are verified.
+// VerifySnapshots verifies snapshots integrity by targeting directly their root object IDs.
 // It uses --json output to distinguish corruption (errorCount > 0) from
 // infrastructure errors (command failed but no corruption detected).
-func (s *Client) VerifySnapshots(ctx context.Context, snapshotIDs ...string) (VerifyResult, error) {
+func (s *Client) VerifySnapshots(ctx context.Context, objectIDs ...string) (VerifyResult, error) {
 	contextLogger := log.FromContext(ctx)
 
-	args := make([]string, 0, 5+len(snapshotIDs))
-	args = append(args,
-		"snapshot",
-		"verify",
-		"--json",
-		"--disable-file-logging",
-		"--config-file="+s.ConfigFile,
-	)
-	args = append(args, snapshotIDs...)
+	args := buildVerifyArgs(s.ConfigFile, objectIDs...)
 
 	contextLogger.Info("Verifying Kopia snapshots", "args", args)
 
@@ -268,4 +259,22 @@ func (s *Client) VerifySnapshots(ctx context.Context, snapshotIDs ...string) (Ve
 	}
 
 	return parseVerifyOutput(stdout.Bytes()), nil
+}
+
+// buildVerifyArgs builds the "kopia snapshot verify" arguments.
+func buildVerifyArgs(configFile string, objectIDs ...string) []string {
+	args := make([]string, 0, 5+len(objectIDs))
+	args = append(args,
+		"snapshot",
+		"verify",
+		"--json",
+		"--disable-file-logging",
+		"--config-file="+configFile,
+	)
+
+	for _, id := range objectIDs {
+		args = append(args, "--file-id="+id)
+	}
+
+	return args
 }
