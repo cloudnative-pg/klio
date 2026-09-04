@@ -255,7 +255,7 @@ cached index, run tests, then revert.
 - CloudNativePG API and machinery (`github.com/cloudnative-pg/*`)
 - Kubernetes controller-runtime (`sigs.k8s.io/controller-runtime`)
 - NATS for the task queue (`github.com/nats-io/nats.go`)
-- Kopia for deduplication (forked at `github.com/leonardoce/kopia`)
+- Kopia for deduplication (forked at `github.com/cloudnative-pg/kopia`, branch `klio`)
 - gRPC for client-server communication
 
 ## Documentation

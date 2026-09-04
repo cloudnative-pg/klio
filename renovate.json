@@ -88,7 +88,7 @@
         "go"
       ],
       "matchPackageNames": [
-        "github.com/leonardoce/kopia",
+        "github.com/cloudnative-pg/kopia",
         "github.com/leonardoce/afero-s3"
       ],
       "enabled": false,

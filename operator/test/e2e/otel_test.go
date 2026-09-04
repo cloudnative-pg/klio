@@ -1131,7 +1131,7 @@ func assertOTELTracesReceived(
 	//     value "kopia" renders as "Str(kopia)"), governed by the collector image
 	//     pinned in otel_collector.yaml;
 	//   - Kopia's internal span names ("OpenRepository", "UploadDir"), defined in
-	//     the leonardoce/kopia fork.
+	//     the cloudnative-pg/kopia fork.
 	// If this starts failing after upgrading the collector image or the Kopia
 	// fork, re-derive the expected strings from the collector logs rather than
 	// assuming a regression in trace export.
