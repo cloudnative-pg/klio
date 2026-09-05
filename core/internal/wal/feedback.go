@@ -17,25 +17,17 @@ limitations under the License.
 SPDX-License-Identifier: Apache-2.0
 */
 
-package buffer
+package wal
 
-import (
-	"context"
-)
+// Feedback represents the feedback we get from the Klio server
+// when writing a WAL file.
+type Feedback struct {
+	// corresponding to flush_lsn in pg_stat_replication
+	FlushLSN uint64
 
-// WALHandler is the interface used to process WAL data.
-// This is vastly modeled around the pg_basebackup codebase.
-type WALHandler interface {
-	// HasWALFileOpened Checks whether there is a WAL file transmission opened
-	HasWALFileOpened() bool
+	// corresponding to write_lsn in pg_stat_replication
+	WriteLSN uint64
 
-	// OpenWAL opens a new WAL for the passed position.
-	// The passed position refers to the start of a WAL file
-	OpenWAL(ctx context.Context, blockpos uint64) error
-
-	// CloseWAL closes a WAL file
-	CloseWAL(ctx context.Context) error
-
-	// Write writes data in the current WAL file
-	Write(ctx context.Context, p []byte) (n int, err error)
+	// corresponding to replay_lsn in pg_stat_replication
+	ReplayLSN uint64
 }

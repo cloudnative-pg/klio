@@ -30,36 +30,11 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 
+	"github.com/cloudnative-pg/klio/core/internal/client/klioclient"
 	klioGRPC "github.com/cloudnative-pg/klio/core/internal/grpc"
 	"github.com/cloudnative-pg/klio/core/internal/wal"
 	"github.com/cloudnative-pg/klio/core/pkg/config"
 )
-
-type grpcWALStream struct {
-	innerStream klioGRPC.WAL_PutClient
-	segmentSize uint64
-	clusterName string
-	sentBytes   uint64
-	walName     string
-	sendToTier2 bool
-}
-
-// Close implements common.WALStream.
-func (g *grpcWALStream) Close(_ context.Context) error {
-	result, err := g.innerStream.CloseAndRecv()
-	if err != nil {
-		return fmt.Errorf("while flushing WAL file: %w", err)
-	}
-
-	if result.GetWrittenSize() != g.sentBytes {
-		return &IncompleteWALFileError{
-			uploadedSize: result.GetWrittenSize(),
-			expectedSize: g.sentBytes,
-		}
-	}
-
-	return nil
-}
 
 // Connection represents a connection to a Klio server.
 type Connection struct {
@@ -67,6 +42,36 @@ type Connection struct {
 
 	clientConfig   *config.ClientConfig
 	grpcConnection *grpc.ClientConn
+}
+
+// StoreWALStreaming implements the WAL streaming service.
+//
+//nolint:ireturn
+func (c *Connection) StoreWALStreaming(
+	ctx context.Context,
+	name string,
+	segmentSize uint64,
+	sendToTier2 bool,
+	walStartLSN uint64,
+	feedbackChannel chan<- wal.Feedback,
+) (klioclient.WALUploader, error) {
+	stream, err := c.Put(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("while starting uploading a WAL file: %w", err)
+	}
+
+	g := &grpcWALStream{
+		innerStream:     stream,
+		segmentSize:     segmentSize,
+		clusterName:     c.clientConfig.ClusterName,
+		walName:         name,
+		sendToTier2:     sendToTier2,
+		walStartLSN:     walStartLSN,
+		feedbackChannel: feedbackChannel,
+	}
+	g.startFeedbackReader()
+
+	return g, nil
 }
 
 // Connect opens a connection to a Klio server.

@@ -404,6 +404,7 @@ file
 | wal_name | [string](#string) |  |  |
 | wal_block | [bytes](#bytes) |  |  |
 | segment_size | [uint64](#uint64) |  |  |
+| wal_start_lsn | [uint64](#uint64) |  |  |
 | send_to_tier2 | [bool](#bool) |  |  |
 
 
@@ -419,7 +420,8 @@ file
 
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
-| written_size | [uint64](#uint64) |  |  |
+| write_lsn | [uint64](#uint64) |  |  |
+| flush_lsn | [uint64](#uint64) |  |  |
 
 
 
@@ -539,7 +541,7 @@ feature.
 
 | Method Name | Request Type | Response Type | Description |
 | ----------- | ------------ | ------------- | ------------|
-| Put | [PutRequest](#klio-wal-v1-PutRequest) stream | [PutResult](#klio-wal-v1-PutResult) |  |
+| Put | [PutRequest](#klio-wal-v1-PutRequest) stream | [PutResult](#klio-wal-v1-PutResult) stream |  |
 | Get | [GetRequest](#klio-wal-v1-GetRequest) | [GetResult](#klio-wal-v1-GetResult) stream |  |
 | GetMetadata | [GetMetadataRequest](#klio-wal-v1-GetMetadataRequest) | [ClusterMetadata](#klio-wal-v1-ClusterMetadata) |  |
 | RequestWALStart | [RequestWALStartRequest](#klio-wal-v1-RequestWALStartRequest) | [RequestWALStartResult](#klio-wal-v1-RequestWALStartResult) |  |

@@ -27,6 +27,10 @@ import (
 // ErrInconsistentCertificate is raised when the server certificate cannot be parsed.
 var ErrInconsistentCertificate = errors.New("inconsistent server certificate (parsing)")
 
+// ErrNoResultReceived is raised when the server closes the WAL upload stream
+// without sending a result.
+var ErrNoResultReceived = errors.New("server closed stream without sending a result")
+
 // IncompleteWALFileError is raised when a WAL file has been uploaded incompletely.
 type IncompleteWALFileError struct {
 	uploadedSize uint64
