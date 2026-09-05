@@ -1,5 +1,31 @@
 # Changelog
 
+## [0.0.21](https://github.com/cloudnative-pg/klio/compare/v0.0.20...v0.0.21) (2026-09-05)
+
+
+### Features
+
+* **olm:** Add the bundle and catalog images to the artifacts repository ([#191](https://github.com/cloudnative-pg/klio/issues/191)) ([1aaacd3](https://github.com/cloudnative-pg/klio/commit/1aaacd3e21ba7a37bb89d2526b5ccae6accb5b16)), closes [#188](https://github.com/cloudnative-pg/klio/issues/188)
+* **operator:** Build a UBI variant of the operator image ([#150](https://github.com/cloudnative-pg/klio/issues/150)) ([cd24fdd](https://github.com/cloudnative-pg/klio/commit/cd24fdd236eaf0061fc3716d3a830bded65988ef))
+
+
+### Bug Fixes
+
+* **core:** Add release-please marker to core plugin version ([#131](https://github.com/cloudnative-pg/klio/issues/131)) ([4a3b20c](https://github.com/cloudnative-pg/klio/commit/4a3b20c3cd883077c63cca5b7d26a51ac5a53932)), closes [#130](https://github.com/cloudnative-pg/klio/issues/130)
+* **core:** Identify Kopia snapshots by a stable identity in verify and delete ([#74](https://github.com/cloudnative-pg/klio/issues/74)) ([e85d21b](https://github.com/cloudnative-pg/klio/commit/e85d21b10b2acf9c95c22436dc0e9ca87ac33980))
+* **deps:** Update all non-major go dependencies ([#116](https://github.com/cloudnative-pg/klio/issues/116)) ([5270d42](https://github.com/cloudnative-pg/klio/commit/5270d42f0ca576de8715588098cfed9287191542))
+* **deps:** Update all non-major go dependencies ([#142](https://github.com/cloudnative-pg/klio/issues/142)) ([12cd4ba](https://github.com/cloudnative-pg/klio/commit/12cd4bae1e821f8711cce7ad77ebd65a46022352))
+* **deps:** Update all non-major go dependencies ([#153](https://github.com/cloudnative-pg/klio/issues/153)) ([bd1e401](https://github.com/cloudnative-pg/klio/commit/bd1e401b181ac87fc122796f8c33771a64667e0f))
+* **deps:** Update all non-major go dependencies ([#175](https://github.com/cloudnative-pg/klio/issues/175)) ([930020b](https://github.com/cloudnative-pg/klio/commit/930020b5873a56dc6b1cc007d70ae74f63029d06))
+* **deps:** Update all non-major go dependencies ([#181](https://github.com/cloudnative-pg/klio/issues/181)) ([78cb4f5](https://github.com/cloudnative-pg/klio/commit/78cb4f536141b7a3dbc9be8417f487d4070c57e2))
+* **deps:** Update all non-major go dependencies ([#210](https://github.com/cloudnative-pg/klio/issues/210)) ([c2d06e7](https://github.com/cloudnative-pg/klio/commit/c2d06e753d3061347d4b4179ea99560ea78671d4))
+* **deps:** Update all non-major go dependencies ([#226](https://github.com/cloudnative-pg/klio/issues/226)) ([72c5cd6](https://github.com/cloudnative-pg/klio/commit/72c5cd621e1df5cdee07990dfb27af9768195fb2))
+* **deps:** Update github.com/cloudnative-pg/cloudnative-pg/tests digest to a4bb263 ([#225](https://github.com/cloudnative-pg/klio/issues/225)) ([432c700](https://github.com/cloudnative-pg/klio/commit/432c7007ce01a3eb764686207b8c0b6f8bad37bf))
+* **deps:** Update kubernetes monorepo to v0.36.4 ([#156](https://github.com/cloudnative-pg/klio/issues/156)) ([a14763c](https://github.com/cloudnative-pg/klio/commit/a14763c9581b78005e6706abbabb63eaa59e7c65))
+* **deps:** Update kubernetes monorepo to v0.37.0 ([#187](https://github.com/cloudnative-pg/klio/issues/187)) ([026264c](https://github.com/cloudnative-pg/klio/commit/026264cb4ab6adf3734453454a883e444d3e932d))
+* **deps:** Update module sigs.k8s.io/controller-runtime to v0.25.0 ([#223](https://github.com/cloudnative-pg/klio/issues/223)) ([1891047](https://github.com/cloudnative-pg/klio/commit/1891047f1a825cb1d4407a52bffef861c3252494))
+* **operator:** Serve recovery restore hooks from the instance pod ([#196](https://github.com/cloudnative-pg/klio/issues/196)) ([616578a](https://github.com/cloudnative-pg/klio/commit/616578aedd12b8c68f7f71f292d4293ba5f649ac)), closes [#192](https://github.com/cloudnative-pg/klio/issues/192)
+
 ## [0.0.20](https://github.com/cloudnative-pg/klio/compare/v0.0.19...v0.0.20) (2026-08-13)
 
 
