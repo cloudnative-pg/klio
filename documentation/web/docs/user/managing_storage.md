@@ -126,6 +126,12 @@ Apply the updated Server resource:
 kubectl apply -f klio-server.yaml
 ```
 
+:::note
+`cache` is optional. When a tier has no dedicated cache volume its cache lives
+inside the data PVC, so expanding `tier1.data` covers it too. See
+[Cache PVCs](klio_server.md#cache-pvcs).
+:::
+
 #### What Happens During Resize
 
 When you update the Server spec with larger PVC sizes, the following

@@ -22,10 +22,12 @@ package server
 import (
 	"context"
 	"fmt"
+	"path/filepath"
 
 	"github.com/cloudnative-pg/machinery/pkg/log"
 
 	"github.com/cloudnative-pg/klio/core/cmd/initialize"
+	"github.com/cloudnative-pg/klio/core/internal/kopia"
 	"github.com/cloudnative-pg/klio/core/internal/tier2"
 	"github.com/cloudnative-pg/klio/core/pkg/config"
 )
@@ -46,7 +48,26 @@ func initializeRepository(ctx context.Context, opts serverOpts) error {
 	return nil
 }
 
+// reclaimStaleCache removes a Kopia cache directory left behind on another
+// volume by a cache that moved. Kopia rebuilds the cache on demand, so the
+// leftover is only wasted space.
+func reclaimStaleCache(ctx context.Context, stale, inUse string) error {
+	if stale == "" || filepath.Clean(stale) == filepath.Clean(inUse) {
+		return nil
+	}
+
+	log.FromContext(ctx).Info("Reclaiming stale Kopia cache directory", "directory", stale)
+
+	return kopia.CleanupCacheDirectory(stale)
+}
+
 func initializeTier1(ctx context.Context, cfg *config.ServerConfig) error {
+	if err := reclaimStaleCache(
+		ctx, cfg.Tier1.Base.StaleCacheDirectory, cfg.Tier1.Base.CacheDirectory,
+	); err != nil {
+		return err
+	}
+
 	walDirectory := cfg.Tier1.Wal.WALPath
 	kopiaDirectory := cfg.Tier1.Base.RepositoryDirectory
 
@@ -60,6 +81,12 @@ func initializeTier1(ctx context.Context, cfg *config.ServerConfig) error {
 }
 
 func initializeTier2(ctx context.Context, cfg *config.ServerConfig) error {
+	if err := reclaimStaleCache(
+		ctx, cfg.Tier2.StaleCacheDirectory, cfg.Tier2.CacheDirectory,
+	); err != nil {
+		return err
+	}
+
 	tier2BaseFS, err := tier2.ConnectBase(ctx, &cfg.Tier2)
 	if err != nil {
 		return fmt.Errorf("error while connecting to tier2 (base): %w", err)

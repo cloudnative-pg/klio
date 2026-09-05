@@ -179,7 +179,7 @@ func (f *PVCResizeFeature) updateServerPVCSizes(
 		t.Logf("Updating data PVC size to %s", f.newDataSize.String())
 	}
 
-	if server.Spec.Tier1 != nil && !f.newCacheSize.IsZero() {
+	if server.Spec.Tier1 != nil && server.Spec.Tier1.Cache != nil && !f.newCacheSize.IsZero() {
 		server.Spec.Tier1.Cache.PersistentVolumeClaimTemplate.Resources.Requests[corev1.ResourceStorage] = f.newCacheSize
 		expectedSizes["cachetier1"] = f.newCacheSize
 		t.Logf("Updating cachetier1 PVC size to %s", f.newCacheSize.String())

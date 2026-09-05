@@ -98,6 +98,11 @@ type Tier2Config struct {
 	// CacheDirectory is the directory of the Kopia cache
 	CacheDirectory string `mapstructure:"cache"`
 
+	// StaleCacheDirectory is a cache directory that is no longer in use and
+	// whose space must be reclaimed at startup. It is set when the cache moved
+	// to a different volume. Empty when there is nothing to reclaim.
+	StaleCacheDirectory string `mapstructure:"stale_cache"`
+
 	// S3 contains the configuration parameters for an S3-based tier 2
 	S3 S3Configuration `json:"s3" mapstructure:"s3"`
 }
@@ -107,6 +112,11 @@ type Tier2Config struct {
 type BaseServerConfig struct {
 	// CacheDirectory is the directory of the Kopia cache
 	CacheDirectory string `mapstructure:"cache"`
+
+	// StaleCacheDirectory is a cache directory that is no longer in use and
+	// whose space must be reclaimed at startup. It is set when the cache moved
+	// to a different volume. Empty when there is nothing to reclaim.
+	StaleCacheDirectory string `mapstructure:"stale_cache"`
 
 	// RepositoryDirectory is the directory where the Kopia repository is stored.
 	RepositoryDirectory string `mapstructure:"repository"`

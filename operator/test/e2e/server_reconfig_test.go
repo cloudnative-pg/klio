@@ -20,8 +20,12 @@ SPDX-License-Identifier: Apache-2.0
 package e2e
 
 import (
+	"bytes"
 	"context"
+	"fmt"
 	"slices"
+	"strconv"
+	"strings"
 	"testing"
 	"time"
 
@@ -34,6 +38,7 @@ import (
 	k8stypes "k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/e2e-framework/klient/k8s/resources"
 	"sigs.k8s.io/e2e-framework/klient/wait"
+	waitConditions "sigs.k8s.io/e2e-framework/klient/wait/conditions"
 	"sigs.k8s.io/e2e-framework/pkg/envconf"
 	"sigs.k8s.io/e2e-framework/pkg/types"
 
@@ -136,6 +141,89 @@ func (s *serverReconfigScenario) Teardown(
 	t.Logf("Resources torn down for server reconfiguration feature: %s", s.name)
 
 	return ctx
+}
+
+// waitForVolumeClaimTemplates waits until the StatefulSet exposes exactly the
+// given VolumeClaimTemplates, i.e. the operator has finished recreating it.
+func waitForVolumeClaimTemplates(
+	t *testing.T,
+	r *resources.Resources,
+	stsName, namespace string,
+	expected []string,
+) {
+	t.Helper()
+
+	want := slices.Sorted(slices.Values(expected))
+
+	var last []string
+
+	err := wait.For(func(ctx context.Context) (bool, error) {
+		sts := &appsv1.StatefulSet{}
+		if err := r.Get(ctx, stsName, namespace, sts); err != nil {
+			return false, nil //nolint:nilerr // the StatefulSet is missing while it is recreated
+		}
+
+		last = make([]string, 0, len(sts.Spec.VolumeClaimTemplates))
+		for _, vct := range sts.Spec.VolumeClaimTemplates {
+			last = append(last, vct.Name)
+		}
+		slices.Sort(last)
+
+		return slices.Equal(last, want), nil
+	}, wait.WithTimeout(5*time.Minute), wait.WithInterval(5*time.Second))
+
+	require.NoError(t, err,
+		"StatefulSet VolumeClaimTemplates never became %v, last seen %v", want, last)
+}
+
+// waitForPVCDeleted waits until a PVC is gone. The deletion blocks on the
+// pvc-protection finalizer until the pod that mounted it terminates.
+func waitForPVCDeleted(
+	t *testing.T,
+	r *resources.Resources,
+	pvcName, namespace string,
+) {
+	t.Helper()
+
+	pvc := &corev1.PersistentVolumeClaim{
+		ObjectMeta: metav1.ObjectMeta{Name: pvcName, Namespace: namespace},
+	}
+
+	require.NoError(t, wait.For(
+		waitConditions.New(r).ResourceDeleted(pvc),
+		wait.WithTimeout(5*time.Minute),
+		wait.WithInterval(5*time.Second),
+	), "cache PVC %s was not reclaimed", pvcName)
+}
+
+// fallbackTier1CacheDir is where Kopia stores the tier1 cache when the server
+// has no dedicated cache volume, mirroring fallbackCacheTier1Path in the
+// controller package.
+const fallbackTier1CacheDir = "/data/cache_tier1/kopia-cache"
+
+// cacheDirDiskUsage returns the disk usage, in KB, of a directory inside the
+// server pod, or 0 when the directory does not exist.
+func cacheDirDiskUsage(
+	ctx context.Context,
+	t *testing.T,
+	r *resources.Resources,
+	namespace, podName, dir string,
+) int {
+	t.Helper()
+
+	var stdout, stderr bytes.Buffer
+	cmd := []string{"sh", "-c", fmt.Sprintf("du -sk %s 2>/dev/null", dir)}
+	_ = r.ExecInPod(ctx, namespace, podName, serverContainerName, cmd, &stdout, &stderr)
+
+	output := strings.TrimSpace(stdout.String())
+	if output == "" {
+		return 0
+	}
+
+	size, err := strconv.Atoi(strings.Fields(output)[0])
+	require.NoError(t, err, "unexpected du output for %s: %q (stderr: %q)", dir, output, stderr.String())
+
+	return size
 }
 
 // serverReconfigFeature implements the Feature interface for server tier reconfiguration testing.
@@ -257,6 +345,81 @@ func (f *serverReconfigFeature) Run() types.StepFunc {
 			)
 			t.Logf("PVC %s retained with original UID %s", pvcName, pvc.UID)
 		}
+
+		// Drop both dedicated cache volumes: the caches fall back to the data
+		// volume, the StatefulSet is recreated once more and the cache PVCs are
+		// reclaimed.
+		require.NoError(t,
+			r.Get(ctx, server.Name, f.scenario.namespace.Name, currentServer),
+			"failed to get current Server",
+		)
+		originalTier1Cache := currentServer.Spec.Tier1.Cache
+		currentServer.Spec.Tier1.Cache = nil
+		currentServer.Spec.Tier2.Cache = nil
+		require.NoError(t, r.Update(ctx, currentServer), "failed to remove the cache volumes")
+		t.Log("Server updated without dedicated cache volumes")
+
+		waitForVolumeClaimTemplates(t, r, stsName, f.scenario.namespace.Name,
+			[]string{"data", "queue"})
+
+		err = wait.For(
+			conditions.KlioServerIsReady(r, server),
+			wait.WithTimeout(10*time.Minute),
+			wait.WithInterval(10*time.Second),
+		)
+		require.NoError(t, err, "server Pod not ready after the cache volumes were removed")
+
+		// Kopia must have populated the fallback cache directory in the data
+		// volume, so that removing it later is a meaningful check.
+		podName := stsName + "-0"
+		require.Positive(t,
+			cacheDirDiskUsage(ctx, t, r, f.scenario.namespace.Name, podName, fallbackTier1CacheDir),
+			"fallback tier1 cache directory %s was not populated", fallbackTier1CacheDir)
+
+		waitForPVCDeleted(t, r, "cachetier1-"+stsName+"-0", f.scenario.namespace.Name)
+		waitForPVCDeleted(t, r, cachetier2PVCName, f.scenario.namespace.Name)
+
+		// The volumes holding data must survive the migration untouched.
+		for _, pvcName := range []string{"data-" + stsName + "-0", "queue-" + stsName + "-0"} {
+			pvc := &corev1.PersistentVolumeClaim{}
+			require.NoError(t,
+				r.Get(ctx, pvcName, f.scenario.namespace.Name, pvc),
+				"PVC %s no longer exists after the cache migration", pvcName,
+			)
+			require.Equal(t, originalPVCUIDs[pvcName], pvc.UID,
+				"PVC %s was recreated during the cache migration", pvcName)
+		}
+
+		// Give tier1 its dedicated cache volume back.
+		require.NoError(t,
+			r.Get(ctx, server.Name, f.scenario.namespace.Name, currentServer),
+			"failed to get current Server",
+		)
+		currentServer.Spec.Tier1.Cache = originalTier1Cache
+		require.NoError(t, r.Update(ctx, currentServer), "failed to restore the tier1 cache volume")
+		t.Log("Server updated with the tier1 cache volume restored")
+
+		waitForVolumeClaimTemplates(t, r, stsName, f.scenario.namespace.Name,
+			[]string{"data", "cachetier1", "queue"})
+
+		err = wait.For(
+			conditions.KlioServerIsReady(r, server),
+			wait.WithTimeout(10*time.Minute),
+			wait.WithInterval(10*time.Second),
+		)
+		require.NoError(t, err, "server Pod not ready after the tier1 cache volume was restored")
+
+		require.NoError(t,
+			r.Get(ctx, "cachetier1-"+stsName+"-0", f.scenario.namespace.Name,
+				&corev1.PersistentVolumeClaim{}),
+			"cachetier1 PVC was not recreated",
+		)
+
+		// The dedicated cache volume is back, so the fallback cache directory
+		// left behind in the data volume must have been reclaimed at startup.
+		require.Zero(t,
+			cacheDirDiskUsage(ctx, t, r, f.scenario.namespace.Name, podName, fallbackTier1CacheDir),
+			"stale tier1 cache directory %s was not reclaimed", fallbackTier1CacheDir)
 
 		t.Log("Server tier reconfiguration test passed: all verifications succeeded")
 

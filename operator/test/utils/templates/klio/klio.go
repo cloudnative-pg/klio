@@ -86,7 +86,7 @@ func BuildTier2Configuration(
 	}
 
 	return kliov1alpha1.Tier2Configuration{
-		Cache: kliov1alpha1.Cache{
+		Cache: &kliov1alpha1.Cache{
 			PersistentVolumeClaimTemplate: corev1.PersistentVolumeClaimSpec{
 				StorageClassName: sc,
 				AccessModes:      []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOncePod},
@@ -184,7 +184,7 @@ func GetServerObject(
 	server := newBaseServer(name, namespace, opts)
 	server.Spec.Mode = kliov1alpha1.ModeStandard
 	server.Spec.Tier1 = &kliov1alpha1.Tier1Configuration{
-		Cache: kliov1alpha1.Cache{
+		Cache: &kliov1alpha1.Cache{
 			PersistentVolumeClaimTemplate: corev1.PersistentVolumeClaimSpec{
 				StorageClassName: sc,
 				AccessModes:      []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOncePod},

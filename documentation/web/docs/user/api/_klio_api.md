@@ -362,7 +362,7 @@ _Appears in:_
 
 | Field | Description | Required | Default | Validation |
 | --- | --- | --- | --- | --- |
-| `cache` _[Cache](#cache)_ | Cache is the configuration of the PVC that should be<br />used for the cache. | True |  |  |
+| `cache` _[Cache](#cache)_ | Cache is the configuration of the PVC that should be<br />used for the cache. When omitted, the Kopia cache is stored in a<br />directory inside the tier1 data volume. |  |  | Optional: \{\} <br /> |
 | `data` _[Data](#data)_ | Data is the configuration of the PVC that should be used<br />for the base backups. | True |  |  |
 | `encryptionKeyFile` _[FileSource](#filesource)_ | EncryptionKeyFile specifies the Age-encrypted encryption key file. | True |  | ExactlyOneOf: [fileReference] <br /> |
 | `identityFile` _[FileSource](#filesource)_ | IdentityFile specifies the Age identity (private key) file used to<br />decrypt the encryption key. | True |  | ExactlyOneOf: [fileReference] <br /> |
@@ -397,7 +397,7 @@ _Appears in:_
 
 | Field | Description | Required | Default | Validation |
 | --- | --- | --- | --- | --- |
-| `cache` _[Cache](#cache)_ | Cache is the configuration of the PVC that should be<br />used for the cache. | True |  |  |
+| `cache` _[Cache](#cache)_ | Cache is the configuration of the PVC that should be<br />used for the cache. When omitted, the Kopia cache is stored in a<br />directory inside the tier1 data volume, and is therefore required<br />when tier1 is not configured. |  |  | Optional: \{\} <br /> |
 | `s3` _[S3Configuration](#s3configuration)_ | S3 contains the configuration parameters for an S3-based tier 2. | True |  |  |
 | `encryptionKeyFile` _[FileSource](#filesource)_ | EncryptionKeyFile specifies the Age-encrypted encryption key file. | True |  | ExactlyOneOf: [fileReference] <br /> |
 | `identityFile` _[FileSource](#filesource)_ | IdentityFile specifies the Age identity (private key) file used to<br />decrypt the encryption key. | True |  | ExactlyOneOf: [fileReference] <br /> |

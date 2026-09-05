@@ -75,7 +75,7 @@ var _ = Describe("Server Controller", func() {
 						},
 						Mode: kliov1alpha1.ModeStandard,
 						Tier1: &kliov1alpha1.Tier1Configuration{
-							Cache: kliov1alpha1.Cache{
+							Cache: &kliov1alpha1.Cache{
 								PersistentVolumeClaimTemplate: pvcTemplate,
 							},
 							Data: kliov1alpha1.Data{

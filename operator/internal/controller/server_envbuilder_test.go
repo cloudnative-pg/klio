@@ -333,3 +333,52 @@ func TestBuildIdentityVolMountProjected(t *testing.T) {
 	assert.Equal(t, int32(0o400), *vol.Projected.DefaultMode)
 	assert.True(t, mount.ReadOnly)
 }
+
+func TestCacheEnvVars(t *testing.T) {
+	tests := map[string]struct {
+		dedicated bool
+		// The cache in use, and the location to reclaim because the cache
+		// moved away from it.
+		tier1, tier1Stale string
+		tier2, tier2Stale string
+	}{
+		"dedicated volumes": {
+			dedicated:  true,
+			tier1:      "/cache_tier1/kopia-cache",
+			tier1Stale: "/data/cache_tier1/kopia-cache",
+			tier2:      "/cache_tier2/kopia-cache",
+			tier2Stale: "/data/cache_tier2/kopia-cache",
+		},
+		"fallback to the data volume": {
+			tier1: "/data/cache_tier1/kopia-cache",
+			tier2: "/data/cache_tier2/kopia-cache",
+		},
+	}
+
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			builder := &envBuilder{
+				tier1: &kliov1alpha1.Tier1Configuration{
+					EncryptionKeyFile: newTestFileSource("enc-secret", "encryption-key.age"),
+					IdentityFile:      newTestFileSource("id-secret", "identity.txt"),
+				},
+				tier2: &kliov1alpha1.Tier2Configuration{
+					S3:                &kliov1alpha1.S3Configuration{BucketName: "test-bucket"},
+					EncryptionKeyFile: newTestFileSource("enc-secret", "encryption-key.age"),
+					IdentityFile:      newTestFileSource("id-secret", "identity.txt"),
+				},
+			}
+			if tc.dedicated {
+				builder.tier1.Cache = &kliov1alpha1.Cache{}
+				builder.tier2.Cache = &kliov1alpha1.Cache{}
+			}
+
+			envVars := append(builder.getCoreEnvVars(), builder.getTier2EnvVars()...)
+
+			assert.Equal(t, tc.tier1, findEnvVar(envVars, "TIER1_BASE_CACHE").Value)
+			assert.Equal(t, tc.tier1Stale, findEnvVar(envVars, "TIER1_BASE_STALE_CACHE").Value)
+			assert.Equal(t, tc.tier2, findEnvVar(envVars, "TIER2_CACHE").Value)
+			assert.Equal(t, tc.tier2Stale, findEnvVar(envVars, "TIER2_STALE_CACHE").Value)
+		})
+	}
+}

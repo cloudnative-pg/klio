@@ -79,6 +79,12 @@ const (
 	kopiaCacheTier1MountPath = "/cache_tier1"
 	kopiaCacheTier2MountPath = "/cache_tier2"
 
+	// Cache locations inside the tier1 data volume, used by a tier that has no
+	// dedicated cache PVC. They are siblings of the repository (/data/base) and
+	// of the WAL archive (/data/wal).
+	fallbackCacheTier1Path = kopiaDataMountPath + "/cache_tier1"
+	fallbackCacheTier2Path = kopiaDataMountPath + "/cache_tier2"
+
 	fileSourceBasePath     = "/files"
 	tier1EncKeyFileVolName = "tier1-enc-key-file"
 	tier1IdentityVolName   = "tier1-identity"
@@ -102,7 +108,52 @@ func (r *ServerReconciler) reconcile(ctx context.Context, server *kliov1alpha1.S
 		return result, nil
 	}
 
-	return r.reconcileStatefulSet(ctx, server)
+	result, err := r.reconcileStatefulSet(ctx, server)
+	if err != nil || !result.IsZero() {
+		return result, err
+	}
+
+	// The StatefulSet now matches the spec, so a cache volume that is no longer
+	// requested is not mounted by any pod and its PVC can be reclaimed.
+	return ctrl.Result{}, r.deleteOrphanCachePVCs(ctx, server)
+}
+
+// deleteOrphanCachePVCs removes the cache PVCs of tiers that no longer request a
+// dedicated cache volume. Only cache PVCs are reclaimed: they hold no backup
+// data, and Kopia rebuilds the cache on demand.
+func (r *ServerReconciler) deleteOrphanCachePVCs(ctx context.Context, server *kliov1alpha1.Server) error {
+	contextLogger := logf.FromContext(ctx)
+
+	orphaned := map[string]bool{
+		pvcTypeCacheTier1: server.Spec.Tier1 == nil || server.Spec.Tier1.Cache == nil,
+		pvcTypeCacheTier2: server.Spec.Tier2 == nil || server.Spec.Tier2.Cache == nil,
+	}
+
+	var pvcList corev1.PersistentVolumeClaimList
+	if err := r.List(ctx, &pvcList,
+		client.InNamespace(server.Namespace),
+		client.MatchingLabels{klioServerLabel: server.Name},
+	); err != nil {
+		return fmt.Errorf("failed to list PVCs: %w", err)
+	}
+
+	for i := range pvcList.Items {
+		pvc := &pvcList.Items[i]
+		if !orphaned[pvc.Labels[pvcTypeLabel]] {
+			continue
+		}
+
+		contextLogger.Info("Deleting cache PVC of a tier that no longer requests one", "pvc", pvc.Name)
+
+		if err := r.Delete(ctx, pvc); err != nil && !apierrors.IsNotFound(err) {
+			return fmt.Errorf("failed to delete orphan cache PVC %s: %w", pvc.Name, err)
+		}
+
+		r.Recorder.Eventf(server, nil, corev1.EventTypeNormal, "CachePVCDeleted",
+			"DeleteOrphanCachePVC", "Cache PVC %s deleted: the tier has no dedicated cache volume", pvc.Name)
+	}
+
+	return nil
 }
 
 //nolint:cyclop
@@ -192,18 +243,7 @@ func (r *ServerReconciler) reconcileStatefulSet(
 		Status: appsv1.StatefulSetStatus{},
 	}
 
-	if server.Spec.Tier1 != nil {
-		injectTier1VolumeClaimTemplates(expected, *server)
-	}
-
-	if server.Spec.Queue != nil {
-		injectQueueConfiguration(expected, *server)
-	}
-
-	// Add Tier2 containers if the server has Tier 2 configuration
-	if server.Spec.Tier2 != nil {
-		injectTier2VolumeClaimTemplates(expected, *server)
-	}
+	expected.Spec.VolumeClaimTemplates = volumeClaimTemplates(*server)
 
 	if server.Spec.Template != nil {
 		merged, err := podtemplate.Merge(&expected.Spec.Template, server.Spec.Template.ToCoreV1())
@@ -307,19 +347,6 @@ func (r *ServerReconciler) reconcileStatefulSet(
 	return ctrl.Result{}, nil
 }
 
-func injectQueueConfiguration(expected *appsv1.StatefulSet, server kliov1alpha1.Server) {
-	expected.Spec.VolumeClaimTemplates = append(expected.Spec.VolumeClaimTemplates, corev1.PersistentVolumeClaim{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: "queue",
-			Labels: map[string]string{
-				klioServerLabel: server.Name,
-				pvcTypeLabel:    pvcTypeQueue,
-			},
-		},
-		Spec: server.Spec.Queue.PersistentVolumeClaimTemplate,
-	})
-}
-
 func enablePProf(containers []corev1.Container) {
 	for i := range containers {
 		// No pprof on NATS, there's no such option
@@ -352,48 +379,54 @@ func (r *ServerReconciler) serverPodSecurityContext() *corev1.PodSecurityContext
 	}
 }
 
-func injectTier1VolumeClaimTemplates(
-	ss *appsv1.StatefulSet,
+// serverPVC builds a VolumeClaimTemplate labelled so that the reconciler can
+// find the PVCs the StatefulSet generated from it.
+func serverPVC(
 	server kliov1alpha1.Server,
-) {
-	ss.Spec.VolumeClaimTemplates = append(ss.Spec.VolumeClaimTemplates,
-		corev1.PersistentVolumeClaim{
-			ObjectMeta: metav1.ObjectMeta{
-				Name: "data",
-				Labels: map[string]string{
-					klioServerLabel: server.Name,
-					pvcTypeLabel:    pvcTypeData,
-				},
+	name string,
+	pvcType string,
+	spec corev1.PersistentVolumeClaimSpec,
+) corev1.PersistentVolumeClaim {
+	return corev1.PersistentVolumeClaim{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: name,
+			Labels: map[string]string{
+				klioServerLabel: server.Name,
+				pvcTypeLabel:    pvcType,
 			},
-			Spec: server.Spec.Tier1.Data.PersistentVolumeClaimTemplate,
 		},
-		corev1.PersistentVolumeClaim{
-			ObjectMeta: metav1.ObjectMeta{
-				Name: "cachetier1",
-				Labels: map[string]string{
-					klioServerLabel: server.Name,
-					pvcTypeLabel:    pvcTypeCacheTier1,
-				},
-			},
-			Spec: server.Spec.Tier1.Cache.PersistentVolumeClaimTemplate,
-		})
+		Spec: spec,
+	}
 }
 
-func injectTier2VolumeClaimTemplates(
-	ss *appsv1.StatefulSet,
-	server kliov1alpha1.Server,
-) {
-	ss.Spec.VolumeClaimTemplates = append(ss.Spec.VolumeClaimTemplates,
-		corev1.PersistentVolumeClaim{
-			ObjectMeta: metav1.ObjectMeta{
-				Name: "cachetier2",
-				Labels: map[string]string{
-					klioServerLabel: server.Name,
-					pvcTypeLabel:    pvcTypeCacheTier2,
-				},
-			},
-			Spec: server.Spec.Tier2.Cache.PersistentVolumeClaimTemplate,
-		})
+// volumeClaimTemplates returns the volumes the server needs to claim. A tier
+// with no cache stanza claims no cache volume: its cache lives in the tier1
+// data volume. The order is part of the StatefulSet spec, so it must stay
+// stable to avoid pointless recreations.
+func volumeClaimTemplates(server kliov1alpha1.Server) []corev1.PersistentVolumeClaim {
+	var templates []corev1.PersistentVolumeClaim
+
+	if tier1 := server.Spec.Tier1; tier1 != nil {
+		templates = append(templates,
+			serverPVC(server, "data", pvcTypeData, tier1.Data.PersistentVolumeClaimTemplate))
+
+		if tier1.Cache != nil {
+			templates = append(templates,
+				serverPVC(server, "cachetier1", pvcTypeCacheTier1, tier1.Cache.PersistentVolumeClaimTemplate))
+		}
+	}
+
+	if queue := server.Spec.Queue; queue != nil {
+		templates = append(templates,
+			serverPVC(server, "queue", pvcTypeQueue, queue.PersistentVolumeClaimTemplate))
+	}
+
+	if tier2 := server.Spec.Tier2; tier2 != nil && tier2.Cache != nil {
+		templates = append(templates,
+			serverPVC(server, "cachetier2", pvcTypeCacheTier2, tier2.Cache.PersistentVolumeClaimTemplate))
+	}
+
+	return templates
 }
 
 func (r *ServerReconciler) reconcileService(ctx context.Context, server *kliov1alpha1.Server) error {
@@ -591,17 +624,14 @@ func (r *ServerReconciler) buildVolumeMounts(server *kliov1alpha1.Server) []core
 	}
 
 	if server.Spec.Tier1 != nil {
-		volumeMounts = append(
-			volumeMounts,
-			corev1.VolumeMount{
-				Name:      "data",
-				MountPath: kopiaDataMountPath,
-			},
-			corev1.VolumeMount{
-				Name:      "cachetier1",
-				MountPath: kopiaCacheTier1MountPath,
-			},
-		)
+		volumeMounts = append(volumeMounts,
+			corev1.VolumeMount{Name: "data", MountPath: kopiaDataMountPath})
+
+		if server.Spec.Tier1.Cache != nil {
+			volumeMounts = append(volumeMounts,
+				corev1.VolumeMount{Name: "cachetier1", MountPath: kopiaCacheTier1MountPath})
+		}
+
 		_, mount := buildFileSourceVolMount(tier1EncKeyFileVolName, server.Spec.Tier1.EncryptionKeyFile)
 		volumeMounts = append(volumeMounts, mount)
 
@@ -610,27 +640,19 @@ func (r *ServerReconciler) buildVolumeMounts(server *kliov1alpha1.Server) []core
 	}
 
 	if server.Spec.Queue != nil {
-		volumeMounts = append(
-			volumeMounts,
-			corev1.VolumeMount{
-				Name:      "queue",
-				MountPath: "/queue",
-			},
-		)
+		volumeMounts = append(volumeMounts,
+			corev1.VolumeMount{Name: "queue", MountPath: "/queue"})
 	}
 
 	if server.Spec.Tier2 != nil {
-		volumeMounts = append(
-			volumeMounts,
-			corev1.VolumeMount{
-				Name:      "tier2",
-				MountPath: "/tier2",
-			},
-			corev1.VolumeMount{
-				Name:      "cachetier2",
-				MountPath: kopiaCacheTier2MountPath,
-			},
-		)
+		volumeMounts = append(volumeMounts,
+			corev1.VolumeMount{Name: "tier2", MountPath: "/tier2"})
+
+		if server.Spec.Tier2.Cache != nil {
+			volumeMounts = append(volumeMounts,
+				corev1.VolumeMount{Name: "cachetier2", MountPath: kopiaCacheTier2MountPath})
+		}
+
 		_, mount := buildFileSourceVolMount(tier2EncKeyFileVolName, server.Spec.Tier2.EncryptionKeyFile)
 		volumeMounts = append(volumeMounts, mount)
 

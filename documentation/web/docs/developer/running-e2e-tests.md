@@ -128,7 +128,8 @@ The E2E tests are located in `operator/test/e2e/` and include:
   driven by backup completion rather than a client command
   (`WALRetentionQueueAwareness`)
 - **`server_reconfig_test.go`** - Adding tier2 storage to an existing
-  tier1+queue server (`ServerTierReconfiguration`)
+  tier1+queue server, then removing and restoring the dedicated cache
+  volumes (`ServerTierReconfiguration`)
 - **`pluginconfiguration_update_test.go`** - PluginConfiguration updates
   and sidecar restart behavior (`PluginConfigurationUpdate`)
 - **`pvc_resize_test.go`** - PVC resize for data, cache, and queue
