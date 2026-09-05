@@ -27,6 +27,12 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/cloudnative-pg/cnpg-i/pkg/wal"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+	"go.opentelemetry.io/otel/sdk/metric/metricdata"
+
+	"github.com/cloudnative-pg/klio/core/internal/opentelemetry"
 	"github.com/cloudnative-pg/klio/core/pkg/config"
 )
 
@@ -124,6 +130,56 @@ func TestAvailableTiers(t *testing.T) {
 			}
 		})
 	}
+}
+
+// findInt64HistogramDataPoints returns the data points of the named Int64
+// Histogram instrument, or nil when the instrument recorded nothing.
+func findInt64HistogramDataPoints(
+	rm metricdata.ResourceMetrics, name string,
+) []metricdata.HistogramDataPoint[int64] {
+	for _, sm := range rm.ScopeMetrics {
+		for _, m := range sm.Metrics {
+			if m.Name == name {
+				if h, ok := m.Data.(metricdata.Histogram[int64]); ok {
+					return h.DataPoints
+				}
+			}
+		}
+	}
+
+	return nil
+}
+
+// TestRestoreRecordsEarlyFailure checks that a restore rejected before any tier
+// is chosen is still measured. The duration is recorded from a defer, so the
+// validation bail-outs at the top of Restore must produce a data point too,
+// otherwise the failure rate panel would silently under-count. The tier and
+// cluster name are unknown that early, and must be reported as "unknown" rather
+// than as an empty attribute value.
+func TestRestoreRecordsEarlyFailure(t *testing.T) {
+	reader := setupTestMeter(t)
+
+	w := newWalServiceImplementation(newGRPCClientManager(), WALCapabilityOptions{})
+
+	// No source WAL name: Restore rejects the request before touching a tier.
+	_, err := w.Restore(context.Background(), &wal.WALRestoreRequest{})
+	require.Error(t, err)
+
+	rm := collectOTelMetrics(t, reader)
+	dps := findInt64HistogramDataPoints(rm, opentelemetry.PluginWalRestoreDurationMetric)
+	require.Len(t, dps, 1, "an early failure must still record one restore duration")
+
+	outcome, ok := dps[0].Attributes.Value("outcome")
+	require.True(t, ok, "data point must carry an outcome attribute")
+	assert.Equal(t, string(opentelemetry.OutcomeFailure), outcome.AsString())
+
+	tier, ok := dps[0].Attributes.Value("tier")
+	require.True(t, ok, "data point must carry a tier attribute")
+	assert.Equal(t, string(tierUnknown), tier.AsString())
+
+	cluster, ok := dps[0].Attributes.Value("cluster_name")
+	require.True(t, ok, "data point must carry a cluster_name attribute")
+	assert.Equal(t, unknownAttributeValue, cluster.AsString())
 }
 
 func TestGetConnectionErrors(t *testing.T) {

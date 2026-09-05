@@ -389,6 +389,34 @@ func TestTriggerPrefetch(t *testing.T) {
 	})
 }
 
+// TestIsReadyPrefetch checks which entries count as a prefetch cache hit. Only
+// a speculative prefetch that already finished downloading qualifies: an
+// in-flight prefetch makes the caller wait for the download, and an entry the
+// caller started itself was never a hit to begin with.
+func TestIsReadyPrefetch(t *testing.T) {
+	tests := []struct {
+		name       string
+		isPrefetch bool
+		state      walState
+		want       bool
+	}{
+		{name: "prefetch finished is a hit", isPrefetch: true, state: walStateReady, want: true},
+		{name: "prefetch still downloading is not a hit", isPrefetch: true, state: walStateDownloading, want: false},
+		{name: "failed prefetch is not a hit", isPrefetch: true, state: walStateFailed, want: false},
+		{name: "direct download ready is not a hit", isPrefetch: false, state: walStateReady, want: false},
+		{name: "direct download in flight is not a hit", isPrefetch: false, state: walStateDownloading, want: false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			entry := &walEntry{isPrefetch: tt.isPrefetch, state: tt.state}
+			if got := entry.isReadyPrefetch(); got != tt.want {
+				t.Errorf("isReadyPrefetch() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
 func TestWalState(t *testing.T) {
 	// Verify state constants have expected values.
 	assert.Equal(t, walStateDownloading, walState(0))
