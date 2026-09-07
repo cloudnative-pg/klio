@@ -307,15 +307,16 @@ func NewTier2RetentionFeatureConfig(
 	}
 
 	return klioFeatures.Tier2RetentionFeatureConfig{
-		Name:        name,
-		Setup:       scenario.Setup,
-		Teardown:    scenario.Teardown,
-		Backups:     backups,
-		KlioServer:  klioServer,
-		Namespace:   namespace,
-		KeepLatest:  tier2RetentionKeepNum,
-		ClusterName: cnpgClusterName,
-		S3Prefix:    s3Prefix,
+		Name:                    name,
+		Setup:                   scenario.Setup,
+		Teardown:                scenario.Teardown,
+		Backups:                 backups,
+		KlioServer:              klioServer,
+		Namespace:               namespace,
+		KeepLatest:              tier2RetentionKeepNum,
+		ClusterName:             cnpgClusterName,
+		S3Prefix:                s3Prefix,
+		PluginConfigurationName: pluginConfigurationName,
 	}
 }
 
