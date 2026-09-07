@@ -856,7 +856,7 @@
             "type": "prometheus",
             "uid": "${datasource}"
           },
-          "expr": "histogram_quantile(0.95, sum by (le, cache_hit) (rate(klio_plugin_wal_restore_duration_nanoseconds_bucket{k8s_namespace_name=~\"$namespace\"}[$__rate_interval])))",
+          "expr": "histogram_quantile(0.95, sum by (le, cache_hit) (rate(klio_plugin_wal_restore_duration_nanoseconds_bucket{k8s_namespace_name=~\"$namespace\",outcome=\"success\"}[$__rate_interval])))",
           "instant": false,
           "legendFormat": "p95 cache_hit={{cache_hit}}",
           "range": true
@@ -907,7 +907,7 @@
             "type": "prometheus",
             "uid": "${datasource}"
           },
-          "expr": "sum(rate(klio_plugin_wal_restore_duration_nanoseconds_count{k8s_namespace_name=~\"$namespace\",cache_hit=\"true\"}[$__rate_interval])) / sum(rate(klio_plugin_wal_restore_duration_nanoseconds_count{k8s_namespace_name=~\"$namespace\"}[$__rate_interval])) * 100",
+          "expr": "sum(rate(klio_plugin_wal_restore_duration_nanoseconds_count{k8s_namespace_name=~\"$namespace\",outcome=\"success\",cache_hit=\"true\"}[$__rate_interval])) / sum(rate(klio_plugin_wal_restore_duration_nanoseconds_count{k8s_namespace_name=~\"$namespace\",outcome=\"success\"}[$__rate_interval]))",
           "instant": false,
           "legendFormat": "hit ratio",
           "range": true
@@ -941,7 +941,7 @@
       },
       "fieldConfig": {
         "defaults": {
-          "unit": "%",
+          "unit": "percentunit",
           "custom": {
             "gradientMode": "opacity",
             "fillOpacity": 10
@@ -965,7 +965,7 @@
         }
       ],
       "title": "WAL restore rate by outcome",
-      "description": "Rate of WAL restore requests handled by the plugin, split by outcome (success or failure).",
+      "description": "Rate of WAL restore requests handled by the plugin, split by outcome.",
       "transparent": false,
       "datasource": {
         "type": "prometheus",

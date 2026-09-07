@@ -61,15 +61,9 @@ func recordBackupSuccess(ctx context.Context, duration time.Duration) {
 func recordWalRestore(
 	ctx context.Context,
 	duration time.Duration,
-	success bool,
 	info restoreOutcome,
 	clusterName string,
 ) {
-	outcome := opentelemetry.OutcomeSuccess
-	if !success {
-		outcome = opentelemetry.OutcomeFailure
-	}
-
 	restoreTier := info.tier
 	if restoreTier == "" {
 		restoreTier = tierUnknown
@@ -80,7 +74,7 @@ func recordWalRestore(
 
 	opentelemetry.PluginWal.RestoreDuration.Record(ctx, duration.Nanoseconds(),
 		metric.WithAttributes(
-			outcome.Attribute(),
+			info.result.Attribute(),
 			opentelemetry.CacheHitOf(info.cacheHit).Attribute(),
 			opentelemetry.AttributeKeyTier.Of(string(restoreTier)),
 			opentelemetry.AttributeKeyClusterName.Of(clusterName),

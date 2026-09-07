@@ -141,7 +141,8 @@ func clientPanels() []sizedPanel {
 		sized(8, panelHeight, timeseriesPanel("WAL restore latency (p95) by cache hit", "ns",
 			query(
 				fmt.Sprintf("histogram_quantile(0.95, sum by (le, cache_hit) "+
-					"(rate(klio_plugin_wal_restore_duration_nanoseconds_bucket{%s}[$__rate_interval])))", nsMatcher),
+					"(rate(klio_plugin_wal_restore_duration_nanoseconds_bucket{%s,outcome=\"success\"}"+
+					"[$__rate_interval])))", nsMatcher),
 				"p95 cache_hit={{cache_hit}}"),
 		).Description("95th-percentile end-to-end WAL restore latency measured by the plugin: the latency "+
 			"PostgreSQL actually experiences, and in a replica cluster the speed of the replication path "+
@@ -149,18 +150,20 @@ func clientPanels() []sizedPanel {
 			"was a local rename; cache_hit=false means PostgreSQL had to wait on a download, so a falling "+
 			"hit ratio means prefetch is not keeping ahead of replay and the prefetch count may need "+
 			"raising. The two are orders of magnitude apart, hence the split rather than one pooled line.")),
-		sized(8, panelHeight, timeseriesPanel("WAL restore hit ratio", "%",
+
+		sized(8, panelHeight, timeseriesPanel("WAL restore hit ratio", "percentunit",
 			query(
-				fmt.Sprintf("sum(rate(klio_plugin_wal_restore_duration_nanoseconds_count{%s,cache_hit=\"true\"}[$__rate_interval])) / "+
-					"sum(rate(klio_plugin_wal_restore_duration_nanoseconds_count{%s}[$__rate_interval])) * 100", nsMatcher, nsMatcher),
+				fmt.Sprintf("sum(rate(klio_plugin_wal_restore_duration_nanoseconds_count"+
+					"{%s,outcome=\"success\",cache_hit=\"true\"}[$__rate_interval])) / "+
+					"sum(rate(klio_plugin_wal_restore_duration_nanoseconds_count"+
+					"{%s,outcome=\"success\"}[$__rate_interval]))", nsMatcher, nsMatcher),
 				"hit ratio"),
-		).Description("Fraction of WAL restores served directly from the prefetch spool instead of waiting on a download. A falling ratio means prefetch is not keeping pace with PostgreSQL replay.")),
+		).Description("Fraction of WAL restores served directly from the prefetch spool instead of waiting "+
+			"on a download. A falling ratio means prefetch is not keeping pace with PostgreSQL replay.")),
 		sized(8, panelHeight, timeseriesPanel("WAL restore rate by outcome", "ops",
-			query(
-				fmt.Sprintf("sum by (outcome) "+
-					"(rate(klio_plugin_wal_restore_duration_nanoseconds_count{%s}[$__rate_interval]))", nsMatcher),
+			query(fmt.Sprintf("sum by (outcome) "+
+				"(rate(klio_plugin_wal_restore_duration_nanoseconds_count{%s}[$__rate_interval]))", nsMatcher),
 				"{{outcome}}"),
-		).Description("Rate of WAL restore requests handled by the plugin, split by outcome (success or "+
-			"failure).")),
+		).Description("Rate of WAL restore requests handled by the plugin, split by outcome.")),
 	}
 }

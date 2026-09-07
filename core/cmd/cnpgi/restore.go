@@ -28,6 +28,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 
 	"github.com/cloudnative-pg/klio/core/internal/cnpgi"
+	"github.com/cloudnative-pg/klio/core/internal/opentelemetry"
 	"github.com/cloudnative-pg/klio/core/pkg/config"
 )
 
@@ -40,6 +41,9 @@ var restoreJobCmd = &cobra.Command{
 	Hidden: true,
 	Args:   cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
+		shutdownOtel := opentelemetry.Init(cmd.Context())
+		defer shutdownOtel()
+
 		configFile, _ := cmd.Root().PersistentFlags().GetString("config")
 		pluginPath, _ := cmd.Flags().GetString("plugin-path")
 		clusterName, _ := cmd.Flags().GetString("cluster-name")
