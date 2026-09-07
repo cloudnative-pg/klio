@@ -188,8 +188,6 @@ func (p *walPrefetcher) Close() error {
 // returned bool reports whether the file was served from a speculative prefetch
 // already waiting in the spool (a cache hit); it is only meaningful when the
 // error is nil. A rename fallback to a direct download is not a cache hit.
-//
-//nolint:cyclop // complexity is slightly over limit but refactoring would hurt readability
 func (p *walPrefetcher) getCompleteWAL(ctx context.Context, walName, targetPath string) (bool, error) {
 	contextLogger := log.FromContext(ctx).WithValues("walName", walName)
 

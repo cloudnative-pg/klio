@@ -21,11 +21,14 @@ package cnpgi
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"reflect"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/cloudnative-pg/cnpg-i/pkg/wal"
 	"github.com/stretchr/testify/assert"
@@ -180,6 +183,108 @@ func TestRestoreRecordsEarlyFailure(t *testing.T) {
 	cluster, ok := dps[0].Attributes.Value("cluster_name")
 	require.True(t, ok, "data point must carry a cluster_name attribute")
 	assert.Equal(t, unknownAttributeValue, cluster.AsString())
+}
+
+// TestRestoreRecordsRestoreFailure checks that a restore that fails inside
+// restoreWAL is still tagged `failure`, and that the tier and cluster name it
+// could not determine are reported as "unknown" rather than as an empty
+// attribute value, which would show up as a nameless series on every per-tier
+// panel.
+func TestRestoreRecordsRestoreFailure(t *testing.T) {
+	reader := setupTestMeter(t)
+	t.Setenv("POD_NAME", "cluster-a-1")
+
+	w := newWalServiceImplementation(newGRPCClientManager(), WALCapabilityOptions{})
+
+	// A primary with no promotion token resolves to the default archive config
+	// path, which does not exist here, so restoreWAL fails loading it.
+	_, err := w.Restore(context.Background(), &wal.WALRestoreRequest{
+		SourceWalName:       "000000010000000000000001",
+		DestinationFileName: filepath.Join(t.TempDir(), "000000010000000000000001"),
+		ClusterDefinition: []byte(
+			`{"metadata":{"name":"cluster-a"},"status":{"currentPrimary":"cluster-a-1"}}`),
+	})
+	require.Error(t, err)
+
+	dps := findInt64HistogramDataPoints(
+		collectOTelMetrics(t, reader), opentelemetry.PluginWalRestoreDurationMetric)
+	require.Len(t, dps, 1)
+
+	outcome, ok := dps[0].Attributes.Value("outcome")
+	require.True(t, ok, "data point must carry an outcome attribute")
+	assert.Equal(t, string(opentelemetry.OutcomeFailure), outcome.AsString())
+
+	tier, ok := dps[0].Attributes.Value("tier")
+	require.True(t, ok, "data point must carry a tier attribute")
+	assert.Equal(t, string(tierUnknown), tier.AsString(), "no tier was reached")
+
+	cluster, ok := dps[0].Attributes.Value("cluster_name")
+	require.True(t, ok, "data point must carry a cluster_name attribute")
+	assert.Equal(t, "cluster-a", cluster.AsString())
+}
+
+// TestRestoreResult checks how a restore error is classified for the `outcome`
+// attribute. The success case has no end-to-end coverage — a served restore
+// needs a real Klio server — and it is exactly the case a per-return-path
+// assignment lost, so it is asserted here.
+func TestRestoreResult(t *testing.T) {
+	tests := []struct {
+		name string
+		err  error
+		want opentelemetry.Outcome
+	}{
+		{name: "served", err: nil, want: opentelemetry.OutcomeSuccess},
+		{name: "absent from the archive", err: errWALNotFound, want: opentelemetry.OutcomeNotFound},
+		{
+			name: "absent from the archive, wrapped",
+			err:  fmt.Errorf("tier2: %w", errWALNotFound),
+			want: opentelemetry.OutcomeNotFound,
+		},
+		{name: "restore broke", err: errors.New("connection refused"), want: opentelemetry.OutcomeFailure},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.want, restoreResult(tt.err))
+		})
+	}
+}
+
+// TestRecordWalRestoreOutcomes checks that a WAL the archive simply does not
+// hold is recorded as `not_found`, kept apart from a real `failure`. PostgreSQL
+// asking for a segment or timeline history file that was never archived is the
+// routine end-of-archive signal, and CloudNativePG cannot tell the two apart —
+// it collects every plugin error identically without inspecting the gRPC code —
+// so this attribute is the only place the distinction survives. Pooling them
+// would report a constant failure rate on a healthy cluster and would drag down
+// the prefetch hit ratio, whose denominator counts successes only.
+func TestRecordWalRestoreOutcomes(t *testing.T) {
+	tests := []struct {
+		name    string
+		outcome opentelemetry.Outcome
+		want    string
+	}{
+		{name: "served", outcome: opentelemetry.OutcomeSuccess, want: "success"},
+		{name: "absent from the archive", outcome: opentelemetry.OutcomeNotFound, want: "not_found"},
+		{name: "restore broke", outcome: opentelemetry.OutcomeFailure, want: "failure"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			reader := setupTestMeter(t)
+
+			recordWalRestore(context.Background(), time.Second,
+				restoreOutcome{tier: tier1, cacheHit: false, result: tt.outcome}, "cluster-a")
+
+			dps := findInt64HistogramDataPoints(
+				collectOTelMetrics(t, reader), opentelemetry.PluginWalRestoreDurationMetric)
+			require.Len(t, dps, 1)
+
+			outcome, ok := dps[0].Attributes.Value("outcome")
+			require.True(t, ok, "data point must carry an outcome attribute")
+			assert.Equal(t, tt.want, outcome.AsString())
+		})
+	}
 }
 
 func TestGetConnectionErrors(t *testing.T) {
