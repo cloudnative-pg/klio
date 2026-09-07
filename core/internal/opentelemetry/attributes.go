@@ -51,6 +51,9 @@ const (
 	OutcomeSuccess Outcome = "success"
 	// OutcomeFailure marks the failure flavor of an operation counter.
 	OutcomeFailure Outcome = "failure"
+	// OutcomeNotFound marks an operation that completed normally but found
+	// nothing to act on.
+	OutcomeNotFound Outcome = "not_found"
 )
 
 // Attribute returns the `outcome` attribute for this outcome.

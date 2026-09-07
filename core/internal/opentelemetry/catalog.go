@@ -232,10 +232,11 @@ type ClientWalMetrics struct {
 // restore. RestoreDuration is the end-to-end time the plugin takes to satisfy
 // one RESTORE_WAL request (config resolution, tier failover, prefetch lookup or
 // download, and the spool→destination rename). Each recording carries an
-// `outcome` (`success` / `failure`), a `cache_hit` (`true` when the segment was
-// already complete in the prefetch spool when PostgreSQL asked for it), a `tier`
-// (which storage tier served it), and a `cluster_name`. A restore that fails
-// before a tier is chosen reports `tier` and `cluster_name` as `unknown`.
+// `outcome` (`success` / `failure` / `not_found`), a `cache_hit` (`true` when
+// the segment was already complete in the prefetch spool when PostgreSQL asked
+// for it), a `tier` (which storage tier served it), and a `cluster_name`. A
+// restore that fails before a tier is chosen reports `tier` and `cluster_name`
+// as `unknown`.
 type PluginWalMetrics struct {
 	RestoreDuration metric.Int64Histogram
 }
@@ -498,8 +499,10 @@ func InitPluginWalMetrics() {
 	PluginWal.RestoreDuration, _ = meter.Int64Histogram(PluginWalRestoreDurationMetric,
 		metric.WithDescription("Distribution of end-to-end WAL restore durations measured by the "+
 			"CNPG-I plugin (the full RESTORE_WAL request: config resolution, tier failover, prefetch "+
-			"lookup or download, and spool→destination rename). The `outcome` attribute is `success` "+
-			"or `failure`; `cache_hit` is `true` when the segment was already complete in the "+
+			"lookup or download, and spool→destination rename). The `outcome` attribute is `success`, "+
+			"`failure`, or `not_found` — the last being PostgreSQL asking for a segment or timeline "+
+			"history file that was never archived, which is the routine end-of-archive signal and not "+
+			"an error; `cache_hit` is `true` when the segment was already complete in the "+
 			"prefetch spool when PostgreSQL asked for it, so no download wait was needed; `tier` is the "+
 			"storage tier that served the restore; `cluster_name` identifies the PostgreSQL cluster."),
 		metric.WithUnit("ns"),

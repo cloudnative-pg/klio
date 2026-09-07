@@ -38,6 +38,7 @@ import (
 	"google.golang.org/grpc/status"
 
 	"github.com/cloudnative-pg/klio/core/internal/client/klioclient/grpcclient"
+	"github.com/cloudnative-pg/klio/core/internal/opentelemetry"
 	"github.com/cloudnative-pg/klio/core/pkg/config"
 )
 
@@ -101,15 +102,17 @@ func (w *walServiceImplementation) Restore(
 	destinationPath := request.GetDestinationFileName()
 
 	// Record the end-to-end restore duration on every exit path. The
-	// closure reads the final values of success/info/clusterName, so failures —
-	// including the fast validation bail-outs below — are measured too.
+	// closure reads the final values of outcome/clusterName, so failures —
+	// including the fast validation bail-outs below — are measured too. The
+	// result starts as a failure so a bail-out that never reaches restoreWAL
+	// is counted as one.
 	var (
-		success     bool
-		info        restoreOutcome
+		outcome     restoreOutcome
 		clusterName string
 	)
+	outcome.result = opentelemetry.OutcomeFailure
 	defer func() {
-		recordWalRestore(ctx, time.Since(startCall), success, info, clusterName)
+		recordWalRestore(ctx, time.Since(startCall), outcome, clusterName)
 	}()
 
 	if walName == "" || destinationPath == "" {
@@ -136,7 +139,10 @@ func (w *walServiceImplementation) Restore(
 		return nil, errors.New("no WAL repository found for the cluster")
 	}
 
-	info, err = w.restoreWAL(ctx, walName, destinationPath, confPath)
+	cacheHit, restoreTier, err := w.restoreWAL(ctx, walName, destinationPath, confPath)
+	outcome.cacheHit = cacheHit
+	outcome.tier = restoreTier
+	outcome.result = restoreResult(err)
 	if errors.Is(err, errWALNotFound) {
 		return &wal.WALRestoreResult{}, status.Errorf(codes.NotFound, "WAL file not found: %q", walName)
 	}
@@ -144,34 +150,54 @@ func (w *walServiceImplementation) Restore(
 		return nil, err
 	}
 
-	success = true
 	contextLogger.Info("WAL.Restore", "walName", request.GetSourceWalName(), "duration", time.Since(startCall))
 
 	return &wal.WALRestoreResult{}, nil
 }
 
-// restoreOutcome carries the observable facts about a completed restore that
-// are only known deep in the restore path, so Restore can tag its end-to-end
-// duration metric. On failure the fields hold whatever was known so far (tier
-// is the last one attempted; cacheHit is false).
+// restoreResult classifies a restoreWAL error for the `outcome` attribute of
+// the restore duration metric.
+//
+// `not_found` is deliberately not a failure. PostgreSQL routinely asks for a
+// segment or a timeline history file that was never archived, and that absence
+// is how it learns it has reached the end of the archive. CloudNativePG
+// collects every plugin error the same way and never inspects the gRPC code, so
+// this attribute is the only place the distinction survives; folding it into
+// `failure` would report a constant failure rate on a healthy cluster.
+func restoreResult(err error) opentelemetry.Outcome {
+	switch {
+	case err == nil:
+		return opentelemetry.OutcomeSuccess
+	case errors.Is(err, errWALNotFound):
+		return opentelemetry.OutcomeNotFound
+	default:
+		return opentelemetry.OutcomeFailure
+	}
+}
+
+// restoreOutcome carries what Restore tags its end-to-end duration metric
+// with: the result it classifies from the restore error, plus the facts only
+// known deep in the restore path. On failure the latter hold whatever was known
+// so far (tier is the last one attempted, or tierUnknown; cacheHit is false).
 type restoreOutcome struct {
 	tier     tier
 	cacheHit bool
+	result   opentelemetry.Outcome
 }
 
 func (w *walServiceImplementation) restoreWAL(
 	ctx context.Context,
 	walName, destinationPath string,
 	configPath string,
-) (restoreOutcome, error) {
+) (bool, tier, error) {
 	cfg, err := config.NewFromFile(afero.NewOsFs(), configPath)
 	if err != nil {
-		return restoreOutcome{}, fmt.Errorf("while loading configuration from file %q: %w", configPath, err)
+		return false, tierUnknown, fmt.Errorf("while loading configuration from file %q: %w", configPath, err)
 	}
 
 	tiers := availableTiers(cfg)
 	if len(tiers) == 0 {
-		return restoreOutcome{}, errors.New("no WAL tier configured")
+		return false, tierUnknown, errors.New("no WAL tier configured")
 	}
 
 	// Try the previously-successful tier first, when both are available.
@@ -189,14 +215,14 @@ func (w *walServiceImplementation) restoreWAL(
 		}, walName, destinationPath)
 		if err == nil {
 			w.currentTier.Store(t)
-			return restoreOutcome{tier: t, cacheHit: cacheHit}, nil
+			return cacheHit, t, nil
 		}
 		if !errors.Is(err, errWALNotFound) {
-			return restoreOutcome{tier: t}, err
+			return false, t, err
 		}
 	}
 
-	return restoreOutcome{tier: lastTier}, errWALNotFound
+	return false, lastTier, errWALNotFound
 }
 
 // availableTiers returns the tiers the user has opted in to as recovery
@@ -261,6 +287,9 @@ func (mgr *grpcClientManager) getClient(ctx context.Context, opts walRestoreOpti
 		address = configuration.Client.Wal.Address
 	case tier2:
 		address = configuration.Client.Wal.Tier2Address
+	case tierUnknown:
+		// Only ever a metric attribute value, never a tier to connect to.
+		fallthrough
 	default:
 		return nil, fmt.Errorf("unknown tier %q", opts.targetTier)
 	}
