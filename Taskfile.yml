@@ -11,6 +11,12 @@ vars:
   REGISTRY_NETWORK: klio
   REGISTRY_NAME: '{{ .REGISTRY_NAME | default "registry.dev" }}'
   REGISTRY_PORT: '{{ .REGISTRY_PORT | default 5000 }}'
+  # GitHub org/user that owns the ghcr.io namespace CI pushes images to.
+  # GITHUB_REPOSITORY_OWNER is set by GitHub Actions to whichever repo the
+  # workflow is actually running in, so a fork's own CI pushes to the fork's
+  # namespace instead of failing against cloudnative-pg's, which the fork has
+  # no write access to.
+  REGISTRY_OWNER: '{{ .GITHUB_REPOSITORY_OWNER | default "cloudnative-pg" }}'
   GIT_TAG_VERSION:
     sh: git describe --tags --match 'v*' | sed -e 's/^v//; s/-g[0-9a-f]\+$$//; s/-\([0-9]\+\)$$/-dev\1/'
   GITHUB_REF_NAME: '{{ .GITHUB_REF_NAME | default "dev" }}'
@@ -252,7 +258,7 @@ tasks:
         vars:
           ENVIRONMENT: "testing"
           INSECURE: '{{ if .GITHUB_ACTIONS }}false{{ else }}true{{ end }}'
-          REGISTRY: '{{ if .GITHUB_ACTIONS }}ghcr.io/cloudnative-pg{{ else }}{{ .REGISTRY_NAME }}:{{ .REGISTRY_PORT }}{{ end }}'
+          REGISTRY: '{{ if .GITHUB_ACTIONS }}ghcr.io/{{ .REGISTRY_OWNER }}{{ else }}{{ .REGISTRY_NAME }}:{{ .REGISTRY_PORT }}{{ end }}'
           VERSION: "{{ .TAG }}"
           LATEST: "false"
           WORKDIR: "core"
@@ -278,7 +284,7 @@ tasks:
         vars:
           ENVIRONMENT: "production"
           INSECURE: "false"
-          REGISTRY: "ghcr.io/cloudnative-pg"
+          REGISTRY: "ghcr.io/{{ .REGISTRY_OWNER }}"
           VERSION: "main"
           LATEST: "false"
           WORKDIR: "core"
@@ -302,7 +308,7 @@ tasks:
       - task: internal:containerize
         vars:
           ENVIRONMENT: "production"
-          REGISTRY: "ghcr.io/cloudnative-pg"
+          REGISTRY: "ghcr.io/{{ .REGISTRY_OWNER }}"
           INSECURE: "false"
           VERSION: "{{ .GITHUB_REF_NAME }}"
           LATEST: "true"
@@ -543,7 +549,7 @@ tasks:
         vars:
           ENVIRONMENT: "testing"
           INSECURE: '{{ if .GITHUB_ACTIONS }}false{{ else }}true{{ end }}'
-          REGISTRY: '{{ if .GITHUB_ACTIONS }}ghcr.io/cloudnative-pg{{ else }}{{ .REGISTRY_NAME }}:{{ .REGISTRY_PORT }}{{ end }}'
+          REGISTRY: '{{ if .GITHUB_ACTIONS }}ghcr.io/{{ .REGISTRY_OWNER }}{{ else }}{{ .REGISTRY_NAME }}:{{ .REGISTRY_PORT }}{{ end }}'
           VERSION: "{{ .TAG }}"
           LATEST: "false"
           WORKDIR: "operator"
@@ -569,7 +575,7 @@ tasks:
         vars:
           ENVIRONMENT: "production"
           INSECURE: "false"
-          REGISTRY: "ghcr.io/cloudnative-pg"
+          REGISTRY: "ghcr.io/{{ .REGISTRY_OWNER }}"
           VERSION: "main"
           LATEST: "false"
           WORKDIR: "operator"
@@ -591,7 +597,7 @@ tasks:
       - task: internal:containerize
         vars:
           ENVIRONMENT: "production"
-          REGISTRY: "ghcr.io/cloudnative-pg"
+          REGISTRY: "ghcr.io/{{ .REGISTRY_OWNER }}"
           INSECURE: "false"
           VERSION: "{{ .GITHUB_REF_NAME }}"
           LATEST: "true"
@@ -709,9 +715,9 @@ tasks:
       # version from the Chart.yaml file.
       - >
         GITHUB_REF= dagger -s call -m github.com/sagikazarmark/daggerverse/helm@${DAGGER_HELM_SHA}
-        with-registry-auth --address "ghcr.io/cloudnative-pg" --username "{{ .GITHUB_ACTOR }}" --secret env://GITHUB_TOKEN
+        with-registry-auth --address "ghcr.io/{{ .REGISTRY_OWNER }}" --username "{{ .GITHUB_ACTOR }}" --secret env://GITHUB_TOKEN
         push --pkg dist/chart/klio_chart.tgz
-        --registry "oci://ghcr.io/cloudnative-pg/"
+        --registry "oci://ghcr.io/{{ .REGISTRY_OWNER }}/"
     sources:
       - dist/chart/**/*
 
@@ -758,7 +764,7 @@ tasks:
           enum:
             ref: .ALLOWED_ENVS
     env:
-      registry: '{{ if .GITHUB_ACTIONS }}ghcr.io/cloudnative-pg{{ else }}{{ .REGISTRY_NAME }}:{{ .REGISTRY_PORT }}{{ end }}'
+      registry: '{{ if .GITHUB_ACTIONS }}ghcr.io/{{ .REGISTRY_OWNER }}{{ else }}{{ .REGISTRY_NAME }}:{{ .REGISTRY_PORT }}{{ end }}'
       insecure: '{{ if .GITHUB_ACTIONS }}false{{ else }}true{{ end }}'
       suffix: '{{ if ( ne .ENVIRONMENT "production" ) }}-testing{{end}}'
       tag: '{{ .TAG | default .IMAGE_TAG }}'
@@ -887,7 +893,7 @@ tasks:
       - internal:registry-network-connect
       - olm:bundle
     env:
-      registry: '{{ if .GITHUB_ACTIONS }}ghcr.io/cloudnative-pg{{ else }}{{ .REGISTRY_NAME }}:{{ .REGISTRY_PORT }}{{ end }}'
+      registry: '{{ if .GITHUB_ACTIONS }}ghcr.io/{{ .REGISTRY_OWNER }}{{ else }}{{ .REGISTRY_NAME }}:{{ .REGISTRY_PORT }}{{ end }}'
       insecure: '{{ if .GITHUB_ACTIONS }}false{{ else }}true{{ end }}'
       suffix: '{{ if ( ne .ENVIRONMENT "production" ) }}-testing{{end}}'
       tag: '{{ .TAG | default .IMAGE_TAG }}'
@@ -913,7 +919,7 @@ tasks:
           enum:
             ref: .ALLOWED_ENVS
     env:
-      registry: '{{ if .GITHUB_ACTIONS }}ghcr.io/cloudnative-pg{{ else }}{{ .REGISTRY_NAME }}:{{ .REGISTRY_PORT }}{{ end }}'
+      registry: '{{ if .GITHUB_ACTIONS }}ghcr.io/{{ .REGISTRY_OWNER }}{{ else }}{{ .REGISTRY_NAME }}:{{ .REGISTRY_PORT }}{{ end }}'
       insecure: '{{ if .GITHUB_ACTIONS }}false{{ else }}true{{ end }}'
       suffix: '{{ if ( ne .ENVIRONMENT "production" ) }}-testing{{end}}'
       tag: '{{ .TAG | default .IMAGE_TAG }}'
@@ -974,7 +980,7 @@ tasks:
           enum:
             ref: .ALLOWED_ENVS
     env:
-      registry: '{{ if .GITHUB_ACTIONS }}ghcr.io/cloudnative-pg{{ else }}{{ .REGISTRY_NAME }}:{{ .REGISTRY_PORT }}{{ end }}'
+      registry: '{{ if .GITHUB_ACTIONS }}ghcr.io/{{ .REGISTRY_OWNER }}{{ else }}{{ .REGISTRY_NAME }}:{{ .REGISTRY_PORT }}{{ end }}'
       insecure: '{{ if .GITHUB_ACTIONS }}false{{ else }}true{{ end }}'
       suffix: '{{ if ( ne .ENVIRONMENT "production" ) }}-testing{{end}}'
       tag: '{{ .TAG | default .IMAGE_TAG }}'
@@ -999,7 +1005,7 @@ tasks:
           enum:
             ref: .ALLOWED_ENVS
     env:
-      registry: '{{ if .GITHUB_ACTIONS }}ghcr.io/cloudnative-pg{{ else }}{{ .REGISTRY_NAME }}:{{ .REGISTRY_PORT }}{{ end }}'
+      registry: '{{ if .GITHUB_ACTIONS }}ghcr.io/{{ .REGISTRY_OWNER }}{{ else }}{{ .REGISTRY_NAME }}:{{ .REGISTRY_PORT }}{{ end }}'
       insecure: '{{ if .GITHUB_ACTIONS }}false{{ else }}true{{ end }}'
       suffix: '{{ if ( ne .ENVIRONMENT "production" ) }}-testing{{end}}'
       tag: '{{ .TAG | default .IMAGE_TAG }}'
@@ -1122,7 +1128,7 @@ tasks:
           enum:
             ref: .ALLOWED_ENVS
     env:
-      registry: '{{ if .GITHUB_ACTIONS }}ghcr.io/cloudnative-pg{{ else }}{{ .REGISTRY_NAME }}:{{ .REGISTRY_PORT }}{{ end }}'
+      registry: '{{ if .GITHUB_ACTIONS }}ghcr.io/{{ .REGISTRY_OWNER }}{{ else }}{{ .REGISTRY_NAME }}:{{ .REGISTRY_PORT }}{{ end }}'
       suffix: '{{ if ( ne .ENVIRONMENT "production" ) }}-testing{{end}}'
       tag: '{{ .TAG | default .IMAGE_TAG }}'
       # REGISTRY_AUTH_FILE is the registry credentials file preflight uses for
@@ -1888,7 +1894,7 @@ tasks:
     desc: Generate operator/test/e2e/e2e-config.openshift.yaml for an OpenShift run.
     run: once
     vars:
-      OPERAND_IMAGE_REPOSITORY: '{{ .OPERAND_IMAGE_REPOSITORY | default "ghcr.io/cloudnative-pg/klio-testing" }}'
+      OPERAND_IMAGE_REPOSITORY: '{{ .OPERAND_IMAGE_REPOSITORY | default (printf "ghcr.io/%s/klio-testing" .REGISTRY_OWNER) }}'
       OPERAND_IMAGE_TAG: '{{ .OPERAND_IMAGE_TAG | default .IMAGE_TAG }}'
       # csi-hostpath-sc is provisioned by setup-crc-csi-hostpath.sh and matches
       # the StorageClass the Kind path uses (allowVolumeExpansion: true).
