@@ -43,7 +43,6 @@ run directly by end users.
 * [klio get-wal](klio_get-wal.md)	 - Get a WAL from the target Klio server
 * [klio reset-lsn](klio_reset-lsn.md)	 - Reset the replication status to the latest flush LSN
 * [klio restore](klio_restore.md)	 - Restore a PostgreSQL cluster from a Klio server
-* [klio retention](klio_retention.md)	 - Manage the retention policy
 * [klio send-wal](klio_send-wal.md)	 - Upload the cluster's WALs to the target Klio server
 * [klio server](klio_server.md)	 - Starts and manage a Klio server
 * [klio wal-player](klio_wal-player.md)	 - WAL Player Commands

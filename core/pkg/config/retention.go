@@ -19,23 +19,43 @@ SPDX-License-Identifier: Apache-2.0
 
 package config
 
-// RetentionPolicy defines how many backups we should keep.
+import (
+	"encoding/json"
+	"errors"
+	"fmt"
+)
+
+// RetentionPolicy defines which backups Klio should keep. It is evaluated by
+// the server against the backup catalog, replacing the retention that Kopia
+// used to enforce on its own.
 type RetentionPolicy struct {
-	// KeepLatest is the number of latest backups to keep
-	KeepLatest *int `json:"keep_latest,omitempty" mapstructure:"keep_latest"`
+	// Latest keeps only the given number of most recent backups and deletes the
+	// rest. A configured policy always sets it to at least 1; keeping every
+	// backup is expressed by not configuring a retention policy at all.
+	Latest int `json:"latest,omitempty" mapstructure:"latest"`
+}
 
-	// KeepAnnual is the number of annual backups to keep
-	KeepAnnual *int `json:"keep_annual,omitempty" mapstructure:"keep_annual"`
+// Validate implements a custom validation function for RetentionPolicy.
+func (r *RetentionPolicy) Validate() error {
+	if r.Latest < 1 {
+		return errors.New("invalid retention policy: latest must be greater than or equal to 1")
+	}
 
-	// KeepMonthly is the number of monthly backups to keep
-	KeepMonthly *int `json:"keep_monthly,omitempty" mapstructure:"keep_monthly"`
+	return nil
+}
 
-	// KeepWeekly is the number of weekly backups to keep
-	KeepWeekly *int `json:"keep_weekly,omitempty" mapstructure:"keep_weekly"`
+// MarshalWire serializes the policy to the JSON string used to carry it to the
+// server. A nil policy yields an empty string, which the server reads as "keep
+// everything".
+func (r *RetentionPolicy) MarshalWire() (string, error) {
+	if r == nil {
+		return "", nil
+	}
 
-	// KeepDaily is the number of daily backups to keep
-	KeepDaily *int `json:"keep_daily,omitempty" mapstructure:"keep_daily"`
+	content, err := json.Marshal(r)
+	if err != nil {
+		return "", fmt.Errorf("while serializing retention policy: %w", err)
+	}
 
-	// KeepHourly is the number of hourly backups to keep
-	KeepHourly *int `json:"keep_hourly,omitempty" mapstructure:"keep_hourly"`
+	return string(content), nil
 }

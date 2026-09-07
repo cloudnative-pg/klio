@@ -25,9 +25,11 @@ import (
 	"strings"
 
 	"github.com/cloudnative-pg/machinery/pkg/log"
+	"github.com/cloudnative-pg/machinery/pkg/stringset"
 
-	"github.com/cloudnative-pg/klio/core/internal/kopia"
+	"github.com/cloudnative-pg/klio/core/internal/client/klioclient"
 	"github.com/cloudnative-pg/klio/core/internal/opentelemetry"
+	"github.com/cloudnative-pg/klio/core/internal/queue"
 	"github.com/cloudnative-pg/klio/core/internal/repository"
 )
 
@@ -35,23 +37,18 @@ import (
 // that are no longer required by any remaining tier1 backup. It records the
 // tier1 maintenance metric; the error is returned for logging but is
 // best-effort (the caller does not fail the task on it).
-//
-// This is the server-side equivalent of the work that the `klio backup
-// maintenance` command used to perform client-side after every backup.
-func (d *Backup) maintainTier1(ctx context.Context, clusterName string, entries []kopia.Manifest) error {
-	if len(entries) == 0 {
-		return nil
-	}
+func (d *Backup) maintainTier1(ctx context.Context, task *queue.BackupTask) error {
+	log.FromContext(ctx).Info("Applying tier1 maintenance", "cluster", task.ClusterName)
 
-	log.FromContext(ctx).Info("Applying tier1 maintenance", "cluster", clusterName)
-
-	err := d.runTier1Retention(ctx, clusterName, entries)
-	recordMaintenance(ctx, clusterName, opentelemetry.Tier1, err)
+	err := d.runTier1Retention(ctx, task)
+	recordMaintenance(ctx, task.ClusterName, opentelemetry.Tier1, err)
 
 	return err
 }
 
-func (d *Backup) runTier1Retention(ctx context.Context, clusterName string, entries []kopia.Manifest) error {
+func (d *Backup) runTier1Retention(ctx context.Context, task *queue.BackupTask) error {
+	clusterName := task.ClusterName
+
 	// The cluster name reaches us from the client's CloseBackup request via the
 	// queue task and is used below as a WAL directory path, so validate it
 	// before we touch the filesystem. This guard used to live in the gRPC
@@ -60,18 +57,50 @@ func (d *Backup) runTier1Retention(ctx context.Context, clusterName string, entr
 		return fmt.Errorf("invalid cluster name %q: %w", clusterName, err)
 	}
 
-	userName := entries[0].Source.UserName
+	// Delete the tier1 base backups that fall outside the retention policy,
+	// while never deleting one that has not yet reached tier2, so no base backup
+	// is lost before it is durable on tier2.
+	keep, err := d.tier1RetentionGuard(ctx, clusterName)
+	if err != nil {
+		return err
+	}
 
-	// Apply the tier1 retention policy, deleting any base snapshots that are
-	// no longer needed.
-	if err := d.tier1Client.ApplyRetentionPolicy(ctx, kopia.Target{
-		Username: userName,
-		Hostname: clusterName,
-	}); err != nil {
+	if err := d.applyRetention(ctx, d.tier1Client, clusterName, task.Tier1RetentionPolicy, keep); err != nil {
 		return fmt.Errorf("while applying tier1 retention policy: %w", err)
 	}
 
 	return d.applyTier1WALRetention(ctx, clusterName)
+}
+
+// tier1RetentionGuard returns a predicate that reports whether a tier1 backup
+// must be kept because it has not yet been migrated to tier2. When tier2 is not
+// configured there is nothing to protect and the predicate is nil.
+func (d *Backup) tier1RetentionGuard(ctx context.Context, clusterName string) (func(name string) bool, error) {
+	if !d.tier2Enabled {
+		return nil, nil
+	}
+
+	tier2Backups, err := d.tier2Client.ListBackups(ctx, clusterName)
+	if err != nil {
+		return nil, fmt.Errorf(
+			"while listing tier2 backups to guard tier1 retention for cluster %q: %w", clusterName, err)
+	}
+
+	return keepUntilOnTier2(tier2Backups), nil
+}
+
+// keepUntilOnTier2 returns a predicate that reports whether a tier1 backup must
+// be kept because it is not yet present on tier2. A backup becomes deletable
+// once it appears in the tier2 catalog.
+func keepUntilOnTier2(tier2Backups klioclient.BackupList) func(name string) bool {
+	onTier2 := stringset.New()
+	for i := range tier2Backups {
+		onTier2.Put(tier2Backups[i].Name)
+	}
+
+	return func(name string) bool {
+		return !onTier2.Has(name)
+	}
 }
 
 // applyTier1WALRetention drops the tier1 WAL files that are no longer required

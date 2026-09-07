@@ -60,12 +60,12 @@ func (s *stubBackupSteps) relayTier2(_ context.Context, _ *queue.BackupTask, _ [
 	return s.relayErr
 }
 
-func (s *stubBackupSteps) maintainTier2(_ context.Context, _ *queue.BackupTask, _ []kopia.Manifest) error {
+func (s *stubBackupSteps) maintainTier2(_ context.Context, _ *queue.BackupTask) error {
 	s.maintain2Called = true
 	return s.maintain2Err
 }
 
-func (s *stubBackupSteps) maintainTier1(_ context.Context, _ string, _ []kopia.Manifest) error {
+func (s *stubBackupSteps) maintainTier1(_ context.Context, _ *queue.BackupTask) error {
 	s.maintainCalled = true
 	return s.maintainErr
 }
