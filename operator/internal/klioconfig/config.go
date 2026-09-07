@@ -158,12 +158,7 @@ func convertRetentionPolicy(p *kliov1alpha1.RetentionPolicy) *config.RetentionPo
 	}
 
 	return &config.RetentionPolicy{
-		KeepLatest:  p.KeepLatest,
-		KeepAnnual:  p.KeepAnnual,
-		KeepMonthly: p.KeepMonthly,
-		KeepWeekly:  p.KeepWeekly,
-		KeepDaily:   p.KeepDaily,
-		KeepHourly:  p.KeepHourly,
+		Latest: p.Latest,
 	}
 }
 

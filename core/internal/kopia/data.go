@@ -49,9 +49,6 @@ type Manifest struct {
 
 	// Tags contains user-defined key-value pairs associated with the snapshot.
 	Tags map[string]string `json:"tags,omitempty"`
-
-	// Pins is a list of manually-defined pins which prevent the snapshot from being deleted.
-	Pins []string `json:"pins,omitempty"`
 }
 
 // DirEntry represents a directory entry as stored in JSON stream.
@@ -127,55 +124,4 @@ func (ssi SourceInfo) String() string {
 	}
 
 	return fmt.Sprintf("%v@%v:%v", ssi.UserName, ssi.Host, ssi.Path)
-}
-
-// Policy describes snapshot policy for a single source.
-type Policy struct {
-	// Labels contains key-value pairs associated with this policy.
-	Labels map[string]string `json:"-"`
-
-	// RetentionPolicy defines how long snapshots should be retained.
-	RetentionPolicy RetentionPolicy `json:"retention"`
-
-	// NoParent indicates whether this policy inherits from parent policies.
-	NoParent bool `json:"noParent,omitempty"`
-}
-
-// RetentionPolicy describes snapshot retention policy.
-type RetentionPolicy struct {
-	// KeepLatest is the number of most recent snapshots to keep.
-	KeepLatest *int `json:"keepLatest,omitempty"`
-
-	// KeepHourly is the number of hourly snapshots to keep.
-	KeepHourly *int `json:"keepHourly,omitempty"`
-
-	// KeepDaily is the number of daily snapshots to keep.
-	KeepDaily *int `json:"keepDaily,omitempty"`
-
-	// KeepWeekly is the number of weekly snapshots to keep.
-	KeepWeekly *int `json:"keepWeekly,omitempty"`
-
-	// KeepMonthly is the number of monthly snapshots to keep.
-	KeepMonthly *int `json:"keepMonthly,omitempty"`
-
-	// KeepAnnual is the number of annual snapshots to keep.
-	KeepAnnual *int `json:"keepAnnual,omitempty"`
-}
-
-// Target is used to point a Kopia transaction to the set of snapshots
-// having the specified Hostname and Username.
-type Target struct {
-	// Hostname is the hostname of the snapshot, as in the
-	// <username>@<hostname> snapshot indicator.
-	Hostname string
-
-	// Username is the name of the user that took the snapshot, as in the
-	// <username>@<hostname> snapshot indicator.
-	Username string
-}
-
-// String formats this target as the string that the Kopia CLI
-// would expect.
-func (t Target) String() string {
-	return fmt.Sprintf("%s@%s", t.Username, t.Hostname)
 }

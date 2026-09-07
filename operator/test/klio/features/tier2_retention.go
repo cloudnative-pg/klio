@@ -21,10 +21,11 @@ package features
 
 import (
 	"bytes"
+	"cmp"
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -51,10 +52,6 @@ const (
 	tier2AnnotationName = "klio.io/tier2"
 	// presentAnnotationValue is the value set when a backup is present in a tier.
 	presentAnnotationValue = "present"
-	// tier2KopiaConfigPattern is the glob pattern for finding the tier2 Kopia config file.
-	// Used by verifyTier2RetentionPolicySet to run kopia policy commands.
-	// The file ending in .kopia-password contains the path to the actual config.
-	tier2KopiaConfigPattern = "/tmp/kopiaconfig_tier2_rw_*.kopia-password"
 	// archiveConfigPath is the config file the klio-plugin sidecar uses for its own
 	// cluster's backup/WAL-archive operations, mounted from the ArchiveConfigKey
 	// projection. It carries this cluster's own Tier2RecoveryEnabled setting, so it
@@ -154,31 +151,25 @@ func (f *Tier2RetentionFeature) Setup() types.StepFunc {
 
 // Run executes the tier2 retention feature test.
 //
-// This test validates the complete tier2 retention pipeline using a four-level
+// This test validates the complete tier2 retention pipeline using a three-level
 // verification strategy:
 //
-//  1. Result Verification: Verifies that tier2 contains exactly `keepLatest` backups
-//     by counting Kopia snapshots. This confirms retention was applied but doesn't
-//     prove the mechanism is working (could be coincidence or manual deletion).
+//  1. Retention Verification: creates more backups than `keepLatest` and verifies
+//     that tier2 ends up with exactly `keepLatest` backups and that the oldest one
+//     was the backup the retention manager deleted (the newest survive). This
+//     exercises the full path: PluginConfiguration CR -> operator -> klio-plugin
+//     config -> CloseBackup GRPC -> NATS queue -> backup consumer -> Klio-managed
+//     retention.
 //
-//  2. Mechanism Verification: Queries Kopia directly via `kopia policy list` to verify
-//     the retention policy was actually configured with the correct `keepLatest` value.
-//     This proves the full policy propagation path is working:
-//     PluginConfiguration CR -> operator -> klio-plugin config -> CloseBackup GRPC ->
-//     NATS queue -> backup consumer -> SetKopiaPolicy() -> ApplyKopiaPolicy()
-//
-//  3. WAL Retention Verification: Monitors WAL directory count before and after
+//  2. WAL Retention Verification: Monitors WAL directory count before and after
 //     retention to verify WAL cleanup is occurring. This is a soft check (logs
 //     warnings only) because WAL retention depends on backup metadata (StartWAL)
 //     and timing, making strict assertions fragile.
 //
-//  4. Tier2 Recovery Gate Verification: this scenario configures tier2 for backup
+//  3. Tier2 Recovery Gate Verification: this scenario configures tier2 for backup
 //     only (EnableTier2Recovery: false). Runs an actual `klio restore` as this
 //     cluster's own client identity and verifies the gate log fires, confirming
 //     tier2 was dropped as a recovery source rather than silently used.
-//
-// The test creates more backups than `keepLatest` to trigger retention, then verifies
-// all four levels pass.
 func (f *Tier2RetentionFeature) Run() types.StepFunc {
 	return func(ctx context.Context, t *testing.T, cfg *envconf.Config) context.Context {
 		t.Helper()
@@ -187,8 +178,12 @@ func (f *Tier2RetentionFeature) Run() types.StepFunc {
 		r, err := resources.New(cfg.Client().RESTConfig())
 		require.NoError(t, err, "failed to create resources client")
 
-		// Track WAL directory count to verify WAL retention (Level 3 verification)
+		// Track WAL directory count to verify WAL retention (Level 2 verification)
 		var walDirCountAfterFirstBackup int
+
+		// Name of the first (oldest) backup that reached tier2. Retention must
+		// eventually delete it once newer backups push it outside the policy.
+		var oldestTier2BackupName string
 
 		// Create more backups than keepLatest to trigger retention
 		for i, backup := range f.backups {
@@ -219,7 +214,14 @@ func (f *Tier2RetentionFeature) Run() types.StepFunc {
 			t.Logf("Tier2 has expected %d backup(s) after backup %d", expectedBackups, i+1)
 
 			// After the first backup, record the WAL directory count as baseline
+			// and remember which backup reached tier2 first (the oldest one).
 			if i == 0 {
+				names, listErr := listTier2BackupNames(ctx, r, f.namespace, f.klioServer.Name)
+				require.NoError(t, listErr, "failed to list tier2 backups after the first backup")
+				require.Len(t, names, 1, "expected exactly one tier2 backup after the first backup")
+				oldestTier2BackupName = names[0]
+				t.Logf("Oldest tier2 backup recorded: %s", oldestTier2BackupName)
+
 				walDirCountAfterFirstBackup, err = countTier2WALDirectories(
 					ctx, r, f.namespace, f.klioServer.Name, f.s3Prefix, f.clusterName)
 				if err != nil {
@@ -231,37 +233,27 @@ func (f *Tier2RetentionFeature) Run() types.StepFunc {
 		}
 
 		// ==========================================
-		// Level 1: Result Verification
+		// Level 1: Retention Verification
 		// ==========================================
-		// Verify that tier2 contains exactly keepLatest backups by querying
-		// the Klio admin API and counting backups with the tier2 annotation.
-		t.Logf("[Level 1] Result verification: tier2 should have exactly %d backup(s)", f.keepLatest)
+		// Verify that tier2 contains exactly keepLatest backups and that the
+		// oldest one was deleted by the retention manager (the newest survive).
+		t.Logf("[Level 1] Retention verification: tier2 should have exactly %d backup(s)", f.keepLatest)
 		err = wait.For(
 			checkTier2HasBackups(r, f.namespace, f.klioServer.Name, f.keepLatest),
 			wait.WithTimeout(f.replicationTimeout),
 			wait.WithInterval(f.checkInterval),
 		)
 		require.NoError(t, err, "Level 1 failed: tier2 backup count verification failed")
-		t.Logf("[Level 1] PASSED: tier2 has exactly %d backup(s)", f.keepLatest)
+
+		survivingNames, err := listTier2BackupNames(ctx, r, f.namespace, f.klioServer.Name)
+		require.NoError(t, err, "Level 1 failed: could not list surviving tier2 backups")
+		require.NotContains(t, survivingNames, oldestTier2BackupName,
+			"Level 1 failed: the oldest backup should have been deleted by the retention manager")
+		t.Logf("[Level 1] PASSED: tier2 has exactly %d backup(s) and the oldest (%s) was deleted",
+			f.keepLatest, oldestTier2BackupName)
 
 		// ==========================================
-		// Level 2: Mechanism Verification
-		// ==========================================
-		// Query Kopia directly to verify the retention policy was actually set.
-		// This proves the full propagation path is working, not just the result.
-		// We use `kopia policy list` to find all policies and check for one
-		// matching our cluster (hostname) with the expected keepLatest value.
-		t.Log("[Level 2] Mechanism verification: checking Kopia retention policy is set...")
-		policyKeepLatest, err := verifyTier2RetentionPolicySet(
-			ctx, r, f.namespace, f.klioServer.Name, f.clusterName)
-		require.NoError(t, err, "Level 2 failed: could not verify tier2 retention policy")
-		require.Equal(t, f.keepLatest, policyKeepLatest,
-			"Level 2 failed: tier2 Kopia retention policy keepLatest=%d, expected=%d",
-			policyKeepLatest, f.keepLatest)
-		t.Logf("[Level 2] PASSED: Kopia retention policy has keepLatest=%d", policyKeepLatest)
-
-		// ==========================================
-		// Level 3: WAL Retention Verification (Soft Check)
+		// Level 2: WAL Retention Verification (Soft Check)
 		// ==========================================
 		// Monitor WAL directory count to verify cleanup is occurring.
 		// This is a soft check (warnings only) because:
@@ -271,15 +263,15 @@ func (f *Tier2RetentionFeature) Run() types.StepFunc {
 		verifyWALRetention(ctx, t, r, f, walDirCountAfterFirstBackup)
 
 		// ==========================================
-		// Level 4: Tier2 Recovery Gate Verification
+		// Level 3: Tier2 Recovery Gate Verification
 		// ==========================================
 		// This scenario configures tier2 for backup only (EnableTier2Recovery:
 		// false). Run an actual `klio restore` as this cluster's own client
 		// identity and verify the gate log fires, confirming tier2 was dropped
 		// as a recovery source rather than silently used.
-		t.Log("[Level 4] Tier2 recovery gate verification: klio restore must not use a backup-only tier2...")
+		t.Log("[Level 3] Tier2 recovery gate verification: klio restore must not use a backup-only tier2...")
 		verifyTier2RecoveryGate(ctx, t, r, f.namespace, f.backups[len(f.backups)-1])
-		t.Log("[Level 4] PASSED: klio restore logged that tier2 recovery is disabled")
+		t.Log("[Level 3] PASSED: klio restore logged that tier2 recovery is disabled")
 
 		t.Log("Tier2 retention test completed: all verification levels passed")
 
@@ -338,33 +330,33 @@ func verifyWALRetention(
 	t.Helper()
 
 	if baselineCount == 0 {
-		t.Log("[Level 3] SKIPPED: no baseline WAL count available")
+		t.Log("[Level 2] SKIPPED: no baseline WAL count available")
 
 		return
 	}
 
-	t.Log("[Level 3] WAL retention verification: checking WAL directory growth...")
+	t.Log("[Level 2] WAL retention verification: checking WAL directory growth...")
 	finalCount, err := countTier2WALDirectories(
 		ctx, r, f.namespace, f.klioServer.Name, f.s3Prefix, f.clusterName)
 	if err != nil {
-		t.Logf("[Level 3] WARNING: could not count final WAL directories: %v", err)
+		t.Logf("[Level 2] WARNING: could not count final WAL directories: %v", err)
 
 		return
 	}
 
-	t.Logf("[Level 3] WAL directories: %d (was %d after first backup)", finalCount, baselineCount)
+	t.Logf("[Level 2] WAL directories: %d (was %d after first backup)", finalCount, baselineCount)
 
 	// WAL retention should prevent unbounded growth. We allow 3x growth
 	// to account for WALs generated during test execution.
 	const maxGrowthFactor = 3
 	if finalCount > baselineCount*maxGrowthFactor {
-		t.Logf("[Level 3] WARNING: WAL directory count grew significantly (%d -> %d), "+
+		t.Logf("[Level 2] WARNING: WAL directory count grew significantly (%d -> %d), "+
 			"WAL retention may not be working as expected", baselineCount, finalCount)
 
 		return
 	}
 
-	t.Log("[Level 3] PASSED: WAL directory growth is within acceptable bounds")
+	t.Log("[Level 2] PASSED: WAL directory growth is within acceptable bounds")
 }
 
 // checkTier2HasBackups checks if tier2 has exactly the expected number of backups.
@@ -414,112 +406,46 @@ func checkTier2HasBackups(
 	}
 }
 
-// verifyTier2RetentionPolicySet verifies that the Kopia retention policy is set in tier2.
-// It uses `kopia policy list` to find all policies and searches for one matching the
-// cluster name (hostname). This is necessary because policies are stored with
-// "username@hostname" format and we don't know the username in the test context.
-// Returns the keepLatest value from the policy, or an error if the policy is not set.
-//
-//nolint:cyclop
-func verifyTier2RetentionPolicySet(
+// listTier2BackupNames returns the names of the backups currently present in
+// tier2 (those carrying the tier2 annotation), ordered newest first by their
+// start time.
+func listTier2BackupNames(
 	ctx context.Context,
 	r *resources.Resources,
 	namespace string,
 	serverName string,
-	clusterName string,
-) (int, error) {
+) ([]string, error) {
 	podName := serverName + klioPodSuffix
 
-	// Find the tier2 config file
 	var stdout, stderr bytes.Buffer
-	findCmd := []string{
-		"sh", "-c",
-		"ls " + tier2KopiaConfigPattern + " 2>/dev/null",
+	klioCmd := []string{"klio", "admin", "list-backups"}
+	if err := r.ExecInPod(ctx, namespace, podName, serverContainerName, klioCmd, &stdout, &stderr); err != nil {
+		return nil, fmt.Errorf("failed to list backups: %w; stderr: %s", err, stderr.String())
 	}
 
-	err := r.ExecInPod(ctx, namespace, podName, serverContainerName, findCmd, &stdout, &stderr)
-	if err != nil {
-		return 0, fmt.Errorf("could not find kopia tier2 config: %w", err)
+	type backupMetadata struct {
+		Name        string            `json:"name"`
+		StartedAt   int64             `json:"startedAt"`
+		Annotations map[string]string `json:"annotations,omitempty"`
 	}
 
-	passwordFile := strings.TrimSpace(stdout.String())
-	if passwordFile == "" {
-		return 0, errors.New("kopia tier2 config password file not found")
+	var backups []backupMetadata
+	if err := json.Unmarshal(stdout.Bytes(), &backups); err != nil {
+		return nil, fmt.Errorf("failed to parse backup list: %w", err)
 	}
 
-	configFile := strings.TrimSuffix(passwordFile, ".kopia-password")
+	slices.SortFunc(backups, func(a, b backupMetadata) int {
+		return cmp.Compare(b.StartedAt, a.StartedAt)
+	})
 
-	// First, use `kopia policy list` to find the full target (username@hostname).
-	// We can't use `kopia policy show <hostname>` directly because Kopia stores policies
-	// with "username@hostname" format and we don't know the username.
-	stdout.Reset()
-	stderr.Reset()
-	listCmd := []string{
-		"kopia", "policy", "list",
-		"--disable-file-logging",
-		"--config-file=" + configFile,
-		"--json",
-	}
-
-	err = r.ExecInPod(ctx, namespace, podName, serverContainerName, listCmd, &stdout, &stderr)
-	if err != nil {
-		return 0, fmt.Errorf("failed to list kopia policies: %w; stderr: %s", err, stderr.String())
-	}
-
-	// Parse to find the target string for our cluster
-	var policies []struct {
-		Target struct {
-			Host string `json:"host"`
-			User string `json:"userName"`
-		} `json:"target"`
-	}
-	if err := json.Unmarshal(stdout.Bytes(), &policies); err != nil {
-		return 0, fmt.Errorf("failed to parse kopia policy list output: %w", err)
-	}
-
-	// Find the full target for our cluster
-	var targetStr string
-	for _, p := range policies {
-		if p.Target.Host == clusterName {
-			targetStr = p.Target.User + "@" + p.Target.Host
-			break
+	names := make([]string, 0, len(backups))
+	for i := range backups {
+		if backups[i].Annotations[tier2AnnotationName] == presentAnnotationValue {
+			names = append(names, backups[i].Name)
 		}
 	}
-	if targetStr == "" {
-		return 0, fmt.Errorf("no policy found for host %q in %d policies", clusterName, len(policies))
-	}
 
-	// Now use `kopia policy show` to get the full policy details
-	stdout.Reset()
-	stderr.Reset()
-	showCmd := []string{
-		"kopia", "policy", "show",
-		targetStr,
-		"--disable-file-logging",
-		"--config-file=" + configFile,
-		"--json",
-	}
-
-	err = r.ExecInPod(ctx, namespace, podName, serverContainerName, showCmd, &stdout, &stderr)
-	if err != nil {
-		return 0, fmt.Errorf("failed to show kopia policy for %q: %w; stderr: %s", targetStr, err, stderr.String())
-	}
-
-	// Parse the policy details
-	var policyDetail struct {
-		RetentionPolicy struct {
-			KeepLatest *int `json:"keepLatest"`
-		} `json:"retention"`
-	}
-	if err := json.Unmarshal(stdout.Bytes(), &policyDetail); err != nil {
-		return 0, fmt.Errorf("failed to parse kopia policy show output: %w", err)
-	}
-
-	if policyDetail.RetentionPolicy.KeepLatest == nil {
-		return 0, fmt.Errorf("policy found for target %q but keepLatest not set", targetStr)
-	}
-
-	return *policyDetail.RetentionPolicy.KeepLatest, nil
+	return names, nil
 }
 
 // countTier2WALDirectories counts the number of WAL prefix directories in tier2 S3 storage.

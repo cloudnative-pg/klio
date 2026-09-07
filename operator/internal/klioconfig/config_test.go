@@ -227,8 +227,7 @@ func TestGenerateConfig(t *testing.T) {
 				ClusterName:   testClusterName,
 				Tier1: &kliov1alpha1.Tier1PluginConfiguration{
 					RetentionPolicy: &kliov1alpha1.RetentionPolicy{
-						KeepLatest: new(5),
-						KeepDaily:  new(7),
+						Latest: 5,
 					},
 				},
 			},
@@ -236,8 +235,7 @@ func TestGenerateConfig(t *testing.T) {
 			assertions: func(t *testing.T, cfg *config.Data) {
 				t.Helper()
 				assert.NotNil(t, cfg.Tier1RetentionPolicy)
-				assert.Equal(t, new(5), cfg.Tier1RetentionPolicy.KeepLatest)
-				assert.Equal(t, new(7), cfg.Tier1RetentionPolicy.KeepDaily)
+				assert.Equal(t, 5, cfg.Tier1RetentionPolicy.Latest)
 			},
 		},
 		{
@@ -249,8 +247,7 @@ func TestGenerateConfig(t *testing.T) {
 				Tier2: &kliov1alpha1.Tier2PluginConfiguration{
 					EnableBackup: true,
 					RetentionPolicy: &kliov1alpha1.RetentionPolicy{
-						KeepWeekly:  new(4),
-						KeepMonthly: new(12),
+						Latest: 12,
 					},
 				},
 			},
@@ -258,8 +255,7 @@ func TestGenerateConfig(t *testing.T) {
 			assertions: func(t *testing.T, cfg *config.Data) {
 				t.Helper()
 				assert.NotNil(t, cfg.Tier2RetentionPolicy)
-				assert.Equal(t, new(4), cfg.Tier2RetentionPolicy.KeepWeekly)
-				assert.Equal(t, new(12), cfg.Tier2RetentionPolicy.KeepMonthly)
+				assert.Equal(t, 12, cfg.Tier2RetentionPolicy.Latest)
 			},
 		},
 		{
@@ -270,13 +266,13 @@ func TestGenerateConfig(t *testing.T) {
 				ClusterName:   testClusterName,
 				Tier1: &kliov1alpha1.Tier1PluginConfiguration{
 					RetentionPolicy: &kliov1alpha1.RetentionPolicy{
-						KeepLatest: new(3),
+						Latest: 3,
 					},
 				},
 				Tier2: &kliov1alpha1.Tier2PluginConfiguration{
 					EnableBackup: true,
 					RetentionPolicy: &kliov1alpha1.RetentionPolicy{
-						KeepLatest: new(10),
+						Latest: 10,
 					},
 				},
 			},
@@ -285,8 +281,8 @@ func TestGenerateConfig(t *testing.T) {
 				t.Helper()
 				assert.NotNil(t, cfg.Tier1RetentionPolicy)
 				assert.NotNil(t, cfg.Tier2RetentionPolicy)
-				assert.Equal(t, new(3), cfg.Tier1RetentionPolicy.KeepLatest)
-				assert.Equal(t, new(10), cfg.Tier2RetentionPolicy.KeepLatest)
+				assert.Equal(t, 3, cfg.Tier1RetentionPolicy.Latest)
+				assert.Equal(t, 10, cfg.Tier2RetentionPolicy.Latest)
 			},
 		},
 		{
@@ -320,44 +316,17 @@ func TestConvertRetentionPolicy(t *testing.T) {
 		assert.Nil(t, result)
 	})
 
-	t.Run("all fields set", func(t *testing.T) {
+	t.Run("latest is set", func(t *testing.T) {
 		input := &kliov1alpha1.RetentionPolicy{
-			KeepLatest:  new(5),
-			KeepAnnual:  new(2),
-			KeepMonthly: new(6),
-			KeepWeekly:  new(4),
-			KeepDaily:   new(7),
-			KeepHourly:  new(24),
+			Latest: 5,
 		}
 
 		result := convertRetentionPolicy(input)
 
 		assert.NotNil(t, result)
 		assert.Equal(t, &config.RetentionPolicy{
-			KeepLatest:  new(5),
-			KeepAnnual:  new(2),
-			KeepMonthly: new(6),
-			KeepWeekly:  new(4),
-			KeepDaily:   new(7),
-			KeepHourly:  new(24),
+			Latest: 5,
 		}, result)
-	})
-
-	t.Run("partial fields set", func(t *testing.T) {
-		input := &kliov1alpha1.RetentionPolicy{
-			KeepLatest: new(3),
-			KeepDaily:  new(7),
-		}
-
-		result := convertRetentionPolicy(input)
-
-		assert.NotNil(t, result)
-		assert.Equal(t, new(3), result.KeepLatest)
-		assert.Equal(t, new(7), result.KeepDaily)
-		assert.Nil(t, result.KeepAnnual)
-		assert.Nil(t, result.KeepMonthly)
-		assert.Nil(t, result.KeepWeekly)
-		assert.Nil(t, result.KeepHourly)
 	})
 }
 
@@ -376,14 +345,14 @@ func TestConvertTier1RetentionPolicy(t *testing.T) {
 	t.Run("tier1 with retention policy", func(t *testing.T) {
 		tier1 := &kliov1alpha1.Tier1PluginConfiguration{
 			RetentionPolicy: &kliov1alpha1.RetentionPolicy{
-				KeepLatest: new(10),
+				Latest: 10,
 			},
 		}
 
 		result := convertTier1RetentionPolicy(tier1)
 
 		assert.NotNil(t, result)
-		assert.Equal(t, new(10), result.KeepLatest)
+		assert.Equal(t, 10, result.Latest)
 	})
 }
 
@@ -405,16 +374,14 @@ func TestConvertTier2RetentionPolicy(t *testing.T) {
 		tier2 := &kliov1alpha1.Tier2PluginConfiguration{
 			EnableBackup: true,
 			RetentionPolicy: &kliov1alpha1.RetentionPolicy{
-				KeepDaily:  new(7),
-				KeepWeekly: new(4),
+				Latest: 7,
 			},
 		}
 
 		result := convertTier2RetentionPolicy(tier2)
 
 		assert.NotNil(t, result)
-		assert.Equal(t, new(7), result.KeepDaily)
-		assert.Equal(t, new(4), result.KeepWeekly)
+		assert.Equal(t, 7, result.Latest)
 	})
 }
 

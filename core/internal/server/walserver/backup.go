@@ -30,8 +30,8 @@ import (
 	"google.golang.org/grpc/status"
 
 	"github.com/cloudnative-pg/klio/core/internal/grpc"
-	"github.com/cloudnative-pg/klio/core/internal/kopia"
 	"github.com/cloudnative-pg/klio/core/internal/queue"
+	"github.com/cloudnative-pg/klio/core/pkg/retention"
 )
 
 // CloseBackup implements the CloseBackup GRPC call.
@@ -72,8 +72,6 @@ func (w *Implementation) CloseBackup(
 }
 
 func (w *Implementation) scheduleBackupRelay(ctx context.Context, request *grpc.CloseBackupRequest) error {
-	contextLogger := log.FromContext(ctx)
-
 	if w.queue == nil {
 		return status.Errorf(
 			codes.Internal,
@@ -81,25 +79,38 @@ func (w *Implementation) scheduleBackupRelay(ctx context.Context, request *grpc.
 		)
 	}
 
-	var tier2Policy *kopia.RetentionPolicy
-	if request.GetTier2RetentionPolicy() != "" {
-		var policy kopia.RetentionPolicy
-		if err := json.Unmarshal([]byte(request.GetTier2RetentionPolicy()), &policy); err != nil {
-			contextLogger.Error(err, "Unable to unmarshal tier2 retention policy, skipping")
-		} else {
-			tier2Policy = &policy
-		}
-	}
+	tier1Policy := parseRetentionPolicy(ctx, "tier1", request.GetTier1RetentionPolicy())
+	tier2Policy := parseRetentionPolicy(ctx, "tier2", request.GetTier2RetentionPolicy())
 
 	if err := w.queue.NotifyBackupReceived(ctx, &queue.BackupTask{
 		ClusterName:          request.GetClusterName(),
 		SendToTier2:          request.GetSendToTier2(),
+		Tier1RetentionPolicy: tier1Policy,
 		Tier2RetentionPolicy: tier2Policy,
 	}); err != nil {
 		return fmt.Errorf("while sending task to queue: %w", err)
 	}
 
 	return nil
+}
+
+// parseRetentionPolicy decodes a JSON-serialized retention policy carried on a
+// CloseBackup request. An empty payload, or one that fails to decode, yields the
+// zero policy (keep everything); a decode error is logged and swallowed so a
+// malformed policy never turns into an accidental mass deletion.
+func parseRetentionPolicy(ctx context.Context, tier, payload string) retention.Policy {
+	if payload == "" {
+		return retention.Policy{}
+	}
+
+	var policy retention.Policy
+	if err := json.Unmarshal([]byte(payload), &policy); err != nil {
+		log.FromContext(ctx).Error(err, "Unable to unmarshal retention policy, keeping everything", "tier", tier)
+
+		return retention.Policy{}
+	}
+
+	return policy
 }
 
 func (w *Implementation) checkWALFiles(request *grpc.CloseBackupRequest) ([]string, error) {

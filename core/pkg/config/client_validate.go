@@ -38,6 +38,18 @@ func (d *Data) Validate() error {
 		errs = errors.Join(errs, err)
 	}
 
+	if d.Tier1RetentionPolicy != nil {
+		if err := d.Tier1RetentionPolicy.Validate(); err != nil {
+			errs = errors.Join(errs, err)
+		}
+	}
+
+	if d.Tier2RetentionPolicy != nil {
+		if err := d.Tier2RetentionPolicy.Validate(); err != nil {
+			errs = errors.Join(errs, err)
+		}
+	}
+
 	return errs
 }
 

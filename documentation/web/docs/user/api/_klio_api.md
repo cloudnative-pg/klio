@@ -215,7 +215,8 @@ _Appears in:_
 
 
 
-RetentionPolicy defines how many backups we should keep.
+RetentionPolicy defines which backups Klio should keep. Omitting the whole
+policy keeps every backup.
 
 
 
@@ -225,12 +226,7 @@ _Appears in:_
 
 | Field | Description | Required | Default | Validation |
 | --- | --- | --- | --- | --- |
-| `keepLatest` _integer_ | KeepLatest is the number of latest backups to keep<br />optional | True |  |  |
-| `keepAnnual` _integer_ | KeepAnnual is the number of annual backups to keep<br />optional | True |  |  |
-| `keepMonthly` _integer_ | KeepMonthly is the number of monthly backups to keep<br />optional | True |  |  |
-| `keepWeekly` _integer_ | KeepWeekly is the number of weekly backups to keep<br />optional | True |  |  |
-| `keepDaily` _integer_ | KeepDaily is the number of daily backups to keep<br />optional | True |  |  |
-| `keepHourly` _integer_ | KeepHourly is the number of hourly backups to keep<br />optional | True |  |  |
+| `latest` _integer_ | Latest keeps only the given number of most recent backups and deletes the<br />rest. | True |  |  |
 
 
 #### S3Configuration

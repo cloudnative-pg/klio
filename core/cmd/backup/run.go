@@ -36,7 +36,6 @@ import (
 	"github.com/cloudnative-pg/klio/core/internal/client/klioclient/grpcclient"
 	"github.com/cloudnative-pg/klio/core/internal/client/klioclient/kopia"
 	"github.com/cloudnative-pg/klio/core/internal/grpc"
-	kopiaWrapper "github.com/cloudnative-pg/klio/core/internal/kopia"
 	"github.com/cloudnative-pg/klio/core/pkg/config"
 )
 
@@ -118,13 +117,13 @@ func runBackup(cmd *cobra.Command, _ []string) error {
 			backupfailure.RepositoryError.ExitCode)
 	}
 
-	if err := backupExecutor.Upload(cmd.Context(), tier2); err != nil {
+	if err := backupExecutor.Upload(cmd.Context()); err != nil {
 		return cli.NewCodedError(
 			fmt.Errorf("while uploading data: %w", err),
 			backupfailure.RepositoryError.ExitCode)
 	}
 
-	metadata, err := backupExecutor.Close(cmd.Context(), tier2)
+	metadata, err := backupExecutor.Close(cmd.Context())
 	if err != nil {
 		return cli.NewCodedError(
 			fmt.Errorf("while closing the backup: %w", err),
@@ -138,26 +137,17 @@ func runBackup(cmd *cobra.Command, _ []string) error {
 			backupfailure.RepositoryError.ExitCode)
 	}
 
+	tier1RetentionPolicy, err := configuration.Tier1RetentionPolicy.MarshalWire()
+	if err != nil {
+		contextLogger.Error(err, "Error while serializing the tier1 retention policy, skipping")
+	}
+
+	tier2RetentionPolicy, err := configuration.Tier2RetentionPolicy.MarshalWire()
+	if err != nil {
+		contextLogger.Error(err, "Error while serializing the tier2 retention policy, skipping")
+	}
+
 	for {
-		var tier2RetentionPolicy string
-		if configuration.Tier2RetentionPolicy != nil {
-			policy := kopiaWrapper.RetentionPolicy{
-				KeepLatest:  configuration.Tier2RetentionPolicy.KeepLatest,
-				KeepHourly:  configuration.Tier2RetentionPolicy.KeepHourly,
-				KeepDaily:   configuration.Tier2RetentionPolicy.KeepDaily,
-				KeepWeekly:  configuration.Tier2RetentionPolicy.KeepWeekly,
-				KeepMonthly: configuration.Tier2RetentionPolicy.KeepMonthly,
-				KeepAnnual:  configuration.Tier2RetentionPolicy.KeepAnnual,
-			}
-
-			content, err := json.Marshal(policy)
-			if err != nil {
-				contextLogger.Error(err, "Error while serializing the tier2 retention policy, skipping")
-			} else {
-				tier2RetentionPolicy = string(content)
-			}
-		}
-
 		result, err := grpcClient.CloseBackup(cmd.Context(), &grpc.CloseBackupRequest{
 			ClusterName:          kopiaClient.GetHostname(),
 			BackupName:           metadata.Name,
@@ -166,6 +156,7 @@ func runBackup(cmd *cobra.Command, _ []string) error {
 			EndWal:               metadata.EndWAL,
 			SegmentSize:          metadata.SegmentSize,
 			SendToTier2:          tier2,
+			Tier1RetentionPolicy: tier1RetentionPolicy,
 			Tier2RetentionPolicy: tier2RetentionPolicy,
 		})
 		if err != nil {

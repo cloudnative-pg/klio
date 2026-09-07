@@ -27,7 +27,6 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
-	"strconv"
 	"strings"
 	"time"
 
@@ -79,25 +78,13 @@ func (b backupServiceImplementation) Backup(
 	ctx, span := tracer.Start(ctx, opentelemetry.BackupSpan)
 	defer span.End()
 
-	// Step 1: get and apply the retention policies
 	var cluster cnpgv1.Cluster
 	if err := json.Unmarshal(request.GetClusterDefinition(), &cluster); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal cluster definition: %w", err)
 	}
 
-	r, err := extractTier1RetentionFromConfiguration()
-	if err != nil {
-		return nil, fmt.Errorf("failed to extract retention policy from configuration: %w", err)
-	}
-
-	if err = b.setRetentionPolicy(ctx, r); err != nil {
-		// Yes this is intentional. If we don't set the retention policies from
-		// the configuration file, it is not a major issue. We can continue with the backup.
-		// The eventual error will be logged into the setRetentionPolicy function
-		log.Error(err, "failed to set retention policy")
-	}
-
-	// Step 2: starting the backup
+	// The backup consumer applies retention server-side from the policy carried
+	// on the CloseBackup request, so the plugin only starts the backup.
 	backupName := fmt.Sprintf("backup-%v", pgTime.ToCompactISO8601(time.Now()))
 	isPrimary := b.InstanceName == cluster.Status.CurrentPrimary
 
@@ -326,66 +313,6 @@ func (b backupServiceImplementation) runVerify(ctx context.Context, backupName s
 	}
 
 	return false, nil
-}
-
-//nolint:cyclop
-func (b backupServiceImplementation) setRetentionPolicy(ctx context.Context, r *Retention) error {
-	contextLogger := log.FromContext(ctx)
-
-	if r.IsEmpty() {
-		contextLogger.Info("Skipping retention policy creation")
-		return nil
-	}
-
-	klioPath, err := os.Executable()
-	if err != nil {
-		return fmt.Errorf("failed to determine klio path: %w", err)
-	}
-
-	klioArgs := []string{
-		"retention", "set", "--config", backupRepositoryConfigPath,
-	}
-	if r.KeepAnnual != nil {
-		klioArgs = append(klioArgs, "--keep-annual", strconv.Itoa(*r.KeepAnnual))
-	}
-	if r.KeepDaily != nil {
-		klioArgs = append(klioArgs, "--keep-daily", strconv.Itoa(*r.KeepDaily))
-	}
-	if r.KeepHourly != nil {
-		klioArgs = append(klioArgs, "--keep-hourly", strconv.Itoa(*r.KeepHourly))
-	}
-	if r.KeepLatest != nil {
-		klioArgs = append(klioArgs, "--keep-latest", strconv.Itoa(*r.KeepLatest))
-	}
-	if r.KeepWeekly != nil {
-		klioArgs = append(klioArgs, "--keep-weekly", strconv.Itoa(*r.KeepWeekly))
-	}
-	if r.KeepMonthly != nil {
-		klioArgs = append(klioArgs, "--keep-monthly", strconv.Itoa(*r.KeepMonthly))
-	}
-
-	contextLogger.Info("Executing klio retention set", "args", klioArgs)
-	//nolint:gosec
-	cmd := exec.CommandContext(ctx, klioPath, klioArgs...)
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("failed to execute 'klio retention set' command: %w", err)
-	}
-
-	contextLogger.Info("Executing klio retention get")
-	//nolint:gosec
-	cmd = exec.CommandContext(ctx, klioPath, "retention", "get", "--config", backupRepositoryConfigPath)
-	var stdout bytes.Buffer
-	cmd.Stdout = &stdout
-	cmd.Stderr = os.Stderr
-	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("failed to execute 'klio retention get' command: %w", err)
-	}
-
-	contextLogger.Info("Effective retention policy", "effectivePolicy", stdout.String())
-
-	return nil
 }
 
 // filterOTelEnv returns a copy of env with all OTEL_ variables removed.

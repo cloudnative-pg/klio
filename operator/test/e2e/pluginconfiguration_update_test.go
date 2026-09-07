@@ -145,7 +145,7 @@ func (c *pluginConfigurationUpdateScenario) Run(
 	if currentPC.Spec.Tier1.RetentionPolicy == nil {
 		currentPC.Spec.Tier1.RetentionPolicy = &kliov1alpha1.RetentionPolicy{}
 	}
-	currentPC.Spec.Tier1.RetentionPolicy.KeepLatest = new(5)
+	currentPC.Spec.Tier1.RetentionPolicy.Latest = 5
 
 	require.NoError(t, r.Update(ctx, &currentPC), "failed to update PluginConfiguration")
 
