@@ -71,6 +71,32 @@ func (w *Implementation) CloseBackup(
 	}, nil
 }
 
+// ApplyRetention implements the ApplyRetention GRPC call. It enqueues a
+// maintenance-only task so the backup consumer applies the retention policies
+// to the cluster immediately, without waiting for the next backup.
+func (w *Implementation) ApplyRetention(
+	ctx context.Context,
+	request *grpc.ApplyRetentionRequest,
+) (*grpc.ApplyRetentionResult, error) {
+	if w.queue == nil {
+		return nil, status.Errorf(codes.Internal, "queue service is uninitialized")
+	}
+
+	tier1Policy := parseRetentionPolicy(ctx, "tier1", request.GetTier1RetentionPolicy())
+	tier2Policy := parseRetentionPolicy(ctx, "tier2", request.GetTier2RetentionPolicy())
+
+	if err := w.queue.NotifyBackupReceived(ctx, &queue.BackupTask{
+		ClusterName:          request.GetClusterName(),
+		MaintenanceOnly:      true,
+		Tier1RetentionPolicy: tier1Policy,
+		Tier2RetentionPolicy: tier2Policy,
+	}); err != nil {
+		return nil, status.Errorf(codes.Internal, "while scheduling retention: %v", err)
+	}
+
+	return &grpc.ApplyRetentionResult{Scheduled: true}, nil
+}
+
 func (w *Implementation) scheduleBackupRelay(ctx context.Context, request *grpc.CloseBackupRequest) error {
 	if w.queue == nil {
 		return status.Errorf(

@@ -243,6 +243,10 @@ for recovery by any retained backup.
 The retention policy is optional and must be set to at least `1` when present.
 Omit it entirely to keep every backup.
 
+A change to the retention policy takes effect the next time a backup is taken.
+To apply it immediately, for example to reclaim space after tightening the
+policy, run `klio retention apply`.
+
 ### Operation Mode
 
 The `mode` field controls whether the plugin can perform both backup and

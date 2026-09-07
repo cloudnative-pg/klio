@@ -165,6 +165,12 @@ func (d *Backup) processBackup(ctx context.Context, task *queue.BackupTask) erro
 	contextLogger := log.FromContext(ctx)
 	contextLogger.Info("Processing backup", "task", task)
 
+	// A maintenance-only task applies retention to the cluster without a new
+	// backup, so it skips snapshot listing, verification and the tier2 relay.
+	if task.MaintenanceOnly {
+		return d.maintainOnly(ctx, task)
+	}
+
 	entries, err := d.steps.listManifests(ctx, task.ClusterName)
 	if err != nil {
 		return err
@@ -227,6 +233,28 @@ func (d *Backup) relayAndMaintain(ctx context.Context, task *queue.BackupTask, e
 
 	if tier2Unavailable {
 		return errTier2NotConfigured
+	}
+
+	return nil
+}
+
+// maintainOnly applies the per-tier retention policies to a cluster without a
+// new backup, driven by a maintenance-only task. tier2 maintenance runs first
+// (when tier2 is configured) so the tier1 guard sees an up-to-date tier2
+// catalog before tier1 deletes anything; a tier2 failure is fatal so the task
+// is retried, while tier1 maintenance is best-effort.
+func (d *Backup) maintainOnly(ctx context.Context, task *queue.BackupTask) error {
+	contextLogger := log.FromContext(ctx)
+	contextLogger.Info("Applying on-demand retention", "cluster", task.ClusterName)
+
+	if d.tier2Enabled {
+		if err := d.steps.maintainTier2(ctx, task); err != nil {
+			return err
+		}
+	}
+
+	if err := d.steps.maintainTier1(ctx, task); err != nil {
+		contextLogger.Error(err, "Error while applying tier1 maintenance, skipping")
 	}
 
 	return nil
