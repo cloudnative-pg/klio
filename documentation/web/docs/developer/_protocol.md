@@ -352,6 +352,7 @@ been completed.
 | send_to_tier2 | [bool](#bool) |  | Require this backup to be sent to tier2. |
 | tier2_retention_policy | [string](#string) |  | When present, set the tier2 retention policy to the specified JSON-serialized policy. |
 | tier2_compression_policy | [string](#string) |  | When present, set the tier2 compression policy to the specified JSON-serialized policy. |
+| tier1_retention_policy | [string](#string) |  | When present, set the tier1 retention policy to the specified JSON-serialized policy. |
 
 
 

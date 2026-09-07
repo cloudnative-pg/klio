@@ -17,5 +17,15 @@ limitations under the License.
 SPDX-License-Identifier: Apache-2.0
 */
 
-// Package retention contains the implementation of the klio retention command
-package retention
+package kopia
+
+import (
+	"context"
+
+	"github.com/cloudnative-pg/klio/core/internal/kopia"
+)
+
+// SetCompressionPolicy sets the compression policy for backups of this cluster.
+func (s *Connection) SetCompressionPolicy(ctx context.Context, t kopia.Target, policy kopia.CompressionPolicy) error {
+	return s.kopia.SetKopiaCompressionPolicy(ctx, t, policy)
+}
