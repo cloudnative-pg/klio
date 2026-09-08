@@ -13,22 +13,6 @@ metadata:
     klio.cnpg.io/pprof: "true"
 spec:
   tier1:
-    cache:
-      pvcTemplate:
-        resources:
-          requests:
-            storage: 1Gi
-        accessModes:
-        - ReadWriteOnce
-
-    data:
-      pvcTemplate:
-        resources:
-          requests:
-            storage: 1Gi
-        accessModes:
-        - ReadWriteOnce
-
     encryptionKeyFile:
       fileReference:
         volume:
@@ -44,13 +28,6 @@ spec:
         path: secret-key
 
   tier2:
-    cache:
-      pvcTemplate:
-        resources:
-          requests:
-            storage: 1Gi
-        accessModes:
-          - ReadWriteOnce
     encryptionKeyFile:
       fileReference:
         volume:
@@ -80,11 +57,11 @@ spec:
         name: rustfs-tls
         key: tls.crt
 
-  queue:
+  storage:
     pvcTemplate:
       resources:
         requests:
-          storage: 100Mi
+          storage: 3Gi
       accessModes:
         - ReadWriteOnce
 

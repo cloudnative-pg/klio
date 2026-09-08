@@ -322,6 +322,8 @@ sfixed
 sint
 snapshotted
 str
+subdirectories
+subdirectory
 subprocess
 tablespaces
 teardown

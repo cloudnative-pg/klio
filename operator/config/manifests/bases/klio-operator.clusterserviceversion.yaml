@@ -29,9 +29,9 @@ spec:
     owned:
     - description: Server is the Schema for the Klio backup server API. It
         manages a StatefulSet running the Klio server together with the
-        PersistentVolumeClaims that back the cache, the data catalog, and
-        the task queue, and wires the server to the TLS material used for
-        client authentication.
+        PersistentVolumeClaim that backs its base backups, WAL
+        archive, Kopia caches, and task queue, and wires the server to
+        the TLS material used for client authentication.
       displayName: Klio Server
       kind: Server
       name: servers.klio.cnpg.io
@@ -80,24 +80,16 @@ spec:
         path: caSecretName
         x-descriptors:
         - urn:alm:descriptor:io.kubernetes:Secret
+      - description: Configuration for the PersistentVolumeClaim backing
+          the server's base backups, WAL archive, Kopia caches, and task queue.
+        displayName: Storage
+        path: storage
+      - description: Template used to provision the server's PVC.
+        displayName: Storage PVC Template
+        path: storage.pvcTemplate
       - description: Configuration for the local (Tier 1) storage layer.
         displayName: Tier 1 Configuration
         path: tier1
-      - description: Local cache layer used by the Klio server when staging Tier 1
-          data.
-        displayName: Tier 1 Cache
-        path: tier1.cache
-      - description: Template used to provision the Tier 1 cache PVC.
-        displayName: Tier 1 Cache PVC Template
-        path: tier1.cache.pvcTemplate
-      - description: Persistent data catalog backing the Tier 1 base backups and
-          WAL files.
-        displayName: Tier 1 Data
-        path: tier1.data
-      - description: Template used to provision the Tier 1 data PVC that hosts base
-          backups and WAL files.
-        displayName: Tier 1 Data PVC Template
-        path: tier1.data.pvcTemplate
       - description: Age-encrypted encryption key used to encrypt backups at rest.
         displayName: Tier 1 Encryption Key File
         path: tier1.encryptionKeyFile
@@ -108,13 +100,6 @@ spec:
       - description: Configuration for the remote (Tier 2) object storage layer.
         displayName: Tier 2 Configuration
         path: tier2
-      - description: Local cache layer used by the Klio server when staging Tier 2
-          data.
-        displayName: Tier 2 Cache
-        path: tier2.cache
-      - description: Template used to provision the Tier 2 cache PVC.
-        displayName: Tier 2 Cache PVC Template
-        path: tier2.cache.pvcTemplate
       - description: S3-compatible object storage settings for the Tier 2 layer.
         displayName: S3 Configuration
         path: tier2.s3
@@ -184,13 +169,6 @@ spec:
       - description: Age identity file used to decrypt the Tier 2 encryption key.
         displayName: Tier 2 Identity File
         path: tier2.identityFile
-      - description: Configuration for the task queue used to schedule backup and
-          WAL operations.
-        displayName: Task Queue
-        path: queue
-      - description: Template used to provision the PVC that backs the task queue.
-        displayName: Task Queue PVC Template
-        path: queue.pvcTemplate
       - description: Advanced pod/StatefulSet template override. Modifying this
           field can break server functionality; use at your own risk.
         displayName: Pod Template Override

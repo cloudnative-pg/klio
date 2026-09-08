@@ -26,6 +26,7 @@ import (
 	"os"
 
 	"github.com/cloudnative-pg/machinery/pkg/log"
+	"github.com/spf13/afero"
 	"github.com/thejerf/suture/v4"
 
 	"github.com/cloudnative-pg/klio/core/internal/kopia"
@@ -81,6 +82,7 @@ type serverOpts struct {
 	tier1 bool
 	tier2 bool
 
+	fs              afero.Fs
 	cfg             *config.ServerConfig
 	adminSocketPath string
 	runID           string

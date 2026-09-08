@@ -61,15 +61,15 @@ type Options struct {
 }
 
 // NewTier1Options creates Options for Tier1 initialization.
-func NewTier1Options(cfg *config.Tier1Config) Options {
+func NewTier1Options(fs afero.Fs, cfg *config.Tier1Config) Options {
 	walDirectory := cfg.Wal.WALPath
 	kopiaDirectory := cfg.Base.RepositoryDirectory
 
 	return Options{
-		WalFS:                 afero.NewBasePathFs(afero.NewOsFs(), walDirectory),
+		WalFS:                 afero.NewBasePathFs(fs, walDirectory),
 		WalEncryptionPassword: cfg.EncryptionKey,
 		Kopia: &KopiaOptions{
-			FS:                 afero.NewBasePathFs(afero.NewOsFs(), kopiaDirectory),
+			FS:                 afero.NewBasePathFs(fs, kopiaDirectory),
 			EncryptionPassword: cfg.EncryptionKey,
 			InitializeRepo: func(ctx context.Context) error {
 				return kopiaserver.InitializeTier1(ctx, cfg)

@@ -12,9 +12,11 @@ The Klio server runs as a single `server` container. On startup, it first
 initializes the Kopia repository, then starts serving both base backups
 (using Kopia) and the incoming stream of PostgreSQL Write-Ahead Logs (WAL).
 
-The base backups and WAL files are stored on a single PersistentVolume attached
-to the Klio server pod, in the `/data/base` and `/data/wal` directories,
-respectively.
+All of the server's persistent state — base backups, WAL archive, work
+queue, and Kopia caches — lives on a single PersistentVolumeClaim (PVC),
+mounted at `/klio` inside the pod. Base backups and WAL files are stored
+in the `/klio/data/base` and `/klio/data/wal` directories, respectively.
+See [Storage Requirements](#storage-requirements) for the full layout.
 
 ## Storage Tiers
 
@@ -42,8 +44,8 @@ See the [Object Store](#object-store) section for configuration details.
 ### The Work Queue
 
 When Tier 1 is configured, the Klio Server pods will use a work queue.
-The work queue is backed by NATS JetStream with file storage on a separate
-`PersistentVolume` mounted at `/queue`.
+The work queue is backed by NATS JetStream with file storage in the
+`/klio/queue` directory, on the same PVC as everything else.
 The queue serves two purposes:
 
 - **Retention policy enforcement**: Tracks which WAL files are in use before
@@ -53,28 +55,41 @@ The queue serves two purposes:
 
 ## Storage Requirements
 
-The Klio Server uses multiple PersistentVolumeClaims (PVCs), each
-serving a different purpose. Understanding what each PVC contains helps you
-size them appropriately for your environment. For guidance on managing
-storage capacity and resizing PVCs, see
-[Managing Storage](managing_storage.md).
+The Klio Server uses a single PersistentVolumeClaim (PVC), mounted at
+`/klio`, for all of its persistent state. There is one size and one
+`storageClassName` for the whole volume, set via
+`spec.storage.pvcTemplate` on the `Server` resource; backups, caches, and
+the queue share that single size. For guidance on resizing this PVC and
+recovering from a full disk, see [Managing Storage](managing_storage.md).
 
-### Data PVC
+On startup, the server creates the subdirectories it needs under
+`/klio`:
 
-The data PVC stores all backup data and WAL archives for Tier 1 storage.
+- **`data`** — base backups and the WAL archive for Tier 1 storage
+- **`queue`** — the NATS JetStream work queue (Tier 1 only)
+- **`cache_tier1`** — the Kopia cache for Tier 1
+- **`cache_tier2`** — the Kopia cache for Tier 2
 
-It holds the base backups and the WAL archive of all the servers that are backed
-up.
+A read-only (Tier 2-only) server still gets the PVC and the `/klio`
+mount; it only ever creates `cache_tier2`, since it has no Tier 1 data
+or queue to manage.
 
-The following factors should be considered when defining the PVC size:
+The sections below cover what drives the size of each subdirectory, so
+you can size the single PVC to hold all of them.
+
+### Base Backups and WAL Archive (`data`)
+
+The `data` subdirectory holds the base backups and the WAL archive of
+all the servers that are backed up by this Klio server. The following
+factors should be considered when sizing for it:
 
 1. WAL file production rate
 1. Base backup size
 1. Retention policies
 
-### Cache PVCs
+### Kopia Caches (`cache_tier1`, `cache_tier2`)
 
-The cache PVCs (one for Tier 1 and Tier 2 each) are used by Kopia for its
+The Tier 1 and Tier 2 caches are used by Kopia for its
 [caching operations](https://kopia.io/docs/advanced/caching/).
 They are used to speed up snapshot operations.
 
@@ -83,20 +98,19 @@ Klio is currently limited to use the default cache size when creating a Kopia
 repository, 5GB for content and 5GB for metadata.
 The cache sizes are not hard limits, as the cache is swept periodically,
 so users should have a space buffer to account for this additional space.
-This limitation will be removed in a future version.
 :::
 
-### Queue PVC
+### The Work Queue (`queue`)
 
-The queue PVC is required when Tier 1 is configured. It stores the NATS
-JetStream work queue used for retention policy enforcement and asynchronous
-Tier 2 replication.
+The `queue` subdirectory is created when Tier 1 is configured. It holds
+the NATS JetStream work queue used for retention policy enforcement and
+asynchronous Tier 2 replication.
 
 #### Queue Sizing Guidelines
 
 The queue stores only task metadata (cluster name and WAL filename), not the
-actual WAL content. This means queue size depends on the **number of WAL
-segments** generated, not the size of your database.
+actual WAL content. This means the space it needs depends on the **number of
+WAL segments** generated, not the size of your database.
 
 **Sizing formula:**
 
@@ -115,9 +129,9 @@ Where:
 - **300 bytes**: Approximate storage per WAL task (message + JetStream overhead)
 - **2**: Safety factor
 
-**Recommended sizes:**
+**Recommended headroom:**
 
-| Workload | WAL Rate | Recommended Size |
+| Workload | WAL Rate | Recommended Headroom |
 |----------|----------|------------------|
 | Low write (OLTP) | ~60 segments/hour | **10 MiB** |
 | Medium write | ~120 segments/hour | **25 MiB** |
@@ -133,11 +147,12 @@ for:
 - **Low cost of headroom**: Storage is cheap relative to the risk of queue
   overflow, which causes WAL loss
 
-For shorter tolerance windows, you can reduce the queue size proportionally, but
+For shorter tolerance windows, you can reduce this headroom proportionally, but
 keep the safety margin.
 
 :::tip
-Start with 50 MiB as a conservative default. Monitor queue usage with the
+Budget at least 50 MiB of headroom in the PVC for the queue as a
+conservative default. Monitor queue usage with the
 `klio admin queue status` command and adjust based on actual WAL production
 rates in your environment.
 :::
@@ -183,7 +198,6 @@ A read-only server requires:
 - `mode: read-only` field in the spec
 - `tier2` configuration (S3 object storage)
 - **No** `tier1` configuration
-- **No** `queue` configuration
 
 :::note
 The `mode` field is immutable. Once a Server is created, its mode
@@ -212,18 +226,20 @@ spec:
   # Client authentication configuration
   caSecretName: klio-server-ca
 
+  # The single PVC, mounted at /klio. In read-only mode the
+  # server only ever populates the cache_tier2 subdirectory, but the
+  # PVC and mount are the same for every server regardless of mode.
+  storage:
+    pvcTemplate:
+      storageClassName: standard
+      accessModes:
+        - ReadWriteOnce
+      resources:
+        requests:
+          storage: 10Gi
+
   # Tier 2 configuration (required for read-only mode)
   tier2:
-    # Cache storage configuration
-    cache:
-      pvcTemplate:
-        storageClassName: standard
-        accessModes:
-          - ReadWriteOnce
-        resources:
-          requests:
-            storage: 10Gi  # Only cache needed, no data storage
-
     # Age-encrypted encryption key file
     encryptionKeyFile:
       fileReference:

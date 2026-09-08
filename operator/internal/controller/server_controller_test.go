@@ -74,13 +74,10 @@ var _ = Describe("Server Controller", func() {
 							ClientCASecretName: "ca-secret",
 						},
 						Mode: kliov1alpha1.ModeStandard,
+						Storage: kliov1alpha1.Storage{
+							PersistentVolumeClaimTemplate: pvcTemplate,
+						},
 						Tier1: &kliov1alpha1.Tier1Configuration{
-							Cache: kliov1alpha1.Cache{
-								PersistentVolumeClaimTemplate: pvcTemplate,
-							},
-							Data: kliov1alpha1.Data{
-								PersistentVolumeClaimTemplate: pvcTemplate,
-							},
 							EncryptionKeyFile: kliov1alpha1.FileSource{
 								FileReference: &kliov1alpha1.FileReference{
 									Volume: corev1.VolumeSource{
@@ -97,9 +94,6 @@ var _ = Describe("Server Controller", func() {
 									Path: "identity.txt",
 								},
 							},
-						},
-						Queue: &kliov1alpha1.Queue{
-							PersistentVolumeClaimTemplate: pvcTemplate,
 						},
 					},
 				}
@@ -127,6 +121,24 @@ var _ = Describe("Server Controller", func() {
 				NamespacedName: typeNamespacedName,
 			})
 			Expect(err).NotTo(HaveOccurred())
+		})
+
+		It("should allow growing the storage PVC but reject shrinking it", func() {
+			resize := func(size string) error {
+				cur := &kliov1alpha1.Server{}
+				Expect(k8sClient.Get(ctx, typeNamespacedName, cur)).To(Succeed())
+				requests := cur.Spec.Storage.PersistentVolumeClaimTemplate.Resources.Requests
+				requests[corev1.ResourceStorage] = resource.MustParse(size)
+
+				return k8sClient.Update(ctx, cur)
+			}
+
+			Expect(resize("2Gi")).To(Succeed(), "growing must be allowed")
+			Expect(resize("2Gi")).To(Succeed(), "keeping the same size must be allowed")
+
+			err := resize("1Gi")
+			Expect(err).To(HaveOccurred(), "shrinking must be rejected")
+			Expect(err.Error()).To(ContainSubstring("storage PVC size cannot be decreased"))
 		})
 	})
 })

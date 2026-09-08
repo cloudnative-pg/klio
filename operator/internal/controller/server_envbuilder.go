@@ -92,8 +92,8 @@ func fileSourcePath(volName string, src kliov1alpha1.FileSource) string {
 }
 
 func (e *envBuilder) getCoreEnvVars() []corev1.EnvVar {
-	basePath := path.Join(kopiaDataMountPath, "base")
-	walPath := path.Join(kopiaDataMountPath, "wal")
+	basePath := path.Join(klioMountPath, "data", "base")
+	walPath := path.Join(klioMountPath, "data", "wal")
 
 	result := []corev1.EnvVar{
 		{
@@ -115,7 +115,7 @@ func (e *envBuilder) getCoreEnvVars() []corev1.EnvVar {
 		tier1Envs = append(tier1Envs,
 			corev1.EnvVar{
 				Name:  "TIER1_BASE_CACHE",
-				Value: path.Join(kopiaCacheTier1MountPath, kopiaCacheSubdirectory),
+				Value: path.Join(klioMountPath, "cache_tier1", kopiaCacheSubdirectory),
 			},
 			corev1.EnvVar{
 				Name:  "TIER1_BASE_REPOSITORY",
@@ -150,7 +150,7 @@ func (e *envBuilder) getCoreEnvVars() []corev1.EnvVar {
 		// retention policy enforcement.
 		tier1Envs = append(tier1Envs, corev1.EnvVar{
 			Name:  "QUEUE_DIRECTORY",
-			Value: "/queue",
+			Value: path.Join(klioMountPath, "queue"),
 		})
 
 		tier1Envs = appendCompressionEnvs(tier1Envs, "TIER1", e.tier1.Compression)
@@ -180,7 +180,7 @@ func (e *envBuilder) getTier2EnvVars() []corev1.EnvVar {
 		},
 		{
 			Name:  "TIER2_CACHE",
-			Value: path.Join(kopiaCacheTier2MountPath, kopiaCacheSubdirectory),
+			Value: path.Join(klioMountPath, "cache_tier2", kopiaCacheSubdirectory),
 		},
 		{
 			Name:  "TIER2_BASE_LISTEN_ADDRESS",

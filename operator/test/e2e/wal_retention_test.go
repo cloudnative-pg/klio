@@ -182,12 +182,12 @@ func (s *walRetentionScenario) getWALFilesInTier1(
 	containerName := "server"
 
 	// List WAL files in the tier1 WAL directory.
-	// WAL files are stored at /data/wal/{clusterName}/XXXXXXXX/XXXXXXXXXXXXXXXXXXXXXXXX.
+	// WAL files are stored at /klio/data/wal/{clusterName}/XXXXXXXX/XXXXXXXXXXXXXXXXXXXXXXXX.
 	// Note: 'find' is not available in the minimal container, so we use ls with shell globbing.
 	var stdout, stderr bytes.Buffer
 	listCmd := []string{
 		"sh", "-c",
-		fmt.Sprintf("ls /data/wal/%s/*/0000* 2>/dev/null | sort", s.cnpgCluster.Name),
+		fmt.Sprintf("ls /klio/data/wal/%s/*/0000* 2>/dev/null | sort", s.cnpgCluster.Name),
 	}
 
 	// ls returns exit code 1 if no files match, which is fine - we just return empty list.

@@ -39,9 +39,8 @@ const (
 // +kubebuilder:validation:XValidation:rule="self.mode == 'read-only' || has(self.tier1)",message="tier1 is required"
 // +kubebuilder:validation:XValidation:rule="self.mode != 'read-only' || has(self.tier2)",message="tier2 is required when mode is read-only"
 // +kubebuilder:validation:XValidation:rule="!(self.mode == 'read-only' && has(self.tier1))",message="tier1 cannot be set when mode is read-only"
-// +kubebuilder:validation:XValidation:rule="!(self.mode == 'read-only' && has(self.queue))",message="queue cannot be set when mode is read-only"
 // +kubebuilder:validation:XValidation:rule="!(self.mode == 'read-only' && has(self.tier2) && has(self.tier2.compression))",message="tier2.compression cannot be set when mode is read-only"
-// +kubebuilder:validation:XValidation:rule="self.mode == 'read-only' || has(self.queue)",message="queue is required when tier1 is configured"
+// +kubebuilder:validation:XValidation:rule="!has(oldSelf.storage) || !has(oldSelf.storage.pvcTemplate.resources) || !has(oldSelf.storage.pvcTemplate.resources.requests) || !('storage' in oldSelf.storage.pvcTemplate.resources.requests) || !('storage' in self.storage.pvcTemplate.resources.requests) || !quantity(self.storage.pvcTemplate.resources.requests['storage']).isLessThan(quantity(oldSelf.storage.pvcTemplate.resources.requests['storage']))",message="storage PVC size cannot be decreased"
 type ServerSpec struct {
 	// ImageConfiguration tells how to download the Klio
 	// image.
@@ -63,10 +62,11 @@ type ServerSpec struct {
 	// Tier2 is the Tier 2 configuration
 	Tier2 *Tier2Configuration `json:"tier2,omitempty"`
 
-	// Queue is the configuration of the PVC that should host
-	// the task queue.
-	// +optional
-	Queue *Queue `json:"queue,omitempty"`
+	// Storage is the configuration of the single PersistentVolumeClaim
+	// mounted at /klio, hosting base backups, WAL, the work queue, and
+	// the Tier 1/Tier 2 caches as fixed subdirectories (data, queue,
+	// cache_tier1, cache_tier2).
+	Storage Storage `json:"storage"`
 
 	// Template to override the default StatefulSet of the Klio server.
 	// WARNING: Modifying this template may break the server functionality if not done carefully.
@@ -138,23 +138,11 @@ type TLSConfiguration struct {
 	ClientCASecretName string `json:"caSecretName"`
 }
 
-// Data defines the configuration for the data directory.
-type Data struct {
-	// Template to be used to generate the Persistent Volume Claim needed for the data folder,
-	// containing base backups and WAL files.
-	PersistentVolumeClaimTemplate corev1.PersistentVolumeClaimSpec `json:"pvcTemplate"`
-}
-
-// Cache defines the configuration for the cache directory.
-type Cache struct {
-	PersistentVolumeClaimTemplate corev1.PersistentVolumeClaimSpec `json:"pvcTemplate"`
-}
-
-// Queue defines the configuration for the directory hosting the
-// task queue.
-type Queue struct {
-	// PersistentVolumeClaimTemplate is used to generate the configuration for
-	// the PVC hosting the work queue.
+// Storage defines the configuration for the Klio server's
+// PersistentVolumeClaim.
+type Storage struct {
+	// PersistentVolumeClaimTemplate is used to generate the PVC that
+	// backs the /klio directory tree for this server.
 	PersistentVolumeClaimTemplate corev1.PersistentVolumeClaimSpec `json:"pvcTemplate"`
 }
 
@@ -178,14 +166,6 @@ type FileSource struct {
 
 // Tier1Configuration is the tier 1 configuration.
 type Tier1Configuration struct {
-	// Cache is the configuration of the PVC that should be
-	// used for the cache.
-	Cache Cache `json:"cache"`
-
-	// Data is the configuration of the PVC that should be used
-	// for the base backups.
-	Data Data `json:"data"`
-
 	// EncryptionKeyFile specifies the Age-encrypted encryption key file.
 	EncryptionKeyFile FileSource `json:"encryptionKeyFile"`
 
@@ -202,10 +182,6 @@ type Tier1Configuration struct {
 
 // Tier2Configuration is the tier 2 configuration.
 type Tier2Configuration struct {
-	// Cache is the configuration of the PVC that should be
-	// used for the cache.
-	Cache Cache `json:"cache"`
-
 	// S3 contains the configuration parameters for an S3-based tier 2.
 	S3 *S3Configuration `json:"s3"`
 
@@ -266,10 +242,6 @@ type ServerStatus struct {
 
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
-// +kubebuilder:validation:XValidation:rule="!has(oldSelf.spec.tier1) || !has(self.spec.tier1) || !('storage' in oldSelf.spec.tier1.data.pvcTemplate.resources.requests) || !('storage' in self.spec.tier1.data.pvcTemplate.resources.requests) || !quantity(self.spec.tier1.data.pvcTemplate.resources.requests['storage']).isLessThan(quantity(oldSelf.spec.tier1.data.pvcTemplate.resources.requests['storage']))",message="tier1.data PVC size cannot be decreased"
-// +kubebuilder:validation:XValidation:rule="!has(oldSelf.spec.tier1) || !has(self.spec.tier1) || !('storage' in oldSelf.spec.tier1.cache.pvcTemplate.resources.requests) || !('storage' in self.spec.tier1.cache.pvcTemplate.resources.requests) || !quantity(self.spec.tier1.cache.pvcTemplate.resources.requests['storage']).isLessThan(quantity(oldSelf.spec.tier1.cache.pvcTemplate.resources.requests['storage']))",message="tier1.cache PVC size cannot be decreased"
-// +kubebuilder:validation:XValidation:rule="!has(oldSelf.spec.tier2) || !has(self.spec.tier2) || !('storage' in oldSelf.spec.tier2.cache.pvcTemplate.resources.requests) || !('storage' in self.spec.tier2.cache.pvcTemplate.resources.requests) || !quantity(self.spec.tier2.cache.pvcTemplate.resources.requests['storage']).isLessThan(quantity(oldSelf.spec.tier2.cache.pvcTemplate.resources.requests['storage']))",message="tier2.cache PVC size cannot be decreased"
-// +kubebuilder:validation:XValidation:rule="!has(oldSelf.spec.queue) || !has(self.spec.queue) || !('storage' in oldSelf.spec.queue.pvcTemplate.resources.requests) || !('storage' in self.spec.queue.pvcTemplate.resources.requests) || !quantity(self.spec.queue.pvcTemplate.resources.requests['storage']).isLessThan(quantity(oldSelf.spec.queue.pvcTemplate.resources.requests['storage']))",message="queue PVC size cannot be decreased"
 
 // Server is the Schema for the servers API.
 type Server struct {
@@ -289,6 +261,11 @@ type ServerList struct {
 	metav1.ListMeta `json:"metadata,omitzero"`
 
 	Items []Server `json:"items"`
+}
+
+// GetStatefulSetName returns the name of the StatefulSet running the Klio server.
+func (s *Server) GetStatefulSetName() string {
+	return s.Name + "-klio"
 }
 
 // GetServiceName returns the name of the service associated with the Klio server.

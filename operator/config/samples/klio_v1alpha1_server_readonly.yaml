@@ -14,13 +14,6 @@ metadata:
 spec:
   mode: read-only
   tier2:
-    cache:
-      pvcTemplate:
-        resources:
-          requests:
-            storage: 1Gi
-        accessModes:
-          - ReadWriteOnce
     encryptionKeyFile:
       fileReference:
         volume:
@@ -47,6 +40,14 @@ spec:
       customCaBundle:
         name: rustfs-tls
         key: tls.crt
+
+  storage:
+    pvcTemplate:
+      resources:
+        requests:
+          storage: 1Gi
+      accessModes:
+        - ReadWriteOnce
 
   tlsSecretName: server-ro-tls
   caSecretName: server-ro-ca

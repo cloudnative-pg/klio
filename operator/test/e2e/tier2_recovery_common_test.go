@@ -237,9 +237,67 @@ func deployTier2RecoveryServer(
 		return fmt.Errorf("recovery server not ready: %w", err)
 	}
 
+	// The recovery server is read-only (tier2-only, no tier1): confirm it
+	// too gets the unified "klio" PVC/mount, same as a tier1 server.
+	if err := checkRecoveryServerHasKlioPVCAndMount(ctx, r, namespace, resources.RecoveryServer); err != nil {
+		return err
+	}
+
 	// Create PluginConfiguration for recovery (points to second server)
 	if err := r.Create(ctx, resources.PluginConfigurationRecovery); err != nil {
 		return fmt.Errorf("failed to create recovery plugin configuration: %w", err)
+	}
+
+	return nil
+}
+
+// checkRecoveryServerHasKlioPVCAndMount verifies that a read-only
+// (tier2-only) Server also gets the unified "klio" PVC, and that it is
+// actually mounted at /klio in the server's StatefulSet, exactly like a
+// tier1 server does.
+func checkRecoveryServerHasKlioPVCAndMount(
+	ctx context.Context,
+	r *resources.Resources,
+	namespace string,
+	server *kliov1alpha1.Server,
+) error {
+	stsName := server.Name + "-klio"
+	pvcName := "klio-" + stsName + "-0"
+
+	pvc := &corev1.PersistentVolumeClaim{}
+	if err := r.Get(ctx, pvcName, namespace, pvc); err != nil {
+		return fmt.Errorf("read-only server's klio PVC %s not found: %w", pvcName, err)
+	}
+
+	if pvcType := pvc.Labels["klio.cnpg.io/pvcType"]; pvcType != "klio" {
+		return fmt.Errorf("read-only server's PVC %s has pvcType label %q, want %q",
+			pvcName, pvcType, "klio")
+	}
+
+	if serverLabel := pvc.Labels["klio.cnpg.io/klio-server"]; serverLabel != server.Name {
+		return fmt.Errorf("read-only server's PVC %s has klio-server label %q, want %q",
+			pvcName, serverLabel, server.Name)
+	}
+
+	sts := &appsv1.StatefulSet{}
+	if err := r.Get(ctx, stsName, namespace, sts); err != nil {
+		return fmt.Errorf("read-only server's StatefulSet %s not found: %w", stsName, err)
+	}
+
+	if len(sts.Spec.Template.Spec.Containers) == 0 {
+		return fmt.Errorf("read-only server's StatefulSet %s has no containers", stsName)
+	}
+
+	mounted := false
+	for _, m := range sts.Spec.Template.Spec.Containers[0].VolumeMounts {
+		if m.Name == "klio" && m.MountPath == "/klio" {
+			mounted = true
+
+			break
+		}
+	}
+	if !mounted {
+		return fmt.Errorf("read-only server's StatefulSet %s has no klio volume mounted at /klio", stsName)
 	}
 
 	return nil

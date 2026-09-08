@@ -42,10 +42,8 @@ import (
 )
 
 const (
-	pvcTypeLabel       = "klio.cnpg.io/pvcType"
-	typeLabel          = "klio.cnpg.io/type"
-	baseTypeLabelValue = "base"
-	klioServerLabel    = "klio.cnpg.io/klio-server"
+	pvcTypeLabel    = "klio.cnpg.io/pvcType"
+	klioServerLabel = "klio.cnpg.io/klio-server"
 )
 
 var errNilFileReference = errors.New("fileReference is not set in FileSource")
@@ -75,9 +73,9 @@ func validateFileSources(server *kliov1alpha1.Server) error {
 }
 
 const (
-	kopiaDataMountPath       = "/data"
-	kopiaCacheTier1MountPath = "/cache_tier1"
-	kopiaCacheTier2MountPath = "/cache_tier2"
+	// klioMountPath is where the PVC is mounted. All the server state
+	// lives under it as fixed subdirectories.
+	klioMountPath = "/klio"
 
 	fileSourceBasePath     = "/files"
 	tier1EncKeyFileVolName = "tier1-enc-key-file"
@@ -94,9 +92,9 @@ func (r *ServerReconciler) reconcile(ctx context.Context, server *kliov1alpha1.S
 	// Reconcile PVC resizes before StatefulSet to ensure PVCs are expanded
 	// before the StatefulSet is recreated. VolumeClaimTemplates only define
 	// specs for new PVCs, so explicit patching is required to resize existing ones.
-	if result, err := r.reconcilePVCResizes(ctx, server); err != nil || !result.IsZero() {
+	if result, err := r.reconcilePVCResize(ctx, server); err != nil || !result.IsZero() {
 		if err != nil {
-			return ctrl.Result{}, fmt.Errorf("failed to reconcile PVC resizes: %w", err)
+			return ctrl.Result{}, fmt.Errorf("failed to reconcile PVC resize: %w", err)
 		}
 
 		return result, nil
@@ -110,7 +108,7 @@ func (r *ServerReconciler) reconcileStatefulSet(
 	ctx context.Context, server *kliov1alpha1.Server,
 ) (ctrl.Result, error) {
 	contextLogger := logf.FromContext(ctx)
-	klioName := server.Name + "-klio"
+	klioName := server.GetStatefulSetName()
 
 	pprof, _ := strconv.ParseBool(server.GetAnnotations()["klio.cnpg.io/pprof"])
 
@@ -139,7 +137,6 @@ func (r *ServerReconciler) reconcileStatefulSet(
 			Namespace: server.Namespace,
 			Labels: map[string]string{
 				klioServerLabel: server.Name,
-				typeLabel:       baseTypeLabelValue,
 			},
 			Annotations: map[string]string{},
 		},
@@ -156,14 +153,12 @@ func (r *ServerReconciler) reconcileStatefulSet(
 			Selector: &metav1.LabelSelector{
 				MatchLabels: map[string]string{
 					klioServerLabel: server.Name,
-					typeLabel:       baseTypeLabelValue,
 				},
 			},
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
 					Labels: map[string]string{
 						klioServerLabel: server.Name,
-						typeLabel:       baseTypeLabelValue,
 					},
 				},
 				Spec: corev1.PodSpec{
@@ -192,18 +187,7 @@ func (r *ServerReconciler) reconcileStatefulSet(
 		Status: appsv1.StatefulSetStatus{},
 	}
 
-	if server.Spec.Tier1 != nil {
-		injectTier1VolumeClaimTemplates(expected, *server)
-	}
-
-	if server.Spec.Queue != nil {
-		injectQueueConfiguration(expected, *server)
-	}
-
-	// Add Tier2 containers if the server has Tier 2 configuration
-	if server.Spec.Tier2 != nil {
-		injectTier2VolumeClaimTemplates(expected, *server)
-	}
+	injectVolumeClaimTemplate(expected, server)
 
 	if server.Spec.Template != nil {
 		merged, err := podtemplate.Merge(&expected.Spec.Template, server.Spec.Template.ToCoreV1())
@@ -217,7 +201,6 @@ func (r *ServerReconciler) reconcileStatefulSet(
 			expected.Spec.Template.Labels = map[string]string{}
 		}
 		expected.Spec.Template.Labels[klioServerLabel] = server.Name
-		expected.Spec.Template.Labels[typeLabel] = baseTypeLabelValue
 	}
 
 	// Append pprof args after merge so overlay replacements of Args cannot drop them
@@ -307,16 +290,19 @@ func (r *ServerReconciler) reconcileStatefulSet(
 	return ctrl.Result{}, nil
 }
 
-func injectQueueConfiguration(expected *appsv1.StatefulSet, server kliov1alpha1.Server) {
+// injectVolumeClaimTemplate appends the PVC template backing
+// the /klio directory tree. Every server gets it, whatever tiers are enabled:
+// the core creates only the subdirectories the active tiers need.
+func injectVolumeClaimTemplate(expected *appsv1.StatefulSet, server *kliov1alpha1.Server) {
 	expected.Spec.VolumeClaimTemplates = append(expected.Spec.VolumeClaimTemplates, corev1.PersistentVolumeClaim{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: "queue",
+			Name: pvcTypeKlio,
 			Labels: map[string]string{
 				klioServerLabel: server.Name,
-				pvcTypeLabel:    pvcTypeQueue,
+				pvcTypeLabel:    pvcTypeKlio,
 			},
 		},
-		Spec: server.Spec.Queue.PersistentVolumeClaimTemplate,
+		Spec: server.Spec.Storage.PersistentVolumeClaimTemplate,
 	})
 }
 
@@ -352,50 +338,6 @@ func (r *ServerReconciler) serverPodSecurityContext() *corev1.PodSecurityContext
 	}
 }
 
-func injectTier1VolumeClaimTemplates(
-	ss *appsv1.StatefulSet,
-	server kliov1alpha1.Server,
-) {
-	ss.Spec.VolumeClaimTemplates = append(ss.Spec.VolumeClaimTemplates,
-		corev1.PersistentVolumeClaim{
-			ObjectMeta: metav1.ObjectMeta{
-				Name: "data",
-				Labels: map[string]string{
-					klioServerLabel: server.Name,
-					pvcTypeLabel:    pvcTypeData,
-				},
-			},
-			Spec: server.Spec.Tier1.Data.PersistentVolumeClaimTemplate,
-		},
-		corev1.PersistentVolumeClaim{
-			ObjectMeta: metav1.ObjectMeta{
-				Name: "cachetier1",
-				Labels: map[string]string{
-					klioServerLabel: server.Name,
-					pvcTypeLabel:    pvcTypeCacheTier1,
-				},
-			},
-			Spec: server.Spec.Tier1.Cache.PersistentVolumeClaimTemplate,
-		})
-}
-
-func injectTier2VolumeClaimTemplates(
-	ss *appsv1.StatefulSet,
-	server kliov1alpha1.Server,
-) {
-	ss.Spec.VolumeClaimTemplates = append(ss.Spec.VolumeClaimTemplates,
-		corev1.PersistentVolumeClaim{
-			ObjectMeta: metav1.ObjectMeta{
-				Name: "cachetier2",
-				Labels: map[string]string{
-					klioServerLabel: server.Name,
-					pvcTypeLabel:    pvcTypeCacheTier2,
-				},
-			},
-			Spec: server.Spec.Tier2.Cache.PersistentVolumeClaimTemplate,
-		})
-}
-
 func (r *ServerReconciler) reconcileService(ctx context.Context, server *kliov1alpha1.Server) error {
 	service := &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
@@ -415,14 +357,12 @@ func (r *ServerReconciler) reconcileService(ctx context.Context, server *kliov1a
 
 		maps.Copy(service.Labels, map[string]string{
 			klioServerLabel: server.Name,
-			typeLabel:       baseTypeLabelValue,
 		})
 
 		service.Spec.SessionAffinity = corev1.ServiceAffinityNone
 
 		service.Spec.Selector = map[string]string{
 			klioServerLabel: server.Name,
-			typeLabel:       baseTypeLabelValue,
 		}
 		service.Spec.Ports = []corev1.ServicePort{
 			{
@@ -588,35 +528,18 @@ func (r *ServerReconciler) buildVolumeMounts(server *kliov1alpha1.Server) []core
 			Name:      "tmp",
 			MountPath: "/tmp",
 		},
+		{
+			Name:      pvcTypeKlio,
+			MountPath: klioMountPath,
+		},
 	}
 
 	if server.Spec.Tier1 != nil {
-		volumeMounts = append(
-			volumeMounts,
-			corev1.VolumeMount{
-				Name:      "data",
-				MountPath: kopiaDataMountPath,
-			},
-			corev1.VolumeMount{
-				Name:      "cachetier1",
-				MountPath: kopiaCacheTier1MountPath,
-			},
-		)
 		_, mount := buildFileSourceVolMount(tier1EncKeyFileVolName, server.Spec.Tier1.EncryptionKeyFile)
 		volumeMounts = append(volumeMounts, mount)
 
 		_, mount = buildIdentityVolMount(tier1IdentityVolName, server.Spec.Tier1.IdentityFile)
 		volumeMounts = append(volumeMounts, mount)
-	}
-
-	if server.Spec.Queue != nil {
-		volumeMounts = append(
-			volumeMounts,
-			corev1.VolumeMount{
-				Name:      "queue",
-				MountPath: "/queue",
-			},
-		)
 	}
 
 	if server.Spec.Tier2 != nil {
@@ -625,10 +548,6 @@ func (r *ServerReconciler) buildVolumeMounts(server *kliov1alpha1.Server) []core
 			corev1.VolumeMount{
 				Name:      "tier2",
 				MountPath: "/tier2",
-			},
-			corev1.VolumeMount{
-				Name:      "cachetier2",
-				MountPath: kopiaCacheTier2MountPath,
 			},
 		)
 		_, mount := buildFileSourceVolMount(tier2EncKeyFileVolName, server.Spec.Tier2.EncryptionKeyFile)

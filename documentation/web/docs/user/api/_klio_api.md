@@ -12,23 +12,6 @@ Package v1alpha1 contains API Schema definitions for the klio v1alpha1 API group
 
 
 
-#### Cache
-
-
-
-Cache defines the configuration for the cache directory.
-
-
-
-_Appears in:_
-- [Tier1Configuration](#tier1configuration)
-- [Tier2Configuration](#tier2configuration)
-
-| Field | Description | Required | Default | Validation |
-| --- | --- | --- | --- | --- |
-| `pvcTemplate` _[PersistentVolumeClaimSpec](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.37/#persistentvolumeclaimspec-v1-core)_ |  | True |  |  |
-
-
 #### CompressionAlgorithm
 
 _Underlying type:_ _string_
@@ -67,22 +50,6 @@ _Appears in:_
 | `algorithm` _[CompressionAlgorithm](#compressionalgorithm)_ | Algorithm is the name of the Kopia compression algorithm to use. | True |  | Enum: [none deflate-best-compression deflate-best-speed deflate-default gzip gzip-best-compression gzip-best-speed pgzip pgzip-best-compression pgzip-best-speed s2-better s2-default s2-parallel-4 s2-parallel-8 zstd zstd-better-compression zstd-fastest] <br />Required: \{\} <br /> |
 | `minSize` _integer_ | MinSize is the minimum file size, in bytes, to attempt compression for.<br />Files smaller than this are stored uncompressed. Zero means no minimum. |  |  | Minimum: 0 <br />Optional: \{\} <br /> |
 | `maxSize` _integer_ | MaxSize is the maximum file size, in bytes, to attempt compression for.<br />Files larger than this are stored uncompressed. Zero means no maximum. |  |  | Minimum: 0 <br />Optional: \{\} <br /> |
-
-
-#### Data
-
-
-
-Data defines the configuration for the data directory.
-
-
-
-_Appears in:_
-- [Tier1Configuration](#tier1configuration)
-
-| Field | Description | Required | Default | Validation |
-| --- | --- | --- | --- | --- |
-| `pvcTemplate` _[PersistentVolumeClaimSpec](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.37/#persistentvolumeclaimspec-v1-core)_ | Template to be used to generate the Persistent Volume Claim needed for the data folder,<br />containing base backups and WAL files. | True |  |  |
 
 
 #### EmbeddedObjectMeta
@@ -234,23 +201,6 @@ _Appears in:_
 | `spec` _[PodSpec](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.37/#podspec-v1-core)_ |  |  |  | Optional: \{\} <br /> |
 
 
-#### Queue
-
-
-
-Queue defines the configuration for the directory hosting the
-task queue.
-
-
-
-_Appears in:_
-- [ServerSpec](#serverspec)
-
-| Field | Description | Required | Default | Validation |
-| --- | --- | --- | --- | --- |
-| `pvcTemplate` _[PersistentVolumeClaimSpec](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.37/#persistentvolumeclaimspec-v1-core)_ | PersistentVolumeClaimTemplate is used to generate the configuration for<br />the PVC hosting the work queue. | True |  |  |
-
-
 #### RetentionPolicy
 
 
@@ -354,7 +304,7 @@ _Appears in:_
 | `mode` _[ServerMode](#servermode)_ | Mode selects the operation mode of the server. | True | standard | Enum: [standard read-only] <br /> |
 | `tier1` _[Tier1Configuration](#tier1configuration)_ | Tier1 is the Tier 1 configuration | True |  |  |
 | `tier2` _[Tier2Configuration](#tier2configuration)_ | Tier2 is the Tier 2 configuration | True |  |  |
-| `queue` _[Queue](#queue)_ | Queue is the configuration of the PVC that should host<br />the task queue. |  |  | Optional: \{\} <br /> |
+| `storage` _[Storage](#storage)_ | Storage is the configuration of the single PersistentVolumeClaim<br />mounted at /klio, hosting base backups, WAL, the work queue, and<br />the Tier 1/Tier 2 caches as fixed subdirectories (data, queue,<br />cache_tier1, cache_tier2). | True |  |  |
 | `template` _[PodTemplateSpec](#podtemplatespec)_ | Template to override the default StatefulSet of the Klio server.<br />WARNING: Modifying this template may break the server functionality if not done carefully.<br />This field is primarily intended for advanced configuration such as telemetry setup.<br />Use at your own risk and ensure thorough testing before applying changes. |  |  | Optional: \{\} <br /> |
 
 
@@ -369,6 +319,23 @@ ServerStatus defines the observed state of Server.
 _Appears in:_
 - [Server](#server)
 
+
+
+#### Storage
+
+
+
+Storage defines the configuration for the Klio server's
+PersistentVolumeClaim.
+
+
+
+_Appears in:_
+- [ServerSpec](#serverspec)
+
+| Field | Description | Required | Default | Validation |
+| --- | --- | --- | --- | --- |
+| `pvcTemplate` _[PersistentVolumeClaimSpec](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.37/#persistentvolumeclaimspec-v1-core)_ | PersistentVolumeClaimTemplate is used to generate the PVC that<br />backs the /klio directory tree for this server. | True |  |  |
 
 
 #### TLSConfiguration
@@ -402,8 +369,6 @@ _Appears in:_
 
 | Field | Description | Required | Default | Validation |
 | --- | --- | --- | --- | --- |
-| `cache` _[Cache](#cache)_ | Cache is the configuration of the PVC that should be<br />used for the cache. | True |  |  |
-| `data` _[Data](#data)_ | Data is the configuration of the PVC that should be used<br />for the base backups. | True |  |  |
 | `encryptionKeyFile` _[FileSource](#filesource)_ | EncryptionKeyFile specifies the Age-encrypted encryption key file. | True |  | ExactlyOneOf: [fileReference] <br /> |
 | `identityFile` _[FileSource](#filesource)_ | IdentityFile specifies the Age identity (private key) file used to<br />decrypt the encryption key. | True |  | ExactlyOneOf: [fileReference] <br /> |
 | `compression` _[CompressionPolicy](#compressionpolicy)_ | Compression defines the repository-wide (global) compression policy<br />applied to base backups stored on tier1. Individual clusters can<br />override it through their PluginConfiguration. |  |  | Optional: \{\} <br /> |
@@ -439,7 +404,6 @@ _Appears in:_
 
 | Field | Description | Required | Default | Validation |
 | --- | --- | --- | --- | --- |
-| `cache` _[Cache](#cache)_ | Cache is the configuration of the PVC that should be<br />used for the cache. | True |  |  |
 | `s3` _[S3Configuration](#s3configuration)_ | S3 contains the configuration parameters for an S3-based tier 2. | True |  |  |
 | `encryptionKeyFile` _[FileSource](#filesource)_ | EncryptionKeyFile specifies the Age-encrypted encryption key file. | True |  | ExactlyOneOf: [fileReference] <br /> |
 | `identityFile` _[FileSource](#filesource)_ | IdentityFile specifies the Age identity (private key) file used to<br />decrypt the encryption key. | True |  | ExactlyOneOf: [fileReference] <br /> |

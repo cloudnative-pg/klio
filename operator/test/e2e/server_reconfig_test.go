@@ -21,7 +21,6 @@ package e2e
 
 import (
 	"context"
-	"slices"
 	"testing"
 	"time"
 
@@ -31,7 +30,6 @@ import (
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	k8stypes "k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/e2e-framework/klient/k8s/resources"
 	"sigs.k8s.io/e2e-framework/klient/wait"
 	"sigs.k8s.io/e2e-framework/pkg/envconf"
@@ -72,7 +70,7 @@ type serverReconfigScenario struct {
 	encryptionSecret  *corev1.Secret
 	identitySecret    *corev1.Secret
 
-	// Klio Server (initially tier1+queue only, no tier2)
+	// Klio Server (initially tier1 only, no tier2)
 	klioServer *kliov1alpha1.Server
 
 	// Tier2 configuration to add during Run
@@ -156,13 +154,15 @@ func (f *serverReconfigFeature) Setup() types.StepFunc {
 
 // Run executes the server tier reconfiguration test.
 //
-// This test verifies that adding tier2 to an existing tier1+queue server
-// triggers the StatefulSet delete/recreate flow (due to immutable VCTs)
-// and that:
+// Every server, whatever tiers are enabled, gets the same single unified
+// "klio" PVC (mounted at /klio). Adding tier2 to a tier1-only server
+// therefore no longer touches the StatefulSet's VolumeClaimTemplates, so it
+// should update the StatefulSet in place rather than delete/recreate it.
+// This test verifies that:
 //  1. The server Pod comes back ready with the new configuration.
-//  2. The StatefulSet has the expected VolumeClaimTemplates including cachetier2.
-//  3. The new cachetier2 PVC is created.
-//  4. The original PVCs (data, cachetier1, queue) are retained (same UIDs).
+//  2. The StatefulSet still has exactly one VolumeClaimTemplate, named "klio".
+//  3. The klio PVC's UID is unchanged (it was not deleted/recreated) and no
+//     new PVC was created for the server.
 func (f *serverReconfigFeature) Run() types.StepFunc {
 	return func(ctx context.Context, t *testing.T, cfg *envconf.Config) context.Context {
 		t.Helper()
@@ -173,24 +173,32 @@ func (f *serverReconfigFeature) Run() types.StepFunc {
 
 		server := f.scenario.klioServer
 		stsName := server.Name + "-klio"
+		klioPVCName := "klio-" + stsName + "-0"
 
-		// Record UIDs of existing PVCs before reconfiguration
-		originalPVCNames := []string{
-			"data-" + stsName + "-0",
-			"cachetier1-" + stsName + "-0",
-			"queue-" + stsName + "-0",
-		}
-		originalPVCUIDs := make(map[string]k8stypes.UID, len(originalPVCNames))
+		// Record the unified klio PVC's UID and the total PVC count for this
+		// server before reconfiguration.
+		originalPVC := &corev1.PersistentVolumeClaim{}
+		require.NoError(t,
+			r.Get(ctx, klioPVCName, f.scenario.namespace.Name, originalPVC),
+			"failed to get original klio PVC %s", klioPVCName,
+		)
+		originalPVCUID := originalPVC.UID
+		t.Logf("Recorded klio PVC %s with UID %s", klioPVCName, originalPVCUID)
 
-		for _, pvcName := range originalPVCNames {
-			pvc := &corev1.PersistentVolumeClaim{}
-			require.NoError(t,
-				r.Get(ctx, pvcName, f.scenario.namespace.Name, pvc),
-				"failed to get original PVC %s", pvcName,
-			)
-			originalPVCUIDs[pvcName] = pvc.UID
-			t.Logf("Recorded PVC %s with UID %s", pvcName, pvc.UID)
-		}
+		originalPVCCount := countServerPVCs(ctx, t, r, f.scenario.namespace.Name, server.Name)
+
+		// Record the StatefulSet's reconcile-hash annotation before the
+		// update. Adding tier2 no longer touches VolumeClaimTemplates, so
+		// unlike before, the pod isn't forced to restart by an immutable
+		// field rejection; without this gate, "wait for pod ready" could
+		// trivially pass against the still-running pre-update pod before
+		// the operator has reconciled anything.
+		stsBefore := &appsv1.StatefulSet{}
+		require.NoError(t,
+			r.Get(ctx, stsName, f.scenario.namespace.Name, stsBefore),
+			"failed to get StatefulSet before reconfiguration",
+		)
+		hashBefore := stsBefore.Annotations["klio.cnpg.io/klio-server-hash"]
 
 		// Fetch current Server and add tier2 configuration
 		currentServer := &kliov1alpha1.Server{}
@@ -199,11 +207,27 @@ func (f *serverReconfigFeature) Run() types.StepFunc {
 			"failed to get current Server",
 		)
 
-		tier2Config := klio.BuildTier2Configuration(
-			f.scenario.s3Opts, f.scenario.tier2Encryption, f.scenario.storageClass)
+		tier2Config := klio.BuildTier2Configuration(f.scenario.s3Opts, f.scenario.tier2Encryption)
 		currentServer.Spec.Tier2 = &tier2Config
 		require.NoError(t, r.Update(ctx, currentServer), "failed to update Server with tier2")
 		t.Log("Server updated with tier2 configuration")
+
+		// Wait for the operator to actually reconcile the tier2 change into
+		// the StatefulSet before checking readiness/PVC identity.
+		t.Log("Waiting for the StatefulSet to pick up the tier2 configuration...")
+		err = wait.For(
+			func(ctx context.Context) (bool, error) {
+				sts := &appsv1.StatefulSet{}
+				if getErr := r.Get(ctx, stsName, f.scenario.namespace.Name, sts); getErr != nil {
+					return false, nil //nolint:nilerr
+				}
+
+				return sts.Annotations["klio.cnpg.io/klio-server-hash"] != hashBefore, nil
+			},
+			wait.WithTimeout(2*time.Minute),
+			wait.WithInterval(5*time.Second),
+		)
+		require.NoError(t, err, "StatefulSet was not reconciled with the tier2 configuration")
 
 		// Wait for server Pod to become ready again
 		t.Log("Waiting for server Pod to be ready after reconfiguration...")
@@ -215,48 +239,37 @@ func (f *serverReconfigFeature) Run() types.StepFunc {
 		require.NoError(t, err, "server Pod not ready after tier2 reconfiguration")
 		t.Log("Server Pod is ready after reconfiguration")
 
-		// Verify StatefulSet has the expected VolumeClaimTemplates
+		// Verify the StatefulSet still has exactly one VolumeClaimTemplate:
+		// the unified "klio" one, unaffected by the tier1/tier2 change.
 		sts := &appsv1.StatefulSet{}
 		require.NoError(t,
 			r.Get(ctx, stsName, f.scenario.namespace.Name, sts),
 			"failed to get StatefulSet",
 		)
+		require.Len(t, sts.Spec.VolumeClaimTemplates, 1,
+			"StatefulSet should have exactly one VolumeClaimTemplate, got %d",
+			len(sts.Spec.VolumeClaimTemplates))
+		require.Equal(t, "klio", sts.Spec.VolumeClaimTemplates[0].Name,
+			"StatefulSet's single VolumeClaimTemplate should be named %q", "klio")
 
-		vctNames := make([]string, len(sts.Spec.VolumeClaimTemplates))
-		for i, vct := range sts.Spec.VolumeClaimTemplates {
-			vctNames[i] = vct.Name
-		}
-		t.Logf("StatefulSet VolumeClaimTemplates: %v", vctNames)
-
-		for _, expected := range []string{"data", "cachetier1", "queue", "cachetier2"} {
-			require.True(t,
-				slices.Contains(vctNames, expected),
-				"StatefulSet missing VolumeClaimTemplate %q, got %v", expected, vctNames,
-			)
-		}
-
-		// Verify cachetier2 PVC exists
-		cachetier2PVC := &corev1.PersistentVolumeClaim{}
-		cachetier2PVCName := "cachetier2-" + stsName + "-0"
+		// Verify the klio PVC was retained (same UID), not deleted/recreated.
+		finalPVC := &corev1.PersistentVolumeClaim{}
 		require.NoError(t,
-			r.Get(ctx, cachetier2PVCName, f.scenario.namespace.Name, cachetier2PVC),
-			"cachetier2 PVC %s not found", cachetier2PVCName,
+			r.Get(ctx, klioPVCName, f.scenario.namespace.Name, finalPVC),
+			"klio PVC %s no longer exists after reconfiguration", klioPVCName,
 		)
-		t.Logf("cachetier2 PVC %s exists with UID %s", cachetier2PVCName, cachetier2PVC.UID)
+		require.Equal(t, originalPVCUID, finalPVC.UID,
+			"klio PVC %s was recreated (UID changed from %s to %s), data may have been lost",
+			klioPVCName, originalPVCUID, finalPVC.UID,
+		)
+		t.Logf("klio PVC %s retained with original UID %s", klioPVCName, finalPVC.UID)
 
-		// Verify original PVCs are retained (same UIDs)
-		for _, pvcName := range originalPVCNames {
-			pvc := &corev1.PersistentVolumeClaim{}
-			require.NoError(t,
-				r.Get(ctx, pvcName, f.scenario.namespace.Name, pvc),
-				"original PVC %s no longer exists after reconfiguration", pvcName,
-			)
-			require.Equal(t, originalPVCUIDs[pvcName], pvc.UID,
-				"PVC %s was recreated (UID changed from %s to %s), data may have been lost",
-				pvcName, originalPVCUIDs[pvcName], pvc.UID,
-			)
-			t.Logf("PVC %s retained with original UID %s", pvcName, pvc.UID)
-		}
+		// Verify no new PVC appeared for this server.
+		finalPVCCount := countServerPVCs(ctx, t, r, f.scenario.namespace.Name, server.Name)
+		require.Equal(t, originalPVCCount, finalPVCCount,
+			"number of PVCs for server %s changed after reconfiguration (%d -> %d)",
+			server.Name, originalPVCCount, finalPVCCount,
+		)
 
 		t.Log("Server tier reconfiguration test passed: all verifications succeeded")
 
@@ -264,12 +277,39 @@ func (f *serverReconfigFeature) Run() types.StepFunc {
 	}
 }
 
+// countServerPVCs returns the number of PersistentVolumeClaims labelled as
+// belonging to the given Klio server, in the given namespace.
+func countServerPVCs(
+	ctx context.Context,
+	t *testing.T,
+	r *resources.Resources,
+	namespace string,
+	serverName string,
+) int {
+	t.Helper()
+
+	var pvcList corev1.PersistentVolumeClaimList
+	require.NoError(t,
+		r.List(ctx, &pvcList, resources.WithLabelSelector("klio.cnpg.io/klio-server="+serverName)),
+		"failed to list PVCs for server %s", serverName,
+	)
+
+	count := 0
+	for i := range pvcList.Items {
+		if pvcList.Items[i].Namespace == namespace {
+			count++
+		}
+	}
+
+	return count
+}
+
 // Teardown cleans up resources after the test.
 func (f *serverReconfigFeature) Teardown() types.StepFunc {
 	return f.scenario.Teardown
 }
 
-// ServerTierReconfiguration returns a Feature that tests adding tier2 to an existing tier1+queue server.
+// ServerTierReconfiguration returns a Feature that tests adding tier2 to an existing tier1-only server.
 func ServerTierReconfiguration(namespace string) *serverReconfigFeature {
 	const (
 		klioServerName        = "klio"
@@ -321,7 +361,7 @@ func ServerTierReconfiguration(namespace string) *serverReconfigFeature {
 		S3CABundleSecretName:  rustfsCertificate.Spec.SecretName,
 	}
 
-	// Create tier1+queue only server (no tier2)
+	// Create tier1-only server (no tier2)
 	klioServer := klio.GetServerObject(
 		klioServerName,
 		namespace,

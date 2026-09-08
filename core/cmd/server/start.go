@@ -27,6 +27,7 @@ import (
 
 	"github.com/cloudnative-pg/machinery/pkg/log"
 	"github.com/google/uuid"
+	"github.com/spf13/afero"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 
@@ -92,6 +93,7 @@ var startCmd = &cobra.Command{
 		opts := serverOpts{
 			tier1:           tier1Enabled,
 			tier2:           tier2Enabled,
+			fs:              afero.NewOsFs(),
 			cfg:             &configuration,
 			runID:           runID.String(),
 			runSecret:       runSecret.String(),

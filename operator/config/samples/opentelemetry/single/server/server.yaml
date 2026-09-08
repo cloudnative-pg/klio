@@ -3,30 +3,14 @@ kind: Server
 metadata:
   name: klio
 spec:
-  queue:
-      pvcTemplate:
-        resources:
-          requests:
-            storage: 1Gi
-        accessModes:
+  storage:
+    pvcTemplate:
+      resources:
+        requests:
+          storage: 2Gi
+      accessModes:
         - ReadWriteOnce
   tier1:
-    cache:
-      pvcTemplate:
-        resources:
-          requests:
-            storage: 1Gi
-        accessModes:
-        - ReadWriteOnce
-
-    data:
-      pvcTemplate:
-        resources:
-          requests:
-            storage: 1Gi
-        accessModes:
-        - ReadWriteOnce
-
     encryptionKeyFile:
       fileReference:
         volume:
