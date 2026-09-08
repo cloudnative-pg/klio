@@ -143,7 +143,7 @@ func (w *walServiceImplementation) Restore(
 	outcome.cacheHit = cacheHit
 	outcome.tier = restoreTier
 	outcome.result = restoreResult(err)
-	if errors.Is(err, errWALNotFound) {
+	if outcome.result == opentelemetry.OutcomeNotFound {
 		return &wal.WALRestoreResult{}, status.Errorf(codes.NotFound, "WAL file not found: %q", walName)
 	}
 	if err != nil {
@@ -156,7 +156,9 @@ func (w *walServiceImplementation) Restore(
 }
 
 // restoreResult classifies a restoreWAL error for the `outcome` attribute of
-// the restore duration metric.
+// the restore duration metric. Callers branch on the returned Outcome rather
+// than re-testing the error, so this stays the only definition of "not found"
+// and nothing derived from it can disagree.
 //
 // `not_found` is deliberately not a failure. PostgreSQL routinely asks for a
 // segment or a timeline history file that was never archived, and that absence
