@@ -16,7 +16,7 @@ vars:
   # workflow is actually running in, so a fork's own CI pushes to the fork's
   # namespace instead of failing against cloudnative-pg's, which the fork has
   # no write access to.
-  REGISTRY_OWNER: '{{ .GITHUB_REPOSITORY_OWNER | default "cloudnative-pg" }}'
+  REGISTRY_OWNER: '{{ .REGISTRY_OWNER | default .GITHUB_REPOSITORY_OWNER | default "cloudnative-pg" | lower }}'
   GIT_TAG_VERSION:
     sh: git describe --tags --match 'v*' | sed -e 's/^v//; s/-g[0-9a-f]\+$$//; s/-\([0-9]\+\)$$/-dev\1/'
   GITHUB_REF_NAME: '{{ .GITHUB_REF_NAME | default "dev" }}'
@@ -837,7 +837,7 @@ tasks:
       after the operator build (in CI, the olm job needs the operator job).
 
       Digest pinning is enabled only when running in GitHub Actions, where the
-      images live on ghcr.io. 
+      images live on ghcr.io.
 
       Resolution covers *every* image in the CSV, the operand included, so a
       caller that cannot guarantee the operand image was pushed for this ref
