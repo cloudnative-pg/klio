@@ -253,6 +253,7 @@ tasks:
     vars:
       TAG: '{{ .TAG | default .IMAGE_TAG }}'
       GITHUB_ACTIONS: '{{ .GITHUB_ACTIONS }}'
+      PUSH: '{{ .PUSH | default "true" }}'
     cmds:
       - task: internal:containerize
         vars:
@@ -261,6 +262,7 @@ tasks:
           REGISTRY: '{{ if .GITHUB_ACTIONS }}ghcr.io/{{ .REGISTRY_OWNER }}{{ else }}{{ .REGISTRY_NAME }}:{{ .REGISTRY_PORT }}{{ end }}'
           VERSION: "{{ .TAG }}"
           LATEST: "false"
+          PUSH: "{{ .PUSH }}"
           WORKDIR: "core"
 
   core:containerize-main:
@@ -430,6 +432,12 @@ tasks:
         - VERSION
         - LATEST
         - WORKDIR
+    vars:
+      # False only when the caller is validating a fork's pull_request, where
+      # GITHUB_TOKEN is read-only against REGISTRY_OWNER's ghcr.io namespace
+      # (see REGISTRY_OWNER above) and any push would be denied regardless of
+      # this build's own correctness. Every other caller pushes as before.
+      PUSH: '{{ .PUSH | default "true" }}'
     env:
       environment: "{{ .ENVIRONMENT }}"
       registry: "{{ .REGISTRY }}"
@@ -437,7 +445,7 @@ tasks:
       version: "{{ .VERSION }}"
       latest: "{{ .LATEST }}"
     cmds:
-      - dagger run docker buildx bake --builder {{ .BUILDER_NAME }} --push --metadata-file metadata.json
+      - dagger run docker buildx bake --builder {{ .BUILDER_NAME }} {{ if eq .PUSH "true" }}--push {{ end }}--metadata-file metadata.json
 
   internal:lint:
     desc: Run golangci-lint
@@ -544,6 +552,7 @@ tasks:
     vars:
       TAG: '{{ .TAG | default .IMAGE_TAG }}'
       GITHUB_ACTIONS: '{{ .GITHUB_ACTIONS }}'
+      PUSH: '{{ .PUSH | default "true" }}'
     cmds:
       - task: internal:containerize
         vars:
@@ -552,6 +561,7 @@ tasks:
           REGISTRY: '{{ if .GITHUB_ACTIONS }}ghcr.io/{{ .REGISTRY_OWNER }}{{ else }}{{ .REGISTRY_NAME }}:{{ .REGISTRY_PORT }}{{ end }}'
           VERSION: "{{ .TAG }}"
           LATEST: "false"
+          PUSH: "{{ .PUSH }}"
           WORKDIR: "operator"
 
   operator:containerize-main:

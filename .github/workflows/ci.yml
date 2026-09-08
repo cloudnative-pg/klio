@@ -32,6 +32,14 @@ jobs:
       # release-please PR branch, and on demand via workflow_dispatch — but
       # never automatically on a regular pull request.
       run-openshift: ${{ github.event_name == 'push' || github.head_ref == 'release-please--branches--main' || (github.event_name == 'workflow_dispatch' && inputs.run-openshift) }}
+      # False only for a pull_request opened from a fork. On pull_request,
+      # every context (secrets, vars, GITHUB_TOKEN, GITHUB_REPOSITORY_OWNER)
+      # resolves against the *base* repository regardless of whose commit is
+      # checked out, so GITHUB_TOKEN is read-only against a namespace the fork
+      # never asked to push to. Jobs/steps that push to ghcr.io must skip the
+      # push (mirrors cloudnative-pg/cloudnative-pg's continuous-integration.yml
+      # PUSH flag) when this is false.
+      same-repo: ${{ github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository }}
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -180,6 +188,8 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Run CI task
+        env:
+          PUSH: ${{ needs.change-triage.outputs.same-repo }}
         run: |
           task core:ci
 
@@ -224,10 +234,16 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Run CI task
+        env:
+          PUSH: ${{ needs.change-triage.outputs.same-repo }}
         run: |
           task operator:ci
 
       - name: Run Red Hat preflight certification
+        # Preflight pulls the just-pushed UBI image by reference, so it can
+        # only run when operator:ci actually pushed one (see the PUSH env
+        # above): a fork pull_request builds but never pushes.
+        if: needs.change-triage.outputs.same-repo == 'true'
         run: |
           # Certify the UBI variant of the operator image just built and pushed
           # by operator:ci. Preflight only accepts a Red Hat UBI base, so the
@@ -313,12 +329,19 @@ jobs:
       - operator
       # the bundle needs the core and operator images
 
+    # olm:all pushes and then resolves digests for the bundle/catalog images
+    # by reference, so it needs the core/operator images actually pushed to
+    # ghcr.io. A fork pull_request never gets that (see PUSH in the core/
+    # operator jobs), so skip the whole job rather than fail it — matching
+    # cloudnative-pg/cloudnative-pg, which doesn't require its analogous
+    # olm-bundle/preflight jobs for exactly this reason.
     if: |
       !cancelled() &&
       (needs.change-triage.outputs.operator-changed == 'true' ||
        needs.change-triage.outputs.run-openshift == 'true') &&
       needs.operator.result == 'success' &&
-      (needs.core.result == 'success' || needs.core.result == 'skipped')
+      (needs.core.result == 'success' || needs.core.result == 'skipped') &&
+      needs.change-triage.outputs.same-repo == 'true'
     env:
       ENVIRONMENT: "testing"
       SKIP_IMAGE_DIGESTS: >-
@@ -447,8 +470,8 @@ jobs:
     # pull secret configured, so a repository without it skips the job instead
     # of failing to start the CRC cluster.
     #
-    # The head-repository check is separate and necessary: on `pull_request`
-    # the `vars` context resolves against the *base* repository, so a PR from a
+    # The same-repo check is separate and necessary: on `pull_request` the
+    # `vars` context resolves against the *base* repository, so a PR from a
     # fork would otherwise see OPENSHIFT_ENABLED and be dispatched — but fork
     # PRs receive no secrets, so REDHAT_PULL would be empty and CRC bring-up
     # would fail. Contributors can still run this job inside their own fork by
@@ -456,8 +479,7 @@ jobs:
     if: |
       needs.change-triage.outputs.run-openshift == 'true' &&
       vars.OPENSHIFT_ENABLED == 'true' &&
-      (github.event_name != 'pull_request' ||
-       github.event.pull_request.head.repo.full_name == github.repository)
+      needs.change-triage.outputs.same-repo == 'true'
     permissions:
       contents: read
       packages: read
