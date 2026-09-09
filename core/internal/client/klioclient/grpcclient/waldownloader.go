@@ -34,27 +34,6 @@ import (
 	klioGRPC "github.com/cloudnative-pg/klio/core/internal/grpc"
 )
 
-// StoreWALStreaming implements the WAL streaming service.
-func (c *Connection) StoreWALStreaming(
-	ctx context.Context,
-	name string,
-	segmentSize uint64,
-	sendToTier2 bool,
-) (*klioclient.WALUploader, error) {
-	stream, err := c.Put(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("while starting uploading a WAL file: %w", err)
-	}
-
-	return klioclient.NewWALUploader(&grpcWALStream{
-		innerStream: stream,
-		segmentSize: segmentSize,
-		clusterName: c.clientConfig.ClusterName,
-		walName:     name,
-		sendToTier2: sendToTier2,
-	}), nil
-}
-
 // GetWALStreaming get a WAL from a remote connection.
 func (c *Connection) GetWALStreaming(ctx context.Context, walName string, out io.Writer) error { //nolint:cyclop
 	client, err := c.Get(ctx, &klioGRPC.GetRequest{

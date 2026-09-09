@@ -25,37 +25,38 @@ import (
 )
 
 // TestIsCompleted verifies that a WAL segment is considered complete only when
-// the full segment has been received: a short write (interrupted by a failover)
-// or a zero-length write is treated as partial.
+// flushedLSN has reached segmentSize: a short write (interrupted by a
+// failover) or a zero-length write is treated as partial.
 func TestIsCompleted(t *testing.T) {
 	tests := []struct {
 		name        string
-		writtenSize uint64
+		flushedLSN  uint64
+		walStartLSN uint64
 		segmentSize uint64
 		want        bool
 	}{
 		{
 			name:        "fully received segment is complete",
-			writtenSize: 16,
+			flushedLSN:  16,
 			segmentSize: 16,
 			want:        true,
 		},
 		{
 			name:        "short write is partial",
-			writtenSize: 8,
+			flushedLSN:  8,
 			segmentSize: 16,
 			want:        false,
 		},
 		{
 			name:        "empty write is partial",
-			writtenSize: 0,
+			flushedLSN:  0,
 			segmentSize: 16,
 			want:        false,
 		},
 		{
-			name:        "zero-sized segment is never complete",
-			writtenSize: 0,
-			segmentSize: 0,
+			name:        "short write with non-zero start offset is partial",
+			flushedLSN:  24,
+			segmentSize: 16,
 			want:        false,
 		},
 	}
@@ -63,8 +64,11 @@ func TestIsCompleted(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			h := &putHandler{
-				writtenSize: tt.writtenSize,
-				blockMeta:   walUploadBlockMetadata{segmentSize: tt.segmentSize},
+				flushedBytes: tt.flushedLSN,
+				blockMeta: walUploadBlockMetadata{
+					segmentSize: tt.segmentSize,
+					walStartLSN: tt.walStartLSN,
+				},
 			}
 			if got := h.isCompleted(); got != tt.want {
 				t.Fatalf("isCompleted() = %v, want %v", got, tt.want)

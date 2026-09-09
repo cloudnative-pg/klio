@@ -58,12 +58,6 @@ func (s *SourceConfig) Validate() error {
 		errs = errors.Join(errs, errors.New(
 			"invalid source config: slot name can only contain lower-case letters, numbers, and underscores"))
 	}
-	if s.StandbyMessageTimeoutSeconds < 1 {
-		errs = errors.Join(errs, errors.New("invalid source config: standby_message_timeout_seconds must be at least 1"))
-	}
-	if s.FlushTimeoutMilliseconds < 1 {
-		errs = errors.Join(errs, errors.New("invalid source config: flush_timeout_ms must be at least 1"))
-	}
 	if s.BufferSize < 1 {
 		errs = errors.Join(errs, errors.New("invalid source config: buffer_size must be at least 1"))
 	}

@@ -29,12 +29,6 @@ import (
 
 const fakeWalContent = "deadbeef"
 
-// WALClient is the interface that wraps the backend WAL storage.
-type WALClient interface {
-	// StoreWAL upload a WAL file to a remote store
-	StoreWAL(ctx context.Context, name string, content []byte, sendToTier2 bool) error
-}
-
 type testingRepository struct {
 	prefilledSnapshots int
 	client             *TemporaryConnection
@@ -111,10 +105,10 @@ func runSnapshotLookupBenchmark(b *testing.B, repo *testingRepository) {
 	}
 }
 
-func addFakeWals(ctx context.Context, repo WALClient, start int, count int) error {
+func addFakeWals(ctx context.Context, repo *TemporaryConnection, start int, count int) error {
 	for i := range count {
 		walName := fmt.Sprintf("%024X", start+i)
-		err := repo.StoreWAL(ctx, walName, []byte(fakeWalContent), false)
+		err := repo.UploadFile(ctx, walName, []byte(fakeWalContent), false)
 		if err != nil {
 			return fmt.Errorf("while generating fake wal: %w", err)
 		}
