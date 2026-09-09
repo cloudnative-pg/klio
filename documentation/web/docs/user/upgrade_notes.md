@@ -33,6 +33,12 @@ around to migrating a given server. There is no way to defer or stage
 this per server. Work out the PVC name and StorageClass for each
 server (step 2 below) and schedule a maintenance window *before*
 upgrading the operator, not after.
+
+Between the operator upgrade and the Server rewrite (step 4), the
+`Server` object shows no status and emits no event: the only signal
+that a given server is affected is an operator log line such as
+`failed to reconcile statefulset ...
+spec.volumeClaimTemplates[0].spec.accessModes: Required value`.
 :::
 
 1. **Installing the operator 0.0.21 will delete the StatefulSets and
@@ -50,12 +56,18 @@ upgrading the operator, not after.
    a size at least as large as the old total across `data`, both
    caches, and `queue` combined.
 
-   :::warning Verify this name against your cluster
-   Getting this name wrong means the StatefulSet provisions a brand
-   new, empty PVC instead of adopting the one you pre-created, and the
-   copied data is silently orphaned on a PVC nothing mounts. Confirm
-   the exact name a StatefulSet named `<server-name>-klio` will look
-   for before relying on this procedure.
+   The operator hardcodes this name: the StatefulSet always looks for
+   `klio-<server-name>-klio-0`.
+
+   :::warning Getting this name wrong orphans the copied data
+   The StatefulSet provisions a brand new, empty PVC instead of
+   adopting the one you pre-created, and the copied data is silently
+   orphaned on a PVC nothing mounts. After migrating, confirm the PVC
+   is the one adopted by running:
+
+   ```shell
+   kubectl get pvc -l klio.cnpg.io/klio-server=<server-name>
+   ```
    :::
 
    For a server named `<server-name>`, the PVC manifest looks like:
@@ -67,7 +79,6 @@ upgrading the operator, not after.
      name: klio-<server-name>-klio-0
      labels:
        klio.cnpg.io/klio-server: <server-name>
-       klio.cnpg.io/pvcType: klio
    spec:
      accessModes:
        - ReadWriteOnce
