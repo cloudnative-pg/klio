@@ -252,6 +252,7 @@ github
 goroutines
 grpc
 gzip
+hardcodes
 hostPath
 http
 https
