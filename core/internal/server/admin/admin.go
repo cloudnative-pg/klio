@@ -245,7 +245,7 @@ func (s *Server) QueueListFailedBackups(
 		)
 	}
 
-	opts := make([]queue.ListOption, 0)
+	opts := make([]queue.Option, 0)
 
 	if name := req.GetClusterName(); name != "" {
 		opts = append(opts, queue.WithCluster(name))
@@ -281,7 +281,7 @@ func (s *Server) QueueListFailedWALs(
 			"failed WALs not available: server not configured with Stream Manager",
 		)
 	}
-	opts := make([]queue.ListOption, 0)
+	opts := make([]queue.Option, 0)
 
 	if name := req.GetClusterName(); name != "" {
 		opts = append(opts, queue.WithCluster(name))
@@ -306,6 +306,66 @@ func (s *Server) QueueListFailedWALs(
 	return &klioGRPC.QueueListFailedWALsResponse{
 		Wals: responseWALs,
 	}, nil
+}
+
+// QueueRetryWALs implements [grpc.AdminServer].
+func (s *Server) QueueRetryWALs(
+	ctx context.Context,
+	req *klioGRPC.QueueRetryWALsRequest,
+) (*klioGRPC.QueueRetryResponse, error) {
+	if s.streamMgr == nil {
+		return nil, status.Errorf(
+			codes.Unavailable,
+			"failed WALs not available: server not configured with Stream Manager",
+		)
+	}
+
+	clusterName := req.GetClusterName()
+	wals := req.GetWalNames()
+
+	if len(wals) > 0 && clusterName == "" {
+		return nil, status.Errorf(codes.InvalidArgument, "WAL names require a cluster name")
+	}
+
+	var retryOpts []queue.Option
+	if clusterName != "" {
+		retryOpts = append(retryOpts, queue.WithCluster(clusterName))
+	}
+	if len(wals) > 0 {
+		retryOpts = append(retryOpts, queue.WithWALs(wals...))
+	}
+
+	if err := s.streamMgr.RetryFailedWALTasks(ctx, retryOpts...); err != nil {
+		return nil, status.Errorf(codes.Internal, "while retrying failed WALs: %s", err.Error())
+	}
+
+	return &klioGRPC.QueueRetryResponse{}, nil
+}
+
+// QueueRetryBackups implements [grpc.AdminServer].
+func (s *Server) QueueRetryBackups(
+	ctx context.Context,
+	req *klioGRPC.QueueRetryBackupsRequest,
+) (*klioGRPC.QueueRetryResponse, error) {
+	if s.streamMgr == nil {
+		return nil, status.Errorf(
+			codes.Unavailable,
+			"failed backups not available: server not configured with Stream Manager",
+		)
+	}
+
+	clusterName := req.GetClusterName()
+
+	var retryOpts []queue.Option
+	if clusterName != "" {
+		retryOpts = append(retryOpts, queue.WithCluster(clusterName))
+	}
+
+	if err := s.streamMgr.RetryFailedBackupTasks(ctx, retryOpts...); err != nil {
+		return nil, status.Errorf(codes.Internal, "while retrying failed backups: %s", err.Error())
+	}
+
+	return &klioGRPC.QueueRetryResponse{}, nil
 }
 
 // DeleteBackup implements [grpc.AdminServer].

@@ -1,15 +1,25 @@
 ---
-title: klio admin queue backup
+title: klio admin queue backup retry
 ---
 
-## klio admin queue backup
+## klio admin queue backup retry
 
-Manage the queue backup tasks
+Retry failed backup tasks in the queue
+
+### Synopsis
+
+Retry failed backup tasks in the queue.
+
+With no arguments, all failed backup tasks are retried. If a cluster name is given, all failed backup tasks for that cluster are retried.
+
+```
+klio admin queue backup retry [cluster-name] [flags]
+```
 
 ### Options
 
 ```
-  -h, --help   help for backup
+  -h, --help   help for retry
 ```
 
 ### Options inherited from parent commands
@@ -22,7 +32,6 @@ Manage the queue backup tasks
       --log-field-level string            JSON log field to report severity in (default: level)
       --log-field-timestamp string        JSON log field to report timestamp in (default: ts)
       --log-level string                  the desired log level, one of error, info, debug and trace (default "info")
-      --log-truncate-destination          truncate the log destination on open instead of appending to it (ignored for FIFOs)
       --pprof-server string               enable the PPROF server using the specified address
       --socket-path string                Unix socket used by the administration server (default "/tmp/.klio-admin")
       --zap-devel                         Development Mode defaults(encoder=consoleEncoder,logLevel=Debug,stackTraceLevel=Warn). Production Mode defaults(encoder=jsonEncoder,logLevel=Info,stackTraceLevel=Error)
@@ -34,7 +43,5 @@ Manage the queue backup tasks
 
 ### SEE ALSO
 
-* [klio admin queue](klio_admin_queue.md)	 - Manage the queue tasks
-* [klio admin queue backup list-failed](klio_admin_queue_backup_list-failed.md)	 - List failed backup tasks in the queue
-* [klio admin queue backup retry](klio_admin_queue_backup_retry.md)	 - Retry failed backup tasks in the queue
+* [klio admin queue backup](klio_admin_queue_backup.md)	 - Manage the queue backup tasks
 

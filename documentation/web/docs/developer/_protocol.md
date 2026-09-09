@@ -14,6 +14,9 @@
     - [QueueListFailedBackupsResponse](#klio-wal-v1-QueueListFailedBackupsResponse)
     - [QueueListFailedWALsRequest](#klio-wal-v1-QueueListFailedWALsRequest)
     - [QueueListFailedWALsResponse](#klio-wal-v1-QueueListFailedWALsResponse)
+    - [QueueRetryBackupsRequest](#klio-wal-v1-QueueRetryBackupsRequest)
+    - [QueueRetryResponse](#klio-wal-v1-QueueRetryResponse)
+    - [QueueRetryWALsRequest](#klio-wal-v1-QueueRetryWALsRequest)
     - [QueueStatusRequest](#klio-wal-v1-QueueStatusRequest)
     - [QueueStatusResponse](#klio-wal-v1-QueueStatusResponse)
     - [RefreshRequest](#klio-wal-v1-RefreshRequest)
@@ -198,6 +201,47 @@ DeleteBackupResponse is the response to a backup deletion request.
 
 
 
+<a name="klio-wal-v1-QueueRetryBackupsRequest"></a>
+
+### QueueRetryBackupsRequest
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| cluster_name | [string](#string) | optional |  |
+
+
+
+
+
+
+<a name="klio-wal-v1-QueueRetryResponse"></a>
+
+### QueueRetryResponse
+
+
+
+
+
+
+
+<a name="klio-wal-v1-QueueRetryWALsRequest"></a>
+
+### QueueRetryWALsRequest
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| cluster_name | [string](#string) | optional |  |
+| wal_names | [string](#string) | repeated |  |
+
+
+
+
+
+
 <a name="klio-wal-v1-QueueStatusRequest"></a>
 
 ### QueueStatusRequest
@@ -274,6 +318,8 @@ Tier represents a storage tier in the backup system.
 | ListBackups | [ListBackupsRequest](#klio-wal-v1-ListBackupsRequest) | [ListBackupsResult](#klio-wal-v1-ListBackupsResult) | List every backup on the server |
 | QueueListFailedBackups | [QueueListFailedBackupsRequest](#klio-wal-v1-QueueListFailedBackupsRequest) | [QueueListFailedBackupsResponse](#klio-wal-v1-QueueListFailedBackupsResponse) | List backups failed to be processed from the queue |
 | QueueListFailedWALs | [QueueListFailedWALsRequest](#klio-wal-v1-QueueListFailedWALsRequest) | [QueueListFailedWALsResponse](#klio-wal-v1-QueueListFailedWALsResponse) | List WAL files failed to be processed from the queue |
+| QueueRetryWALs | [QueueRetryWALsRequest](#klio-wal-v1-QueueRetryWALsRequest) | [QueueRetryResponse](#klio-wal-v1-QueueRetryResponse) | Retry WAL files that failed to be processed from the queue |
+| QueueRetryBackups | [QueueRetryBackupsRequest](#klio-wal-v1-QueueRetryBackupsRequest) | [QueueRetryResponse](#klio-wal-v1-QueueRetryResponse) | Retry Backups that failed to be processed from the queue |
 | QueueStatus | [QueueStatusRequest](#klio-wal-v1-QueueStatusRequest) | [QueueStatusResponse](#klio-wal-v1-QueueStatusResponse) | Get the status of the task queue (pending backups and WALs) |
 | DeleteBackup | [DeleteBackupRequest](#klio-wal-v1-DeleteBackupRequest) | [DeleteBackupResponse](#klio-wal-v1-DeleteBackupResponse) | Delete a backup from the server |
 

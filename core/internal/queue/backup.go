@@ -51,7 +51,7 @@ func (t BackupTask) Cluster() string {
 // NotifyBackupReceived is called to notify the consumers that a new backup
 // has been uploaded.
 func (q *Conn) NotifyBackupReceived(ctx context.Context, task *BackupTask) error {
-	return q.notifyMessage(ctx, backupSubject(task.ClusterName), task)
+	return q.notifyMessage(ctx, backupSubject(task.ClusterName), task, nil)
 }
 
 // BackupTaskHandler is called for every backup task message that should be handled.
@@ -62,7 +62,16 @@ type BackupTaskHandler func(ctx context.Context, t *BackupTask) error
 // when the context is canceled. After a successful handler run, all dead-letter
 // queue entries for the backed-up cluster are purged.
 func (q *Conn) ConsumeBackupReceivedMessages(ctx context.Context, handler BackupTaskHandler) error {
-	wrapped := func(ctx context.Context, t *BackupTask, _ nats.Header) error {
+	logger := log.FromContext(ctx).WithName("backup-consumer")
+
+	wrapped := func(ctx context.Context, t *BackupTask, headers nats.Header) error {
+		if isDLQRetry(headers) {
+			logger.Info(
+				"Retrying backup task re-enqueued from the dead-letter queue",
+				"cluster", t.ClusterName,
+			)
+		}
+
 		if err := handler(ctx, t); err != nil {
 			return err
 		}

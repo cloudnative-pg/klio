@@ -232,7 +232,7 @@ func TestListPagerShortRead(t *testing.T) {
 
 	// Claim the stream holds two entries while the pager will only ever deliver
 	// the single seeded one, simulating an early pager termination.
-	_, err = listPager[WALTask](t.Context(), pgr, source.ReadMessage, 2, listConfig{})
+	_, err = listPager[WALTask](t.Context(), pgr, source.ReadMessage, 2, optionConfig{})
 	require.ErrorIs(t, err, errIncompleteDLQListing)
 }
 
@@ -250,7 +250,7 @@ func TestListPagerContextCancelled(t *testing.T) {
 	ctx, cancel := context.WithCancel(t.Context())
 	cancel()
 
-	_, err = listPager[WALTask](ctx, pgr, source.ReadMessage, 1, listConfig{})
+	_, err = listPager[WALTask](ctx, pgr, source.ReadMessage, 1, optionConfig{})
 	require.ErrorIs(t, err, context.Canceled)
 }
 
