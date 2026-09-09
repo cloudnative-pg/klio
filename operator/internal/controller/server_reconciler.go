@@ -41,10 +41,7 @@ import (
 	"github.com/cloudnative-pg/klio/operator/internal/podtemplate"
 )
 
-const (
-	pvcTypeLabel    = "klio.cnpg.io/pvcType"
-	klioServerLabel = "klio.cnpg.io/klio-server"
-)
+const klioServerLabel = "klio.cnpg.io/klio-server"
 
 var errNilFileReference = errors.New("fileReference is not set in FileSource")
 
@@ -299,7 +296,6 @@ func injectVolumeClaimTemplate(expected *appsv1.StatefulSet, server *kliov1alpha
 			Name: pvcTypeKlio,
 			Labels: map[string]string{
 				klioServerLabel: server.Name,
-				pvcTypeLabel:    pvcTypeKlio,
 			},
 		},
 		Spec: server.Spec.Storage.PersistentVolumeClaimTemplate,

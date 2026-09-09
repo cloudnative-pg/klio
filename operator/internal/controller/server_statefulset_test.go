@@ -127,7 +127,6 @@ func TestReconcileStatefulSetUnifiedPVC(t *testing.T) {
 			require.Len(t, statefulSet.Spec.VolumeClaimTemplates, 1)
 			pvc := statefulSet.Spec.VolumeClaimTemplates[0]
 			assert.Equal(t, "klio", pvc.Name)
-			assert.Equal(t, "klio", pvc.Labels[pvcTypeLabel])
 			assert.Equal(t, "test-server", pvc.Labels[klioServerLabel])
 			assert.Equal(t, newPVCSpec("10Gi"), pvc.Spec)
 

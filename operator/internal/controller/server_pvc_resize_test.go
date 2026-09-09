@@ -68,7 +68,6 @@ func newTestPVC(pvcType, size string) *corev1.PersistentVolumeClaim {
 			Namespace: "default",
 			Labels: map[string]string{
 				klioServerLabel: "test-server",
-				pvcTypeLabel:    pvcType,
 			},
 		},
 		Spec: newPVCSpec(size),

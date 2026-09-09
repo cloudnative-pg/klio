@@ -269,11 +269,6 @@ func checkRecoveryServerHasKlioPVCAndMount(
 		return fmt.Errorf("read-only server's klio PVC %s not found: %w", pvcName, err)
 	}
 
-	if pvcType := pvc.Labels["klio.cnpg.io/pvcType"]; pvcType != "klio" {
-		return fmt.Errorf("read-only server's PVC %s has pvcType label %q, want %q",
-			pvcName, pvcType, "klio")
-	}
-
 	if serverLabel := pvc.Labels["klio.cnpg.io/klio-server"]; serverLabel != server.Name {
 		return fmt.Errorf("read-only server's PVC %s has klio-server label %q, want %q",
 			pvcName, serverLabel, server.Name)

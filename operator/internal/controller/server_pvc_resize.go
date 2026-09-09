@@ -34,8 +34,7 @@ import (
 	kliov1alpha1 "github.com/cloudnative-pg/klio/operator/api/v1alpha1"
 )
 
-// pvcTypeKlio is both the name of the VolumeClaimTemplate and the
-// value of its pvcTypeLabel.
+// pvcTypeKlio is the name of the VolumeClaimTemplate backing the Server.
 const pvcTypeKlio = "klio"
 
 // klioPVCName returns the name of the PVC backing a Server. The
