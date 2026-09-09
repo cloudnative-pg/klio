@@ -255,6 +255,7 @@ func runServer(ctx context.Context, opts serverOpts) error {
 	}
 
 	// Configure tier2
+	//nolint:nestif
 	if opts.tier2 {
 		if err := opts.cfg.RequireTier2(); err != nil {
 			return fmt.Errorf("tier 2 opts.cfg validation error: %w", err)
