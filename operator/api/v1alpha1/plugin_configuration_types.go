@@ -39,6 +39,7 @@ const (
 
 // PluginConfigurationSpec defines the desired state of client configuration.
 // +kubebuilder:validation:XValidation:rule="self.mode != 'read-only' || (has(self.tier2) && (!has(self.tier2.enableBackup) || !self.tier2.enableBackup) && self.tier2.enableRecovery && !has(self.tier1))",message="when mode is read-only, tier2.enableRecovery must be true, tier2.enableBackup must be false, and tier1 must not exist"
+// +kubebuilder:validation:XValidation:rule="!(self.mode == 'read-only' && has(self.tier2) && has(self.tier2.compression))",message="tier2.compression cannot be set when mode is read-only"
 type PluginConfigurationSpec struct {
 	// ServerAddress is the address of the Klio server
 	// +kubebuilder:validation:Required

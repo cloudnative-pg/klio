@@ -1894,6 +1894,8 @@ spec:
                 tier2.enableBackup must be false, and tier1 must not exist
               rule: self.mode != 'read-only' || (has(self.tier2) && (!has(self.tier2.enableBackup)
                 || !self.tier2.enableBackup) && self.tier2.enableRecovery && !has(self.tier1))
+            - message: tier2.compression cannot be set when mode is read-only
+              rule: '!(self.mode == ''read-only'' && has(self.tier2) && has(self.tier2.compression))'
           status:
             description: PluginConfigurationStatus defines the observed state of ClientConfig.
             properties:
