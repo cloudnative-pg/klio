@@ -177,11 +177,6 @@ type CompressionPolicy struct {
 	MaxSize int64 `json:"compressionMaxSize,omitempty"`
 }
 
-// IsZero reports whether the policy carries no compression settings.
-func (p CompressionPolicy) IsZero() bool {
-	return p.Algorithm == "" && p.MinSize == 0 && p.MaxSize == 0
-}
-
 // Target is used to point a Kopia transaction to the set of snapshots
 // having the specified Hostname and Username.
 type Target struct {

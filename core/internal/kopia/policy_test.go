@@ -71,11 +71,13 @@ func TestBuildCompressionPolicyArgs(t *testing.T) {
 		assertArgContains(t, args, "--compression-max-size=1048576")
 	})
 
-	t.Run("an unset algorithm emits no flag", func(t *testing.T) {
+	t.Run("an unset algorithm is reset to inherit", func(t *testing.T) {
+		// Emitting no flag would leave a previously stored algorithm in the
+		// repository forever, with no configuration value able to clear it.
 		args := buildCompressionPolicyArgs("/etc/kopia/config", "--global",
 			CompressionPolicy{MinSize: 4096})
 
-		assertNoArgWithPrefix(t, args, "--compression=")
+		assertArgContains(t, args, "--compression=inherit")
 		assertArgContains(t, args, "--compression-min-size=4096")
 	})
 

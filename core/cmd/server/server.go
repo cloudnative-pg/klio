@@ -35,18 +35,17 @@ import (
 )
 
 // applyGlobalCompressionPolicy sets the repository-wide (global) Kopia
-// compression policy using the passed persistent config file. It is a no-op
-// when the policy carries no settings. This runs before the Kopia servers
-// start, so the direct write to the repository predates any server cache.
+// compression policy using the passed persistent config file. It is always
+// applied, even when unconfigured, so that removing the compression section
+// resets the global policy back to Kopia's built-in default instead of
+// leaving a stale, previously-set policy in place. This runs before the
+// Kopia servers start, so the direct write to the repository predates any
+// server cache.
 func applyGlobalCompressionPolicy(
 	ctx context.Context,
 	configFile string,
-	compression config.CompressionServerConfig,
+	compression config.CompressionPolicy,
 ) error {
-	if compression.IsZero() {
-		return nil
-	}
-
 	kopiaBinary, err := kopia.LookupBinary()
 	if err != nil {
 		return err

@@ -21,6 +21,7 @@ package kopia
 
 import (
 	"bytes"
+	"cmp"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -155,11 +156,10 @@ func (s *Client) setKopiaCompressionPolicy(
 // `kopia policy set` compression command. policyTarget is either a
 // "user@host" source or the "--global" selector.
 //
-// An unset algorithm emits no flag, leaving whatever the repository already
-// holds. The size bounds, in contrast, are always emitted: a zero value is
-// sent as "inherit", which Kopia resets to its inherited default. Skipping
-// them instead would make a bound impossible to clear once written, because
-// no value of the configuration field could ever remove it.
+// The algorithm and the size bounds are always emitted: a zero value is sent
+// as "inherit", which Kopia resets to its inherited default. Skipping them
+// instead would make a setting impossible to clear once written, because no
+// value of the configuration field could ever remove it.
 func buildCompressionPolicyArgs(configFile, policyTarget string, policy CompressionPolicy) []string {
 	args := []string{
 		"policy",
@@ -172,10 +172,8 @@ func buildCompressionPolicyArgs(configFile, policyTarget string, policy Compress
 		"--disable-file-logging",
 	}
 
-	if policy.Algorithm != "" {
-		args = append(args, "--compression="+policy.Algorithm)
-	}
 	args = append(args,
+		"--compression="+cmp.Or(policy.Algorithm, kopiaInheritPolicyValue),
 		"--compression-min-size="+compressionSizeArg(policy.MinSize),
 		"--compression-max-size="+compressionSizeArg(policy.MaxSize),
 	)

@@ -326,16 +326,6 @@ Compression only affects backups taken after the policy is applied; existing
 backups are not recompressed. WAL files are always compressed independently
 and are not affected by this setting.
 
-:::warning
-A compression policy is stored in the Kopia repository, not derived from the
-`PluginConfiguration` on every backup. While a `compression` section is
-present, its `minSize` and `maxSize` are reconciled on every backup, so
-dropping either field does clear the corresponding bound. Removing the whole
-section, however, leaves the policy already written to the repository in
-place. To stop compressing, set `algorithm: none` explicitly rather than
-deleting the section.
-:::
-
 No manual step is needed for a policy change to take effect: the next backup
 picks it up automatically. Because Kopia deduplicates content by hash, a new
 algorithm applies only to data that is new or changed in later backups; blocks

@@ -192,17 +192,17 @@ func runBackup(cmd *cobra.Command, _ []string) error {
 	return nil
 }
 
-// setTier1CompressionPolicy applies the per-cluster tier1 compression policy,
-// if configured, to the cluster's source in the tier1 repository.
+// setTier1CompressionPolicy applies the per-cluster tier1 compression policy
+// to the cluster's source in the tier1 repository. It is always applied, even
+// when unconfigured, so that removing the compression section resets the
+// source back to inheriting the repository's global policy instead of
+// leaving a stale, previously-set override in place.
 func setTier1CompressionPolicy(
 	ctx context.Context,
 	client *kopia.MultiConnection,
 	configuration *config.Data,
 ) error {
 	policy := toKopiaCompressionPolicy(configuration.Tier1CompressionPolicy)
-	if policy.IsZero() {
-		return nil
-	}
 
 	target := kopiaWrapper.Target{
 		Username: client.GetUsername(),
@@ -254,13 +254,13 @@ func marshalTier2RetentionPolicy(ctx context.Context, configuration *config.Data
 }
 
 // marshalTier2CompressionPolicy serializes the tier2 compression policy to the
-// JSON representation expected by the WAL server. It returns an empty string
-// when no policy is configured or serialization fails.
+// JSON representation expected by the WAL server. It is always serialized,
+// even when unconfigured, so that removing the compression section resets the
+// cluster's tier2 source back to inheriting the repository's global policy
+// instead of leaving a stale, previously-set override in place. It returns an
+// empty string only when serialization fails.
 func marshalTier2CompressionPolicy(ctx context.Context, configuration *config.Data) string {
 	policy := toKopiaCompressionPolicy(configuration.Tier2CompressionPolicy)
-	if policy.IsZero() {
-		return ""
-	}
 
 	content, err := json.Marshal(policy)
 	if err != nil {
