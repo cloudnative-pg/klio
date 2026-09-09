@@ -87,6 +87,24 @@ func TestInitializeTier1CreatesDirectories(t *testing.T) {
 	assertDirNotExists(t, fs, cfg.Tier2.CacheDirectory)
 }
 
+// TestInitializeTier1RequiresQueueDirectory verifies that initializeTier1
+// fails, without creating any directory, when the queue directory is not
+// configured.
+func TestInitializeTier1RequiresQueueDirectory(t *testing.T) {
+	cfg := newTestServerConfig()
+	cfg.QueueDirectory = ""
+	fs := afero.NewMemMapFs()
+
+	err := initializeTier1(context.Background(), fs, cfg)
+	if err == nil {
+		t.Fatal("expected an error, got nil")
+	}
+
+	assertDirNotExists(t, fs, cfg.Tier1.Wal.WALPath)
+	assertDirNotExists(t, fs, cfg.Tier1.Base.RepositoryDirectory)
+	assertDirNotExists(t, fs, cfg.Tier1.Base.CacheDirectory)
+}
+
 // TestInitializeTier2CreatesDirectories verifies that initializeTier2
 // creates only the tier2 cache directory, and none of the tier1 ones (nor
 // the queue directory, which is only needed when tier1 is enabled), even
