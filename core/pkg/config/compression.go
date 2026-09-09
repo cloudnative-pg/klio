@@ -83,8 +83,8 @@ func IsValidCompressionAlgorithm(algorithm string) bool {
 // (inherited) policy is left untouched. The size bounds are validated even
 // when no algorithm is set, because they are applied independently of it.
 //
-// It is shared by the client-side CompressionPolicy and the server-side
-// CompressionServerConfig, which carry the same fields.
+// It is shared by CompressionPolicy's own Validate and the server config's
+// client_validate/server_validate call sites.
 func ValidateCompressionSettings(algorithm string, minSize, maxSize int64) error {
 	if algorithm != "" && !IsValidCompressionAlgorithm(algorithm) {
 		return fmt.Errorf("%w: %q", ErrInvalidCompressionAlgorithm, algorithm)

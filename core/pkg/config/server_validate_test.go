@@ -124,7 +124,7 @@ func TestTierConfigCompressionValidate(t *testing.T) {
 
 	t.Run("Tier1 valid compression", func(t *testing.T) {
 		cfg := validTier1()
-		cfg.Compression = CompressionServerConfig{Algorithm: "zstd"}
+		cfg.Compression = CompressionPolicy{Algorithm: "zstd"}
 		if err := cfg.Validate(); err != nil {
 			t.Errorf("Validate() unexpected error = %v", err)
 		}
@@ -139,7 +139,7 @@ func TestTierConfigCompressionValidate(t *testing.T) {
 
 	t.Run("Tier1 invalid compression", func(t *testing.T) {
 		cfg := validTier1()
-		cfg.Compression = CompressionServerConfig{Algorithm: "bogus"}
+		cfg.Compression = CompressionPolicy{Algorithm: "bogus"}
 		if err := cfg.Validate(); err == nil {
 			t.Errorf("Validate() expected an error for invalid compression")
 		}
@@ -147,7 +147,7 @@ func TestTierConfigCompressionValidate(t *testing.T) {
 
 	t.Run("Tier1 valid compression size range", func(t *testing.T) {
 		cfg := validTier1()
-		cfg.Compression = CompressionServerConfig{
+		cfg.Compression = CompressionPolicy{
 			Algorithm: "zstd", MinSize: 4096, MaxSize: 1048576,
 		}
 		if err := cfg.Validate(); err != nil {
@@ -157,7 +157,7 @@ func TestTierConfigCompressionValidate(t *testing.T) {
 
 	t.Run("Tier1 inconsistent compression size range", func(t *testing.T) {
 		cfg := validTier1()
-		cfg.Compression = CompressionServerConfig{
+		cfg.Compression = CompressionPolicy{
 			Algorithm: "zstd", MinSize: 1048576, MaxSize: 4096,
 		}
 		if err := cfg.Validate(); !errors.Is(err, ErrInvalidCompressionSizeRange) {
@@ -168,7 +168,7 @@ func TestTierConfigCompressionValidate(t *testing.T) {
 	t.Run("Tier2 inconsistent compression size range", func(t *testing.T) {
 		cfg := Tier2Config{
 			S3: S3Configuration{Enabled: false},
-			Compression: CompressionServerConfig{
+			Compression: CompressionPolicy{
 				Algorithm: "zstd", MinSize: 1048576, MaxSize: 4096,
 			},
 		}
@@ -180,7 +180,7 @@ func TestTierConfigCompressionValidate(t *testing.T) {
 	t.Run("Tier2 invalid compression", func(t *testing.T) {
 		cfg := Tier2Config{
 			S3:          S3Configuration{Enabled: false},
-			Compression: CompressionServerConfig{Algorithm: "bogus"},
+			Compression: CompressionPolicy{Algorithm: "bogus"},
 		}
 		if err := cfg.Validate(); err == nil {
 			t.Errorf("Validate() expected an error for invalid compression")
