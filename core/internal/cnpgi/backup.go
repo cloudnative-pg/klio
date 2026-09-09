@@ -117,8 +117,8 @@ func (b backupServiceImplementation) Backup(
 	)
 
 	backupStart := time.Now()
-	recordBackupStart(ctx)
-	defer recordBackupFinished(ctx)
+	recordBackupStart(ctx, cluster.Name)
+	defer recordBackupFinished(ctx, cluster.Name)
 
 	metadata, err := b.runBackup(
 		ctx,
@@ -126,7 +126,7 @@ func (b backupServiceImplementation) Backup(
 		isPrimary,
 	)
 	if err != nil {
-		recordBackupFailure(ctx, time.Since(backupStart), err)
+		recordBackupFailure(ctx, cluster.Name, time.Since(backupStart), err)
 		span.RecordError(err)
 		span.SetStatus(codes.Error, "backup failed")
 
@@ -138,14 +138,14 @@ func (b backupServiceImplementation) Backup(
 	// verification is folded into the successful-backup recording below.
 	corruption, verifyErr := b.runVerify(ctx, backupName)
 	if corruption {
-		recordBackupFailure(ctx, time.Since(backupStart), verifyErr)
+		recordBackupFailure(ctx, cluster.Name, time.Since(backupStart), verifyErr)
 		span.RecordError(verifyErr)
 		span.SetStatus(codes.Error, "verification detected corruption")
 
 		return nil, verifyErr
 	}
 
-	recordBackupSuccess(ctx, time.Since(backupStart))
+	recordBackupSuccess(ctx, cluster.Name, time.Since(backupStart))
 
 	return &backup.BackupResult{
 		BackupName:        backupName,
