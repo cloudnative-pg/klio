@@ -33,6 +33,8 @@ service WAL {
   rpc ResetWALStream(ResetWALStreamRequest) returns (ResetWALStreamResult) {}
 
   rpc CloseBackup(CloseBackupRequest) returns (CloseBackupResult) {}
+
+  rpc ApplyRetention(ApplyRetentionRequest) returns (ApplyRetentionResult) {}
 }
 
 message PutRequest {
@@ -161,6 +163,9 @@ message CloseBackupRequest {
 
   // When present, set the tier2 retention policy to the specified JSON-serialized policy.
   string tier2_retention_policy = 9;
+
+  // When present, set the tier1 retention policy to the specified JSON-serialized policy.
+  string tier1_retention_policy = 10;
 }
 
 // This is sent by the WAL server in response to a CloseBackupRequest
@@ -173,4 +178,25 @@ message CloseBackupResult {
   // List of WAL files needed by this backup but still not
   // uploaded to tier1
   repeated string missing_wal_files = 2;
+}
+
+// This is sent to the WAL server to apply a retention policy to a cluster
+// immediately, without waiting for the next backup.
+message ApplyRetentionRequest {
+  // The name of the cluster whose backups should be pruned.
+  string cluster_name = 1;
+
+  // The tier1 retention policy to apply, as a JSON-serialized policy. When
+  // empty, tier1 keeps every backup.
+  string tier1_retention_policy = 2;
+
+  // The tier2 retention policy to apply, as a JSON-serialized policy. When
+  // empty, tier2 keeps every backup.
+  string tier2_retention_policy = 3;
+}
+
+// This is sent by the WAL server in response to an ApplyRetentionRequest.
+message ApplyRetentionResult {
+  // True when the retention has been scheduled for execution.
+  bool scheduled = 1;
 }

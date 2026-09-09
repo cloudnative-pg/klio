@@ -268,7 +268,8 @@ and running maintenance manually.
 1. **Configure retention policies**: The most effective way to control
    storage growth is through properly configured retention policies, which
    automatically delete old backups and WAL files no longer needed for
-   recovery. See
+   recovery. After tightening a policy, run `klio retention apply` to enforce
+   it immediately instead of waiting for the next backup. See
    [Retention Policies](plugin_configuration.md#retention-policies) for
    configuration details.
 

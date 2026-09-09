@@ -24,6 +24,8 @@
     - [Admin](#klio-wal-v1-Admin)
   
 - [klio_wal.proto](#klio_wal-proto)
+    - [ApplyRetentionRequest](#klio-wal-v1-ApplyRetentionRequest)
+    - [ApplyRetentionResult](#klio-wal-v1-ApplyRetentionResult)
     - [CloseBackupRequest](#klio-wal-v1-CloseBackupRequest)
     - [CloseBackupResult](#klio-wal-v1-CloseBackupResult)
     - [ClusterMetadata](#klio-wal-v1-ClusterMetadata)
@@ -288,6 +290,39 @@ Tier represents a storage tier in the backup system.
 
 
 
+<a name="klio-wal-v1-ApplyRetentionRequest"></a>
+
+### ApplyRetentionRequest
+This is sent to the WAL server to apply a retention policy to a cluster
+immediately, without waiting for the next backup.
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| cluster_name | [string](#string) |  | The name of the cluster whose backups should be pruned. |
+| tier1_retention_policy | [string](#string) |  | The tier1 retention policy to apply, as a JSON-serialized policy. When empty, tier1 keeps every backup. |
+| tier2_retention_policy | [string](#string) |  | The tier2 retention policy to apply, as a JSON-serialized policy. When empty, tier2 keeps every backup. |
+
+
+
+
+
+
+<a name="klio-wal-v1-ApplyRetentionResult"></a>
+
+### ApplyRetentionResult
+This is sent by the WAL server in response to an ApplyRetentionRequest.
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| scheduled | [bool](#bool) |  | True when the retention has been scheduled for execution. |
+
+
+
+
+
+
 <a name="klio-wal-v1-CloseBackupRequest"></a>
 
 ### CloseBackupRequest
@@ -305,6 +340,7 @@ been completed.
 | segment_size | [uint64](#uint64) |  | The size of a WAL segment. Needed to generate the sequence of WAL files between the start and the end. |
 | send_to_tier2 | [bool](#bool) |  | Require this backup to be sent to tier2. |
 | tier2_retention_policy | [string](#string) |  | When present, set the tier2 retention policy to the specified JSON-serialized policy. |
+| tier1_retention_policy | [string](#string) |  | When present, set the tier1 retention policy to the specified JSON-serialized policy. |
 
 
 
@@ -545,6 +581,7 @@ feature.
 | RequestWALStart | [RequestWALStartRequest](#klio-wal-v1-RequestWALStartRequest) | [RequestWALStartResult](#klio-wal-v1-RequestWALStartResult) |  |
 | ResetWALStream | [ResetWALStreamRequest](#klio-wal-v1-ResetWALStreamRequest) | [ResetWALStreamResult](#klio-wal-v1-ResetWALStreamResult) |  |
 | CloseBackup | [CloseBackupRequest](#klio-wal-v1-CloseBackupRequest) | [CloseBackupResult](#klio-wal-v1-CloseBackupResult) |  |
+| ApplyRetention | [ApplyRetentionRequest](#klio-wal-v1-ApplyRetentionRequest) | [ApplyRetentionResult](#klio-wal-v1-ApplyRetentionResult) |  |
 
  
 

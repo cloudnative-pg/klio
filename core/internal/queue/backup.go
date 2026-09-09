@@ -25,7 +25,7 @@ import (
 	"github.com/cloudnative-pg/machinery/pkg/log"
 	"github.com/nats-io/nats.go"
 
-	"github.com/cloudnative-pg/klio/core/internal/kopia"
+	"github.com/cloudnative-pg/klio/core/pkg/retention"
 )
 
 // BackupTask is the structure that is sent on NATS Stream when
@@ -39,8 +39,18 @@ type BackupTask struct {
 	// and maintenance) without touching tier2.
 	SendToTier2 bool `json:"sendToTier2,omitempty"`
 
-	// The retention policy to apply to tier2.
-	Tier2RetentionPolicy *kopia.RetentionPolicy `json:"tier2RetentionPolicy,omitzero"`
+	// MaintenanceOnly requests the consumer to apply retention to the cluster
+	// without a new backup: no snapshot listing, verification or tier2 relay is
+	// performed, only the per-tier retention and WAL cleanup.
+	MaintenanceOnly bool `json:"maintenanceOnly,omitempty"`
+
+	// Tier1RetentionPolicy is the retention policy to apply to tier1. Its zero
+	// value keeps every backup.
+	Tier1RetentionPolicy retention.Policy `json:"tier1RetentionPolicy,omitzero"`
+
+	// Tier2RetentionPolicy is the retention policy to apply to tier2. Its zero
+	// value keeps every backup.
+	Tier2RetentionPolicy retention.Policy `json:"tier2RetentionPolicy,omitzero"`
 }
 
 // Cluster returns the name of the cluster associated with this task.

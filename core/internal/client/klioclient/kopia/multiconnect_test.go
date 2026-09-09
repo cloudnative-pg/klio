@@ -28,7 +28,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/cloudnative-pg/klio/core/internal/client/klioclient"
-	"github.com/cloudnative-pg/klio/core/internal/kopia"
 )
 
 // MockKlioClient is a mock implementation of klioclient.Client.
@@ -41,20 +40,15 @@ type MockKlioClient struct {
 	GetMetadataFunc func(ctx context.Context, hostname string,
 		name string) (
 		*klioclient.BackupMetadata, error)
-	DeleteBackupFunc       func(ctx context.Context, hostname string, name string) error
-	SetRetentionPolicyFunc func(ctx context.Context, t kopia.Target,
-		p kopia.RetentionPolicy) error
-	GetRetentionPolicyFunc func(ctx context.Context, t kopia.Target) (
-		*kopia.RetentionPolicy, error)
-	ApplyRetentionPolicyFunc func(ctx context.Context, t kopia.Target) error
-	UploadTablespaceFunc     func(ctx context.Context, backupName string,
-		tbl klioclient.TablespaceLayout, pinned bool) error
+	DeleteBackupFunc     func(ctx context.Context, hostname string, name string) error
+	UploadTablespaceFunc func(ctx context.Context, backupName string,
+		tbl klioclient.TablespaceLayout) error
 	UploadPgDataFunc func(ctx context.Context, backupName string,
-		pgData string, pinned bool) error
+		pgData string) error
 	UploadControlFileFunc func(ctx context.Context, backupName string,
-		controlDataFileName string, pinned bool) error
+		controlDataFileName string) error
 	UploadBackupMetadataFunc func(ctx context.Context, backupName string,
-		metadata *klioclient.BackupMetadata, pinned bool) error
+		metadata *klioclient.BackupMetadata) error
 	RestoreTablespaceFunc func(ctx context.Context,
 		metadata *klioclient.BackupMetadata, tbl klioclient.TablespaceLayout,
 		destinationDirectory string) error
@@ -96,58 +90,29 @@ func (m *MockKlioClient) DeleteBackup(ctx context.Context, hostname string, name
 	return nil
 }
 
-func (m *MockKlioClient) SetRetentionPolicy(
-	ctx context.Context, t kopia.Target, p kopia.RetentionPolicy,
-) error {
-	if m.SetRetentionPolicyFunc != nil {
-		return m.SetRetentionPolicyFunc(ctx, t, p)
-	}
-
-	return nil
-}
-
-func (m *MockKlioClient) GetRetentionPolicy(
-	ctx context.Context, t kopia.Target,
-) (*kopia.RetentionPolicy, error) {
-	if m.GetRetentionPolicyFunc != nil {
-		return m.GetRetentionPolicyFunc(ctx, t)
-	}
-
-	return nil, nil
-}
-
-func (m *MockKlioClient) ApplyRetentionPolicy(ctx context.Context, t kopia.Target) error {
-	if m.ApplyRetentionPolicyFunc != nil {
-		return m.ApplyRetentionPolicyFunc(ctx, t)
-	}
-
-	return nil
-}
-
 func (m *MockKlioClient) UploadTablespace(
 	ctx context.Context, backupName string, tbl klioclient.TablespaceLayout,
-	pinned bool,
 ) error {
 	if m.UploadTablespaceFunc != nil {
-		return m.UploadTablespaceFunc(ctx, backupName, tbl, pinned)
+		return m.UploadTablespaceFunc(ctx, backupName, tbl)
 	}
 
 	return nil
 }
 
-func (m *MockKlioClient) UploadPgData(ctx context.Context, backupName string, pgData string, pinned bool) error {
+func (m *MockKlioClient) UploadPgData(ctx context.Context, backupName string, pgData string) error {
 	if m.UploadPgDataFunc != nil {
-		return m.UploadPgDataFunc(ctx, backupName, pgData, pinned)
+		return m.UploadPgDataFunc(ctx, backupName, pgData)
 	}
 
 	return nil
 }
 
 func (m *MockKlioClient) UploadControlFile(
-	ctx context.Context, backupName string, controlDataFileName string, pinned bool,
+	ctx context.Context, backupName string, controlDataFileName string,
 ) error {
 	if m.UploadControlFileFunc != nil {
-		return m.UploadControlFileFunc(ctx, backupName, controlDataFileName, pinned)
+		return m.UploadControlFileFunc(ctx, backupName, controlDataFileName)
 	}
 
 	return nil
@@ -155,10 +120,9 @@ func (m *MockKlioClient) UploadControlFile(
 
 func (m *MockKlioClient) UploadBackupMetadata(
 	ctx context.Context, backupName string, metadata *klioclient.BackupMetadata,
-	pinned bool,
 ) error {
 	if m.UploadBackupMetadataFunc != nil {
-		return m.UploadBackupMetadataFunc(ctx, backupName, metadata, pinned)
+		return m.UploadBackupMetadataFunc(ctx, backupName, metadata)
 	}
 
 	return nil

@@ -1,6 +1,9 @@
 ACLs
 AES
 APIs
+ApplyRetention
+ApplyRetentionRequest
+ApplyRetentionResult
 BackupID
 BackupManifest
 Benchmarking

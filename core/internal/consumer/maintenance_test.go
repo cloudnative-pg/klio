@@ -19,7 +19,29 @@ SPDX-License-Identifier: Apache-2.0
 
 package consumer
 
-import "testing"
+import (
+	"testing"
+
+	"github.com/cloudnative-pg/klio/core/internal/client/klioclient"
+)
+
+func TestKeepUntilOnTier2(t *testing.T) {
+	tier2 := klioclient.BackupList{{Name: "backup-1"}, {Name: "backup-2"}}
+	keep := keepUntilOnTier2(tier2)
+
+	// A backup already on tier2 is deletable (not kept).
+	if keep("backup-1") {
+		t.Error("keepUntilOnTier2() kept backup-1, which is already on tier2")
+	}
+	// A backup not yet on tier2 must be kept (protected from tier1 deletion).
+	if !keep("backup-3") {
+		t.Error("keepUntilOnTier2() did not keep backup-3, which is not on tier2")
+	}
+	// With no tier2 backups, everything is kept.
+	if keepAll := keepUntilOnTier2(nil); !keepAll("backup-1") {
+		t.Error("keepUntilOnTier2(nil) did not keep backup-1")
+	}
+}
 
 func TestClampWAL(t *testing.T) {
 	tests := []struct {

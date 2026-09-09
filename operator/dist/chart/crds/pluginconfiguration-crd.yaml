@@ -1677,37 +1677,17 @@ spec:
                     description: RetentionPolicy defines how many backups we should
                       keep
                     properties:
-                      keepAnnual:
+                      latest:
                         description: |-
-                          KeepAnnual is the number of annual backups to keep
-                          optional
+                          Latest keeps only the given number of most recent backups and deletes the
+                          rest.
                         type: integer
-                      keepDaily:
-                        description: |-
-                          KeepDaily is the number of daily backups to keep
-                          optional
-                        type: integer
-                      keepHourly:
-                        description: |-
-                          KeepHourly is the number of hourly backups to keep
-                          optional
-                        type: integer
-                      keepLatest:
-                        description: |-
-                          KeepLatest is the number of latest backups to keep
-                          optional
-                        type: integer
-                      keepMonthly:
-                        description: |-
-                          KeepMonthly is the number of monthly backups to keep
-                          optional
-                        type: integer
-                      keepWeekly:
-                        description: |-
-                          KeepWeekly is the number of weekly backups to keep
-                          optional
-                        type: integer
+                    required:
+                    - latest
                     type: object
+                    x-kubernetes-validations:
+                    - message: latest must be greater than or equal to 1
+                      rule: self.latest >= 1
                 type: object
               tier2:
                 description: Tier2 is the Tier 2 configuration
@@ -1724,37 +1704,17 @@ spec:
                     description: RetentionPolicy defines how many backups we should
                       keep
                     properties:
-                      keepAnnual:
+                      latest:
                         description: |-
-                          KeepAnnual is the number of annual backups to keep
-                          optional
+                          Latest keeps only the given number of most recent backups and deletes the
+                          rest.
                         type: integer
-                      keepDaily:
-                        description: |-
-                          KeepDaily is the number of daily backups to keep
-                          optional
-                        type: integer
-                      keepHourly:
-                        description: |-
-                          KeepHourly is the number of hourly backups to keep
-                          optional
-                        type: integer
-                      keepLatest:
-                        description: |-
-                          KeepLatest is the number of latest backups to keep
-                          optional
-                        type: integer
-                      keepMonthly:
-                        description: |-
-                          KeepMonthly is the number of monthly backups to keep
-                          optional
-                        type: integer
-                      keepWeekly:
-                        description: |-
-                          KeepWeekly is the number of weekly backups to keep
-                          optional
-                        type: integer
+                    required:
+                    - latest
                     type: object
+                    x-kubernetes-validations:
+                    - message: latest must be greater than or equal to 1
+                      rule: self.latest >= 1
                 type: object
                 x-kubernetes-validations:
                 - message: at least one of enableBackup or enableRecovery must be

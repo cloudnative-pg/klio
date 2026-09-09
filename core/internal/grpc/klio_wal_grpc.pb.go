@@ -44,6 +44,7 @@ const (
 	WAL_RequestWALStart_FullMethodName = "/klio.wal.v1.WAL/RequestWALStart"
 	WAL_ResetWALStream_FullMethodName  = "/klio.wal.v1.WAL/ResetWALStream"
 	WAL_CloseBackup_FullMethodName     = "/klio.wal.v1.WAL/CloseBackup"
+	WAL_ApplyRetention_FullMethodName  = "/klio.wal.v1.WAL/ApplyRetention"
 )
 
 // WALClient is the client API for WAL service.
@@ -56,6 +57,7 @@ type WALClient interface {
 	RequestWALStart(ctx context.Context, in *RequestWALStartRequest, opts ...grpc.CallOption) (*RequestWALStartResult, error)
 	ResetWALStream(ctx context.Context, in *ResetWALStreamRequest, opts ...grpc.CallOption) (*ResetWALStreamResult, error)
 	CloseBackup(ctx context.Context, in *CloseBackupRequest, opts ...grpc.CallOption) (*CloseBackupResult, error)
+	ApplyRetention(ctx context.Context, in *ApplyRetentionRequest, opts ...grpc.CallOption) (*ApplyRetentionResult, error)
 }
 
 type wALClient struct {
@@ -138,6 +140,16 @@ func (c *wALClient) CloseBackup(ctx context.Context, in *CloseBackupRequest, opt
 	return out, nil
 }
 
+func (c *wALClient) ApplyRetention(ctx context.Context, in *ApplyRetentionRequest, opts ...grpc.CallOption) (*ApplyRetentionResult, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ApplyRetentionResult)
+	err := c.cc.Invoke(ctx, WAL_ApplyRetention_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // WALServer is the server API for WAL service.
 // All implementations must embed UnimplementedWALServer
 // for forward compatibility.
@@ -148,6 +160,7 @@ type WALServer interface {
 	RequestWALStart(context.Context, *RequestWALStartRequest) (*RequestWALStartResult, error)
 	ResetWALStream(context.Context, *ResetWALStreamRequest) (*ResetWALStreamResult, error)
 	CloseBackup(context.Context, *CloseBackupRequest) (*CloseBackupResult, error)
+	ApplyRetention(context.Context, *ApplyRetentionRequest) (*ApplyRetentionResult, error)
 	mustEmbedUnimplementedWALServer()
 }
 
@@ -175,6 +188,9 @@ func (UnimplementedWALServer) ResetWALStream(context.Context, *ResetWALStreamReq
 }
 func (UnimplementedWALServer) CloseBackup(context.Context, *CloseBackupRequest) (*CloseBackupResult, error) {
 	return nil, status.Error(codes.Unimplemented, "method CloseBackup not implemented")
+}
+func (UnimplementedWALServer) ApplyRetention(context.Context, *ApplyRetentionRequest) (*ApplyRetentionResult, error) {
+	return nil, status.Error(codes.Unimplemented, "method ApplyRetention not implemented")
 }
 func (UnimplementedWALServer) mustEmbedUnimplementedWALServer() {}
 func (UnimplementedWALServer) testEmbeddedByValue()             {}
@@ -287,6 +303,24 @@ func _WAL_CloseBackup_Handler(srv interface{}, ctx context.Context, dec func(int
 	return interceptor(ctx, in, info, handler)
 }
 
+func _WAL_ApplyRetention_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ApplyRetentionRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(WALServer).ApplyRetention(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: WAL_ApplyRetention_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(WALServer).ApplyRetention(ctx, req.(*ApplyRetentionRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // WAL_ServiceDesc is the grpc.ServiceDesc for WAL service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -309,6 +343,10 @@ var WAL_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "CloseBackup",
 			Handler:    _WAL_CloseBackup_Handler,
+		},
+		{
+			MethodName: "ApplyRetention",
+			Handler:    _WAL_ApplyRetention_Handler,
 		},
 	},
 	Streams: []grpc.StreamDesc{

@@ -60,12 +60,12 @@ func (s *stubBackupSteps) relayTier2(_ context.Context, _ *queue.BackupTask, _ [
 	return s.relayErr
 }
 
-func (s *stubBackupSteps) maintainTier2(_ context.Context, _ *queue.BackupTask, _ []kopia.Manifest) error {
+func (s *stubBackupSteps) maintainTier2(_ context.Context, _ *queue.BackupTask) error {
 	s.maintain2Called = true
 	return s.maintain2Err
 }
 
-func (s *stubBackupSteps) maintainTier1(_ context.Context, _ string, _ []kopia.Manifest) error {
+func (s *stubBackupSteps) maintainTier1(_ context.Context, _ *queue.BackupTask) error {
 	s.maintainCalled = true
 	return s.maintainErr
 }
@@ -81,15 +81,16 @@ func TestProcessBackup(t *testing.T) {
 	someEntries := []kopia.Manifest{{}}
 
 	tests := []struct {
-		name         string
-		sendToTier2  bool
-		tier2Enabled bool
-		manifests    []kopia.Manifest
-		manifestsErr error
-		verifyErr    error
-		relayErr     error
-		maintain2Err error
-		maintainErr  error
+		name            string
+		sendToTier2     bool
+		tier2Enabled    bool
+		maintenanceOnly bool
+		manifests       []kopia.Manifest
+		manifestsErr    error
+		verifyErr       error
+		relayErr        error
+		maintain2Err    error
+		maintainErr     error
 
 		wantErr       bool
 		wantVerify    bool
@@ -166,6 +167,29 @@ func TestProcessBackup(t *testing.T) {
 			wantVerify:   true,
 			wantMaintain: true,
 		},
+		{
+			// The maintenance-only path must skip listing (so a listing error is
+			// irrelevant), verification and relay, and only maintain tier1.
+			name:            "maintenance-only tier1 skips listing verify and relay",
+			maintenanceOnly: true,
+			manifestsErr:    errBoom,
+			wantMaintain:    true,
+		},
+		{
+			name:            "maintenance-only with tier2 maintains both tiers",
+			maintenanceOnly: true,
+			tier2Enabled:    true,
+			wantMaintain2:   true,
+			wantMaintain:    true,
+		},
+		{
+			name:            "maintenance-only tier2 failure is retried before tier1",
+			maintenanceOnly: true,
+			tier2Enabled:    true,
+			maintain2Err:    errBoom,
+			wantErr:         true,
+			wantMaintain2:   true,
+		},
 	}
 
 	for _, tt := range tests {
@@ -184,7 +208,11 @@ func TestProcessBackup(t *testing.T) {
 				steps:        stub,
 			}
 
-			task := &queue.BackupTask{ClusterName: "cluster", SendToTier2: tt.sendToTier2}
+			task := &queue.BackupTask{
+				ClusterName:     "cluster",
+				SendToTier2:     tt.sendToTier2,
+				MaintenanceOnly: tt.maintenanceOnly,
+			}
 			err := b.processBackup(context.Background(), task)
 
 			if (err != nil) != tt.wantErr {
