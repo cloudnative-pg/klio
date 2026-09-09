@@ -72,9 +72,8 @@ func newTestServerConfig() *config.ServerConfig {
 
 // TestInitializeTier1CreatesDirectories verifies that initializeTier1
 // creates the queue, WAL, Kopia repository, and cache directories, and does
-// not touch the tier2 one, even though it later fails (there is no real
-// Kopia repository backing the freshly created, empty directories in the
-// test environment).
+// not touch the tier2 one, even though it later fails (the kopia binary is
+// absent in unit tests). This test only asserts directory creation.
 func TestInitializeTier1CreatesDirectories(t *testing.T) {
 	cfg := newTestServerConfig()
 	fs := afero.NewMemMapFs()
@@ -91,8 +90,8 @@ func TestInitializeTier1CreatesDirectories(t *testing.T) {
 // TestInitializeTier2CreatesDirectories verifies that initializeTier2
 // creates only the tier2 cache directory, and none of the tier1 ones (nor
 // the queue directory, which is only needed when tier1 is enabled), even
-// though it later fails (there is no real tier2/S3 backend in the test
-// environment).
+// though it later fails (the kopia binary is absent in unit tests). This
+// test only asserts directory creation.
 func TestInitializeTier2CreatesDirectories(t *testing.T) {
 	cfg := newTestServerConfig()
 	fs := afero.NewMemMapFs()
