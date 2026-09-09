@@ -269,10 +269,16 @@ func runServer(ctx context.Context, opts serverOpts) error {
 		tier2RWConfigFileName = tier2Configs.rwConfigFileName
 		tier2ROConfigFileName = tier2Configs.roConfigFileName
 
-		if err := applyGlobalCompressionPolicy(
-			ctx, tier2RWConfigFileName, opts.cfg.Tier2.Compression,
-		); err != nil {
-			return fmt.Errorf("error setting tier2 global compression policy: %w", err)
+		// A read-only server (tier1 disabled) never takes backups, so it must
+		// never write to the shared tier2 global policy: doing so would reset
+		// it on every restart, clobbering whatever the tier1-enabled server
+		// that actually owns backups has configured.
+		if opts.tier1 {
+			if err := applyGlobalCompressionPolicy(
+				ctx, tier2RWConfigFileName, opts.cfg.Tier2.Compression,
+			); err != nil {
+				return fmt.Errorf("error setting tier2 global compression policy: %w", err)
+			}
 		}
 
 		tier2 := suture.NewSimple("tier2")
