@@ -31,7 +31,6 @@ import (
 	"github.com/cloudnative-pg/machinery/pkg/log"
 	"github.com/cloudnative-pg/machinery/pkg/types"
 	"github.com/jackc/pglogrepl"
-	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgproto3"
 	"go.opentelemetry.io/otel/attribute"
@@ -158,6 +157,10 @@ func (s *Process) Start(ctx context.Context) error {
 		"systemID", identifyData.SystemID,
 	)
 
+	if err := s.ensureReplicationSlotExists(ctx, conn); err != nil {
+		return err
+	}
+
 	// Negotiate the starting point with the server
 	point, err := s.getReplicationStartPoint(ctx, conn, identifyData, walSegmentSize)
 	if err != nil {
@@ -172,10 +175,6 @@ func (s *Process) Start(ctx context.Context) error {
 		max(identifyData.Timeline, point.timeline),
 	); histErr != nil {
 		contextLogger.Debug("Some timeline history files could not be processed", "innerErr", histErr.Error())
-	}
-
-	if err := s.ensureReplicationSlotExists(ctx, conn); err != nil {
-		return err
 	}
 
 	return s.startReplication(ctx, conn, point, walSegmentSize)
@@ -203,59 +202,16 @@ func (s *Process) getReplicationStartPointFromClient(
 		return slotResult.RestartLSN, nil
 	}
 
-	// Neither the Klio server nor the replication slot have a resume point.
-	// This usually happens when we are running against this PostgreSQL instance
-	// for the first time.
-	//
-	// We start from the redo point of the latest checkpoint (on a standby, the
-	// latest restartpoint) rather than from the current flush position. That
-	// redo point is the earliest LSN a later pg_backup_start on this instance
-	// can report as a backup start, so the WAL a backup needs is always within
-	// what we archive to tier1. This matters on a standby, where pg_backup_start
-	// reports the last restartpoint, which lags the flush position: streaming
-	// from the flush position would leave the segments in between permanently
-	// out of tier1.
-	// Failing rather than falling back to the flush position: the fallback
-	// reinstates the gap permanently, since once the slot and the server hold a
-	// resume point past it, no later run comes back to it.
-	redoStart, err := s.getCheckpointRedoStartLSN(ctx, segmentSize)
-	if err != nil {
-		return 0, err
-	}
-
+	// If nor the Klio server nor the replication slot are set,
+	// we use the XLOG flush position, taking care of
+	// starting streaming from the beginning of the WAL file.
 	contextLogger.Debug(
-		"Checkpoint redo LSN",
-		"redoStart", redoStart,
+		"Current flush LSN",
 		"xlogFlushPos", xlogFlushPos,
 		"segmentSize", segmentSize,
 	)
 
-	return redoStart, nil
-}
-
-// getCheckpointRedoStartLSN returns the start of the WAL file that contains the
-// redo point of the latest checkpoint (or restartpoint, on a standby). It opens
-// a regular (non-replication) connection because pg_control_checkpoint() cannot
-// be queried on the physical replication connection used for streaming.
-func (s *Process) getCheckpointRedoStartLSN(
-	ctx context.Context,
-	segmentSize uint64,
-) (pglogrepl.LSN, error) {
-	conn, err := pgx.Connect(ctx, s.config.Source.StandardDSN)
-	if err != nil {
-		return 0, fmt.Errorf("while connecting to PostgreSQL: %w", err)
-	}
-	defer func() {
-		_ = conn.Close(ctx)
-	}()
-
-	var redoLSN uint64
-	row := conn.QueryRow(ctx, "SELECT redo_lsn - '0/0' FROM pg_control_checkpoint()")
-	if err := row.Scan(&redoLSN); err != nil {
-		return 0, fmt.Errorf("while reading the checkpoint redo LSN: %w", err)
-	}
-
-	return getStartWALLSN(pglogrepl.LSN(redoLSN), segmentSize), nil
+	return getStartWALLSN(xlogFlushPos, segmentSize), nil
 }
 
 type walCoordinate struct {
@@ -349,16 +305,11 @@ func (s *Process) ensureReplicationSlotExists(
 		return nil
 	}
 
-	replicationSlotResult, err := pglogrepl.CreateReplicationSlot(
-		ctx,
-		conn,
-		s.config.Source.Slot,
-		"", // output plugin name: this is meaningful only for logical replication
-		pglogrepl.CreateReplicationSlotOptions{
-			Temporary: false,
-			Mode:      pglogrepl.PhysicalReplication,
-		},
-	)
+	// pglogrepl.CreateReplicationSlotOptions has no RESERVE_WAL field, so the
+	// command is built and parsed manually here.
+	sql := fmt.Sprintf("CREATE_REPLICATION_SLOT %s PHYSICAL RESERVE_WAL", s.config.Source.Slot)
+
+	replicationSlotResult, err := pglogrepl.ParseCreateReplicationSlot(conn.Exec(ctx, sql))
 	if err != nil {
 		return fmt.Errorf("while creating temporary replication slot: %w", err)
 	}
