@@ -17,5 +17,13 @@ limitations under the License.
 SPDX-License-Identifier: Apache-2.0
 */
 
-// Package sendwal implements the WAL receiver
 package sendwal
+
+import "go.opentelemetry.io/otel"
+
+// tracerName identifies spans emitted by this package. It intentionally does
+// not depend on Klio's own instrumentation package, since this package is
+// meant to be usable outside Klio.
+const tracerName = "github.com/cloudnative-pg/klio/core/pkg/sendwal"
+
+var tracer = otel.Tracer(tracerName) //nolint:gochecknoglobals

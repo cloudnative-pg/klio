@@ -35,9 +35,9 @@ import (
 
 	"github.com/cloudnative-pg/klio/core/internal/cli"
 	"github.com/cloudnative-pg/klio/core/internal/client/klioclient/grpcclient"
-	"github.com/cloudnative-pg/klio/core/internal/client/sendwal"
 	"github.com/cloudnative-pg/klio/core/internal/opentelemetry"
 	"github.com/cloudnative-pg/klio/core/pkg/config"
+	"github.com/cloudnative-pg/klio/core/pkg/sendwal"
 )
 
 // ErrTimeoutWaitingPG is raised when we couldn't get a connection to PostgreSQL.
@@ -96,8 +96,22 @@ var sendWalCmd = &cobra.Command{
 			return fmt.Errorf("while connecting to the Klio server: %w", err)
 		}
 
-		err = sendwal.New(&configuration, logger, client, configuration.Tier2BackupEnabled).
-			Start(ctx)
+		coordinator := grpcclient.NewSendWALCoordinator(client, configuration.Tier2BackupEnabled)
+		handlerFactory := grpcclient.NewKlioClientHandlerFactory(client, configuration.Tier2BackupEnabled)
+
+		err = sendwal.New(
+			configuration.Source.DSN,
+			logger,
+			coordinator,
+			handlerFactory,
+			sendwal.Options{
+				Slot:                  configuration.Source.Slot,
+				ClusterName:           configuration.Client.ClusterName,
+				BufferSize:            configuration.Source.BufferSize,
+				FlushTimeout:          configuration.Source.FlushTimeout(),
+				StandbyMessageTimeout: configuration.Source.StandbyMessageTimeout(),
+			},
+		).Start(ctx)
 		if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
 			logger.Info("send-wal stopped due to context cancellation, exiting gracefully")
 			return nil

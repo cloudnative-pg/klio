@@ -138,7 +138,7 @@ func (wal *Data) ProcessWALData(ctx context.Context, data []byte, startWAL types
 	return nil
 }
 
-// FlushLSN gets the latest LSN that was flushed down to the Klio server.
+// FlushLSN gets the latest LSN that was flushed down to the destination.
 func (wal *Data) FlushLSN() uint64 {
 	return wal.flushLSN
 }
@@ -148,7 +148,7 @@ func (wal *Data) WriteLSN() uint64 {
 	return wal.writeLSN
 }
 
-// Flush flushes the buffer to the Klio server connection.
+// Flush flushes the buffer to the underlying handler.
 func (wal *Data) Flush(ctx context.Context) error {
 	return wal.flushInternal(ctx)
 }

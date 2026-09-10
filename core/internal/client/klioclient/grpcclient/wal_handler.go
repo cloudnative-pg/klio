@@ -17,7 +17,7 @@ limitations under the License.
 SPDX-License-Identifier: Apache-2.0
 */
 
-package buffer
+package grpcclient
 
 import (
 	"context"
@@ -27,13 +27,14 @@ import (
 	"github.com/cloudnative-pg/machinery/pkg/types"
 
 	"github.com/cloudnative-pg/klio/core/internal/client/klioclient"
-	"github.com/cloudnative-pg/klio/core/internal/client/klioclient/grpcclient"
+	sendwalbuffer "github.com/cloudnative-pg/klio/core/pkg/sendwal/buffer"
 )
 
-// KlioClientStreamingHandler is a handler that streams directly to a
-// Klio server.
+// KlioClientStreamingHandler is a sendwalbuffer.Handler that streams WAL
+// data directly to a Klio server as it is received, rather than buffering
+// a whole WAL file before sending it.
 type KlioClientStreamingHandler struct {
-	conn *grpcclient.Connection
+	conn *Connection
 
 	stream klioclient.WALUploaderImpl
 	offset uint64
@@ -49,7 +50,7 @@ type KlioClientStreamingHandler struct {
 func NewKlioClientHandler(
 	tli int,
 	segmentSize uint64,
-	conn *grpcclient.Connection,
+	conn *Connection,
 	sendToTier2 bool,
 ) *KlioClientStreamingHandler {
 	return &KlioClientStreamingHandler{
@@ -61,7 +62,19 @@ func NewKlioClientHandler(
 	}
 }
 
-// OpenWAL implements the Handler interface.
+// NewKlioClientHandlerFactory returns a sendwal.HandlerFactory
+// (github.com/cloudnative-pg/klio/core/pkg/sendwal) building
+// KlioClientStreamingHandler instances that stream to conn.
+func NewKlioClientHandlerFactory(
+	conn *Connection,
+	sendToTier2 bool,
+) func(tli int, segmentSize uint64) sendwalbuffer.Handler {
+	return func(tli int, segmentSize uint64) sendwalbuffer.Handler {
+		return NewKlioClientHandler(tli, segmentSize, conn, sendToTier2)
+	}
+}
+
+// OpenWAL implements the buffer.Handler interface.
 func (wal *KlioClientStreamingHandler) OpenWAL(ctx context.Context, blockpos uint64) error {
 	currentWALFile, err := types.Int64ToLSN(blockpos).WALFileName(wal.tli, wal.segmentSize)
 	if err != nil {
@@ -81,12 +94,12 @@ func (wal *KlioClientStreamingHandler) OpenWAL(ctx context.Context, blockpos uin
 	return nil
 }
 
-// HasWALFileOpened implements the Handler interface.
+// HasWALFileOpened implements the buffer.Handler interface.
 func (wal *KlioClientStreamingHandler) HasWALFileOpened() bool {
 	return wal.currentWALFile != ""
 }
 
-// CloseWAL implements the Handler interface.
+// CloseWAL implements the buffer.Handler interface.
 func (wal *KlioClientStreamingHandler) CloseWAL(ctx context.Context) error {
 	contextLogger := log.FromContext(ctx)
 
@@ -102,12 +115,12 @@ func (wal *KlioClientStreamingHandler) CloseWAL(ctx context.Context) error {
 	return nil
 }
 
-// CurrentOffset implements the Handler interface.
+// CurrentOffset implements the buffer.Handler interface.
 func (wal *KlioClientStreamingHandler) CurrentOffset() (uint64, error) {
 	return wal.offset, nil
 }
 
-// Write implements the Handler interface.
+// Write implements the buffer.Handler interface.
 func (wal *KlioClientStreamingHandler) Write(ctx context.Context, block []byte) (int, error) {
 	err := wal.stream.SendBlock(ctx, block)
 	if err != nil {

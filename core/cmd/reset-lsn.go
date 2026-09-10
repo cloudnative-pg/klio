@@ -28,8 +28,8 @@ import (
 
 	"github.com/cloudnative-pg/klio/core/internal/cli"
 	"github.com/cloudnative-pg/klio/core/internal/client/klioclient/grpcclient"
-	"github.com/cloudnative-pg/klio/core/internal/client/sendwal"
 	"github.com/cloudnative-pg/klio/core/pkg/config"
+	"github.com/cloudnative-pg/klio/core/pkg/sendwal"
 )
 
 // resetLSNCommand represents the run command
@@ -73,9 +73,22 @@ var resetLSNCommand = &cobra.Command{
 			return fmt.Errorf("while connecting to the Klio server: %w", err)
 		}
 
-		return sendwal.
-			New(&configuration, contextLogger, client, false).
-			ResetReplicationStatus(cmd.Context())
+		coordinator := grpcclient.NewSendWALCoordinator(client, false)
+		handlerFactory := grpcclient.NewKlioClientHandlerFactory(client, false)
+
+		return sendwal.New(
+			configuration.Source.DSN,
+			contextLogger,
+			coordinator,
+			handlerFactory,
+			sendwal.Options{
+				Slot:                  configuration.Source.Slot,
+				ClusterName:           configuration.Client.ClusterName,
+				BufferSize:            configuration.Source.BufferSize,
+				FlushTimeout:          configuration.Source.FlushTimeout(),
+				StandbyMessageTimeout: configuration.Source.StandbyMessageTimeout(),
+			},
+		).ResetReplicationStatus(cmd.Context())
 	},
 }
 

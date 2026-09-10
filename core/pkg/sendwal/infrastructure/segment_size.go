@@ -30,7 +30,7 @@ import (
 
 // GetWalSegmentSize returns the size of the WAL segment.
 func (s *Postgres) GetWalSegmentSize(ctx context.Context) (uint64, error) {
-	conn, err := pgconn.Connect(ctx, s.config.Source.DSN)
+	conn, err := pgconn.Connect(ctx, s.dsn)
 	if err != nil {
 		return 0, fmt.Errorf("while parsing DSN: %w", err)
 	}
