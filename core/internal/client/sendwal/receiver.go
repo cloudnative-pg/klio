@@ -157,6 +157,13 @@ func (s *Process) Start(ctx context.Context) error {
 		"systemID", identifyData.SystemID,
 	)
 
+	// The slot must exist, with its WAL reserved, before we read its restart
+	// LSN as the start point below: otherwise the WAL between here and the
+	// slot's eventual creation could be recycled before we ever read it.
+	if err := s.ensureReplicationSlotExists(ctx, conn); err != nil {
+		return err
+	}
+
 	// Negotiate the starting point with the server
 	point, err := s.getReplicationStartPoint(ctx, conn, identifyData, walSegmentSize)
 	if err != nil {
@@ -171,10 +178,6 @@ func (s *Process) Start(ctx context.Context) error {
 		max(identifyData.Timeline, point.timeline),
 	); histErr != nil {
 		contextLogger.Debug("Some timeline history files could not be processed", "innerErr", histErr.Error())
-	}
-
-	if err := s.ensureReplicationSlotExists(ctx, conn); err != nil {
-		return err
 	}
 
 	return s.startReplication(ctx, conn, point, walSegmentSize)
@@ -205,9 +208,6 @@ func (s *Process) getReplicationStartPointFromClient(
 	// If nor the Klio server nor the replication slot are set,
 	// we use the XLOG flush position, taking care of
 	// starting streaming from the beginning of the WAL file.
-	//
-	// This usually happens when we are running against this
-	// PostgreSQL instance for the first time.
 	contextLogger.Debug(
 		"Current flush LSN",
 		"xlogFlushPos", xlogFlushPos,
@@ -291,6 +291,11 @@ func getStartWALLSN(xlogFlushPos pglogrepl.LSN, segmentSize uint64) pglogrepl.LS
 	return pglogrepl.LSN(uint64(xlogFlushPos) & ^(segmentSize - 1))
 }
 
+// ensureReplicationSlotExists creates the Klio physical replication slot if
+// it does not exist yet, using RESERVE_WAL so its restart LSN, and the WAL
+// from it, are reserved immediately at creation instead of at the first
+// replication connection. Without it, WAL between slot creation and that
+// first connection is free to be recycled before Klio ever streams it.
 func (s *Process) ensureReplicationSlotExists(
 	ctx context.Context,
 	conn *pgconn.PgConn,
@@ -308,16 +313,11 @@ func (s *Process) ensureReplicationSlotExists(
 		return nil
 	}
 
-	replicationSlotResult, err := pglogrepl.CreateReplicationSlot(
-		ctx,
-		conn,
-		s.config.Source.Slot,
-		"", // output plugin name: this is meaningful only for logical replication
-		pglogrepl.CreateReplicationSlotOptions{
-			Temporary: false,
-			Mode:      pglogrepl.PhysicalReplication,
-		},
-	)
+	// pglogrepl.CreateReplicationSlotOptions has no RESERVE_WAL field, so the
+	// command is built and parsed manually here.
+	sql := fmt.Sprintf("CREATE_REPLICATION_SLOT %s PHYSICAL RESERVE_WAL", s.config.Source.Slot)
+
+	replicationSlotResult, err := pglogrepl.ParseCreateReplicationSlot(conn.Exec(ctx, sql))
 	if err != nil {
 		return fmt.Errorf("while creating temporary replication slot: %w", err)
 	}
