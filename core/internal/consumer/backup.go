@@ -236,6 +236,24 @@ func (d *Backup) relayAndMaintain(ctx context.Context, task *queue.BackupTask, e
 func (d *Backup) relayTier2(ctx context.Context, task *queue.BackupTask, entries []kopia.Manifest) error {
 	sources := manifestListToDescriptors(entries)
 
+	// Set the per-cluster tier2 compression policy before migrating so that
+	// the data relayed to tier2 is compressed. This overrides the tier2
+	// repository global policy for this cluster's source. Applied even when
+	// the policy is zero, so removing the compression section resets the
+	// source back to inheriting the global policy instead of leaving a stale
+	// override in place. A direct write is unavoidable here (the consumer has
+	// no tier2 server connection) and is safe: it only writes a policy
+	// manifest.
+	if p := task.Tier2CompressionPolicy; p != nil && len(entries) > 0 {
+		target := kopia.Target{
+			Username: entries[0].Source.UserName,
+			Hostname: task.ClusterName,
+		}
+		if err := d.tier2Kopia.SetKopiaCompressionPolicy(ctx, target, *p); err != nil {
+			return fmt.Errorf("while setting the tier2 compression policy: %w", err)
+		}
+	}
+
 	if err := d.tier2Kopia.MigrateSnapshots(ctx, kopia.SnapshotMigrateOpts{
 		SourceConfig: d.opts.Tier1KopiaConfig,
 		Sources:      sources,

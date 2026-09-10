@@ -39,6 +39,7 @@ const (
 
 // PluginConfigurationSpec defines the desired state of client configuration.
 // +kubebuilder:validation:XValidation:rule="self.mode != 'read-only' || (has(self.tier2) && (!has(self.tier2.enableBackup) || !self.tier2.enableBackup) && self.tier2.enableRecovery && !has(self.tier1))",message="when mode is read-only, tier2.enableRecovery must be true, tier2.enableBackup must be false, and tier1 must not exist"
+// +kubebuilder:validation:XValidation:rule="!(self.mode == 'read-only' && has(self.tier2) && has(self.tier2.compression))",message="tier2.compression cannot be set when mode is read-only"
 type PluginConfigurationSpec struct {
 	// ServerAddress is the address of the Klio server
 	// +kubebuilder:validation:Required
@@ -106,6 +107,12 @@ type Tier1PluginConfiguration struct {
 	// RetentionPolicy defines how many backups we should keep
 	// +optional
 	RetentionPolicy *RetentionPolicy `json:"retention,omitempty" mapstructure:"retention"`
+
+	// Compression defines the compression policy applied to this cluster's
+	// base backups on tier1. It overrides the tier1 repository-wide policy
+	// configured on the Server.
+	// +optional
+	Compression *CompressionPolicy `json:"compression,omitempty" mapstructure:"compression"`
 }
 
 // Tier2PluginConfiguration configures tier2 backup and recovery settings.
@@ -122,6 +129,41 @@ type Tier2PluginConfiguration struct {
 	// RetentionPolicy defines how many backups we should keep
 	// +optional
 	RetentionPolicy *RetentionPolicy `json:"retention,omitempty" mapstructure:"retention"`
+
+	// Compression defines the compression policy applied to this cluster's
+	// base backups on tier2. It overrides the tier2 repository-wide policy
+	// configured on the Server.
+	// +optional
+	Compression *CompressionPolicy `json:"compression,omitempty" mapstructure:"compression"`
+}
+
+// CompressionAlgorithm is the name of a Kopia compression algorithm.
+// The special value "none" disables compression.
+// +kubebuilder:validation:Enum=none;deflate-best-compression;deflate-best-speed;deflate-default;gzip;gzip-best-compression;gzip-best-speed;pgzip;pgzip-best-compression;pgzip-best-speed;s2-better;s2-default;s2-parallel-4;s2-parallel-8;zstd;zstd-better-compression;zstd-fastest
+type CompressionAlgorithm string
+
+// CompressionPolicy configures the Kopia compression policy applied to base
+// backup data.
+// A `minSize` above a non-zero `maxSize` would match no file at all: Kopia
+// accepts such a policy and then silently skips compression for every file, so
+// it is rejected at admission instead.
+// +kubebuilder:validation:XValidation:rule="!has(self.maxSize) || self.maxSize == 0 || !has(self.minSize) || self.minSize <= self.maxSize",message="minSize must not be greater than maxSize"
+type CompressionPolicy struct {
+	// Algorithm is the name of the Kopia compression algorithm to use.
+	// +kubebuilder:validation:Required
+	Algorithm CompressionAlgorithm `json:"algorithm" mapstructure:"algorithm"`
+
+	// MinSize is the minimum file size, in bytes, to attempt compression for.
+	// Files smaller than this are stored uncompressed. Zero means no minimum.
+	// +optional
+	// +kubebuilder:validation:Minimum=0
+	MinSize int64 `json:"minSize,omitempty" mapstructure:"minSize"`
+
+	// MaxSize is the maximum file size, in bytes, to attempt compression for.
+	// Files larger than this are stored uncompressed. Zero means no maximum.
+	// +optional
+	// +kubebuilder:validation:Minimum=0
+	MaxSize int64 `json:"maxSize,omitempty" mapstructure:"maxSize"`
 }
 
 // WALPrefetchConfiguration configures WAL prefetching during recovery.

@@ -28,10 +28,54 @@ import (
 	"github.com/cloudnative-pg/machinery/pkg/log"
 	"github.com/thejerf/suture/v4"
 
+	"github.com/cloudnative-pg/klio/core/internal/kopia"
 	"github.com/cloudnative-pg/klio/core/internal/server"
 	"github.com/cloudnative-pg/klio/core/internal/server/kopiaconfig"
 	"github.com/cloudnative-pg/klio/core/pkg/config"
 )
+
+// applyGlobalCompressionPolicy sets the repository-wide (global) Kopia
+// compression policy using the passed persistent config file. It is always
+// applied, even when unconfigured, so that removing the compression section
+// resets the global policy back to Kopia's built-in default instead of
+// leaving a stale, previously-set policy in place. This runs before the
+// Kopia servers start, so the direct write to the repository predates any
+// server cache.
+func applyGlobalCompressionPolicy(
+	ctx context.Context,
+	configFile string,
+	compression config.CompressionPolicy,
+) error {
+	kopiaBinary, err := kopia.LookupBinary()
+	if err != nil {
+		return err
+	}
+
+	client := &kopia.Client{
+		KopiaBinary: kopiaBinary,
+		ConfigFile:  configFile,
+	}
+
+	return client.SetKopiaGlobalCompressionPolicy(ctx, kopia.CompressionPolicy{
+		Algorithm: compression.Algorithm,
+		MinSize:   compression.MinSize,
+		MaxSize:   compression.MaxSize,
+	})
+}
+
+// setupTier1KopiaConfig connects the tier1 config file to the repository and
+// applies the tier1 repository-wide compression policy.
+func setupTier1KopiaConfig(ctx context.Context, configFile string, cfg *config.Tier1Config) error {
+	if err := kopiaconfig.CreateTier1KopiaConfigFile(ctx, configFile, cfg); err != nil {
+		return fmt.Errorf("error creating tier1 kopia config file: %w", err)
+	}
+
+	if err := applyGlobalCompressionPolicy(ctx, configFile, cfg.Compression); err != nil {
+		return fmt.Errorf("error setting tier1 global compression policy: %w", err)
+	}
+
+	return nil
+}
 
 type serverOpts struct {
 	tier1 bool
@@ -192,12 +236,8 @@ func runServer(ctx context.Context, opts serverOpts) error {
 			}
 		}()
 
-		if err := kopiaconfig.CreateTier1KopiaConfigFile(
-			ctx,
-			tier1ConfigFileName,
-			&opts.cfg.Tier1,
-		); err != nil {
-			return fmt.Errorf("error creating tier1 kopia config file: %w", err)
+		if err := setupTier1KopiaConfig(ctx, tier1ConfigFileName, &opts.cfg.Tier1); err != nil {
+			return err
 		}
 
 		tier1 := suture.NewSimple("tier1")
@@ -215,6 +255,7 @@ func runServer(ctx context.Context, opts serverOpts) error {
 	}
 
 	// Configure tier2
+	//nolint:nestif
 	if opts.tier2 {
 		if err := opts.cfg.RequireTier2(); err != nil {
 			return fmt.Errorf("tier 2 opts.cfg validation error: %w", err)
@@ -228,6 +269,18 @@ func runServer(ctx context.Context, opts serverOpts) error {
 
 		tier2RWConfigFileName = tier2Configs.rwConfigFileName
 		tier2ROConfigFileName = tier2Configs.roConfigFileName
+
+		// A read-only server (tier1 disabled) never takes backups, so it must
+		// never write to the shared tier2 global policy: doing so would reset
+		// it on every restart, clobbering whatever the tier1-enabled server
+		// that actually owns backups has configured.
+		if opts.tier1 {
+			if err := applyGlobalCompressionPolicy(
+				ctx, tier2RWConfigFileName, opts.cfg.Tier2.Compression,
+			); err != nil {
+				return fmt.Errorf("error setting tier2 global compression policy: %w", err)
+			}
+		}
 
 		tier2 := suture.NewSimple("tier2")
 		tier2.Add(&server.Tier2KopiaServer{

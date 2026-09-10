@@ -124,6 +124,19 @@ func (s *MultiConnection) SetRetentionPolicy(
 	return s.Tier1.SetRetentionPolicy(ctx, t, p)
 }
 
+// SetCompressionPolicy implements the Client interface.
+func (s *MultiConnection) SetCompressionPolicy(
+	ctx context.Context,
+	t kopia.Target,
+	policy kopia.CompressionPolicy,
+) error {
+	if s.Tier1 == nil {
+		return ErrUnsupportedWriteOperation
+	}
+
+	return s.Tier1.SetCompressionPolicy(ctx, t, policy)
+}
+
 // GetRetentionPolicy implements the Client interface.
 func (s *MultiConnection) GetRetentionPolicy(
 	ctx context.Context,

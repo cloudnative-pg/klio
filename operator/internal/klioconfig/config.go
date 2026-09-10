@@ -96,6 +96,8 @@ func GenerateConfig(
 
 	klioTier1RetentionPolicy := convertTier1RetentionPolicy(spec.Tier1)
 	klioTier2RetentionPolicy := convertTier2RetentionPolicy(spec.Tier2)
+	klioTier1CompressionPolicy := convertTier1CompressionPolicy(spec.Tier1)
+	klioTier2CompressionPolicy := convertTier2CompressionPolicy(spec.Tier2)
 	walPrefetch := spec.GetWALPrefetch()
 
 	klioConfig := &config.Data{
@@ -121,8 +123,10 @@ func GenerateConfig(
 				ClientKeyPath:  path.Join(clientCertPath, tlsKeyFile),
 			},
 		},
-		Tier1RetentionPolicy: klioTier1RetentionPolicy,
-		Tier2RetentionPolicy: klioTier2RetentionPolicy,
+		Tier1RetentionPolicy:   klioTier1RetentionPolicy,
+		Tier2RetentionPolicy:   klioTier2RetentionPolicy,
+		Tier1CompressionPolicy: klioTier1CompressionPolicy,
+		Tier2CompressionPolicy: klioTier2CompressionPolicy,
 		WALPrefetch: config.WALPrefetchConfig{
 			Count:                  walPrefetch.Count,
 			MaxConcurrentDownloads: walPrefetch.MaxConcurrentDownloads,
@@ -181,6 +185,34 @@ func convertTier2RetentionPolicy(tier2 *kliov1alpha1.Tier2PluginConfiguration) *
 	}
 
 	return convertRetentionPolicy(tier2.RetentionPolicy)
+}
+
+func convertCompressionPolicy(p *kliov1alpha1.CompressionPolicy) *config.CompressionPolicy {
+	if p == nil {
+		return nil
+	}
+
+	return &config.CompressionPolicy{
+		Algorithm: string(p.Algorithm),
+		MinSize:   p.MinSize,
+		MaxSize:   p.MaxSize,
+	}
+}
+
+func convertTier1CompressionPolicy(tier1 *kliov1alpha1.Tier1PluginConfiguration) *config.CompressionPolicy {
+	if tier1 == nil {
+		return nil
+	}
+
+	return convertCompressionPolicy(tier1.Compression)
+}
+
+func convertTier2CompressionPolicy(tier2 *kliov1alpha1.Tier2PluginConfiguration) *config.CompressionPolicy {
+	if tier2 == nil {
+		return nil
+	}
+
+	return convertCompressionPolicy(tier2.Compression)
 }
 
 // configuration holds the CNPG and Klio plugin configurations for a single config key.

@@ -71,6 +71,11 @@ type Tier1Config struct {
 
 	// Wal is the configuration of the Wal server
 	Wal WalServerConfig `mapstructure:"wal"`
+
+	// Compression is the repository-wide (global) compression policy applied
+	// to base backups stored on tier1. When empty, the Kopia default (no
+	// compression) is left untouched.
+	Compression CompressionPolicy `mapstructure:"compression"`
 }
 
 // Tier2Config is the configuration of tier 2.
@@ -97,6 +102,11 @@ type Tier2Config struct {
 
 	// CacheDirectory is the directory of the Kopia cache
 	CacheDirectory string `mapstructure:"cache"`
+
+	// Compression is the repository-wide (global) compression policy applied
+	// to base backups stored on tier2. When empty, the Kopia default (no
+	// compression) is left untouched.
+	Compression CompressionPolicy `mapstructure:"compression"`
 
 	// S3 contains the configuration parameters for an S3-based tier 2
 	S3 S3Configuration `json:"s3" mapstructure:"s3"`

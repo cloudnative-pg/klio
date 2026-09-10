@@ -40,6 +40,7 @@ const (
 // +kubebuilder:validation:XValidation:rule="self.mode != 'read-only' || has(self.tier2)",message="tier2 is required when mode is read-only"
 // +kubebuilder:validation:XValidation:rule="!(self.mode == 'read-only' && has(self.tier1))",message="tier1 cannot be set when mode is read-only"
 // +kubebuilder:validation:XValidation:rule="!(self.mode == 'read-only' && has(self.queue))",message="queue cannot be set when mode is read-only"
+// +kubebuilder:validation:XValidation:rule="!(self.mode == 'read-only' && has(self.tier2) && has(self.tier2.compression))",message="tier2.compression cannot be set when mode is read-only"
 // +kubebuilder:validation:XValidation:rule="self.mode == 'read-only' || has(self.queue)",message="queue is required when tier1 is configured"
 type ServerSpec struct {
 	// ImageConfiguration tells how to download the Klio
@@ -191,6 +192,12 @@ type Tier1Configuration struct {
 	// IdentityFile specifies the Age identity (private key) file used to
 	// decrypt the encryption key.
 	IdentityFile FileSource `json:"identityFile"`
+
+	// Compression defines the repository-wide (global) compression policy
+	// applied to base backups stored on tier1. Individual clusters can
+	// override it through their PluginConfiguration.
+	// +optional
+	Compression *CompressionPolicy `json:"compression,omitempty"`
 }
 
 // Tier2Configuration is the tier 2 configuration.
@@ -208,6 +215,12 @@ type Tier2Configuration struct {
 	// IdentityFile specifies the Age identity (private key) file used to
 	// decrypt the encryption key.
 	IdentityFile FileSource `json:"identityFile"`
+
+	// Compression defines the repository-wide (global) compression policy
+	// applied to base backups stored on tier2. Individual clusters can
+	// override it through their PluginConfiguration.
+	// +optional
+	Compression *CompressionPolicy `json:"compression,omitempty"`
 }
 
 // S3Configuration is the configuration to a S3 defined tier 2.
