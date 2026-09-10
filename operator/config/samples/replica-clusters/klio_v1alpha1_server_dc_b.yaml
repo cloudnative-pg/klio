@@ -13,22 +13,6 @@ metadata:
     klio.cnpg.io/pprof: "true"
 spec:
   tier1:
-    cache:
-      pvcTemplate:
-        resources:
-          requests:
-            storage: 1Gi
-        accessModes:
-        - ReadWriteOnce
-
-    data:
-      pvcTemplate:
-        resources:
-          requests:
-            storage: 1Gi
-        accessModes:
-        - ReadWriteOnce
-
     encryptionKeyFile:
       fileReference:
         volume:
@@ -43,11 +27,11 @@ spec:
             secretName: klioserver-dc-b-encryption
         path: secret-key
 
-  queue:
+  storage:
     pvcTemplate:
       resources:
         requests:
-          storage: 100Mi
+          storage: 2Gi
       accessModes:
         - ReadWriteOnce
 

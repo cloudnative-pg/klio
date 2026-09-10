@@ -42,7 +42,7 @@ const maintenanceClusterName = "test-cluster"
 // listTier1WALFiles returns the WAL segment file names stored in tier1 for a
 // cluster, sorted ascending. Partial files are excluded.
 //
-// WAL files live at /data/wal/{clusterName}/{16-char-prefix}/{24-char-name} on
+// WAL files live at /klio/data/wal/{clusterName}/{16-char-prefix}/{24-char-name} on
 // the server pod; 'find' is unavailable in the minimal container, so we rely on
 // shell globbing.
 func listTier1WALFiles(
@@ -53,7 +53,7 @@ func listTier1WALFiles(
 	var stdout, stderr bytes.Buffer
 	listCmd := []string{
 		"sh", "-c",
-		fmt.Sprintf("ls /data/wal/%s/*/0000* 2>/dev/null | sort", clusterName),
+		fmt.Sprintf("ls /klio/data/wal/%s/*/0000* 2>/dev/null | sort", clusterName),
 	}
 
 	// ls exits non-zero when nothing matches, which is fine: we return an empty

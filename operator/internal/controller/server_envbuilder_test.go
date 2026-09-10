@@ -63,7 +63,7 @@ func TestGetCoreEnvVarsIncludesQueueWhenTier1Configured(t *testing.T) {
 	envVars := builder.getCoreEnvVars()
 	queueDir := findEnvVar(envVars, "QUEUE_DIRECTORY")
 	require.NotNil(t, queueDir)
-	assert.Equal(t, "/queue", queueDir.Value)
+	assert.Equal(t, "/klio/queue", queueDir.Value)
 }
 
 func TestGetCoreEnvVarsExcludesQueueWhenNoTier1(t *testing.T) {
@@ -86,11 +86,18 @@ func TestGetCoreEnvVarsIncludesTier1EnvVars(t *testing.T) {
 
 	envVars := builder.getCoreEnvVars()
 
-	assert.NotNil(t, findEnvVar(envVars, "TIER1_BASE_CACHE"))
-	assert.NotNil(t, findEnvVar(envVars, "TIER1_BASE_REPOSITORY"))
+	for name, want := range map[string]string{
+		"TIER1_BASE_CACHE":      "/klio/cache_tier1/kopia-cache",
+		"TIER1_BASE_REPOSITORY": "/klio/data/base",
+		"TIER1_WAL_PATH":        "/klio/data/wal",
+	} {
+		env := findEnvVar(envVars, name)
+		require.NotNil(t, env, name)
+		assert.Equal(t, want, env.Value, name)
+	}
+
 	assert.NotNil(t, findEnvVar(envVars, "TIER1_BASE_LISTEN_ADDRESS"))
 	assert.NotNil(t, findEnvVar(envVars, "TIER1_WAL_LISTEN_ADDRESS"))
-	assert.NotNil(t, findEnvVar(envVars, "TIER1_WAL_PATH"))
 
 	encKeyFile := findEnvVar(envVars, "TIER1_ENCRYPTION_KEY_FILE")
 	require.NotNil(t, encKeyFile)
@@ -284,6 +291,10 @@ func TestGetTier2EnvVars(t *testing.T) {
 
 	envVars := builder.getTier2EnvVars()
 
+	cache := findEnvVar(envVars, "TIER2_CACHE")
+	require.NotNil(t, cache)
+	assert.Equal(t, "/klio/cache_tier2/kopia-cache", cache.Value)
+
 	encKeyFile := findEnvVar(envVars, "TIER2_ENCRYPTION_KEY_FILE")
 	require.NotNil(t, encKeyFile)
 	assert.Equal(t, "/files/tier2-enc-key-file/encryption-key.age", encKeyFile.Value)
@@ -361,6 +372,10 @@ func TestBuildVolumeMounts(t *testing.T) {
 	require.NotNil(t, idMount)
 	assert.Equal(t, "/files/tier1-identity", idMount.MountPath)
 	assert.True(t, idMount.ReadOnly)
+
+	klioMount := findMount("klio")
+	require.NotNil(t, klioMount)
+	assert.Equal(t, "/klio", klioMount.MountPath)
 }
 
 func TestBuildIdentityVolumeDefaultMode(t *testing.T) {

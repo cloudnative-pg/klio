@@ -36,25 +36,19 @@ import (
 	kliov1alpha1 "github.com/cloudnative-pg/klio/operator/api/v1alpha1"
 )
 
-const (
-	// klioServerLabelKey is the label key used to identify PVCs belonging to a Klio server.
-	klioServerLabelKey = "klio.cnpg.io/klio-server"
-	// pvcTypeLabelKey is the label key used to identify the type of PVC.
-	pvcTypeLabelKey = "klio.cnpg.io/pvcType"
-)
+// klioServerLabelKey is the label key used to identify PVCs belonging to a Klio server.
+const klioServerLabelKey = "klio.cnpg.io/klio-server"
 
 // PVCResizeFeature defines a feature for testing PVC resize functionality.
 type PVCResizeFeature struct {
-	name         string
-	setup        types.StepFunc
-	teardown     types.StepFunc
-	klioServer   *kliov1alpha1.Server
-	namespace    string
-	newDataSize  resource.Quantity
-	newCacheSize resource.Quantity
-	newQueueSize resource.Quantity
-	timeout      time.Duration
-	interval     time.Duration
+	name           string
+	setup          types.StepFunc
+	teardown       types.StepFunc
+	klioServer     *kliov1alpha1.Server
+	namespace      string
+	newStorageSize resource.Quantity
+	timeout        time.Duration
+	interval       time.Duration
 }
 
 // PVCResizeFeatureConfig holds the configuration for creating a PVC resize feature test.
@@ -69,12 +63,8 @@ type PVCResizeFeatureConfig struct {
 	KlioServer *kliov1alpha1.Server
 	// Namespace is the namespace where resources are created.
 	Namespace string
-	// NewDataSize is the new size for the data PVC.
-	NewDataSize resource.Quantity
-	// NewCacheSize is the new size for the cache PVC.
-	NewCacheSize resource.Quantity
-	// NewQueueSize is the new size for the queue PVC.
-	NewQueueSize resource.Quantity
+	// NewStorageSize is the new size for the unified storage PVC.
+	NewStorageSize resource.Quantity
 	// Timeout for waiting for PVC resize (defaults to 5 minutes).
 	Timeout time.Duration
 	// Interval for checking PVC resize status (defaults to 5 seconds).
@@ -91,16 +81,14 @@ func NewPVCResizeFeature(config PVCResizeFeatureConfig) *PVCResizeFeature {
 	}
 
 	return &PVCResizeFeature{
-		name:         config.Name,
-		setup:        config.Setup,
-		teardown:     config.Teardown,
-		klioServer:   config.KlioServer,
-		namespace:    config.Namespace,
-		newDataSize:  config.NewDataSize,
-		newCacheSize: config.NewCacheSize,
-		newQueueSize: config.NewQueueSize,
-		timeout:      config.Timeout,
-		interval:     config.Interval,
+		name:           config.Name,
+		setup:          config.Setup,
+		teardown:       config.Teardown,
+		klioServer:     config.KlioServer,
+		namespace:      config.Namespace,
+		newStorageSize: config.NewStorageSize,
+		timeout:        config.Timeout,
+		interval:       config.Interval,
 	}
 }
 
@@ -173,22 +161,10 @@ func (f *PVCResizeFeature) updateServerPVCSizes(
 
 	expectedSizes := make(map[string]resource.Quantity)
 
-	if server.Spec.Tier1 != nil && !f.newDataSize.IsZero() {
-		server.Spec.Tier1.Data.PersistentVolumeClaimTemplate.Resources.Requests[corev1.ResourceStorage] = f.newDataSize
-		expectedSizes["data"] = f.newDataSize
-		t.Logf("Updating data PVC size to %s", f.newDataSize.String())
-	}
-
-	if server.Spec.Tier1 != nil && !f.newCacheSize.IsZero() {
-		server.Spec.Tier1.Cache.PersistentVolumeClaimTemplate.Resources.Requests[corev1.ResourceStorage] = f.newCacheSize
-		expectedSizes["cachetier1"] = f.newCacheSize
-		t.Logf("Updating cachetier1 PVC size to %s", f.newCacheSize.String())
-	}
-
-	if server.Spec.Queue != nil && !f.newQueueSize.IsZero() {
-		server.Spec.Queue.PersistentVolumeClaimTemplate.Resources.Requests[corev1.ResourceStorage] = f.newQueueSize
-		expectedSizes["queue"] = f.newQueueSize
-		t.Logf("Updating queue PVC size to %s", f.newQueueSize.String())
+	if !f.newStorageSize.IsZero() {
+		server.Spec.Storage.PersistentVolumeClaimTemplate.Resources.Requests[corev1.ResourceStorage] = f.newStorageSize
+		expectedSizes["klio-"+f.klioServer.Name+klioPodSuffix] = f.newStorageSize
+		t.Logf("Updating klio PVC size to %s", f.newStorageSize.String())
 	}
 
 	err = r.Update(ctx, &server)
@@ -206,18 +182,18 @@ func verifyPVCSizes(
 ) {
 	t.Helper()
 
-	for pvcType, expectedSize := range expectedSizes {
-		actualSize, exists := finalSizes[pvcType]
-		require.True(t, exists, "PVC type %s not found", pvcType)
+	for pvcName, expectedSize := range expectedSizes {
+		actualSize, exists := finalSizes[pvcName]
+		require.True(t, exists, "PVC %s not found", pvcName)
 		require.GreaterOrEqual(t, actualSize.Cmp(expectedSize), 0,
 			"PVC %s size %s is less than expected %s",
-			pvcType, (&actualSize).String(), (&expectedSize).String())
-		initialSize := initialSizes[pvcType]
-		t.Logf("PVC %s resized successfully: %s -> %s", pvcType, (&initialSize).String(), (&actualSize).String())
+			pvcName, (&actualSize).String(), (&expectedSize).String())
+		initialSize := initialSizes[pvcName]
+		t.Logf("PVC %s resized successfully: %s -> %s", pvcName, (&initialSize).String(), (&actualSize).String())
 	}
 }
 
-// getPVCSizes returns a map of PVC type labels to their current sizes.
+// getPVCSizes returns a map of PVC names to their current sizes.
 func getPVCSizes(
 	ctx context.Context,
 	r *resources.Resources,
@@ -239,13 +215,8 @@ func getPVCSizes(
 			continue
 		}
 
-		pvcType, exists := pvc.Labels[pvcTypeLabelKey]
-		if !exists {
-			continue
-		}
-
 		if size, ok := pvc.Spec.Resources.Requests[corev1.ResourceStorage]; ok {
-			sizes[pvcType] = size
+			sizes[pvc.Name] = size
 		}
 	}
 
@@ -267,8 +238,8 @@ func checkPVCsResized(
 			return false, nil //nolint:nilerr
 		}
 
-		for pvcType, expectedSize := range expectedSizes {
-			actualSize, exists := sizes[pvcType]
+		for pvcName, expectedSize := range expectedSizes {
+			actualSize, exists := sizes[pvcName]
 			if !exists {
 				return false, nil
 			}

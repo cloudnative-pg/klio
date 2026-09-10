@@ -59,14 +59,15 @@ func newPVCSpec(size string) corev1.PersistentVolumeClaimSpec {
 	}
 }
 
-func newTestPVC(name, serverName, pvcType, size string) *corev1.PersistentVolumeClaim {
+// newTestPVC builds a PVC as the StatefulSet would name it for the
+// "test-server" Server: "<volumeClaimTemplate>-test-server-klio-0".
+func newTestPVC(pvcType, size string) *corev1.PersistentVolumeClaim {
 	return &corev1.PersistentVolumeClaim{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      name,
+			Name:      pvcType + "-test-server-klio-0",
 			Namespace: "default",
 			Labels: map[string]string{
-				klioServerLabel: serverName,
-				pvcTypeLabel:    pvcType,
+				klioServerLabel: "test-server",
 			},
 		},
 		Spec: newPVCSpec(size),
@@ -88,83 +89,25 @@ func newTestReconciler(objs ...client.Object) (*ServerReconciler, client.Client)
 	}, fakeClient
 }
 
-func newTestServerTier1(dataSize, cacheSize string) *kliov1alpha1.Server {
+func newTestServerTier1(storageSize string) *kliov1alpha1.Server {
 	return &kliov1alpha1.Server{
 		ObjectMeta: metav1.ObjectMeta{Name: "test-server", Namespace: "default"},
 		Spec: kliov1alpha1.ServerSpec{
-			Tier1: &kliov1alpha1.Tier1Configuration{
-				Data:  kliov1alpha1.Data{PersistentVolumeClaimTemplate: newPVCSpec(dataSize)},
-				Cache: kliov1alpha1.Cache{PersistentVolumeClaimTemplate: newPVCSpec(cacheSize)},
-			},
+			Storage: kliov1alpha1.Storage{PersistentVolumeClaimTemplate: newPVCSpec(storageSize)},
+			Tier1:   &kliov1alpha1.Tier1Configuration{},
 		},
 	}
 }
 
-// --- buildDesiredPVCSizes tests ---
+// --- reconcilePVCResize tests ---
 
-func TestBuildDesiredPVCSizesTier1Only(t *testing.T) {
-	server := newTestServerTier1("100Gi", "10Gi")
-	server.Spec.Queue = &kliov1alpha1.Queue{PersistentVolumeClaimTemplate: newPVCSpec("5Gi")}
+func TestReconcilePVCResizesNoStorageRequests(t *testing.T) {
+	reconciler, _ := newTestReconciler()
 
-	sizes := (&ServerReconciler{}).buildDesiredPVCSizes(server)
-
-	require.Len(t, sizes, 3)
-	assert.Equal(t, resource.MustParse("100Gi"), sizes[pvcTypeData])
-	assert.Equal(t, resource.MustParse("10Gi"), sizes[pvcTypeCacheTier1])
-	assert.Equal(t, resource.MustParse("5Gi"), sizes[pvcTypeQueue])
+	result, err := reconciler.reconcilePVCResize(context.Background(), &kliov1alpha1.Server{})
+	require.NoError(t, err)
+	assert.True(t, result.IsZero())
 }
-
-func TestBuildDesiredPVCSizesTier2Only(t *testing.T) {
-	server := &kliov1alpha1.Server{
-		Spec: kliov1alpha1.ServerSpec{
-			Mode: kliov1alpha1.ModeReadOnly,
-			Tier2: &kliov1alpha1.Tier2Configuration{
-				Cache: kliov1alpha1.Cache{PersistentVolumeClaimTemplate: newPVCSpec("20Gi")},
-				S3:    &kliov1alpha1.S3Configuration{BucketName: "test-bucket"},
-			},
-		},
-	}
-
-	sizes := (&ServerReconciler{}).buildDesiredPVCSizes(server)
-
-	require.Len(t, sizes, 1)
-	assert.Equal(t, resource.MustParse("20Gi"), sizes[pvcTypeCacheTier2])
-}
-
-func TestBuildDesiredPVCSizesBothTiers(t *testing.T) {
-	server := newTestServerTier1("100Gi", "10Gi")
-	server.Spec.Tier2 = &kliov1alpha1.Tier2Configuration{
-		Cache: kliov1alpha1.Cache{PersistentVolumeClaimTemplate: newPVCSpec("20Gi")},
-		S3:    &kliov1alpha1.S3Configuration{BucketName: "test-bucket"},
-	}
-	server.Spec.Queue = &kliov1alpha1.Queue{PersistentVolumeClaimTemplate: newPVCSpec("5Gi")}
-
-	sizes := (&ServerReconciler{}).buildDesiredPVCSizes(server)
-
-	require.Len(t, sizes, 4)
-	assert.Equal(t, resource.MustParse("100Gi"), sizes[pvcTypeData])
-	assert.Equal(t, resource.MustParse("10Gi"), sizes[pvcTypeCacheTier1])
-	assert.Equal(t, resource.MustParse("20Gi"), sizes[pvcTypeCacheTier2])
-	assert.Equal(t, resource.MustParse("5Gi"), sizes[pvcTypeQueue])
-}
-
-func TestBuildDesiredPVCSizesEmptyServer(t *testing.T) {
-	sizes := (&ServerReconciler{}).buildDesiredPVCSizes(&kliov1alpha1.Server{})
-	assert.Empty(t, sizes)
-}
-
-func TestBuildDesiredPVCSizesNoStorageRequests(t *testing.T) {
-	server := &kliov1alpha1.Server{
-		Spec: kliov1alpha1.ServerSpec{
-			Tier1: &kliov1alpha1.Tier1Configuration{},
-		},
-	}
-
-	sizes := (&ServerReconciler{}).buildDesiredPVCSizes(server)
-	assert.Empty(t, sizes)
-}
-
-// --- reconcilePVCResizes tests ---
 
 func TestReconcilePVCResizes(t *testing.T) {
 	testCases := []struct {
@@ -195,17 +138,17 @@ func TestReconcilePVCResizes(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			pvc := newTestPVC("data-test-server-klio-0", "test-server", pvcTypeData, tc.pvcCurrentSize)
+			pvc := newTestPVC(pvcTypeKlio, tc.pvcCurrentSize)
 			reconciler, fakeClient := newTestReconciler(pvc)
-			server := newTestServerTier1(tc.serverDesiredSize, "5Gi")
+			server := newTestServerTier1(tc.serverDesiredSize)
 
-			result, err := reconciler.reconcilePVCResizes(context.Background(), server)
+			result, err := reconciler.reconcilePVCResize(context.Background(), server)
 			require.NoError(t, err)
 			assert.True(t, result.IsZero(), "should not requeue")
 
 			var updatedPVC corev1.PersistentVolumeClaim
 			require.NoError(t, fakeClient.Get(context.Background(), client.ObjectKey{
-				Name: "data-test-server-klio-0", Namespace: "default",
+				Name: "klio-test-server-klio-0", Namespace: "default",
 			}, &updatedPVC))
 
 			expectedSize := resource.MustParse(tc.expectedPVCSize)
@@ -218,31 +161,49 @@ func TestReconcilePVCResizes(t *testing.T) {
 
 func TestReconcilePVCResizesNoPVCsExist(t *testing.T) {
 	reconciler, _ := newTestReconciler()
-	server := newTestServerTier1("20Gi", "5Gi")
+	server := newTestServerTier1("20Gi")
 
-	result, err := reconciler.reconcilePVCResizes(context.Background(), server)
+	result, err := reconciler.reconcilePVCResize(context.Background(), server)
 	require.NoError(t, err)
 	assert.True(t, result.IsZero())
 }
 
-func TestReconcilePVCResizesOrphanedPVCIgnored(t *testing.T) {
-	// PVC for tier2 cache exists, but server only has tier1
-	pvc := newTestPVC("cachetier2-test-server-klio-0", "test-server", pvcTypeCacheTier2, "10Gi")
-	reconciler, fakeClient := newTestReconciler(pvc)
-	server := newTestServerTier1("20Gi", "5Gi")
+// TestReconcilePVCResizesIgnoresOtherPVCs asserts that reconcilePVCResize
+// only ever touches the PVC named after the unified volume claim template.
+// A server that is mid-manual-migration off the old per-purpose layout can
+// still have those PVCs around, because the StatefulSet's
+// PersistentVolumeClaimRetentionPolicy is Retain — reconcilePVCResize gets
+// the unified PVC by its exact name, so any differently-named PVC is never
+// even looked at.
+func TestReconcilePVCResizesIgnoresOtherPVCs(t *testing.T) {
+	other := newTestPVC("data", "10Gi")
+	current := newTestPVC(pvcTypeKlio, "10Gi")
 
-	result, err := reconciler.reconcilePVCResizes(context.Background(), server)
+	reconciler, fakeClient := newTestReconciler(current, other)
+	server := newTestServerTier1("20Gi")
+
+	result, err := reconciler.reconcilePVCResize(context.Background(), server)
 	require.NoError(t, err)
 	assert.True(t, result.IsZero())
 
-	var updatedPVC corev1.PersistentVolumeClaim
-	require.NoError(t, fakeClient.Get(context.Background(), client.ObjectKey{
-		Name: "cachetier2-test-server-klio-0", Namespace: "default",
-	}, &updatedPVC))
-	expectedSize := resource.MustParse("10Gi")
-	actualSize := updatedPVC.Spec.Resources.Requests[corev1.ResourceStorage]
-	assert.Equal(t, 0, expectedSize.Cmp(actualSize),
-		"orphaned tier2 PVC should not be modified")
+	sizeOf := func(name string) resource.Quantity {
+		var pvc corev1.PersistentVolumeClaim
+		require.NoError(t, fakeClient.Get(context.Background(), client.ObjectKey{
+			Name: name, Namespace: "default",
+		}, &pvc))
+
+		return pvc.Spec.Resources.Requests[corev1.ResourceStorage]
+	}
+
+	expandedSize := resource.MustParse("20Gi")
+	actualSize := sizeOf(current.Name)
+	assert.Equal(t, 0, expandedSize.Cmp(actualSize),
+		"unified PVC should have been expanded, got %s", actualSize.String())
+
+	untouchedSize := resource.MustParse("10Gi")
+	actualSize = sizeOf(other.Name)
+	assert.Equal(t, 0, untouchedSize.Cmp(actualSize),
+		"other PVC should not be modified, got %s", actualSize.String())
 }
 
 // --- findServerForPVC tests ---

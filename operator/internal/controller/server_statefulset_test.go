@@ -56,17 +56,83 @@ func newTestServerForStatefulSet() *kliov1alpha1.Server {
 				TLSSecretName:      "tls-secret",
 				ClientCASecretName: "ca-secret",
 			},
-			Mode: kliov1alpha1.ModeStandard,
+			Mode:    kliov1alpha1.ModeStandard,
+			Storage: kliov1alpha1.Storage{PersistentVolumeClaimTemplate: newPVCSpec("10Gi")},
 			Tier1: &kliov1alpha1.Tier1Configuration{
-				Data:              kliov1alpha1.Data{PersistentVolumeClaimTemplate: newPVCSpec("10Gi")},
-				Cache:             kliov1alpha1.Cache{PersistentVolumeClaimTemplate: newPVCSpec("5Gi")},
 				EncryptionKeyFile: newTestFileSource("enc-secret", "encryption-key.age"),
 				IdentityFile:      newTestFileSource("id-secret", "identity.txt"),
 			},
-			Queue: &kliov1alpha1.Queue{
-				PersistentVolumeClaimTemplate: newPVCSpec("1Gi"),
+		},
+	}
+}
+
+func newTestTier2Configuration() *kliov1alpha1.Tier2Configuration {
+	return &kliov1alpha1.Tier2Configuration{
+		S3:                &kliov1alpha1.S3Configuration{BucketName: "test-bucket"},
+		EncryptionKeyFile: newTestFileSource("tier2-enc-secret", "encryption-key.age"),
+		IdentityFile:      newTestFileSource("tier2-id-secret", "identity.txt"),
+	}
+}
+
+// TestReconcileStatefulSetUnifiedPVC asserts that every server, whatever its
+// tier configuration, gets exactly one VolumeClaimTemplate mounted at /klio.
+func TestReconcileStatefulSetUnifiedPVC(t *testing.T) {
+	testCases := []struct {
+		name   string
+		mutate func(*kliov1alpha1.Server)
+	}{
+		{
+			name:   "tier1 only",
+			mutate: func(_ *kliov1alpha1.Server) {},
+		},
+		{
+			name: "both tiers",
+			mutate: func(server *kliov1alpha1.Server) {
+				server.Spec.Tier2 = newTestTier2Configuration()
 			},
 		},
+		{
+			name: "tier2 only, read-only",
+			mutate: func(server *kliov1alpha1.Server) {
+				server.Spec.Mode = kliov1alpha1.ModeReadOnly
+				server.Spec.Tier1 = nil
+				server.Spec.Tier2 = newTestTier2Configuration()
+			},
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			server := newTestServerForStatefulSet()
+			tc.mutate(server)
+
+			scheme := newTestScheme()
+			require.NoError(t, appsv1.AddToScheme(scheme))
+			fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(server).Build()
+			reconciler := &ServerReconciler{
+				Client:   fakeClient,
+				Scheme:   scheme,
+				Recorder: &events.FakeRecorder{Events: make(chan string, 10)},
+			}
+
+			result, err := reconciler.reconcileStatefulSet(context.Background(), server)
+			require.NoError(t, err)
+			assert.True(t, result.IsZero())
+
+			var statefulSet appsv1.StatefulSet
+			require.NoError(t, fakeClient.Get(context.Background(), client.ObjectKey{
+				Name: "test-server-klio", Namespace: "default",
+			}, &statefulSet))
+
+			require.Len(t, statefulSet.Spec.VolumeClaimTemplates, 1)
+			pvc := statefulSet.Spec.VolumeClaimTemplates[0]
+			assert.Equal(t, "klio", pvc.Name)
+			assert.Equal(t, "test-server", pvc.Labels[klioServerLabel])
+			assert.Equal(t, newPVCSpec("10Gi"), pvc.Spec)
+
+			mounts := statefulSet.Spec.Template.Spec.Containers[0].VolumeMounts
+			assert.Contains(t, mounts, corev1.VolumeMount{Name: "klio", MountPath: "/klio"})
+		})
 	}
 }
 
@@ -145,14 +211,12 @@ func TestReconcileStatefulSetInvalidSpecExistingStatefulSet(t *testing.T) {
 			Selector: &metav1.LabelSelector{
 				MatchLabels: map[string]string{
 					klioServerLabel: server.Name,
-					typeLabel:       baseTypeLabelValue,
 				},
 			},
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
 					Labels: map[string]string{
 						klioServerLabel: server.Name,
-						typeLabel:       baseTypeLabelValue,
 					},
 				},
 			},

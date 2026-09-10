@@ -73,30 +73,13 @@ func newFileSource(secretName, fileName string) kliov1alpha1.FileSource {
 	}
 }
 
-// BuildTier2Configuration creates a Tier2Configuration from S3 options, encryption options,
-// and a storage class name. If storageClass is empty, the cluster's default storage class is used.
+// BuildTier2Configuration creates a Tier2Configuration from S3 options and
+// encryption options.
 func BuildTier2Configuration(
 	s3Opts Tier2S3Options,
 	encOpts EncryptionOptions,
-	storageClass string,
 ) kliov1alpha1.Tier2Configuration {
-	var sc *string
-	if storageClass != "" {
-		sc = new(storageClass)
-	}
-
 	return kliov1alpha1.Tier2Configuration{
-		Cache: kliov1alpha1.Cache{
-			PersistentVolumeClaimTemplate: corev1.PersistentVolumeClaimSpec{
-				StorageClassName: sc,
-				AccessModes:      []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOncePod},
-				Resources: corev1.VolumeResourceRequirements{
-					Requests: corev1.ResourceList{
-						corev1.ResourceStorage: resource.MustParse("1Gi"),
-					},
-				},
-			},
-		},
 		S3: &kliov1alpha1.S3Configuration{
 			BucketName: s3Opts.S3BucketName,
 			Prefix:     s3Opts.S3Prefix,
@@ -132,9 +115,9 @@ type ServerTemplateOptions struct {
 	// test image is used.
 	Image string
 
-	// StorageClass is the Kubernetes storage class used for all PVC templates
-	// (tier1 cache, tier1 data, queue). If empty, the cluster's default
-	// storage class is used.
+	// StorageClass is the Kubernetes storage class used for the unified
+	// storage PVC template. If empty, the cluster's default storage class
+	// is used.
 	StorageClass string
 
 	// TLSSecretName is the secret to be used to expose the Klio server.
@@ -155,6 +138,11 @@ func newBaseServer(name, namespace string, opts ServerTemplateOptions) *kliov1al
 		ImagePullPolicy: corev1.PullAlways,
 	}
 
+	var sc *string
+	if opts.StorageClass != "" {
+		sc = new(opts.StorageClass)
+	}
+
 	return &kliov1alpha1.Server{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
@@ -166,61 +154,32 @@ func newBaseServer(name, namespace string, opts ServerTemplateOptions) *kliov1al
 				TLSSecretName:      opts.TLSSecretName,
 				ClientCASecretName: opts.ClientCASecretName,
 			},
+			Storage: kliov1alpha1.Storage{
+				PersistentVolumeClaimTemplate: corev1.PersistentVolumeClaimSpec{
+					StorageClassName: sc,
+					AccessModes:      []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOncePod},
+					Resources: corev1.VolumeResourceRequirements{
+						Requests: corev1.ResourceList{
+							corev1.ResourceStorage: resource.MustParse("2Gi"),
+						},
+					},
+				},
+			},
 		},
 	}
 }
 
-// GetServerObject returns a Klio server Object with tier1 and queue configuration.
+// GetServerObject returns a Klio server Object with tier1 and unified storage configuration.
 func GetServerObject(
 	name,
 	namespace string,
 	opts ServerTemplateOptions,
 ) *kliov1alpha1.Server {
-	var sc *string
-	if opts.StorageClass != "" {
-		sc = new(opts.StorageClass)
-	}
-
 	server := newBaseServer(name, namespace, opts)
 	server.Spec.Mode = kliov1alpha1.ModeStandard
 	server.Spec.Tier1 = &kliov1alpha1.Tier1Configuration{
-		Cache: kliov1alpha1.Cache{
-			PersistentVolumeClaimTemplate: corev1.PersistentVolumeClaimSpec{
-				StorageClassName: sc,
-				AccessModes:      []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOncePod},
-				Resources: corev1.VolumeResourceRequirements{
-					Requests: corev1.ResourceList{
-						corev1.ResourceStorage: resource.MustParse("1Gi"),
-					},
-				},
-			},
-		},
-		Data: kliov1alpha1.Data{
-			PersistentVolumeClaimTemplate: corev1.PersistentVolumeClaimSpec{
-				StorageClassName: sc,
-				AccessModes:      []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOncePod},
-				Resources: corev1.VolumeResourceRequirements{
-					Requests: corev1.ResourceList{
-						corev1.ResourceStorage: resource.MustParse("1Gi"),
-					},
-				},
-			},
-		},
 		EncryptionKeyFile: newFileSource(opts.Encryption.EncryptionKeySecretName, opts.Encryption.EncryptionKeyFileName),
 		IdentityFile:      newFileSource(opts.Encryption.IdentitySecretName, opts.Encryption.IdentityFileName),
-	}
-
-	// Queue is mandatory when tier1 is configured
-	server.Spec.Queue = &kliov1alpha1.Queue{
-		PersistentVolumeClaimTemplate: corev1.PersistentVolumeClaimSpec{
-			StorageClassName: sc,
-			AccessModes:      []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOncePod},
-			Resources: corev1.VolumeResourceRequirements{
-				Requests: corev1.ResourceList{
-					corev1.ResourceStorage: resource.MustParse("100Mi"),
-				},
-			},
-		},
 	}
 
 	return server
@@ -290,24 +249,24 @@ type ServerWithTier2TemplateOptions struct {
 	S3 Tier2S3Options
 }
 
-// GetServerWithTier2Object returns a Klio server Object with tier1, tier2, and queue configuration.
+// GetServerWithTier2Object returns a Klio server Object with tier1 and tier2 configuration.
 func GetServerWithTier2Object(
 	name,
 	namespace string,
 	opts ServerWithTier2TemplateOptions,
 ) *kliov1alpha1.Server {
-	// GetServerObject already includes tier1 and queue configuration
+	// GetServerObject already includes tier1 and the unified storage PVC
 	server := GetServerObject(name, namespace, opts.ServerTemplateOptions)
 
 	// Add tier2 configuration
-	tier2Config := BuildTier2Configuration(opts.S3, opts.Tier2Encryption, opts.StorageClass)
+	tier2Config := BuildTier2Configuration(opts.S3, opts.Tier2Encryption)
 	server.Spec.Tier2 = &tier2Config
 
 	return server
 }
 
 // GetReadOnlyTier2ServerObject returns a read-only Klio server Object with only tier2 configuration.
-// This server does not have tier1 or queue, only tier2 for recovery purposes.
+// This server does not have tier1, only tier2 for recovery purposes.
 func GetReadOnlyTier2ServerObject(
 	name,
 	namespace string,
@@ -315,7 +274,7 @@ func GetReadOnlyTier2ServerObject(
 ) *kliov1alpha1.Server {
 	server := newBaseServer(name, namespace, opts.ServerTemplateOptions)
 	server.Spec.Mode = kliov1alpha1.ModeReadOnly
-	tier2Config := BuildTier2Configuration(opts.S3, opts.Tier2Encryption, opts.StorageClass)
+	tier2Config := BuildTier2Configuration(opts.S3, opts.Tier2Encryption)
 	server.Spec.Tier2 = &tier2Config
 
 	return server

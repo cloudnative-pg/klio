@@ -121,6 +121,10 @@ The E2E tests are located in `operator/test/e2e/` and include:
   (`RecoverClusterFromTier2`)
 - **`tier2_pitr_test.go`** - Point-in-time recovery from tier2 storage
   (`RecoverClusterFromTier2Pitr`)
+- **`tier2_recovery_common_test.go`** - Shared tier2 recovery helpers used
+  by both of the above; also asserts that the read-only (tier2-only)
+  recovery Server gets the unified `klio` PVC/mount, same as a tier1
+  server
 - **`tier2_retention_test.go`** - Backup and WAL retention policy
   enforcement in tier2 storage (`Tier2Retention`)
 - **`compression_test.go`** - Kopia compression policies: verifies the
@@ -132,12 +136,14 @@ The E2E tests are located in `operator/test/e2e/` and include:
   server-side tier1 retention prunes old WALs only after they reach tier2,
   driven by backup completion rather than a client command
   (`WALRetentionQueueAwareness`)
-- **`server_reconfig_test.go`** - Adding tier2 storage to an existing
-  tier1+queue server (`ServerTierReconfiguration`)
+- **`server_reconfig_test.go`** - Adding tier2 to an existing tier1-only
+  server: verifies the single unified `klio` PVC is retained (same UID,
+  no new PVC created) since the StatefulSet's VolumeClaimTemplates are
+  unaffected by tier1/tier2 changes (`ServerTierReconfiguration`)
 - **`pluginconfiguration_update_test.go`** - PluginConfiguration updates
   and sidecar restart behavior (`PluginConfigurationUpdate`)
-- **`pvc_resize_test.go`** - PVC resize for data, cache, and queue
-  volumes (`PVCResize`)
+- **`pvc_resize_test.go`** - Resize of the single unified `klio` PVC
+  backing `/klio` (`PVCResize`)
 - **`otel_test.go`** - OpenTelemetry metrics and traces export: deploys
   an OTEL Collector and verifies that backup lifecycle metrics and
   traces are correctly exported via OTLP. After the success-path

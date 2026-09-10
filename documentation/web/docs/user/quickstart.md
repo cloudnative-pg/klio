@@ -236,7 +236,7 @@ client certificates must satisfy.
 ## Step 4: Create the Klio server
 
 The `Server` resource creates a StatefulSet running the Klio server,
-along with the persistent volumes holding your backups.
+along with the persistent volume holding your backups.
 
 Save the following as `klio-server.yaml`:
 
@@ -255,24 +255,18 @@ spec:
   # CA used to verify client certificates
   caSecretName: klio-server-ca
 
+  # Single PVC backing base backups, WAL, the work queue, and the
+  # Kopia cache. The default Kopia cache is 5 GB of content plus 5 GB
+  # of metadata, so leave headroom beyond your base backups and WAL.
+  storage:
+    pvcTemplate:
+      accessModes:
+        - ReadWriteOnce
+      resources:
+        requests:
+          storage: 30Gi
+
   tier1:
-    # Kopia cache. The default Kopia cache is 5 GB of content plus
-    # 5 GB of metadata, so leave some headroom.
-    cache:
-      pvcTemplate:
-        accessModes:
-          - ReadWriteOnce
-        resources:
-          requests:
-            storage: 10Gi
-    # Base backups and the WAL archive
-    data:
-      pvcTemplate:
-        accessModes:
-          - ReadWriteOnce
-        resources:
-          requests:
-            storage: 20Gi
     encryptionKeyFile:
       fileReference:
         volume:
@@ -285,15 +279,6 @@ spec:
           secret:
             secretName: klio-age-identity
         path: identity.txt
-
-  # Work queue, required whenever tier1 is configured
-  queue:
-    pvcTemplate:
-      accessModes:
-        - ReadWriteOnce
-      resources:
-        requests:
-          storage: 50Mi
 ```
 <!-- x-release-please-end -->
 
@@ -303,10 +288,10 @@ Apply it:
 kubectl apply -f klio-server.yaml
 ```
 
-The volumes above use the default storage class. Set
-`storageClassName` in each `pvcTemplate` to choose a different one,
+The volume above uses the default storage class. Set
+`storageClassName` in the `pvcTemplate` to choose a different one,
 and see [Storage Requirements](klio_server.md#storage-requirements)
-for how to size them for real workloads.
+for how to size it for real workloads.
 
 Wait for the server pod to come up:
 

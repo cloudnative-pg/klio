@@ -21,11 +21,11 @@ package server
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"os"
 
 	"github.com/cloudnative-pg/machinery/pkg/log"
+	"github.com/spf13/afero"
 	"github.com/thejerf/suture/v4"
 
 	"github.com/cloudnative-pg/klio/core/internal/kopia"
@@ -81,6 +81,7 @@ type serverOpts struct {
 	tier1 bool
 	tier2 bool
 
+	fs              afero.Fs
 	cfg             *config.ServerConfig
 	adminSocketPath string
 	runID           string
@@ -193,15 +194,8 @@ func runServer(ctx context.Context, opts serverOpts) error {
 	})
 
 	// Configure NATS
-	// The queue is always required when tier1 is enabled to support retention policy
-	// enforcement. Retention needs to check for pending tier2 transfers even when
-	// tier2 is not configured, to allow consistent behavior across configurations.
 	var queueURL string
 	if opts.tier1 {
-		if opts.cfg.QueueDirectory == "" {
-			return errors.New("queue is required when tier1 is enabled")
-		}
-
 		nats, err := server.NewNatsService(opts.cfg.QueueDirectory)
 		if err != nil {
 			return err

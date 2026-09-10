@@ -176,7 +176,7 @@ func NewPVCResizeFeatureConfig(name string, namespace string) klioFeatures.PVCRe
 	// Encryption secret
 	ageSecrets := secrets.GetKlioAgeEncryptionSecrets("encryption", namespace, "testencryptionpassword123")
 
-	// Klio Server with tier1 and queue
+	// Klio Server with tier1 and the unified storage PVC
 	klioServer := klio.GetServerObject(
 		klioServerName,
 		namespace,
@@ -207,14 +207,12 @@ func NewPVCResizeFeatureConfig(name string, namespace string) klioFeatures.PVCRe
 	}
 
 	return klioFeatures.PVCResizeFeatureConfig{
-		Name:         name,
-		Setup:        scenario.Setup,
-		Teardown:     scenario.Teardown,
-		KlioServer:   klioServer,
-		Namespace:    namespace,
-		NewDataSize:  resource.MustParse("2Gi"),
-		NewCacheSize: resource.MustParse("2Gi"),
-		NewQueueSize: resource.MustParse("200Mi"),
+		Name:           name,
+		Setup:          scenario.Setup,
+		Teardown:       scenario.Teardown,
+		KlioServer:     klioServer,
+		Namespace:      namespace,
+		NewStorageSize: resource.MustParse("4Gi"),
 	}
 }
 

@@ -252,6 +252,7 @@ github
 goroutines
 grpc
 gzip
+hardcodes
 hostPath
 http
 https
@@ -322,6 +323,8 @@ sfixed
 sint
 snapshotted
 str
+subdirectories
+subdirectory
 subprocess
 tablespaces
 teardown

@@ -27,6 +27,7 @@ import (
 	certmanagerv1 "github.com/cert-manager/cert-manager/pkg/apis/certmanager/v1"
 	"github.com/cloudnative-pg/cloudnative-pg/tests/utils/sternmultitailer"
 	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/selection"
 	"k8s.io/client-go/kubernetes"
 	"sigs.k8s.io/e2e-framework/pkg/envconf"
 
@@ -91,18 +92,26 @@ func TestMain(m *testing.M) {
 			// Disable linter and SonarQube: cancel is stored in sternCancel and called in teardown
 			var sternCtx context.Context
 			sternCtx, sternCancel = context.WithCancel(ctx) //nolint:gosec
-			labelSelectors := []labels.Set{
-				{"app.kubernetes.io/name": "klio"},
-				{"app.kubernetes.io/name": "cloudnative-pg"},
-				{"app.kubernetes.io/name": "postgresql"},
-				{"app.kubernetes.io/instance": "rustfs"},
-				{"batch.kubernetes.io/job-name": "rustfs"},
-				{"klio.cnpg.io/type": "base"},
+			// klio.cnpg.io/klio-server is set to the Server's name, so any Klio
+			// server pod (whatever the server is called) is matched by its mere
+			// presence rather than a fixed label value.
+			klioServerRequirement, err := labels.NewRequirement(
+				"klio.cnpg.io/klio-server", selection.Exists, nil)
+			if err != nil {
+				return ctx, err
+			}
+
+			labelSelectors := []labels.Selector{
+				labels.SelectorFromSet(labels.Set{"app.kubernetes.io/name": "klio"}),
+				labels.SelectorFromSet(labels.Set{"app.kubernetes.io/name": "cloudnative-pg"}),
+				labels.SelectorFromSet(labels.Set{"app.kubernetes.io/name": "postgresql"}),
+				labels.SelectorFromSet(labels.Set{"app.kubernetes.io/instance": "rustfs"}),
+				labels.SelectorFromSet(labels.Set{"batch.kubernetes.io/job-name": "rustfs"}),
+				labels.NewSelector().Add(*klioServerRequirement),
 			}
 			for _, ls := range labelSelectors {
 				sternDoneChs = append(sternDoneChs,
-					sternmultitailer.StreamLogs(sternCtx, client,
-						labels.SelectorFromSet(ls), logDir))
+					sternmultitailer.StreamLogs(sternCtx, client, ls, logDir))
 			}
 
 			return ctx, nil
