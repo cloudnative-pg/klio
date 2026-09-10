@@ -157,6 +157,9 @@ func (s *Process) Start(ctx context.Context) error {
 		"systemID", identifyData.SystemID,
 	)
 
+	// The slot must exist, with its WAL reserved, before we read its restart
+	// LSN as the start point below: otherwise the WAL between here and the
+	// slot's eventual creation could be recycled before we ever read it.
 	if err := s.ensureReplicationSlotExists(ctx, conn); err != nil {
 		return err
 	}
@@ -288,6 +291,11 @@ func getStartWALLSN(xlogFlushPos pglogrepl.LSN, segmentSize uint64) pglogrepl.LS
 	return pglogrepl.LSN(uint64(xlogFlushPos) & ^(segmentSize - 1))
 }
 
+// ensureReplicationSlotExists creates the Klio physical replication slot if
+// it does not exist yet, using RESERVE_WAL so its restart LSN, and the WAL
+// from it, are reserved immediately at creation instead of at the first
+// replication connection. Without it, WAL between slot creation and that
+// first connection is free to be recycled before Klio ever streams it.
 func (s *Process) ensureReplicationSlotExists(
 	ctx context.Context,
 	conn *pgconn.PgConn,

@@ -45,11 +45,7 @@ import (
 )
 
 // ReplicaClusterBackupFeature verifies that an immediate backup taken from a
-// freshly-created replica cluster completes. On a replica cluster the WAL
-// streamer of the designated primary starts archiving from the current flush
-// position, while pg_backup_start on the underlying standby reports the older
-// last-restartpoint LSN: the WAL segments in between must still end up in tier1
-// or the backup waits for WAL files that never arrive.
+// freshly-created replica cluster completes.
 type ReplicaClusterBackupFeature struct {
 	scenario *commonBackupRestoreScenario
 
@@ -242,8 +238,7 @@ func (f *ReplicaClusterBackupFeature) Run() types.StepFunc {
 		), "source backup not completed")
 
 		// Advance the source WAL (without a checkpoint) so the replica, once
-		// bootstrapped, replays past its last restartpoint: this is the state in
-		// which the streamer starts ahead of what pg_backup_start reports.
+		// bootstrapped, has the final WAL and isn't stuck waiting for it.
 		_, err = postgres.ExecPostgresQuery(ctx, r, &f.scenario.sourcePrimaryPod, "postgres",
 			"CREATE TABLE numbers AS SELECT generate_series(1, 1000) AS x; "+
 				"SELECT pg_switch_wal(); SELECT pg_switch_wal();")
@@ -262,7 +257,7 @@ func (f *ReplicaClusterBackupFeature) Run() types.StepFunc {
 		), "replica cluster not ready")
 
 		// The immediate backup of the freshly-created replica cluster must
-		// complete: before the fix it loops forever on missing WAL files.
+		// complete.
 		require.NoError(t, r.Create(ctx, f.replicaBackup), "failed to create replica backup")
 		require.NoError(t, wait.For(
 			machineryConditions.BackupIsCompleted(r, f.replicaBackup),
