@@ -3,7 +3,7 @@
 ARG BASE_IMAGE=gcr.io/distroless/static-debian13:nonroot@sha256:1c2c046bc09ed40fad370b599a0b1ae7987f55b01e247cf27a7c27cd97e5bbc7
 
 # Build stage: build on the host platform for the target platform
-FROM --platform=${BUILDPLATFORM} golang:1.27.1@sha256:512690a5660563b57d37ecc31129e7f136e831db2aed24a1dbeb8ad7380dc0fa AS builder
+FROM --platform=${BUILDPLATFORM} golang:1.27.1@sha256:f44f6e88636cfb311f9ebace870ded69d943f227bb3cb27d32ffd84ea18c43ea AS builder
 WORKDIR /workspace
 
 ARG TARGETOS
