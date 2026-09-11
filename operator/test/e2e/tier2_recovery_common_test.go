@@ -96,12 +96,15 @@ const (
 	presentAnnotationValue = "present"
 )
 
-// checkTier2ReplicationComplete checks if tier2 replication is complete by verifying that
-// kopia snapshot list returns 3 snapshots in the tier2 storage.
+// checkTier2ReplicationComplete checks if tier2 replication is complete by
+// verifying that exactly expectedBackupCount backups are present in tier2
+// storage (kopia snapshot list returns 3 snapshots per backup in tier2
+// storage).
 func checkTier2ReplicationComplete(
 	r *resources.Resources,
 	namespace string,
 	serverName string,
+	expectedBackupCount int,
 ) k8swait.ConditionWithContextFunc {
 	return func(ctx context.Context) (bool, error) {
 		podName := serverName + "-klio-0"
@@ -138,7 +141,7 @@ func checkTier2ReplicationComplete(
 			}
 		}
 
-		return tier2Count == 1, nil
+		return tier2Count == expectedBackupCount, nil
 	}
 }
 
@@ -152,7 +155,8 @@ type tier2RecoveryServerResources struct {
 	PluginConfigurationRecovery *kliov1alpha1.PluginConfiguration
 }
 
-// deployTier2RecoveryServer creates the recovery Klio Server after tier2 replication.
+// deployTier2RecoveryServer creates the recovery Klio Server after tier2
+// replication has delivered exactly expectedBackupCount backups.
 //
 //nolint:cyclop
 func deployTier2RecoveryServer(
@@ -160,11 +164,13 @@ func deployTier2RecoveryServer(
 	r *resources.Resources,
 	namespace string,
 	sourceServerName string,
+	expectedBackupCount int,
 	resources *tier2RecoveryServerResources,
 ) error {
-	// Wait for tier2 replication to complete (3 snapshots in tier2 storage)
+	// Wait for tier2 replication to complete (3 snapshots per backup in
+	// tier2 storage).
 	err := wait.For(
-		checkTier2ReplicationComplete(r, namespace, sourceServerName),
+		checkTier2ReplicationComplete(r, namespace, sourceServerName, expectedBackupCount),
 		wait.WithTimeout(5*time.Minute),
 		wait.WithInterval(10*time.Second),
 	)
