@@ -1642,7 +1642,7 @@ tasks:
       # renovate: datasource=github-releases depName=helm/helm versioning=semver
       HELM_VERSION: 'v4.3.0'
       # renovate: datasource=helm depName=cert-manager versioning=semver registryUrl=https://charts.jetstack.io
-      CERT_MANAGER_VERSION: 'v1.21.1'
+      CERT_MANAGER_VERSION: 'v1.21.2'
       # Cache busting timestamp to prevent Dagger from caching helm deployments
       CACHE_BUST:
         sh: date +%s
