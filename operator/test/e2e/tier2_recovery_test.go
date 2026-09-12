@@ -174,7 +174,7 @@ func (s *tier2RecoveryScenario) deployRecoveryServer(
 	_ *cnpgv1.Cluster,
 	r *resources.Resources,
 ) error {
-	return deployTier2RecoveryServer(ctx, r, s.namespace.Name, s.klioServer.Name, &tier2RecoveryServerResources{
+	return deployTier2RecoveryServer(ctx, r, s.namespace.Name, s.klioServer.Name, 1, &tier2RecoveryServerResources{
 		RecoveryServerCertificate:   s.recoveryServerCertificate,
 		RecoveryServerCACertificate: s.recoveryServerCACertificate,
 		RecoveryServerCAIssuer:      s.recoveryServerCAIssuer,

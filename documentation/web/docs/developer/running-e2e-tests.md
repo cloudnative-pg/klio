@@ -133,9 +133,11 @@ The E2E tests are located in `operator/test/e2e/` and include:
   enforcement in tier2 storage (`Tier2Retention`)
 - **`compression_test.go`** - Kopia compression policies: verifies the
   repository-wide policy set on the Server applies globally and that the
-  per-cluster policy set on the PluginConfiguration overrides it, by
-  inspecting `kopia policy show` for the `--global` and `user@host`
-  targets on tier2 (`Compression`)
+  per-cluster policy set on the PluginConfiguration overrides it, on both
+  tier1 and tier2, by inspecting `kopia policy show` for the `--global`
+  and `user@host` targets; also takes two backups per tier under
+  different algorithms and recovers the latest one from each tier,
+  verifying data integrity (`Compression`)
 - **`wal_retention_test.go`** - WAL retention queue-awareness: verifies
   server-side tier1 retention prunes old WALs only after they reach tier2,
   driven by backup completion rather than a client command
