@@ -222,7 +222,7 @@ func (f *Tier2RetentionFeature) Run() types.StepFunc {
 			// After the first backup, record the WAL directory count as baseline
 			// and remember which backup reached tier2 first (the oldest one).
 			if i == 0 {
-				names, listErr := listTier2BackupNames(ctx, r, f.namespace, f.klioServer.Name)
+				names, listErr := listTier2BackupNames(ctx, r, f.namespace, f.klioServer.Name, f.clusterName)
 				require.NoError(t, listErr, "failed to list tier2 backups after the first backup")
 				require.Len(t, names, 1, "expected exactly one tier2 backup after the first backup")
 				oldestTier2BackupName = names[0]
@@ -251,7 +251,7 @@ func (f *Tier2RetentionFeature) Run() types.StepFunc {
 		)
 		require.NoError(t, err, "Level 1 failed: tier2 backup count verification failed")
 
-		survivingNames, err := listTier2BackupNames(ctx, r, f.namespace, f.klioServer.Name)
+		survivingNames, err := listTier2BackupNames(ctx, r, f.namespace, f.klioServer.Name, f.clusterName)
 		require.NoError(t, err, "Level 1 failed: could not list surviving tier2 backups")
 		require.NotContains(t, survivingNames, oldestTier2BackupName,
 			"Level 1 failed: the oldest backup should have been deleted by the retention manager")
@@ -284,7 +284,7 @@ func (f *Tier2RetentionFeature) Run() types.StepFunc {
 					return false, nil
 				}
 
-				names, listErr := listTier2BackupNames(ctx, r, f.namespace, f.klioServer.Name)
+				names, listErr := listTier2BackupNames(ctx, r, f.namespace, f.klioServer.Name, f.clusterName)
 				if listErr != nil {
 					return false, nil //nolint:nilerr
 				}
@@ -296,7 +296,7 @@ func (f *Tier2RetentionFeature) Run() types.StepFunc {
 		)
 		require.NoError(t, err, "Level 1b failed: on-demand retention did not converge to a single backup")
 
-		finalNames, err := listTier2BackupNames(ctx, r, f.namespace, f.klioServer.Name)
+		finalNames, err := listTier2BackupNames(ctx, r, f.namespace, f.klioServer.Name, f.clusterName)
 		require.NoError(t, err, "Level 1b failed: could not list surviving tier2 backups")
 		require.Equal(t, []string{newestBackupName}, finalNames,
 			"Level 1b failed: only the newest backup should remain after `klio retention apply`")
@@ -510,6 +510,7 @@ func listTier2BackupNames(
 	r *resources.Resources,
 	namespace string,
 	serverName string,
+	clusterName string,
 ) ([]string, error) {
 	podName := serverName + klioPodSuffix
 
@@ -521,6 +522,7 @@ func listTier2BackupNames(
 
 	type backupMetadata struct {
 		Name        string            `json:"name"`
+		ClusterName string            `json:"clusterName"`
 		StartedAt   int64             `json:"startedAt"`
 		Annotations map[string]string `json:"annotations,omitempty"`
 	}
@@ -536,6 +538,9 @@ func listTier2BackupNames(
 
 	names := make([]string, 0, len(backups))
 	for i := range backups {
+		if backups[i].ClusterName != clusterName {
+			continue
+		}
 		if backups[i].Annotations[tier2AnnotationName] == presentAnnotationValue {
 			names = append(names, backups[i].Name)
 		}
