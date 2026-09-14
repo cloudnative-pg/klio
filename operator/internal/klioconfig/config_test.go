@@ -341,6 +341,10 @@ func TestConvertRetentionPolicy(t *testing.T) {
 		assert.Nil(t, result)
 	})
 
+	t.Run("latest below 1 returns nil", func(t *testing.T) {
+		assert.Nil(t, convertRetentionPolicy(&kliov1alpha1.RetentionPolicy{}))
+	})
+
 	t.Run("latest is set", func(t *testing.T) {
 		input := &kliov1alpha1.RetentionPolicy{
 			Latest: 5,
