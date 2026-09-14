@@ -93,6 +93,13 @@ func (w *Implementation) ApplyRetention(
 		return nil, status.Errorf(codes.InvalidArgument, "invalid cluster name: %v", err)
 	}
 
+	// Retention deletes backups, so the caller must prove it owns the cluster:
+	// the host part of the client certificate Common Name (userName@hostName)
+	// must match the requested cluster.
+	if err := checkPeerCluster(ctx, request.GetClusterName()); err != nil {
+		return nil, err
+	}
+
 	tier1Policy := parseRetentionPolicy(ctx, "tier1", request.GetTier1RetentionPolicy())
 	tier2Policy := parseRetentionPolicy(ctx, "tier2", request.GetTier2RetentionPolicy())
 
