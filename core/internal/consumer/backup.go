@@ -245,8 +245,8 @@ func (d *Backup) relayAndMaintain(ctx context.Context, task *queue.BackupTask, e
 // maintainOnly applies the per-tier retention policies to a cluster without a
 // new backup, driven by a maintenance-only task. tier2 maintenance runs first
 // (when tier2 is configured) so the tier1 guard sees an up-to-date tier2
-// catalog before tier1 deletes anything; a tier2 failure is fatal so the task
-// is retried, while tier1 maintenance is best-effort.
+// catalog before tier1 deletes anything; a failure on either tier is fatal so
+// the task is retried.
 func (d *Backup) maintainOnly(ctx context.Context, task *queue.BackupTask) error {
 	contextLogger := log.FromContext(ctx)
 	contextLogger.Info("Applying on-demand retention", "cluster", task.ClusterName)
@@ -257,11 +257,9 @@ func (d *Backup) maintainOnly(ctx context.Context, task *queue.BackupTask) error
 		}
 	}
 
-	if err := d.steps.maintainTier1(ctx, task); err != nil {
-		contextLogger.Error(err, "Error while applying tier1 maintenance, skipping")
-	}
-
-	return nil
+	// Unlike the post-backup path there is no backup to protect here: the
+	// retention run is the whole task, so a failure must be retried.
+	return d.steps.maintainTier1(ctx, task)
 }
 
 // relayTier2 migrates the cluster's backups to tier2 and verifies them there.
