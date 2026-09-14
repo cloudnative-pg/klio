@@ -106,13 +106,29 @@ var retryBackupCmd = &cobra.Command{
 	Use:   "retry [cluster-name]",
 	Short: "Retry failed backup tasks in the queue",
 	Long: "Retry failed backup tasks in the queue.\n\n" +
-		"With no arguments, all failed backup tasks are retried. If a cluster name " +
-		"is given, all failed backup tasks for that cluster are retried.",
-	Args: cobra.MaximumNArgs(1),
+		"A cluster name is required, and all failed backup tasks for that cluster " +
+		"are retried. Pass --all-clusters instead of a cluster name to retry all " +
+		"failed backup tasks across every cluster.",
+	Args: func(cmd *cobra.Command, args []string) error {
+		allClusters, err := cmd.Flags().GetBool("all-clusters")
+		if err != nil {
+			return fmt.Errorf("while getting the all-clusters flag: %w", err)
+		}
+		if allClusters {
+			return cobra.NoArgs(cmd, args)
+		}
+
+		return cobra.ExactArgs(1)(cmd, args)
+	},
 	RunE: func(cmd *cobra.Command, args []string) error {
 		socketPath, err := cmd.Flags().GetString("socket-path")
 		if err != nil {
 			return fmt.Errorf("while getting the socketPath flag: %w", err)
+		}
+
+		allClusters, err := cmd.Flags().GetBool("all-clusters")
+		if err != nil {
+			return fmt.Errorf("while getting the all-clusters flag: %w", err)
 		}
 
 		conn, err := connectToAdminServer(socketPath)
@@ -124,7 +140,7 @@ var retryBackupCmd = &cobra.Command{
 		}()
 
 		var request klioGRPC.QueueRetryBackupsRequest
-		if len(args) > 0 {
+		if !allClusters {
 			clusterName := args[0]
 			request.ClusterName = &clusterName
 		}
@@ -147,4 +163,5 @@ func init() {
 	listFailedBackupCmd.Flags().String("cluster-name", "", "Cluster name to filter failed backup tasks (optional)")
 
 	queueBackupCmd.AddCommand(retryBackupCmd)
+	retryBackupCmd.Flags().Bool("all-clusters", false, "Retry failed backup tasks across every cluster")
 }

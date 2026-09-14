@@ -10,7 +10,7 @@ Retry failed WAL tasks in the queue
 
 Retry failed WAL tasks in the queue.
 
-With no arguments, all failed WAL tasks are retried. If a cluster name is given, all failed WAL tasks for that cluster are retried. If WAL files are also given, only those are retried.
+A cluster name is required, and all failed WAL tasks for that cluster are retried. If WAL files are also given, only those are retried. Pass --all-clusters instead of a cluster name to retry all failed WAL tasks across every cluster.
 
 ```
 klio admin queue wal retry [cluster-name] [WAL1 WAL2 ...] [flags]
@@ -19,7 +19,8 @@ klio admin queue wal retry [cluster-name] [WAL1 WAL2 ...] [flags]
 ### Options
 
 ```
-  -h, --help   help for retry
+      --all-clusters   Retry failed WAL tasks across every cluster
+  -h, --help           help for retry
 ```
 
 ### Options inherited from parent commands

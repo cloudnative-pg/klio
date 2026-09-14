@@ -111,14 +111,30 @@ var retryWALCmd = &cobra.Command{
 	Use:   "retry [cluster-name] [WAL1 WAL2 ...]",
 	Short: "Retry failed WAL tasks in the queue",
 	Long: "Retry failed WAL tasks in the queue.\n\n" +
-		"With no arguments, all failed WAL tasks are retried. If a cluster name " +
-		"is given, all failed WAL tasks for that cluster are retried. If WAL " +
-		"files are also given, only those are retried.",
-	Args: cobra.ArbitraryArgs,
+		"A cluster name is required, and all failed WAL tasks for that cluster " +
+		"are retried. If WAL files are also given, only those are retried. Pass " +
+		"--all-clusters instead of a cluster name to retry all failed WAL tasks " +
+		"across every cluster.",
+	Args: func(cmd *cobra.Command, args []string) error {
+		allClusters, err := cmd.Flags().GetBool("all-clusters")
+		if err != nil {
+			return fmt.Errorf("while getting the all-clusters flag: %w", err)
+		}
+		if allClusters {
+			return cobra.NoArgs(cmd, args)
+		}
+
+		return cobra.MinimumNArgs(1)(cmd, args)
+	},
 	RunE: func(cmd *cobra.Command, args []string) error {
 		socketPath, err := cmd.Flags().GetString("socket-path")
 		if err != nil {
 			return fmt.Errorf("while getting the socketPath flag: %w", err)
+		}
+
+		allClusters, err := cmd.Flags().GetBool("all-clusters")
+		if err != nil {
+			return fmt.Errorf("while getting the all-clusters flag: %w", err)
 		}
 
 		conn, err := connectToAdminServer(socketPath)
@@ -130,12 +146,12 @@ var retryWALCmd = &cobra.Command{
 		}()
 
 		var request klioGRPC.QueueRetryWALsRequest
-		if len(args) > 0 {
+		if !allClusters {
 			clusterName := args[0]
 			request.ClusterName = &clusterName
-		}
-		if len(args) > 1 {
-			request.WalNames = args[1:]
+			if len(args) > 1 {
+				request.WalNames = args[1:]
+			}
 		}
 
 		adminClient := klioGRPC.NewAdminClient(conn)
@@ -156,4 +172,5 @@ func init() {
 	listFailedWALCmd.Flags().String("cluster-name", "", "Cluster name to filter failed WAL tasks (optional)")
 
 	queueWALCmd.AddCommand(retryWALCmd)
+	retryWALCmd.Flags().Bool("all-clusters", false, "Retry failed WAL tasks across every cluster")
 }

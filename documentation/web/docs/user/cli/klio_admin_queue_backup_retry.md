@@ -10,7 +10,7 @@ Retry failed backup tasks in the queue
 
 Retry failed backup tasks in the queue.
 
-With no arguments, all failed backup tasks are retried. If a cluster name is given, all failed backup tasks for that cluster are retried.
+A cluster name is required, and all failed backup tasks for that cluster are retried. Pass --all-clusters instead of a cluster name to retry all failed backup tasks across every cluster.
 
 ```
 klio admin queue backup retry [cluster-name] [flags]
@@ -19,7 +19,8 @@ klio admin queue backup retry [cluster-name] [flags]
 ### Options
 
 ```
-  -h, --help   help for retry
+      --all-clusters   Retry failed backup tasks across every cluster
+  -h, --help           help for retry
 ```
 
 ### Options inherited from parent commands
