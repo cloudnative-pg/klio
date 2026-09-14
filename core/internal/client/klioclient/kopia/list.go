@@ -53,7 +53,10 @@ func (s *Connection) GetMetadata(
 	return nil, newNoBackupFoundError(hostname, name)
 }
 
-// ListBackups list all the backups in the repository.
+// ListBackups list all the backups in the repository. A metadata snapshot
+// that cannot be read fails the whole listing: the catalog drives retention
+// and WAL cleanup, and silently dropping a backup from it would let them
+// delete one backup too many.
 func (s *Connection) ListBackups(ctx context.Context, hostname string) (klioclient.BackupList, error) {
 	contextLogger := log.FromContext(ctx)
 
@@ -72,10 +75,10 @@ func (s *Connection) ListBackups(ctx context.Context, hostname string) (klioclie
 
 		metadata, err := s.restoreMetadata(ctx, entry.ID)
 		if err != nil {
-			contextLogger.Error(err, "Error while decoding backup metadata, skipping", "id", entry.ID)
-		} else {
-			result = append(result, *metadata)
+			return nil, fmt.Errorf("while reading the metadata of backup snapshot %q: %w", entry.ID, err)
 		}
+
+		result = append(result, *metadata)
 	}
 
 	return result, nil
