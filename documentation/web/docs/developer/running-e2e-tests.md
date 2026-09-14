@@ -129,8 +129,14 @@ The E2E tests are located in `operator/test/e2e/` and include:
   by both of the above; also asserts that the read-only (tier2-only)
   recovery Server gets the unified `klio` PVC/mount, same as a tier1
   server
+- **`tier1_retention_test.go`** - Backup retention policy enforcement on a
+  tier1-only deployment: takes more backups than the policy keeps, verifies
+  the retention manager deletes the oldest, then tightens the policy and
+  verifies `klio retention apply` prunes on demand (`Tier1Retention`)
 - **`tier2_retention_test.go`** - Backup and WAL retention policy
-  enforcement in tier2 storage (`Tier2Retention`)
+  enforcement in tier2 storage: shares the tier1 automatic and on-demand
+  retention flow and adds tier2-only WAL retention and recovery-gate
+  checks (`Tier2Retention`)
 - **`compression_test.go`** - Kopia compression policies: verifies the
   repository-wide policy set on the Server applies globally and that the
   per-cluster policy set on the PluginConfiguration overrides it, by
