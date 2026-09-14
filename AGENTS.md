@@ -139,6 +139,7 @@ Klio-only assertions) must live outside `machinery` — e.g. under
   - `operator/pkg/config/server.go` ↔ `core/pkg/config/server.go`
   - `operator/pkg/config/client.go` ↔ `core/pkg/config/client.go`
   - `operator/pkg/config/compression.go` ↔ `core/pkg/config/compression.go`
+  - `operator/pkg/config/retention.go` ↔ `core/pkg/config/retention.go`
 
 - When you change a metric in `core/internal/opentelemetry/catalog.go`
   (rename, add, remove, or change a metric's unit, type, or attributes),
