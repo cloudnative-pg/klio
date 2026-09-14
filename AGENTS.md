@@ -199,9 +199,10 @@ confirm after that warning.
   those steps: tier1/tier2 retention apply, tier2 relay/migrate, tier2 policy
   set, and tier1 unpin. This is a deliberate, contained exception — not a pattern
   to copy, and one that should be removed in the future.
-- A second, narrower exception: `applyGlobalCompressionPolicy` in
+- A second, narrower exception: `applyGlobalKopiaPolicies` in
   `core/cmd/server/server.go` sets the repository-wide (global) compression
-  policy with a raw `kopia.Client{ConfigFile: ...}`, before the tier's Kopia
+  policy and disables Kopia's own snapshot retention (Klio applies retention
+  itself) with a raw `kopia.Client{ConfigFile: ...}`, before the tier's Kopia
   server starts. This is safe only because no server is running yet to hold a
   stale cache. Do not reuse this pattern once the server is up.
 - A direct write that **rewrites the manifest of a live backup** MUST be followed
