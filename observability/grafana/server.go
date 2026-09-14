@@ -21,6 +21,8 @@ package main
 
 import (
 	"fmt"
+
+	"github.com/grafana/grafana-foundation-sdk/go/common"
 )
 
 // snapshotCluster wraps a Kopia base-snapshot selector in a label_replace that
@@ -60,11 +62,12 @@ func serverPanels() []sizedPanel {
 				"{{cluster_name}} {{tier}}"),
 		).Description("PostgreSQL timeline of the latest WAL written per cluster and tier, over time. A step "+
 			"up marks a promotion or failover.")),
-		sized(4, panelHeight, barGaugePanel("Base snapshots by cluster and tier",
+		sized(4, panelHeight, statPanel("Base snapshots by cluster and tier", "number",
 			query(fmt.Sprintf("sum by (cluster, tier) (%s)",
 				snapshotCluster(fmt.Sprintf("klio_server_backup_snapshots{%s}", serverMatcher))), "{{cluster}} {{tier}}"),
-		).Description("Base backup snapshots currently retained per cluster and tier (the cluster is derived "+
-			"from the Kopia snapshot source).")),
+		).Orientation(common.VizOrientationHorizontal).
+			Description("Base backup snapshots currently retained per cluster and tier (the cluster is derived "+
+				"from the Kopia snapshot source).")),
 		sized(4, panelHeight, statPanel("Latest snapshot size", "bytes",
 			query(fmt.Sprintf("max by (cluster, tier) (%s)",
 				snapshotCluster(fmt.Sprintf("klio_server_backup_latest_snapshot_size_bytes{%s}", serverMatcher))),

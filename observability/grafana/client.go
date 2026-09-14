@@ -21,6 +21,8 @@ package main
 
 import (
 	"fmt"
+
+	"github.com/grafana/grafana-foundation-sdk/go/common"
 )
 
 // clientPanels returns the "Client / Plugin" section panels. These metrics are
@@ -35,30 +37,39 @@ func clientPanels() []sizedPanel {
 	return []sizedPanel{
 		// Current backup state, grouped by cluster so a namespace hosting
 		// several clusters shows one series each instead of a folded total.
+		// Orientation forced to horizontal: with several clusters selected,
+		// stat panels laid out "auto" stack tiles vertically and clip inside
+		// the fixed panel height, hiding clusters below the fold.
 		sized(4, panelHeight, statPanel("Backups in progress", "none",
 			query(fmt.Sprintf("sum by (cluster_name) (klio_plugin_backup_in_progress{%s})", clientMatcher),
 				"{{cluster_name}}"),
 		).Decimals(0).
+			Orientation(common.VizOrientationHorizontal).
 			Description("Base backups currently running, per cluster.")),
-		sized(4, panelHeight, statPanel("Time since last successful backup", "dtdurations",
+		sized(4, panelHeight, statPanel("Time since last successful backup", "dtdhms",
 			query(fmt.Sprintf("time() - max by (cluster_name) (klio_plugin_backup_latest_completion_time_seconds{%s})",
 				clientMatcher), "{{cluster_name}}"),
-		).Description("Elapsed time since the most recent base backup completed successfully, per cluster. A "+
-			"value well above the backup interval means that cluster's backups have stopped succeeding.")),
-		sized(4, panelHeight, statPanel("Time since last failed backup", "dtdurations",
+		).Orientation(common.VizOrientationHorizontal).
+			Description("Elapsed time since the most recent base backup completed successfully, per cluster. A "+
+				"value well above the backup interval means that cluster's backups have stopped succeeding.")),
+		sized(4, panelHeight, statPanel("Time since last failed backup", "dtdhms",
 			query(fmt.Sprintf("time() - max by (cluster_name) (klio_plugin_backup_latest_failure_time_seconds{%s})",
 				clientMatcher), "{{cluster_name}}"),
-		).Description("Elapsed time since the most recent base backup failure, per cluster. A small value means "+
-			"a failure happened recently.")),
-		sized(4, panelHeight, statPanel("Latest backup duration", "dtdurations",
+		).Orientation(common.VizOrientationHorizontal).
+			Description("Elapsed time since the most recent base backup failure, per cluster. A small value means "+
+				"a failure happened recently.")),
+		sized(4, panelHeight, statPanel("Latest backup duration", "dtdhms",
 			query(fmt.Sprintf("max by (cluster_name) (klio_plugin_backup_latest_duration_seconds{%s})", clientMatcher),
 				"{{cluster_name}}"),
-		).Description("Wall-clock duration of the most recent base backup, per cluster.")),
-		sized(4, panelHeight, statPanel("Time since last backup started", "dtdurations",
+		).Orientation(common.VizOrientationHorizontal).
+			Unit("dtdhms").
+			Description("Wall-clock duration of the most recent base backup, per cluster.")),
+		sized(4, panelHeight, statPanel("Time since last backup started", "dtdhms",
 			query(fmt.Sprintf("time() - max by (cluster_name) (klio_plugin_backup_latest_start_time_seconds{%s})",
 				clientMatcher), "{{cluster_name}}"),
-		).Description("Elapsed time since the most recent base backup started, per cluster. Compare against the "+
-			"latest duration to tell whether a backup is still running or overdue.")),
+		).Orientation(common.VizOrientationHorizontal).
+			Description("Elapsed time since the most recent base backup started, per cluster. Compare against the "+
+				"latest duration to tell whether a backup is still running or overdue.")),
 		// Derived: share of backup runs that succeeded over the selected range,
 		// per cluster.
 		sized(4, panelHeight, statPanel("Backup success ratio", "percentunit",
@@ -68,23 +79,20 @@ func clientPanels() []sizedPanel {
 					"[$__range])), 1)", clientMatcher, clientMatcher),
 				"{{cluster_name}}",
 			),
-		).Description("Fraction of base backup runs that succeeded over the selected time range "+
-			"(successful runs / total runs), per cluster.")),
-		// Derived: count of successful backups over fixed trailing windows. The
-		// runs counter resets when the plugin sidecar restarts, so increase()
-		// over long windows is an approximation across restarts.
-		sized(4, panelHeight, statPanel("Successful backups (24h)", "none",
+		).Orientation(common.VizOrientationHorizontal).
+			Description("Fraction of base backup runs that succeeded over the selected time range "+
+				"(successful runs / total runs), per cluster.")),
+		// Derived: count of successful backups over the dashboard's selected
+		// time range. The runs counter resets when the plugin sidecar
+		// restarts, so increase() over long windows is an approximation
+		// across restarts.
+		sized(4, panelHeight, statPanel("Successful backups (selected range)", "none",
 			query(fmt.Sprintf("sum by (cluster_name) (increase(klio_plugin_backup_runs_total{outcome=\"success\",%s}"+
-				"[24h]))", clientMatcher), "{{cluster_name}}"),
+				"[$__range]))", clientMatcher), "{{cluster_name}}"),
 		).Decimals(0).
-			Description("Base backups that completed successfully in the last 24 hours, per cluster. Counter "+
-				"resets on plugin restart make long-window counts approximate.")),
-		sized(4, panelHeight, statPanel("Successful backups (7d)", "none",
-			query(fmt.Sprintf("sum by (cluster_name) (increase(klio_plugin_backup_runs_total{outcome=\"success\",%s}"+
-				"[7d]))", clientMatcher), "{{cluster_name}}"),
-		).Decimals(0).
-			Description("Base backups that completed successfully in the last 7 days, per cluster. Counter "+
-				"resets on plugin restart make long-window counts approximate.")),
+			Orientation(common.VizOrientationHorizontal).
+			Description("Base backups that completed successfully over the dashboard's selected time range, per "+
+				"cluster. Counter resets on plugin restart make long-window counts approximate.")),
 
 		// Backup throughput and outcomes, split by cluster and outcome/category.
 		sized(8, panelHeight, timeseriesPanel("Backup run rate by cluster and outcome", "ops",
