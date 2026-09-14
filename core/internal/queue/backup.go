@@ -90,6 +90,12 @@ func (q *Conn) ConsumeBackupReceivedMessages(ctx context.Context, handler Backup
 			return err
 		}
 
+		// Only a successful backup makes the earlier failures moot; an
+		// on-demand retention run must not erase them.
+		if t.MaintenanceOnly {
+			return nil
+		}
+
 		if err := q.purgeBackupDLQEntries(ctx, t.ClusterName); err != nil {
 			log.FromContext(ctx).Error(
 				err,
