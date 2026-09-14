@@ -10,6 +10,25 @@ see the [Helm chart page](helm_chart.mdx#upgrades).
 
 ## 0.0.20 to 0.0.21
 
+### Klio-managed retention policies
+
+Retention is now enforced by the Klio server, which periodically evaluates
+each cluster's backups against its policy and deletes the ones that fall
+outside it, instead of delegating the decision to Kopia.
+
+- The `retention` block of the `PluginConfiguration` changed shape. The
+  Kopia-style `keepLatest`, `keepHourly`, `keepDaily`, `keepWeekly`,
+  `keepMonthly` and `keepAnnual` fields are replaced by a single `latest`
+  field, which keeps the given number of most recent backups. Update any
+  `tier1.retention` and `tier2.retention` blocks accordingly. Omit the block,
+  or set `latest` to `0`, to keep every backup.
+- Kopia's own retention is disabled: on start, the Klio server sets the
+  global Kopia retention policy of each tier to keep every snapshot and
+  resets the per-source retention policies written by earlier versions to
+  inherit it. No manual action is required.
+- `klio retention set` no longer accepts the `--keep-*` flags. The policy
+  is read from the configuration and sent to the server.
+
 ### The `klio-restore` container is gone
 
 The `klio-plugin` sidecar now also serves the restore while a cluster

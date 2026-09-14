@@ -73,46 +73,6 @@ func (s *Client) setKopiaCompressionPolicy(
 	return nil
 }
 
-// DisableKopiaGlobalRetentionPolicy sets every Kopia keep-* retention field
-// to 0 on the repository-wide (global) policy. Kopia treats "all six keep-*
-// fields explicitly zero" as its own sentinel for "keep everything".
-// klio's own retention sweeper is the sole retention authority; Kopia's
-// built-in policy-based expiry must never independently delete a snapshot.
-func (s *Client) DisableKopiaGlobalRetentionPolicy(ctx context.Context) error {
-	contextLogger := log.FromContext(ctx)
-
-	args := buildDisableRetentionPolicyArgs(s.ConfigFile)
-
-	contextLogger.Info("Disabling Kopia's built-in global retention policy", "args", args)
-
-	setPolicyCmd := exec.CommandContext(ctx, s.KopiaBinary, args...) //nolint:gosec
-	setPolicyCmd.Env = s.kopiaEnvironmentVariables()
-
-	if err := RunWithLogCapture(ctx, setPolicyCmd, nil); err != nil {
-		return fmt.Errorf("error while disabling Kopia's global retention policy: %w", err)
-	}
-
-	return nil
-}
-
-// buildDisableRetentionPolicyArgs builds the argument list for the
-// `kopia policy set --global` command that zeroes every keep-* field.
-func buildDisableRetentionPolicyArgs(configFile string) []string {
-	return []string{
-		"policy",
-		"set",
-		"--config-file=" + configFile,
-		"--disable-file-logging",
-		"--keep-latest=0",
-		"--keep-hourly=0",
-		"--keep-daily=0",
-		"--keep-weekly=0",
-		"--keep-monthly=0",
-		"--keep-annual=0",
-		"--global",
-	}
-}
-
 // buildCompressionPolicyArgs builds the argument list for the
 // `kopia policy set` compression command. policyTarget is either a
 // "user@host" source or the "--global" selector.

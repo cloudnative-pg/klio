@@ -199,14 +199,16 @@ propose the server-routed alternative, and proceed only if the user confirms.
   refreshes each tier's server cache once per pass that deleted anything —
   a freshness convenience for `klio backup list`/restore right after a
   sweep, not a correctness requirement.
-- **`core/cmd/server/server.go`**: `applyGlobalCompressionPolicy` and
-  `disableKopiaGlobalRetentionPolicy` set the repo-wide policy with a raw
-  client *before* the tier's server starts, so no cache exists yet to go
-  stale. Don't reuse this once the server is up. The retention call exists
-  because Kopia applies its own default retention (10 latest/48 hourly/7
-  daily/4 weekly/24 monthly/3 annual) on every `snapshot create` unless all
-  six `keep-*` fields are explicitly 0 — otherwise Kopia would delete
-  snapshots the sweeper never asked to delete.
+- **`core/cmd/server/server.go`**: `applyGlobalKopiaPolicies` sets the
+  repo-wide compression policy and disables Kopia's own snapshot retention
+  (`DisableKopiaRetention`: the global keep-* fields are zeroed and the
+  per-source policies left by earlier versions are reset to inherit it) with
+  a raw client *before* the tier's server starts, so no cache exists yet to
+  go stale. Don't reuse this once the server is up. The retention part
+  exists because Kopia applies its own default retention (10 latest/48
+  hourly/7 daily/4 weekly/24 monthly/3 annual) on every `snapshot create`
+  unless all six `keep-*` fields are explicitly 0 — otherwise Kopia would
+  delete snapshots the sweeper never asked to delete.
 
 **Manifest-rewriting direct writes must refresh the affected tier's server
 cache after.** Skipping it is a bug: a rewrite retires the old manifest ID,

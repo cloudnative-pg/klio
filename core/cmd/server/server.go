@@ -34,14 +34,15 @@ import (
 	"github.com/cloudnative-pg/klio/core/pkg/config"
 )
 
-// applyGlobalCompressionPolicy sets the repository-wide (global) Kopia
-// compression policy using the passed persistent config file. It is always
-// applied, even when unconfigured, so that removing the compression section
-// resets the global policy back to Kopia's built-in default instead of
-// leaving a stale, previously-set policy in place. This runs before the
-// Kopia servers start, so the direct write to the repository predates any
-// server cache.
-func applyGlobalCompressionPolicy(
+// applyGlobalKopiaPolicies sets the repository-wide (global) Kopia
+// compression policy using the passed persistent config file and disables
+// Kopia's own snapshot retention, which Klio applies itself. The compression
+// policy is always applied, even when unconfigured, so that removing the
+// compression section resets the global policy back to Kopia's built-in
+// default instead of leaving a stale, previously-set policy in place. This
+// runs before the Kopia servers start, so the direct writes to the repository
+// predate any server cache.
+func applyGlobalKopiaPolicies(
 	ctx context.Context,
 	configFile string,
 	compression config.CompressionPolicy,
@@ -56,46 +57,26 @@ func applyGlobalCompressionPolicy(
 		ConfigFile:  configFile,
 	}
 
-	return client.SetKopiaGlobalCompressionPolicy(ctx, kopia.CompressionPolicy{
+	if err := client.SetKopiaGlobalCompressionPolicy(ctx, kopia.CompressionPolicy{
 		Algorithm: compression.Algorithm,
 		MinSize:   compression.MinSize,
 		MaxSize:   compression.MaxSize,
-	})
-}
-
-// disableKopiaGlobalRetentionPolicy disables Kopia's own built-in retention
-// policy on the repository-wide (global) policy, so klio's own retention
-// sweeper (internal/retention) is the only thing that ever deletes a
-// snapshot for being out of retention. Like applyGlobalCompressionPolicy,
-// this runs before the tier's Kopia server starts, so the direct write to
-// the repository predates any server cache.
-func disableKopiaGlobalRetentionPolicy(ctx context.Context, configFile string) error {
-	kopiaBinary, err := kopia.LookupBinary()
-	if err != nil {
+	}); err != nil {
 		return err
 	}
 
-	client := &kopia.Client{
-		KopiaBinary: kopiaBinary,
-		ConfigFile:  configFile,
-	}
-
-	return client.DisableKopiaGlobalRetentionPolicy(ctx)
+	return client.DisableKopiaRetention(ctx)
 }
 
 // setupTier1KopiaConfig connects the tier1 config file to the repository and
-// applies the tier1 repository-wide compression policy.
+// applies the tier1 repository-wide Kopia policies.
 func setupTier1KopiaConfig(ctx context.Context, configFile string, cfg *config.Tier1Config) error {
 	if err := kopiaconfig.CreateTier1KopiaConfigFile(ctx, configFile, cfg); err != nil {
 		return fmt.Errorf("error creating tier1 kopia config file: %w", err)
 	}
 
-	if err := applyGlobalCompressionPolicy(ctx, configFile, cfg.Compression); err != nil {
-		return fmt.Errorf("error setting tier1 global compression policy: %w", err)
-	}
-
-	if err := disableKopiaGlobalRetentionPolicy(ctx, configFile); err != nil {
-		return fmt.Errorf("error disabling tier1 global retention policy: %w", err)
+	if err := applyGlobalKopiaPolicies(ctx, configFile, cfg.Compression); err != nil {
+		return fmt.Errorf("error setting tier1 global Kopia policies: %w", err)
 	}
 
 	return nil
@@ -293,14 +274,10 @@ func runServer(ctx context.Context, opts serverOpts) error {
 		// it on every restart, clobbering whatever the tier1-enabled server
 		// that actually owns backups has configured.
 		if opts.tier1 {
-			if err := applyGlobalCompressionPolicy(
+			if err := applyGlobalKopiaPolicies(
 				ctx, tier2RWConfigFileName, opts.cfg.Tier2.Compression,
 			); err != nil {
-				return fmt.Errorf("error setting tier2 global compression policy: %w", err)
-			}
-
-			if err := disableKopiaGlobalRetentionPolicy(ctx, tier2RWConfigFileName); err != nil {
-				return fmt.Errorf("error disabling tier2 global retention policy: %w", err)
+				return fmt.Errorf("error setting tier2 global Kopia policies: %w", err)
 			}
 		}
 
