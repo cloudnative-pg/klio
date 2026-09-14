@@ -1731,13 +1731,9 @@ spec:
                         description: |-
                           Latest keeps only the given number of most recent backups and deletes the
                           rest.
+                        minimum: 1
                         type: integer
-                    required:
-                    - latest
                     type: object
-                    x-kubernetes-validations:
-                    - message: latest must be greater than or equal to 1
-                      rule: self.latest >= 1
                 type: object
               tier2:
                 description: Tier2 is the Tier 2 configuration
@@ -1807,13 +1803,9 @@ spec:
                         description: |-
                           Latest keeps only the given number of most recent backups and deletes the
                           rest.
+                        minimum: 1
                         type: integer
-                    required:
-                    - latest
                     type: object
-                    x-kubernetes-validations:
-                    - message: latest must be greater than or equal to 1
-                      rule: self.latest >= 1
                 type: object
                 x-kubernetes-validations:
                 - message: at least one of enableBackup or enableRecovery must be

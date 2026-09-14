@@ -206,7 +206,9 @@ _Appears in:_
 
 
 RetentionPolicy defines which backups Klio should keep. Omitting the whole
-policy keeps every backup.
+policy, or leaving it empty, keeps every backup. The field is optional so
+that objects stored by earlier versions (with the old Kopia-style keys, now
+pruned) remain writable after the CRD upgrade.
 
 
 
@@ -216,7 +218,7 @@ _Appears in:_
 
 | Field | Description | Required | Default | Validation |
 | --- | --- | --- | --- | --- |
-| `latest` _integer_ | Latest keeps only the given number of most recent backups and deletes the<br />rest. | True |  |  |
+| `latest` _integer_ | Latest keeps only the given number of most recent backups and deletes the<br />rest. |  |  | Minimum: 1 <br />Optional: \{\} <br /> |
 
 
 #### S3Configuration
