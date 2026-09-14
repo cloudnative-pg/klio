@@ -335,6 +335,12 @@ func (d *Backup) maintainTier2(ctx context.Context, task *queue.BackupTask) erro
 	return nil
 }
 
+// retentionClient is the subset of the Kopia client that applyRetention needs.
+type retentionClient interface {
+	ListBackups(ctx context.Context, hostname string) (klioclient.BackupList, error)
+	DeleteBackup(ctx context.Context, hostname string, name string) error
+}
+
 // applyRetention deletes the base backups of a cluster that fall outside the
 // given policy, evaluated against Klio's own catalog. The optional keep
 // predicate protects a backup from deletion even when the policy expired it
@@ -342,7 +348,7 @@ func (d *Backup) maintainTier2(ctx context.Context, task *queue.BackupTask) erro
 // policy deletes nothing.
 func (d *Backup) applyRetention(
 	ctx context.Context,
-	client *klioclientkopia.Connection,
+	client retentionClient,
 	clusterName string,
 	policy retention.Policy,
 	keep func(name string) bool,
