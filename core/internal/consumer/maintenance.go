@@ -96,32 +96,37 @@ func (d *Backup) tier1RetentionGuard(
 			"while listing tier2 snapshots to guard tier1 retention for cluster %q: %w", clusterName, err)
 	}
 
-	return keepUntilOnTier2(tier1Snapshots, tier2Snapshots), nil
+	tier1Backups, err := d.tier1Client.ListBackups(ctx, clusterName)
+	if err != nil {
+		return nil, fmt.Errorf(
+			"while listing tier1 backups to guard tier1 retention for cluster %q: %w", clusterName, err)
+	}
+
+	return keepUntilOnTier2(tier1Snapshots, tier2Snapshots, tier1Backups), nil
 }
 
 // keepUntilOnTier2 returns a predicate that reports whether a tier1 backup must
-// be kept because it is not yet complete on tier2. The relay is a single
+// be kept because it has not been relayed to tier2 yet. The relay is a single
 // snapshot migration with no ordering between a backup's parts, so the tier2
 // metadata snapshot alone does not prove the data is there: a backup is
 // deletable only when every tier1 snapshot of it has a counterpart on tier2.
-// A backup the client never meant to relay has nothing to wait for.
+//
+// A backup with no snapshot at all on tier2 is either not relayed yet or was
+// relayed and then deleted by tier2 retention. The relay migrates every tier1
+// snapshot of the cluster at once, so a newer backup complete on tier2 proves
+// the relay ran after the older one existed: such a backup is deletable, or
+// tier1 would keep it (and its WALs) forever. A backup the client never meant
+// to relay has nothing to wait for.
 func keepUntilOnTier2(
 	tier1Snapshots, tier2Snapshots []kopia.Manifest,
+	tier1Backups klioclient.BackupList,
 ) func(backup *klioclient.BackupMetadata) bool {
-	onTier2 := stringset.New()
-	for i := range tier2Snapshots {
-		onTier2.Put(snapshotPartKey(tier2Snapshots[i]))
-	}
+	state := newRelayState(tier1Snapshots, tier2Snapshots)
 
-	incomplete := stringset.New()
-	for i := range tier1Snapshots {
-		name := tier1Snapshots[i].Tags[klioclient.BackupNameTagName]
-		if name == "" {
-			continue
-		}
-
-		if !onTier2.Has(snapshotPartKey(tier1Snapshots[i])) {
-			incomplete.Put(name)
+	var newestComplete int64
+	for i := range tier1Backups {
+		if state.complete(tier1Backups[i].Name) {
+			newestComplete = max(newestComplete, tier1Backups[i].StartedAt)
 		}
 	}
 
@@ -130,8 +135,54 @@ func keepUntilOnTier2(
 			return false
 		}
 
-		return incomplete.Has(backup.Name)
+		// No tier1 snapshot means nothing to protect.
+		if state.parts[backup.Name] == 0 || state.complete(backup.Name) {
+			return false
+		}
+
+		// Partially on tier2: a relay is in flight or failed midway.
+		if state.relayed[backup.Name] > 0 {
+			return true
+		}
+
+		// Absent from tier2: relayed and deleted there only if a newer backup
+		// went through the relay.
+		return newestComplete == 0 || backup.StartedAt >= newestComplete
 	}
+}
+
+// relayState counts, per backup name, the tier1 snapshots and how many of
+// them have a counterpart on tier2.
+type relayState struct {
+	parts   map[string]int
+	relayed map[string]int
+}
+
+func newRelayState(tier1Snapshots, tier2Snapshots []kopia.Manifest) relayState {
+	onTier2 := stringset.New()
+	for i := range tier2Snapshots {
+		onTier2.Put(snapshotPartKey(tier2Snapshots[i]))
+	}
+
+	state := relayState{parts: make(map[string]int), relayed: make(map[string]int)}
+	for i := range tier1Snapshots {
+		name := tier1Snapshots[i].Tags[klioclient.BackupNameTagName]
+		if name == "" {
+			continue
+		}
+
+		state.parts[name]++
+		if onTier2.Has(snapshotPartKey(tier1Snapshots[i])) {
+			state.relayed[name]++
+		}
+	}
+
+	return state
+}
+
+// complete reports whether every tier1 snapshot of the backup is on tier2.
+func (s relayState) complete(name string) bool {
+	return s.parts[name] > 0 && s.relayed[name] == s.parts[name]
 }
 
 // snapshotPartKey identifies one part of a backup (pgdata, metadata, control
