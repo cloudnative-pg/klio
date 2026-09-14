@@ -190,15 +190,16 @@ first.** Explain that it bypasses the Kopia server cache, name the race it can
 introduce, and propose the server-routed alternative. Only proceed if they
 confirm after that warning.
 
-- Client- and sidecar-driven paths (backup upload, delete, retention set,
+- Client- and sidecar-driven paths (backup upload, delete, retention apply,
   restore, list; everything under `core/cmd/*`) already route through the server
   via `MultiConnect`/`ConnectTier1`/`ConnectTier2`. Keep them that way — never
   convert one of these to a direct write.
 - The **only** component that writes directly is the server-side backup consumer
   (`core/internal/consumer/`), and only because it has no server connection for
-  those steps: tier1/tier2 retention apply, tier2 relay/migrate, tier2 policy
-  set, and tier1 unpin. This is a deliberate, contained exception — not a pattern
-  to copy, and one that should be removed in the future.
+  those steps: tier1/tier2 retention apply (snapshot deletes), tier2
+  relay/migrate, and tier2 compression policy set. This is a deliberate,
+  contained exception — not a pattern to copy, and one that should be removed
+  in the future.
 - A second, narrower exception: `applyGlobalKopiaPolicies` in
   `core/cmd/server/server.go` sets the repository-wide (global) compression
   policy and disables Kopia's own snapshot retention (Klio applies retention
@@ -206,13 +207,14 @@ confirm after that warning.
   server starts. This is safe only because no server is running yet to hold a
   stale cache. Do not reuse this pattern once the server is up.
 - A direct write that **rewrites the manifest of a live backup** MUST be followed
-  by `refreshTier1KopiaServer` / `refreshTier2KopiaServer` so the servers
-  reconcile their caches; skipping the refresh is a bug. The tier1 unpin is the
-  canonical case: `kopia snapshot pin` rewrites the snapshot manifest to a *new*
-  ID and deletes the old one, so without a refresh the server keeps serving the
-  now-deleted ID for a backup that still exists, and a later client
-  `klio backup delete` asks Kopia to delete an ID that no longer matches
-  anything: the command fails and the real backup (and its WALs) stay pinned.
+  by `refreshTier2KopiaServer` (or an equivalent tier1 refresh, should such a
+  write come back) so the servers reconcile their caches; skipping the refresh
+  is a bug. The former tier1 unpin was the canonical case: `kopia snapshot pin`
+  rewrites the snapshot manifest to a *new* ID and deletes the old one, so
+  without a refresh the server kept serving the now-deleted ID for a backup
+  that still existed, and a later client `klio backup delete` asked Kopia to
+  delete an ID that no longer matched anything: the command failed and the
+  real backup (and its WALs) stayed pinned. Klio no longer pins snapshots.
 - A direct write that only **deletes** snapshots (the tier1/tier2 retention
   apply) does **not** need a refresh: it removes IDs the server may still list,
   but it never rewrites a live backup's ID, and WAL retention is recomputed from
@@ -227,10 +229,10 @@ refresh of the affected tier.
 
 ### Snapshot identity: manifest ID vs root object ID
 
-A snapshot's **manifest ID is not a stable identity**. `kopia snapshot pin`
-(the tier1 unpin above) rewrites a snapshot's manifest under a new ID and
-deletes the old one, so any code that lists snapshots and then acts on them a
-moment later can be holding an ID that no longer exists. Pick the identity by
+A snapshot's **manifest ID is not a stable identity**. Some Kopia writes
+(`kopia snapshot pin`, for one) rewrite a snapshot's manifest under a new ID
+and delete the old one, so any code that lists snapshots and then acts on them
+a moment later can be holding an ID that no longer exists. Pick the identity by
 what the operation does:
 
 - **Reads that must survive a concurrent rewrite** use the root object ID
@@ -245,13 +247,10 @@ what the operation does:
   so deleting one backup by root ID can take another backup's snapshot with it.
   Delete by manifest ID, and on failure re-list and retry so a concurrent
   rewrite is picked up (`DeleteBackup` in the same package).
-- **The tier1 unpin is a write, not a read, and knowingly accepts the same
-  collision as delete.** The consumer's `getPinnedSnapshots`/`maintainTier2`
-  (`core/internal/consumer/backup.go`) also targets the root object ID, so a
-  root shared with another backup gets unpinned too. This is tolerated only
-  because the step is best-effort and the affected snapshot would be unpinned
-  anyway on the next tier2 migration — it is not a safe pattern to copy for
-  anything that isn't equally tolerant of that collision.
+- **Writes that target the root object ID hit the same collision as delete.**
+  The former tier1 unpin did this knowingly, tolerated only because the step
+  was best-effort. Any new write keyed by root object ID needs the same
+  analysis and must be equally tolerant of acting on another backup's snapshot.
 
 ### Dagger caching issues
 

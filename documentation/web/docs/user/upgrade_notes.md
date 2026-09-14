@@ -25,8 +25,9 @@ instead of being delegated to Kopia.
   global Kopia retention policy of each tier to keep every snapshot and
   resets the per-source retention policies written by earlier versions to
   inherit it. No manual action is required.
-- The `klio retention` command has been removed. Retention is configured only
-  through the `PluginConfiguration`.
+- The `klio retention get` and `klio retention set` commands have been
+  removed. Retention is configured only through the `PluginConfiguration`;
+  `klio retention apply` enforces it on demand.
 
 ## 0.0.20 to 0.0.21
 
