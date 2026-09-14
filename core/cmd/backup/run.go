@@ -119,6 +119,7 @@ func runBackup(cmd *cobra.Command, _ []string) error {
 
 	backupName, _ := cmd.Flags().GetString("name")
 	opts.Name = backupName
+	opts.SendToTier2 = tier2
 
 	if err := backupExecutor.Start(cmd.Context(), opts); err != nil {
 		return cli.NewCodedError(

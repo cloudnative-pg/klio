@@ -76,7 +76,10 @@ func (d *Backup) runTier1Retention(ctx context.Context, task *queue.BackupTask) 
 // tier1RetentionGuard returns a predicate that reports whether a tier1 backup
 // must be kept because it has not yet been fully migrated to tier2. When tier2
 // is not configured there is nothing to protect and the predicate is nil.
-func (d *Backup) tier1RetentionGuard(ctx context.Context, clusterName string) (func(name string) bool, error) {
+func (d *Backup) tier1RetentionGuard(
+	ctx context.Context,
+	clusterName string,
+) (func(backup *klioclient.BackupMetadata) bool, error) {
 	if !d.tier2Enabled {
 		return nil, nil
 	}
@@ -101,7 +104,10 @@ func (d *Backup) tier1RetentionGuard(ctx context.Context, clusterName string) (f
 // snapshot migration with no ordering between a backup's parts, so the tier2
 // metadata snapshot alone does not prove the data is there: a backup is
 // deletable only when every tier1 snapshot of it has a counterpart on tier2.
-func keepUntilOnTier2(tier1Snapshots, tier2Snapshots []kopia.Manifest) func(name string) bool {
+// A backup the client never meant to relay has nothing to wait for.
+func keepUntilOnTier2(
+	tier1Snapshots, tier2Snapshots []kopia.Manifest,
+) func(backup *klioclient.BackupMetadata) bool {
 	onTier2 := stringset.New()
 	for i := range tier2Snapshots {
 		onTier2.Put(snapshotPartKey(tier2Snapshots[i]))
@@ -119,7 +125,13 @@ func keepUntilOnTier2(tier1Snapshots, tier2Snapshots []kopia.Manifest) func(name
 		}
 	}
 
-	return incomplete.Has
+	return func(backup *klioclient.BackupMetadata) bool {
+		if backup.Annotations[klioclient.Tier2RelayAnnotationName] == klioclient.Tier2RelaySkipped {
+			return false
+		}
+
+		return incomplete.Has(backup.Name)
+	}
 }
 
 // snapshotPartKey identifies one part of a backup (pgdata, metadata, control
