@@ -32,6 +32,7 @@ import (
 	"github.com/cloudnative-pg/klio/core/internal/grpc"
 	"github.com/cloudnative-pg/klio/core/internal/kopia"
 	"github.com/cloudnative-pg/klio/core/internal/queue"
+	"github.com/cloudnative-pg/klio/core/internal/repository"
 	"github.com/cloudnative-pg/klio/core/pkg/retention"
 )
 
@@ -81,6 +82,15 @@ func (w *Implementation) ApplyRetention(
 ) (*grpc.ApplyRetentionResult, error) {
 	if w.queue == nil {
 		return nil, status.Errorf(codes.Internal, "queue service is uninitialized")
+	}
+
+	// An empty name would list every cluster's catalog, so reject it along
+	// with any invalid path component.
+	if request.GetClusterName() == "" {
+		return nil, status.Errorf(codes.InvalidArgument, "cluster name is required")
+	}
+	if err := repository.ValidatePathComponent(request.GetClusterName()); err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "invalid cluster name: %v", err)
 	}
 
 	tier1Policy := parseRetentionPolicy(ctx, "tier1", request.GetTier1RetentionPolicy())

@@ -43,6 +43,10 @@ import (
 // dead-lettered) so the misconfiguration is surfaced.
 var errTier2NotConfigured = errors.New("backup requested tier2 relay but the server has no tier2 configured")
 
+// errEmptyClusterName is returned when retention is requested without a
+// cluster name, which would otherwise match every cluster's backups.
+var errEmptyClusterName = errors.New("retention requires a cluster name")
+
 // backupSteps is implemented by *Backup in production and by a test stub in
 // unit tests. It covers the five steps that processBackup orchestrates so
 // that the orchestration logic can be exercised without real Kopia clients.
@@ -354,6 +358,12 @@ func (d *Backup) applyRetention(
 	keep func(name string) bool,
 ) error {
 	contextLogger := log.FromContext(ctx)
+
+	// ListBackups treats an empty host as a wildcard: the catalog would span
+	// every cluster and the policy would be applied across all of them.
+	if clusterName == "" {
+		return errEmptyClusterName
+	}
 
 	backups, err := client.ListBackups(ctx, clusterName)
 	if err != nil {
