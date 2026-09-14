@@ -24,6 +24,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"reflect"
 	"slices"
 	"sync"
 	"time"
@@ -260,25 +261,74 @@ func (m *StreamManager) enqueueWALTasks(ctx context.Context, tasks []FailedTask[
 // enqueueBackupTasks re-publishes the given failed backup tasks onto the work
 // queue carrying the DLQ retry origin marker, skipping duplicate tasks.
 func (m *StreamManager) enqueueBackupTasks(ctx context.Context, tasks []FailedTask[BackupTask]) error {
-	attempted := make(map[string]struct{}, len(tasks))
+	clusters := make([]string, 0, len(tasks))
+	pending := make(map[string][]BackupTask, len(tasks))
 	for _, task := range tasks {
-		if _, ok := attempted[task.Task.ClusterName]; ok {
-			continue
+		clusterName := task.Task.ClusterName
+		if _, ok := pending[clusterName]; !ok {
+			clusters = append(clusters, clusterName)
 		}
+		pending[clusterName] = append(pending[clusterName], task.Task)
+	}
+
+	for _, clusterName := range clusters {
+		merged := mergeBackupTasks(pending[clusterName])
 		if err := m.notifyMessage(
 			ctx,
-			backupSubject(task.Task.Cluster()),
-			task.Task,
+			backupSubject(clusterName),
+			merged,
 			nats.Header{
 				TaskOriginHeaderKey: []string{TaskOriginDLQRetry},
 			},
 		); err != nil {
-			return fmt.Errorf("while retrying failed backup task for cluster %s: %w", task.Task.ClusterName, err)
+			return fmt.Errorf("while retrying failed backup task for cluster %s: %w", clusterName, err)
 		}
-		attempted[task.Task.ClusterName] = struct{}{}
 	}
 
 	return nil
+}
+
+// mergeBackupTasks combines every pending failed BackupTask for a single
+// cluster into the one task to re-enqueue. SendToTier2 is ORed across all
+// entries, since relaying to tier2 is additive/idempotent. Tier2RetentionPolicy
+// and Tier2CompressionPolicy are kept only when every entry that sets them
+// agrees on the same value; a genuine conflict between entries blanks the
+// field instead of arbitrarily picking one of the conflicting values. This is
+// safe because a blank field only means "don't overwrite the tier2 source's
+// existing policy on this retry" (see maintainTier2, which skips the
+// SetKopiaPolicy/SetKopiaCompressionPolicy call but still applies whatever
+// policy is already in effect) — not "no policy is enforced".
+func mergeBackupTasks(tasks []BackupTask) BackupTask {
+	merged := BackupTask{ClusterName: tasks[0].ClusterName}
+
+	var retentionConflict, compressionConflict bool
+	for _, task := range tasks {
+		merged.SendToTier2 = merged.SendToTier2 || task.SendToTier2
+		merged.Tier2RetentionPolicy, retentionConflict = mergePolicyField(
+			merged.Tier2RetentionPolicy, retentionConflict, task.Tier2RetentionPolicy)
+		merged.Tier2CompressionPolicy, compressionConflict = mergePolicyField(
+			merged.Tier2CompressionPolicy, compressionConflict, task.Tier2CompressionPolicy)
+	}
+
+	return merged
+}
+
+// mergePolicyField folds one more candidate value into an in-progress
+// agree-or-blank merge of a policy pointer field: it keeps the shared value
+// while every candidate seen so far agrees, and blanks it (returning a nil
+// current with conflict set) on the first disagreement, remaining blank for
+// any later candidate regardless of its value.
+func mergePolicyField[T any](current *T, conflict bool, candidate *T) (*T, bool) {
+	switch {
+	case conflict || candidate == nil:
+		return current, conflict
+	case current == nil:
+		return candidate, false
+	case !reflect.DeepEqual(current, candidate):
+		return nil, true
+	default:
+		return current, false
+	}
 }
 
 // configureStreams creates or updates all JetStream streams required by Klio.

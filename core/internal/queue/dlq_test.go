@@ -62,10 +62,18 @@ func publishWALMessage(t *testing.T, js jetstream.JetStream, clusterName string,
 func publishBackupMessage(t *testing.T, js jetstream.JetStream, clusterName string) uint64 {
 	t.Helper()
 
-	data, err := json.Marshal(BackupTask{ClusterName: clusterName})
+	return publishBackupTask(t, js, BackupTask{ClusterName: clusterName})
+}
+
+// publishBackupTask publishes the given backup task to the backup work-queue
+// stream and returns its assigned stream sequence.
+func publishBackupTask(t *testing.T, js jetstream.JetStream, task BackupTask) uint64 {
+	t.Helper()
+
+	data, err := json.Marshal(task)
 	require.NoError(t, err)
 
-	ack, err := js.Publish(t.Context(), backupSubject(clusterName), data)
+	ack, err := js.Publish(t.Context(), backupSubject(task.ClusterName), data)
 	require.NoError(t, err)
 
 	return ack.Sequence

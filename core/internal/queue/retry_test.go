@@ -9,6 +9,8 @@ import (
 	"github.com/nats-io/nats.go/jetstream"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/cloudnative-pg/klio/core/internal/kopia"
 )
 
 // seedFailedWAL publishes an original WAL task to the WAL work-queue stream and
@@ -178,6 +180,16 @@ func seedFailedBackup(t *testing.T, js jetstream.JetStream, clusterName string) 
 	seedDLQAdvisory(t, js, klioBackupStreamName, klioBackupConsumerName, seq)
 }
 
+// seedFailedBackupTask publishes the given backup task to the work-queue
+// stream and dead-letters it, simulating a backup that exhausted its
+// delivery budget.
+func seedFailedBackupTask(t *testing.T, js jetstream.JetStream, task BackupTask) {
+	t.Helper()
+
+	seq := publishBackupTask(t, js, task)
+	seedDLQAdvisory(t, js, klioBackupStreamName, klioBackupConsumerName, seq)
+}
+
 // retriedBackupClusters returns, per cluster, the number of backup tasks
 // re-enqueued onto the backup work-queue stream, identified by the DLQ retry
 // origin marker.
@@ -279,6 +291,139 @@ func TestRetryFailedBackupTasksDeduplicatesByCluster(t *testing.T) {
 	retried := retriedBackupClusters(t, streamHandle(ctx, t, conn.conn, klioBackupStreamName))
 	assert.Equal(t, map[string]int{"cluster-a": 1}, retried,
 		"multiple failed backups for one cluster must be retried only once")
+}
+
+// retriedBackupTasks returns every backup task body re-enqueued onto the
+// backup work-queue stream, identified by the DLQ retry origin marker.
+func retriedBackupTasks(t *testing.T, stream jetstream.Stream) []BackupTask {
+	t.Helper()
+
+	info, err := stream.Info(t.Context())
+	require.NoError(t, err)
+
+	var out []BackupTask
+	for seq := info.State.FirstSeq; seq <= info.State.LastSeq && seq != 0; seq++ {
+		msg, err := stream.GetMsg(t.Context(), seq)
+		if err != nil {
+			// Sequences may be absent (e.g. deleted); skip them.
+			continue
+		}
+		if msg.Header.Get(TaskOriginHeaderKey) != TaskOriginDLQRetry {
+			continue
+		}
+
+		var task BackupTask
+		require.NoError(t, json.Unmarshal(msg.Data, &task))
+		out = append(out, task)
+	}
+
+	return out
+}
+
+func TestRetryFailedBackupTasksOrsSendToTier2(t *testing.T) {
+	ns, url := startNATSServer(t)
+	defer ns.Shutdown()
+
+	nc, err := nats.Connect(url)
+	require.NoError(t, err)
+	defer nc.Close()
+
+	ctx := context.Background()
+	conn, err := New(ctx, nc)
+	require.NoError(t, err)
+
+	js, err := jetstream.New(nc)
+	require.NoError(t, err)
+
+	// Two failed backups for the same cluster disagree on SendToTier2: the
+	// merged retry must ask for tier2, since the relay is additive/idempotent.
+	seedFailedBackupTask(t, js, BackupTask{ClusterName: "cluster-a", SendToTier2: false})
+	seedFailedBackupTask(t, js, BackupTask{ClusterName: "cluster-a", SendToTier2: true})
+
+	require.NoError(t, conn.RetryFailedBackupTasks(ctx))
+
+	tasks := retriedBackupTasks(t, streamHandle(ctx, t, conn.conn, klioBackupStreamName))
+	require.Len(t, tasks, 1)
+	assert.True(t, tasks[0].SendToTier2)
+}
+
+func TestRetryFailedBackupTasksKeepsAgreeingPolicy(t *testing.T) {
+	ns, url := startNATSServer(t)
+	defer ns.Shutdown()
+
+	nc, err := nats.Connect(url)
+	require.NoError(t, err)
+	defer nc.Close()
+
+	ctx := context.Background()
+	conn, err := New(ctx, nc)
+	require.NoError(t, err)
+
+	js, err := jetstream.New(nc)
+	require.NoError(t, err)
+
+	keepLatest := 5
+	retention := &kopia.RetentionPolicy{KeepLatest: &keepLatest}
+	compression := &kopia.CompressionPolicy{Algorithm: "zstd"}
+
+	// Both failed entries agree on the same policy values (one leaves them
+	// unset): the merged retry must keep them rather than blank them out.
+	seedFailedBackupTask(t, js, BackupTask{ClusterName: "cluster-a"})
+	seedFailedBackupTask(t, js, BackupTask{
+		ClusterName:            "cluster-a",
+		Tier2RetentionPolicy:   retention,
+		Tier2CompressionPolicy: compression,
+	})
+
+	require.NoError(t, conn.RetryFailedBackupTasks(ctx))
+
+	tasks := retriedBackupTasks(t, streamHandle(ctx, t, conn.conn, klioBackupStreamName))
+	require.Len(t, tasks, 1)
+	require.NotNil(t, tasks[0].Tier2RetentionPolicy)
+	require.NotNil(t, tasks[0].Tier2CompressionPolicy)
+	assert.Equal(t, keepLatest, *tasks[0].Tier2RetentionPolicy.KeepLatest)
+	assert.Equal(t, "zstd", tasks[0].Tier2CompressionPolicy.Algorithm)
+}
+
+func TestRetryFailedBackupTasksBlanksConflictingPolicy(t *testing.T) {
+	ns, url := startNATSServer(t)
+	defer ns.Shutdown()
+
+	nc, err := nats.Connect(url)
+	require.NoError(t, err)
+	defer nc.Close()
+
+	ctx := context.Background()
+	conn, err := New(ctx, nc)
+	require.NoError(t, err)
+
+	js, err := jetstream.New(nc)
+	require.NoError(t, err)
+
+	keepLatest5 := 5
+	keepLatest10 := 10
+
+	// The two failed entries for the same cluster disagree on the tier2
+	// retention/compression policy: the merged retry must not overwrite the
+	// tier2 source's existing policy with an arbitrary pick, so it blanks
+	// both fields instead.
+	seedFailedBackupTask(t, js, BackupTask{
+		ClusterName:            "cluster-a",
+		Tier2RetentionPolicy:   &kopia.RetentionPolicy{KeepLatest: &keepLatest5},
+		Tier2CompressionPolicy: &kopia.CompressionPolicy{Algorithm: "zstd"},
+	})
+	seedFailedBackupTask(t, js, BackupTask{
+		ClusterName:            "cluster-a",
+		Tier2RetentionPolicy:   &kopia.RetentionPolicy{KeepLatest: &keepLatest10},
+		Tier2CompressionPolicy: &kopia.CompressionPolicy{Algorithm: "gzip"},
+	})
+
+	require.NoError(t, conn.RetryFailedBackupTasks(ctx))
+
+	tasks := retriedBackupTasks(t, streamHandle(ctx, t, conn.conn, klioBackupStreamName))
+	require.Len(t, tasks, 1)
+	assert.Nil(t, tasks[0].Tier2RetentionPolicy)
+	assert.Nil(t, tasks[0].Tier2CompressionPolicy)
 }
 
 func TestRetryFailedBackupTasksRejectsWALFilter(t *testing.T) {
