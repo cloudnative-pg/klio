@@ -91,7 +91,7 @@ func verifyRetentionAndOnDemandApply(
 		// After more backups than the policy keeps, the older ones are deleted.
 		expectedBackups := min(i+1, p.keepLatest)
 		err = wait.For(
-			checkTierHasBackups(r, p.namespace, p.serverName, p.tierAnnotation, expectedBackups),
+			checkTierHasBackups(r, p.namespace, p.serverName, p.clusterName, p.tierAnnotation, expectedBackups),
 			wait.WithTimeout(p.retentionTimeout),
 			wait.WithInterval(p.checkInterval),
 		)
@@ -116,7 +116,7 @@ func verifyRetentionAndOnDemandApply(
 	// the one the retention manager deleted (the newest survive).
 	t.Logf("Retention verification: %s should have exactly %d backup(s)", p.tierLabel, p.keepLatest)
 	err := wait.For(
-		checkTierHasBackups(r, p.namespace, p.serverName, p.tierAnnotation, p.keepLatest),
+		checkTierHasBackups(r, p.namespace, p.serverName, p.clusterName, p.tierAnnotation, p.keepLatest),
 		wait.WithTimeout(p.retentionTimeout),
 		wait.WithInterval(p.checkInterval),
 	)
