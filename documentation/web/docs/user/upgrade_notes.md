@@ -21,6 +21,10 @@ instead of being delegated to Kopia.
   field, which keeps the given number of most recent backups. Update any
   `tier1.retention` and `tier2.retention` blocks accordingly. Omit the block to
   keep every backup; when present, `latest` must be at least `1`.
+- Kopia's own retention is disabled: on start, the Klio server sets the
+  global Kopia retention policy of each tier to keep every snapshot and
+  resets the per-source retention policies written by earlier versions to
+  inherit it. No manual action is required.
 - The `klio retention` command has been removed. Retention is configured only
   through the `PluginConfiguration`.
 
