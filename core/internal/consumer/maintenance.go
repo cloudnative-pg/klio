@@ -28,6 +28,7 @@ import (
 	"github.com/cloudnative-pg/machinery/pkg/stringset"
 
 	"github.com/cloudnative-pg/klio/core/internal/client/klioclient"
+	"github.com/cloudnative-pg/klio/core/internal/kopia"
 	"github.com/cloudnative-pg/klio/core/internal/opentelemetry"
 	"github.com/cloudnative-pg/klio/core/internal/queue"
 	"github.com/cloudnative-pg/klio/core/internal/repository"
@@ -73,34 +74,66 @@ func (d *Backup) runTier1Retention(ctx context.Context, task *queue.BackupTask) 
 }
 
 // tier1RetentionGuard returns a predicate that reports whether a tier1 backup
-// must be kept because it has not yet been migrated to tier2. When tier2 is not
-// configured there is nothing to protect and the predicate is nil.
+// must be kept because it has not yet been fully migrated to tier2. When tier2
+// is not configured there is nothing to protect and the predicate is nil.
 func (d *Backup) tier1RetentionGuard(ctx context.Context, clusterName string) (func(name string) bool, error) {
 	if !d.tier2Enabled {
 		return nil, nil
 	}
 
-	tier2Backups, err := d.tier2Client.ListBackups(ctx, clusterName)
+	tier1Snapshots, err := d.listManifests(ctx, clusterName)
 	if err != nil {
 		return nil, fmt.Errorf(
-			"while listing tier2 backups to guard tier1 retention for cluster %q: %w", clusterName, err)
+			"while listing tier1 snapshots to guard tier1 retention for cluster %q: %w", clusterName, err)
 	}
 
-	return keepUntilOnTier2(tier2Backups), nil
+	tier2Snapshots, err := d.tier2Kopia.ListSnapshots(ctx, nil, log.FromContext(ctx).Info)
+	if err != nil {
+		return nil, fmt.Errorf(
+			"while listing tier2 snapshots to guard tier1 retention for cluster %q: %w", clusterName, err)
+	}
+
+	return keepUntilOnTier2(tier1Snapshots, tier2Snapshots), nil
 }
 
 // keepUntilOnTier2 returns a predicate that reports whether a tier1 backup must
-// be kept because it is not yet present on tier2. A backup becomes deletable
-// once it appears in the tier2 catalog.
-func keepUntilOnTier2(tier2Backups klioclient.BackupList) func(name string) bool {
+// be kept because it is not yet complete on tier2. The relay is a single
+// snapshot migration with no ordering between a backup's parts, so the tier2
+// metadata snapshot alone does not prove the data is there: a backup is
+// deletable only when every tier1 snapshot of it has a counterpart on tier2.
+func keepUntilOnTier2(tier1Snapshots, tier2Snapshots []kopia.Manifest) func(name string) bool {
 	onTier2 := stringset.New()
-	for i := range tier2Backups {
-		onTier2.Put(tier2Backups[i].Name)
+	for i := range tier2Snapshots {
+		onTier2.Put(snapshotPartKey(tier2Snapshots[i]))
 	}
 
-	return func(name string) bool {
-		return !onTier2.Has(name)
+	incomplete := stringset.New()
+	for i := range tier1Snapshots {
+		name := tier1Snapshots[i].Tags[klioclient.BackupNameTagName]
+		if name == "" {
+			continue
+		}
+
+		if !onTier2.Has(snapshotPartKey(tier1Snapshots[i])) {
+			incomplete.Put(name)
+		}
 	}
+
+	return incomplete.Has
+}
+
+// snapshotPartKey identifies one part of a backup (pgdata, metadata, control
+// data or a tablespace) independently of the repository it lives in. The
+// migration preserves both the source and the tags, so the key matches across
+// tiers.
+func snapshotPartKey(m kopia.Manifest) string {
+	return strings.Join([]string{
+		m.Source.Host,
+		m.Source.Path,
+		m.Tags[klioclient.BackupNameTagName],
+		m.Tags[klioclient.BackupContentTagName],
+		m.Tags[klioclient.TablespaceNameTagName],
+	}, "\x00")
 }
 
 // applyTier1WALRetention drops the tier1 WAL files that are no longer required
