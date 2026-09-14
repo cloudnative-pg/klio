@@ -334,6 +334,7 @@ func checkTierHasBackups(
 	r *resources.Resources,
 	namespace string,
 	serverName string,
+	clusterName string,
 	tierAnnotation string,
 	expectedCount int,
 ) k8swait.ConditionWithContextFunc {
@@ -364,9 +365,13 @@ func checkTierHasBackups(
 			return false, nil //nolint:nilerr
 		}
 
-		// Count backups present in the tier (those carrying the tier annotation)
+		// Count this cluster's backups present in the tier (those carrying the
+		// tier annotation)
 		count := 0
 		for i := range backups {
+			if backups[i].ClusterName != clusterName {
+				continue
+			}
 			if backups[i].Annotations[tierAnnotation] == presentAnnotationValue {
 				count++
 			}
