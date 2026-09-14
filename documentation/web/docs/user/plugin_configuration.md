@@ -243,6 +243,16 @@ for recovery by any retained backup.
 The retention policy is optional and must be set to at least `1` when present.
 Omit it entirely to keep every backup.
 
+Backups are ordered by the start time recorded by the PostgreSQL instance
+that took them. Keep the clocks of the instances in sync (as Kubernetes nodes
+normally are): after a switchover, a clock behind the previous primary's makes
+the newest backup look older than it is, and a tight `latest` policy may
+expire it first.
+
+With tier 2 enabled, a tier 1 backup is never deleted before all of its
+snapshots have reached tier 2, unless it was taken with tier 2 backup
+disabled.
+
 A change to the retention policy takes effect the next time a backup is taken.
 To apply it immediately, for example to reclaim space after tightening the
 policy, run `klio retention apply`.
