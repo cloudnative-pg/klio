@@ -36,4 +36,5 @@ Manage the queue WAL tasks
 
 * [klio admin queue](klio_admin_queue.md)	 - Manage the queue tasks
 * [klio admin queue wal list-failed](klio_admin_queue_wal_list-failed.md)	 - List failed WAL tasks in the queue
+* [klio admin queue wal retry](klio_admin_queue_wal_retry.md)	 - Retry failed WAL tasks in the queue
 

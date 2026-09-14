@@ -50,7 +50,7 @@ func (t WALTask) Cluster() string {
 // NotifyWALReceived is called to notify the consumers that a new WAL
 // is available in the Klio repository.
 func (q *Conn) NotifyWALReceived(ctx context.Context, task *WALTask) error {
-	return q.notifyMessage(ctx, walSubject(task.ClusterName), task)
+	return q.notifyMessage(ctx, walSubject(task.ClusterName), task, nil)
 }
 
 // WALTaskHandler is called for every WAL task message that should be handled.
@@ -61,20 +61,27 @@ type WALTaskHandler func(ctx context.Context, t *WALTask) error
 // when the context is canceled. After a successful handler run, the WAL is
 // recorded as the latest uploaded WAL for its cluster.
 func (q *Conn) ConsumeWALReceivedMessages(ctx context.Context, handler WALTaskHandler) error {
+	logger := log.FromContext(ctx).WithName("wal-consumer")
+
 	wrapped := func(ctx context.Context, t *WALTask, headers nats.Header) error {
+		isRetried := isDLQRetry(headers)
+		if isRetried {
+			logger.Info(
+				"Retrying WAL task re-enqueued from the dead-letter queue",
+				"cluster", t.ClusterName, "wal", t.WALName,
+			)
+		}
+
 		if err := handler(ctx, t); err != nil {
 			return err
 		}
 
-		// retried messages carry the marker identifying the exact dead-letter queue
-		// entry to remove.
-		if dlqSequence, ok := dlqRetrySequence(headers); ok {
-			if err := q.purgeWALDLQEntry(ctx, dlqSequence); err != nil {
-				log.FromContext(ctx).Error(
+		if isRetried {
+			if err := q.purgeWALDLQEntries(ctx, t.ClusterName, t.WALName); err != nil {
+				logger.Error(
 					err,
-					"Failed to purge WAL dead-letter queue entry after successful retry",
-					"task", t,
-					"dlqSequence", dlqSequence,
+					"Failed to purge WAL dead-letter queue entries after successful retry",
+					"cluster", t.ClusterName, "wal", t.WALName,
 				)
 			}
 		}
@@ -83,10 +90,14 @@ func (q *Conn) ConsumeWALReceivedMessages(ctx context.Context, handler WALTaskHa
 			return nil
 		}
 
+		// TODO: now that we allow holes in the WAL sequence, the logic of gating the deletion of WALs based on the
+		// latest uploaded WAL is not correct anymore. If WAL X and X+1 fail to upload, but X+2 is uploaded, the
+		// post-backup clean-up logic may delete WAL X and X+1 even if they have not been uploaded to tier2 yet.
 		if err := q.notifyMessage(
 			ctx,
 			latestUploadedWalSubject(t.ClusterName),
 			t,
+			nil,
 		); err != nil {
 			log.FromContext(ctx).Error(
 				err,

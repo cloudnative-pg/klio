@@ -1,15 +1,26 @@
 ---
-title: klio admin queue backup
+title: klio admin queue wal retry
 ---
 
-## klio admin queue backup
+## klio admin queue wal retry
 
-Manage the queue backup tasks
+Retry failed WAL tasks in the queue
+
+### Synopsis
+
+Retry failed WAL tasks in the queue.
+
+A cluster name is required, and all failed WAL tasks for that cluster are retried. If WAL files are also given, only those are retried. Pass --all-clusters instead of a cluster name to retry all failed WAL tasks across every cluster.
+
+```
+klio admin queue wal retry [cluster-name] [WAL1 WAL2 ...] [flags]
+```
 
 ### Options
 
 ```
-  -h, --help   help for backup
+      --all-clusters   Retry failed WAL tasks across every cluster
+  -h, --help           help for retry
 ```
 
 ### Options inherited from parent commands
@@ -34,7 +45,5 @@ Manage the queue backup tasks
 
 ### SEE ALSO
 
-* [klio admin queue](klio_admin_queue.md)	 - Manage the queue tasks
-* [klio admin queue backup list-failed](klio_admin_queue_backup_list-failed.md)	 - List failed backup tasks in the queue
-* [klio admin queue backup retry](klio_admin_queue_backup_retry.md)	 - Retry failed backup tasks in the queue
+* [klio admin queue wal](klio_admin_queue_wal.md)	 - Manage the queue WAL tasks
 

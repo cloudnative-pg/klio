@@ -22,7 +22,6 @@ package admin
 import (
 	"fmt"
 	"os"
-	"strconv"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -89,7 +88,6 @@ var listFailedWALCmd = &cobra.Command{
 			rows := make([][]string, 0, len(response.GetWals()))
 			for _, wal := range response.GetWals() {
 				rows = append(rows, []string{
-					strconv.FormatUint(wal.GetSequence(), 10),
 					wal.GetClusterName(),
 					wal.GetWalName(),
 					wal.GetLastAttemptTime().AsTime().Format(time.RFC3339),
@@ -97,7 +95,7 @@ var listFailedWALCmd = &cobra.Command{
 			}
 			if err := writeTable(
 				os.Stdout,
-				[]string{"SEQUENCE", "CLUSTER", "WAL NAME", "LAST ATTEMPT"},
+				[]string{"CLUSTER", "WAL NAME", "LAST ATTEMPT"},
 				rows,
 			); err != nil {
 				return fmt.Errorf("while writing table output: %w", err)
@@ -108,10 +106,71 @@ var listFailedWALCmd = &cobra.Command{
 	},
 }
 
+//nolint:gochecknoglobals
+var retryWALCmd = &cobra.Command{
+	Use:   "retry [cluster-name] [WAL1 WAL2 ...]",
+	Short: "Retry failed WAL tasks in the queue",
+	Long: "Retry failed WAL tasks in the queue.\n\n" +
+		"A cluster name is required, and all failed WAL tasks for that cluster " +
+		"are retried. If WAL files are also given, only those are retried. Pass " +
+		"--all-clusters instead of a cluster name to retry all failed WAL tasks " +
+		"across every cluster.",
+	Args: func(cmd *cobra.Command, args []string) error {
+		allClusters, err := cmd.Flags().GetBool("all-clusters")
+		if err != nil {
+			return fmt.Errorf("while getting the all-clusters flag: %w", err)
+		}
+		if allClusters {
+			return cobra.NoArgs(cmd, args)
+		}
+
+		return cobra.MinimumNArgs(1)(cmd, args)
+	},
+	RunE: func(cmd *cobra.Command, args []string) error {
+		socketPath, err := cmd.Flags().GetString("socket-path")
+		if err != nil {
+			return fmt.Errorf("while getting the socketPath flag: %w", err)
+		}
+
+		allClusters, err := cmd.Flags().GetBool("all-clusters")
+		if err != nil {
+			return fmt.Errorf("while getting the all-clusters flag: %w", err)
+		}
+
+		conn, err := connectToAdminServer(socketPath)
+		if err != nil {
+			return err
+		}
+		defer func() {
+			_ = conn.Close()
+		}()
+
+		var request klioGRPC.QueueRetryWALsRequest
+		if !allClusters {
+			clusterName := args[0]
+			request.ClusterName = &clusterName
+			if len(args) > 1 {
+				request.WalNames = args[1:]
+			}
+		}
+
+		adminClient := klioGRPC.NewAdminClient(conn)
+		_, err = adminClient.QueueRetryWALs(cmd.Context(), &request)
+		if err != nil {
+			return fmt.Errorf("while calling queue retry wals entrypoint: %w", err)
+		}
+
+		return nil
+	},
+}
+
 //nolint:gochecknoinits
 func init() {
 	queueCmd.AddCommand(queueWALCmd)
-	queueWALCmd.AddCommand(listFailedWALCmd)
 
+	queueWALCmd.AddCommand(listFailedWALCmd)
 	listFailedWALCmd.Flags().String("cluster-name", "", "Cluster name to filter failed WAL tasks (optional)")
+
+	queueWALCmd.AddCommand(retryWALCmd)
+	retryWALCmd.Flags().Bool("all-clusters", false, "Retry failed WAL tasks across every cluster")
 }
