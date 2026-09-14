@@ -76,7 +76,7 @@
           "valueSize": 28
         },
         "percentChangeColorMode": "standard",
-        "orientation": ""
+        "orientation": "horizontal"
       },
       "fieldConfig": {
         "defaults": {
@@ -134,11 +134,11 @@
           "valueSize": 28
         },
         "percentChangeColorMode": "standard",
-        "orientation": ""
+        "orientation": "horizontal"
       },
       "fieldConfig": {
         "defaults": {
-          "unit": "dtdurations",
+          "unit": "dtdhms",
           "color": {
             "mode": "palette-classic"
           }
@@ -191,11 +191,11 @@
           "valueSize": 28
         },
         "percentChangeColorMode": "standard",
-        "orientation": ""
+        "orientation": "horizontal"
       },
       "fieldConfig": {
         "defaults": {
-          "unit": "dtdurations",
+          "unit": "dtdhms",
           "color": {
             "mode": "palette-classic"
           }
@@ -248,11 +248,11 @@
           "valueSize": 28
         },
         "percentChangeColorMode": "standard",
-        "orientation": ""
+        "orientation": "horizontal"
       },
       "fieldConfig": {
         "defaults": {
-          "unit": "dtdurations",
+          "unit": "dtdhms",
           "color": {
             "mode": "palette-classic"
           }
@@ -305,11 +305,11 @@
           "valueSize": 28
         },
         "percentChangeColorMode": "standard",
-        "orientation": ""
+        "orientation": "horizontal"
       },
       "fieldConfig": {
         "defaults": {
-          "unit": "dtdurations",
+          "unit": "dtdhms",
           "color": {
             "mode": "palette-classic"
           }
@@ -362,7 +362,7 @@
           "valueSize": 28
         },
         "percentChangeColorMode": "standard",
-        "orientation": ""
+        "orientation": "horizontal"
       },
       "fieldConfig": {
         "defaults": {
@@ -382,14 +382,14 @@
             "type": "prometheus",
             "uid": "${datasource}"
           },
-          "expr": "sum by (cluster_name) (increase(klio_plugin_backup_runs_total{outcome=\"success\",k8s_namespace_name=~\"$namespace\",cluster_name=~\"$cluster\"}[24h]))",
+          "expr": "sum by (cluster_name) (increase(klio_plugin_backup_runs_total{outcome=\"success\",k8s_namespace_name=~\"$namespace\",cluster_name=~\"$cluster\"}[$__range]))",
           "instant": false,
           "legendFormat": "{{cluster_name}}",
           "range": true
         }
       ],
-      "title": "Successful backups (24h)",
-      "description": "Base backups that completed successfully in the last 24 hours, per cluster. Counter resets on plugin restart make long-window counts approximate.",
+      "title": "Successful backups (selected range)",
+      "description": "Base backups that completed successfully over the dashboard's selected time range, per cluster. Counter resets on plugin restart make long-window counts approximate.",
       "transparent": false,
       "datasource": {
         "type": "prometheus",
@@ -397,7 +397,7 @@
       },
       "gridPos": {
         "h": 6,
-        "w": 4,
+        "w": 6,
         "x": 0,
         "y": 7
       },
@@ -419,65 +419,7 @@
           "valueSize": 28
         },
         "percentChangeColorMode": "standard",
-        "orientation": ""
-      },
-      "fieldConfig": {
-        "defaults": {
-          "unit": "none",
-          "decimals": 0,
-          "color": {
-            "mode": "palette-classic"
-          }
-        },
-        "overrides": []
-      }
-    },
-    {
-      "type": "stat",
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "${datasource}"
-          },
-          "expr": "sum by (cluster_name) (increase(klio_plugin_backup_runs_total{outcome=\"success\",k8s_namespace_name=~\"$namespace\",cluster_name=~\"$cluster\"}[7d]))",
-          "instant": false,
-          "legendFormat": "{{cluster_name}}",
-          "range": true
-        }
-      ],
-      "title": "Successful backups (7d)",
-      "description": "Base backups that completed successfully in the last 7 days, per cluster. Counter resets on plugin restart make long-window counts approximate.",
-      "transparent": false,
-      "datasource": {
-        "type": "prometheus",
-        "uid": "${datasource}"
-      },
-      "gridPos": {
-        "h": 6,
-        "w": 4,
-        "x": 4,
-        "y": 7
-      },
-      "repeatDirection": "h",
-      "options": {
-        "graphMode": "none",
-        "colorMode": "value",
-        "justifyMode": "auto",
-        "textMode": "auto",
-        "wideLayout": true,
-        "showPercentChange": false,
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ]
-        },
-        "text": {
-          "titleSize": 14,
-          "valueSize": 28
-        },
-        "percentChangeColorMode": "standard",
-        "orientation": ""
+        "orientation": "horizontal"
       },
       "fieldConfig": {
         "defaults": {
@@ -513,8 +455,8 @@
       },
       "gridPos": {
         "h": 6,
-        "w": 8,
-        "x": 8,
+        "w": 9,
+        "x": 6,
         "y": 7
       },
       "repeatDirection": "h",
@@ -564,8 +506,8 @@
       },
       "gridPos": {
         "h": 6,
-        "w": 8,
-        "x": 16,
+        "w": 9,
+        "x": 15,
         "y": 7
       },
       "repeatDirection": "h",
@@ -949,7 +891,7 @@
       }
     },
     {
-      "type": "bargauge",
+      "type": "stat",
       "targets": [
         {
           "datasource": {
@@ -977,31 +919,30 @@
       },
       "repeatDirection": "h",
       "options": {
-        "displayMode": "gradient",
-        "valueMode": "color",
-        "namePlacement": "auto",
-        "showUnfilled": true,
-        "sizing": "auto",
-        "minVizWidth": 8,
-        "minVizHeight": 16,
-        "legend": {
-          "displayMode": "list",
-          "placement": "bottom",
-          "showLegend": false,
-          "calcs": []
-        },
+        "graphMode": "none",
+        "colorMode": "value",
+        "justifyMode": "auto",
+        "textMode": "auto",
+        "wideLayout": true,
+        "showPercentChange": false,
         "reduceOptions": {
           "calcs": [
             "lastNotNull"
           ]
         },
-        "maxVizHeight": 300,
+        "text": {
+          "titleSize": 14,
+          "valueSize": 28
+        },
+        "percentChangeColorMode": "standard",
         "orientation": "horizontal"
       },
       "fieldConfig": {
         "defaults": {
-          "unit": "none",
-          "decimals": 0
+          "unit": "number",
+          "color": {
+            "mode": "palette-classic"
+          }
         },
         "overrides": []
       }
