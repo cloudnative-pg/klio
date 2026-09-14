@@ -54,8 +54,8 @@ type Backup struct {
 // returned more than once.
 //
 // For the "latest" criterion the N most recent backups (ordered by StartedAt,
-// most recent first) are kept and every older backup is expired. A policy that
-// keeps everything (see Policy.IsZero) yields no expired backups.
+// most recent first) are kept and every older backup is expired. A policy with
+// Latest below 1 keeps everything and yields no expired backups.
 func Evaluate(catalog []Backup, policy Policy) []Backup {
 	// A count below 1 means no retention is configured (see Policy): keep
 	// everything. This also guards the slice bound below.

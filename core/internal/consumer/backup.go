@@ -77,12 +77,6 @@ type BackupOptions struct {
 	// A config file to connect to tier 1
 	Tier1KopiaConfig string
 
-	// Tier1ServerAddress is the address of the tier 1 Kopia server.
-	Tier1ServerAddress string
-
-	// Tier1ServerCertificateFingerprint is the SHA256 fingerprint of the tier 1 server certificate.
-	Tier1ServerCertificateFingerprint string
-
 	// A config file to connect to tier 2
 	Tier2KopiaConfig string
 

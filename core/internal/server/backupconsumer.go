@@ -78,8 +78,8 @@ func (s *BackupConsumer) Serve(ctx context.Context) error {
 		return fmt.Errorf("failed to open tier1 WAL repository: %w", err)
 	}
 
-	// Extract the certificate fingerprint for the Kopia servers. Tier1 and
-	// tier2 share the same server certificate.
+	// Extract the certificate fingerprint for the tier2 Kopia server, which
+	// shares the tier1 server certificate.
 	certificateFingerprint, err := kopia.ExtractSHA256CertificateFingerprint(
 		s.Config.TLS.TLSCert)
 	if err != nil {
@@ -87,14 +87,12 @@ func (s *BackupConsumer) Serve(ctx context.Context) error {
 	}
 
 	backupOptions := &consumer.BackupOptions{
-		Queue:                             queueConnection,
-		Tier1KopiaConfig:                  s.Tier1KopiaConfigFile,
-		Tier1ServerAddress:                "https://" + s.Config.Tier1.Base.ListenAddress,
-		Tier1ServerCertificateFingerprint: certificateFingerprint,
-		CacheDirectory:                    s.Config.Tier1.Base.CacheDirectory,
-		RunID:                             s.RunID,
-		RunSecret:                         s.RunSecret,
-		Tier1WALRepository:                tier1WALRepository,
+		Queue:              queueConnection,
+		Tier1KopiaConfig:   s.Tier1KopiaConfigFile,
+		CacheDirectory:     s.Config.Tier1.Base.CacheDirectory,
+		RunID:              s.RunID,
+		RunSecret:          s.RunSecret,
+		Tier1WALRepository: tier1WALRepository,
 	}
 
 	// When tier2 is configured, wire the tier2 connections so the consumer
