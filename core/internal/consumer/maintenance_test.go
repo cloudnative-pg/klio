@@ -47,9 +47,12 @@ func TestKeepUntilOnTier2(t *testing.T) {
 		snapshot("/tbs/a", "b2", "tablespace", "a"),
 		snapshot("/pgdata", "b3", "pgdata", ""),
 		snapshot("/pgdata_meta", "b3", "metadata", ""),
+		snapshot("/pgdata", "b0", "pgdata", ""),
+		snapshot("/pgdata_meta", "b0", "metadata", ""),
 	}
 	// b1 fully relayed, b2 has its metadata but not its tablespace on tier2,
-	// b3 not relayed at all.
+	// b3 (newest) not relayed yet, b0 (oldest) absent: relayed with b1 and
+	// deleted by tier2 retention since.
 	tier2 := []kopia.Manifest{
 		snapshot("/pgdata", "b1", "pgdata", ""),
 		snapshot("/pgdata_meta", "b1", "metadata", ""),
@@ -57,34 +60,49 @@ func TestKeepUntilOnTier2(t *testing.T) {
 		snapshot("/pgdata", "b2", "pgdata", ""),
 		snapshot("/pgdata_meta", "b2", "metadata", ""),
 	}
-
-	keep := keepUntilOnTier2(tier1, tier2)
+	catalog := klioclient.BackupList{
+		{Name: "b0", StartedAt: 50},
+		{Name: "b1", StartedAt: 100},
+		{Name: "b2", StartedAt: 200},
+		{Name: "b3", StartedAt: 300},
+	}
 	backup := func(name string) *klioclient.BackupMetadata {
+		for i := range catalog {
+			if catalog[i].Name == name {
+				b := catalog[i]
+
+				return &b
+			}
+		}
+
 		return &klioclient.BackupMetadata{Name: name}
 	}
 
-	if keep(backup("b1")) {
-		t.Error("kept b1, which is complete on tier2")
-	}
-	if !keep(backup("b2")) {
-		t.Error("did not keep b2, whose tablespace is missing on tier2")
-	}
-	if !keep(backup("b3")) {
-		t.Error("did not keep b3, which is not on tier2")
-	}
-	// A backup unknown to tier1 has nothing to protect.
-	if keep(backup("b4")) {
-		t.Error("kept b4, which has no tier1 snapshots")
-	}
-	// A backup the client never meant to relay is not waited for.
 	skipped := backup("b3")
 	skipped.SetAnnotation(klioclient.Tier2RelayAnnotationName, klioclient.Tier2RelaySkipped)
-	if keep(skipped) {
-		t.Error("kept b3, which was never meant to reach tier2")
+
+	tests := []struct {
+		name   string
+		tier2  []kopia.Manifest
+		backup *klioclient.BackupMetadata
+		want   bool
+	}{
+		{name: "complete on tier2 is deletable", tier2: tier2, backup: backup("b1"), want: false},
+		{name: "tablespace missing on tier2 is kept", tier2: tier2, backup: backup("b2"), want: true},
+		{name: "newer than any relayed backup is kept", tier2: tier2, backup: backup("b3"), want: true},
+		{name: "older than a relayed backup and gone from tier2 is deletable", tier2: tier2, backup: backup("b0")},
+		{name: "unknown to tier1 has nothing to protect", tier2: tier2, backup: backup("b4"), want: false},
+		{name: "never meant to reach tier2 is not waited for", tier2: tier2, backup: skipped, want: false},
+		{name: "nothing relayed keeps the oldest", tier2: nil, backup: backup("b0"), want: true},
+		{name: "nothing relayed keeps the newest", tier2: nil, backup: backup("b3"), want: true},
 	}
-	// With no tier2 snapshots, everything on tier1 is kept.
-	if keepAll := keepUntilOnTier2(tier1, nil); !keepAll(backup("b1")) {
-		t.Error("keepUntilOnTier2(tier1, nil) did not keep b1")
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := keepUntilOnTier2(tier1, tt.tier2, catalog)(tt.backup); got != tt.want {
+				t.Errorf("keep(%s) = %v, want %v", tt.backup.Name, got, tt.want)
+			}
+		})
 	}
 }
 
