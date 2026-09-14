@@ -183,6 +183,13 @@ func TestProcessBackup(t *testing.T) {
 			wantMaintain:    true,
 		},
 		{
+			name:            "maintenance-only tier1 failure is retried",
+			maintenanceOnly: true,
+			maintainErr:     errBoom,
+			wantErr:         true,
+			wantMaintain:    true,
+		},
+		{
 			name:            "maintenance-only tier2 failure is retried before tier1",
 			maintenanceOnly: true,
 			tier2Enabled:    true,
