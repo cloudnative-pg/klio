@@ -27,6 +27,7 @@ import (
 	cnpgv1 "github.com/cloudnative-pg/api/pkg/api/v1"
 	"github.com/stretchr/testify/require"
 	"sigs.k8s.io/e2e-framework/klient/k8s/resources"
+	"sigs.k8s.io/e2e-framework/klient/wait"
 	"sigs.k8s.io/e2e-framework/pkg/envconf"
 	"sigs.k8s.io/e2e-framework/pkg/types"
 
@@ -147,8 +148,55 @@ func (f *Tier1RetentionFeature) Run() types.StepFunc {
 			},
 		})
 
+		// Base retention moved the WAL horizon: only the newest backup is left,
+		// so every tier1 WAL older than its begin WAL must be gone too.
+		verifyTier1WALHorizon(ctx, t, r, f.namespace, f.klioServer.Name, f.clusterName,
+			f.backups[len(f.backups)-1], f.backupTimeout, f.checkInterval)
+
 		return ctx
 	}
+}
+
+// verifyTier1WALHorizon waits until no tier1 WAL segment older than the begin
+// WAL of the given backup survives, which proves the WAL retention horizon was
+// recomputed from the catalog after base retention deleted the older backups.
+func verifyTier1WALHorizon(
+	ctx context.Context,
+	t *testing.T,
+	r *resources.Resources,
+	namespace string,
+	serverName string,
+	clusterName string,
+	backup *cnpgv1.Backup,
+	timeout time.Duration,
+	interval time.Duration,
+) {
+	t.Helper()
+
+	var newest cnpgv1.Backup
+	require.NoError(t, r.Get(ctx, backup.Name, namespace, &newest), "failed to refresh backup %s", backup.Name)
+	boundary := newest.Status.BeginWal
+	require.NotEmpty(t, boundary, "completed backup %s has no begin WAL in its status", backup.Name)
+
+	podName := serverName + klioPodSuffix
+	t.Logf("WAL horizon: waiting for tier1 WALs older than %s to be removed", boundary)
+	err := wait.For(
+		func(ctx context.Context) (bool, error) {
+			walFiles := ListTier1WALFiles(ctx, r, namespace, podName, clusterName)
+
+			return len(WALsOlderThan(walFiles, boundary)) == 0, nil
+		},
+		wait.WithTimeout(timeout),
+		wait.WithInterval(interval),
+	)
+
+	final := ListTier1WALFiles(ctx, r, namespace, podName, clusterName)
+	require.NoError(t, err, "tier1 WALs older than begin WAL %q survived base retention: %v",
+		boundary, WALsOlderThan(final, boundary))
+	// The begin WAL itself is retained, so an empty list means we looked at the
+	// wrong path rather than at a successful retention.
+	require.NotEmpty(t, final, "no tier1 WAL files found for cluster %q", clusterName)
+	t.Logf("PASSED: %d tier1 WAL files remain, all >= %s", len(final), boundary)
 }
 
 // Teardown cleans up resources after the test is run.
