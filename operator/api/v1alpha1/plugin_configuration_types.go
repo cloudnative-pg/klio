@@ -206,12 +206,15 @@ func (s *PluginConfigurationSpec) GetWALPrefetch() WALPrefetchConfiguration {
 }
 
 // RetentionPolicy defines which backups Klio should keep. Omitting the whole
-// policy keeps every backup.
-// +kubebuilder:validation:XValidation:rule="self.latest >= 1",message="latest must be greater than or equal to 1"
+// policy, or leaving it empty, keeps every backup. The field is optional so
+// that objects stored by earlier versions (with the old Kopia-style keys, now
+// pruned) remain writable after the CRD upgrade.
 type RetentionPolicy struct {
 	// Latest keeps only the given number of most recent backups and deletes the
 	// rest.
-	Latest int `json:"latest" mapstructure:"latest"`
+	// +optional
+	// +kubebuilder:validation:Minimum=1
+	Latest int `json:"latest,omitempty" mapstructure:"latest"`
 }
 
 // PluginConfigurationStatus defines the observed state of ClientConfig.
