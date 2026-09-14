@@ -23,23 +23,59 @@ import (
 	"testing"
 
 	"github.com/cloudnative-pg/klio/core/internal/client/klioclient"
+	"github.com/cloudnative-pg/klio/core/internal/kopia"
 )
 
-func TestKeepUntilOnTier2(t *testing.T) {
-	tier2 := klioclient.BackupList{{Name: "backup-1"}, {Name: "backup-2"}}
-	keep := keepUntilOnTier2(tier2)
+func snapshot(path, backup, content, tablespace string) kopia.Manifest {
+	return kopia.Manifest{
+		Source: kopia.SourceInfo{Host: "c", UserName: "klio", Path: path},
+		Tags: map[string]string{
+			klioclient.BackupNameTagName:     backup,
+			klioclient.BackupContentTagName:  content,
+			klioclient.TablespaceNameTagName: tablespace,
+		},
+	}
+}
 
-	// A backup already on tier2 is deletable (not kept).
-	if keep("backup-1") {
-		t.Error("keepUntilOnTier2() kept backup-1, which is already on tier2")
+func TestKeepUntilOnTier2(t *testing.T) {
+	tier1 := []kopia.Manifest{
+		snapshot("/pgdata", "b1", "pgdata", ""),
+		snapshot("/pgdata_meta", "b1", "metadata", ""),
+		snapshot("/tbs/a", "b1", "tablespace", "a"),
+		snapshot("/pgdata", "b2", "pgdata", ""),
+		snapshot("/pgdata_meta", "b2", "metadata", ""),
+		snapshot("/tbs/a", "b2", "tablespace", "a"),
+		snapshot("/pgdata", "b3", "pgdata", ""),
+		snapshot("/pgdata_meta", "b3", "metadata", ""),
 	}
-	// A backup not yet on tier2 must be kept (protected from tier1 deletion).
-	if !keep("backup-3") {
-		t.Error("keepUntilOnTier2() did not keep backup-3, which is not on tier2")
+	// b1 fully relayed, b2 has its metadata but not its tablespace on tier2,
+	// b3 not relayed at all.
+	tier2 := []kopia.Manifest{
+		snapshot("/pgdata", "b1", "pgdata", ""),
+		snapshot("/pgdata_meta", "b1", "metadata", ""),
+		snapshot("/tbs/a", "b1", "tablespace", "a"),
+		snapshot("/pgdata", "b2", "pgdata", ""),
+		snapshot("/pgdata_meta", "b2", "metadata", ""),
 	}
-	// With no tier2 backups, everything is kept.
-	if keepAll := keepUntilOnTier2(nil); !keepAll("backup-1") {
-		t.Error("keepUntilOnTier2(nil) did not keep backup-1")
+
+	keep := keepUntilOnTier2(tier1, tier2)
+
+	if keep("b1") {
+		t.Error("kept b1, which is complete on tier2")
+	}
+	if !keep("b2") {
+		t.Error("did not keep b2, whose tablespace is missing on tier2")
+	}
+	if !keep("b3") {
+		t.Error("did not keep b3, which is not on tier2")
+	}
+	// A backup unknown to tier1 has nothing to protect.
+	if keep("b4") {
+		t.Error("kept b4, which has no tier1 snapshots")
+	}
+	// With no tier2 snapshots, everything on tier1 is kept.
+	if keepAll := keepUntilOnTier2(tier1, nil); !keepAll("b1") {
+		t.Error("keepUntilOnTier2(tier1, nil) did not keep b1")
 	}
 }
 
