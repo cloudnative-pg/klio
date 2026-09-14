@@ -62,7 +62,7 @@ func TestApplyRetention(t *testing.T) {
 		name        string
 		client      *fakeRetentionClient
 		policy      retention.Policy
-		keep        func(string) bool
+		keep        func(*klioclient.BackupMetadata) bool
 		wantDeleted []string
 		wantErr     error
 	}{
@@ -80,7 +80,7 @@ func TestApplyRetention(t *testing.T) {
 			name:        "keep predicate protects an expired backup",
 			client:      &fakeRetentionClient{backups: catalog},
 			policy:      retention.Policy{Latest: 1},
-			keep:        func(name string) bool { return name == "b1" },
+			keep:        func(b *klioclient.BackupMetadata) bool { return b.Name == "b1" },
 			wantDeleted: []string{"b2"},
 		},
 		{

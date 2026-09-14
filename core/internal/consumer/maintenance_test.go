@@ -59,22 +59,31 @@ func TestKeepUntilOnTier2(t *testing.T) {
 	}
 
 	keep := keepUntilOnTier2(tier1, tier2)
+	backup := func(name string) *klioclient.BackupMetadata {
+		return &klioclient.BackupMetadata{Name: name}
+	}
 
-	if keep("b1") {
+	if keep(backup("b1")) {
 		t.Error("kept b1, which is complete on tier2")
 	}
-	if !keep("b2") {
+	if !keep(backup("b2")) {
 		t.Error("did not keep b2, whose tablespace is missing on tier2")
 	}
-	if !keep("b3") {
+	if !keep(backup("b3")) {
 		t.Error("did not keep b3, which is not on tier2")
 	}
 	// A backup unknown to tier1 has nothing to protect.
-	if keep("b4") {
+	if keep(backup("b4")) {
 		t.Error("kept b4, which has no tier1 snapshots")
 	}
+	// A backup the client never meant to relay is not waited for.
+	skipped := backup("b3")
+	skipped.SetAnnotation(klioclient.Tier2RelayAnnotationName, klioclient.Tier2RelaySkipped)
+	if keep(skipped) {
+		t.Error("kept b3, which was never meant to reach tier2")
+	}
 	// With no tier2 snapshots, everything on tier1 is kept.
-	if keepAll := keepUntilOnTier2(tier1, nil); !keepAll("b1") {
+	if keepAll := keepUntilOnTier2(tier1, nil); !keepAll(backup("b1")) {
 		t.Error("keepUntilOnTier2(tier1, nil) did not keep b1")
 	}
 }

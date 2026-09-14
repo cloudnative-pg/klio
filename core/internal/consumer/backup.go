@@ -347,7 +347,7 @@ func (d *Backup) applyRetention(
 	client retentionClient,
 	clusterName string,
 	policy retention.Policy,
-	keep func(name string) bool,
+	keep func(backup *klioclient.BackupMetadata) bool,
 ) error {
 	contextLogger := log.FromContext(ctx)
 
@@ -362,8 +362,10 @@ func (d *Backup) applyRetention(
 		return fmt.Errorf("while listing backups for cluster %q: %w", clusterName, err)
 	}
 
+	byName := make(map[string]*klioclient.BackupMetadata, len(backups))
 	catalog := make([]retention.Backup, len(backups))
 	for i := range backups {
+		byName[backups[i].Name] = &backups[i]
 		catalog[i] = retention.Backup{
 			Name:      backups[i].Name,
 			StartedAt: backups[i].StartedAt,
@@ -373,7 +375,7 @@ func (d *Backup) applyRetention(
 
 	var errs error
 	for _, expired := range retention.Evaluate(catalog, policy) {
-		if keep != nil && keep(expired.Name) {
+		if keep != nil && keep(byName[expired.Name]) {
 			contextLogger.Info("Retention expired a backup that is not deletable yet, keeping it",
 				"cluster", clusterName, "backup", expired.Name)
 
