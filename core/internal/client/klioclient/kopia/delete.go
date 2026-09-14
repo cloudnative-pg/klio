@@ -20,6 +20,7 @@ SPDX-License-Identifier: Apache-2.0
 package kopia
 
 import (
+	"cmp"
 	"context"
 	"errors"
 	"fmt"
@@ -96,6 +97,14 @@ func deleteBackupSnapshots(ctx context.Context, store snapshotStore, hostname, n
 	return retryErr
 }
 
+func isMetadataSnapshot(m kopia.Manifest) int {
+	if m.Tags[klioclient.BackupContentTagName] == "metadata" {
+		return 1
+	}
+
+	return 0
+}
+
 // deleteSnapshots deletes every given entry, joining and returning any
 // deletion errors.
 func deleteSnapshots(
@@ -104,6 +113,13 @@ func deleteSnapshots(
 	entries []kopia.Manifest,
 ) error {
 	contextLogger := log.FromContext(ctx)
+
+	// The metadata snapshot is what makes a backup visible in the catalog:
+	// deleting it last keeps a partially deleted backup listed, so the next
+	// retention run can finish the job instead of leaving orphaned data.
+	slices.SortStableFunc(entries, func(a, b kopia.Manifest) int {
+		return cmp.Compare(isMetadataSnapshot(a), isMetadataSnapshot(b))
+	})
 
 	var err error
 
