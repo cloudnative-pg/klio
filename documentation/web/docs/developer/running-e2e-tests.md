@@ -132,7 +132,8 @@ The E2E tests are located in `operator/test/e2e/` and include:
 - **`tier1_retention_test.go`** - Backup retention policy enforcement on a
   tier1-only deployment: takes more backups than the policy keeps, verifies
   the retention manager deletes the oldest, then tightens the policy and
-  verifies `klio retention apply` prunes on demand (`Tier1Retention`)
+  verifies `klio retention apply` prunes on demand, and that tier1 WALs
+  older than the surviving backup are removed (`Tier1Retention`)
 - **`tier2_retention_test.go`** - Backup and WAL retention policy
   enforcement in tier2 storage: shares the tier1 automatic and on-demand
   retention flow and adds tier2-only WAL retention and recovery-gate
