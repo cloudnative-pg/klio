@@ -86,20 +86,17 @@ func runApply(cmd *cobra.Command, _ []string) error {
 			backupfailure.RepositoryError.ExitCode)
 	}
 
-	result, err := grpcClient.ApplyRetention(cmd.Context(), &grpc.ApplyRetentionRequest{
+	if _, err := grpcClient.ApplyRetention(cmd.Context(), &grpc.ApplyRetentionRequest{
 		ClusterName:          configuration.Client.ClusterName,
 		Tier1RetentionPolicy: tier1RetentionPolicy,
 		Tier2RetentionPolicy: tier2RetentionPolicy,
-	})
-	if err != nil {
+	}); err != nil {
 		return cli.NewCodedError(
 			fmt.Errorf("while applying retention: %w", err),
 			backupfailure.RepositoryError.ExitCode)
 	}
 
-	if result.GetScheduled() {
-		contextLogger.Info("Retention apply scheduled", "cluster", configuration.Client.ClusterName)
-	}
+	contextLogger.Info("Retention apply scheduled", "cluster", configuration.Client.ClusterName)
 
 	return nil
 }
