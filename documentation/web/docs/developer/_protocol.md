@@ -352,7 +352,7 @@ been completed.
 | send_to_tier2 | [bool](#bool) |  | Require this backup to be sent to tier2. |
 | tier2_retention_policy | [string](#string) |  | When present, set the tier2 retention policy to the specified JSON-serialized policy. |
 | tier2_compression_policy | [string](#string) |  | When present, set the tier2 compression policy to the specified JSON-serialized policy. |
-| wait_for_wals | [bool](#bool) |  | True when the client will call CloseBackup again until no WAL file is missing. The server then defers the post-backup task until that point. When false the task is enqueued right away, even if WAL files are still missing: a backup taken on a standby cannot force a WAL switch on the primary, so its last segment may take a long time to arrive. |
+| enqueue_without_wals | [bool](#bool) |  | Enqueue the post-backup task even if WAL files are still missing. A client that leaves this unset calls CloseBackup again until no WAL file is missing, and the server defers the task until that call. A backup taken on a standby sets it: the standby cannot force a WAL switch on the primary, so its last segment may take a long time to arrive. |
 
 
 

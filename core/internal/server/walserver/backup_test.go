@@ -107,16 +107,16 @@ func receiveBackupTask(t *testing.T, q *queue.Conn, timeout time.Duration) *queu
 	}
 }
 
-func newCloseBackupRequest(waitForWALs bool) *grpc.CloseBackupRequest {
+func newCloseBackupRequest(enqueueWithoutWALs bool) *grpc.CloseBackupRequest {
 	return &grpc.CloseBackupRequest{
-		ClusterName: testClusterName,
-		BackupName:  "backup-1",
-		Timeline:    1,
-		StartWal:    testStartWAL,
-		EndWal:      testEndWAL,
-		SegmentSize: testSegmentSize,
-		SendToTier2: true,
-		WaitForWals: waitForWALs,
+		ClusterName:        testClusterName,
+		BackupName:         "backup-1",
+		Timeline:           1,
+		StartWal:           testStartWAL,
+		EndWal:             testEndWAL,
+		SegmentSize:        testSegmentSize,
+		SendToTier2:        true,
+		EnqueueWithoutWals: enqueueWithoutWALs,
 	}
 }
 
@@ -126,7 +126,7 @@ func newCloseBackupRequest(waitForWALs bool) *grpc.CloseBackupRequest {
 func TestCloseBackupMissingWALsWithoutWaitEnqueuesTask(t *testing.T) {
 	impl, q := newCloseBackupServer(t)
 
-	result, err := impl.CloseBackup(context.Background(), newCloseBackupRequest(false))
+	result, err := impl.CloseBackup(context.Background(), newCloseBackupRequest(true))
 	require.NoError(t, err)
 	require.Equal(t, []string{testEndWAL}, result.GetMissingWalFiles())
 	require.True(t, result.GetTier2Schedule())
@@ -143,7 +143,7 @@ func TestCloseBackupMissingWALsWithoutWaitEnqueuesTask(t *testing.T) {
 func TestCloseBackupMissingWALsWithWaitDefersTask(t *testing.T) {
 	impl, q := newCloseBackupServer(t)
 
-	result, err := impl.CloseBackup(context.Background(), newCloseBackupRequest(true))
+	result, err := impl.CloseBackup(context.Background(), newCloseBackupRequest(false))
 	require.NoError(t, err)
 	require.Equal(t, []string{testEndWAL}, result.GetMissingWalFiles())
 	require.False(t, result.GetTier2Schedule())

@@ -158,7 +158,7 @@ func runBackup(cmd *cobra.Command, _ []string) error {
 			EndWal:                 metadata.EndWAL,
 			SegmentSize:            metadata.SegmentSize,
 			SendToTier2:            tier2,
-			WaitForWals:            waitWALs,
+			EnqueueWithoutWals:     !waitWALs,
 			Tier2RetentionPolicy:   marshalTier2RetentionPolicy(cmd.Context(), &configuration),
 			Tier2CompressionPolicy: marshalTier2CompressionPolicy(cmd.Context(), &configuration),
 		})
