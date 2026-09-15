@@ -746,8 +746,14 @@ type CloseBackupRequest struct {
 	Tier2RetentionPolicy string `protobuf:"bytes,9,opt,name=tier2_retention_policy,json=tier2RetentionPolicy,proto3" json:"tier2_retention_policy,omitempty"`
 	// When present, set the tier2 compression policy to the specified JSON-serialized policy.
 	Tier2CompressionPolicy string `protobuf:"bytes,10,opt,name=tier2_compression_policy,json=tier2CompressionPolicy,proto3" json:"tier2_compression_policy,omitempty"`
-	unknownFields          protoimpl.UnknownFields
-	sizeCache              protoimpl.SizeCache
+	// True when the client will call CloseBackup again until no WAL file is
+	// missing. The server then defers the post-backup task until that point.
+	// When false the task is enqueued right away, even if WAL files are still
+	// missing: a backup taken on a standby cannot force a WAL switch on the
+	// primary, so its last segment may take a long time to arrive.
+	WaitForWals   bool `protobuf:"varint,11,opt,name=wait_for_wals,json=waitForWals,proto3" json:"wait_for_wals,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *CloseBackupRequest) Reset() {
@@ -841,6 +847,13 @@ func (x *CloseBackupRequest) GetTier2CompressionPolicy() string {
 		return x.Tier2CompressionPolicy
 	}
 	return ""
+}
+
+func (x *CloseBackupRequest) GetWaitForWals() bool {
+	if x != nil {
+		return x.WaitForWals
+	}
+	return false
 }
 
 // This is sent by the WAL server in response to a CloseBackupRequest
@@ -948,7 +961,7 @@ const file_proto_klio_wal_proto_rawDesc = "" +
 	"\fStartWALFile\x12!\n" +
 	"\fklio_version\x18\x01 \x01(\x04R\vklioVersion\x12\x1f\n" +
 	"\vfile_length\x18\x02 \x01(\x04R\n" +
-	"fileLength\"\xe1\x02\n" +
+	"fileLength\"\x85\x03\n" +
 	"\x12CloseBackupRequest\x12!\n" +
 	"\fcluster_name\x18\x01 \x01(\tR\vclusterName\x12\x1f\n" +
 	"\vbackup_name\x18\x03 \x01(\tR\n" +
@@ -960,7 +973,8 @@ const file_proto_klio_wal_proto_rawDesc = "" +
 	"\rsend_to_tier2\x18\b \x01(\bR\vsendToTier2\x124\n" +
 	"\x16tier2_retention_policy\x18\t \x01(\tR\x14tier2RetentionPolicy\x128\n" +
 	"\x18tier2_compression_policy\x18\n" +
-	" \x01(\tR\x16tier2CompressionPolicy\"f\n" +
+	" \x01(\tR\x16tier2CompressionPolicy\x12\"\n" +
+	"\rwait_for_wals\x18\v \x01(\bR\vwaitForWals\"f\n" +
 	"\x11CloseBackupResult\x12%\n" +
 	"\x0etier2_schedule\x18\x01 \x01(\bR\rtier2Schedule\x12*\n" +
 	"\x11missing_wal_files\x18\x02 \x03(\tR\x0fmissingWalFiles2\xda\x03\n" +

@@ -40,6 +40,7 @@ import (
 	machineryConditions "github.com/cloudnative-pg/klio/operator/test/machinery/pkg/conditions"
 	machineryFeatures "github.com/cloudnative-pg/klio/operator/test/machinery/pkg/features"
 	"github.com/cloudnative-pg/klio/operator/test/machinery/pkg/namespaces"
+	"github.com/cloudnative-pg/klio/operator/test/machinery/pkg/postgres"
 )
 
 // tier2RecoveryScenario contains all resources needed for tier2 recovery testing.
@@ -168,6 +169,18 @@ func (s *tier2RecoveryScenario) Teardown(
 	return ctx
 }
 
+// switchWALOnSource forces a WAL switch on the source primary after the
+// backup. A backup taken on a standby cannot switch the WAL itself, so
+// without this the segment holding its end LSN would never be completed on
+// an idle cluster, and the recovery would wait for it forever.
+func (s *tier2RecoveryScenario) switchWALOnSource(
+	ctx context.Context,
+	_ *cnpgv1.Cluster,
+	r *resources.Resources,
+) error {
+	return postgres.CheckpointAndSwitchWal(ctx, r, &s.sourcePrimaryPod)
+}
+
 // deployRecoveryServer creates the second Klio Server after tier2 replication.
 func (s *tier2RecoveryScenario) deployRecoveryServer(
 	ctx context.Context,
@@ -220,21 +233,27 @@ func NewTier2RecoveryFeatureConfig(
 	}
 
 	recoveryConfig := machineryFeatures.RecoveryFeatureConfig{
-		Name:                  name,
-		Setup:                 scenario.Setup,
-		Teardown:              scenario.Teardown,
-		SourcePrimaryPod:      &scenario.sourcePrimaryPod,
-		Backup:                res.Backup,
-		RecoveryCluster:       res.RecoveryCluster,
-		MutateRecoveryCluster: []machineryFeatures.RecoveryClusterMutateFunc{scenario.deployRecoveryServer},
-		BackupTimeout:         5 * time.Minute,
+		Name:             name,
+		Setup:            scenario.Setup,
+		Teardown:         scenario.Teardown,
+		SourcePrimaryPod: &scenario.sourcePrimaryPod,
+		Backup:           res.Backup,
+		RecoveryCluster:  res.RecoveryCluster,
+		MutateRecoveryCluster: []machineryFeatures.RecoveryClusterMutateFunc{
+			scenario.switchWALOnSource,
+			scenario.deployRecoveryServer,
+		},
+		BackupTimeout: 5 * time.Minute,
 	}
 
 	return recoveryConfig
 }
 
 // RecoverClusterFromTier2 returns a RecoveryFeature for tier2 recovery testing.
+// The source cluster has two instances so that the backup, with the default
+// prefer-standby target, is taken on the standby: such a backup does not wait
+// for its last WAL segment and must still be relayed to tier2.
 func RecoverClusterFromTier2(namespace string) *machineryFeatures.RecoveryFeature {
 	return machineryFeatures.NewRecoveryFeature(
-		NewTier2RecoveryFeatureConfig("RecoverClusterFromTier2", 1, namespace))
+		NewTier2RecoveryFeatureConfig("RecoverClusterFromTier2", 2, namespace))
 }
