@@ -158,6 +158,7 @@ func runBackup(cmd *cobra.Command, _ []string) error {
 			EndWal:                 metadata.EndWAL,
 			SegmentSize:            metadata.SegmentSize,
 			SendToTier2:            tier2,
+			EnqueueWithoutWals:     !waitWALs,
 			Tier2RetentionPolicy:   marshalTier2RetentionPolicy(cmd.Context(), &configuration),
 			Tier2CompressionPolicy: marshalTier2CompressionPolicy(cmd.Context(), &configuration),
 		})
@@ -167,14 +168,21 @@ func runBackup(cmd *cobra.Command, _ []string) error {
 				backupfailure.RepositoryError.ExitCode)
 		}
 
-		if waitWALs && len(result.GetMissingWalFiles()) > 0 {
+		if len(result.GetMissingWalFiles()) > 0 {
+			if waitWALs {
+				contextLogger.Info(
+					"Detected missing WAL files, waiting for 5 seconds",
+					"missingWALFiles", result.GetMissingWalFiles(),
+				)
+				time.Sleep(5 * time.Second)
+
+				continue
+			}
+
 			contextLogger.Info(
-				"Detected missing WAL files, waiting for 5 seconds",
+				"Detected missing WAL files, not waiting for them",
 				"missingWALFiles", result.GetMissingWalFiles(),
 			)
-			time.Sleep(5 * time.Second)
-
-			continue
 		}
 
 		if result.GetTier2Schedule() {
