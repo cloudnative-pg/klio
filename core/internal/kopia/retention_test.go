@@ -52,7 +52,7 @@ func TestParsePolicyTargets(t *testing.T) {
 
 	var got []string
 	for _, target := range targets {
-		if target.isGlobal() {
+		if target.IsGlobal() {
 			continue
 		}
 		got = append(got, target.String())

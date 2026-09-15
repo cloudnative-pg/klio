@@ -114,8 +114,14 @@ type SourceInfo struct {
 	Path string `json:"path"`
 }
 
+// IsGlobal reports whether this SourceInfo is the empty, repository-wide
+// target rather than a specific source.
+func (ssi SourceInfo) IsGlobal() bool {
+	return ssi.Host == "" && ssi.Path == "" && ssi.UserName == ""
+}
+
 func (ssi SourceInfo) String() string {
-	if ssi.Host == "" && ssi.Path == "" && ssi.UserName == "" {
+	if ssi.IsGlobal() {
 		return "(global)"
 	}
 
