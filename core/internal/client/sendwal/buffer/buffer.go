@@ -26,6 +26,7 @@ import (
 
 	"github.com/cloudnative-pg/machinery/pkg/log"
 	"github.com/cloudnative-pg/machinery/pkg/types"
+	"github.com/jackc/pglogrepl"
 )
 
 // maximumBufferSizeFactor allows configuring the higher limit of memory
@@ -38,20 +39,20 @@ type Data struct {
 	segmentSize uint64
 	tli         int
 
-	handler Handler
+	walHandler WALHandler
 
-	writeLSN   uint64
-	flushLSN   uint64
+	localWriteLSN uint64
+
 	buffer     *bytes.Buffer
 	bufferSize int
 }
 
 // New creates a new WAL buffer.
-func New(tli int, walSegmentSize uint64, handler Handler, bufferSize int) *Data {
+func New(tli int, walSegmentSize uint64, handler WALHandler, bufferSize int) *Data {
 	result := &Data{
 		segmentSize: walSegmentSize,
 		tli:         tli,
-		handler:     handler,
+		walHandler:  handler,
 		bufferSize:  bufferSize,
 	}
 
@@ -63,32 +64,23 @@ func New(tli int, walSegmentSize uint64, handler Handler, bufferSize int) *Data 
 // ProcessWALData processes a WAL message from PG
 //
 //nolint:cyclop
-func (wal *Data) ProcessWALData(ctx context.Context, data []byte, startWAL types.LSN) error {
-	contextLogger := log.FromContext(ctx)
-
+func (wal *Data) ProcessWALData(ctx context.Context, data []byte, blockpos pglogrepl.LSN) error {
 	// This implementation is largely based on src/bin/pg_basebackup/receivelog.c
 	// [ProcessXLogDataMsg]
 
 	//nolint:lll
 	// See: https://github.com/postgres/postgres/blob/00f4c2959d631c7851da21a512885d1deab28649/src/bin/pg_basebackup/receivelog.c#L1039
 
-	contextLogger.Debug("Process WAL Data", "lenData", len(data), "startWAL", startWAL)
+	xlogoff := uint64(blockpos) % wal.segmentSize
 
-	blockpos, err := startWAL.Parse()
-	if err != nil {
-		return fmt.Errorf("while parsing WAL data start (pos): %w", err)
-	}
-
-	xlogoff := blockpos % wal.segmentSize
-
-	if !wal.handler.HasWALFileOpened() {
+	if !wal.walHandler.HasWALFileOpened() {
 		if xlogoff != 0 {
 			// No file open yet
 			return &UnopenedFileForWALError{offset: xlogoff}
 		}
 	} else {
 		// More data in existing segment
-		currentOffset := wal.writeLSN % wal.segmentSize
+		currentOffset := wal.localWriteLSN % wal.segmentSize
 		if currentOffset != xlogoff {
 			return &UnexpectedWalDataOffsetError{
 				offset:   xlogoff,
@@ -110,24 +102,24 @@ func (wal *Data) ProcessWALData(ctx context.Context, data []byte, startWAL types
 			bytesToWrite = bytesLeft
 		}
 
-		if !wal.handler.HasWALFileOpened() {
-			if err := wal.openWALPos(ctx, blockpos); err != nil {
+		if !wal.walHandler.HasWALFileOpened() {
+			if err := wal.openWALPos(ctx, uint64(blockpos)); err != nil {
 				return err
 			}
 		}
 
-		if err := wal.writeToWALFile(ctx, data[bytesWritten:bytesWritten+bytesToWrite]); err != nil {
+		if err := wal.writeToWALFile(data[bytesWritten : bytesWritten+bytesToWrite]); err != nil {
 			return fmt.Errorf("while writing to WAL handler: %w", err)
 		}
 
 		bytesWritten += bytesToWrite
 		bytesLeft -= bytesToWrite
-		blockpos += bytesToWrite
+		blockpos += pglogrepl.LSN(bytesToWrite)
 		xlogoff += bytesToWrite
 
 		// Did we reach the end of a WAL segment?
-		if currentOffset := wal.writeLSN % wal.segmentSize; currentOffset == 0 {
-			if err := wal.closeCurrentWAL(ctx); err != nil {
+		if currentOffset := wal.localWriteLSN % wal.segmentSize; currentOffset == 0 {
+			if err := wal.CloseCurrentWAL(ctx); err != nil {
 				return err
 			}
 
@@ -138,63 +130,14 @@ func (wal *Data) ProcessWALData(ctx context.Context, data []byte, startWAL types
 	return nil
 }
 
-// FlushLSN gets the latest LSN that was flushed down to the Klio server.
-func (wal *Data) FlushLSN() uint64 {
-	return wal.flushLSN
-}
-
-// WriteLSN gets the latest LSN that was written into the memory.
-func (wal *Data) WriteLSN() uint64 {
-	return wal.writeLSN
-}
-
-// Flush flushes the buffer to the Klio server connection.
+// Flush writes any buffered data to the currently open WAL file. It is a
+// no-op when no WAL file is open or the buffer is empty.
 func (wal *Data) Flush(ctx context.Context) error {
-	return wal.flushInternal(ctx)
-}
-
-func (wal *Data) newBuffer() *bytes.Buffer {
-	return bytes.NewBuffer(make([]byte, 0, wal.bufferSize))
-}
-
-func (wal *Data) openWALPos(ctx context.Context, blockpos uint64) error {
-	contextLogger := log.FromContext(ctx)
-	contextLogger.Info("Opening WAL file", "blockpos", types.Int64ToLSN(blockpos))
-
-	if err := wal.handler.OpenWAL(ctx, blockpos); err != nil {
-		return err //nolint:wrapcheck
-	}
-
-	wal.writeLSN = blockpos
-	wal.flushLSN = blockpos
-
-	return nil
-}
-
-func (wal *Data) writeToWALFile(ctx context.Context, data []byte) error {
-	if _, err := wal.buffer.Write(data); err != nil {
-		return fmt.Errorf("while writing to buffer: %w", err)
-	}
-
-	wal.writeLSN += uint64(len(data))
-
-	if wal.buffer.Len() >= wal.bufferSize {
-		return wal.Flush(ctx)
-	}
-
-	return nil
-}
-
-func (wal *Data) flushInternal(ctx context.Context) error {
-	contextLogger := log.FromContext(ctx)
-
-	if wal.handler == nil || !wal.handler.HasWALFileOpened() || wal.buffer.Len() == 0 {
+	if wal.walHandler == nil || !wal.walHandler.HasWALFileOpened() || wal.buffer.Len() == 0 {
 		return nil
 	}
 
-	contextLogger.Debug("Writing block",
-		"blockpos", types.Int64ToLSN(wal.writeLSN), "blocksize", wal.buffer.Len())
-	_, err := wal.handler.Write(ctx, wal.buffer.Bytes())
+	_, err := wal.walHandler.Write(ctx, wal.buffer.Bytes())
 	if err != nil {
 		return fmt.Errorf("while writing to WAL handler: %w", err)
 	}
@@ -207,22 +150,58 @@ func (wal *Data) flushInternal(ctx context.Context) error {
 		wal.buffer = wal.newBuffer()
 	}
 
-	wal.flushLSN = wal.writeLSN
-
 	return nil
 }
 
-func (wal *Data) closeCurrentWAL(ctx context.Context) error {
+// CloseCurrentWAL flushes and closes the currently open WAL file. It is a
+// no-op when no WAL file is open.
+func (wal *Data) CloseCurrentWAL(ctx context.Context) error {
 	contextLogger := log.FromContext(ctx)
 	contextLogger.Debug("Closing WAL file")
+	if !wal.walHandler.HasWALFileOpened() {
+		return nil
+	}
 
 	if err := wal.Flush(ctx); err != nil {
 		return fmt.Errorf("while flushing WAL handler: %w", err)
 	}
 
-	if err := wal.handler.CloseWAL(ctx); err != nil {
+	if err := wal.walHandler.CloseWAL(ctx); err != nil {
 		return fmt.Errorf("while closing current WAL file: %w", err)
 	}
+
+	return nil
+}
+
+func (wal *Data) newBuffer() *bytes.Buffer {
+	return bytes.NewBuffer(make([]byte, 0, wal.bufferSize))
+}
+
+func (wal *Data) openWALPos(ctx context.Context, blockpos uint64) error {
+	contextLogger := log.FromContext(ctx)
+	contextLogger.Info("Opening WAL file", "blockpos", types.Int64ToLSN(blockpos))
+
+	if err := wal.walHandler.OpenWAL(ctx, blockpos); err != nil {
+		return err //nolint:wrapcheck
+	}
+
+	wal.localWriteLSN = blockpos
+
+	return nil
+}
+
+// writeToWALFile appends data to the in-memory buffer. It does not flush:
+// like a PostgreSQL walreceiver, which writes whatever it received and
+// flushes once per receive cycle rather than accumulating to a target size,
+// flushing here is left entirely to the caller (once per drained batch of
+// messages, or at segment close) so a block sent to the Klio server tracks
+// how much WAL actually arrived at once, not an unrelated size threshold.
+func (wal *Data) writeToWALFile(data []byte) error {
+	if _, err := wal.buffer.Write(data); err != nil {
+		return fmt.Errorf("while writing to buffer: %w", err)
+	}
+
+	wal.localWriteLSN += uint64(len(data))
 
 	return nil
 }
