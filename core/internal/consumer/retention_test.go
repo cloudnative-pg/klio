@@ -33,13 +33,8 @@ var errFakeDelete = errors.New("fake delete failure")
 
 type fakeRetentionClient struct {
 	backups klioclient.BackupList
-	listErr error
 	failOn  string
 	deleted []string
-}
-
-func (f *fakeRetentionClient) ListBackups(_ context.Context, _ string) (klioclient.BackupList, error) {
-	return f.backups, f.listErr
 }
 
 func (f *fakeRetentionClient) DeleteBackup(_ context.Context, _ string, name string) error {
@@ -90,18 +85,12 @@ func TestApplyRetention(t *testing.T) {
 			wantDeleted: []string{"b2"},
 			wantErr:     errFakeDelete,
 		},
-		{
-			name:    "list failure deletes nothing",
-			client:  &fakeRetentionClient{listErr: errFakeDelete},
-			policy:  retention.Policy{Latest: 1},
-			wantErr: errFakeDelete,
-		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			d := &Backup{}
-			err := d.applyRetention(context.Background(), tt.client, "cluster", tt.policy, tt.keep)
+			err := d.applyRetention(context.Background(), tt.client, "cluster", tt.client.backups, tt.policy, tt.keep)
 			if !errors.Is(err, tt.wantErr) {
 				t.Fatalf("applyRetention() error = %v, want %v", err, tt.wantErr)
 			}

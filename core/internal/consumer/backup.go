@@ -304,7 +304,17 @@ func (d *Backup) maintainTier2(ctx context.Context, task *queue.BackupTask) erro
 	contextLogger := log.FromContext(ctx)
 	contextLogger.Info("Applying tier2 maintenance", "cluster", task.ClusterName)
 
-	if err := d.applyRetention(ctx, d.tier2Client, task.ClusterName, task.Tier2RetentionPolicy, nil); err != nil {
+	tier2Backups, err := d.tier2Client.ListBackups(ctx, task.ClusterName)
+	if err != nil {
+		err = fmt.Errorf("while listing tier2 backups for cluster %q: %w", task.ClusterName, err)
+		recordMaintenance(ctx, task.ClusterName, opentelemetry.Tier2, err)
+
+		return err
+	}
+
+	if err := d.applyRetention(
+		ctx, d.tier2Client, task.ClusterName, tier2Backups, task.Tier2RetentionPolicy, nil,
+	); err != nil {
 		recordMaintenance(ctx, task.ClusterName, opentelemetry.Tier2, err)
 
 		return err
@@ -333,12 +343,14 @@ func (d *Backup) maintainTier2(ctx context.Context, task *queue.BackupTask) erro
 
 // retentionClient is the subset of the Kopia client that applyRetention needs.
 type retentionClient interface {
-	ListBackups(ctx context.Context, hostname string) (klioclient.BackupList, error)
 	DeleteBackup(ctx context.Context, hostname string, name string) error
 }
 
 // applyRetention deletes the base backups of a cluster that fall outside the
-// given policy, evaluated against Klio's own catalog. The optional keep
+// given policy, evaluated against Klio's own catalog. backups is the
+// cluster's already-listed catalog: the tier1 caller shares one listing with
+// its retention guard, so the two agree on exactly the same snapshot of
+// state instead of each seeing a possibly different one. The optional keep
 // predicate protects a backup from deletion even when the policy expired it
 // (tier1 uses it to never delete a backup that is not yet on tier2). A zero
 // policy deletes nothing.
@@ -346,20 +358,16 @@ func (d *Backup) applyRetention(
 	ctx context.Context,
 	client retentionClient,
 	clusterName string,
+	backups klioclient.BackupList,
 	policy retention.Policy,
 	keep func(backup *klioclient.BackupMetadata) bool,
 ) error {
 	contextLogger := log.FromContext(ctx)
 
-	// ListBackups treats an empty host as a wildcard: the catalog would span
-	// every cluster and the policy would be applied across all of them.
+	// DeleteBackup treats an empty host as a wildcard: a delete below could
+	// then match a same-named backup on any host in the repository.
 	if clusterName == "" {
 		return errEmptyClusterName
-	}
-
-	backups, err := client.ListBackups(ctx, clusterName)
-	if err != nil {
-		return fmt.Errorf("while listing backups for cluster %q: %w", clusterName, err)
 	}
 
 	byName := make(map[string]*klioclient.BackupMetadata, len(backups))
