@@ -45,7 +45,12 @@ func (w *Implementation) CloseBackup(
 		return nil, err
 	}
 
-	if len(missingWALFiles) > 0 {
+	// A client that waits for the WALs calls CloseBackup again until none is
+	// missing, so the task is deferred to that call. A client that does not
+	// wait (a backup taken on a standby, which cannot force a WAL switch on
+	// the primary) calls only once: the task must be enqueued now or the
+	// backup is never processed.
+	if len(missingWALFiles) > 0 && request.GetWaitForWals() {
 		return &grpc.CloseBackupResult{
 			Tier2Schedule:   false,
 			MissingWalFiles: missingWALFiles,
@@ -67,7 +72,7 @@ func (w *Implementation) CloseBackup(
 
 	return &grpc.CloseBackupResult{
 		Tier2Schedule:   w.queue != nil && request.GetSendToTier2(),
-		MissingWalFiles: nil,
+		MissingWalFiles: missingWALFiles,
 	}, nil
 }
 
