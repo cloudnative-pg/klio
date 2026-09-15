@@ -35,10 +35,14 @@ type RetentionPolicy struct {
 	Latest int `json:"latest,omitempty" mapstructure:"latest"`
 }
 
+// ErrInvalidRetentionPolicy is returned when a configured retention policy
+// does not keep at least one backup.
+var ErrInvalidRetentionPolicy = errors.New("invalid retention policy: latest must be greater than or equal to 1")
+
 // Validate implements a custom validation function for RetentionPolicy.
 func (r *RetentionPolicy) Validate() error {
 	if r.Latest < 1 {
-		return errors.New("invalid retention policy: latest must be greater than or equal to 1")
+		return ErrInvalidRetentionPolicy
 	}
 
 	return nil
