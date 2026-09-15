@@ -39,11 +39,11 @@ func names(backups []Backup) []string {
 
 func TestEvaluateLatest(t *testing.T) {
 	catalog := []Backup{
-		{Name: "b1", StartedAt: 100},
-		{Name: "b2", StartedAt: 200},
-		{Name: "b3", StartedAt: 300},
-		{Name: "b4", StartedAt: 400},
-		{Name: "b5", StartedAt: 500},
+		{Name: "b1", StoppedAt: 100},
+		{Name: "b2", StoppedAt: 200},
+		{Name: "b3", StoppedAt: 300},
+		{Name: "b4", StoppedAt: 400},
+		{Name: "b5", StoppedAt: 500},
 	}
 
 	tests := []struct {
@@ -106,13 +106,13 @@ func TestEvaluateLatest(t *testing.T) {
 	}
 }
 
-// TestEvaluateOrdersByStartTime makes sure the survivors are chosen by
+// TestEvaluateOrdersByStopTime makes sure the survivors are chosen by
 // recency even when the catalog is supplied out of order.
-func TestEvaluateOrdersByStartTime(t *testing.T) {
+func TestEvaluateOrdersByStopTime(t *testing.T) {
 	catalog := []Backup{
-		{Name: "old", StartedAt: 100},
-		{Name: "new", StartedAt: 300},
-		{Name: "mid", StartedAt: 200},
+		{Name: "old", StoppedAt: 100},
+		{Name: "new", StoppedAt: 300},
+		{Name: "mid", StoppedAt: 200},
 	}
 
 	got := names(Evaluate(catalog, Policy{Latest: 1}))
@@ -122,13 +122,13 @@ func TestEvaluateOrdersByStartTime(t *testing.T) {
 	}
 }
 
-// TestEvaluateDeterministicTie makes sure a shared start time yields a stable
+// TestEvaluateDeterministicTie makes sure a shared stop time yields a stable
 // selection driven by the backup name.
 func TestEvaluateDeterministicTie(t *testing.T) {
 	catalog := []Backup{
-		{Name: "a", StartedAt: 100},
-		{Name: "b", StartedAt: 100},
-		{Name: "c", StartedAt: 100},
+		{Name: "a", StoppedAt: 100},
+		{Name: "b", StoppedAt: 100},
+		{Name: "c", StoppedAt: 100},
 	}
 
 	got := names(Evaluate(catalog, Policy{Latest: 1}))
@@ -142,9 +142,9 @@ func TestEvaluateDeterministicTie(t *testing.T) {
 // TestEvaluateDoesNotMutateInput guards against the copy-on-sort contract.
 func TestEvaluateDoesNotMutateInput(t *testing.T) {
 	catalog := []Backup{
-		{Name: "b1", StartedAt: 100},
-		{Name: "b2", StartedAt: 200},
-		{Name: "b3", StartedAt: 300},
+		{Name: "b1", StoppedAt: 100},
+		{Name: "b2", StoppedAt: 200},
+		{Name: "b3", StoppedAt: 300},
 	}
 	before := make([]Backup, len(catalog))
 	copy(before, catalog)
