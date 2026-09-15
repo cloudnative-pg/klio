@@ -121,7 +121,7 @@ func (w *Implementation) ApplyRetention(
 		return nil, status.Errorf(codes.Internal, "while scheduling retention: %v", err)
 	}
 
-	return &grpc.ApplyRetentionResult{Scheduled: true}, nil
+	return &grpc.ApplyRetentionResult{}, nil
 }
 
 func (w *Implementation) scheduleBackupRelay(ctx context.Context, request *grpc.CloseBackupRequest) error {

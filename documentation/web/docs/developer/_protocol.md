@@ -360,11 +360,6 @@ immediately, without waiting for the next backup.
 This is sent by the WAL server in response to an ApplyRetentionRequest.
 
 
-| Field | Type | Label | Description |
-| ----- | ---- | ----- | ----------- |
-| scheduled | [bool](#bool) |  | True when the retention has been scheduled for execution. |
-
-
 
 
 

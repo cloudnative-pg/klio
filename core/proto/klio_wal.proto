@@ -204,6 +204,4 @@ message ApplyRetentionRequest {
 
 // This is sent by the WAL server in response to an ApplyRetentionRequest.
 message ApplyRetentionResult {
-  // True when the retention has been scheduled for execution.
-  bool scheduled = 1;
 }

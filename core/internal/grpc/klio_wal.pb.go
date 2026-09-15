@@ -979,9 +979,7 @@ func (x *ApplyRetentionRequest) GetTier2RetentionPolicy() string {
 
 // This is sent by the WAL server in response to an ApplyRetentionRequest.
 type ApplyRetentionResult struct {
-	state protoimpl.MessageState `protogen:"open.v1"`
-	// True when the retention has been scheduled for execution.
-	Scheduled     bool `protobuf:"varint,1,opt,name=scheduled,proto3" json:"scheduled,omitempty"`
+	state         protoimpl.MessageState `protogen:"open.v1"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1014,13 +1012,6 @@ func (x *ApplyRetentionResult) ProtoReflect() protoreflect.Message {
 // Deprecated: Use ApplyRetentionResult.ProtoReflect.Descriptor instead.
 func (*ApplyRetentionResult) Descriptor() ([]byte, []int) {
 	return file_proto_klio_wal_proto_rawDescGZIP(), []int{15}
-}
-
-func (x *ApplyRetentionResult) GetScheduled() bool {
-	if x != nil {
-		return x.Scheduled
-	}
-	return false
 }
 
 var File_proto_klio_wal_proto protoreflect.FileDescriptor
@@ -1090,9 +1081,8 @@ const file_proto_klio_wal_proto_rawDesc = "" +
 	"\x15ApplyRetentionRequest\x12!\n" +
 	"\fcluster_name\x18\x01 \x01(\tR\vclusterName\x124\n" +
 	"\x16tier1_retention_policy\x18\x02 \x01(\tR\x14tier1RetentionPolicy\x124\n" +
-	"\x16tier2_retention_policy\x18\x03 \x01(\tR\x14tier2RetentionPolicy\"4\n" +
-	"\x14ApplyRetentionResult\x12\x1c\n" +
-	"\tscheduled\x18\x01 \x01(\bR\tscheduled2\xb5\x04\n" +
+	"\x16tier2_retention_policy\x18\x03 \x01(\tR\x14tier2RetentionPolicy\"\x16\n" +
+	"\x14ApplyRetentionResult2\xb5\x04\n" +
 	"\x03WAL\x12<\n" +
 	"\x03Put\x12\x17.klio.wal.v1.PutRequest\x1a\x16.klio.wal.v1.PutResult\"\x00(\x010\x01\x12:\n" +
 	"\x03Get\x12\x17.klio.wal.v1.GetRequest\x1a\x16.klio.wal.v1.GetResult\"\x000\x01\x12N\n" +
