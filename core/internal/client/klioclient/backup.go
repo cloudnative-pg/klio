@@ -47,7 +47,8 @@ type BackupExecutor struct {
 
 	uploader Client
 
-	startedAt int64
+	startedAt   int64
+	sendToTier2 bool
 }
 
 // NewBackupExecutor creates a new backup executor for the passed implementation.
@@ -65,6 +66,10 @@ type BackupOptions struct {
 	// Name is the backup name. If not set a new name will be generated
 	// using the current timestamp.
 	Name string
+
+	// SendToTier2 records in the backup metadata whether the backup is meant
+	// to be relayed to tier2.
+	SendToTier2 bool
 }
 
 // Start starts the execution of a backup.
@@ -76,6 +81,7 @@ func (b *BackupExecutor) Start(ctx context.Context, opts BackupOptions) error {
 	if opts.Name != "" {
 		b.name = opts.Name
 	}
+	b.sendToTier2 = opts.SendToTier2
 
 	row := b.Connection.QueryRow(ctx, "SHOW data_directory")
 	if err := row.Scan(&b.pgData); err != nil {
@@ -126,7 +132,7 @@ func (b *BackupExecutor) Start(ctx context.Context, opts BackupOptions) error {
 }
 
 // Upload starts the uploading process.
-func (b *BackupExecutor) Upload(ctx context.Context, pinned bool) error {
+func (b *BackupExecutor) Upload(ctx context.Context) error {
 	contextLogger := log.FromContext(ctx)
 
 	for i, tbl := range b.tablespaces {
@@ -136,19 +142,19 @@ func (b *BackupExecutor) Upload(ctx context.Context, pinned bool) error {
 			"current", i+1,
 			"total", len(b.tablespaces),
 		)
-		if err := b.uploader.UploadTablespace(ctx, b.name, tbl, pinned); err != nil {
+		if err := b.uploader.UploadTablespace(ctx, b.name, tbl); err != nil {
 			return err //nolint:wrapcheck
 		}
 	}
 
 	contextLogger.Info("Uploading PGDATA")
-	if err := b.uploader.UploadPgData(ctx, b.name, b.pgData, pinned); err != nil {
+	if err := b.uploader.UploadPgData(ctx, b.name, b.pgData); err != nil {
 		return err //nolint:wrapcheck
 	}
 
 	contextLogger.Info("Uploading control file")
 	controlDataFileName := path.Join(b.pgData, controlDataPath)
-	if err := b.uploader.UploadControlFile(ctx, b.name, controlDataFileName, pinned); err != nil {
+	if err := b.uploader.UploadControlFile(ctx, b.name, controlDataFileName); err != nil {
 		return err //nolint:wrapcheck
 	}
 
@@ -156,7 +162,7 @@ func (b *BackupExecutor) Upload(ctx context.Context, pinned bool) error {
 }
 
 // Close finishes a backup.
-func (b *BackupExecutor) Close(ctx context.Context, pinned bool) (*BackupMetadata, error) {
+func (b *BackupExecutor) Close(ctx context.Context) (*BackupMetadata, error) {
 	contextLogger := log.FromContext(ctx)
 
 	var tli int
@@ -216,8 +222,14 @@ func (b *BackupExecutor) Close(ctx context.Context, pinned bool) (*BackupMetadat
 		}
 	}
 
+	relay := Tier2RelaySkipped
+	if b.sendToTier2 {
+		relay = Tier2RelayRequested
+	}
+	metadata.SetAnnotation(Tier2RelayAnnotationName, relay)
+
 	contextLogger.Info("Uploading backup metadata")
-	if err := b.uploader.UploadBackupMetadata(ctx, b.name, metadata, pinned); err != nil {
+	if err := b.uploader.UploadBackupMetadata(ctx, b.name, metadata); err != nil {
 		return nil, fmt.Errorf("while uploading backup metadata: %w", err)
 	}
 

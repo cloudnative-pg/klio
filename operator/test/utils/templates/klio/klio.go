@@ -199,6 +199,8 @@ type PluginConfigurationTemplateOptions struct {
 	EnableTier2Backup bool
 	// EnableTier2Recovery enables tier2 recovery.
 	EnableTier2Recovery bool
+	// Tier1RetentionPolicy is the retention policy for tier1.
+	Tier1RetentionPolicy *kliov1alpha1.RetentionPolicy
 	// Tier2RetentionPolicy is the retention policy for tier2.
 	Tier2RetentionPolicy *kliov1alpha1.RetentionPolicy
 }
@@ -219,6 +221,13 @@ func GetPluginConfigurationObject(
 		ServerSecretName: opts.ServerCertificate.Spec.SecretName,
 		ClusterName:      opts.ClusterName,
 		Mode:             mode,
+	}
+
+	// Only populate Tier1 when a retention policy is requested for it.
+	if opts.Tier1RetentionPolicy != nil {
+		spec.Tier1 = &kliov1alpha1.Tier1PluginConfiguration{
+			RetentionPolicy: opts.Tier1RetentionPolicy,
+		}
 	}
 
 	// Only populate Tier2 if either backup or recovery is enabled

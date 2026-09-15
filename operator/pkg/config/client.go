@@ -33,7 +33,7 @@ type Data struct {
 	Client ClientConfig `json:"client" mapstructure:"client"`
 
 	// Tier1RetentionPolicy is the retention policy to be applied to tier1.
-	Tier1RetentionPolicy *RetentionPolicy `json:"tier1_retention,omitempty" mapstructure:"retention"`
+	Tier1RetentionPolicy *RetentionPolicy `json:"tier1_retention,omitempty" mapstructure:"tier1_retention"`
 
 	// Tier2RetentionPolicy is the retention policy to be applied to tier2.
 	Tier2RetentionPolicy *RetentionPolicy `json:"tier2_retention,omitempty" mapstructure:"tier2_retention"`

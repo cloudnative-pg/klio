@@ -20,6 +20,7 @@ SPDX-License-Identifier: Apache-2.0
 package config
 
 import (
+	"reflect"
 	"strings"
 	"testing"
 
@@ -94,6 +95,21 @@ source:
 			},
 		},
 		{
+			// The operator writes the retention blocks with the JSON tag keys,
+			// so the mapstructure tags must use the same names.
+			name: "retention policies",
+			yaml: `
+tier1_retention:
+  latest: 3
+tier2_retention:
+  latest: 5
+`,
+			want: Data{
+				Tier1RetentionPolicy: &RetentionPolicy{Latest: 3},
+				Tier2RetentionPolicy: &RetentionPolicy{Latest: 5},
+			},
+		},
+		{
 			name: "empty YAML produces zero-value Data",
 			yaml: `{}`,
 			want: Data{},
@@ -122,11 +138,11 @@ source:
 			if got.Source != tt.want.Source {
 				t.Errorf("Source = %+v, want %+v", got.Source, tt.want.Source)
 			}
-			if got.Tier1RetentionPolicy != tt.want.Tier1RetentionPolicy {
+			if !reflect.DeepEqual(got.Tier1RetentionPolicy, tt.want.Tier1RetentionPolicy) {
 				t.Errorf("Tier1RetentionPolicy = %v, want %v",
 					got.Tier1RetentionPolicy, tt.want.Tier1RetentionPolicy)
 			}
-			if got.Tier2RetentionPolicy != tt.want.Tier2RetentionPolicy {
+			if !reflect.DeepEqual(got.Tier2RetentionPolicy, tt.want.Tier2RetentionPolicy) {
 				t.Errorf("Tier2RetentionPolicy = %v, want %v",
 					got.Tier2RetentionPolicy, tt.want.Tier2RetentionPolicy)
 			}

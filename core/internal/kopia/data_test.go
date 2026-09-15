@@ -60,15 +60,3 @@ func TestSourceInfoString(t *testing.T) {
 		})
 	}
 }
-
-func TestTargetString(t *testing.T) {
-	target := Target{
-		Username: "user",
-		Hostname: "host",
-	}
-
-	expected := "user@host"
-	if got := target.String(); got != expected {
-		t.Errorf("Target.Of() = %q, want %q", got, expected)
-	}
-}

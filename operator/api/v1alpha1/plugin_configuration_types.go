@@ -205,31 +205,16 @@ func (s *PluginConfigurationSpec) GetWALPrefetch() WALPrefetchConfiguration {
 	return result
 }
 
-// RetentionPolicy defines how many backups we should keep.
+// RetentionPolicy defines which backups Klio should keep. Omitting the whole
+// policy, or leaving it empty, keeps every backup. The field is optional so
+// that objects stored by earlier versions (with the old Kopia-style keys, now
+// pruned) remain writable after the CRD upgrade.
 type RetentionPolicy struct {
-	// KeepLatest is the number of latest backups to keep
-	// optional
-	KeepLatest *int `json:"keepLatest,omitempty" mapstructure:"keepLatest"`
-
-	// KeepAnnual is the number of annual backups to keep
-	// optional
-	KeepAnnual *int `json:"keepAnnual,omitempty" mapstructure:"keepAnnual"`
-
-	// KeepMonthly is the number of monthly backups to keep
-	// optional
-	KeepMonthly *int `json:"keepMonthly,omitempty" mapstructure:"keepMonthly"`
-
-	// KeepWeekly is the number of weekly backups to keep
-	// optional
-	KeepWeekly *int `json:"keepWeekly,omitempty" mapstructure:"keepWeekly"`
-
-	// KeepDaily is the number of daily backups to keep
-	// optional
-	KeepDaily *int `json:"keepDaily,omitempty" mapstructure:"keepDaily"`
-
-	// KeepHourly is the number of hourly backups to keep
-	// optional
-	KeepHourly *int `json:"keepHourly,omitempty" mapstructure:"keepHourly"`
+	// Latest keeps only the given number of most recent backups and deletes the
+	// rest.
+	// +optional
+	// +kubebuilder:validation:Minimum=1
+	Latest int `json:"latest,omitempty" mapstructure:"latest"`
 }
 
 // PluginConfigurationStatus defines the observed state of ClientConfig.

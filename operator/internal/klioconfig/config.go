@@ -157,17 +157,15 @@ func GenerateConfig(
 }
 
 func convertRetentionPolicy(p *kliov1alpha1.RetentionPolicy) *config.RetentionPolicy {
-	if p == nil {
+	// A stored object written before the "latest" field existed reads back
+	// with Latest 0 (the old keys are pruned): treat it as no policy instead
+	// of emitting a config that fails client validation.
+	if p == nil || p.Latest < 1 {
 		return nil
 	}
 
 	return &config.RetentionPolicy{
-		KeepLatest:  p.KeepLatest,
-		KeepAnnual:  p.KeepAnnual,
-		KeepMonthly: p.KeepMonthly,
-		KeepWeekly:  p.KeepWeekly,
-		KeepDaily:   p.KeepDaily,
-		KeepHourly:  p.KeepHourly,
+		Latest: p.Latest,
 	}
 }
 
