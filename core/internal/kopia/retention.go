@@ -29,27 +29,6 @@ import (
 	"github.com/cloudnative-pg/machinery/pkg/log"
 )
 
-// policyTarget is the source a Kopia policy applies to, as printed by
-// `kopia policy list --json`. The global policy has every field empty.
-type policyTarget struct {
-	Host     string `json:"host"`
-	UserName string `json:"userName"`
-	Path     string `json:"path"`
-}
-
-// String formats the target the way `kopia policy set` parses it.
-func (t policyTarget) String() string {
-	if t.Path == "" {
-		return t.UserName + "@" + t.Host
-	}
-
-	return t.UserName + "@" + t.Host + ":" + t.Path
-}
-
-func (t policyTarget) isGlobal() bool {
-	return t.Host == "" && t.UserName == "" && t.Path == ""
-}
-
 // DisableKopiaRetention turns off Kopia's own snapshot retention in the
 // repository, since Klio applies retention itself. `kopia repository create`
 // stores Kopia's default retention counters in the global policy and every
@@ -71,7 +50,7 @@ func (s *Client) DisableKopiaRetention(ctx context.Context) error {
 	}
 
 	for _, target := range targets {
-		if target.isGlobal() {
+		if target.IsGlobal() {
 			continue
 		}
 
@@ -121,7 +100,7 @@ func kopiaRetentionCounters() []string {
 	}
 }
 
-func (s *Client) listPolicyTargets(ctx context.Context) ([]policyTarget, error) {
+func (s *Client) listPolicyTargets(ctx context.Context) ([]SourceInfo, error) {
 	listCmd := exec.CommandContext(ctx, s.KopiaBinary, //nolint:gosec
 		"policy", "list", "--json", "--config-file="+s.ConfigFile, "--disable-file-logging")
 	listCmd.Env = s.kopiaEnvironmentVariables()
@@ -134,15 +113,15 @@ func (s *Client) listPolicyTargets(ctx context.Context) ([]policyTarget, error) 
 	return parsePolicyTargets(stdout.Bytes())
 }
 
-func parsePolicyTargets(raw []byte) ([]policyTarget, error) {
+func parsePolicyTargets(raw []byte) ([]SourceInfo, error) {
 	var policies []struct {
-		Target policyTarget `json:"target"`
+		Target SourceInfo `json:"target"`
 	}
 	if err := json.Unmarshal(raw, &policies); err != nil {
 		return nil, fmt.Errorf("while unmarshalling Kopia policy list %q: %w", string(raw), err)
 	}
 
-	targets := make([]policyTarget, len(policies))
+	targets := make([]SourceInfo, len(policies))
 	for i := range policies {
 		targets[i] = policies[i].Target
 	}
