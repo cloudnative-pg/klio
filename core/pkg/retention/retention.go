@@ -41,11 +41,13 @@ type Backup struct {
 	// Name uniquely identifies the backup within a cluster.
 	Name string
 
-	// StartedAt is the backup start time, in Unix seconds. It is the
-	// chronological key used to order the catalog.
+	// StartedAt is the backup start time, in Unix seconds.
 	StartedAt int64
 
-	// StoppedAt is the backup completion time, in Unix seconds.
+	// StoppedAt is the backup completion time, in Unix seconds. It is the
+	// chronological key used to order the catalog: unlike StartedAt, it
+	// cannot be skewed by how long an unrelated, possibly overlapping backup
+	// took to run, only by when this one actually finished.
 	StoppedAt int64
 }
 
@@ -53,7 +55,7 @@ type Backup struct {
 // therefore be deleted. The input slice is not modified, and a backup is never
 // returned more than once.
 //
-// For the "latest" criterion the N most recent backups (ordered by StartedAt,
+// For the "latest" criterion the N most recent backups (ordered by StoppedAt,
 // most recent first) are kept and every older backup is expired. A policy with
 // Latest below 1 keeps everything and yields no expired backups.
 func Evaluate(catalog []Backup, policy Policy) []Backup {
@@ -69,13 +71,13 @@ func Evaluate(catalog []Backup, policy Policy) []Backup {
 	}
 
 	// Order a copy from most to least recent so the survivors are the newest
-	// backups. StartedAt is the primary key; the name breaks ties so the
-	// outcome is deterministic when two backups share a start time.
+	// backups. StoppedAt is the primary key; the name breaks ties so the
+	// outcome is deterministic when two backups share a stop time.
 	ordered := make([]Backup, len(catalog))
 	copy(ordered, catalog)
 	sort.Slice(ordered, func(i, j int) bool {
-		if ordered[i].StartedAt != ordered[j].StartedAt {
-			return ordered[i].StartedAt > ordered[j].StartedAt
+		if ordered[i].StoppedAt != ordered[j].StoppedAt {
+			return ordered[i].StoppedAt > ordered[j].StoppedAt
 		}
 
 		return ordered[i].Name > ordered[j].Name
