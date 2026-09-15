@@ -58,15 +58,26 @@ func (d *Backup) runTier1Retention(ctx context.Context, task *queue.BackupTask) 
 		return fmt.Errorf("invalid cluster name %q: %w", clusterName, err)
 	}
 
+	// List tier1 backups once and share it between the retention guard and
+	// applyRetention below: listing it twice let the two see different,
+	// concurrently-changing snapshots of the same cluster, the same race class
+	// fixed for tier1-vs-tier2 in aa7f5879.
+	tier1Backups, err := d.tier1Client.ListBackups(ctx, clusterName)
+	if err != nil {
+		return fmt.Errorf("while listing tier1 backups for cluster %q: %w", clusterName, err)
+	}
+
 	// Delete the tier1 base backups that fall outside the retention policy,
 	// while never deleting one that has not yet reached tier2, so no base backup
 	// is lost before it is durable on tier2.
-	keep, err := d.tier1RetentionGuard(ctx, clusterName)
+	keep, err := d.tier1RetentionGuard(ctx, clusterName, tier1Backups)
 	if err != nil {
 		return err
 	}
 
-	if err := d.applyRetention(ctx, d.tier1Client, clusterName, task.Tier1RetentionPolicy, keep); err != nil {
+	if err := d.applyRetention(
+		ctx, d.tier1Client, clusterName, tier1Backups, task.Tier1RetentionPolicy, keep,
+	); err != nil {
 		return fmt.Errorf("while applying tier1 retention policy: %w", err)
 	}
 
@@ -76,9 +87,13 @@ func (d *Backup) runTier1Retention(ctx context.Context, task *queue.BackupTask) 
 // tier1RetentionGuard returns a predicate that reports whether a tier1 backup
 // must be kept because it has not yet been fully migrated to tier2. When tier2
 // is not configured there is nothing to protect and the predicate is nil.
+// tier1Backups is the caller's already-listed tier1 catalog, so the guard's
+// view of "what exists on tier1" agrees with the one applyRetention evaluates
+// the policy against.
 func (d *Backup) tier1RetentionGuard(
 	ctx context.Context,
 	clusterName string,
+	tier1Backups klioclient.BackupList,
 ) (func(backup *klioclient.BackupMetadata) bool, error) {
 	if !d.tier2Enabled {
 		return nil, nil
@@ -94,12 +109,6 @@ func (d *Backup) tier1RetentionGuard(
 	if err != nil {
 		return nil, fmt.Errorf(
 			"while listing tier2 snapshots to guard tier1 retention for cluster %q: %w", clusterName, err)
-	}
-
-	tier1Backups, err := d.tier1Client.ListBackups(ctx, clusterName)
-	if err != nil {
-		return nil, fmt.Errorf(
-			"while listing tier1 backups to guard tier1 retention for cluster %q: %w", clusterName, err)
 	}
 
 	return keepUntilOnTier2(tier1Snapshots, tier2Snapshots, tier1Backups), nil
