@@ -55,8 +55,15 @@ var instanceCmd = &cobra.Command{
 		podName, _ := cmd.Flags().GetString("pod-name")
 		clusterName, _ := cmd.Flags().GetString("cluster-name")
 		clusterNamespace, _ := cmd.Flags().GetString("cluster-namespace")
+		pgData, _ := cmd.Flags().GetString("pgdata")
 
+		// One sidecar serves every phase of the instance: the restore hooks
+		// while the cluster bootstraps from a Klio backup, backup and WAL
+		// archiving afterwards. Each service picks its repository per request
+		// from the cluster definition, so nothing has to be swapped once the
+		// recovery completes, and a backup requested meanwhile is served.
 		capabilities := func(server *cnpgi.CNPGI) {
+			server.AddRestoreCapability(pgData)
 			server.AddBackupCapability(cnpgi.BackupCapabilityOptions{
 				Tier2: configuration.Tier2BackupEnabled,
 			})
@@ -114,6 +121,11 @@ func init() {
 		"pod-name",
 		"",
 		"The name of the current instance",
+	)
+	instanceCmd.Flags().String(
+		"pgdata",
+		"/var/lib/postgresql/data/pgdata",
+		"The PGDATA directory a restore is unpacked into",
 	)
 
 	CnpgiCmd.AddCommand(instanceCmd)
