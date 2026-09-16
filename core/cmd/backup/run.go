@@ -157,6 +157,9 @@ func runBackup(cmd *cobra.Command, _ []string) error {
 		contextLogger.Error(err, "Error while serializing the tier2 retention policy, skipping")
 	}
 
+	contextLogger.Info("Sending retention policies with the backup close request",
+		"tier1RetentionPolicy", tier1RetentionPolicy, "tier2RetentionPolicy", tier2RetentionPolicy)
+
 	for {
 		//nolint:gosec // postgres timeline is uint32 in practice, fits int32
 		timeline := int32(metadata.Timeline)

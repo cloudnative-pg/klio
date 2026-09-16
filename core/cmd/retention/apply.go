@@ -86,6 +86,10 @@ func runApply(cmd *cobra.Command, _ []string) error {
 			backupfailure.RepositoryError.ExitCode)
 	}
 
+	contextLogger.Info("Sending on-demand retention apply request",
+		"cluster", configuration.Client.ClusterName,
+		"tier1RetentionPolicy", tier1RetentionPolicy, "tier2RetentionPolicy", tier2RetentionPolicy)
+
 	if _, err := grpcClient.ApplyRetention(cmd.Context(), &grpc.ApplyRetentionRequest{
 		ClusterName:          configuration.Client.ClusterName,
 		Tier1RetentionPolicy: tier1RetentionPolicy,

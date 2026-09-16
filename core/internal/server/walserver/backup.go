@@ -112,6 +112,9 @@ func (w *Implementation) ApplyRetention(
 	tier1Policy := parseRetentionPolicy(ctx, "tier1", request.GetTier1RetentionPolicy())
 	tier2Policy := parseRetentionPolicy(ctx, "tier2", request.GetTier2RetentionPolicy())
 
+	log.FromContext(ctx).Info("Scheduling on-demand retention apply",
+		"cluster", request.GetClusterName(), "tier1Policy", tier1Policy, "tier2Policy", tier2Policy)
+
 	if err := w.queue.NotifyBackupReceived(ctx, &queue.BackupTask{
 		ClusterName:          request.GetClusterName(),
 		MaintenanceOnly:      true,
@@ -144,6 +147,10 @@ func (w *Implementation) scheduleBackupRelay(ctx context.Context, request *grpc.
 			tier2Compression = &policy
 		}
 	}
+
+	log.FromContext(ctx).Info("Scheduling post-backup maintenance",
+		"cluster", request.GetClusterName(), "sendToTier2", request.GetSendToTier2(),
+		"tier1Policy", tier1Policy, "tier2Policy", tier2Policy)
 
 	if err := w.queue.NotifyBackupReceived(ctx, &queue.BackupTask{
 		ClusterName:            request.GetClusterName(),
