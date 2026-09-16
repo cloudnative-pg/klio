@@ -636,14 +636,6 @@ The following containers can be customized:
   the Klio server in PostgreSQL instance pods, and restores backups while the
   cluster bootstraps from a Klio backup
 
-:::note
-
-Earlier releases injected a separate `klio-restore` container during
-recovery. A `klio-restore` entry in `containers` is still accepted so existing
-resources keep validating, but it is ignored: customize `klio-plugin` instead.
-
-:::
-
 ### Example: Resource limits and environment variables
 
 ```yaml
