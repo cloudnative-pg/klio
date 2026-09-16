@@ -163,7 +163,7 @@ func TestFindUserContainer(t *testing.T) {
 			containerName: KlioPluginContainerName,
 			customContainers: []corev1.Container{
 				{
-					Name:  "klio-restore",
+					Name:  "other-container",
 					Image: "other-image:latest",
 				},
 			},
@@ -648,10 +648,10 @@ func applyPatch[T client.Object](t *testing.T, resp *lifecycle.OperatorLifecycle
 	return result
 }
 
-// findInitContainer returns the init container with the given name, or nil.
-func findInitContainer(pod *corev1.Pod, name string) *corev1.Container {
+// findSidecar returns the klio-plugin init container, or nil.
+func findSidecar(pod *corev1.Pod) *corev1.Container {
 	for i := range pod.Spec.InitContainers {
-		if pod.Spec.InitContainers[i].Name == name {
+		if pod.Spec.InitContainers[i].Name == KlioPluginContainerName {
 			return &pod.Spec.InitContainers[i]
 		}
 	}
@@ -861,7 +861,7 @@ func TestReconcilePodPluginSelection(t *testing.T) {
 		require.NotNil(t, resp, "primary pod of replica cluster should get a sidecar")
 
 		patchedPod := applyPatch(t, resp, pod)
-		sidecar := findInitContainer(patchedPod, KlioPluginContainerName)
+		sidecar := findSidecar(patchedPod)
 		require.NotNil(t, sidecar, "sidecar init container should be present")
 		assert.Equal(t, "source-image:latest", sidecar.Image,
 			"sidecar should use the image from the source PluginConfiguration")
@@ -919,7 +919,7 @@ func TestReconcilePodPluginSelection(t *testing.T) {
 		require.NotNil(t, resp)
 
 		patchedPod := applyPatch(t, resp, pod)
-		sidecar := findInitContainer(patchedPod, KlioPluginContainerName)
+		sidecar := findSidecar(patchedPod)
 		require.NotNil(t, sidecar, "sidecar init container should be present")
 		assert.Equal(t, "archive-image:latest", sidecar.Image,
 			"sidecar should use the image from the archive PluginConfiguration, not the source")
@@ -1251,8 +1251,7 @@ func TestBootstrapSidecar(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, resp)
 		patched := applyPatch(t, resp, pod)
-		assert.Nil(t, findInitContainer(patched, "klio-restore"), "no dedicated restore sidecar")
-		sidecar := findInitContainer(patched, KlioPluginContainerName)
+		sidecar := findSidecar(patched)
 		assertInstanceSidecar(t, sidecar)
 		assert.Equal(t, "recovery-image:latest", sidecar.Image)
 		assert.Contains(t, sidecar.Args, testPodName)
@@ -1272,8 +1271,7 @@ func TestBootstrapSidecar(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, resp)
 		patched := applyPatch(t, resp, pod)
-		assert.Nil(t, findInitContainer(patched, "klio-restore"))
-		sidecar := findInitContainer(patched, KlioPluginContainerName)
+		sidecar := findSidecar(patched)
 		assertInstanceSidecar(t, sidecar)
 		assert.Equal(t, "archive-image:latest", sidecar.Image)
 		assert.Contains(t, sidecar.Args, expectedArchiveConfigPath)
