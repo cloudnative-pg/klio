@@ -22,7 +22,7 @@ require (
 	github.com/klauspost/compress v1.20.0
 	github.com/minio/sio v0.5.1
 	github.com/nats-io/jsm.go v0.4.2-0.20260709123851-d83d1a19c05f // pinned to main for StreamPager cross-delivery fix; switch to a released tag once available
-	github.com/nats-io/nats-server/v2 v2.14.6
+	github.com/nats-io/nats-server/v2 v2.14.7
 	github.com/nats-io/nats.go v1.53.1
 	github.com/onsi/ginkgo/v2 v2.32.2
 	github.com/onsi/gomega v1.43.0
@@ -62,7 +62,7 @@ require (
 	github.com/GoogleCloudPlatform/opentelemetry-operations-go/detectors/gcp v1.36.0 // indirect
 	github.com/Masterminds/semver/v3 v3.5.0 // indirect
 	github.com/Microsoft/go-winio v0.6.2 // indirect
-	github.com/antithesishq/antithesis-sdk-go v0.7.2-default-no-op // indirect
+	github.com/antithesishq/antithesis-sdk-go v0.8.0-default-no-op // indirect
 	github.com/avast/retry-go/v5 v5.0.0 // indirect
 	github.com/aws/aws-sdk-go-v2/aws/protocol/eventstream v1.7.20 // indirect
 	github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.20.0 // indirect
@@ -204,7 +204,7 @@ require (
 	golang.org/x/sys v0.48.0 // indirect
 	golang.org/x/term v0.46.0 // indirect
 	golang.org/x/text v0.42.0 // indirect
-	golang.org/x/time v0.15.0 // indirect
+	golang.org/x/time v0.16.0 // indirect
 	golang.org/x/tools v0.49.0 // indirect
 	gomodules.xyz/jsonpatch/v2 v2.5.0 // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20260825221802-da73d73af1c5 // indirect
