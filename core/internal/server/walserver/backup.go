@@ -46,10 +46,9 @@ func (w *Implementation) CloseBackup(
 	}
 
 	// By default a client calls CloseBackup again until no WAL is missing, so
-	// the task is deferred to that call. A client that does not wait (a
-	// backup taken on a standby, which cannot force a WAL switch on the
-	// primary) calls only once and asks to enqueue the task right away, or
-	// the backup would never be processed.
+	// the task is deferred to that call. A client may not wait for the WALs to be archived,
+	// and can set EnqueueWithoutWals to true in the request
+	// to force the backup to be enqueued even if some WALs are missing.
 	if len(missingWALFiles) > 0 && !request.GetEnqueueWithoutWals() {
 		return &grpc.CloseBackupResult{
 			Tier2Schedule:   false,

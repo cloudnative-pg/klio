@@ -748,9 +748,8 @@ type CloseBackupRequest struct {
 	Tier2CompressionPolicy string `protobuf:"bytes,10,opt,name=tier2_compression_policy,json=tier2CompressionPolicy,proto3" json:"tier2_compression_policy,omitempty"`
 	// Enqueue the post-backup task even if WAL files are still missing. A
 	// client that leaves this unset calls CloseBackup again until no WAL file
-	// is missing, and the server defers the task until that call. A backup
-	// taken on a standby sets it: the standby cannot force a WAL switch on the
-	// primary, so its last segment may take a long time to arrive.
+	// is missing, and the server defers the task until that call. A client can
+	// request an immediate enqueue of the post-backup task by setting this to true.
 	EnqueueWithoutWals bool `protobuf:"varint,11,opt,name=enqueue_without_wals,json=enqueueWithoutWals,proto3" json:"enqueue_without_wals,omitempty"`
 	unknownFields      protoimpl.UnknownFields
 	sizeCache          protoimpl.SizeCache

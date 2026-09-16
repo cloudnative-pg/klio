@@ -120,8 +120,8 @@ func newCloseBackupRequest(enqueueWithoutWALs bool) *grpc.CloseBackupRequest {
 	}
 }
 
-// TestCloseBackupMissingWALsWithoutWaitEnqueuesTask covers a backup taken on
-// a standby: the client does not wait for the last WAL, so the post-backup
+// TestCloseBackupMissingWALsWithoutWaitEnqueuesTask covers a backup taken
+// with a client that does not wait for the last WAL to be archived, so the post-backup
 // task must be enqueued on this single call or the backup is never relayed.
 func TestCloseBackupMissingWALsWithoutWaitEnqueuesTask(t *testing.T) {
 	impl, q := newCloseBackupServer(t)
@@ -137,8 +137,8 @@ func TestCloseBackupMissingWALsWithoutWaitEnqueuesTask(t *testing.T) {
 	require.True(t, task.SendToTier2)
 }
 
-// TestCloseBackupMissingWALsWithWaitDefersTask covers a backup taken on the
-// primary: the client retries CloseBackup until no WAL is missing, so the
+// TestCloseBackupMissingWALsWithWaitDefersTask covers a backup taken with a client
+// that waits for the last WAL to be archived: the client retries CloseBackup until no WAL is missing, so the
 // task must not be enqueued before then.
 func TestCloseBackupMissingWALsWithWaitDefersTask(t *testing.T) {
 	impl, q := newCloseBackupServer(t)
