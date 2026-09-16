@@ -31,6 +31,15 @@ const BackupContentTagName = "klio.io/content"
 // name of the tablespace.
 const TablespaceNameTagName = "klio.io/tablespaceName"
 
-// Tier2Pin is the name of the pin indicating that this
-// snapshot should not be deleted until it is uploaded to tier2.
-const Tier2Pin = "klio.io/tier2"
+// Tier2RelayAnnotationName is the metadata annotation recording whether the
+// client asked for the backup to be relayed to tier2. Backups taken before
+// the annotation existed carry none and are treated as relayed.
+const Tier2RelayAnnotationName = "klio.io/tier2-relay"
+
+// Tier2RelaySkipped is the Tier2RelayAnnotationName value of a backup that is
+// not meant to reach tier2, so tier1 retention need not wait for it.
+const Tier2RelaySkipped = "skipped"
+
+// Tier2RelayRequested is the Tier2RelayAnnotationName value of a backup that
+// must reach tier2 before tier1 retention can delete it.
+const Tier2RelayRequested = "requested"

@@ -17,19 +17,15 @@ limitations under the License.
 SPDX-License-Identifier: Apache-2.0
 */
 
-package retention
+package kopia
 
 import (
-	"github.com/spf13/cobra"
+	"context"
+
+	"github.com/cloudnative-pg/klio/core/internal/kopia"
 )
 
-// RetentionCmd the `klio backup` command
-//
-//nolint:gochecknoglobals
-var RetentionCmd = &cobra.Command{
-	Use:   "retention",
-	Short: "Manage the retention policy",
-	// Uncomment the following line if your bare application
-	// has an action associated with it:
-	// Run: func(cmd *cobra.Command, args []string) { },
+// SetCompressionPolicy sets the compression policy for backups of this cluster.
+func (s *Connection) SetCompressionPolicy(ctx context.Context, t kopia.Target, policy kopia.CompressionPolicy) error {
+	return s.kopia.SetKopiaCompressionPolicy(ctx, t, policy)
 }

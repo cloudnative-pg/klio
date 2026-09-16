@@ -8,6 +8,27 @@ This page lists version-specific changes that may require
 manual action when upgrading Klio. For the upgrade procedure,
 see the [Helm chart page](helm_chart.mdx#upgrades).
 
+## Unreleased
+
+### Klio-managed retention policies
+
+Retention is now evaluated by the Klio server against its own backup catalog
+instead of being delegated to Kopia.
+
+- The `retention` block of the `PluginConfiguration` changed shape. The
+  Kopia-style `keepLatest`, `keepHourly`, `keepDaily`, `keepWeekly`,
+  `keepMonthly` and `keepAnnual` fields are replaced by a single `latest`
+  field, which keeps the given number of most recent backups. Update any
+  `tier1.retention` and `tier2.retention` blocks accordingly. Omit the block to
+  keep every backup; when present, `latest` must be at least `1`.
+- Kopia's own retention is disabled: on start, the Klio server sets the
+  global Kopia retention policy of each tier to keep every snapshot and
+  resets the per-source retention policies written by earlier versions to
+  inherit it. No manual action is required.
+- The `klio retention get` and `klio retention set` commands have been
+  removed. Retention is configured only through the `PluginConfiguration`;
+  `klio retention apply` enforces it on demand.
+
 ## 0.0.20 to 0.0.21
 
 ### Migrating from the Multi-PVC Model

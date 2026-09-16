@@ -209,7 +209,7 @@ customize the plugin's behavior.
 
 ### Retention policies
 
-Define how long backups should be retained by configuring retention policies
+Define which backups should be retained by configuring retention policies
 for Tier 1 and Tier 2 storage. Retention policies can be configured
 independently for each tier:
 
@@ -225,47 +225,37 @@ spec:
   clusterName: cluster-example
   tier1:
     retention:
-      keepLatest: 5
-      keepHourly: 12
-      keepDaily: 7
-      keepWeekly: 4
-      keepMonthly: 6
-      keepAnnual: 2
+      latest: 5
   tier2:
     enableBackup: true
     enableRecovery: true
     retention:
-      keepLatest: 10
-      keepDaily: 30
-      keepMonthly: 12
-      keepAnnual: 5
+      latest: 10
 ```
 
-Except for `keepLatest`, each option defines how many backups to retain
-for the specified time period. For example, `keepDaily: 7` means that we should
-retain at most one backup for each of the past 7 days.
-
-If multiple backups exist within the same time bucket, the most recent one is
-kept, unless preserved by a different *keep* rule. Backups that are not
-retained by any rule are deleted. Rule evaluation is done when a new backup is
-taken.
+The `latest` option keeps only the given number of most recent backups and
+deletes the rest. Retention is evaluated by the Klio server against its own
+backup catalog every time a new backup is taken.
 
 The Klio server will automatically delete WAL files that are no longer needed
 for recovery by any retained backup.
 
-All retention settings are optional. For each unspecified retention level,
-the default Kopia value is applied:
+The retention policy is optional and must be set to at least `1` when present.
+Omit it entirely to keep every backup.
 
-```yaml
-keepLatest: 10
-keepHourly: 48
-keepDaily: 7
-keepWeekly: 4
-keepMonthly: 24
-keepAnnual: 1
-```
+Backups are ordered by the start time recorded by the PostgreSQL instance
+that took them. Keep the clocks of the instances in sync (as Kubernetes nodes
+normally are): after a switchover, a clock behind the previous primary's makes
+the newest backup look older than it is, and a tight `latest` policy may
+expire it first.
 
-Set a rule to `0` to disable that retention level.
+With tier 2 enabled, a tier 1 backup is never deleted before all of its
+snapshots have reached tier 2, unless it was taken with tier 2 backup
+disabled.
+
+A change to the retention policy takes effect the next time a backup is taken.
+To apply it immediately, for example to reclaim space after tightening the
+policy, run `klio retention apply`.
 
 ### Compression policies
 
@@ -457,8 +447,7 @@ spec:
     enableBackup: true
     enableRecovery: true
     retention:
-      keepDaily: 30
-      keepMonthly: 12
+      latest: 10
 ```
 
 #### Options

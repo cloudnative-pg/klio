@@ -33,6 +33,5 @@ Manage the retention policy
 ### SEE ALSO
 
 * [klio](klio.md)	 - PostgreSQL Backup & Recovery for CloudNativePG
-* [klio retention get](klio_retention_get.md)	 - Gets the currently applied retention policy
-* [klio retention set](klio_retention_set.md)	 - Sets the currently applied retention policy
+* [klio retention apply](klio_retention_apply.md)	 - Apply the configured retention policy immediately
 

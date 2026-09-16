@@ -1,25 +1,23 @@
 ---
-title: klio retention set
+title: klio retention apply
 ---
 
-## klio retention set
+## klio retention apply
 
-Sets the currently applied retention policy
+Apply the configured retention policy immediately
+
+### Synopsis
+
+Apply the retention policy from the configuration to the target cluster without waiting for the next backup, to free space on demand.
 
 ```
-klio retention set [flags]
+klio retention apply [flags]
 ```
 
 ### Options
 
 ```
-  -h, --help               help for set
-      --keep-annual int    Number of most recent annual backup kept
-      --keep-daily int     Number of most recent daily backup kept
-      --keep-hourly int    Number of most recent hourly backup kept
-      --keep-latest int    Number of most recent latest backup kept
-      --keep-monthly int   Number of most recent monthly backup kept
-      --keep-weekly int    Number of most recent weekly backup kept
+  -h, --help   help for apply
 ```
 
 ### Options inherited from parent commands

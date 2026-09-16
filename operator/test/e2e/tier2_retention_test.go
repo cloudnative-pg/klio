@@ -271,12 +271,7 @@ func NewTier2RetentionFeatureConfig(
 			EnableTier2Recovery: false,
 			Mode:                kliov1alpha1.ModeStandard,
 			Tier2RetentionPolicy: &kliov1alpha1.RetentionPolicy{
-				KeepLatest:  new(tier2RetentionKeepNum),
-				KeepHourly:  new(0),
-				KeepDaily:   new(0),
-				KeepWeekly:  new(0),
-				KeepMonthly: new(0),
-				KeepAnnual:  new(0),
+				Latest: tier2RetentionKeepNum,
 			},
 		},
 	)
@@ -312,22 +307,24 @@ func NewTier2RetentionFeatureConfig(
 	}
 
 	return klioFeatures.Tier2RetentionFeatureConfig{
-		Name:        name,
-		Setup:       scenario.Setup,
-		Teardown:    scenario.Teardown,
-		Backups:     backups,
-		KlioServer:  klioServer,
-		Namespace:   namespace,
-		KeepLatest:  tier2RetentionKeepNum,
-		ClusterName: cnpgClusterName,
-		S3Prefix:    s3Prefix,
+		Name:                    name,
+		Setup:                   scenario.Setup,
+		Teardown:                scenario.Teardown,
+		Backups:                 backups,
+		KlioServer:              klioServer,
+		Namespace:               namespace,
+		KeepLatest:              tier2RetentionKeepNum,
+		ClusterName:             cnpgClusterName,
+		S3Prefix:                s3Prefix,
+		PluginConfigurationName: pluginConfigurationName,
 	}
 }
 
 // Tier2Retention returns a Tier2RetentionFeature for testing tier2 retention.
-// This test validates both backup retention (Kopia snapshots kept to keepLatest=1)
-// and WAL retention (cleanup of WALs older than the oldest remaining backup).
+// It keeps the two most recent backups, takes three, and verifies the oldest is
+// deleted; it then tightens the policy to one and applies it on demand with
+// `klio retention apply`. It also validates WAL retention.
 func Tier2Retention(namespace string) *klioFeatures.Tier2RetentionFeature {
 	return klioFeatures.NewTier2RetentionFeature(
-		NewTier2RetentionFeatureConfig("Tier2Retention", namespace, 1))
+		NewTier2RetentionFeatureConfig("Tier2Retention", namespace, 2))
 }
