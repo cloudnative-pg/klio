@@ -88,7 +88,9 @@ type PluginConfigurationSpec struct {
 	// resource limits, and other container settings without polluting the PostgreSQL container environment.
 	//
 	// Merge behavior:
-	// - Containers are matched by name (klio-plugin, klio-restore)
+	// - Containers are matched by name (klio-plugin). A klio-restore entry is
+	//   accepted for backward compatibility but ignored: the klio-plugin sidecar
+	//   also serves the recovery.
 	// - User customizations serve as the base
 	// - Klio required values (name, args, CONTAINER_NAME env var) always override user values
 	// - User-defined environment variables and volume mounts are preserved

@@ -30,6 +30,7 @@ import (
 	jsonpatch "github.com/evanphx/json-patch/v5"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -414,7 +415,7 @@ func TestBuildInstanceSidecarTemplate(t *testing.T) {
 			},
 		}
 
-		result := buildInstanceSidecarTemplate(pod, cluster, clusterPC, klioconfig.ArchiveConfigKey)
+		result := buildInstanceSidecarTemplate(pod.Name, cluster, clusterPC, klioconfig.ArchiveConfigKey)
 
 		// Klio required values are set
 		assert.Equal(t, KlioPluginContainerName, result.Name)
@@ -455,7 +456,7 @@ func TestBuildInstanceSidecarTemplate(t *testing.T) {
 			},
 		}
 
-		result := buildInstanceSidecarTemplate(pod, cluster, clusterPC, klioconfig.ArchiveConfigKey)
+		result := buildInstanceSidecarTemplate(pod.Name, cluster, clusterPC, klioconfig.ArchiveConfigKey)
 
 		assert.Equal(t, KlioPluginContainerName, result.Name)
 		assert.Equal(t, []string{
@@ -477,7 +478,7 @@ func TestBuildInstanceSidecarTemplate(t *testing.T) {
 			Spec: kliov1alpha1.PluginConfigurationSpec{},
 		}
 
-		result := buildInstanceSidecarTemplate(pod, cluster, clusterPC, klioconfig.ArchiveConfigKey)
+		result := buildInstanceSidecarTemplate(pod.Name, cluster, clusterPC, klioconfig.ArchiveConfigKey)
 
 		assert.Equal(t, KlioPluginContainerName, result.Name)
 		assert.Equal(t, []string{
@@ -495,7 +496,7 @@ func TestBuildInstanceSidecarTemplate(t *testing.T) {
 	})
 
 	t.Run("with nil clusterPC", func(t *testing.T) {
-		result := buildInstanceSidecarTemplate(pod, cluster, nil, klioconfig.ArchiveConfigKey)
+		result := buildInstanceSidecarTemplate(pod.Name, cluster, nil, klioconfig.ArchiveConfigKey)
 
 		assert.Equal(t, KlioPluginContainerName, result.Name)
 		assert.Equal(t, []string{
@@ -509,7 +510,7 @@ func TestBuildInstanceSidecarTemplate(t *testing.T) {
 	})
 
 	t.Run("without archiving", func(t *testing.T) {
-		result := buildInstanceSidecarTemplate(pod, cluster, nil, "")
+		result := buildInstanceSidecarTemplate(pod.Name, cluster, nil, "")
 
 		assert.Equal(t, KlioPluginContainerName, result.Name)
 		assert.Equal(t, []string{
@@ -538,7 +539,7 @@ func TestBuildInstanceSidecarTemplate(t *testing.T) {
 			},
 		}
 
-		result := buildInstanceSidecarTemplate(pod, cluster, clusterPC, klioconfig.ArchiveConfigKey)
+		result := buildInstanceSidecarTemplate(pod.Name, cluster, clusterPC, klioconfig.ArchiveConfigKey)
 
 		// Should get the default template, not the custom one
 		assert.Equal(t, KlioPluginContainerName, result.Name)
@@ -1131,5 +1132,235 @@ func TestSidecarSecurityContext(t *testing.T) {
 	t.Run("returns nil on OpenShift", func(t *testing.T) {
 		sc := sidecarSecurityContext(true)
 		assert.Nil(t, sc)
+	})
+}
+
+// TestBootstrapSidecar covers the sidecar injected while a cluster bootstraps
+// from a Klio backup. It must be the same klio-plugin sidecar used afterwards,
+// so a backup requested during recovery finds the backup capability (#268).
+func TestBootstrapSidecar(t *testing.T) {
+	scheme := newTestScheme(t)
+	const (
+		recoveryPCName = "recovery-pc"
+		sourceName     = "source-cluster"
+		archivePCName  = "archive-pc"
+	)
+	makeCluster := func(withArchive bool) *cnpgv1.Cluster {
+		cluster := &cnpgv1.Cluster{
+			TypeMeta: metav1.TypeMeta{
+				APIVersion: cnpgv1.SchemeGroupVersion.String(),
+				Kind:       "Cluster",
+			},
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      testClusterName,
+				Namespace: testClusterNamespace,
+			},
+			Spec: cnpgv1.ClusterSpec{
+				Bootstrap: &cnpgv1.BootstrapConfiguration{
+					Recovery: &cnpgv1.BootstrapRecovery{Source: sourceName},
+				},
+				ExternalClusters: []cnpgv1.ExternalCluster{
+					{
+						Name: sourceName,
+						PluginConfiguration: &cnpgv1.PluginConfiguration{
+							Name:    klioconfig.PluginName,
+							Enabled: new(true),
+							Parameters: map[string]string{
+								klioconfig.PluginConfigurationRefParam: recoveryPCName,
+							},
+						},
+					},
+				},
+			},
+		}
+		if withArchive {
+			cluster.Spec.Plugins = []cnpgv1.PluginConfiguration{
+				{
+					Name:    klioconfig.PluginName,
+					Enabled: new(true),
+					Parameters: map[string]string{
+						klioconfig.PluginConfigurationRefParam: archivePCName,
+					},
+				},
+			}
+		}
+
+		return cluster
+	}
+	makePC := func(name, image string) *kliov1alpha1.PluginConfiguration {
+		return &kliov1alpha1.PluginConfiguration{
+			ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: testClusterNamespace},
+			Spec: kliov1alpha1.PluginConfigurationSpec{
+				ClusterName:      testClusterName,
+				ServerAddress:    "klio-server.example.com",
+				ClientSecretName: "client-secret",
+				ServerSecretName: "server-secret",
+				Containers: []corev1.Container{
+					{Name: KlioPluginContainerName, Image: image},
+				},
+			},
+		}
+	}
+	makePod := func() *corev1.Pod {
+		return &corev1.Pod{
+			TypeMeta: metav1.TypeMeta{Kind: "Pod", APIVersion: "v1"},
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      testPodName,
+				Namespace: testClusterNamespace,
+			},
+			Spec: corev1.PodSpec{
+				Containers: []corev1.Container{{Name: "postgres"}},
+			},
+		}
+	}
+	makeJob := func() *batchv1.Job {
+		return &batchv1.Job{
+			TypeMeta: metav1.TypeMeta{Kind: "Job", APIVersion: "batch/v1"},
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      testClusterName + "-1-full-recovery",
+				Namespace: testClusterNamespace,
+			},
+			Spec: batchv1.JobSpec{
+				Template: corev1.PodTemplateSpec{
+					ObjectMeta: metav1.ObjectMeta{
+						Labels: map[string]string{"cnpg.io/jobRole": "full-recovery"},
+					},
+					Spec: corev1.PodSpec{
+						Containers: []corev1.Container{{Name: "full-recovery"}},
+					},
+				},
+			},
+		}
+	}
+	assertInstanceSidecar := func(t *testing.T, sidecar *corev1.Container) {
+		t.Helper()
+		require.NotNil(t, sidecar, "klio-plugin sidecar must be injected")
+		require.Greater(t, len(sidecar.Args), 1)
+		assert.Equal(t, []string{"cnpgi", "instance"}, sidecar.Args[:2],
+			"bootstrap sidecar must run the full instance server")
+		assert.NotContains(t, sidecar.Args, "restore")
+	}
+
+	t.Run("bootstrapping pod without archive gets the instance sidecar from the recovery PC", func(t *testing.T) {
+		cluster := makeCluster(false)
+		pod := makePod()
+		fakeClient := fake.NewClientBuilder().WithScheme(scheme).
+			WithObjects(makePC(recoveryPCName, "recovery-image:latest")).Build()
+		impl := LifecycleImplementation{Client: fakeClient}
+		resp, err := impl.reconcilePod(context.Background(), cluster, buildLifecycleRequest(t, cluster, pod))
+		require.NoError(t, err)
+		require.NotNil(t, resp)
+		patched := applyPatch(t, resp, pod)
+		assert.Nil(t, findInitContainer(patched, "klio-restore"), "no dedicated restore sidecar")
+		sidecar := findInitContainer(patched, KlioPluginContainerName)
+		assertInstanceSidecar(t, sidecar)
+		assert.Equal(t, "recovery-image:latest", sidecar.Image)
+		assert.Contains(t, sidecar.Args, testPodName)
+		assert.NotContains(t, sidecar.Args, argConfig, "no archive: nothing to watch or archive")
+	})
+
+	t.Run("bootstrapping pod with archive gets the archive-configured instance sidecar", func(t *testing.T) {
+		cluster := makeCluster(true)
+		pod := makePod()
+		fakeClient := fake.NewClientBuilder().WithScheme(scheme).
+			WithObjects(
+				makePC(recoveryPCName, "recovery-image:latest"),
+				makePC(archivePCName, "archive-image:latest"),
+			).Build()
+		impl := LifecycleImplementation{Client: fakeClient}
+		resp, err := impl.reconcilePod(context.Background(), cluster, buildLifecycleRequest(t, cluster, pod))
+		require.NoError(t, err)
+		require.NotNil(t, resp)
+		patched := applyPatch(t, resp, pod)
+		assert.Nil(t, findInitContainer(patched, "klio-restore"))
+		sidecar := findInitContainer(patched, KlioPluginContainerName)
+		assertInstanceSidecar(t, sidecar)
+		assert.Equal(t, "archive-image:latest", sidecar.Image)
+		assert.Contains(t, sidecar.Args, expectedArchiveConfigPath)
+	})
+
+	t.Run("bootstrap spec equals steady-state spec so no rollout follows recovery", func(t *testing.T) {
+		cluster := makeCluster(true)
+		fakeClient := fake.NewClientBuilder().WithScheme(scheme).
+			WithObjects(
+				makePC(recoveryPCName, "recovery-image:latest"),
+				makePC(archivePCName, "archive-image:latest"),
+			).Build()
+		impl := LifecycleImplementation{Client: fakeClient}
+		bootstrapPod := makePod()
+		resp, err := impl.reconcilePod(context.Background(), cluster,
+			buildLifecycleRequest(t, cluster, bootstrapPod))
+		require.NoError(t, err)
+		bootstrapped := applyPatch(t, resp, bootstrapPod)
+
+		cluster.Status.CurrentPrimary = testPodName
+		cluster.Status.TargetPrimary = testPodName
+		steadyPod := makePod()
+		resp, err = impl.reconcilePod(context.Background(), cluster,
+			buildLifecycleRequest(t, cluster, steadyPod))
+		require.NoError(t, err)
+		steady := applyPatch(t, resp, steadyPod)
+		assert.Equal(t, steady.Spec, bootstrapped.Spec)
+	})
+
+	t.Run("recovery through klio with missing ref returns an error", func(t *testing.T) {
+		cluster := makeCluster(false)
+		cluster.Spec.ExternalClusters[0].PluginConfiguration.Parameters = nil
+		fakeClient := fake.NewClientBuilder().WithScheme(scheme).Build()
+		impl := LifecycleImplementation{Client: fakeClient}
+		_, err := impl.reconcilePod(context.Background(), cluster, buildLifecycleRequest(t, cluster, makePod()))
+		require.ErrorIs(t, err, errRecoveryPluginConfigurationMissing)
+	})
+
+	t.Run("recovery through klio with missing ref and an archive returns an error", func(t *testing.T) {
+		cluster := makeCluster(true)
+		cluster.Spec.ExternalClusters[0].PluginConfiguration.Parameters = nil
+		fakeClient := fake.NewClientBuilder().WithScheme(scheme).
+			WithObjects(makePC(archivePCName, "archive-image:latest")).Build()
+		impl := LifecycleImplementation{Client: fakeClient}
+		_, err := impl.reconcilePod(context.Background(), cluster, buildLifecycleRequest(t, cluster, makePod()))
+		require.ErrorIs(t, err, errRecoveryPluginConfigurationMissing)
+	})
+
+	t.Run("recovery through another plugin without archive gets no sidecar", func(t *testing.T) {
+		cluster := makeCluster(false)
+		cluster.Spec.ExternalClusters[0].PluginConfiguration.Name = "other.plugin.io"
+		fakeClient := fake.NewClientBuilder().WithScheme(scheme).Build()
+		impl := LifecycleImplementation{Client: fakeClient}
+		resp, err := impl.reconcilePod(context.Background(), cluster, buildLifecycleRequest(t, cluster, makePod()))
+		require.NoError(t, err)
+		assert.Nil(t, resp)
+	})
+
+	t.Run("recovery job gets the instance sidecar without a pod name", func(t *testing.T) {
+		cluster := makeCluster(false)
+		job := makeJob()
+		fakeClient := fake.NewClientBuilder().WithScheme(scheme).
+			WithObjects(makePC(recoveryPCName, "recovery-image:latest")).Build()
+		impl := LifecycleImplementation{Client: fakeClient}
+		resp, err := impl.reconcileJob(context.Background(), cluster, buildLifecycleRequest(t, cluster, job))
+		require.NoError(t, err)
+		require.NotNil(t, resp)
+		patched := applyPatch(t, resp, job)
+		var sidecar *corev1.Container
+		for i := range patched.Spec.Template.Spec.InitContainers {
+			if patched.Spec.Template.Spec.InitContainers[i].Name == KlioPluginContainerName {
+				sidecar = &patched.Spec.Template.Spec.InitContainers[i]
+			}
+		}
+		assertInstanceSidecar(t, sidecar)
+		assert.Equal(t, "recovery-image:latest", sidecar.Image)
+		assert.NotContains(t, sidecar.Args, argPodName, "a job pod has no known name at spec time")
+	})
+
+	t.Run("recovery job through another plugin is left alone", func(t *testing.T) {
+		cluster := makeCluster(true)
+		cluster.Spec.ExternalClusters[0].PluginConfiguration.Name = "other.plugin.io"
+		fakeClient := fake.NewClientBuilder().WithScheme(scheme).
+			WithObjects(makePC(archivePCName, "archive-image:latest")).Build()
+		impl := LifecycleImplementation{Client: fakeClient}
+		resp, err := impl.reconcileJob(context.Background(), cluster, buildLifecycleRequest(t, cluster, makeJob()))
+		require.NoError(t, err)
+		assert.Nil(t, resp)
 	})
 }

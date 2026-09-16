@@ -144,64 +144,81 @@ func (impl LifecycleImplementation) LifecycleHook(
 	}
 }
 
-// buildRestoreSidecar resolves the Klio recovery source plugin configuration and
-// returns the restore-mode sidecar to inject into a recovery bootstrap. It
-// returns ok=false when the cluster is not recovering through the Klio plugin.
-func (impl LifecycleImplementation) buildRestoreSidecar(
-	ctx context.Context,
-	cluster *cnpgv1.Cluster,
-) (corev1.Container, bool, error) {
-	contextLogger := log.FromContext(ctx).WithName("klio-restore-sidecar")
+// errRecoveryPluginConfigurationMissing is returned when the cluster recovers
+// through the Klio plugin but the recovery source names no PluginConfiguration.
+var errRecoveryPluginConfigurationMissing = errors.New(
+	"recovery plugin configuration missing '" + klioconfig.PluginConfigurationRefParam + "' parameter")
 
+// klioRecoverySource returns the config key of the external cluster the
+// cluster bootstraps from, and whether that recovery goes through the Klio
+// plugin.
+func klioRecoverySource(cluster *cnpgv1.Cluster) (string, bool) {
 	recoveryPluginConfig := cluster.GetRecoverySourcePlugin()
 	if recoveryPluginConfig == nil ||
 		recoveryPluginConfig.Name != klioconfig.PluginName ||
 		!recoveryPluginConfig.IsEnabled() {
-		// not our plugin, skip
-		return corev1.Container{}, false, nil
+		return "", false
 	}
 
-	if recoveryPluginConfig.Parameters[klioconfig.PluginConfigurationRefParam] == "" {
-		contextLogger.Warning("recovery plugin configuration missing 'ref' parameter")
-		return corev1.Container{}, false, errors.New("recovery plugin configuration missing 'ref' parameter")
-	}
+	recoveryExternalCluster, _ := cluster.ExternalCluster(cluster.Spec.Bootstrap.Recovery.Source)
 
-	clusterPC := &kliov1alpha1.PluginConfiguration{}
-	if err := impl.Client.Get(ctx,
-		client.ObjectKey{
-			Namespace: cluster.Namespace,
-			Name:      recoveryPluginConfig.Parameters[klioconfig.PluginConfigurationRefParam],
-		},
-		clusterPC); err != nil {
-		contextLogger.Error(err, "Failed to get client configuration")
-		return corev1.Container{}, false, fmt.Errorf("failed to get client configuration: %w", err)
-	}
-
-	// Resolve the config key for the recovery source.
-	recoverySource := cluster.Spec.Bootstrap.Recovery.Source
-	recoveryExternalCluster, _ := cluster.ExternalCluster(recoverySource)
-	configKey := recoveryExternalCluster.GetServerName()
-
-	// Build the restore sidecar with merge strategy:
-	// 1. Start from user customization if present (as the base)
-	// 2. Apply Klio required values (name, args, essential env vars)
-	// 3. Template defaults will be merged later in reconcilePodSpec
-	restoreSidecar := findUserContainer("klio-restore", clusterPC.Spec.Containers)
-	restoreSidecar.Args = []string{
-		"cnpgi",
-		"restore",
-		"--config", "/var/lib/postgresql/klio/" + configKey,
-		pgdata,
-	}
-	restoreSidecar.Env = ensureEnvVar(restoreSidecar.Env, corev1.EnvVar{
-		Name:  "CONTAINER_NAME",
-		Value: "klio-restore",
-	})
-
-	return restoreSidecar, true, nil
+	return recoveryExternalCluster.GetServerName(), true
 }
 
-// reconcileJob injects the restore sidecar into a recovery Job. Older
+// selectPluginConfiguration picks the PluginConfiguration the sidecar of the
+// given instance is customized from, and the config key of the archive
+// configuration when the instance archives. It reports ok=false when the
+// instance needs no sidecar at all.
+//
+// The same klio-plugin sidecar serves every phase: restore hooks and WAL
+// restore during a bootstrap, backup and WAL archiving afterwards. It picks the
+// repository per request from the cluster definition, so the pod spec does not
+// change once recovery completes and a backup requested meanwhile is served.
+func selectPluginConfiguration(
+	cluster *cnpgv1.Cluster,
+	podName string,
+	plugins klioconfig.ClusterPlugins,
+) (*kliov1alpha1.PluginConfiguration, string, bool, error) {
+	// While the cluster bootstraps from a Klio backup the restore reads the
+	// recovery source configuration, so it must be resolved whatever else the
+	// cluster does: failing here is clearer than a restore hook failing on a
+	// missing file later.
+	var recoveryPC *kliov1alpha1.PluginConfiguration
+	if cluster.Status.CurrentPrimary == "" {
+		if key, ok := klioRecoverySource(cluster); ok {
+			recoveryPC, ok = plugins[key]
+			if !ok {
+				return nil, "", false, errRecoveryPluginConfigurationMissing
+			}
+		}
+	}
+
+	if pc, ok := plugins[klioconfig.ArchiveConfigKey]; ok {
+		return pc, klioconfig.ArchiveConfigKey, true, nil
+	}
+
+	// No archive plugin. The sidecar is still needed while the cluster
+	// bootstraps from a Klio backup...
+	if recoveryPC != nil {
+		return recoveryPC, "", true, nil
+	}
+
+	// ...and on the designated primary of a replica cluster, which restores
+	// WALs from the external source.
+	if !cluster.IsReplica() || cluster.Status.TargetPrimary != podName {
+		return nil, "", false, nil
+	}
+	ext, _ := cluster.ExternalCluster(cluster.Spec.ReplicaCluster.Source)
+	pc, ok := plugins[ext.GetServerName()]
+	if !ok {
+		// The cluster may be replicating using a different plugin
+		return nil, "", false, nil
+	}
+
+	return pc, "", true, nil
+}
+
+// reconcileJob injects the Klio sidecar into a recovery Job. Older
 // CloudNativePG releases run recovery bootstrap as a dedicated Job; newer
 // versions run it inside the instance pod instead (handled by reconcilePod).
 func (impl LifecycleImplementation) reconcileJob(
@@ -217,11 +234,7 @@ func (impl LifecycleImplementation) reconcileJob(
 		return nil, err
 	}
 
-	restoreSidecar, ok, err := impl.buildRestoreSidecar(ctx, cluster)
-	if err != nil {
-		return nil, err
-	}
-	if !ok {
+	if _, ok := klioRecoverySource(cluster); !ok {
 		// not our plugin, skip
 		return nil, nil
 	}
@@ -246,6 +259,16 @@ func (impl LifecycleImplementation) reconcileJob(
 		return nil, nil
 	}
 
+	// A Job pod has no name at spec time: the sidecar never becomes the
+	// primary's WAL sender, so none is needed.
+	targetPC, archiveConfigKey, ok, err := selectPluginConfiguration(cluster, "", plugins)
+	if err != nil {
+		return nil, err
+	}
+	if !ok {
+		return nil, nil
+	}
+
 	mutatedJob := job.DeepCopy()
 	cnpgGroup, cnpgVersion := cnpgGroupVersion(cluster)
 	if err := reconcilePodSpec(
@@ -253,7 +276,7 @@ func (impl LifecycleImplementation) reconcileJob(
 		&mutatedJob.Spec.Template.Spec,
 		jobRole,
 		reconcilePodSpecConfiguration{
-			sidecarsToEnrich: []corev1.Container{restoreSidecar},
+			sidecarsToEnrich: []corev1.Container{buildInstanceSidecarTemplate("", cluster, targetPC, archiveConfigKey)},
 			cnpgGroup:        cnpgGroup,
 			cnpgVersion:      cnpgVersion,
 			plugins:          plugins,
@@ -296,43 +319,16 @@ func (impl LifecycleImplementation) reconcilePod(
 		return nil, err
 	}
 
-	// When CloudNativePG runs recovery bootstrap inside the instance pod (as an
-	// init container), the restore hooks must be served by a sidecar in this
-	// pod. Inject the restore sidecar while the cluster performs its initial
-	// recovery bootstrap.
-	if cluster.Status.CurrentPrimary == "" {
-		restoreSidecar, ok, rerr := impl.buildRestoreSidecar(ctx, cluster)
-		if rerr != nil {
-			return nil, rerr
-		}
-		if ok {
-			return impl.injectPodSidecars(ctx, cluster, pod, plugins, []corev1.Container{restoreSidecar})
-		}
+	targetPC, archiveConfigKey, ok, err := selectPluginConfiguration(cluster, pod.Name, plugins)
+	if err != nil {
+		return nil, err
 	}
-
-	archiveConfigKey := klioconfig.ArchiveConfigKey
-	targetPC, ok := plugins[klioconfig.ArchiveConfigKey]
 	if !ok {
-		// No archive plugin. The only case where the instance sidecar is
-		// still needed is the designated primary of a replica cluster,
-		// which restores WALs from the external source.
-		if !cluster.IsReplica() ||
-			cluster.Status.TargetPrimary != pod.Name {
-			return nil, nil
-		}
-
-		replicaSource := cluster.Spec.ReplicaCluster.Source
-		ext, _ := cluster.ExternalCluster(replicaSource)
-		archiveConfigKey = ""
-		targetPC, ok = plugins[ext.GetServerName()]
-		if !ok {
-			// The cluster may be replicating using a different plugin
-			return nil, nil
-		}
+		return nil, nil
 	}
 
 	return impl.injectPodSidecars(ctx, cluster, pod, plugins,
-		[]corev1.Container{buildInstanceSidecarTemplate(pod, cluster, targetPC, archiveConfigKey)})
+		[]corev1.Container{buildInstanceSidecarTemplate(pod.Name, cluster, targetPC, archiveConfigKey)})
 }
 
 // injectPodSidecars enriches the pod spec with the given Klio sidecars and
@@ -379,7 +375,7 @@ func (impl LifecycleImplementation) injectPodSidecars(
 }
 
 func buildInstanceSidecarTemplate(
-	pod *corev1.Pod,
+	podName string,
 	cluster *cnpgv1.Cluster,
 	clusterPC *kliov1alpha1.PluginConfiguration,
 	archiveConfigKey string,
@@ -390,13 +386,14 @@ func buildInstanceSidecarTemplate(
 	// 3. Template defaults will be merged later in reconcilePodSpec
 	sidecar := corev1.Container{Name: KlioPluginContainerName}
 
-	args := []string{
-		"cnpgi",
-		"instance",
-		"--pod-name", pod.Name,
+	args := []string{"cnpgi", "instance"}
+	if podName != "" {
+		args = append(args, "--pod-name", podName)
+	}
+	args = append(args,
 		"--cluster-name", cluster.Name,
 		"--cluster-namespace", cluster.Namespace,
-	}
+	)
 
 	if archiveConfigKey != "" {
 		args = append(args, "--config", path.Join("/var/lib/postgresql/klio/", archiveConfigKey))

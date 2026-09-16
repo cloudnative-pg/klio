@@ -15,10 +15,3 @@ spec:
       envFrom:
         - configMapRef:
             name: cluster-klio-otel-config
-    - name: klio-restore
-      env:
-        - name: OTEL_SERVICE_NAME
-          value: "klio-restore"
-      envFrom:
-        - configMapRef:
-            name: cluster-klio-otel-config

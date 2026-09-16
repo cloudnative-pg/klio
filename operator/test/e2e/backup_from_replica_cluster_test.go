@@ -44,8 +44,8 @@ import (
 	"github.com/cloudnative-pg/klio/operator/test/utils/templates/secrets"
 )
 
-// ReplicaClusterBackupFeature verifies that an immediate backup taken from a
-// freshly-created replica cluster completes.
+// ReplicaClusterBackupFeature verifies that a backup requested as soon as a
+// replica cluster is created, before its bootstrap completes, completes.
 type ReplicaClusterBackupFeature struct {
 	scenario *commonBackupRestoreScenario
 
@@ -220,8 +220,8 @@ func (f *ReplicaClusterBackupFeature) Setup() types.StepFunc {
 	return f.scenario.Setup
 }
 
-// Run backs up the source cluster, bootstraps the replica cluster, then takes an
-// immediate backup of the replica cluster and asserts it completes.
+// Run backs up the source cluster, creates the replica cluster together with a
+// backup request for it, and asserts both the bootstrap and the backup complete.
 func (f *ReplicaClusterBackupFeature) Run() types.StepFunc {
 	return func(ctx context.Context, t *testing.T, cfg *envconf.Config) context.Context {
 		t.Helper()
@@ -250,20 +250,40 @@ func (f *ReplicaClusterBackupFeature) Run() types.StepFunc {
 		require.NoError(t, r.Create(ctx, f.replicaPluginConfiguration),
 			"failed to create replica plugin configuration")
 		require.NoError(t, r.Create(ctx, f.replicaCluster), "failed to create replica cluster")
+
+		// Request the backup right away, as a ScheduledBackup with `immediate`
+		// created together with the cluster does. CloudNativePG dispatches it as
+		// soon as the instance is ready, which is while the cluster is still
+		// completing its bootstrap: the sidecar must already serve backups at
+		// that point (#268).
+		require.NoError(t, r.Create(ctx, f.replicaBackup), "failed to create replica backup")
+
+		// The bootstrapping pod must be the one serving the backup: the same
+		// sidecar covers recovery and backups, so no rollout follows the
+		// bootstrap. Remember the first pod and check it survives.
+		firstPod := &corev1.Pod{}
+		require.NoError(t, wait.For(func(ctx context.Context) (bool, error) {
+			err := r.Get(ctx, f.replicaCluster.Name+"-1", f.replicaCluster.Namespace, firstPod)
+			return err == nil, nil
+		}, wait.WithTimeout(f.recoveryTimeout), wait.WithInterval(f.checkInterval)),
+			"replica cluster pod not created")
+
 		require.NoError(t, wait.For(
 			machineryConditions.ClusterIsReady(r, f.replicaCluster),
 			wait.WithTimeout(f.recoveryTimeout),
 			wait.WithInterval(f.checkInterval),
 		), "replica cluster not ready")
 
-		// The immediate backup of the freshly-created replica cluster must
-		// complete.
-		require.NoError(t, r.Create(ctx, f.replicaBackup), "failed to create replica backup")
 		require.NoError(t, wait.For(
 			machineryConditions.BackupIsCompleted(r, f.replicaBackup),
 			wait.WithTimeout(f.replicaBackupTimeout),
 			wait.WithInterval(f.checkInterval),
 		), "replica cluster backup not completed")
+
+		currentPod := &corev1.Pod{}
+		require.NoError(t, r.Get(ctx, firstPod.Name, firstPod.Namespace, currentPod))
+		require.Equal(t, firstPod.UID, currentPod.UID,
+			"the bootstrapping pod must not be recreated once recovery completes")
 
 		return ctx
 	}
