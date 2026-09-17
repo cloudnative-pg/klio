@@ -44,7 +44,7 @@ EXTERNAL_RESIZER_VERSION="v2.2.1"
 # renovate: datasource=github-releases depName=kubernetes-csi/external-snapshotter
 EXTERNAL_SNAPSHOTTER_VERSION="v8.6.0"
 # renovate: datasource=github-releases depName=kubernetes-csi/external-health-monitor
-EXTERNAL_HEALTH_MONITOR_VERSION="v0.18.0"
+EXTERNAL_HEALTH_MONITOR_VERSION="v0.19.0"
 
 workdir=$(mktemp -d)
 trap 'rm -rf "${workdir}"' EXIT
