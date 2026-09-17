@@ -100,7 +100,7 @@ func TestConfigFileWatcherInitialReadFailure(t *testing.T) {
 
 	err := watcher(ctx)
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "while reading initial config file")
+	assert.Contains(t, err.Error(), "while reading initial config")
 }
 
 func TestConfigFileWatcherTransientReadError(t *testing.T) {
@@ -180,4 +180,112 @@ func TestHashFile(t *testing.T) {
 		require.NoError(t, err)
 		assert.NotEmpty(t, hash) // SHA256 of empty string is a valid hash
 	})
+}
+
+// writeProjectedSecret lays out a directory the way the kubelet does for a
+// projected Secret volume: a timestamped data directory, a `..data` symlink
+// pointing at it, and one symlink per key at the top level.
+func writeProjectedSecret(t *testing.T, dir string, files map[string]string) {
+	t.Helper()
+
+	dataDir := filepath.Join(dir, "..2026_09_16_00_00_00.000000000")
+	require.NoError(t, os.MkdirAll(dataDir, 0o700))
+	for name, content := range files {
+		require.NoError(t, os.WriteFile(filepath.Join(dataDir, name), []byte(content), 0o600))
+		_ = os.Remove(filepath.Join(dir, name))
+		require.NoError(t, os.Symlink(filepath.Join("..data", name), filepath.Join(dir, name)))
+	}
+	_ = os.Remove(filepath.Join(dir, "..data"))
+	require.NoError(t, os.Symlink(filepath.Base(dataDir), filepath.Join(dir, "..data")))
+}
+
+func TestHashPathDirectory(t *testing.T) {
+	t.Run("follows the projected secret layout", func(t *testing.T) {
+		dir := t.TempDir()
+		writeProjectedSecret(t, dir, map[string]string{
+			"klio-archive": "archive",
+			"source":       "recovery source",
+		})
+
+		hash, err := hashPath(dir)
+		require.NoError(t, err)
+		assert.NotEmpty(t, hash)
+	})
+
+	t.Run("changes when a sibling file changes", func(t *testing.T) {
+		dir := t.TempDir()
+		writeProjectedSecret(t, dir, map[string]string{
+			"klio-archive": "archive",
+			"source":       "recovery source",
+		})
+		before, err := hashPath(dir)
+		require.NoError(t, err)
+
+		writeProjectedSecret(t, dir, map[string]string{
+			"klio-archive": "archive",
+			"source":       "rotated recovery source",
+		})
+		after, err := hashPath(dir)
+		require.NoError(t, err)
+
+		assert.NotEqual(t, before, after)
+	})
+
+	t.Run("changes when a file is renamed", func(t *testing.T) {
+		dir := t.TempDir()
+		require.NoError(t, os.WriteFile(filepath.Join(dir, "a"), []byte("same"), 0o600))
+		before, err := hashPath(dir)
+		require.NoError(t, err)
+
+		require.NoError(t, os.Rename(filepath.Join(dir, "a"), filepath.Join(dir, "b")))
+		after, err := hashPath(dir)
+		require.NoError(t, err)
+
+		assert.NotEqual(t, before, after)
+	})
+
+	t.Run("is stable across polls", func(t *testing.T) {
+		dir := t.TempDir()
+		writeProjectedSecret(t, dir, map[string]string{"klio-archive": "archive"})
+
+		first, err := hashPath(dir)
+		require.NoError(t, err)
+		second, err := hashPath(dir)
+		require.NoError(t, err)
+
+		assert.Equal(t, first, second)
+	})
+
+	t.Run("hashes a plain file like hashFile", func(t *testing.T) {
+		file := filepath.Join(t.TempDir(), testConfigFileName)
+		require.NoError(t, os.WriteFile(file, []byte("content"), 0o600))
+
+		fromPath, err := hashPath(file)
+		require.NoError(t, err)
+		fromFile, err := hashFile(file)
+		require.NoError(t, err)
+
+		assert.Equal(t, fromFile, fromPath)
+	})
+}
+
+func TestConfigFileWatcherDetectsSiblingChange(t *testing.T) {
+	dir := t.TempDir()
+	writeProjectedSecret(t, dir, map[string]string{
+		"klio-archive": "archive",
+		"source":       "recovery source",
+	})
+
+	watcher := NewConfigFileWatcher(dir, 50*time.Millisecond)
+
+	go func() {
+		time.Sleep(100 * time.Millisecond)
+		// Rewrite the file through its symlink, as a Secret rotation would.
+		_ = os.WriteFile(filepath.Join(dir, "source"), []byte("rotated recovery source"), 0o600)
+	}()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+
+	assert.ErrorIs(t, watcher(ctx), ErrConfigFileChanged)
 }
