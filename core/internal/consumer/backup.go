@@ -89,11 +89,15 @@ type BackupOptions struct {
 	// RunSecret is the secret credential for server control operations.
 	RunSecret string
 
+	// Tier1ServerAddress is the address of the tier 1 Kopia server.
+	Tier1ServerAddress string
+
 	// Tier2ServerAddress is the address of the tier 2 Kopia server.
 	Tier2ServerAddress string
 
-	// Tier2ServerCertificateFingerprint is the SHA256 fingerprint of the tier 2 server certificate.
-	Tier2ServerCertificateFingerprint string
+	// ServerCertificateFingerprint is the SHA256 fingerprint of the Kopia
+	// server certificate. Tier1 and tier2 share the same certificate.
+	ServerCertificateFingerprint string
 
 	// Tier2WALRepository is the connection to the tier 2 WAL repository.
 	// Used to apply WAL retention after backup retention is applied.
@@ -445,13 +449,24 @@ func manifestListToDescriptors(entries []kopia.Manifest) []string {
 	return result.ToSortedList()
 }
 
+// refreshTier1KopiaServer makes sure the tier 1 kopia server
+// has downloaded the latest manifests from the object store.
+func (d *Backup) refreshTier1KopiaServer(ctx context.Context) error {
+	return d.tier1Kopia.RefreshServer(ctx, kopia.RefreshServerOptions{
+		ServerControlUser:     d.opts.RunID,
+		ServerControlPassword: d.opts.RunSecret,
+		ServerCertFingerprint: d.opts.ServerCertificateFingerprint,
+		Address:               d.opts.Tier1ServerAddress,
+	})
+}
+
 // refreshTier2KopiaServer makes sure the tier 2 kopia server
 // has downloaded the latest manifests from the object store.
 func (d *Backup) refreshTier2KopiaServer(ctx context.Context) error {
 	return d.tier2Kopia.RefreshServer(ctx, kopia.RefreshServerOptions{
 		ServerControlUser:     d.opts.RunID,
 		ServerControlPassword: d.opts.RunSecret,
-		ServerCertFingerprint: d.opts.Tier2ServerCertificateFingerprint,
+		ServerCertFingerprint: d.opts.ServerCertificateFingerprint,
 		Address:               d.opts.Tier2ServerAddress,
 	})
 }

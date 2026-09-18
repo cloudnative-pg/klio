@@ -217,12 +217,21 @@ confirm after that warning.
   delete an ID that no longer matched anything: the command failed and the
   real backup (and its WALs) stayed pinned. Klio no longer pins snapshots.
 - A direct write that only **deletes** snapshots (the tier1/tier2 retention
-  apply) does **not** need a refresh: it removes IDs the server may still list,
-  but it never rewrites a live backup's ID, and WAL retention is recomputed from
-  the consumer's own direct `ListBackups`, not the server's cache. A stale server
-  here only lists an already-deleted snapshot, which is harmless. Do not add a
-  refresh after these unless you can name a concrete manifest-ID divergence it
-  fixes.
+  apply) never corrupts the consumer's own decisions: it removes IDs the server
+  may still list, but never rewrites a live backup's ID, and every consumer-side
+  read that matters (retention itself, WAL retention, `verifyTier1`/
+  `verifyTier2Backups`) goes through the consumer's own direct `ListBackups`,
+  never the server's cache. But it does need a refresh (`refreshTier1KopiaServer`/
+  `refreshTier2KopiaServer`, both called right after that tier's retention apply
+  succeeds) for a different, real reason: `klio backup get-metadata`, `verify`,
+  `restore`, and `list`/`delete` all connect *through* the server
+  (`MultiConnect`/`ConnectTier1`/`ConnectTier2`), and `get-metadata`'s result
+  feeds the Backup CR status via the CNPGI sidecar. Without the refresh, one of
+  these can observe an already-deleted backup for up to the server's staleness
+  window (15 min lazy reload, or the 4h server-wide timer) right after a
+  retention cycle. Keep the refresh after any tier's retention-delete step; do
+  not remove it without naming which of these server-routed callers it's safe to
+  leave stale.
 
 Do not introduce direct-write paths anywhere else. If, after warning the user, a
 new direct write is genuinely unavoidable, it must be paired with a server

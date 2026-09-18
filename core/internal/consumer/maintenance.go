@@ -95,6 +95,13 @@ func (d *Backup) runTier1Retention(ctx context.Context, task *queue.BackupTask) 
 		return fmt.Errorf("while applying tier1 retention policy: %w", err)
 	}
 
+	// Refresh the tier1 server cache so it reflects the post-retention manifest
+	// list before WAL retention lists the surviving backups (best-effort).
+	log.FromContext(ctx).Info("Refreshing tier1 Kopia server cache to reflect post-retention manifest list")
+	if err := d.refreshTier1KopiaServer(ctx); err != nil {
+		log.FromContext(ctx).Error(err, "Error while refreshing Kopia server cache, skipping")
+	}
+
 	return d.applyTier1WALRetention(ctx, clusterName)
 }
 
