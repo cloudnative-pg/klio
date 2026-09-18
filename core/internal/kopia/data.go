@@ -36,7 +36,7 @@ type Manifest struct {
 	Description string `json:"description"`
 
 	// StartTime is when the snapshot started.
-	StartTime string `json:"startTime"`
+	StartTime UTCTimestamp `json:"startTime"`
 
 	// EndTime is when the snapshot completed.
 	EndTime UTCTimestamp `json:"endTime"`

@@ -21,6 +21,7 @@ package consumer
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 
@@ -58,8 +59,8 @@ func (d *Backup) runTier1Retention(ctx context.Context, task *queue.BackupTask) 
 		return fmt.Errorf("invalid cluster name %q: %w", clusterName, err)
 	}
 
-	// List tier1 backups once and share it between the retention guard and
-	// applyRetention below: listing it twice let the two see different,
+	// List tier1 backups and snapshots once and share them between the steps
+	// below: listing separately let two of them see different,
 	// concurrently-changing snapshots of the same cluster, the same race class
 	// fixed for tier1-vs-tier2 in aa7f5879.
 	tier1Backups, err := d.tier1Client.ListBackups(ctx, clusterName)
@@ -67,10 +68,23 @@ func (d *Backup) runTier1Retention(ctx context.Context, task *queue.BackupTask) 
 		return fmt.Errorf("while listing tier1 backups for cluster %q: %w", clusterName, err)
 	}
 
+	tier1Snapshots, err := d.listManifests(ctx, clusterName)
+	if err != nil {
+		return fmt.Errorf("while listing tier1 snapshots for cluster %q: %w", clusterName, err)
+	}
+
+	// Delete tier1 snapshot parts that never got a metadata snapshot (the
+	// backup died between uploading its parts and closing), once a newer
+	// backup proves they were abandoned. Best-effort: a failure here must not
+	// block the retention and WAL cleanup below for this cycle.
+	if err := deleteAbandonedOrphans(ctx, d.tier1Client, clusterName, tier1Snapshots, tier1Backups); err != nil {
+		log.FromContext(ctx).Error(err, "Error while deleting abandoned orphan backups, skipping")
+	}
+
 	// Delete the tier1 base backups that fall outside the retention policy,
 	// while never deleting one that has not yet reached tier2, so no base backup
 	// is lost before it is durable on tier2.
-	keep, err := d.tier1RetentionGuard(ctx, clusterName, tier1Backups)
+	keep, err := d.tier1RetentionGuard(ctx, clusterName, tier1Snapshots, tier1Backups)
 	if err != nil {
 		return err
 	}
@@ -84,32 +98,133 @@ func (d *Backup) runTier1Retention(ctx context.Context, task *queue.BackupTask) 
 	return d.applyTier1WALRetention(ctx, clusterName)
 }
 
+// deleteAbandonedOrphans deletes snapshot parts of a backup that never
+// received a metadata snapshot on this tier, once a newer backup has reached
+// this tier successfully. A backup's metadata snapshot is the last part
+// written on each tier (tier1: klioclient.BackupExecutor.Close uploads it
+// last; tier2: relayTier2's MigrateSnapshots call can likewise migrate some
+// parts and not others before failing), so a backup that dies partway
+// through leaves parts with no metadata behind on that tier: invisible to
+// ListBackups there and therefore never retention-managed on it.
+//
+// Klio processes one backup at a time per cluster, so a newer backup
+// reaching a real, catalogued completion on this tier proves the
+// metadata-less one is not still arriving: it is a permanently abandoned
+// attempt, the same newer-backup-proves-it trick keepUntilOnTier2 uses for
+// the tier1-vs-tier2 relay guard. If no catalogued backup exists on this
+// tier yet, nothing is deletable, since the orphan could still be genuinely
+// in progress (tier1: still uploading; tier2: still relaying).
+func deleteAbandonedOrphans(
+	ctx context.Context,
+	client retentionClient,
+	clusterName string,
+	snapshots []kopia.Manifest,
+	backups klioclient.BackupList,
+) error {
+	contextLogger := log.FromContext(ctx)
+
+	known, newestKnownGood := knownGoodBackups(backups)
+	if newestKnownGood == 0 {
+		contextLogger.Info("No catalogued backup on this tier yet, skipping orphan cleanup",
+			"cluster", clusterName)
+
+		return nil
+	}
+
+	var candidates int
+	var errs error
+
+	for i := range snapshots {
+		name := snapshots[i].Tags[klioclient.BackupNameTagName]
+		if name == "" || known.Has(name) {
+			continue
+		}
+
+		candidates++
+
+		startedAt := snapshots[i].StartTime.ToTime().Unix()
+		if startedAt >= newestKnownGood {
+			contextLogger.Info("Orphan snapshot may still be in progress, keeping it",
+				"cluster", clusterName, "backup", name, "snapshotID", snapshots[i].ID, "startedAt", startedAt)
+
+			continue
+		}
+
+		contextLogger.Info("Deleting orphan snapshot with no metadata snapshot",
+			"cluster", clusterName, "backup", name, "snapshotID", snapshots[i].ID, "startedAt", startedAt)
+		if err := client.DeleteSnapshot(ctx, snapshots[i].ID); err != nil {
+			errs = errors.Join(errs, fmt.Errorf(
+				"while deleting orphan snapshot %q of backup %q: %w", snapshots[i].ID, name, err))
+		}
+	}
+
+	contextLogger.Info("Checked for abandoned orphan snapshots",
+		"cluster", clusterName, "orphanCandidates", candidates, "newestKnownGoodStartedAt", newestKnownGood)
+
+	return errs
+}
+
+// knownGoodBackups returns the set of backup names that have a metadata
+// snapshot on this tier, and the most recent StartedAt among them (0 if
+// none).
+func knownGoodBackups(backups klioclient.BackupList) (*stringset.Data, int64) {
+	known := stringset.New()
+
+	var newest int64
+	for i := range backups {
+		known.Put(backups[i].Name)
+		newest = max(newest, backups[i].StartedAt)
+	}
+
+	return known, newest
+}
+
+// groupSnapshotsByBackup partitions raw snapshot manifests by the backup name
+// recorded in their tags, discarding any manifest with no backup name (not
+// one of ours, or a metadata-less fragment with no way to attribute it).
+func groupSnapshotsByBackup(snapshots []kopia.Manifest) map[string][]kopia.Manifest {
+	groups := make(map[string][]kopia.Manifest)
+	for i := range snapshots {
+		name := snapshots[i].Tags[klioclient.BackupNameTagName]
+		if name == "" {
+			continue
+		}
+
+		groups[name] = append(groups[name], snapshots[i])
+	}
+
+	return groups
+}
+
 // tier1RetentionGuard returns a predicate that reports whether a tier1 backup
 // must be kept because it has not yet been fully migrated to tier2. When tier2
 // is not configured there is nothing to protect and the predicate is nil.
-// tier1Backups is the caller's already-listed tier1 catalog, so the guard's
-// view of "what exists on tier1" agrees with the one applyRetention evaluates
-// the policy against.
+// tier1Snapshots and tier1Backups are the caller's already-listed tier1
+// state, so the guard's view of "what exists on tier1" agrees with the one
+// applyRetention evaluates the policy against.
 func (d *Backup) tier1RetentionGuard(
 	ctx context.Context,
 	clusterName string,
+	tier1Snapshots []kopia.Manifest,
 	tier1Backups klioclient.BackupList,
 ) (func(backup *klioclient.BackupMetadata) bool, error) {
+	contextLogger := log.FromContext(ctx)
+
 	if !d.tier2Enabled {
+		contextLogger.Info("Tier2 disabled on this server, tier1 retention runs unguarded",
+			"cluster", clusterName)
+
 		return nil, nil
 	}
 
-	tier1Snapshots, err := d.listManifests(ctx, clusterName)
-	if err != nil {
-		return nil, fmt.Errorf(
-			"while listing tier1 snapshots to guard tier1 retention for cluster %q: %w", clusterName, err)
-	}
-
-	tier2Snapshots, err := d.tier2Kopia.ListSnapshots(ctx, nil, log.FromContext(ctx).Info)
+	tier2Snapshots, err := d.tier2Kopia.ListSnapshots(ctx, nil, contextLogger.Info)
 	if err != nil {
 		return nil, fmt.Errorf(
 			"while listing tier2 snapshots to guard tier1 retention for cluster %q: %w", clusterName, err)
 	}
+
+	contextLogger.Info("Guarding tier1 retention against the tier2 relay state",
+		"cluster", clusterName, "tier1Snapshots", len(tier1Snapshots), "tier2Snapshots", len(tier2Snapshots))
 
 	return keepUntilOnTier2(tier1Snapshots, tier2Snapshots, tier1Backups), nil
 }
@@ -174,15 +289,12 @@ func newRelayState(tier1Snapshots, tier2Snapshots []kopia.Manifest) relayState {
 	}
 
 	state := relayState{parts: make(map[string]int), relayed: make(map[string]int)}
-	for i := range tier1Snapshots {
-		name := tier1Snapshots[i].Tags[klioclient.BackupNameTagName]
-		if name == "" {
-			continue
-		}
-
-		state.parts[name]++
-		if onTier2.Has(snapshotPartKey(tier1Snapshots[i])) {
-			state.relayed[name]++
+	for name, parts := range groupSnapshotsByBackup(tier1Snapshots) {
+		state.parts[name] = len(parts)
+		for _, part := range parts {
+			if onTier2.Has(snapshotPartKey(part)) {
+				state.relayed[name]++
+			}
 		}
 	}
 

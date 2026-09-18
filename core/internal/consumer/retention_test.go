@@ -46,6 +46,15 @@ func (f *fakeRetentionClient) DeleteBackup(_ context.Context, _ string, name str
 	return nil
 }
 
+func (f *fakeRetentionClient) DeleteSnapshot(_ context.Context, id string) error {
+	if id == f.failOn {
+		return errFakeDelete
+	}
+	f.deleted = append(f.deleted, id)
+
+	return nil
+}
+
 func TestApplyRetention(t *testing.T) {
 	catalog := klioclient.BackupList{
 		{Name: "b1", StartedAt: 100},

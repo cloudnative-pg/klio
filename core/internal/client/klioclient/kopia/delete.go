@@ -58,9 +58,18 @@ func (s *Connection) DeleteBackup(ctx context.Context, hostname string, name str
 	return deleteBackupSnapshots(ctx, s.kopia, hostname, name)
 }
 
+// DeleteSnapshot removes the single snapshot with the given manifest ID. It
+// does not resolve a backup name to snapshots first, so it is for a caller
+// that already holds the exact manifest to delete (e.g. an orphan snapshot,
+// which by definition has no metadata to identify it as a backup).
+func (s *Connection) DeleteSnapshot(ctx context.Context, id string) error {
+	return s.kopia.DeleteSnapshot(ctx, id)
+}
+
 // deleteBackupSnapshots removes every snapshot of a backup on the given host.
 func deleteBackupSnapshots(ctx context.Context, store snapshotStore, hostname, name string) error {
 	contextLogger := log.FromContext(ctx)
+	contextLogger.Info("DeleteBackup: deleting backup", "hostname", hostname, "backupName", name)
 
 	// Concurrent operations on the same snapshots (e.g. post-backup
 	// maintenance) can invalidate the IDs resolved below before they are
@@ -115,10 +124,12 @@ func deleteSnapshots(
 	contextLogger := log.FromContext(ctx)
 
 	// The metadata snapshot is what makes a backup visible in the catalog:
-	// deleting it last keeps a partially deleted backup listed, so the next
-	// retention run can finish the job instead of leaving orphaned data.
+	// deleting it first means a partially deleted backup is never listed as a
+	// valid, restorable one. Any parts left behind by a failure among the
+	// rest of this loop become orphans, caught by the tier's orphan sweep
+	// once a newer backup proves them abandoned.
 	slices.SortStableFunc(entries, func(a, b kopia.Manifest) int {
-		return cmp.Compare(isMetadataSnapshot(a), isMetadataSnapshot(b))
+		return cmp.Compare(isMetadataSnapshot(b), isMetadataSnapshot(a))
 	})
 
 	var err error

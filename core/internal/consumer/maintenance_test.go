@@ -20,7 +20,11 @@ SPDX-License-Identifier: Apache-2.0
 package consumer
 
 import (
+	"context"
+	"errors"
+	"slices"
 	"testing"
+	"time"
 
 	"github.com/cloudnative-pg/klio/core/internal/client/klioclient"
 	"github.com/cloudnative-pg/klio/core/internal/kopia"
@@ -101,6 +105,95 @@ func TestKeepUntilOnTier2(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			if got := keepUntilOnTier2(tier1, tt.tier2, catalog)(tt.backup); got != tt.want {
 				t.Errorf("keep(%s) = %v, want %v", tt.backup.Name, got, tt.want)
+			}
+		})
+	}
+}
+
+// orphanSnapshot is a tier1 part with no metadata snapshot, started at the
+// given Unix time. Its ID is derived from the backup name and content so
+// tests can assert exactly which manifest got deleted.
+func orphanSnapshot(backup, content string, startedAt int64) kopia.Manifest {
+	m := snapshot("/"+content, backup, content, "")
+	m.ID = backup + "/" + content
+	m.StartTime = kopia.UTCTimestamp(time.Unix(startedAt, 0).UnixNano())
+
+	return m
+}
+
+func TestDeleteAbandonedOrphans(t *testing.T) {
+	knownGood := klioclient.BackupList{
+		{Name: "good1", StartedAt: 100},
+		{Name: "good2", StartedAt: 300},
+	}
+
+	tests := []struct {
+		name         string
+		tier1Backups klioclient.BackupList
+		snapshots    []kopia.Manifest
+		failOn       string
+		wantDeleted  []string
+		wantErr      error
+	}{
+		{
+			name:         "orphan older than the newest known-good backup is deleted",
+			tier1Backups: knownGood,
+			snapshots: []kopia.Manifest{
+				orphanSnapshot("orphan", "pgdata", 50),
+				orphanSnapshot("orphan", "control", 60),
+			},
+			wantDeleted: []string{"orphan/control", "orphan/pgdata"},
+		},
+		{
+			name:         "orphan newer than the newest known-good backup is kept",
+			tier1Backups: knownGood,
+			snapshots: []kopia.Manifest{
+				orphanSnapshot("orphan", "pgdata", 400),
+			},
+		},
+		{
+			name:         "orphan as new as the newest known-good backup is kept",
+			tier1Backups: knownGood,
+			snapshots: []kopia.Manifest{
+				orphanSnapshot("orphan", "pgdata", 300),
+			},
+		},
+		{
+			name:         "a known backup's own parts are never touched",
+			tier1Backups: knownGood,
+			snapshots: []kopia.Manifest{
+				orphanSnapshot("good1", "pgdata", 100),
+			},
+		},
+		{
+			name:         "no known-good backup yet keeps every orphan",
+			tier1Backups: nil,
+			snapshots: []kopia.Manifest{
+				orphanSnapshot("orphan", "pgdata", 1),
+			},
+		},
+		{
+			name:         "a delete failure is reported",
+			tier1Backups: knownGood,
+			snapshots: []kopia.Manifest{
+				orphanSnapshot("orphan", "pgdata", 50),
+			},
+			failOn:  "orphan/pgdata",
+			wantErr: errFakeDelete,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			client := &fakeRetentionClient{failOn: tt.failOn}
+			err := deleteAbandonedOrphans(context.Background(), client, "cluster", tt.snapshots, tt.tier1Backups)
+			if !errors.Is(err, tt.wantErr) {
+				t.Fatalf("deleteAbandonedOrphans() error = %v, want %v", err, tt.wantErr)
+			}
+
+			slices.Sort(client.deleted)
+			if !slices.Equal(client.deleted, tt.wantDeleted) {
+				t.Errorf("deleted = %v, want %v", client.deleted, tt.wantDeleted)
 			}
 		})
 	}

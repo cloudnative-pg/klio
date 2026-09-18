@@ -312,6 +312,19 @@ func (d *Backup) maintainTier2(ctx context.Context, task *queue.BackupTask) erro
 		return err
 	}
 
+	// Delete tier2 snapshot parts that never got a metadata snapshot there
+	// (relayTier2's migration can fail after moving some parts but not
+	// others), once a newer backup proves them abandoned. Best-effort,
+	// including the listing: it is only needed for this step, and must not
+	// block retention/WAL cleanup below for backups that did catalog fine.
+	if tier2Snapshots, err := d.tier2Kopia.ListSnapshots(ctx, nil, contextLogger.Info); err != nil {
+		contextLogger.Error(err, "Error while listing tier2 snapshots for orphan cleanup, skipping")
+	} else if err := deleteAbandonedOrphans(
+		ctx, d.tier2Client, task.ClusterName, tier2Snapshots, tier2Backups,
+	); err != nil {
+		contextLogger.Error(err, "Error while deleting abandoned orphan backups on tier2, skipping")
+	}
+
 	if err := d.applyRetention(
 		ctx, d.tier2Client, task.ClusterName, tier2Backups, task.Tier2RetentionPolicy, nil,
 	); err != nil {
@@ -341,9 +354,11 @@ func (d *Backup) maintainTier2(ctx context.Context, task *queue.BackupTask) erro
 	return nil
 }
 
-// retentionClient is the subset of the Kopia client that applyRetention needs.
+// retentionClient is the subset of the Kopia client that applyRetention and
+// deleteAbandonedOrphans need.
 type retentionClient interface {
 	DeleteBackup(ctx context.Context, hostname string, name string) error
+	DeleteSnapshot(ctx context.Context, id string) error
 }
 
 // applyRetention deletes the base backups of a cluster that fall outside the
@@ -369,6 +384,9 @@ func (d *Backup) applyRetention(
 	if clusterName == "" {
 		return errEmptyClusterName
 	}
+
+	contextLogger.Info("Applying retention policy",
+		"cluster", clusterName, "policy", policy, "catalogSize", len(backups))
 
 	byName := make(map[string]*klioclient.BackupMetadata, len(backups))
 	catalog := make([]retention.Backup, len(backups))
