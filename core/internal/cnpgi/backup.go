@@ -83,8 +83,6 @@ func (b backupServiceImplementation) Backup(
 		return nil, fmt.Errorf("failed to unmarshal cluster definition: %w", err)
 	}
 
-	// The backup consumer applies retention server-side from the policy carried
-	// on the CloseBackup request, so the plugin only starts the backup.
 	backupName := fmt.Sprintf("backup-%v", pgTime.ToCompactISO8601(time.Now()))
 	isPrimary := b.InstanceName == cluster.Status.CurrentPrimary
 
