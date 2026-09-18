@@ -23,12 +23,15 @@ import (
 	"context"
 	"fmt"
 
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"sigs.k8s.io/e2e-framework/klient/k8s"
 	"sigs.k8s.io/e2e-framework/klient/k8s/resources"
+	waitConditions "sigs.k8s.io/e2e-framework/klient/wait/conditions"
 
 	kliov1alpha1 "github.com/cloudnative-pg/klio/operator/api/v1alpha1"
+	"github.com/cloudnative-pg/klio/operator/test/klio/podexec"
 )
 
 // PluginConfigurationHasCondition checks if the PluginConfiguration has the specified condition
@@ -59,5 +62,40 @@ func PluginConfigurationHasCondition(
 		}
 
 		return false, nil
+	}
+}
+
+// KlioServerIsReady checks if the given KlioServer is ready by checking the readiness of its pod.
+func KlioServerIsReady(r *resources.Resources, server k8s.Object) wait.ConditionWithContextFunc {
+	// TODO: This is a temporary solution, we should use the KlioServer controller to manage the readiness of the server.
+	pod := &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      server.GetName() + "-klio-0",
+			Namespace: server.GetNamespace(),
+		},
+	}
+
+	return waitConditions.New(r).PodReady(pod)
+}
+
+// CheckTierHasBackups checks if the tier identified by tierAnnotation has
+// exactly the expected number of backups. Returns (false, nil) on transient
+// errors to allow the wait to continue retrying.
+func CheckTierHasBackups(
+	r *resources.Resources,
+	namespace string,
+	serverName string,
+	clusterName string,
+	tierAnnotation string,
+	expectedCount int,
+) wait.ConditionWithContextFunc {
+	return func(ctx context.Context) (bool, error) {
+		names, err := podexec.ListTierBackupNames(ctx, r, namespace, serverName, clusterName, tierAnnotation)
+		if err != nil {
+			// Return false without error to keep retrying on transient failures.
+			return false, nil //nolint:nilerr
+		}
+
+		return len(names) == expectedCount, nil
 	}
 }

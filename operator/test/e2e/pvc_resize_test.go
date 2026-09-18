@@ -34,6 +34,7 @@ import (
 	"sigs.k8s.io/e2e-framework/pkg/envconf"
 
 	kliov1alpha1 "github.com/cloudnative-pg/klio/operator/api/v1alpha1"
+	klioConditions "github.com/cloudnative-pg/klio/operator/test/klio/conditions"
 	klioFeatures "github.com/cloudnative-pg/klio/operator/test/klio/features"
 	"github.com/cloudnative-pg/klio/operator/test/klio/testconfig"
 	"github.com/cloudnative-pg/klio/operator/test/machinery/pkg/namespaces"
@@ -118,7 +119,7 @@ func (s *pvcResizeScenario) Setup(
 	// Wait for Klio server to be ready
 	t.Logf("Waiting for Klio server to be ready...")
 	err = wait.For(
-		conditions.KlioServerIsReady(r, s.klioServer),
+		klioConditions.KlioServerIsReady(r, s.klioServer),
 		wait.WithTimeout(4*time.Minute),
 		wait.WithInterval(10*time.Second),
 	)

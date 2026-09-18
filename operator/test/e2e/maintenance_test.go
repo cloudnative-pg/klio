@@ -30,7 +30,7 @@ import (
 	"sigs.k8s.io/e2e-framework/klient/wait"
 	"sigs.k8s.io/e2e-framework/pkg/envconf"
 
-	klioFeatures "github.com/cloudnative-pg/klio/operator/test/klio/features"
+	"github.com/cloudnative-pg/klio/operator/test/klio/podexec"
 	machineryFeatures "github.com/cloudnative-pg/klio/operator/test/machinery/pkg/features"
 )
 
@@ -66,7 +66,7 @@ func assertServerSideMaintenanceRan(
 	boundary := completed.Status.BeginWal
 	require.NotEmpty(t, boundary, "completed backup has no begin WAL in its status")
 
-	initial := klioFeatures.ListTier1WALFiles(ctx, r, backup.Namespace, serverPodName, maintenanceClusterName)
+	initial := podexec.ListTier1WALFiles(ctx, r, backup.Namespace, serverPodName, maintenanceClusterName)
 	t.Logf("Tier1 WAL files before maintenance settled: %d (%v), begin WAL %q", len(initial), initial, boundary)
 
 	// Maintenance is asynchronous: the consumer processes the backup after it is
@@ -74,17 +74,17 @@ func assertServerSideMaintenanceRan(
 	t.Log("Waiting for server-side tier1 WAL retention to remove WALs older than the backup begin WAL")
 	err = wait.For(
 		func(ctx context.Context) (bool, error) {
-			walFiles := klioFeatures.ListTier1WALFiles(ctx, r, backup.Namespace, serverPodName, maintenanceClusterName)
-			return len(klioFeatures.WALsOlderThan(walFiles, boundary)) == 0, nil
+			walFiles := podexec.ListTier1WALFiles(ctx, r, backup.Namespace, serverPodName, maintenanceClusterName)
+			return len(podexec.WALsOlderThan(walFiles, boundary)) == 0, nil
 		},
 		wait.WithTimeout(2*time.Minute),
 		wait.WithInterval(10*time.Second),
 	)
 
-	final := klioFeatures.ListTier1WALFiles(ctx, r, backup.Namespace, serverPodName, maintenanceClusterName)
+	final := podexec.ListTier1WALFiles(ctx, r, backup.Namespace, serverPodName, maintenanceClusterName)
 	require.NoError(t, err,
 		"server-side tier1 maintenance did not prune WALs older than begin WAL %q; remaining older WALs: %v",
-		boundary, klioFeatures.WALsOlderThan(final, boundary))
+		boundary, podexec.WALsOlderThan(final, boundary))
 
 	// The cluster keeps archiving, and the begin WAL itself is retained, so the
 	// repository must not be empty: an empty result would mean we measured the

@@ -17,6 +17,8 @@ limitations under the License.
 SPDX-License-Identifier: Apache-2.0
 */
 
-// Package conditions provides utilities for defining and evaluating test conditions in Klio integration tests.
-// This package is limited to the Klio resources.
-package conditions
+// Package podexec runs commands inside Klio test pods (the klio CLI, WAL
+// listings, ...) and parses their output. Unlike the conditions package,
+// these helpers are queries or actions, not wait.ConditionWithContextFunc
+// predicates.
+package podexec

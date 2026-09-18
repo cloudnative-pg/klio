@@ -21,25 +21,25 @@ package features
 
 import (
 	"bytes"
-	"cmp"
 	"context"
-	"encoding/json"
 	"fmt"
-	"slices"
 	"strings"
 	"testing"
 	"time"
 
 	cnpgv1 "github.com/cloudnative-pg/api/pkg/api/v1"
 	"github.com/stretchr/testify/require"
-	k8swait "k8s.io/apimachinery/pkg/util/wait"
 	"sigs.k8s.io/e2e-framework/klient/k8s/resources"
+	"sigs.k8s.io/e2e-framework/klient/wait"
 	"sigs.k8s.io/e2e-framework/pkg/envconf"
 	"sigs.k8s.io/e2e-framework/pkg/types"
 
 	kliov1alpha1 "github.com/cloudnative-pg/klio/operator/api/v1alpha1"
 	"github.com/cloudnative-pg/klio/operator/internal/cnpgi"
 	"github.com/cloudnative-pg/klio/operator/internal/klioconfig"
+	klioConditions "github.com/cloudnative-pg/klio/operator/test/klio/conditions"
+	"github.com/cloudnative-pg/klio/operator/test/klio/podexec"
+	machineryConditions "github.com/cloudnative-pg/klio/operator/test/machinery/pkg/conditions"
 )
 
 const (
@@ -50,8 +50,6 @@ const (
 	tier1AnnotationName = "klio.io/tier1"
 	// tier2AnnotationName is the annotation key used to mark backups present in tier2.
 	tier2AnnotationName = "klio.io/tier2"
-	// presentAnnotationValue is the value set when a backup is present in a tier.
-	presentAnnotationValue = "present"
 	// archiveConfigPath is the config file the klio-plugin sidecar uses for its own
 	// cluster's backup/WAL-archive operations, mounted from the ArchiveConfigKey
 	// projection. It carries this cluster's own Tier2RecoveryEnabled setting, so it
@@ -66,6 +64,134 @@ const (
 	// that a backup-only tier2 is not used as a recovery source.
 	tier2GateRestoreScratchDir = "/tmp/tier2-recovery-gate-check"
 )
+
+// Tier1RetentionFeature defines a feature for testing tier1 backup retention on
+// a tier1-only deployment.
+type Tier1RetentionFeature struct {
+	name                    string
+	setup                   types.StepFunc
+	teardown                types.StepFunc
+	backups                 []*cnpgv1.Backup
+	klioServer              *kliov1alpha1.Server
+	namespace               string
+	keepLatest              int
+	backupTimeout           time.Duration
+	checkInterval           time.Duration
+	clusterName             string
+	pluginConfigurationName string
+}
+
+// Tier1RetentionFeatureConfig holds the configuration for creating a tier1
+// retention feature test.
+type Tier1RetentionFeatureConfig struct {
+	// Name of the tier1 retention feature test.
+	Name string
+	// Setup function to initialize test resources.
+	Setup types.StepFunc
+	// Teardown function to clean up test resources.
+	Teardown types.StepFunc
+	// Backups are the backup resources to be created, in order.
+	Backups []*cnpgv1.Backup
+	// KlioServer is the Klio server resource.
+	KlioServer *kliov1alpha1.Server
+	// Namespace is the namespace where resources are created.
+	Namespace string
+	// KeepLatest is the number of backups the tier1 policy keeps.
+	KeepLatest int
+	// ClusterName is the name of the CNPG cluster whose backups are counted.
+	ClusterName string
+	// PluginConfigurationName is the name of the PluginConfiguration, used to
+	// tighten the retention policy for the on-demand `klio retention apply` step.
+	PluginConfigurationName string
+	// BackupTimeout is the timeout for each backup and its retention (defaults
+	// to 5 minutes).
+	BackupTimeout time.Duration
+	// CheckInterval is the interval for polling status (defaults to 10 seconds).
+	CheckInterval time.Duration
+}
+
+// NewTier1RetentionFeature creates a new Tier1RetentionFeature with the given
+// configuration.
+func NewTier1RetentionFeature(config Tier1RetentionFeatureConfig) *Tier1RetentionFeature {
+	if config.BackupTimeout <= 0 {
+		config.BackupTimeout = 5 * time.Minute
+	}
+	if config.CheckInterval <= 0 {
+		config.CheckInterval = 10 * time.Second
+	}
+
+	return &Tier1RetentionFeature{
+		name:                    config.Name,
+		setup:                   config.Setup,
+		teardown:                config.Teardown,
+		backups:                 config.Backups,
+		klioServer:              config.KlioServer,
+		namespace:               config.Namespace,
+		keepLatest:              config.KeepLatest,
+		backupTimeout:           config.BackupTimeout,
+		checkInterval:           config.CheckInterval,
+		clusterName:             config.ClusterName,
+		pluginConfigurationName: config.PluginConfigurationName,
+	}
+}
+
+// Name returns the name of the tier1 retention feature.
+func (f *Tier1RetentionFeature) Name() string {
+	return f.name
+}
+
+// Setup initializes the tier1 retention feature test.
+func (f *Tier1RetentionFeature) Setup() types.StepFunc {
+	return f.setup
+}
+
+// Run executes the tier1 retention feature test. It creates more backups than
+// the policy keeps and verifies that tier1 ends up with exactly `keepLatest`
+// backups and that the oldest one was the backup the retention manager deleted
+// (the newest survive). This exercises the full server-side tier1 path:
+// PluginConfiguration CR -> operator -> klio-plugin config -> CloseBackup GRPC
+// -> NATS queue -> backup consumer -> Klio-managed tier1 retention. It then
+// tightens the policy to a single backup and applies it on demand with
+// `klio retention apply`, verifying only the newest remains.
+func (f *Tier1RetentionFeature) Run() types.StepFunc {
+	return func(ctx context.Context, t *testing.T, cfg *envconf.Config) context.Context {
+		t.Helper()
+		t.Log("Running tier1 backup retention feature test")
+
+		r, err := resources.New(cfg.Client().RESTConfig())
+		require.NoError(t, err, "failed to create resources client")
+
+		verifyRetentionAndOnDemandApply(ctx, t, r, retentionFlowParams{
+			backups:                 f.backups,
+			serverName:              f.klioServer.Name,
+			namespace:               f.namespace,
+			clusterName:             f.clusterName,
+			keepLatest:              f.keepLatest,
+			tierLabel:               "tier1",
+			tierAnnotation:          tier1AnnotationName,
+			pluginConfigurationName: f.pluginConfigurationName,
+			backupTimeout:           f.backupTimeout,
+			retentionTimeout:        f.backupTimeout,
+			checkInterval:           f.checkInterval,
+			setRetentionLatest: func(ctx context.Context, t *testing.T, r *resources.Resources, latest int) {
+				t.Helper()
+				updateTier1RetentionLatest(ctx, t, r, f.namespace, f.pluginConfigurationName, latest)
+			},
+		})
+
+		// Base retention moved the WAL horizon: only the newest backup is left,
+		// so every tier1 WAL older than its begin WAL must be gone too.
+		verifyTier1WALHorizon(ctx, t, r, f.namespace, f.klioServer.Name, f.clusterName,
+			f.backups[len(f.backups)-1], f.backupTimeout, f.checkInterval)
+
+		return ctx
+	}
+}
+
+// Teardown cleans up resources after the test is run.
+func (f *Tier1RetentionFeature) Teardown() types.StepFunc {
+	return f.teardown
+}
 
 // Tier2RetentionFeature defines a feature for testing tier2 backup and WAL retention.
 type Tier2RetentionFeature struct {
@@ -252,6 +378,215 @@ func (f *Tier2RetentionFeature) Teardown() types.StepFunc {
 	return f.teardown
 }
 
+// retentionFlowParams carries what the tier-agnostic retention flow needs to
+// exercise one tier's retention: automatic deletion of the oldest backup once
+// newer backups push it outside the policy, followed by on-demand deletion via
+// `klio retention apply`. Tier1 and tier2 differ only in the tier annotation,
+// the label used in logs, and which tier's policy setRetentionLatest edits.
+type retentionFlowParams struct {
+	backups                 []*cnpgv1.Backup
+	serverName              string
+	namespace               string
+	clusterName             string
+	keepLatest              int
+	tierLabel               string
+	tierAnnotation          string
+	pluginConfigurationName string
+	backupTimeout           time.Duration
+	retentionTimeout        time.Duration
+	checkInterval           time.Duration
+	// setRetentionLatest tightens this tier's policy to keep `latest` backups.
+	setRetentionLatest func(ctx context.Context, t *testing.T, r *resources.Resources, latest int)
+	// onFirstBackup, if set, runs once right after the first backup reaches the
+	// tier. Tier2 uses it to record a WAL directory baseline.
+	onFirstBackup func(ctx context.Context)
+}
+
+// verifyRetentionAndOnDemandApply runs the tier-agnostic retention flow shared
+// by the tier1 and tier2 retention features. It creates more backups than the
+// policy keeps and verifies the tier ends up with exactly keepLatest backups
+// with the oldest deleted, then tightens the policy to a single backup, applies
+// it on demand with `klio retention apply`, and verifies only the newest
+// remains. This exercises the full server-side path: PluginConfiguration CR ->
+// operator -> klio-plugin config -> CloseBackup GRPC -> NATS queue -> backup
+// consumer -> Klio-managed retention.
+func verifyRetentionAndOnDemandApply(
+	ctx context.Context,
+	t *testing.T,
+	r *resources.Resources,
+	p retentionFlowParams,
+) {
+	t.Helper()
+
+	// Name of the first (oldest) backup. Retention must delete it once newer
+	// backups push it outside the policy.
+	var oldestBackupName string
+
+	for i, backup := range p.backups {
+		t.Logf("Creating backup %d/%d: %s", i+1, len(p.backups), backup.Name)
+		require.NoError(t, r.Create(ctx, backup), "failed to create backup %s", backup.Name)
+
+		err := wait.For(
+			machineryConditions.BackupIsCompleted(r, backup),
+			wait.WithTimeout(p.backupTimeout),
+			wait.WithInterval(p.checkInterval),
+		)
+		require.NoError(t, err, "backup %s did not complete", backup.Name)
+		t.Logf("Backup %s completed successfully", backup.Name)
+
+		// After more backups than the policy keeps, the older ones are deleted.
+		expectedBackups := min(i+1, p.keepLatest)
+		err = wait.For(
+			klioConditions.CheckTierHasBackups(r, p.namespace, p.serverName, p.clusterName, p.tierAnnotation, expectedBackups),
+			wait.WithTimeout(p.retentionTimeout),
+			wait.WithInterval(p.checkInterval),
+		)
+		require.NoError(t, err, "%s retention not applied after backup %d", p.tierLabel, i+1)
+		t.Logf("%s has expected %d backup(s) after backup %d", p.tierLabel, expectedBackups, i+1)
+
+		if i == 0 {
+			names, listErr := podexec.ListTierBackupNames(
+				ctx, r, p.namespace, p.serverName, p.clusterName, p.tierAnnotation)
+			require.NoError(t, listErr, "failed to list %s backups after the first backup", p.tierLabel)
+			require.Len(t, names, 1, "expected exactly one %s backup after the first backup", p.tierLabel)
+			oldestBackupName = names[0]
+			t.Logf("Oldest %s backup recorded: %s", p.tierLabel, oldestBackupName)
+
+			if p.onFirstBackup != nil {
+				p.onFirstBackup(ctx)
+			}
+		}
+	}
+
+	// Automatic retention: exactly keepLatest backups remain and the oldest was
+	// the one the retention manager deleted (the newest survive).
+	t.Logf("Retention verification: %s should have exactly %d backup(s)", p.tierLabel, p.keepLatest)
+	err := wait.For(
+		klioConditions.CheckTierHasBackups(r, p.namespace, p.serverName, p.clusterName, p.tierAnnotation, p.keepLatest),
+		wait.WithTimeout(p.retentionTimeout),
+		wait.WithInterval(p.checkInterval),
+	)
+	require.NoError(t, err, "%s backup count verification failed", p.tierLabel)
+
+	survivingNames, err := podexec.ListTierBackupNames(
+		ctx, r, p.namespace, p.serverName, p.clusterName, p.tierAnnotation)
+	require.NoError(t, err, "could not list surviving %s backups", p.tierLabel)
+	require.NotContains(t, survivingNames, oldestBackupName,
+		"the oldest backup should have been deleted by the %s retention manager", p.tierLabel)
+	t.Logf("PASSED: %s has exactly %d backup(s) and the oldest (%s) was deleted",
+		p.tierLabel, p.keepLatest, oldestBackupName)
+
+	// On-demand retention: tighten the policy to keep a single backup and apply
+	// it immediately with `klio retention apply`, without taking a new backup.
+	// Only the newest backup must remain afterwards.
+	newestBackupName := survivingNames[0]
+	t.Logf("On-demand retention: tightening %s retention to 1 and running `klio retention apply`", p.tierLabel)
+	p.setRetentionLatest(ctx, t, r, 1)
+
+	instancePodName := p.backups[len(p.backups)-1].Status.InstanceID.PodName
+	require.NotEmpty(t, instancePodName, "backup instance pod name should be set")
+
+	// The `klio retention apply` command sends the policy from the pod's mounted
+	// config, which the operator updates asynchronously after the
+	// PluginConfiguration change. Re-running the (idempotent) command until
+	// exactly one backup remains absorbs both the config propagation and the
+	// asynchronous consumer processing.
+	err = wait.For(
+		func(ctx context.Context) (bool, error) {
+			if applyErr := runRetentionApply(ctx, r, p.namespace, instancePodName); applyErr != nil {
+				t.Logf("klio retention apply not ready yet: %v", applyErr)
+
+				return false, nil
+			}
+
+			names, listErr := podexec.ListTierBackupNames(
+				ctx, r, p.namespace, p.serverName, p.clusterName, p.tierAnnotation)
+			if listErr != nil {
+				return false, nil //nolint:nilerr
+			}
+
+			return len(names) == 1, nil
+		},
+		wait.WithTimeout(p.retentionTimeout),
+		wait.WithInterval(p.checkInterval),
+	)
+	require.NoError(t, err, "on-demand %s retention did not converge to a single backup", p.tierLabel)
+
+	finalNames, err := podexec.ListTierBackupNames(
+		ctx, r, p.namespace, p.serverName, p.clusterName, p.tierAnnotation)
+	require.NoError(t, err, "could not list surviving %s backups", p.tierLabel)
+	require.Equal(t, []string{newestBackupName}, finalNames,
+		"only the newest backup should remain after `klio retention apply`")
+	t.Logf("PASSED: only the newest %s backup (%s) remains after apply", p.tierLabel, newestBackupName)
+}
+
+// verifyTier1WALHorizon waits until no tier1 WAL segment older than the begin
+// WAL of the given backup survives, which proves the WAL retention horizon was
+// recomputed from the catalog after base retention deleted the older backups.
+func verifyTier1WALHorizon(
+	ctx context.Context,
+	t *testing.T,
+	r *resources.Resources,
+	namespace string,
+	serverName string,
+	clusterName string,
+	backup *cnpgv1.Backup,
+	timeout time.Duration,
+	interval time.Duration,
+) {
+	t.Helper()
+
+	var newest cnpgv1.Backup
+	require.NoError(t, r.Get(ctx, backup.Name, namespace, &newest), "failed to refresh backup %s", backup.Name)
+	boundary := newest.Status.BeginWal
+	require.NotEmpty(t, boundary, "completed backup %s has no begin WAL in its status", backup.Name)
+
+	podName := serverName + klioPodSuffix
+	t.Logf("WAL horizon: waiting for tier1 WALs older than %s to be removed", boundary)
+	err := wait.For(
+		func(ctx context.Context) (bool, error) {
+			walFiles := podexec.ListTier1WALFiles(ctx, r, namespace, podName, clusterName)
+
+			return len(podexec.WALsOlderThan(walFiles, boundary)) == 0, nil
+		},
+		wait.WithTimeout(timeout),
+		wait.WithInterval(interval),
+	)
+
+	final := podexec.ListTier1WALFiles(ctx, r, namespace, podName, clusterName)
+	require.NoError(t, err, "tier1 WALs older than begin WAL %q survived base retention: %v",
+		boundary, podexec.WALsOlderThan(final, boundary))
+	// The begin WAL itself is retained, so an empty list means we looked at the
+	// wrong path rather than at a successful retention.
+	require.NotEmpty(t, final, "no tier1 WAL files found for cluster %q", clusterName)
+	t.Logf("PASSED: %d tier1 WAL files remain, all >= %s", len(final), boundary)
+}
+
+// updateTier1RetentionLatest fetches the PluginConfiguration and sets its
+// tier1 retention policy to keep the given number of most recent backups.
+func updateTier1RetentionLatest(
+	ctx context.Context,
+	t *testing.T,
+	r *resources.Resources,
+	namespace string,
+	pluginConfigurationName string,
+	latest int,
+) {
+	t.Helper()
+
+	var pc kliov1alpha1.PluginConfiguration
+	require.NoError(t, r.Get(ctx, pluginConfigurationName, namespace, &pc),
+		"failed to get PluginConfiguration %q", pluginConfigurationName)
+
+	require.NotNil(t, pc.Spec.Tier1, "PluginConfiguration should have a tier1 section")
+	if pc.Spec.Tier1.RetentionPolicy == nil {
+		pc.Spec.Tier1.RetentionPolicy = &kliov1alpha1.RetentionPolicy{}
+	}
+	pc.Spec.Tier1.RetentionPolicy.Latest = latest
+
+	require.NoError(t, r.Update(ctx, &pc), "failed to update PluginConfiguration retention")
+}
+
 // verifyTier2RecoveryGate runs `klio restore` inside the klio-plugin sidecar of
 // the pod that took backup, using the pod's own archive config (the same
 // config the instance uses for its own backups/WAL archiving, which carries
@@ -327,60 +662,6 @@ func verifyWALRetention(
 	t.Log("[Level 2] PASSED: WAL directory growth is within acceptable bounds")
 }
 
-// checkTierHasBackups checks if the tier identified by tierAnnotation has exactly
-// the expected number of backups. Returns (false, nil) on transient errors to
-// allow the wait to continue retrying.
-func checkTierHasBackups(
-	r *resources.Resources,
-	namespace string,
-	serverName string,
-	clusterName string,
-	tierAnnotation string,
-	expectedCount int,
-) k8swait.ConditionWithContextFunc {
-	return func(ctx context.Context) (bool, error) {
-		podName := serverName + klioPodSuffix
-
-		// Use the Klio admin API to list backups
-		var stdout, stderr bytes.Buffer
-		klioCmd := []string{
-			"klio", "admin", "list-backups",
-		}
-
-		if err := r.ExecInPod(ctx, namespace, podName, serverContainerName, klioCmd, &stdout, &stderr); err != nil {
-			// Return false without error to keep retrying on transient failures
-			return false, nil //nolint:nilerr
-		}
-
-		// Parse JSON output as BackupList
-		type BackupMetadata struct {
-			Name        string            `json:"name"`
-			ClusterName string            `json:"clusterName"`
-			Annotations map[string]string `json:"annotations,omitempty"`
-		}
-
-		var backups []BackupMetadata
-		if err := json.Unmarshal(stdout.Bytes(), &backups); err != nil {
-			// Return false without error to keep retrying on transient failures
-			return false, nil //nolint:nilerr
-		}
-
-		// Count this cluster's backups present in the tier (those carrying the
-		// tier annotation)
-		count := 0
-		for i := range backups {
-			if backups[i].ClusterName != clusterName {
-				continue
-			}
-			if backups[i].Annotations[tierAnnotation] == presentAnnotationValue {
-				count++
-			}
-		}
-
-		return count == expectedCount, nil
-	}
-}
-
 // updateTier2RetentionLatest fetches the PluginConfiguration and sets its
 // tier2 retention policy to keep the given number of most recent backups.
 func updateTier2RetentionLatest(
@@ -425,54 +706,6 @@ func runRetentionApply(
 	}
 
 	return nil
-}
-
-// listTierBackupNames returns the names of the backups currently present in the
-// tier identified by tierAnnotation for the given cluster, ordered newest first
-// by their start time.
-func listTierBackupNames(
-	ctx context.Context,
-	r *resources.Resources,
-	namespace string,
-	serverName string,
-	clusterName string,
-	tierAnnotation string,
-) ([]string, error) {
-	podName := serverName + klioPodSuffix
-
-	var stdout, stderr bytes.Buffer
-	klioCmd := []string{"klio", "admin", "list-backups"}
-	if err := r.ExecInPod(ctx, namespace, podName, serverContainerName, klioCmd, &stdout, &stderr); err != nil {
-		return nil, fmt.Errorf("failed to list backups: %w; stderr: %s", err, stderr.String())
-	}
-
-	type backupMetadata struct {
-		Name        string            `json:"name"`
-		ClusterName string            `json:"clusterName"`
-		StartedAt   int64             `json:"startedAt"`
-		Annotations map[string]string `json:"annotations,omitempty"`
-	}
-
-	var backups []backupMetadata
-	if err := json.Unmarshal(stdout.Bytes(), &backups); err != nil {
-		return nil, fmt.Errorf("failed to parse backup list: %w", err)
-	}
-
-	slices.SortFunc(backups, func(a, b backupMetadata) int {
-		return cmp.Compare(b.StartedAt, a.StartedAt)
-	})
-
-	names := make([]string, 0, len(backups))
-	for i := range backups {
-		if backups[i].ClusterName != clusterName {
-			continue
-		}
-		if backups[i].Annotations[tierAnnotation] == presentAnnotationValue {
-			names = append(names, backups[i].Name)
-		}
-	}
-
-	return names, nil
 }
 
 // countTier2WALDirectories counts the number of WAL prefix directories in tier2 S3 storage.
