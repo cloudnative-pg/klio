@@ -38,6 +38,7 @@ import (
 
 	kliov1alpha1 "github.com/cloudnative-pg/klio/operator/api/v1alpha1"
 	"github.com/cloudnative-pg/klio/operator/internal/klioconfig"
+	klioConditions "github.com/cloudnative-pg/klio/operator/test/klio/conditions"
 	"github.com/cloudnative-pg/klio/operator/test/utils/conditions"
 	"github.com/cloudnative-pg/klio/operator/test/utils/templates/certificates"
 	"github.com/cloudnative-pg/klio/operator/test/utils/templates/cnpg"
@@ -229,7 +230,7 @@ func deployTier2RecoveryServer(
 
 	// Wait for second Server to be ready
 	err = wait.For(
-		conditions.KlioServerIsReady(r, resources.RecoveryServer),
+		klioConditions.KlioServerIsReady(r, resources.RecoveryServer),
 		wait.WithTimeout(2*time.Minute),
 		wait.WithInterval(10*time.Second),
 	)

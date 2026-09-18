@@ -34,6 +34,7 @@ import (
 	"sigs.k8s.io/e2e-framework/klient/wait"
 
 	kliov1alpha1 "github.com/cloudnative-pg/klio/operator/api/v1alpha1"
+	klioConditions "github.com/cloudnative-pg/klio/operator/test/klio/conditions"
 	"github.com/cloudnative-pg/klio/operator/test/utils/conditions"
 )
 
@@ -156,7 +157,7 @@ func (s Tier2) ParallelSetup(ctx context.Context, t *testing.T, r *resources.Res
 
 	t.Logf("Waiting for Klio Server to be ready...")
 	err := wait.For(
-		conditions.KlioServerIsReady(r, s.KlioServer),
+		klioConditions.KlioServerIsReady(r, s.KlioServer),
 		wait.WithTimeout(4*time.Minute),
 		wait.WithInterval(10*time.Second),
 	)

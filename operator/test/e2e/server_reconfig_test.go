@@ -36,10 +36,10 @@ import (
 	"sigs.k8s.io/e2e-framework/pkg/types"
 
 	kliov1alpha1 "github.com/cloudnative-pg/klio/operator/api/v1alpha1"
+	klioConditions "github.com/cloudnative-pg/klio/operator/test/klio/conditions"
 	"github.com/cloudnative-pg/klio/operator/test/klio/infra"
 	"github.com/cloudnative-pg/klio/operator/test/klio/testconfig"
 	"github.com/cloudnative-pg/klio/operator/test/machinery/pkg/namespaces"
-	"github.com/cloudnative-pg/klio/operator/test/utils/conditions"
 	"github.com/cloudnative-pg/klio/operator/test/utils/templates/certificates"
 	"github.com/cloudnative-pg/klio/operator/test/utils/templates/klio"
 	"github.com/cloudnative-pg/klio/operator/test/utils/templates/rustfs"
@@ -232,7 +232,7 @@ func (f *serverReconfigFeature) Run() types.StepFunc {
 		// Wait for server Pod to become ready again
 		t.Log("Waiting for server Pod to be ready after reconfiguration...")
 		err = wait.For(
-			conditions.KlioServerIsReady(r, server),
+			klioConditions.KlioServerIsReady(r, server),
 			wait.WithTimeout(10*time.Minute),
 			wait.WithInterval(10*time.Second),
 		)

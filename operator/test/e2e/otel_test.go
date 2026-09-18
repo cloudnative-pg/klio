@@ -44,6 +44,7 @@ import (
 	"sigs.k8s.io/e2e-framework/pkg/envconf"
 
 	kliov1alpha1 "github.com/cloudnative-pg/klio/operator/api/v1alpha1"
+	klioConditions "github.com/cloudnative-pg/klio/operator/test/klio/conditions"
 	"github.com/cloudnative-pg/klio/operator/test/klio/testconfig"
 	machineryConditions "github.com/cloudnative-pg/klio/operator/test/machinery/pkg/conditions"
 	machineryFeatures "github.com/cloudnative-pg/klio/operator/test/machinery/pkg/features"
@@ -426,7 +427,7 @@ func (s *otelMetricsScenario) Setup(
 	t.Log("Deploying Klio Server...")
 	require.NoError(t, r.Create(ctx, s.klioServer), "failed to create Klio server")
 	err = wait.For(
-		conditions.KlioServerIsReady(r, s.klioServer),
+		klioConditions.KlioServerIsReady(r, s.klioServer),
 		wait.WithTimeout(4*time.Minute),
 		wait.WithInterval(10*time.Second),
 	)

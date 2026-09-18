@@ -34,10 +34,10 @@ import (
 	"sigs.k8s.io/e2e-framework/pkg/envconf"
 
 	kliov1alpha1 "github.com/cloudnative-pg/klio/operator/api/v1alpha1"
+	klioConditions "github.com/cloudnative-pg/klio/operator/test/klio/conditions"
 	"github.com/cloudnative-pg/klio/operator/test/klio/testconfig"
 	machineryConditions "github.com/cloudnative-pg/klio/operator/test/machinery/pkg/conditions"
 	"github.com/cloudnative-pg/klio/operator/test/machinery/pkg/namespaces"
-	"github.com/cloudnative-pg/klio/operator/test/utils/conditions"
 	"github.com/cloudnative-pg/klio/operator/test/utils/templates/certificates"
 	"github.com/cloudnative-pg/klio/operator/test/utils/templates/cnpg"
 	"github.com/cloudnative-pg/klio/operator/test/utils/templates/klio"
@@ -186,7 +186,7 @@ func (c *commonBackupRestoreScenario) Setup(
 	require.NoError(t, err, "failed to wait for CNPG source Cluster to be ready")
 
 	err = wait.For(
-		conditions.KlioServerIsReady(r, c.klioServer),
+		klioConditions.KlioServerIsReady(r, c.klioServer),
 		wait.WithTimeout(4*time.Minute),
 		wait.WithInterval(10*time.Second),
 	)

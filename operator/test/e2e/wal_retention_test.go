@@ -43,8 +43,8 @@ import (
 
 	kliov1alpha1 "github.com/cloudnative-pg/klio/operator/api/v1alpha1"
 	"github.com/cloudnative-pg/klio/operator/internal/cnpgi"
-	klioFeatures "github.com/cloudnative-pg/klio/operator/test/klio/features"
 	"github.com/cloudnative-pg/klio/operator/test/klio/infra"
+	"github.com/cloudnative-pg/klio/operator/test/klio/podexec"
 	"github.com/cloudnative-pg/klio/operator/test/klio/testconfig"
 	machineryConditions "github.com/cloudnative-pg/klio/operator/test/machinery/pkg/conditions"
 	"github.com/cloudnative-pg/klio/operator/test/machinery/pkg/namespaces"
@@ -443,7 +443,7 @@ func (f *WALRetentionFeature) Run() types.StepFunc {
 		walFiles, err := f.scenario.getWALFilesInTier1(ctx, r)
 		require.NoError(t, err, "failed to get WAL files in tier1")
 		t.Logf("Tier1 WAL files before retention advances: %d (%v), boundary %q", len(walFiles), walFiles, boundary)
-		require.NotEmpty(t, klioFeatures.WALsOlderThan(walFiles, boundary),
+		require.NotEmpty(t, podexec.WALsOlderThan(walFiles, boundary),
 			"expected WAL segments older than the second backup begin WAL before retention advances")
 
 		// Step 4: delete the oldest backup so the retention point can advance to
@@ -480,14 +480,14 @@ func (f *WALRetentionFeature) Run() types.StepFunc {
 			func(ctx context.Context) (bool, error) {
 				var err error
 				walFiles, err = f.scenario.getWALFilesInTier1(ctx, r)
-				return len(klioFeatures.WALsOlderThan(walFiles, boundary)) == 0, err
+				return len(podexec.WALsOlderThan(walFiles, boundary)) == 0, err
 			},
 			wait.WithTimeout(5*time.Minute),
 			wait.WithInterval(10*time.Second),
 		)
 		require.NoError(t, err,
 			"server-side retention did not prune WALs older than boundary %q; remaining older WALs: %v",
-			boundary, klioFeatures.WALsOlderThan(walFiles, boundary))
+			boundary, podexec.WALsOlderThan(walFiles, boundary))
 		require.NotEmpty(t, walFiles, "tier1 WAL repository unexpectedly empty after retention")
 
 		t.Logf("Server-side WAL retention verified: %d WAL files remain, all >= begin WAL %q",
