@@ -23,8 +23,21 @@ import (
 	"context"
 	"testing"
 
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
+
+	"github.com/cloudnative-pg/klio/core/internal/grpc"
 	"github.com/cloudnative-pg/klio/core/pkg/retention"
 )
+
+func TestCloseBackupRejectsMismatchedCluster(t *testing.T) {
+	impl := &Implementation{}
+
+	_, err := impl.CloseBackup(peerContext("klio@cluster-a")(), &grpc.CloseBackupRequest{ClusterName: "cluster-b"})
+	if got := status.Code(err); got != codes.PermissionDenied {
+		t.Fatalf("CloseBackup() code = %v, want %v", got, codes.PermissionDenied)
+	}
+}
 
 func TestParseRetentionPolicy(t *testing.T) {
 	tests := []struct {

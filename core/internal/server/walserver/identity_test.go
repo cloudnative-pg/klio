@@ -56,6 +56,11 @@ func TestCheckPeerCluster(t *testing.T) {
 		},
 		{name: "malformed CN", ctx: peerContext("cluster-a"), cluster: "cluster-a", wantCode: codes.PermissionDenied},
 		{name: "empty host", ctx: peerContext("klio@"), cluster: "", wantCode: codes.PermissionDenied},
+		{name: "empty username", ctx: peerContext("@cluster-a"), cluster: "cluster-a", wantCode: codes.PermissionDenied},
+		{
+			name: "extra @ in CN", ctx: peerContext("klio@extra@cluster-a"), cluster: "cluster-a",
+			wantCode: codes.PermissionDenied,
+		},
 		{name: "no peer", ctx: context.Background, cluster: "cluster-a", wantCode: codes.Unauthenticated},
 		{
 			name: "no certificate", cluster: "cluster-a", wantCode: codes.Unauthenticated,

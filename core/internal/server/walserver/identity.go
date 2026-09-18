@@ -21,12 +21,13 @@ package walserver
 
 import (
 	"context"
-	"strings"
 
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/peer"
 	"google.golang.org/grpc/status"
+
+	"github.com/cloudnative-pg/klio/core/internal/client/klioclient/kopia"
 )
 
 // checkPeerCluster verifies that the client certificate of the caller was
@@ -44,10 +45,12 @@ func checkPeerCluster(ctx context.Context, clusterName string) error {
 	}
 
 	commonName := tlsInfo.State.PeerCertificates[0].Subject.CommonName
-	_, certCluster, found := strings.Cut(commonName, "@")
-	if !found || certCluster == "" {
-		return status.Errorf(codes.PermissionDenied,
-			"client certificate Common Name %q is not in the form userName@hostName", commonName)
+
+	// The same userName@hostName convention the Kopia client certificate
+	// already validates on the client side (see ClientConfig in AGENTS.md).
+	_, certCluster, err := kopia.ExtractUserNameAndHostName(commonName)
+	if err != nil {
+		return status.Errorf(codes.PermissionDenied, "%v", err)
 	}
 
 	if certCluster != clusterName {

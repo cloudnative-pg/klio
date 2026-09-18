@@ -84,7 +84,7 @@ func TestGetHostname(t *testing.T) {
 	// Iterate through test cases
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			actualUser, actualHost, actualErr := extractUserNameAndHostName(tc.input)
+			actualUser, actualHost, actualErr := ExtractUserNameAndHostName(tc.input)
 
 			assert.Equal(t, tc.expectedUser, actualUser, "The extracted userName did not match the expectation")
 			assert.Equal(t, tc.expectedHost, actualHost, "The extracted hostName did not match the expectation")

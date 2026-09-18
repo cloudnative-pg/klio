@@ -41,6 +41,15 @@ func (w *Implementation) CloseBackup(
 	ctx context.Context,
 	request *grpc.CloseBackupRequest,
 ) (*grpc.CloseBackupResult, error) {
+	// This request can drive tier1/tier2 retention deletion (via the tier1 and
+	// tier2 retention policies below) and reads the cluster's WAL directory, so
+	// the caller must prove it owns the cluster: the host part of the client
+	// certificate Common Name (userName@hostName) must match the requested
+	// cluster.
+	if err := checkPeerCluster(ctx, request.GetClusterName()); err != nil {
+		return nil, err
+	}
+
 	// Step 1: verify if the WALs have been archived
 	missingWALFiles, err := w.checkWALFiles(request)
 	if err != nil {
