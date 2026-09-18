@@ -8,7 +8,7 @@ This page lists version-specific changes that may require
 manual action when upgrading Klio. For the upgrade procedure,
 see the [Helm chart page](helm_chart.mdx#upgrades).
 
-## Unreleased
+## 0.0.20 to 0.0.21
 
 ### Klio-managed retention policies
 
@@ -28,8 +28,6 @@ instead of being delegated to Kopia.
 - The `klio retention get` and `klio retention set` commands have been
   removed. Retention is configured only through the `PluginConfiguration`;
   `klio retention apply` enforces it on demand.
-
-## 0.0.20 to 0.0.21
 
 ### Migrating from the Multi-PVC Model
 
