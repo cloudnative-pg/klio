@@ -28,6 +28,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"k8s.io/apimachinery/pkg/util/wait"
 
+	"github.com/cloudnative-pg/klio/core/internal/client/klioclient"
 	"github.com/cloudnative-pg/klio/core/internal/kopia"
 )
 
@@ -76,6 +77,26 @@ func (f *fakeSnapshotStore) DeleteSnapshot(_ context.Context, id string) error {
 
 func manifest(id, host string) kopia.Manifest {
 	return kopia.Manifest{ID: id, Source: kopia.SourceInfo{Host: host}}
+}
+
+func metadataManifest(id, host string) kopia.Manifest {
+	m := manifest(id, host)
+	m.Tags = map[string]string{klioclient.BackupContentTagName: "metadata"}
+
+	return m
+}
+
+func TestDeleteSnapshotsOrdersMetadataFirst(t *testing.T) {
+	store := &fakeSnapshotStore{}
+	entries := []kopia.Manifest{
+		manifest("pgdata", "host"),
+		metadataManifest("meta", "host"),
+		manifest("controldata", "host"),
+	}
+
+	require.NoError(t, deleteSnapshots(context.Background(), store, entries))
+	require.NotEmpty(t, store.deleted)
+	assert.Equal(t, "meta", store.deleted[0])
 }
 
 func TestDeleteBackupSnapshots(t *testing.T) {
