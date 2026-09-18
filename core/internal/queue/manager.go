@@ -290,22 +290,29 @@ func (m *StreamManager) enqueueBackupTasks(ctx context.Context, tasks []FailedTa
 
 // mergeBackupTasks combines every pending failed BackupTask for a single
 // cluster into the one task to re-enqueue. SendToTier2 is ORed across all
-// entries, since relaying to tier2 is additive/idempotent. Tier2RetentionPolicy
-// and Tier2CompressionPolicy are kept only when every entry that sets them
-// agrees on the same value; a genuine conflict between entries blanks the
-// field instead of arbitrarily picking one of the conflicting values. This is
-// safe because a blank field only means "don't overwrite the tier2 source's
-// existing policy on this retry" (see maintainTier2, which skips the
-// SetKopiaPolicy/SetKopiaCompressionPolicy call but still applies whatever
-// policy is already in effect) — not "no policy is enforced".
+// entries, since relaying to tier2 is additive/idempotent. MaintenanceOnly is
+// ANDed across all entries: if any entry is a genuine failed backup, the
+// merged task must go through full backup processing rather than being
+// downgraded to a maintenance-only run, which would lose the backup.
+// Tier1RetentionPolicy, Tier2RetentionPolicy and Tier2CompressionPolicy are
+// kept only when every entry that sets them agrees on the same value; a
+// genuine conflict between entries blanks the field instead of arbitrarily
+// picking one of the conflicting values. This is safe because a blank field
+// only means "don't overwrite the tier's existing policy on this retry" (see
+// maintainTier1/maintainTier2, which skip the SetKopiaPolicy/
+// SetKopiaCompressionPolicy call but still apply whatever policy is already
+// in effect) — not "no policy is enforced".
 func mergeBackupTasks(tasks []BackupTask) BackupTask {
-	merged := BackupTask{ClusterName: tasks[0].ClusterName}
+	merged := BackupTask{ClusterName: tasks[0].ClusterName, MaintenanceOnly: true}
 
-	var retentionConflict, compressionConflict bool
+	var tier1RetentionConflict, tier2RetentionConflict, compressionConflict bool
 	for _, task := range tasks {
 		merged.SendToTier2 = merged.SendToTier2 || task.SendToTier2
-		merged.Tier2RetentionPolicy, retentionConflict = mergePolicyField(
-			merged.Tier2RetentionPolicy, retentionConflict, task.Tier2RetentionPolicy)
+		merged.MaintenanceOnly = merged.MaintenanceOnly && task.MaintenanceOnly
+		merged.Tier1RetentionPolicy, tier1RetentionConflict = mergePolicyField(
+			merged.Tier1RetentionPolicy, tier1RetentionConflict, task.Tier1RetentionPolicy)
+		merged.Tier2RetentionPolicy, tier2RetentionConflict = mergePolicyField(
+			merged.Tier2RetentionPolicy, tier2RetentionConflict, task.Tier2RetentionPolicy)
 		merged.Tier2CompressionPolicy, compressionConflict = mergePolicyField(
 			merged.Tier2CompressionPolicy, compressionConflict, task.Tier2CompressionPolicy)
 	}
@@ -314,18 +321,25 @@ func mergeBackupTasks(tasks []BackupTask) BackupTask {
 }
 
 // mergePolicyField folds one more candidate value into an in-progress
-// agree-or-blank merge of a policy pointer field: it keeps the shared value
-// while every candidate seen so far agrees, and blanks it (returning a nil
-// current with conflict set) on the first disagreement, remaining blank for
-// any later candidate regardless of its value.
-func mergePolicyField[T any](current *T, conflict bool, candidate *T) (*T, bool) {
+// agree-or-blank merge of a policy field: it keeps the shared value while
+// every candidate seen so far agrees, and blanks it (returning the type's
+// zero value with conflict set) on the first disagreement, remaining blank
+// for any later candidate regardless of its value. The zero value of T is
+// used as the "unset" sentinel, so it works both for pointer fields (nil)
+// and for value types whose own zero value means "no policy" (e.g.
+// retention.Policy).
+//
+//nolint:ireturn // T is a concrete type at every call site, not a real interface return.
+func mergePolicyField[T comparable](current T, conflict bool, candidate T) (T, bool) {
+	var zero T
+
 	switch {
-	case conflict || candidate == nil:
+	case conflict || candidate == zero:
 		return current, conflict
-	case current == nil:
+	case current == zero:
 		return candidate, false
 	case !reflect.DeepEqual(current, candidate):
-		return nil, true
+		return zero, true
 	default:
 		return current, false
 	}
