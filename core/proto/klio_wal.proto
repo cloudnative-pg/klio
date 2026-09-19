@@ -33,6 +33,9 @@ service WAL {
   rpc ResetWALStream(ResetWALStreamRequest) returns (ResetWALStreamResult) {}
 
   rpc CloseBackup(CloseBackupRequest) returns (CloseBackupResult) {}
+
+  rpc SetRetentionPolicy(SetRetentionPolicyRequest) returns (SetRetentionPolicyResult) {}
+  rpc GetRetentionPolicy(GetRetentionPolicyRequest) returns (GetRetentionPolicyResult) {}
 }
 
 message PutRequest {
@@ -46,6 +49,31 @@ message PutRequest {
   reserved "trace_id", "span_id";
 
   bool send_to_tier2 = 7;
+}
+
+message SetRetentionPolicyRequest {
+  string cluster_name = 1;
+  RetentionPolicy retention_policy = 2;
+}
+
+message SetRetentionPolicyResult {
+}
+
+message GetRetentionPolicyRequest {
+  string cluster_name = 1;
+}
+
+message GetRetentionPolicyResult {
+  RetentionPolicy retention_policy = 1;
+}
+
+message RetentionPolicy {
+  TierRetentionPolicy tier1_policy = 1;
+  TierRetentionPolicy tier2_policy = 2;
+}
+
+message TierRetentionPolicy {
+  int32 latest = 1;
 }
 
 message PutResult {
@@ -163,8 +191,8 @@ message CloseBackupRequest {
   // Require this backup to be sent to tier2.
   bool send_to_tier2 = 8;
 
-  // When present, set the tier2 retention policy to the specified JSON-serialized policy.
-  string tier2_retention_policy = 9;
+  reserved 9;
+  reserved "tier2_retention_policy";
 
   // When present, set the tier2 compression policy to the specified JSON-serialized policy.
   string tier2_compression_policy = 10;

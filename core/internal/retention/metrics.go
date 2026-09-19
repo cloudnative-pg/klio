@@ -17,16 +17,28 @@ limitations under the License.
 SPDX-License-Identifier: Apache-2.0
 */
 
-package klioclient
+package retention
 
-// BackupNameTagName is the name of the tag containing the
-// backup name.
-const BackupNameTagName = "klio.io/tag"
+import (
+	"context"
 
-// BackupContentTagName is the name of the tag containing the
-// snapshot content.
-const BackupContentTagName = "klio.io/content"
+	"go.opentelemetry.io/otel/metric"
 
-// TablespaceNameTagName is the name of the tag containing the
-// name of the tablespace.
-const TablespaceNameTagName = "klio.io/tablespaceName"
+	"github.com/cloudnative-pg/klio/core/internal/opentelemetry"
+)
+
+// recordMaintenance records the outcome of a sweep pass (base-snapshot
+// retention and WAL cleanup) for a cluster on a tier.
+func recordMaintenance(ctx context.Context, clusterName string, tier opentelemetry.Tier, err error) {
+	outcome := opentelemetry.OutcomeSuccess
+	if err != nil {
+		outcome = opentelemetry.OutcomeFailure
+	}
+
+	opentelemetry.ServerBackup.Maintenance.Add(ctx, 1,
+		metric.WithAttributes(
+			opentelemetry.AttributeKeyClusterName.Of(clusterName),
+			tier.Attribute(),
+			outcome.Attribute(),
+		))
+}

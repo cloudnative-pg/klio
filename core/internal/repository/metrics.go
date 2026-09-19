@@ -57,8 +57,9 @@ func (m *Metrics) AttributeSet(extra ...attribute.KeyValue) attribute.Set {
 // histogram. The storage tier is carried by the base Attributes; the cluster
 // name, path, stage and outcome are added per call. The path distinguishes the
 // ingest (put) and serve (get) flows, which share some stage names (e.g. send).
-// It is a no-op when BlockDuration is nil, e.g. on the tier-2 consumer path
-// which has no per-block histogram.
+// It is a no-op when m itself is nil (writes that are not real WAL data, e.g.
+// the retention policy file) or when BlockDuration is nil (e.g. the tier-2
+// consumer path, which has no per-block histogram).
 func (m *Metrics) RecordBlockStage(
 	ctx context.Context,
 	clusterName string,
@@ -67,7 +68,7 @@ func (m *Metrics) RecordBlockStage(
 	d time.Duration,
 	outcome opentelemetry.Outcome,
 ) {
-	if m.BlockDuration == nil {
+	if m == nil || m.BlockDuration == nil {
 		return
 	}
 

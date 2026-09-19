@@ -76,12 +76,13 @@ func (w *Implementation) writeClusterMetadata(
 		return fmt.Errorf("internal error while marshalling protobuf data: %w", err)
 	}
 
+	// Metadata is not WAL data, so pass nil metrics: it must not count
+	// toward klio.server.wal.written_size.
 	walWriter, err := w.conn.NewWriter(
 		repository.WriterOptions{
 			ClusterName: clusterName,
 			WALName:     metadataFileName,
 			SegmentSize: uint64(len(data)),
-			Metrics:     w.metrics,
 		},
 	)
 	if err != nil {

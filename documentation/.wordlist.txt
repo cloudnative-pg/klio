@@ -59,6 +59,9 @@ GetMetadata
 GetMetadataRequest
 GetRequest
 GetResult
+GetRetentionPolicy
+GetRetentionPolicyRequest
+GetRetentionPolicyResult
 Grafana
 IAM
 IRSA
@@ -174,6 +177,9 @@ ServerStatus
 ServiceAccounts
 ServiceMonitor
 SessionExpirationAge
+SetRetentionPolicy
+SetRetentionPolicyRequest
+SetRetentionPolicyResult
 StartWALFile
 StatefulSet
 StatefulSet's
@@ -185,6 +191,7 @@ TLSConfiguration
 TLSSecretName
 TODO
 Taskfile
+TierRetentionPolicy
 Tolerations
 TopoLVM
 TrueClass

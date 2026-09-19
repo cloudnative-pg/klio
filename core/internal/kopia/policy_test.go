@@ -114,3 +114,24 @@ func TestBuildCompressionPolicyArgs(t *testing.T) {
 		}
 	})
 }
+
+func TestBuildDisableRetentionPolicyArgs(t *testing.T) {
+	args := buildDisableRetentionPolicyArgs("/etc/kopia/config")
+
+	assertArgContains(t, args, "--config-file=/etc/kopia/config")
+	assertArgContains(t, args, "--global")
+
+	// All six keep-* fields must be explicitly zero: Kopia only treats this
+	// as "keep everything" (its own EffectiveKeepLatest sentinel) when every
+	// one of them is set, not when some are left to inherit the default.
+	for _, want := range []string{
+		"--keep-latest=0",
+		"--keep-hourly=0",
+		"--keep-daily=0",
+		"--keep-weekly=0",
+		"--keep-monthly=0",
+		"--keep-annual=0",
+	} {
+		assertArgContains(t, args, want)
+	}
+}
