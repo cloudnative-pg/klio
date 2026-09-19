@@ -37,13 +37,9 @@ type stubBackupSteps struct {
 	manifestsErr error
 	verifyErr    error
 	relayErr     error
-	maintain2Err error
-	maintainErr  error
 
-	verifyCalled    bool
-	relayCalled     bool
-	maintain2Called bool
-	maintainCalled  bool
+	verifyCalled bool
+	relayCalled  bool
 }
 
 func (s *stubBackupSteps) listManifests(_ context.Context, _ string) ([]kopia.Manifest, error) {
@@ -58,16 +54,6 @@ func (s *stubBackupSteps) verifyTier1(_ context.Context, _ string) error {
 func (s *stubBackupSteps) relayTier2(_ context.Context, _ *queue.BackupTask, _ []kopia.Manifest) error {
 	s.relayCalled = true
 	return s.relayErr
-}
-
-func (s *stubBackupSteps) maintainTier2(_ context.Context, _ *queue.BackupTask, _ []kopia.Manifest) error {
-	s.maintain2Called = true
-	return s.maintain2Err
-}
-
-func (s *stubBackupSteps) maintainTier1(_ context.Context, _ string, _ []kopia.Manifest) error {
-	s.maintainCalled = true
-	return s.maintainErr
 }
 
 func TestProcessBackup(t *testing.T) {
@@ -88,14 +74,10 @@ func TestProcessBackup(t *testing.T) {
 		manifestsErr error
 		verifyErr    error
 		relayErr     error
-		maintain2Err error
-		maintainErr  error
 
-		wantErr       bool
-		wantVerify    bool
-		wantRelay     bool
-		wantMaintain2 bool
-		wantMaintain  bool
+		wantErr    bool
+		wantVerify bool
+		wantRelay  bool
 	}{
 		{
 			name:         "manifest listing fails is retried",
@@ -107,10 +89,9 @@ func TestProcessBackup(t *testing.T) {
 			manifests: nil,
 		},
 		{
-			name:         "tier1-only backup verifies and maintains tier1",
-			manifests:    someEntries,
-			wantVerify:   true,
-			wantMaintain: true,
+			name:       "tier1-only backup verifies, no relay",
+			manifests:  someEntries,
+			wantVerify: true,
 		},
 		{
 			name:       "tier1 verification failure is retried",
@@ -120,17 +101,15 @@ func TestProcessBackup(t *testing.T) {
 			wantVerify: true,
 		},
 		{
-			name:          "tier2 relay success runs both maintenances",
-			sendToTier2:   true,
-			tier2Enabled:  true,
-			manifests:     someEntries,
-			wantVerify:    true,
-			wantRelay:     true,
-			wantMaintain2: true,
-			wantMaintain:  true,
+			name:         "tier2 relay success",
+			sendToTier2:  true,
+			tier2Enabled: true,
+			manifests:    someEntries,
+			wantVerify:   true,
+			wantRelay:    true,
 		},
 		{
-			name:         "tier2 relay failure is retried before any maintenance",
+			name:         "tier2 relay failure is retried",
 			sendToTier2:  true,
 			tier2Enabled: true,
 			manifests:    someEntries,
@@ -140,31 +119,12 @@ func TestProcessBackup(t *testing.T) {
 			wantRelay:    true,
 		},
 		{
-			name:          "tier2 maintenance failure is retried before tier1 maintenance",
-			sendToTier2:   true,
-			tier2Enabled:  true,
-			manifests:     someEntries,
-			maintain2Err:  errBoom,
-			wantErr:       true,
-			wantVerify:    true,
-			wantRelay:     true,
-			wantMaintain2: true,
-		},
-		{
-			name:         "tier2 requested but not configured fails after tier1 maintenance",
+			name:         "tier2 requested but not configured fails immediately",
 			sendToTier2:  true,
 			tier2Enabled: false,
 			manifests:    someEntries,
 			wantErr:      true,
 			wantVerify:   true,
-			wantMaintain: true,
-		},
-		{
-			name:         "tier1 maintenance error is swallowed",
-			manifests:    someEntries,
-			maintainErr:  errBoom,
-			wantVerify:   true,
-			wantMaintain: true,
 		},
 	}
 
@@ -175,8 +135,6 @@ func TestProcessBackup(t *testing.T) {
 				manifestsErr: tt.manifestsErr,
 				verifyErr:    tt.verifyErr,
 				relayErr:     tt.relayErr,
-				maintain2Err: tt.maintain2Err,
-				maintainErr:  tt.maintainErr,
 			}
 
 			b := &Backup{
@@ -195,12 +153,6 @@ func TestProcessBackup(t *testing.T) {
 			}
 			if stub.relayCalled != tt.wantRelay {
 				t.Errorf("relayTier2 called = %v, want %v", stub.relayCalled, tt.wantRelay)
-			}
-			if stub.maintain2Called != tt.wantMaintain2 {
-				t.Errorf("maintainTier2 called = %v, want %v", stub.maintain2Called, tt.wantMaintain2)
-			}
-			if stub.maintainCalled != tt.wantMaintain {
-				t.Errorf("maintainTier1 called = %v, want %v", stub.maintainCalled, tt.wantMaintain)
 			}
 		})
 	}

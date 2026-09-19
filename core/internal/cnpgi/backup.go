@@ -27,7 +27,6 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
-	"strconv"
 	"strings"
 	"time"
 
@@ -85,12 +84,7 @@ func (b backupServiceImplementation) Backup(
 		return nil, fmt.Errorf("failed to unmarshal cluster definition: %w", err)
 	}
 
-	r, err := extractTier1RetentionFromConfiguration()
-	if err != nil {
-		return nil, fmt.Errorf("failed to extract retention policy from configuration: %w", err)
-	}
-
-	if err = b.setRetentionPolicy(ctx, r); err != nil {
+	if err := b.setRetentionPolicy(ctx); err != nil {
 		// Yes this is intentional. If we don't set the retention policies from
 		// the configuration file, it is not a major issue. We can continue with the backup.
 		// The eventual error will be logged into the setRetentionPolicy function
@@ -328,40 +322,19 @@ func (b backupServiceImplementation) runVerify(ctx context.Context, backupName s
 	return false, nil
 }
 
-//nolint:cyclop
-func (b backupServiceImplementation) setRetentionPolicy(ctx context.Context, r *Retention) error {
+func (b backupServiceImplementation) setRetentionPolicy(ctx context.Context) error {
 	contextLogger := log.FromContext(ctx)
-
-	if r.IsEmpty() {
-		contextLogger.Info("Skipping retention policy creation")
-		return nil
-	}
 
 	klioPath, err := os.Executable()
 	if err != nil {
 		return fmt.Errorf("failed to determine klio path: %w", err)
 	}
 
+	// "klio retention set" reads the tier1/tier2 retention policy straight
+	// from the config file (no separate flags): it always runs, and writes
+	// nil policies when the configuration has none configured.
 	klioArgs := []string{
 		"retention", "set", "--config", backupRepositoryConfigPath,
-	}
-	if r.KeepAnnual != nil {
-		klioArgs = append(klioArgs, "--keep-annual", strconv.Itoa(*r.KeepAnnual))
-	}
-	if r.KeepDaily != nil {
-		klioArgs = append(klioArgs, "--keep-daily", strconv.Itoa(*r.KeepDaily))
-	}
-	if r.KeepHourly != nil {
-		klioArgs = append(klioArgs, "--keep-hourly", strconv.Itoa(*r.KeepHourly))
-	}
-	if r.KeepLatest != nil {
-		klioArgs = append(klioArgs, "--keep-latest", strconv.Itoa(*r.KeepLatest))
-	}
-	if r.KeepWeekly != nil {
-		klioArgs = append(klioArgs, "--keep-weekly", strconv.Itoa(*r.KeepWeekly))
-	}
-	if r.KeepMonthly != nil {
-		klioArgs = append(klioArgs, "--keep-monthly", strconv.Itoa(*r.KeepMonthly))
 	}
 
 	contextLogger.Info("Executing klio retention set", "args", klioArgs)

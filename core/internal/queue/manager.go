@@ -290,22 +290,19 @@ func (m *StreamManager) enqueueBackupTasks(ctx context.Context, tasks []FailedTa
 
 // mergeBackupTasks combines every pending failed BackupTask for a single
 // cluster into the one task to re-enqueue. SendToTier2 is ORed across all
-// entries, since relaying to tier2 is additive/idempotent. Tier2RetentionPolicy
-// and Tier2CompressionPolicy are kept only when every entry that sets them
-// agrees on the same value; a genuine conflict between entries blanks the
-// field instead of arbitrarily picking one of the conflicting values. This is
-// safe because a blank field only means "don't overwrite the tier2 source's
-// existing policy on this retry" (see maintainTier2, which skips the
-// SetKopiaPolicy/SetKopiaCompressionPolicy call but still applies whatever
-// policy is already in effect) — not "no policy is enforced".
+// entries, since relaying to tier2 is additive/idempotent. Tier2CompressionPolicy
+// is kept only when every entry that sets it agrees on the same value; a
+// genuine conflict between entries blanks the field instead of arbitrarily
+// picking one of the conflicting values. This is safe because a blank field
+// only means "don't override the tier2 source's compression policy on this
+// retry" (see relayTier2, which skips the SetKopiaCompressionPolicy call when
+// the field is unset) — not "no policy is enforced".
 func mergeBackupTasks(tasks []BackupTask) BackupTask {
 	merged := BackupTask{ClusterName: tasks[0].ClusterName}
 
-	var retentionConflict, compressionConflict bool
+	var compressionConflict bool
 	for _, task := range tasks {
 		merged.SendToTier2 = merged.SendToTier2 || task.SendToTier2
-		merged.Tier2RetentionPolicy, retentionConflict = mergePolicyField(
-			merged.Tier2RetentionPolicy, retentionConflict, task.Tier2RetentionPolicy)
 		merged.Tier2CompressionPolicy, compressionConflict = mergePolicyField(
 			merged.Tier2CompressionPolicy, compressionConflict, task.Tier2CompressionPolicy)
 	}

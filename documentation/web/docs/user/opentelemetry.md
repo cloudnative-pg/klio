@@ -229,24 +229,26 @@ family and are distinguished by the `tier` attribute (`"tier1"` or
 Every recording carries a `cluster_name` attribute identifying the
 PostgreSQL cluster, alongside the `tier` discriminator.
 
-### Post-backup processing metrics (server)
+### Post-backup and retention sweep metrics (server)
 
 The tier-1 backup itself is taken and counted client-side
-(`klio.plugin.backup.runs`). Afterwards the server does two kinds of work for
-the completed backup: optionally **relays** it to tier-2 (migration +
-verification), and runs **maintenance** (base-snapshot retention + WAL
-cleanup) on each tier. The relay is counted by `klio.server.backup.relay`;
-maintenance is counted by `klio.server.backup.maintenance`, discriminated by a
-`tier` attribute (`tier1` / `tier2`).
+(`klio.plugin.backup.runs`). Afterwards the server optionally **relays** it
+to tier-2 (migration + verification), counted by `klio.server.backup.relay`.
+Relay is per-backup, queue-driven work: it carries `cluster_name` and
+`outcome`, and is recorded once per attempt, so a backup whose relay is
+retried produces multiple data points before it succeeds or is
+dead-lettered.
 
-Both carry `cluster_name` and `outcome` and are recorded once per attempt, so
-a backup whose relay or maintenance is retried produces multiple data points
-before it succeeds or is dead-lettered.
+**Maintenance** (backup retention and WAL cleanup) is unrelated to any
+single backup: a periodic sweep independently evaluates every cluster's
+retention policy on each tier and deletes what's out of policy. Each sweep
+pass records one `klio.server.backup.maintenance` data point per cluster
+per tier, regardless of whether any backup completed since the last pass.
 
 | Metric Name | Type | Unit | Description |
 |---|---|---|---|
 | `klio.server.backup.relay` | Counter | `{relays}` | Number of tier-2 relay attempts after a backup (migration to tier-2 and verification), split by `cluster_name` and `outcome` (`success` / `failure`). |
-| `klio.server.backup.maintenance` | Counter | `{runs}` | Number of maintenance runs after a backup (base-snapshot retention and WAL cleanup), split by `cluster_name`, `tier` (`tier1` / `tier2`) and `outcome` (`success` / `failure`) |
+| `klio.server.backup.maintenance` | Counter | `{runs}` | Number of retention sweep passes (backup retention and WAL cleanup) per cluster, split by `cluster_name`, `tier` (`tier1` / `tier2`) and `outcome` (`success` / `failure`) |
 
 ### WAL duration histograms (server)
 

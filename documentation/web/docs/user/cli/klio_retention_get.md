@@ -36,5 +36,5 @@ klio retention get [flags]
 
 ### SEE ALSO
 
-* [klio retention](klio_retention.md)	 - Manage the retention policy
+* [klio retention](klio_retention.md)	 - Manage the retention policies
 

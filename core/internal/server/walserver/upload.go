@@ -256,7 +256,7 @@ func (h *putHandler) processBatch(
 // validateBlock validates a single received block and updates the shared
 // metadata. It does not write the block's payload - see processBatch.
 func (h *putHandler) validateBlock(ctx context.Context, request *grpc.PutRequest) error {
-	if err := h.validateRequest(request); err != nil {
+	if err := h.validateRequest(ctx, request); err != nil {
 		return err
 	}
 
@@ -278,10 +278,15 @@ func (h *putHandler) validateBlock(ctx context.Context, request *grpc.PutRequest
 }
 
 // validateRequest checks the cluster name and WAL name of a received block.
-func (h *putHandler) validateRequest(request *grpc.PutRequest) error {
+func (h *putHandler) validateRequest(ctx context.Context, request *grpc.PutRequest) error {
 	if err := repository.ValidatePathComponent(request.GetClusterName()); err != nil {
 		h.logger.Warning("Wrong cluster name used in WAL Put", "clusterName", request.GetClusterName())
 		return status.Errorf(grpccodes.InvalidArgument, "invalid cluster name: %v", err.Error())
+	}
+
+	if err := authorizeClusterName(ctx, request.GetClusterName()); err != nil {
+		h.logger.Warning("Unauthorized cluster name used in WAL Put", "clusterName", request.GetClusterName())
+		return err
 	}
 
 	if err := repository.ValidatePathComponent(request.GetWalName()); err != nil {

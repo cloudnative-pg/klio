@@ -126,13 +126,13 @@ func runBackup(cmd *cobra.Command, _ []string) error {
 			backupfailure.RepositoryError.ExitCode)
 	}
 
-	if err := backupExecutor.Upload(cmd.Context(), tier2); err != nil {
+	if err := backupExecutor.Upload(cmd.Context()); err != nil {
 		return cli.NewCodedError(
 			fmt.Errorf("while uploading data: %w", err),
 			backupfailure.RepositoryError.ExitCode)
 	}
 
-	metadata, err := backupExecutor.Close(cmd.Context(), tier2)
+	metadata, err := backupExecutor.Close(cmd.Context())
 	if err != nil {
 		return cli.NewCodedError(
 			fmt.Errorf("while closing the backup: %w", err),
@@ -158,7 +158,6 @@ func runBackup(cmd *cobra.Command, _ []string) error {
 			EndWal:                 metadata.EndWAL,
 			SegmentSize:            metadata.SegmentSize,
 			SendToTier2:            tier2,
-			Tier2RetentionPolicy:   marshalTier2RetentionPolicy(cmd.Context(), &configuration),
 			Tier2CompressionPolicy: marshalTier2CompressionPolicy(cmd.Context(), &configuration),
 		})
 		if err != nil {
@@ -224,33 +223,6 @@ func toKopiaCompressionPolicy(p *config.CompressionPolicy) kopiaWrapper.Compress
 		MinSize:   p.MinSize,
 		MaxSize:   p.MaxSize,
 	}
-}
-
-// marshalTier2RetentionPolicy serializes the tier2 retention policy to the
-// JSON representation expected by the WAL server. It returns an empty string
-// when no policy is configured or serialization fails.
-func marshalTier2RetentionPolicy(ctx context.Context, configuration *config.Data) string {
-	if configuration.Tier2RetentionPolicy == nil {
-		return ""
-	}
-
-	policy := kopiaWrapper.RetentionPolicy{
-		KeepLatest:  configuration.Tier2RetentionPolicy.KeepLatest,
-		KeepHourly:  configuration.Tier2RetentionPolicy.KeepHourly,
-		KeepDaily:   configuration.Tier2RetentionPolicy.KeepDaily,
-		KeepWeekly:  configuration.Tier2RetentionPolicy.KeepWeekly,
-		KeepMonthly: configuration.Tier2RetentionPolicy.KeepMonthly,
-		KeepAnnual:  configuration.Tier2RetentionPolicy.KeepAnnual,
-	}
-
-	content, err := json.Marshal(policy)
-	if err != nil {
-		log.FromContext(ctx).Error(err, "Error while serializing the tier2 retention policy, skipping")
-
-		return ""
-	}
-
-	return string(content)
 }
 
 // marshalTier2CompressionPolicy serializes the tier2 compression policy to the

@@ -49,9 +49,9 @@ import (
 	"github.com/cloudnative-pg/klio/operator/test/utils/templates/secrets"
 )
 
-// tier2RetentionScenario contains all resources needed for tier2 retention testing.
-// This tests both backup retention (Kopia snapshots) and WAL retention.
-type tier2RetentionScenario struct {
+// retentionScenario contains all resources needed for combined
+// tier1/tier2 retention testing.
+type retentionScenario struct {
 	// Common
 	namespace *corev1.Namespace
 	issuer    *certmanagerv1.Issuer
@@ -74,29 +74,26 @@ type tier2RetentionScenario struct {
 	klioServer        *kliov1alpha1.Server
 
 	// Source cluster
-	cnpgCluster           *cnpgv1.Cluster
-	klioPluginConfig      *kliov1alpha1.PluginConfiguration
-	backups               []*cnpgv1.Backup
-	name                  string
-	tier2RetentionKeepNum int
+	cnpgCluster      *cnpgv1.Cluster
+	klioPluginConfig *kliov1alpha1.PluginConfiguration
+	backups          []*cnpgv1.Backup
+	name             string
 }
 
-// Setup creates all resources for the tier2 retention test.
-func (s *tier2RetentionScenario) Setup(
+// Setup creates all resources for the retention test.
+func (s *retentionScenario) Setup(
 	ctx context.Context,
 	t *testing.T,
 	cfg *envconf.Config,
 ) context.Context {
 	t.Helper()
 
-	t.Logf("Creating resources for tier2 retention feature: %s", s.name)
+	t.Logf("Creating resources for retention feature: %s", s.name)
 	r, err := resources.New(cfg.Client().RESTConfig())
 	require.NoError(t, err, "failed to create resources client")
 
-	// Create namespace
 	createNamespace(ctx, t, r, s.namespace)
 
-	// Set scenario infra
 	scenario := infra.Tier2{
 		Issuer:                s.issuer,
 		RustfsSecret:          s.rustfsSecret,
@@ -114,16 +111,13 @@ func (s *tier2RetentionScenario) Setup(
 		KlioServer:            s.klioServer,
 	}
 
-	// Parallel setup of RustFS and Klio Server for Tier2 scenario
 	scenario.ParallelSetup(ctx, t, r)
 
-	// Deploy CNPG cluster
 	t.Logf("Deploying CNPG cluster...")
 	require.NoError(t, r.Create(ctx, s.klioPluginConfig),
 		"failed to create Klio plugin configuration")
 	require.NoError(t, r.Create(ctx, s.cnpgCluster), "failed to create CNPG cluster")
 
-	// Wait for cluster to be ready
 	t.Logf("Waiting for cluster to be ready...")
 	err = wait.For(
 		machineryConditions.ClusterIsReady(r, s.cnpgCluster),
@@ -132,74 +126,63 @@ func (s *tier2RetentionScenario) Setup(
 	)
 	require.NoError(t, err, "cluster not ready")
 
-	t.Logf("All resources created and ready for tier2 retention feature: %s", s.name)
+	t.Logf("All resources created and ready for retention feature: %s", s.name)
 
 	return ctx
 }
 
 // Teardown deletes all resources.
-func (s *tier2RetentionScenario) Teardown(
+func (s *retentionScenario) Teardown(
 	ctx context.Context,
 	t *testing.T,
 	cfg *envconf.Config,
 ) context.Context {
 	t.Helper()
 
-	t.Logf("Tearing down resources for tier2 retention feature: %s", s.name)
+	t.Logf("Tearing down resources for retention feature: %s", s.name)
 	r, err := resources.New(cfg.Client().RESTConfig())
 	require.NoError(t, err, "failed to create resources client")
 	namespaces.DumpNamespaceOnFailure(ctx, t, r, testCfg.LogDir, s.namespace.Name, testconfig.DumpedKinds())
 	require.NoError(t, r.Delete(ctx, s.namespace), "failed to delete namespace")
-	t.Logf("Resources torn down for tier2 retention feature: %s", s.name)
+	t.Logf("Resources torn down for retention feature: %s", s.name)
 
 	return ctx
 }
 
-// NewTier2RetentionFeatureConfig creates a new tier2 retention feature configuration.
-// This configures a test that validates both backup retention and WAL retention in tier2.
-func NewTier2RetentionFeatureConfig(
-	name string, namespace string, tier2RetentionKeepNum int,
-) klioFeatures.Tier2RetentionFeatureConfig {
+// newRetentionFeatureConfig creates a new retention feature configuration.
+// It configures a single-instance cluster with tier1 latest=1 and tier2
+// latest=2, and takes one more backup than the larger of the two so both
+// tiers' retention is exercised.
+func newRetentionFeatureConfig(name, namespace string, tier1Keep, tier2Keep int32) klioFeatures.RetentionFeatureConfig {
 	const (
-		// Cluster names
 		cnpgClusterName = "pg-retention"
+		klioServerName  = "klio"
 
-		// Server names
-		klioServerName = "klio"
-
-		// Certificate and issuer names
 		selfSignedIssuerName  = "selfsigned-issuer"
 		caCertificateName     = klioServerName + "-ca"
 		caIssuerName          = caCertificateName + "-issuer"
 		serverCertificateName = klioServerName + "-server"
 		clientCertName        = cnpgClusterName + "-client"
 
-		// RustFS resource names
 		rustfsName                = "rustfs"
 		rustfsSecretName          = rustfsName + "-secret"
 		rustfsConfigMapName       = rustfsName + "-config"
 		rustfsCreateBucketJobName = rustfsName
 
-		// Secret names
 		encryptionSecretName = "encryption"
 		encryptionPassword   = "testencryptionpassword123"
 
-		// Plugin configuration names
 		pluginConfigurationName = "klio-plugin-configuration"
 
-		// S3 configuration
 		s3Prefix = "tier2"
 	)
 
-	// Namespace
 	namespaceObj := &corev1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{Name: namespace},
 	}
 
-	// Issuer for all certificates
 	issuer := certificates.GetSelfSignedIssuerObject(selfSignedIssuerName, namespace)
 
-	// RustFS infrastructure
 	rustfsSecret := rustfs.GetRustFSSecret(rustfsSecretName, namespace)
 	rustfsConfigMap := rustfs.GetRustFSConfigMap(rustfsConfigMapName, namespace)
 	rustfsCertificate := rustfs.GetRustFSCertificate(rustfsName, namespace, issuer)
@@ -208,7 +191,6 @@ func NewTier2RetentionFeatureConfig(
 	rustfsCreateBucketJob := rustfs.GetRustFSCreateBucketJob(
 		rustfsCreateBucketJobName, namespace, rustfs.RustFSBucketName)
 
-	// Klio Server certificates and secrets
 	caCertificate := certificates.GetCACertificateObject(caCertificateName, namespace, issuer)
 	caIssuer := certificates.GetCAIssuerObject(caIssuerName, namespace, caCertificate.Spec.SecretName)
 	serverCertificate := certificates.GetCertificateObject(serverCertificateName, namespace, []string{klioServerName},
@@ -216,10 +198,8 @@ func NewTier2RetentionFeatureConfig(
 	userCertificate := certificates.GetUserCertificateObject(
 		clientCertName, namespace, clientCertName+"@"+cnpgClusterName, caIssuer)
 
-	// Encryption secret
 	ageSecrets := secrets.GetKlioAgeEncryptionSecrets(encryptionSecretName, namespace, encryptionPassword)
 
-	// Klio Server with tier2
 	klioServer := klio.GetServerWithTier2Object(
 		klioServerName,
 		namespace,
@@ -254,12 +234,13 @@ func NewTier2RetentionFeatureConfig(
 		},
 	)
 
-	// CNPG cluster
+	// Single-instance cluster: tier1 keeps latest=1, so a single instance
+	// keeps the WAL-floor assertion unambiguous (no standby archiving of
+	// its own).
 	cnpgCluster := cnpg.GetCnpgClusterObject(
 		cnpgClusterName, namespace, 1, pluginConfigurationName,
 		cnpg.ClusterTemplateOptions{StorageClass: testCfg.StorageClass})
 
-	// Plugin configuration with tier2 backup enabled and retention policy
 	klioPluginConfig := klio.GetPluginConfigurationObject(
 		pluginConfigurationName,
 		namespace,
@@ -271,24 +252,26 @@ func NewTier2RetentionFeatureConfig(
 			EnableTier2Recovery: false,
 			Mode:                kliov1alpha1.ModeStandard,
 			Tier2RetentionPolicy: &kliov1alpha1.RetentionPolicy{
-				KeepLatest:  new(tier2RetentionKeepNum),
-				KeepHourly:  new(0),
-				KeepDaily:   new(0),
-				KeepWeekly:  new(0),
-				KeepMonthly: new(0),
-				KeepAnnual:  new(0),
+				Latest: new(tier2Keep),
 			},
 		},
 	)
+	klioPluginConfig.Spec.Tier1 = &kliov1alpha1.Tier1PluginConfiguration{
+		RetentionPolicy: &kliov1alpha1.RetentionPolicy{
+			Latest: new(tier1Keep),
+		},
+	}
 
-	// Create multiple backups for retention testing
-	backups := make([]*cnpgv1.Backup, 0, tier2RetentionKeepNum+1)
-	for i := range tier2RetentionKeepNum + 1 {
+	// Take one more backup than the larger of the two retention values, so
+	// both tiers are forced to prune at least once.
+	backupCount := max(tier1Keep, tier2Keep) + 1
+	backups := make([]*cnpgv1.Backup, 0, backupCount)
+	for i := range backupCount {
 		backupName := fmt.Sprintf("test-backup-%d", i+1)
 		backups = append(backups, cnpg.GetCnpgBackupObject(backupName, namespace, cnpgv1.DefaultBackupTarget, cnpgCluster))
 	}
 
-	scenario := &tier2RetentionScenario{
+	scenario := &retentionScenario{
 		namespace:             namespaceObj,
 		issuer:                issuer,
 		rustfsSecret:          rustfsSecret,
@@ -308,26 +291,29 @@ func NewTier2RetentionFeatureConfig(
 		klioPluginConfig:      klioPluginConfig,
 		backups:               backups,
 		name:                  name,
-		tier2RetentionKeepNum: tier2RetentionKeepNum,
 	}
 
-	return klioFeatures.Tier2RetentionFeatureConfig{
-		Name:        name,
-		Setup:       scenario.Setup,
-		Teardown:    scenario.Teardown,
-		Backups:     backups,
-		KlioServer:  klioServer,
-		Namespace:   namespace,
-		KeepLatest:  tier2RetentionKeepNum,
-		ClusterName: cnpgClusterName,
-		S3Prefix:    s3Prefix,
+	return klioFeatures.RetentionFeatureConfig{
+		Name:         name,
+		Setup:        scenario.Setup,
+		Teardown:     scenario.Teardown,
+		Backups:      backups,
+		KlioServer:   klioServer,
+		Namespace:    namespace,
+		Tier1Keep:    tier1Keep,
+		Tier2Keep:    tier2Keep,
+		ClusterName:  cnpgClusterName,
+		S3BucketName: rustfs.RustFSBucketName,
+		S3Prefix:     s3Prefix,
+		RustFSName:   rustfsName,
 	}
 }
 
-// Tier2Retention returns a Tier2RetentionFeature for testing tier2 retention.
-// This test validates both backup retention (Kopia snapshots kept to keepLatest=1)
-// and WAL retention (cleanup of WALs older than the oldest remaining backup).
-func Tier2Retention(namespace string) *klioFeatures.Tier2RetentionFeature {
-	return klioFeatures.NewTier2RetentionFeature(
-		NewTier2RetentionFeatureConfig("Tier2Retention", namespace, 1))
+// Retention returns a RetentionFeature verifying that tier1 and tier2
+// backup and WAL retention converge together: tier1 keeps only its latest
+// backup, tier2 keeps its latest two, and each tier's oldest remaining WAL
+// segment matches what its surviving backups require.
+func Retention(namespace string) *klioFeatures.RetentionFeature {
+	return klioFeatures.NewRetentionFeature(
+		newRetentionFeatureConfig("Retention", namespace, 1, 2))
 }

@@ -167,90 +167,79 @@ failures where backups would be stored under a wrong hostname.
 
 ### Kopia repository access: server vs. direct (AVOID DIRECT WRITES)
 
-Every Kopia mutation reaches a repository in one of two ways, decided by the
-config file the `kopia` binary is handed:
+Every Kopia mutation reaches a repository one of two ways, picked by the
+config file `kopia` is handed:
 
-- **Through the Kopia server** — config built by `ConnectRemote`
-  (`kopia repository connect server`, in `core/internal/kopia/remote.go`), used
-  by `ConnectTier1`/`ConnectTier2` in
-  `core/internal/client/klioclient/kopia/kopia.go`.
-- **Directly on storage** — config built by `ConnectS3` / `ConnectFileSystem`
-  (`kopia repository connect s3|filesystem`), used by `FromKopiaConfig` and by
-  the raw `kopia.Client{ConfigFile: ...}` the backup consumer holds.
+- **Server** — `ConnectRemote` (`kopia repository connect server`,
+  `core/internal/kopia/remote.go`), used by `ConnectTier1`/`ConnectTier2`
+  (`core/internal/client/klioclient/kopia/kopia.go`).
+- **Direct** — `ConnectS3`/`ConnectFileSystem`, used by `FromKopiaConfig`
+  and the raw `kopia.Client{ConfigFile: ...}` held by the backup consumer.
 
-**Direct writes are a bad path. Always route mutations through the Kopia
-server.** The Kopia server caches manifests, so a direct write leaves the
-server's view stale until it is explicitly refreshed. This is a recurring source
-of subtle, hard-to-debug retention and visibility races — treat every direct
-write as a liability, not a shortcut.
+**Always route mutations through the server.** It caches manifests, so a
+direct write leaves its view stale until refreshed — a recurring source of
+retention/visibility races.
 
-**If a user or task asks you to add a direct write (or you find yourself reaching
-for `FromKopiaConfig` / a raw `kopia.Client` for a write), STOP and warn them
-first.** Explain that it bypasses the Kopia server cache, name the race it can
-introduce, and propose the server-routed alternative. Only proceed if they
-confirm after that warning.
+**If asked to add a direct write (or reaching for `FromKopiaConfig`/a raw
+`kopia.Client` yourself), stop and warn first**: name the staleness race,
+propose the server-routed alternative, and proceed only if the user confirms.
 
-- Client- and sidecar-driven paths (backup upload, delete, retention set,
-  restore, list; everything under `core/cmd/*`) already route through the server
-  via `MultiConnect`/`ConnectTier1`/`ConnectTier2`. Keep them that way — never
-  convert one of these to a direct write.
-- The **only** component that writes directly is the server-side backup consumer
-  (`core/internal/consumer/`), and only because it has no server connection for
-  those steps: tier1/tier2 retention apply, tier2 relay/migrate, tier2 policy
-  set, and tier1 unpin. This is a deliberate, contained exception — not a pattern
-  to copy, and one that should be removed in the future.
-- A second, narrower exception: `applyGlobalCompressionPolicy` in
-  `core/cmd/server/server.go` sets the repository-wide (global) compression
-  policy with a raw `kopia.Client{ConfigFile: ...}`, before the tier's Kopia
-  server starts. This is safe only because no server is running yet to hold a
-  stale cache. Do not reuse this pattern once the server is up.
-- A direct write that **rewrites the manifest of a live backup** MUST be followed
-  by `refreshTier1KopiaServer` / `refreshTier2KopiaServer` so the servers
-  reconcile their caches; skipping the refresh is a bug. The tier1 unpin is the
-  canonical case: `kopia snapshot pin` rewrites the snapshot manifest to a *new*
-  ID and deletes the old one, so without a refresh the server keeps serving the
-  now-deleted ID for a backup that still exists, and a later client
-  `klio backup delete` asks Kopia to delete an ID that no longer matches
-  anything: the command fails and the real backup (and its WALs) stay pinned.
-- A direct write that only **deletes** snapshots (the tier1/tier2 retention
-  apply) does **not** need a refresh: it removes IDs the server may still list,
-  but it never rewrites a live backup's ID, and WAL retention is recomputed from
-  the consumer's own direct `ListBackups`, not the server's cache. A stale server
-  here only lists an already-deleted snapshot, which is harmless. Do not add a
-  refresh after these unless you can name a concrete manifest-ID divergence it
-  fixes.
+- Client/sidecar paths (`core/cmd/*`: upload, delete, retention set,
+  restore, list) already route through the server via
+  `MultiConnect`/`ConnectTier1`/`ConnectTier2`. Never convert one to direct.
+- **`core/internal/consumer/`** writes directly only for tier2
+  relay/migrate (`MigrateSnapshots`) and the per-cluster tier2 compression
+  set (`SetKopiaCompressionPolicy`) — it has no server connection for those
+  steps. A contained exception, not a pattern to copy.
+- **`core/internal/retention`** (the periodic sweeper) also writes
+  directly — a repo-wide sweep has no single-cluster server connection. It
+  deletes out-of-policy backups (`DeleteBackup`, by manifest ID) and
+  orphans, and applies WAL retention via
+  `Connection.SetFirstRequiredOnCluster` (a WAL op, not a Kopia write). It
+  refreshes each tier's server cache once per pass that deleted anything —
+  a freshness convenience for `klio backup list`/restore right after a
+  sweep, not a correctness requirement.
+- **`core/cmd/server/server.go`**: `applyGlobalCompressionPolicy` and
+  `disableKopiaGlobalRetentionPolicy` set the repo-wide policy with a raw
+  client *before* the tier's server starts, so no cache exists yet to go
+  stale. Don't reuse this once the server is up. The retention call exists
+  because Kopia applies its own default retention (10 latest/48 hourly/7
+  daily/4 weekly/24 monthly/3 annual) on every `snapshot create` unless all
+  six `keep-*` fields are explicitly 0 — otherwise Kopia would delete
+  snapshots the sweeper never asked to delete.
 
-Do not introduce direct-write paths anywhere else. If, after warning the user, a
-new direct write is genuinely unavoidable, it must be paired with a server
-refresh of the affected tier.
+**Manifest-rewriting direct writes must refresh the affected tier's server
+cache after.** Skipping it is a bug: a rewrite retires the old manifest ID,
+so a stale server serving it fails a later `klio backup delete`. No such
+rewrite exists today — `kopia snapshot pin` was removed for exactly this
+reason (rewrites the ID on every call, and `snapshot delete` ignores pins
+anyway). Its old job, protecting an unsynced tier1 backup, is now done
+without a rewrite, via the sweeper's sync-guard (checks tier2's live
+backup list).
+
+**Delete-only direct writes don't need a refresh for correctness** — they
+never rewrite a live ID, and WAL retention re-lists live. The sweeper's
+refresh above is freshness, not correctness.
+
+Don't add direct-write paths elsewhere. If one is genuinely unavoidable
+after warning the user, pair it with a server refresh only if it rewrites
+a live manifest.
 
 ### Snapshot identity: manifest ID vs root object ID
 
-A snapshot's **manifest ID is not a stable identity**. `kopia snapshot pin`
-(the tier1 unpin above) rewrites a snapshot's manifest under a new ID and
-deletes the old one, so any code that lists snapshots and then acts on them a
-moment later can be holding an ID that no longer exists. Pick the identity by
-what the operation does:
+A manifest ID isn't a stable identity in general — a rewrite retires it (none
+exists today; this is a guardrail for the future). Pick identity by use:
 
-- **Reads that must survive a concurrent rewrite** use the root object ID
-  (`Manifest.RootEntry.ObjID`), which the rewrite leaves untouched. Backup
-  verification (`core/internal/client/klioclient/kopia/verify.go`) does this,
-  passing every root to Kopia as `--file-id` regardless of whether it is a
-  directory root (pgdata, metadata) or a file root (the control data file,
-  snapshotted on its own).
-- **Deletions must NOT use the root object ID.** Unchanged content dedupes to
-  the same root across backups (two backups of an idle tablespace share one), and
-  `kopia snapshot delete` removes *every* snapshot matching the ID it is given,
-  so deleting one backup by root ID can take another backup's snapshot with it.
-  Delete by manifest ID, and on failure re-list and retry so a concurrent
-  rewrite is picked up (`DeleteBackup` in the same package).
-- **The tier1 unpin is a write, not a read, and knowingly accepts the same
-  collision as delete.** The consumer's `getPinnedSnapshots`/`maintainTier2`
-  (`core/internal/consumer/backup.go`) also targets the root object ID, so a
-  root shared with another backup gets unpinned too. This is tolerated only
-  because the step is best-effort and the affected snapshot would be unpinned
-  anyway on the next tier2 migration — it is not a safe pattern to copy for
-  anything that isn't equally tolerant of that collision.
+- **Reads surviving a concurrent rewrite** use the root object ID
+  (`Manifest.RootEntry.ObjID`). Backup verification
+  (`core/internal/client/klioclient/kopia/verify.go`) does this for every
+  root — directory (pgdata, metadata) or file (control data).
+- **Deletions must use the manifest ID, never the root ID** — unchanged
+  content dedupes to the same root across backups, and `snapshot delete`
+  removes every snapshot matching the given ID, so a root-ID delete can take
+  another backup's snapshot with it. Retry on a concurrent rewrite by
+  re-listing (`DeleteBackup`; reused by the sweeper's
+  `sweepCluster`/`sweepOrphans`).
 
 ### Dagger caching issues
 

@@ -125,6 +125,278 @@ func (x *PutRequest) GetSendToTier2() bool {
 	return false
 }
 
+type SetRetentionPolicyRequest struct {
+	state           protoimpl.MessageState `protogen:"open.v1"`
+	ClusterName     string                 `protobuf:"bytes,1,opt,name=cluster_name,json=clusterName,proto3" json:"cluster_name,omitempty"`
+	RetentionPolicy *RetentionPolicy       `protobuf:"bytes,2,opt,name=retention_policy,json=retentionPolicy,proto3" json:"retention_policy,omitempty"`
+	unknownFields   protoimpl.UnknownFields
+	sizeCache       protoimpl.SizeCache
+}
+
+func (x *SetRetentionPolicyRequest) Reset() {
+	*x = SetRetentionPolicyRequest{}
+	mi := &file_proto_klio_wal_proto_msgTypes[1]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SetRetentionPolicyRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SetRetentionPolicyRequest) ProtoMessage() {}
+
+func (x *SetRetentionPolicyRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_klio_wal_proto_msgTypes[1]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SetRetentionPolicyRequest.ProtoReflect.Descriptor instead.
+func (*SetRetentionPolicyRequest) Descriptor() ([]byte, []int) {
+	return file_proto_klio_wal_proto_rawDescGZIP(), []int{1}
+}
+
+func (x *SetRetentionPolicyRequest) GetClusterName() string {
+	if x != nil {
+		return x.ClusterName
+	}
+	return ""
+}
+
+func (x *SetRetentionPolicyRequest) GetRetentionPolicy() *RetentionPolicy {
+	if x != nil {
+		return x.RetentionPolicy
+	}
+	return nil
+}
+
+type SetRetentionPolicyResult struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *SetRetentionPolicyResult) Reset() {
+	*x = SetRetentionPolicyResult{}
+	mi := &file_proto_klio_wal_proto_msgTypes[2]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SetRetentionPolicyResult) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SetRetentionPolicyResult) ProtoMessage() {}
+
+func (x *SetRetentionPolicyResult) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_klio_wal_proto_msgTypes[2]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SetRetentionPolicyResult.ProtoReflect.Descriptor instead.
+func (*SetRetentionPolicyResult) Descriptor() ([]byte, []int) {
+	return file_proto_klio_wal_proto_rawDescGZIP(), []int{2}
+}
+
+type GetRetentionPolicyRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	ClusterName   string                 `protobuf:"bytes,1,opt,name=cluster_name,json=clusterName,proto3" json:"cluster_name,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetRetentionPolicyRequest) Reset() {
+	*x = GetRetentionPolicyRequest{}
+	mi := &file_proto_klio_wal_proto_msgTypes[3]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetRetentionPolicyRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetRetentionPolicyRequest) ProtoMessage() {}
+
+func (x *GetRetentionPolicyRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_klio_wal_proto_msgTypes[3]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetRetentionPolicyRequest.ProtoReflect.Descriptor instead.
+func (*GetRetentionPolicyRequest) Descriptor() ([]byte, []int) {
+	return file_proto_klio_wal_proto_rawDescGZIP(), []int{3}
+}
+
+func (x *GetRetentionPolicyRequest) GetClusterName() string {
+	if x != nil {
+		return x.ClusterName
+	}
+	return ""
+}
+
+type GetRetentionPolicyResult struct {
+	state           protoimpl.MessageState `protogen:"open.v1"`
+	RetentionPolicy *RetentionPolicy       `protobuf:"bytes,1,opt,name=retention_policy,json=retentionPolicy,proto3" json:"retention_policy,omitempty"`
+	unknownFields   protoimpl.UnknownFields
+	sizeCache       protoimpl.SizeCache
+}
+
+func (x *GetRetentionPolicyResult) Reset() {
+	*x = GetRetentionPolicyResult{}
+	mi := &file_proto_klio_wal_proto_msgTypes[4]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetRetentionPolicyResult) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetRetentionPolicyResult) ProtoMessage() {}
+
+func (x *GetRetentionPolicyResult) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_klio_wal_proto_msgTypes[4]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetRetentionPolicyResult.ProtoReflect.Descriptor instead.
+func (*GetRetentionPolicyResult) Descriptor() ([]byte, []int) {
+	return file_proto_klio_wal_proto_rawDescGZIP(), []int{4}
+}
+
+func (x *GetRetentionPolicyResult) GetRetentionPolicy() *RetentionPolicy {
+	if x != nil {
+		return x.RetentionPolicy
+	}
+	return nil
+}
+
+type RetentionPolicy struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Tier1Policy   *TierRetentionPolicy   `protobuf:"bytes,1,opt,name=tier1_policy,json=tier1Policy,proto3" json:"tier1_policy,omitempty"`
+	Tier2Policy   *TierRetentionPolicy   `protobuf:"bytes,2,opt,name=tier2_policy,json=tier2Policy,proto3" json:"tier2_policy,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *RetentionPolicy) Reset() {
+	*x = RetentionPolicy{}
+	mi := &file_proto_klio_wal_proto_msgTypes[5]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *RetentionPolicy) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*RetentionPolicy) ProtoMessage() {}
+
+func (x *RetentionPolicy) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_klio_wal_proto_msgTypes[5]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use RetentionPolicy.ProtoReflect.Descriptor instead.
+func (*RetentionPolicy) Descriptor() ([]byte, []int) {
+	return file_proto_klio_wal_proto_rawDescGZIP(), []int{5}
+}
+
+func (x *RetentionPolicy) GetTier1Policy() *TierRetentionPolicy {
+	if x != nil {
+		return x.Tier1Policy
+	}
+	return nil
+}
+
+func (x *RetentionPolicy) GetTier2Policy() *TierRetentionPolicy {
+	if x != nil {
+		return x.Tier2Policy
+	}
+	return nil
+}
+
+type TierRetentionPolicy struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Latest        int32                  `protobuf:"varint,1,opt,name=latest,proto3" json:"latest,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *TierRetentionPolicy) Reset() {
+	*x = TierRetentionPolicy{}
+	mi := &file_proto_klio_wal_proto_msgTypes[6]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *TierRetentionPolicy) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*TierRetentionPolicy) ProtoMessage() {}
+
+func (x *TierRetentionPolicy) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_klio_wal_proto_msgTypes[6]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use TierRetentionPolicy.ProtoReflect.Descriptor instead.
+func (*TierRetentionPolicy) Descriptor() ([]byte, []int) {
+	return file_proto_klio_wal_proto_rawDescGZIP(), []int{6}
+}
+
+func (x *TierRetentionPolicy) GetLatest() int32 {
+	if x != nil {
+		return x.Latest
+	}
+	return 0
+}
+
 type PutResult struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	WriteLsn      uint64                 `protobuf:"varint,3,opt,name=write_lsn,json=writeLsn,proto3" json:"write_lsn,omitempty"`
@@ -135,7 +407,7 @@ type PutResult struct {
 
 func (x *PutResult) Reset() {
 	*x = PutResult{}
-	mi := &file_proto_klio_wal_proto_msgTypes[1]
+	mi := &file_proto_klio_wal_proto_msgTypes[7]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -147,7 +419,7 @@ func (x *PutResult) String() string {
 func (*PutResult) ProtoMessage() {}
 
 func (x *PutResult) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_klio_wal_proto_msgTypes[1]
+	mi := &file_proto_klio_wal_proto_msgTypes[7]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -160,7 +432,7 @@ func (x *PutResult) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PutResult.ProtoReflect.Descriptor instead.
 func (*PutResult) Descriptor() ([]byte, []int) {
-	return file_proto_klio_wal_proto_rawDescGZIP(), []int{1}
+	return file_proto_klio_wal_proto_rawDescGZIP(), []int{7}
 }
 
 func (x *PutResult) GetWriteLsn() uint64 {
@@ -186,7 +458,7 @@ type GetMetadataRequest struct {
 
 func (x *GetMetadataRequest) Reset() {
 	*x = GetMetadataRequest{}
-	mi := &file_proto_klio_wal_proto_msgTypes[2]
+	mi := &file_proto_klio_wal_proto_msgTypes[8]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -198,7 +470,7 @@ func (x *GetMetadataRequest) String() string {
 func (*GetMetadataRequest) ProtoMessage() {}
 
 func (x *GetMetadataRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_klio_wal_proto_msgTypes[2]
+	mi := &file_proto_klio_wal_proto_msgTypes[8]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -211,7 +483,7 @@ func (x *GetMetadataRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetMetadataRequest.ProtoReflect.Descriptor instead.
 func (*GetMetadataRequest) Descriptor() ([]byte, []int) {
-	return file_proto_klio_wal_proto_rawDescGZIP(), []int{2}
+	return file_proto_klio_wal_proto_rawDescGZIP(), []int{8}
 }
 
 func (x *GetMetadataRequest) GetClusterName() string {
@@ -231,7 +503,7 @@ type GetRequest struct {
 
 func (x *GetRequest) Reset() {
 	*x = GetRequest{}
-	mi := &file_proto_klio_wal_proto_msgTypes[3]
+	mi := &file_proto_klio_wal_proto_msgTypes[9]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -243,7 +515,7 @@ func (x *GetRequest) String() string {
 func (*GetRequest) ProtoMessage() {}
 
 func (x *GetRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_klio_wal_proto_msgTypes[3]
+	mi := &file_proto_klio_wal_proto_msgTypes[9]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -256,7 +528,7 @@ func (x *GetRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetRequest.ProtoReflect.Descriptor instead.
 func (*GetRequest) Descriptor() ([]byte, []int) {
-	return file_proto_klio_wal_proto_rawDescGZIP(), []int{3}
+	return file_proto_klio_wal_proto_rawDescGZIP(), []int{9}
 }
 
 func (x *GetRequest) GetClusterName() string {
@@ -283,7 +555,7 @@ type GetResult struct {
 
 func (x *GetResult) Reset() {
 	*x = GetResult{}
-	mi := &file_proto_klio_wal_proto_msgTypes[4]
+	mi := &file_proto_klio_wal_proto_msgTypes[10]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -295,7 +567,7 @@ func (x *GetResult) String() string {
 func (*GetResult) ProtoMessage() {}
 
 func (x *GetResult) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_klio_wal_proto_msgTypes[4]
+	mi := &file_proto_klio_wal_proto_msgTypes[10]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -308,7 +580,7 @@ func (x *GetResult) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetResult.ProtoReflect.Descriptor instead.
 func (*GetResult) Descriptor() ([]byte, []int) {
-	return file_proto_klio_wal_proto_rawDescGZIP(), []int{4}
+	return file_proto_klio_wal_proto_rawDescGZIP(), []int{10}
 }
 
 func (x *GetResult) GetWalBlock() []byte {
@@ -341,7 +613,7 @@ type RequestWALStartRequest struct {
 
 func (x *RequestWALStartRequest) Reset() {
 	*x = RequestWALStartRequest{}
-	mi := &file_proto_klio_wal_proto_msgTypes[5]
+	mi := &file_proto_klio_wal_proto_msgTypes[11]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -353,7 +625,7 @@ func (x *RequestWALStartRequest) String() string {
 func (*RequestWALStartRequest) ProtoMessage() {}
 
 func (x *RequestWALStartRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_klio_wal_proto_msgTypes[5]
+	mi := &file_proto_klio_wal_proto_msgTypes[11]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -366,7 +638,7 @@ func (x *RequestWALStartRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RequestWALStartRequest.ProtoReflect.Descriptor instead.
 func (*RequestWALStartRequest) Descriptor() ([]byte, []int) {
-	return file_proto_klio_wal_proto_rawDescGZIP(), []int{5}
+	return file_proto_klio_wal_proto_rawDescGZIP(), []int{11}
 }
 
 func (x *RequestWALStartRequest) GetClusterName() string {
@@ -401,7 +673,7 @@ type RequestWALStartResult struct {
 
 func (x *RequestWALStartResult) Reset() {
 	*x = RequestWALStartResult{}
-	mi := &file_proto_klio_wal_proto_msgTypes[6]
+	mi := &file_proto_klio_wal_proto_msgTypes[12]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -413,7 +685,7 @@ func (x *RequestWALStartResult) String() string {
 func (*RequestWALStartResult) ProtoMessage() {}
 
 func (x *RequestWALStartResult) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_klio_wal_proto_msgTypes[6]
+	mi := &file_proto_klio_wal_proto_msgTypes[12]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -426,7 +698,7 @@ func (x *RequestWALStartResult) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RequestWALStartResult.ProtoReflect.Descriptor instead.
 func (*RequestWALStartResult) Descriptor() ([]byte, []int) {
-	return file_proto_klio_wal_proto_rawDescGZIP(), []int{6}
+	return file_proto_klio_wal_proto_rawDescGZIP(), []int{12}
 }
 
 func (x *RequestWALStartResult) GetWalName() string {
@@ -452,7 +724,7 @@ type ResetWALStreamRequest struct {
 
 func (x *ResetWALStreamRequest) Reset() {
 	*x = ResetWALStreamRequest{}
-	mi := &file_proto_klio_wal_proto_msgTypes[7]
+	mi := &file_proto_klio_wal_proto_msgTypes[13]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -464,7 +736,7 @@ func (x *ResetWALStreamRequest) String() string {
 func (*ResetWALStreamRequest) ProtoMessage() {}
 
 func (x *ResetWALStreamRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_klio_wal_proto_msgTypes[7]
+	mi := &file_proto_klio_wal_proto_msgTypes[13]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -477,7 +749,7 @@ func (x *ResetWALStreamRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ResetWALStreamRequest.ProtoReflect.Descriptor instead.
 func (*ResetWALStreamRequest) Descriptor() ([]byte, []int) {
-	return file_proto_klio_wal_proto_rawDescGZIP(), []int{7}
+	return file_proto_klio_wal_proto_rawDescGZIP(), []int{13}
 }
 
 func (x *ResetWALStreamRequest) GetClusterName() string {
@@ -512,7 +784,7 @@ type ResetWALStreamResult struct {
 
 func (x *ResetWALStreamResult) Reset() {
 	*x = ResetWALStreamResult{}
-	mi := &file_proto_klio_wal_proto_msgTypes[8]
+	mi := &file_proto_klio_wal_proto_msgTypes[14]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -524,7 +796,7 @@ func (x *ResetWALStreamResult) String() string {
 func (*ResetWALStreamResult) ProtoMessage() {}
 
 func (x *ResetWALStreamResult) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_klio_wal_proto_msgTypes[8]
+	mi := &file_proto_klio_wal_proto_msgTypes[14]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -537,7 +809,7 @@ func (x *ResetWALStreamResult) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ResetWALStreamResult.ProtoReflect.Descriptor instead.
 func (*ResetWALStreamResult) Descriptor() ([]byte, []int) {
-	return file_proto_klio_wal_proto_rawDescGZIP(), []int{8}
+	return file_proto_klio_wal_proto_rawDescGZIP(), []int{14}
 }
 
 func (x *ResetWALStreamResult) GetWalName() string {
@@ -561,7 +833,7 @@ type ClusterMetadata struct {
 
 func (x *ClusterMetadata) Reset() {
 	*x = ClusterMetadata{}
-	mi := &file_proto_klio_wal_proto_msgTypes[9]
+	mi := &file_proto_klio_wal_proto_msgTypes[15]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -573,7 +845,7 @@ func (x *ClusterMetadata) String() string {
 func (*ClusterMetadata) ProtoMessage() {}
 
 func (x *ClusterMetadata) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_klio_wal_proto_msgTypes[9]
+	mi := &file_proto_klio_wal_proto_msgTypes[15]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -586,7 +858,7 @@ func (x *ClusterMetadata) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ClusterMetadata.ProtoReflect.Descriptor instead.
 func (*ClusterMetadata) Descriptor() ([]byte, []int) {
-	return file_proto_klio_wal_proto_rawDescGZIP(), []int{9}
+	return file_proto_klio_wal_proto_rawDescGZIP(), []int{15}
 }
 
 func (x *ClusterMetadata) GetSystemId() string {
@@ -620,7 +892,7 @@ type WALGap struct {
 
 func (x *WALGap) Reset() {
 	*x = WALGap{}
-	mi := &file_proto_klio_wal_proto_msgTypes[10]
+	mi := &file_proto_klio_wal_proto_msgTypes[16]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -632,7 +904,7 @@ func (x *WALGap) String() string {
 func (*WALGap) ProtoMessage() {}
 
 func (x *WALGap) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_klio_wal_proto_msgTypes[10]
+	mi := &file_proto_klio_wal_proto_msgTypes[16]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -645,7 +917,7 @@ func (x *WALGap) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use WALGap.ProtoReflect.Descriptor instead.
 func (*WALGap) Descriptor() ([]byte, []int) {
-	return file_proto_klio_wal_proto_rawDescGZIP(), []int{10}
+	return file_proto_klio_wal_proto_rawDescGZIP(), []int{16}
 }
 
 func (x *WALGap) GetTs() *timestamppb.Timestamp {
@@ -681,7 +953,7 @@ type StartWALFile struct {
 
 func (x *StartWALFile) Reset() {
 	*x = StartWALFile{}
-	mi := &file_proto_klio_wal_proto_msgTypes[11]
+	mi := &file_proto_klio_wal_proto_msgTypes[17]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -693,7 +965,7 @@ func (x *StartWALFile) String() string {
 func (*StartWALFile) ProtoMessage() {}
 
 func (x *StartWALFile) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_klio_wal_proto_msgTypes[11]
+	mi := &file_proto_klio_wal_proto_msgTypes[17]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -706,7 +978,7 @@ func (x *StartWALFile) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use StartWALFile.ProtoReflect.Descriptor instead.
 func (*StartWALFile) Descriptor() ([]byte, []int) {
-	return file_proto_klio_wal_proto_rawDescGZIP(), []int{11}
+	return file_proto_klio_wal_proto_rawDescGZIP(), []int{17}
 }
 
 func (x *StartWALFile) GetKlioVersion() uint64 {
@@ -742,8 +1014,6 @@ type CloseBackupRequest struct {
 	SegmentSize uint64 `protobuf:"varint,7,opt,name=segment_size,json=segmentSize,proto3" json:"segment_size,omitempty"`
 	// Require this backup to be sent to tier2.
 	SendToTier2 bool `protobuf:"varint,8,opt,name=send_to_tier2,json=sendToTier2,proto3" json:"send_to_tier2,omitempty"`
-	// When present, set the tier2 retention policy to the specified JSON-serialized policy.
-	Tier2RetentionPolicy string `protobuf:"bytes,9,opt,name=tier2_retention_policy,json=tier2RetentionPolicy,proto3" json:"tier2_retention_policy,omitempty"`
 	// When present, set the tier2 compression policy to the specified JSON-serialized policy.
 	Tier2CompressionPolicy string `protobuf:"bytes,10,opt,name=tier2_compression_policy,json=tier2CompressionPolicy,proto3" json:"tier2_compression_policy,omitempty"`
 	unknownFields          protoimpl.UnknownFields
@@ -752,7 +1022,7 @@ type CloseBackupRequest struct {
 
 func (x *CloseBackupRequest) Reset() {
 	*x = CloseBackupRequest{}
-	mi := &file_proto_klio_wal_proto_msgTypes[12]
+	mi := &file_proto_klio_wal_proto_msgTypes[18]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -764,7 +1034,7 @@ func (x *CloseBackupRequest) String() string {
 func (*CloseBackupRequest) ProtoMessage() {}
 
 func (x *CloseBackupRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_klio_wal_proto_msgTypes[12]
+	mi := &file_proto_klio_wal_proto_msgTypes[18]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -777,7 +1047,7 @@ func (x *CloseBackupRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CloseBackupRequest.ProtoReflect.Descriptor instead.
 func (*CloseBackupRequest) Descriptor() ([]byte, []int) {
-	return file_proto_klio_wal_proto_rawDescGZIP(), []int{12}
+	return file_proto_klio_wal_proto_rawDescGZIP(), []int{18}
 }
 
 func (x *CloseBackupRequest) GetClusterName() string {
@@ -829,13 +1099,6 @@ func (x *CloseBackupRequest) GetSendToTier2() bool {
 	return false
 }
 
-func (x *CloseBackupRequest) GetTier2RetentionPolicy() string {
-	if x != nil {
-		return x.Tier2RetentionPolicy
-	}
-	return ""
-}
-
 func (x *CloseBackupRequest) GetTier2CompressionPolicy() string {
 	if x != nil {
 		return x.Tier2CompressionPolicy
@@ -859,7 +1122,7 @@ type CloseBackupResult struct {
 
 func (x *CloseBackupResult) Reset() {
 	*x = CloseBackupResult{}
-	mi := &file_proto_klio_wal_proto_msgTypes[13]
+	mi := &file_proto_klio_wal_proto_msgTypes[19]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -871,7 +1134,7 @@ func (x *CloseBackupResult) String() string {
 func (*CloseBackupResult) ProtoMessage() {}
 
 func (x *CloseBackupResult) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_klio_wal_proto_msgTypes[13]
+	mi := &file_proto_klio_wal_proto_msgTypes[19]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -884,7 +1147,7 @@ func (x *CloseBackupResult) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CloseBackupResult.ProtoReflect.Descriptor instead.
 func (*CloseBackupResult) Descriptor() ([]byte, []int) {
-	return file_proto_klio_wal_proto_rawDescGZIP(), []int{13}
+	return file_proto_klio_wal_proto_rawDescGZIP(), []int{19}
 }
 
 func (x *CloseBackupResult) GetTier2Schedule() bool {
@@ -913,7 +1176,20 @@ const file_proto_klio_wal_proto_rawDesc = "" +
 	"\twal_block\x18\x03 \x01(\fR\bwalBlock\x12!\n" +
 	"\fsegment_size\x18\x04 \x01(\x04R\vsegmentSize\x12\"\n" +
 	"\rwal_start_lsn\x18\b \x01(\x04R\vwalStartLsn\x12\"\n" +
-	"\rsend_to_tier2\x18\a \x01(\bR\vsendToTier2J\x04\b\x05\x10\x06J\x04\b\x06\x10\aR\btrace_idR\aspan_id\"Y\n" +
+	"\rsend_to_tier2\x18\a \x01(\bR\vsendToTier2J\x04\b\x05\x10\x06J\x04\b\x06\x10\aR\btrace_idR\aspan_id\"\x87\x01\n" +
+	"\x19SetRetentionPolicyRequest\x12!\n" +
+	"\fcluster_name\x18\x01 \x01(\tR\vclusterName\x12G\n" +
+	"\x10retention_policy\x18\x02 \x01(\v2\x1c.klio.wal.v1.RetentionPolicyR\x0fretentionPolicy\"\x1a\n" +
+	"\x18SetRetentionPolicyResult\">\n" +
+	"\x19GetRetentionPolicyRequest\x12!\n" +
+	"\fcluster_name\x18\x01 \x01(\tR\vclusterName\"c\n" +
+	"\x18GetRetentionPolicyResult\x12G\n" +
+	"\x10retention_policy\x18\x01 \x01(\v2\x1c.klio.wal.v1.RetentionPolicyR\x0fretentionPolicy\"\x9b\x01\n" +
+	"\x0fRetentionPolicy\x12C\n" +
+	"\ftier1_policy\x18\x01 \x01(\v2 .klio.wal.v1.TierRetentionPolicyR\vtier1Policy\x12C\n" +
+	"\ftier2_policy\x18\x02 \x01(\v2 .klio.wal.v1.TierRetentionPolicyR\vtier2Policy\"-\n" +
+	"\x13TierRetentionPolicy\x12\x16\n" +
+	"\x06latest\x18\x01 \x01(\x05R\x06latest\"Y\n" +
 	"\tPutResult\x12\x1b\n" +
 	"\twrite_lsn\x18\x03 \x01(\x04R\bwriteLsn\x12\x1b\n" +
 	"\tflush_lsn\x18\x02 \x01(\x04R\bflushLsnJ\x04\b\x01\x10\x02R\fwritten_size\"7\n" +
@@ -948,7 +1224,7 @@ const file_proto_klio_wal_proto_rawDesc = "" +
 	"\fStartWALFile\x12!\n" +
 	"\fklio_version\x18\x01 \x01(\x04R\vklioVersion\x12\x1f\n" +
 	"\vfile_length\x18\x02 \x01(\x04R\n" +
-	"fileLength\"\xe1\x02\n" +
+	"fileLength\"\xc9\x02\n" +
 	"\x12CloseBackupRequest\x12!\n" +
 	"\fcluster_name\x18\x01 \x01(\tR\vclusterName\x12\x1f\n" +
 	"\vbackup_name\x18\x03 \x01(\tR\n" +
@@ -957,20 +1233,22 @@ const file_proto_klio_wal_proto_rawDesc = "" +
 	"\tstart_wal\x18\x05 \x01(\tR\bstartWal\x12\x17\n" +
 	"\aend_wal\x18\x06 \x01(\tR\x06endWal\x12!\n" +
 	"\fsegment_size\x18\a \x01(\x04R\vsegmentSize\x12\"\n" +
-	"\rsend_to_tier2\x18\b \x01(\bR\vsendToTier2\x124\n" +
-	"\x16tier2_retention_policy\x18\t \x01(\tR\x14tier2RetentionPolicy\x128\n" +
+	"\rsend_to_tier2\x18\b \x01(\bR\vsendToTier2\x128\n" +
 	"\x18tier2_compression_policy\x18\n" +
-	" \x01(\tR\x16tier2CompressionPolicy\"f\n" +
+	" \x01(\tR\x16tier2CompressionPolicyJ\x04\b\t\x10\n" +
+	"R\x16tier2_retention_policy\"f\n" +
 	"\x11CloseBackupResult\x12%\n" +
 	"\x0etier2_schedule\x18\x01 \x01(\bR\rtier2Schedule\x12*\n" +
-	"\x11missing_wal_files\x18\x02 \x03(\tR\x0fmissingWalFiles2\xda\x03\n" +
+	"\x11missing_wal_files\x18\x02 \x03(\tR\x0fmissingWalFiles2\xa8\x05\n" +
 	"\x03WAL\x12<\n" +
 	"\x03Put\x12\x17.klio.wal.v1.PutRequest\x1a\x16.klio.wal.v1.PutResult\"\x00(\x010\x01\x12:\n" +
 	"\x03Get\x12\x17.klio.wal.v1.GetRequest\x1a\x16.klio.wal.v1.GetResult\"\x000\x01\x12N\n" +
 	"\vGetMetadata\x12\x1f.klio.wal.v1.GetMetadataRequest\x1a\x1c.klio.wal.v1.ClusterMetadata\"\x00\x12\\\n" +
 	"\x0fRequestWALStart\x12#.klio.wal.v1.RequestWALStartRequest\x1a\".klio.wal.v1.RequestWALStartResult\"\x00\x12Y\n" +
 	"\x0eResetWALStream\x12\".klio.wal.v1.ResetWALStreamRequest\x1a!.klio.wal.v1.ResetWALStreamResult\"\x00\x12P\n" +
-	"\vCloseBackup\x12\x1f.klio.wal.v1.CloseBackupRequest\x1a\x1e.klio.wal.v1.CloseBackupResult\"\x00B3Z1github.com/cloudnative-pg/klio/core/internal/grpcb\x06proto3"
+	"\vCloseBackup\x12\x1f.klio.wal.v1.CloseBackupRequest\x1a\x1e.klio.wal.v1.CloseBackupResult\"\x00\x12e\n" +
+	"\x12SetRetentionPolicy\x12&.klio.wal.v1.SetRetentionPolicyRequest\x1a%.klio.wal.v1.SetRetentionPolicyResult\"\x00\x12e\n" +
+	"\x12GetRetentionPolicy\x12&.klio.wal.v1.GetRetentionPolicyRequest\x1a%.klio.wal.v1.GetRetentionPolicyResult\"\x00B3Z1github.com/cloudnative-pg/klio/core/internal/grpcb\x06proto3"
 
 var (
 	file_proto_klio_wal_proto_rawDescOnce sync.Once
@@ -984,44 +1262,58 @@ func file_proto_klio_wal_proto_rawDescGZIP() []byte {
 	return file_proto_klio_wal_proto_rawDescData
 }
 
-var file_proto_klio_wal_proto_msgTypes = make([]protoimpl.MessageInfo, 14)
+var file_proto_klio_wal_proto_msgTypes = make([]protoimpl.MessageInfo, 20)
 var file_proto_klio_wal_proto_goTypes = []any{
-	(*PutRequest)(nil),             // 0: klio.wal.v1.PutRequest
-	(*PutResult)(nil),              // 1: klio.wal.v1.PutResult
-	(*GetMetadataRequest)(nil),     // 2: klio.wal.v1.GetMetadataRequest
-	(*GetRequest)(nil),             // 3: klio.wal.v1.GetRequest
-	(*GetResult)(nil),              // 4: klio.wal.v1.GetResult
-	(*RequestWALStartRequest)(nil), // 5: klio.wal.v1.RequestWALStartRequest
-	(*RequestWALStartResult)(nil),  // 6: klio.wal.v1.RequestWALStartResult
-	(*ResetWALStreamRequest)(nil),  // 7: klio.wal.v1.ResetWALStreamRequest
-	(*ResetWALStreamResult)(nil),   // 8: klio.wal.v1.ResetWALStreamResult
-	(*ClusterMetadata)(nil),        // 9: klio.wal.v1.ClusterMetadata
-	(*WALGap)(nil),                 // 10: klio.wal.v1.WALGap
-	(*StartWALFile)(nil),           // 11: klio.wal.v1.StartWALFile
-	(*CloseBackupRequest)(nil),     // 12: klio.wal.v1.CloseBackupRequest
-	(*CloseBackupResult)(nil),      // 13: klio.wal.v1.CloseBackupResult
-	(*timestamppb.Timestamp)(nil),  // 14: google.protobuf.Timestamp
+	(*PutRequest)(nil),                // 0: klio.wal.v1.PutRequest
+	(*SetRetentionPolicyRequest)(nil), // 1: klio.wal.v1.SetRetentionPolicyRequest
+	(*SetRetentionPolicyResult)(nil),  // 2: klio.wal.v1.SetRetentionPolicyResult
+	(*GetRetentionPolicyRequest)(nil), // 3: klio.wal.v1.GetRetentionPolicyRequest
+	(*GetRetentionPolicyResult)(nil),  // 4: klio.wal.v1.GetRetentionPolicyResult
+	(*RetentionPolicy)(nil),           // 5: klio.wal.v1.RetentionPolicy
+	(*TierRetentionPolicy)(nil),       // 6: klio.wal.v1.TierRetentionPolicy
+	(*PutResult)(nil),                 // 7: klio.wal.v1.PutResult
+	(*GetMetadataRequest)(nil),        // 8: klio.wal.v1.GetMetadataRequest
+	(*GetRequest)(nil),                // 9: klio.wal.v1.GetRequest
+	(*GetResult)(nil),                 // 10: klio.wal.v1.GetResult
+	(*RequestWALStartRequest)(nil),    // 11: klio.wal.v1.RequestWALStartRequest
+	(*RequestWALStartResult)(nil),     // 12: klio.wal.v1.RequestWALStartResult
+	(*ResetWALStreamRequest)(nil),     // 13: klio.wal.v1.ResetWALStreamRequest
+	(*ResetWALStreamResult)(nil),      // 14: klio.wal.v1.ResetWALStreamResult
+	(*ClusterMetadata)(nil),           // 15: klio.wal.v1.ClusterMetadata
+	(*WALGap)(nil),                    // 16: klio.wal.v1.WALGap
+	(*StartWALFile)(nil),              // 17: klio.wal.v1.StartWALFile
+	(*CloseBackupRequest)(nil),        // 18: klio.wal.v1.CloseBackupRequest
+	(*CloseBackupResult)(nil),         // 19: klio.wal.v1.CloseBackupResult
+	(*timestamppb.Timestamp)(nil),     // 20: google.protobuf.Timestamp
 }
 var file_proto_klio_wal_proto_depIdxs = []int32{
-	10, // 0: klio.wal.v1.ClusterMetadata.gaps:type_name -> klio.wal.v1.WALGap
-	14, // 1: klio.wal.v1.WALGap.ts:type_name -> google.protobuf.Timestamp
-	0,  // 2: klio.wal.v1.WAL.Put:input_type -> klio.wal.v1.PutRequest
-	3,  // 3: klio.wal.v1.WAL.Get:input_type -> klio.wal.v1.GetRequest
-	2,  // 4: klio.wal.v1.WAL.GetMetadata:input_type -> klio.wal.v1.GetMetadataRequest
-	5,  // 5: klio.wal.v1.WAL.RequestWALStart:input_type -> klio.wal.v1.RequestWALStartRequest
-	7,  // 6: klio.wal.v1.WAL.ResetWALStream:input_type -> klio.wal.v1.ResetWALStreamRequest
-	12, // 7: klio.wal.v1.WAL.CloseBackup:input_type -> klio.wal.v1.CloseBackupRequest
-	1,  // 8: klio.wal.v1.WAL.Put:output_type -> klio.wal.v1.PutResult
-	4,  // 9: klio.wal.v1.WAL.Get:output_type -> klio.wal.v1.GetResult
-	9,  // 10: klio.wal.v1.WAL.GetMetadata:output_type -> klio.wal.v1.ClusterMetadata
-	6,  // 11: klio.wal.v1.WAL.RequestWALStart:output_type -> klio.wal.v1.RequestWALStartResult
-	8,  // 12: klio.wal.v1.WAL.ResetWALStream:output_type -> klio.wal.v1.ResetWALStreamResult
-	13, // 13: klio.wal.v1.WAL.CloseBackup:output_type -> klio.wal.v1.CloseBackupResult
-	8,  // [8:14] is the sub-list for method output_type
-	2,  // [2:8] is the sub-list for method input_type
-	2,  // [2:2] is the sub-list for extension type_name
-	2,  // [2:2] is the sub-list for extension extendee
-	0,  // [0:2] is the sub-list for field type_name
+	5,  // 0: klio.wal.v1.SetRetentionPolicyRequest.retention_policy:type_name -> klio.wal.v1.RetentionPolicy
+	5,  // 1: klio.wal.v1.GetRetentionPolicyResult.retention_policy:type_name -> klio.wal.v1.RetentionPolicy
+	6,  // 2: klio.wal.v1.RetentionPolicy.tier1_policy:type_name -> klio.wal.v1.TierRetentionPolicy
+	6,  // 3: klio.wal.v1.RetentionPolicy.tier2_policy:type_name -> klio.wal.v1.TierRetentionPolicy
+	16, // 4: klio.wal.v1.ClusterMetadata.gaps:type_name -> klio.wal.v1.WALGap
+	20, // 5: klio.wal.v1.WALGap.ts:type_name -> google.protobuf.Timestamp
+	0,  // 6: klio.wal.v1.WAL.Put:input_type -> klio.wal.v1.PutRequest
+	9,  // 7: klio.wal.v1.WAL.Get:input_type -> klio.wal.v1.GetRequest
+	8,  // 8: klio.wal.v1.WAL.GetMetadata:input_type -> klio.wal.v1.GetMetadataRequest
+	11, // 9: klio.wal.v1.WAL.RequestWALStart:input_type -> klio.wal.v1.RequestWALStartRequest
+	13, // 10: klio.wal.v1.WAL.ResetWALStream:input_type -> klio.wal.v1.ResetWALStreamRequest
+	18, // 11: klio.wal.v1.WAL.CloseBackup:input_type -> klio.wal.v1.CloseBackupRequest
+	1,  // 12: klio.wal.v1.WAL.SetRetentionPolicy:input_type -> klio.wal.v1.SetRetentionPolicyRequest
+	3,  // 13: klio.wal.v1.WAL.GetRetentionPolicy:input_type -> klio.wal.v1.GetRetentionPolicyRequest
+	7,  // 14: klio.wal.v1.WAL.Put:output_type -> klio.wal.v1.PutResult
+	10, // 15: klio.wal.v1.WAL.Get:output_type -> klio.wal.v1.GetResult
+	15, // 16: klio.wal.v1.WAL.GetMetadata:output_type -> klio.wal.v1.ClusterMetadata
+	12, // 17: klio.wal.v1.WAL.RequestWALStart:output_type -> klio.wal.v1.RequestWALStartResult
+	14, // 18: klio.wal.v1.WAL.ResetWALStream:output_type -> klio.wal.v1.ResetWALStreamResult
+	19, // 19: klio.wal.v1.WAL.CloseBackup:output_type -> klio.wal.v1.CloseBackupResult
+	2,  // 20: klio.wal.v1.WAL.SetRetentionPolicy:output_type -> klio.wal.v1.SetRetentionPolicyResult
+	4,  // 21: klio.wal.v1.WAL.GetRetentionPolicy:output_type -> klio.wal.v1.GetRetentionPolicyResult
+	14, // [14:22] is the sub-list for method output_type
+	6,  // [6:14] is the sub-list for method input_type
+	6,  // [6:6] is the sub-list for extension type_name
+	6,  // [6:6] is the sub-list for extension extendee
+	0,  // [0:6] is the sub-list for field type_name
 }
 
 func init() { file_proto_klio_wal_proto_init() }
@@ -1035,7 +1327,7 @@ func file_proto_klio_wal_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_proto_klio_wal_proto_rawDesc), len(file_proto_klio_wal_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   14,
+			NumMessages:   20,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

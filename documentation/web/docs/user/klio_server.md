@@ -48,8 +48,8 @@ The work queue is backed by NATS JetStream with file storage in the
 `/klio/queue` directory, on the same PVC as everything else.
 The queue serves two purposes:
 
-- **Retention policy enforcement**: Tracks which WAL files are in use before
-  deletion
+- **Backup verification**: Verifies each Tier 1 base backup after it
+  completes
 - **Tier 2 replication**: When Tier 2 is enabled, manages asynchronous
   transfer to object storage
 
@@ -103,7 +103,7 @@ so users should have a space buffer to account for this additional space.
 ### The Work Queue (`queue`)
 
 The `queue` subdirectory is created when Tier 1 is configured. It holds
-the NATS JetStream work queue used for retention policy enforcement and
+the NATS JetStream work queue used for backup verification and
 asynchronous Tier 2 replication.
 
 #### Queue Sizing Guidelines

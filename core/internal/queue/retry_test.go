@@ -362,16 +362,13 @@ func TestRetryFailedBackupTasksKeepsAgreeingPolicy(t *testing.T) {
 	js, err := jetstream.New(nc)
 	require.NoError(t, err)
 
-	keepLatest := 5
-	retention := &kopia.RetentionPolicy{KeepLatest: &keepLatest}
 	compression := &kopia.CompressionPolicy{Algorithm: "zstd"}
 
-	// Both failed entries agree on the same policy values (one leaves them
-	// unset): the merged retry must keep them rather than blank them out.
+	// Both failed entries agree on the same policy value (one leaves it
+	// unset): the merged retry must keep it rather than blank it out.
 	seedFailedBackupTask(t, js, BackupTask{ClusterName: "cluster-a"})
 	seedFailedBackupTask(t, js, BackupTask{
 		ClusterName:            "cluster-a",
-		Tier2RetentionPolicy:   retention,
 		Tier2CompressionPolicy: compression,
 	})
 
@@ -379,9 +376,7 @@ func TestRetryFailedBackupTasksKeepsAgreeingPolicy(t *testing.T) {
 
 	tasks := retriedBackupTasks(t, streamHandle(ctx, t, conn.conn, klioBackupStreamName))
 	require.Len(t, tasks, 1)
-	require.NotNil(t, tasks[0].Tier2RetentionPolicy)
 	require.NotNil(t, tasks[0].Tier2CompressionPolicy)
-	assert.Equal(t, keepLatest, *tasks[0].Tier2RetentionPolicy.KeepLatest)
 	assert.Equal(t, "zstd", tasks[0].Tier2CompressionPolicy.Algorithm)
 }
 
@@ -400,21 +395,16 @@ func TestRetryFailedBackupTasksBlanksConflictingPolicy(t *testing.T) {
 	js, err := jetstream.New(nc)
 	require.NoError(t, err)
 
-	keepLatest5 := 5
-	keepLatest10 := 10
-
 	// The two failed entries for the same cluster disagree on the tier2
-	// retention/compression policy: the merged retry must not overwrite the
-	// tier2 source's existing policy with an arbitrary pick, so it blanks
-	// both fields instead.
+	// compression policy: the merged retry must not overwrite the tier2
+	// source's existing policy with an arbitrary pick, so it blanks the
+	// field instead.
 	seedFailedBackupTask(t, js, BackupTask{
 		ClusterName:            "cluster-a",
-		Tier2RetentionPolicy:   &kopia.RetentionPolicy{KeepLatest: &keepLatest5},
 		Tier2CompressionPolicy: &kopia.CompressionPolicy{Algorithm: "zstd"},
 	})
 	seedFailedBackupTask(t, js, BackupTask{
 		ClusterName:            "cluster-a",
-		Tier2RetentionPolicy:   &kopia.RetentionPolicy{KeepLatest: &keepLatest10},
 		Tier2CompressionPolicy: &kopia.CompressionPolicy{Algorithm: "gzip"},
 	})
 
@@ -422,7 +412,6 @@ func TestRetryFailedBackupTasksBlanksConflictingPolicy(t *testing.T) {
 
 	tasks := retriedBackupTasks(t, streamHandle(ctx, t, conn.conn, klioBackupStreamName))
 	require.Len(t, tasks, 1)
-	assert.Nil(t, tasks[0].Tier2RetentionPolicy)
 	assert.Nil(t, tasks[0].Tier2CompressionPolicy)
 }
 

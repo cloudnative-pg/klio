@@ -63,6 +63,26 @@ func applyGlobalCompressionPolicy(
 	})
 }
 
+// disableKopiaGlobalRetentionPolicy disables Kopia's own built-in retention
+// policy on the repository-wide (global) policy, so klio's own retention
+// sweeper (internal/retention) is the only thing that ever deletes a
+// snapshot for being out of retention. Like applyGlobalCompressionPolicy,
+// this runs before the tier's Kopia server starts, so the direct write to
+// the repository predates any server cache.
+func disableKopiaGlobalRetentionPolicy(ctx context.Context, configFile string) error {
+	kopiaBinary, err := kopia.LookupBinary()
+	if err != nil {
+		return err
+	}
+
+	client := &kopia.Client{
+		KopiaBinary: kopiaBinary,
+		ConfigFile:  configFile,
+	}
+
+	return client.DisableKopiaGlobalRetentionPolicy(ctx)
+}
+
 // setupTier1KopiaConfig connects the tier1 config file to the repository and
 // applies the tier1 repository-wide compression policy.
 func setupTier1KopiaConfig(ctx context.Context, configFile string, cfg *config.Tier1Config) error {
@@ -72,6 +92,10 @@ func setupTier1KopiaConfig(ctx context.Context, configFile string, cfg *config.T
 
 	if err := applyGlobalCompressionPolicy(ctx, configFile, cfg.Compression); err != nil {
 		return fmt.Errorf("error setting tier1 global compression policy: %w", err)
+	}
+
+	if err := disableKopiaGlobalRetentionPolicy(ctx, configFile); err != nil {
+		return fmt.Errorf("error disabling tier1 global retention policy: %w", err)
 	}
 
 	return nil
@@ -274,6 +298,10 @@ func runServer(ctx context.Context, opts serverOpts) error {
 			); err != nil {
 				return fmt.Errorf("error setting tier2 global compression policy: %w", err)
 			}
+
+			if err := disableKopiaGlobalRetentionPolicy(ctx, tier2RWConfigFileName); err != nil {
+				return fmt.Errorf("error disabling tier2 global retention policy: %w", err)
+			}
 		}
 
 		tier2 := suture.NewSimple("tier2")
@@ -304,6 +332,11 @@ func runServer(ctx context.Context, opts serverOpts) error {
 			Tier1KopiaConfigFile: tier1ConfigFileName,
 			Tier2KopiaConfigFile: tier2RWConfigFileName,
 			QueueURL:             queueURL,
+		})
+		postBackup.Add(&server.RetentionSweeper{
+			Config:               opts.cfg,
+			Tier1KopiaConfigFile: tier1ConfigFileName,
+			Tier2KopiaConfigFile: tier2RWConfigFileName,
 			RunID:                opts.runID,
 			RunSecret:            opts.runSecret,
 		})

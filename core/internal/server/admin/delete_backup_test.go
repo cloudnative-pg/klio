@@ -31,7 +31,6 @@ import (
 
 	"github.com/cloudnative-pg/klio/core/internal/client/klioclient"
 	klioGRPC "github.com/cloudnative-pg/klio/core/internal/grpc"
-	"github.com/cloudnative-pg/klio/core/internal/kopia"
 )
 
 // mockClient is a mock implementation of klioclient.Client for admin server tests.
@@ -57,18 +56,6 @@ func (m *mockClient) ListBackups(_ context.Context, _ string) (klioclient.Backup
 
 func (m *mockClient) GetMetadata(_ context.Context, _ string, _ string) (*klioclient.BackupMetadata, error) {
 	return nil, nil
-}
-
-func (m *mockClient) SetRetentionPolicy(_ context.Context, _ kopia.Target, _ kopia.RetentionPolicy) error {
-	return nil
-}
-
-func (m *mockClient) GetRetentionPolicy(_ context.Context, _ kopia.Target) (*kopia.RetentionPolicy, error) {
-	return nil, nil
-}
-
-func (m *mockClient) ApplyRetentionPolicy(_ context.Context, _ kopia.Target) error {
-	return nil
 }
 
 func (m *mockClient) GetUsername() string { return "" }

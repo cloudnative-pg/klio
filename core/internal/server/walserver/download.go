@@ -66,6 +66,10 @@ func (w *Implementation) getWAL(req *grpc.GetRequest, res grpc.WAL_GetServer) er
 		return status.Errorf(codes.InvalidArgument, "invalid cluster name: %v", err.Error())
 	}
 
+	if err := authorizeClusterName(res.Context(), req.GetClusterName()); err != nil {
+		return err
+	}
+
 	if err := repository.ValidatePathComponent(req.GetWalName()); err != nil {
 		return status.Errorf(codes.InvalidArgument, "invalid WAL name: %v", err.Error())
 	}

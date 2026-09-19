@@ -32,6 +32,7 @@ import (
 	"github.com/cloudnative-pg/klio/core/internal/grpc"
 	"github.com/cloudnative-pg/klio/core/internal/kopia"
 	"github.com/cloudnative-pg/klio/core/internal/queue"
+	"github.com/cloudnative-pg/klio/core/internal/repository"
 )
 
 // CloseBackup implements the CloseBackup GRPC call.
@@ -39,6 +40,14 @@ func (w *Implementation) CloseBackup(
 	ctx context.Context,
 	request *grpc.CloseBackupRequest,
 ) (*grpc.CloseBackupResult, error) {
+	if err := repository.ValidatePathComponent(request.GetClusterName()); err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "invalid cluster name: %v", err.Error())
+	}
+
+	if err := authorizeClusterName(ctx, request.GetClusterName()); err != nil {
+		return nil, err
+	}
+
 	// Step 1: verify if the WALs have been archived
 	missingWALFiles, err := w.checkWALFiles(request)
 	if err != nil {
@@ -81,16 +90,6 @@ func (w *Implementation) scheduleBackupRelay(ctx context.Context, request *grpc.
 		)
 	}
 
-	var tier2Policy *kopia.RetentionPolicy
-	if request.GetTier2RetentionPolicy() != "" {
-		var policy kopia.RetentionPolicy
-		if err := json.Unmarshal([]byte(request.GetTier2RetentionPolicy()), &policy); err != nil {
-			contextLogger.Error(err, "Unable to unmarshal tier2 retention policy, skipping")
-		} else {
-			tier2Policy = &policy
-		}
-	}
-
 	var tier2Compression *kopia.CompressionPolicy
 	if request.GetTier2CompressionPolicy() != "" {
 		var policy kopia.CompressionPolicy
@@ -104,7 +103,6 @@ func (w *Implementation) scheduleBackupRelay(ctx context.Context, request *grpc.
 	if err := w.queue.NotifyBackupReceived(ctx, &queue.BackupTask{
 		ClusterName:            request.GetClusterName(),
 		SendToTier2:            request.GetSendToTier2(),
-		Tier2RetentionPolicy:   tier2Policy,
 		Tier2CompressionPolicy: tier2Compression,
 	}); err != nil {
 		return fmt.Errorf("while sending task to queue: %w", err)

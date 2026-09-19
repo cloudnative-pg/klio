@@ -4,7 +4,7 @@ title: klio retention
 
 ## klio retention
 
-Manage the retention policy
+Manage the retention policies
 
 ### Options
 
