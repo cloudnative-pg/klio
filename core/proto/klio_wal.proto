@@ -168,6 +168,12 @@ message CloseBackupRequest {
 
   // When present, set the tier2 compression policy to the specified JSON-serialized policy.
   string tier2_compression_policy = 10;
+
+  // Enqueue the post-backup task even if WAL files are still missing. A
+  // client that leaves this unset calls CloseBackup again until no WAL file
+  // is missing, and the server defers the task until that call. A client can
+  // request an immediate enqueue of the post-backup task by setting this to true.
+  bool enqueue_without_wals = 11;
 }
 
 // This is sent by the WAL server in response to a CloseBackupRequest

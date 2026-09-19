@@ -746,8 +746,13 @@ type CloseBackupRequest struct {
 	Tier2RetentionPolicy string `protobuf:"bytes,9,opt,name=tier2_retention_policy,json=tier2RetentionPolicy,proto3" json:"tier2_retention_policy,omitempty"`
 	// When present, set the tier2 compression policy to the specified JSON-serialized policy.
 	Tier2CompressionPolicy string `protobuf:"bytes,10,opt,name=tier2_compression_policy,json=tier2CompressionPolicy,proto3" json:"tier2_compression_policy,omitempty"`
-	unknownFields          protoimpl.UnknownFields
-	sizeCache              protoimpl.SizeCache
+	// Enqueue the post-backup task even if WAL files are still missing. A
+	// client that leaves this unset calls CloseBackup again until no WAL file
+	// is missing, and the server defers the task until that call. A client can
+	// request an immediate enqueue of the post-backup task by setting this to true.
+	EnqueueWithoutWals bool `protobuf:"varint,11,opt,name=enqueue_without_wals,json=enqueueWithoutWals,proto3" json:"enqueue_without_wals,omitempty"`
+	unknownFields      protoimpl.UnknownFields
+	sizeCache          protoimpl.SizeCache
 }
 
 func (x *CloseBackupRequest) Reset() {
@@ -841,6 +846,13 @@ func (x *CloseBackupRequest) GetTier2CompressionPolicy() string {
 		return x.Tier2CompressionPolicy
 	}
 	return ""
+}
+
+func (x *CloseBackupRequest) GetEnqueueWithoutWals() bool {
+	if x != nil {
+		return x.EnqueueWithoutWals
+	}
+	return false
 }
 
 // This is sent by the WAL server in response to a CloseBackupRequest
@@ -948,7 +960,7 @@ const file_proto_klio_wal_proto_rawDesc = "" +
 	"\fStartWALFile\x12!\n" +
 	"\fklio_version\x18\x01 \x01(\x04R\vklioVersion\x12\x1f\n" +
 	"\vfile_length\x18\x02 \x01(\x04R\n" +
-	"fileLength\"\xe1\x02\n" +
+	"fileLength\"\x93\x03\n" +
 	"\x12CloseBackupRequest\x12!\n" +
 	"\fcluster_name\x18\x01 \x01(\tR\vclusterName\x12\x1f\n" +
 	"\vbackup_name\x18\x03 \x01(\tR\n" +
@@ -960,7 +972,8 @@ const file_proto_klio_wal_proto_rawDesc = "" +
 	"\rsend_to_tier2\x18\b \x01(\bR\vsendToTier2\x124\n" +
 	"\x16tier2_retention_policy\x18\t \x01(\tR\x14tier2RetentionPolicy\x128\n" +
 	"\x18tier2_compression_policy\x18\n" +
-	" \x01(\tR\x16tier2CompressionPolicy\"f\n" +
+	" \x01(\tR\x16tier2CompressionPolicy\x120\n" +
+	"\x14enqueue_without_wals\x18\v \x01(\bR\x12enqueueWithoutWals\"f\n" +
 	"\x11CloseBackupResult\x12%\n" +
 	"\x0etier2_schedule\x18\x01 \x01(\bR\rtier2Schedule\x12*\n" +
 	"\x11missing_wal_files\x18\x02 \x03(\tR\x0fmissingWalFiles2\xda\x03\n" +
