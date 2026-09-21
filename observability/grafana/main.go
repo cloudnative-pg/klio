@@ -38,15 +38,21 @@ import (
 	"os"
 	"strings"
 
-	"github.com/grafana/grafana-foundation-sdk/go/bargauge"
 	"github.com/grafana/grafana-foundation-sdk/go/cog"
 	"github.com/grafana/grafana-foundation-sdk/go/cog/variants"
 	"github.com/grafana/grafana-foundation-sdk/go/common"
 	"github.com/grafana/grafana-foundation-sdk/go/dashboard"
 	"github.com/grafana/grafana-foundation-sdk/go/prometheus"
 	"github.com/grafana/grafana-foundation-sdk/go/stat"
+	"github.com/grafana/grafana-foundation-sdk/go/table"
 	"github.com/grafana/grafana-foundation-sdk/go/timeseries"
 )
+
+// lsnHalf is 2^32: a PostgreSQL LSN is a 64-bit byte offset that PostgreSQL
+// prints as two 32-bit halves in hexadecimal separated by a slash (e.g.
+// `16/B374D848`). Dividing by lsnHalf yields the high half, the remainder is
+// the low half.
+const lsnHalf = 4294967296
 
 const (
 	// datasourceVar is the name of the Prometheus data source template
@@ -111,7 +117,7 @@ type sizedPanel struct {
 	place func(dashboard.GridPos) cog.Builder[dashboard.Panel]
 }
 
-// sized pairs a panel builder (stat, timeseries, bargauge, ...) with its grid
+// sized pairs a panel builder (stat, timeseries, ...) with its grid
 // width and height so layoutSection can assign it an explicit position.
 func sized[B interface {
 	GridPos(gridPos dashboard.GridPos) B
@@ -137,6 +143,81 @@ func query(expr, legend string) *prometheus.DataqueryBuilder {
 		Expr(expr).
 		LegendFormat(legend).
 		Range()
+}
+
+// instantTableTarget builds an instant Prometheus query in table format, used
+// by the LSN tables where only the current value per cluster/tier matters.
+func instantTableTarget(expr, refID string) *prometheus.DataqueryBuilder {
+	return prometheus.NewDataqueryBuilder().
+		Datasource(datasourceRef()).
+		Expr(expr).
+		Format(prometheus.PromQueryFormatTable).
+		Instant().
+		RefId(refID)
+}
+
+// lsnColumn is one LSN value rendered as a pair of hexadecimal columns (high
+// and low 32-bit halves) in an lsnTablePanel. agg is the PromQL that reduces
+// the LSN metric to one series per cluster_name and tier.
+type lsnColumn struct {
+	label string
+	agg   string
+}
+
+// lsnTablePanel renders one or more PostgreSQL LSNs per cluster and tier as a
+// table, splitting each 64-bit byte offset into its high and low 32-bit halves
+// shown in hexadecimal (unit "hex"). Read together the two columns are
+// PostgreSQL's own X/Y LSN notation (high / low): Grafana cannot join them into
+// a single "X/Y" string from a numeric series, and rendering the whole offset
+// as one hex value drops the half boundary, so the halves are split in PromQL
+// (floor(lsn/2^32) and lsn%2^32) and shown side by side. A byte-size unit would
+// be wrong: an LSN is a position, not an amount of data.
+func lsnTablePanel(title string, cols ...lsnColumn) *table.PanelBuilder {
+	// Two label columns (cluster, tier) plus a hi/lo pair per LSN. Fix a column
+	// width that keeps every hi/lo half visible inside the Span(8) panel instead
+	// of letting Grafana auto-size them wide enough to push columns off-screen.
+	colWidth := 470.0 / float64(2+2*len(cols))
+	panel := table.NewPanelBuilder().
+		Title(title).
+		Datasource(datasourceRef()).
+		Unit("hex").
+		Decimals(0).
+		Width(colWidth).
+		Span(8).
+		Height(panelHeight)
+
+	// organize transform: drop the Time column, label the cluster/tier columns
+	// and order everything, renaming each query's "Value #<refID>" field.
+	exclude := map[string]any{"Time": true}
+	rename := map[string]any{"cluster_name": "cluster", "tier": "tier"}
+	order := map[string]any{"cluster_name": 0, "tier": 1}
+	idx := 2
+	for i, c := range cols {
+		hiRef := fmt.Sprintf("h%d", i)
+		loRef := fmt.Sprintf("l%d", i)
+		panel = panel.
+			WithTarget(instantTableTarget(fmt.Sprintf("floor(%s / %d)", c.agg, lsnHalf), hiRef)).
+			WithTarget(instantTableTarget(fmt.Sprintf("%s %% %d", c.agg, lsnHalf), loRef))
+		rename["Value #"+hiRef] = c.label + " (hi)"
+		rename["Value #"+loRef] = c.label + " (lo)"
+		order["Value #"+hiRef] = idx
+		order["Value #"+loRef] = idx + 1
+		idx += 2
+	}
+
+	return panel.
+		WithTransformation(dashboard.DataTransformerConfig{
+			Id:      "merge",
+			Options: map[string]any{},
+		}).
+		WithTransformation(dashboard.DataTransformerConfig{
+			Id: "organize",
+			Options: map[string]any{
+				"excludeByName": exclude,
+				"renameByName":  rename,
+				"indexByName":   order,
+			},
+		})
 }
 
 // quantiles are the percentiles every latency panel renders together, so the
@@ -231,26 +312,6 @@ func barPanel(title, unit string, targets ...cog.Builder[variants.Dataquery]) *t
 		FillOpacity(80).
 		Stacking(common.NewStackingConfigBuilder().Mode(common.StackingModeNormal)).
 		Decimals(0)
-}
-
-// barGaugePanel builds a horizontal bar gauge that renders one labeled bar per
-// series, so multi-series "by tier / by stream" values always show every series
-// (a narrow stat tile can hide all but the first). Every caller renders a
-// label-only classification (tier, cluster, stream), so the unit is always
-// "none".
-func barGaugePanel(title string, targets ...cog.Builder[variants.Dataquery]) *bargauge.PanelBuilder {
-	panel := bargauge.NewPanelBuilder().
-		Title(title).
-		Datasource(datasourceRef()).
-		Unit("none").
-		ReduceOptions(common.NewReduceDataOptionsBuilder().Calcs([]string{"lastNotNull"})).
-		Orientation(common.VizOrientationHorizontal).
-		Decimals(0)
-	for _, target := range targets {
-		panel = panel.WithTarget(target)
-	}
-
-	return panel
 }
 
 // statPanel builds a stat panel showing the last value of its query targets,

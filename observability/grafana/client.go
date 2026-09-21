@@ -62,7 +62,6 @@ func clientPanels() []sizedPanel {
 			query(fmt.Sprintf("max by (cluster_name) (klio_plugin_backup_latest_duration_seconds{%s})", clientMatcher),
 				"{{cluster_name}}"),
 		).Orientation(common.VizOrientationHorizontal).
-			Unit("dtdhms").
 			Description("Wall-clock duration of the most recent base backup, per cluster.")),
 		sized(4, panelHeight, statPanel("Time since last backup started", "dtdhms",
 			query(fmt.Sprintf("time() - max by (cluster_name) (klio_plugin_backup_latest_start_time_seconds{%s})",
@@ -124,12 +123,18 @@ func clientPanels() []sizedPanel {
 		// Backup volume over time: count of runs per bucket, split by cluster
 		// and outcome. Bars aggregate how many backups happened, which is more
 		// useful for infrequent backups than instantaneous duration percentiles.
+		// changes() counts each counter increment as one backup, giving exact
+		// whole-number bars with none of increase()'s boundary extrapolation
+		// (which otherwise inflates the axis when a run lands near the window
+		// edge). A minimum interval keeps each bucket wide enough to span at
+		// least a couple of scrapes so short dashboard ranges still show bars.
 		sized(8, panelHeight, barPanel("Backups by cluster and outcome", "short",
 			query(
-				fmt.Sprintf("sum by (cluster_name, outcome) (increase(klio_plugin_backup_runs_total{%s}"+
-					"[$__interval]))", clientMatcher), "{{cluster_name}} / {{outcome}}"),
-		).Description("Count of base backup runs per time bucket, split by cluster and outcome. Bars aggregate "+
-			"the number of backups over each interval (per day on a multi-day range).")),
+				fmt.Sprintf("sum by (cluster_name, outcome) (changes(klio_plugin_backup_runs_total{%s}"+
+					"[$__interval]))", clientMatcher), "{{cluster_name}} / {{outcome}}").Interval("5m"),
+		).AxisSoftMax(4).
+			Description("Count of base backup runs per time bucket, split by cluster and outcome. Bars aggregate "+
+				"the number of backups over each interval (per day on a multi-day range).")),
 
 		// WAL streaming client, run as a child process of this same sidecar. A
 		// stepped time series shows when the streamed timeline changed (a
