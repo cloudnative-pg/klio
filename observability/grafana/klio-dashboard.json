@@ -593,10 +593,11 @@
             "type": "prometheus",
             "uid": "${datasource}"
           },
-          "expr": "sum by (cluster_name, outcome) (increase(klio_plugin_backup_runs_total{k8s_namespace_name=~\"$namespace\",cluster_name=~\"$cluster\"}[$__interval]))",
+          "expr": "sum by (cluster_name, outcome) (changes(klio_plugin_backup_runs_total{k8s_namespace_name=~\"$namespace\",cluster_name=~\"$cluster\"}[$__interval]))",
           "instant": false,
           "legendFormat": "{{cluster_name}} / {{outcome}}",
-          "range": true
+          "range": true,
+          "interval": "5m"
         }
       ],
       "title": "Backups by cluster and outcome",
@@ -633,6 +634,7 @@
             "drawStyle": "bars",
             "gradientMode": "opacity",
             "fillOpacity": 80,
+            "axisSoftMax": 4,
             "stacking": {
               "mode": "normal"
             }
@@ -824,11 +826,11 @@
           "valueSize": 28
         },
         "percentChangeColorMode": "standard",
-        "orientation": ""
+        "orientation": "horizontal"
       },
       "fieldConfig": {
         "defaults": {
-          "unit": "dtdurations",
+          "unit": "dtdhms",
           "color": {
             "mode": "palette-classic"
           }
@@ -939,7 +941,8 @@
       },
       "fieldConfig": {
         "defaults": {
-          "unit": "number",
+          "unit": "short",
+          "decimals": 0,
           "color": {
             "mode": "palette-classic"
           }
@@ -992,7 +995,7 @@
           "valueSize": 28
         },
         "percentChangeColorMode": "standard",
-        "orientation": ""
+        "orientation": "horizontal"
       },
       "fieldConfig": {
         "defaults": {
@@ -1049,11 +1052,11 @@
           "valueSize": 28
         },
         "percentChangeColorMode": "standard",
-        "orientation": ""
+        "orientation": "horizontal"
       },
       "fieldConfig": {
         "defaults": {
-          "unit": "short",
+          "unit": "none",
           "decimals": 0,
           "color": {
             "mode": "palette-classic"
@@ -1107,7 +1110,7 @@
           "valueSize": 28
         },
         "percentChangeColorMode": "standard",
-        "orientation": ""
+        "orientation": "horizontal"
       },
       "fieldConfig": {
         "defaults": {
@@ -1165,11 +1168,11 @@
           "valueSize": 28
         },
         "percentChangeColorMode": "standard",
-        "orientation": ""
+        "orientation": "horizontal"
       },
       "fieldConfig": {
         "defaults": {
-          "unit": "dtdurations",
+          "unit": "dtdhms",
           "color": {
             "mode": "palette-classic"
           }
@@ -1222,11 +1225,11 @@
           "valueSize": 28
         },
         "percentChangeColorMode": "standard",
-        "orientation": ""
+        "orientation": "horizontal"
       },
       "fieldConfig": {
         "defaults": {
-          "unit": "dtdurations",
+          "unit": "dtdhms",
           "color": {
             "mode": "palette-classic"
           }
@@ -1279,11 +1282,11 @@
           "valueSize": 28
         },
         "percentChangeColorMode": "standard",
-        "orientation": ""
+        "orientation": "horizontal"
       },
       "fieldConfig": {
         "defaults": {
-          "unit": "dtdurations",
+          "unit": "dtdhms",
           "color": {
             "mode": "palette-classic"
           }
@@ -1336,11 +1339,11 @@
           "valueSize": 28
         },
         "percentChangeColorMode": "standard",
-        "orientation": ""
+        "orientation": "horizontal"
       },
       "fieldConfig": {
         "defaults": {
-          "unit": "dtdurations",
+          "unit": "dtdhms",
           "color": {
             "mode": "palette-classic"
           }
@@ -1393,11 +1396,11 @@
           "valueSize": 28
         },
         "percentChangeColorMode": "standard",
-        "orientation": ""
+        "orientation": "horizontal"
       },
       "fieldConfig": {
         "defaults": {
-          "unit": "dtdurations",
+          "unit": "dtdhms",
           "color": {
             "mode": "palette-classic"
           }
@@ -1428,7 +1431,7 @@
       },
       "gridPos": {
         "h": 6,
-        "w": 6,
+        "w": 4,
         "x": 0,
         "y": 38
       },
@@ -1450,11 +1453,11 @@
           "valueSize": 28
         },
         "percentChangeColorMode": "standard",
-        "orientation": ""
+        "orientation": "horizontal"
       },
       "fieldConfig": {
         "defaults": {
-          "unit": "dtdurations",
+          "unit": "dtdhms",
           "color": {
             "mode": "palette-classic"
           }
@@ -1463,7 +1466,7 @@
       }
     },
     {
-      "type": "bargauge",
+      "type": "stat",
       "targets": [
         {
           "datasource": {
@@ -1485,128 +1488,91 @@
       },
       "gridPos": {
         "h": 6,
-        "w": 9,
-        "x": 6,
+        "w": 4,
+        "x": 4,
         "y": 38
       },
       "repeatDirection": "h",
       "options": {
-        "displayMode": "gradient",
-        "valueMode": "color",
-        "namePlacement": "auto",
-        "showUnfilled": true,
-        "sizing": "auto",
-        "minVizWidth": 8,
-        "minVizHeight": 16,
-        "legend": {
-          "displayMode": "list",
-          "placement": "bottom",
-          "showLegend": false,
-          "calcs": []
-        },
+        "graphMode": "none",
+        "colorMode": "value",
+        "justifyMode": "auto",
+        "textMode": "auto",
+        "wideLayout": true,
+        "showPercentChange": false,
         "reduceOptions": {
           "calcs": [
             "lastNotNull"
           ]
         },
-        "maxVizHeight": 300,
+        "text": {
+          "titleSize": 14,
+          "valueSize": 28
+        },
+        "percentChangeColorMode": "standard",
         "orientation": "horizontal"
       },
       "fieldConfig": {
         "defaults": {
-          "unit": "none",
-          "decimals": 0
-        },
-        "overrides": []
-      }
-    },
-    {
-      "type": "timeseries",
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "${datasource}"
-          },
-          "expr": "max by (cluster_name, tier) (klio_server_backup_latest_backup_start_lsn_bytes{service_name=~\"$server\",cluster_name=~\"$cluster\"})",
-          "instant": false,
-          "legendFormat": "{{cluster_name}} {{tier}} start",
-          "range": true
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "${datasource}"
-          },
-          "expr": "max by (cluster_name, tier) (klio_server_backup_latest_backup_end_lsn_bytes{service_name=~\"$server\",cluster_name=~\"$cluster\"})",
-          "instant": false,
-          "legendFormat": "{{cluster_name}} {{tier}} end",
-          "range": true
-        }
-      ],
-      "title": "Latest backup LSN by cluster and tier",
-      "description": "Start and end LSN of the latest retained PostgreSQL backup, per cluster and tier.",
-      "transparent": false,
-      "datasource": {
-        "type": "prometheus",
-        "uid": "${datasource}"
-      },
-      "gridPos": {
-        "h": 6,
-        "w": 9,
-        "x": 15,
-        "y": 38
-      },
-      "repeatDirection": "h",
-      "options": {
-        "legend": {
-          "displayMode": "list",
-          "placement": "bottom",
-          "showLegend": true,
-          "calcs": []
-        },
-        "tooltip": {
-          "mode": "",
-          "sort": ""
-        }
-      },
-      "fieldConfig": {
-        "defaults": {
-          "unit": "bytes",
-          "custom": {
-            "gradientMode": "opacity",
-            "fillOpacity": 10
+          "unit": "short",
+          "decimals": 0,
+          "color": {
+            "mode": "palette-classic"
           }
         },
         "overrides": []
       }
     },
     {
-      "type": "timeseries",
+      "type": "table",
       "targets": [
         {
           "datasource": {
             "type": "prometheus",
             "uid": "${datasource}"
           },
-          "expr": "max by (cluster_name, tier) (klio_server_backup_oldest_backup_start_lsn_bytes{service_name=~\"$server\",cluster_name=~\"$cluster\"})",
-          "instant": false,
-          "legendFormat": "{{cluster_name}} {{tier}} start",
-          "range": true
+          "expr": "floor(max by (cluster_name, tier) (klio_server_backup_latest_backup_start_lsn_bytes{service_name=~\"$server\",cluster_name=~\"$cluster\"}) / 4294967296)",
+          "format": "table",
+          "instant": true,
+          "range": false,
+          "refId": "h0"
         },
         {
           "datasource": {
             "type": "prometheus",
             "uid": "${datasource}"
           },
-          "expr": "max by (cluster_name, tier) (klio_server_backup_oldest_backup_end_lsn_bytes{service_name=~\"$server\",cluster_name=~\"$cluster\"})",
-          "instant": false,
-          "legendFormat": "{{cluster_name}} {{tier}} end",
-          "range": true
+          "expr": "max by (cluster_name, tier) (klio_server_backup_latest_backup_start_lsn_bytes{service_name=~\"$server\",cluster_name=~\"$cluster\"}) % 4294967296",
+          "format": "table",
+          "instant": true,
+          "range": false,
+          "refId": "l0"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "expr": "floor(max by (cluster_name, tier) (klio_server_backup_latest_backup_end_lsn_bytes{service_name=~\"$server\",cluster_name=~\"$cluster\"}) / 4294967296)",
+          "format": "table",
+          "instant": true,
+          "range": false,
+          "refId": "h1"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "expr": "max by (cluster_name, tier) (klio_server_backup_latest_backup_end_lsn_bytes{service_name=~\"$server\",cluster_name=~\"$cluster\"}) % 4294967296",
+          "format": "table",
+          "instant": true,
+          "range": false,
+          "refId": "l1"
         }
       ],
-      "title": "Oldest backup LSN by cluster and tier",
-      "description": "Start and end LSN of the oldest retained PostgreSQL backup, per cluster and tier.",
+      "title": "Latest backup LSN by cluster and tier",
+      "description": "Start and end LSN of the latest retained PostgreSQL backup, per cluster and tier. Each LSN is split into its high and low 32-bit halves in hexadecimal, matching PostgreSQL's X/Y notation.",
       "transparent": false,
       "datasource": {
         "type": "prometheus",
@@ -1615,28 +1581,175 @@
       "gridPos": {
         "h": 6,
         "w": 8,
-        "x": 0,
-        "y": 44
+        "x": 8,
+        "y": 38
       },
       "repeatDirection": "h",
-      "options": {
-        "legend": {
-          "displayMode": "list",
-          "placement": "bottom",
-          "showLegend": true,
-          "calcs": []
+      "transformations": [
+        {
+          "id": "merge",
+          "options": {}
         },
-        "tooltip": {
-          "mode": "",
-          "sort": ""
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {
+              "Time": true
+            },
+            "indexByName": {
+              "Value #h0": 2,
+              "Value #h1": 4,
+              "Value #l0": 3,
+              "Value #l1": 5,
+              "cluster_name": 0,
+              "tier": 1
+            },
+            "renameByName": {
+              "Value #h0": "start (hi)",
+              "Value #h1": "end (hi)",
+              "Value #l0": "start (lo)",
+              "Value #l1": "end (lo)",
+              "cluster_name": "cluster",
+              "tier": "tier"
+            }
+          }
         }
+      ],
+      "options": {
+        "frameIndex": 0,
+        "showHeader": true,
+        "showTypeIcons": false,
+        "footer": {
+          "show": false,
+          "reducer": null,
+          "countRows": false
+        },
+        "cellHeight": "sm"
       },
       "fieldConfig": {
         "defaults": {
-          "unit": "bytes",
+          "unit": "hex",
+          "decimals": 0,
           "custom": {
-            "gradientMode": "opacity",
-            "fillOpacity": 10
+            "width": 78.33333333333333,
+            "align": "auto",
+            "inspect": false
+          }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "type": "table",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "expr": "floor(max by (cluster_name, tier) (klio_server_backup_oldest_backup_start_lsn_bytes{service_name=~\"$server\",cluster_name=~\"$cluster\"}) / 4294967296)",
+          "format": "table",
+          "instant": true,
+          "range": false,
+          "refId": "h0"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "expr": "max by (cluster_name, tier) (klio_server_backup_oldest_backup_start_lsn_bytes{service_name=~\"$server\",cluster_name=~\"$cluster\"}) % 4294967296",
+          "format": "table",
+          "instant": true,
+          "range": false,
+          "refId": "l0"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "expr": "floor(max by (cluster_name, tier) (klio_server_backup_oldest_backup_end_lsn_bytes{service_name=~\"$server\",cluster_name=~\"$cluster\"}) / 4294967296)",
+          "format": "table",
+          "instant": true,
+          "range": false,
+          "refId": "h1"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "expr": "max by (cluster_name, tier) (klio_server_backup_oldest_backup_end_lsn_bytes{service_name=~\"$server\",cluster_name=~\"$cluster\"}) % 4294967296",
+          "format": "table",
+          "instant": true,
+          "range": false,
+          "refId": "l1"
+        }
+      ],
+      "title": "Oldest backup LSN by cluster and tier",
+      "description": "Start and end LSN of the oldest retained PostgreSQL backup, per cluster and tier. Each LSN is split into its high and low 32-bit halves in hexadecimal, matching PostgreSQL's X/Y notation.",
+      "transparent": false,
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "gridPos": {
+        "h": 6,
+        "w": 8,
+        "x": 16,
+        "y": 38
+      },
+      "repeatDirection": "h",
+      "transformations": [
+        {
+          "id": "merge",
+          "options": {}
+        },
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {
+              "Time": true
+            },
+            "indexByName": {
+              "Value #h0": 2,
+              "Value #h1": 4,
+              "Value #l0": 3,
+              "Value #l1": 5,
+              "cluster_name": 0,
+              "tier": 1
+            },
+            "renameByName": {
+              "Value #h0": "start (hi)",
+              "Value #h1": "end (hi)",
+              "Value #l0": "start (lo)",
+              "Value #l1": "end (lo)",
+              "cluster_name": "cluster",
+              "tier": "tier"
+            }
+          }
+        }
+      ],
+      "options": {
+        "frameIndex": 0,
+        "showHeader": true,
+        "showTypeIcons": false,
+        "footer": {
+          "show": false,
+          "reducer": null,
+          "countRows": false
+        },
+        "cellHeight": "sm"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "hex",
+          "decimals": 0,
+          "custom": {
+            "width": 78.33333333333333,
+            "align": "auto",
+            "inspect": false
           }
         },
         "overrides": []
@@ -1676,7 +1789,7 @@
       "gridPos": {
         "h": 6,
         "w": 8,
-        "x": 8,
+        "x": 0,
         "y": 44
       },
       "repeatDirection": "h",
@@ -1730,7 +1843,7 @@
       "gridPos": {
         "h": 6,
         "w": 8,
-        "x": 16,
+        "x": 8,
         "y": 44
       },
       "repeatDirection": "h",
@@ -1781,8 +1894,8 @@
       "gridPos": {
         "h": 6,
         "w": 8,
-        "x": 0,
-        "y": 50
+        "x": 16,
+        "y": 44
       },
       "repeatDirection": "h",
       "options": {
@@ -1832,7 +1945,7 @@
       "gridPos": {
         "h": 6,
         "w": 8,
-        "x": 8,
+        "x": 0,
         "y": 50
       },
       "repeatDirection": "h",
@@ -1860,21 +1973,33 @@
       }
     },
     {
-      "type": "timeseries",
+      "type": "table",
       "targets": [
         {
           "datasource": {
             "type": "prometheus",
             "uid": "${datasource}"
           },
-          "expr": "max by (cluster_name, tier) (klio_server_wal_latest_written_lsn_bytes{service_name=~\"$server\",cluster_name=~\"$cluster\"})",
-          "instant": false,
-          "legendFormat": "{{cluster_name}} {{tier}}",
-          "range": true
+          "expr": "floor(max by (cluster_name, tier) (klio_server_wal_latest_written_lsn_bytes{service_name=~\"$server\",cluster_name=~\"$cluster\"}) / 4294967296)",
+          "format": "table",
+          "instant": true,
+          "range": false,
+          "refId": "h0"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "expr": "max by (cluster_name, tier) (klio_server_wal_latest_written_lsn_bytes{service_name=~\"$server\",cluster_name=~\"$cluster\"}) % 4294967296",
+          "format": "table",
+          "instant": true,
+          "range": false,
+          "refId": "l0"
         }
       ],
       "title": "Latest written LSN by cluster and tier",
-      "description": "Most recent WAL LSN the server has written for each cluster and tier, as a byte offset.",
+      "description": "Most recent WAL LSN the server has written for each cluster and tier, split into its high and low 32-bit halves in hexadecimal, matching PostgreSQL's X/Y notation.",
       "transparent": false,
       "datasource": {
         "type": "prometheus",
@@ -1883,28 +2008,55 @@
       "gridPos": {
         "h": 6,
         "w": 8,
-        "x": 16,
+        "x": 8,
         "y": 50
       },
       "repeatDirection": "h",
-      "options": {
-        "legend": {
-          "displayMode": "list",
-          "placement": "bottom",
-          "showLegend": true,
-          "calcs": []
+      "transformations": [
+        {
+          "id": "merge",
+          "options": {}
         },
-        "tooltip": {
-          "mode": "",
-          "sort": ""
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {
+              "Time": true
+            },
+            "indexByName": {
+              "Value #h0": 2,
+              "Value #l0": 3,
+              "cluster_name": 0,
+              "tier": 1
+            },
+            "renameByName": {
+              "Value #h0": "written (hi)",
+              "Value #l0": "written (lo)",
+              "cluster_name": "cluster",
+              "tier": "tier"
+            }
+          }
         }
+      ],
+      "options": {
+        "frameIndex": 0,
+        "showHeader": true,
+        "showTypeIcons": false,
+        "footer": {
+          "show": false,
+          "reducer": null,
+          "countRows": false
+        },
+        "cellHeight": "sm"
       },
       "fieldConfig": {
         "defaults": {
-          "unit": "bytes",
+          "unit": "hex",
+          "decimals": 0,
           "custom": {
-            "gradientMode": "opacity",
-            "fillOpacity": 10
+            "width": 117.5,
+            "align": "auto",
+            "inspect": false
           }
         },
         "overrides": []
@@ -1934,8 +2086,8 @@
       "gridPos": {
         "h": 6,
         "w": 8,
-        "x": 0,
-        "y": 56
+        "x": 16,
+        "y": 50
       },
       "repeatDirection": "h",
       "options": {
@@ -2005,7 +2157,7 @@
       "gridPos": {
         "h": 6,
         "w": 8,
-        "x": 8,
+        "x": 0,
         "y": 56
       },
       "repeatDirection": "h",
@@ -2076,7 +2228,7 @@
       "gridPos": {
         "h": 6,
         "w": 8,
-        "x": 16,
+        "x": 8,
         "y": 56
       },
       "repeatDirection": "h",
@@ -2146,9 +2298,9 @@
       },
       "gridPos": {
         "h": 6,
-        "w": 10,
-        "x": 0,
-        "y": 62
+        "w": 8,
+        "x": 16,
+        "y": 56
       },
       "repeatDirection": "h",
       "options": {
@@ -2197,8 +2349,8 @@
       },
       "gridPos": {
         "h": 6,
-        "w": 14,
-        "x": 10,
+        "w": 12,
+        "x": 0,
         "y": 62
       },
       "repeatDirection": "h",
@@ -2248,9 +2400,9 @@
       },
       "gridPos": {
         "h": 6,
-        "w": 14,
-        "x": 0,
-        "y": 68
+        "w": 12,
+        "x": 12,
+        "y": 62
       },
       "repeatDirection": "h",
       "options": {
@@ -2299,8 +2451,8 @@
       },
       "gridPos": {
         "h": 6,
-        "w": 10,
-        "x": 14,
+        "w": 12,
+        "x": 0,
         "y": 68
       },
       "repeatDirection": "h",
@@ -2350,9 +2502,9 @@
       },
       "gridPos": {
         "h": 6,
-        "w": 24,
-        "x": 0,
-        "y": 74
+        "w": 12,
+        "x": 12,
+        "y": 68
       },
       "repeatDirection": "h",
       "options": {
@@ -2386,7 +2538,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 80
+        "y": 74
       },
       "id": 0,
       "panels": []
@@ -2416,7 +2568,7 @@
         "h": 6,
         "w": 8,
         "x": 0,
-        "y": 81
+        "y": 75
       },
       "repeatDirection": "h",
       "options": {
@@ -2467,7 +2619,7 @@
         "h": 6,
         "w": 8,
         "x": 8,
-        "y": 81
+        "y": 75
       },
       "repeatDirection": "h",
       "options": {
@@ -2518,7 +2670,7 @@
         "h": 6,
         "w": 8,
         "x": 16,
-        "y": 81
+        "y": 75
       },
       "repeatDirection": "h",
       "options": {
