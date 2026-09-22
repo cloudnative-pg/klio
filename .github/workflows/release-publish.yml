@@ -38,7 +38,7 @@ jobs:
     needs:
       - release-publish
     if: github.repository_owner == 'cloudnative-pg'
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     permissions:
       contents: read
     outputs:
@@ -68,7 +68,7 @@ jobs:
         github.repository_owner == 'cloudnative-pg'
     env:
       ENVIRONMENT: "production"
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     permissions:
       contents: write
       packages: write
@@ -120,7 +120,7 @@ jobs:
     concurrency:
       group: publish-bundle
       cancel-in-progress: false
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     permissions:
       contents: read
     steps:
