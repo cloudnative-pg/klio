@@ -25,13 +25,13 @@ import (
 	"testing"
 	"time"
 
-	"github.com/nats-io/nats-server/v2/server"
 	"github.com/nats-io/nats.go"
 	"github.com/spf13/afero"
 	"github.com/stretchr/testify/require"
 
 	"github.com/cloudnative-pg/klio/core/internal/grpc"
 	"github.com/cloudnative-pg/klio/core/internal/queue"
+	"github.com/cloudnative-pg/klio/core/internal/queue/queuetest"
 	"github.com/cloudnative-pg/klio/core/internal/repository"
 )
 
@@ -45,26 +45,19 @@ const (
 // newCloseBackupServer builds a WAL server whose repository holds only the
 // backup's first WAL segment, so the last one is always reported missing,
 // and whose queue is backed by an embedded NATS server. It returns the
-// server and the queue connection to consume the enqueued tasks from.
-func newCloseBackupServer(t *testing.T) (*Implementation, *queue.Conn) {
+// server, the queue connection to consume the enqueued tasks from, and a
+// StreamManager to inspect the queue's pending message counts directly.
+func newCloseBackupServer(t *testing.T) (*Implementation, *queue.Conn, *queue.StreamManager) {
 	t.Helper()
 
-	ns, err := server.NewServer(&server.Options{
-		Host:      "127.0.0.1",
-		Port:      -1,
-		JetStream: true,
-		StoreDir:  t.TempDir(),
-	})
-	require.NoError(t, err)
-	go ns.Start()
-	require.True(t, ns.ReadyForConnections(4*time.Second), "NATS server not ready")
-	t.Cleanup(ns.Shutdown)
-
-	nc, err := nats.Connect(ns.ClientURL())
+	nc, err := nats.Connect(queuetest.StartNATSServer(t))
 	require.NoError(t, err)
 	t.Cleanup(nc.Close)
 
 	q, err := queue.New(context.Background(), nc)
+	require.NoError(t, err)
+
+	mgr, err := queue.NewStreamManager(nc)
 	require.NoError(t, err)
 
 	fs := afero.NewMemMapFs()
@@ -78,7 +71,7 @@ func newCloseBackupServer(t *testing.T) (*Implementation, *queue.Conn) {
 	walPath := path.Join(testClusterName, testStartWAL[:16], testStartWAL)
 	require.NoError(t, afero.WriteFile(fs, walPath, []byte("wal"), 0o600))
 
-	return New(Options{Connection: conn, Queue: q}), q
+	return New(Options{Connection: conn, Queue: q}), q, mgr
 }
 
 // receiveBackupTask consumes one backup task from the queue, or returns nil
@@ -124,7 +117,7 @@ func newCloseBackupRequest(enqueueWithoutWALs bool) *grpc.CloseBackupRequest {
 // with a client that does not wait for the last WAL to be archived, so the post-backup
 // task must be enqueued on this single call or the backup is never relayed.
 func TestCloseBackupMissingWALsWithoutWaitEnqueuesTask(t *testing.T) {
-	impl, q := newCloseBackupServer(t)
+	impl, q, _ := newCloseBackupServer(t)
 
 	result, err := impl.CloseBackup(context.Background(), newCloseBackupRequest(true))
 	require.NoError(t, err)
@@ -141,13 +134,15 @@ func TestCloseBackupMissingWALsWithoutWaitEnqueuesTask(t *testing.T) {
 // that waits for the last WAL to be archived: the client retries CloseBackup until no WAL is missing, so the
 // task must not be enqueued before then.
 func TestCloseBackupMissingWALsWithWaitDefersTask(t *testing.T) {
-	impl, q := newCloseBackupServer(t)
+	impl, _, mgr := newCloseBackupServer(t)
 
 	result, err := impl.CloseBackup(context.Background(), newCloseBackupRequest(false))
 	require.NoError(t, err)
 	require.Equal(t, []string{testEndWAL}, result.GetMissingWalFiles())
 	require.False(t, result.GetTier2Schedule())
 
-	require.Nil(t, receiveBackupTask(t, q, time.Second),
+	status, err := mgr.GetStatus()
+	require.NoError(t, err)
+	require.Zero(t, status.PendingBackups,
 		"no backup task must be enqueued while the client is still waiting for WALs")
 }
