@@ -26,12 +26,14 @@ import (
 
 	cnpgv1 "github.com/cloudnative-pg/api/pkg/api/v1"
 	"github.com/stretchr/testify/require"
+	corev1 "k8s.io/api/core/v1"
 	"sigs.k8s.io/e2e-framework/klient/k8s/resources"
 	"sigs.k8s.io/e2e-framework/klient/wait"
 	"sigs.k8s.io/e2e-framework/pkg/envconf"
 	"sigs.k8s.io/e2e-framework/pkg/types"
 
 	machineryConditions "github.com/cloudnative-pg/klio/operator/test/machinery/pkg/conditions"
+	"github.com/cloudnative-pg/klio/operator/test/machinery/pkg/postgres"
 )
 
 // BackupAssertFunc is a function that performs assertions after a backup completes.
@@ -106,11 +108,48 @@ func (f *BackupFeature) Run() types.StepFunc {
 		r, err := resources.New(cfg.Client().RESTConfig())
 		require.NoError(t, err, "failed to create resources client")
 		require.NoError(t, r.Create(ctx, f.backup), "failed to create backup")
+
+		// A standby backup can only complete once the primary switches WAL,
+		// which an idle primary never does on its own: keep switching it
+		// until the backup completes.
+		stopSwitching := func() {}
+		if f.backup.Spec.Target == cnpgv1.BackupTargetStandby {
+			var cluster cnpgv1.Cluster
+			require.NoError(t, r.Get(ctx, f.backup.Spec.Cluster.Name, f.backup.Namespace, &cluster),
+				"failed to get cluster")
+			var primaryPod corev1.Pod
+			require.NoError(t, r.Get(ctx, cluster.Status.CurrentPrimary, cluster.Namespace, &primaryPod),
+				"failed to get primary pod")
+
+			switchCtx, cancel := context.WithCancel(ctx)
+			switchDone := make(chan struct{})
+			go func() {
+				defer close(switchDone)
+				ticker := time.NewTicker(f.backupCheckInterval)
+				defer ticker.Stop()
+				for {
+					select {
+					case <-switchCtx.Done():
+						return
+					case <-ticker.C:
+						if err := postgres.CheckpointAndSwitchWal(switchCtx, r, &primaryPod); err != nil {
+							t.Logf("failed to checkpoint and switch WAL: %v", err)
+						}
+					}
+				}
+			}()
+			stopSwitching = func() {
+				cancel()
+				<-switchDone
+			}
+		}
+
 		err = wait.For(
 			machineryConditions.BackupIsCompleted(r, f.backup),
 			wait.WithTimeout(f.backupTimeout),
 			wait.WithInterval(f.backupCheckInterval),
 		)
+		stopSwitching()
 		require.NoError(t, err, "backup not completed")
 
 		if f.postBackupAssert != nil {
