@@ -44,6 +44,7 @@ import (
 	kliov1alpha1 "github.com/cloudnative-pg/klio/operator/api/v1alpha1"
 	"github.com/cloudnative-pg/klio/operator/internal/cnpgi"
 	"github.com/cloudnative-pg/klio/operator/test/klio/infra"
+	"github.com/cloudnative-pg/klio/operator/test/klio/podexec"
 	"github.com/cloudnative-pg/klio/operator/test/klio/testconfig"
 	machineryConditions "github.com/cloudnative-pg/klio/operator/test/machinery/pkg/conditions"
 	"github.com/cloudnative-pg/klio/operator/test/machinery/pkg/namespaces"
@@ -254,13 +255,14 @@ func (s *walRetentionScenario) deleteBackup(
 // verifyBackups runs "klio backup verify" on tier1 for the given backup names
 // using the klio CLI.
 //
-// The backups it is given have already been relayed to tier2 and unpinned, so
-// their Kopia snapshot manifests were rewritten under new IDs after they were
-// taken. Verification resolves each snapshot to its root object ID, which the
-// rewrite leaves untouched, and routes directory and file roots to different
-// Kopia flags: a backup has both, since pgdata and metadata are directory
-// snapshots while the control data file is snapshotted on its own. Verifying
-// here covers that resolution against real backups.
+// The backups it is given have already been relayed to tier2 by a full
+// maintenance pass. Verification resolves each snapshot to its root object
+// ID rather than its manifest ID (see AGENTS.md's Kopia snapshot identity
+// notes on why manifest IDs are not a stable identity to key a read on), and
+// routes directory and file roots to different Kopia flags: a backup has
+// both, since pgdata and metadata are directory snapshots while the control
+// data file is snapshotted on its own. Verifying here covers that resolution
+// against real backups.
 func (s *walRetentionScenario) verifyBackups(
 	ctx context.Context,
 	r *resources.Resources,
@@ -441,7 +443,7 @@ func (f *WALRetentionFeature) Run() types.StepFunc {
 		walFiles, err := f.scenario.getWALFilesInTier1(ctx, r)
 		require.NoError(t, err, "failed to get WAL files in tier1")
 		t.Logf("Tier1 WAL files before retention advances: %d (%v), boundary %q", len(walFiles), walFiles, boundary)
-		require.NotEmpty(t, walsOlderThan(walFiles, boundary),
+		require.NotEmpty(t, podexec.WALsOlderThan(walFiles, boundary),
 			"expected WAL segments older than the second backup begin WAL before retention advances")
 
 		// Step 4: delete the oldest backup so the retention point can advance to
@@ -478,25 +480,22 @@ func (f *WALRetentionFeature) Run() types.StepFunc {
 			func(ctx context.Context) (bool, error) {
 				var err error
 				walFiles, err = f.scenario.getWALFilesInTier1(ctx, r)
-				return len(walsOlderThan(walFiles, boundary)) == 0, err
+				return len(podexec.WALsOlderThan(walFiles, boundary)) == 0, err
 			},
 			wait.WithTimeout(5*time.Minute),
 			wait.WithInterval(10*time.Second),
 		)
 		require.NoError(t, err,
 			"server-side retention did not prune WALs older than boundary %q; remaining older WALs: %v",
-			boundary, walsOlderThan(walFiles, boundary))
+			boundary, podexec.WALsOlderThan(walFiles, boundary))
 		require.NotEmpty(t, walFiles, "tier1 WAL repository unexpectedly empty after retention")
 
 		t.Logf("Server-side WAL retention verified: %d WAL files remain, all >= begin WAL %q",
 			len(walFiles), boundary)
 
-		// Step 7: the newest backup has been through a full maintenance pass, so
-		// the tier2 unpin has already rewritten its snapshot manifests by the
-		// time we get here. Verifying it now exercises real resolution by root
-		// object ID against a backup that mixes directory and file roots. It
-		// does not reproduce the manifest-rewrite race itself, since maintenance
-		// has settled long before this step runs.
+		// Step 7: the newest backup has been through a full maintenance pass by
+		// the time we get here. Verifying it now exercises real root-object-ID
+		// resolution against a backup that mixes directory and file roots.
 		//
 		// Only the newest backup is verified: "klio backup list" spans both
 		// tiers, so it also reports the backup deleted in step 4, which no

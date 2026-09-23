@@ -38,7 +38,6 @@ import (
 	"github.com/cloudnative-pg/klio/operator/test/klio/testconfig"
 	machineryConditions "github.com/cloudnative-pg/klio/operator/test/machinery/pkg/conditions"
 	"github.com/cloudnative-pg/klio/operator/test/machinery/pkg/namespaces"
-	"github.com/cloudnative-pg/klio/operator/test/utils/conditions"
 )
 
 type pluginConfigurationUpdateScenario struct {
@@ -76,7 +75,7 @@ func (c *pluginConfigurationUpdateScenario) Setup(
 
 	// Wait for Klio server to be ready
 	err = wait.For(
-		conditions.KlioServerIsReady(r, c.klioServer),
+		klioConditions.KlioServerIsReady(r, c.klioServer),
 		wait.WithTimeout(4*time.Minute),
 		wait.WithInterval(10*time.Second),
 	)
@@ -145,7 +144,7 @@ func (c *pluginConfigurationUpdateScenario) Run(
 	if currentPC.Spec.Tier1.RetentionPolicy == nil {
 		currentPC.Spec.Tier1.RetentionPolicy = &kliov1alpha1.RetentionPolicy{}
 	}
-	currentPC.Spec.Tier1.RetentionPolicy.KeepLatest = new(5)
+	currentPC.Spec.Tier1.RetentionPolicy.Latest = 5
 
 	require.NoError(t, r.Update(ctx, &currentPC), "failed to update PluginConfiguration")
 

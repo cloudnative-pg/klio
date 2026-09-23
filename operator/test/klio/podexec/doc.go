@@ -17,5 +17,8 @@ limitations under the License.
 SPDX-License-Identifier: Apache-2.0
 */
 
-// Package retention contains the implementation of the klio retention command
-package retention
+// Package podexec runs commands inside Klio test pods (the klio CLI, WAL
+// listings, ...) and parses their output. Unlike the conditions package,
+// these helpers are queries or actions, not wait.ConditionWithContextFunc
+// predicates.
+package podexec

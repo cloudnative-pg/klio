@@ -18,4 +18,5 @@ SPDX-License-Identifier: Apache-2.0
 */
 
 // Package conditions provides utilities for defining and evaluating test conditions in Klio integration tests.
+// This package is limited to the Klio resources.
 package conditions

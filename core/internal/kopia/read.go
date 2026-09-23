@@ -28,6 +28,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 
 	"github.com/cloudnative-pg/machinery/pkg/log"
 )
@@ -74,7 +75,25 @@ func (s *Client) ListSnapshots(
 		return nil, fmt.Errorf("while unmarshalling kopia command output %q: %w", stdout.String(), err)
 	}
 
+	for i := range entries {
+		entries[i].Tags = stripTagPrefix(entries[i].Tags)
+	}
+
 	return entries, nil
+}
+
+// stripTagPrefix removes the "tag:" prefix Kopia's CLI adds to every
+// user-defined tag key (see cli/command_snapshot_create.go's getTags) before
+// storing it in the manifest, so callers can look tags up by the plain key
+// they passed to --tags.
+func stripTagPrefix(tags map[string]string) map[string]string {
+	const prefix = "tag:"
+	stripped := make(map[string]string, len(tags))
+	for k, v := range tags {
+		stripped[strings.TrimPrefix(k, prefix)] = v
+	}
+
+	return stripped
 }
 
 // RestoreSingleFile restores a single file from a snapshot and returns its

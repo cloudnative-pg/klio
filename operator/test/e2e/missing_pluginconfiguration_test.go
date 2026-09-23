@@ -30,11 +30,11 @@ import (
 	"sigs.k8s.io/e2e-framework/klient/wait"
 	"sigs.k8s.io/e2e-framework/pkg/envconf"
 
+	klioConditions "github.com/cloudnative-pg/klio/operator/test/klio/conditions"
 	klioFeatures "github.com/cloudnative-pg/klio/operator/test/klio/features"
 	"github.com/cloudnative-pg/klio/operator/test/klio/testconfig"
 	machineryConditions "github.com/cloudnative-pg/klio/operator/test/machinery/pkg/conditions"
 	"github.com/cloudnative-pg/klio/operator/test/machinery/pkg/namespaces"
-	"github.com/cloudnative-pg/klio/operator/test/utils/conditions"
 )
 
 type missingPluginConfigurationScenario struct {
@@ -67,7 +67,7 @@ func (c *missingPluginConfigurationScenario) Setup(
 
 	t.Log("Waiting for Klio server to be ready")
 	err = wait.For(
-		conditions.KlioServerIsReady(r, c.klioServer),
+		klioConditions.KlioServerIsReady(r, c.klioServer),
 		wait.WithTimeout(4*time.Minute),
 		wait.WithInterval(10*time.Second),
 	)

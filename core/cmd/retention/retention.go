@@ -17,19 +17,22 @@ limitations under the License.
 SPDX-License-Identifier: Apache-2.0
 */
 
+// Package retention implements the `klio retention` command group.
 package retention
 
 import (
 	"github.com/spf13/cobra"
 )
 
-// RetentionCmd the `klio backup` command
+// RetentionCmd is the parent command for retention operations.
 //
 //nolint:gochecknoglobals
 var RetentionCmd = &cobra.Command{
 	Use:   "retention",
 	Short: "Manage the retention policy",
-	// Uncomment the following line if your bare application
-	// has an action associated with it:
-	// Run: func(cmd *cobra.Command, args []string) { },
+}
+
+//nolint:gochecknoinits
+func init() {
+	RetentionCmd.AddCommand(applyCmd)
 }

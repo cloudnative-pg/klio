@@ -51,8 +51,8 @@ spec:
   pprof: true
   tier1:
     retention:
-      keepAnnual: 1
+      latest: 2
   tier2:
     enableBackup: true
     retention:
-      keepAnnual: 2
+      latest: 2

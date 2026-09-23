@@ -36,7 +36,7 @@ type Manifest struct {
 	Description string `json:"description"`
 
 	// StartTime is when the snapshot started.
-	StartTime string `json:"startTime"`
+	StartTime UTCTimestamp `json:"startTime"`
 
 	// EndTime is when the snapshot completed.
 	EndTime UTCTimestamp `json:"endTime"`
@@ -49,9 +49,6 @@ type Manifest struct {
 
 	// Tags contains user-defined key-value pairs associated with the snapshot.
 	Tags map[string]string `json:"tags,omitempty"`
-
-	// Pins is a list of manually-defined pins which prevent the snapshot from being deleted.
-	Pins []string `json:"pins,omitempty"`
 }
 
 // DirEntry represents a directory entry as stored in JSON stream.
@@ -117,8 +114,14 @@ type SourceInfo struct {
 	Path string `json:"path"`
 }
 
+// IsGlobal reports whether this SourceInfo is the empty, repository-wide
+// target rather than a specific source.
+func (ssi SourceInfo) IsGlobal() bool {
+	return ssi.Host == "" && ssi.Path == "" && ssi.UserName == ""
+}
+
 func (ssi SourceInfo) String() string {
-	if ssi.Host == "" && ssi.Path == "" && ssi.UserName == "" {
+	if ssi.IsGlobal() {
 		return "(global)"
 	}
 
@@ -127,39 +130,6 @@ func (ssi SourceInfo) String() string {
 	}
 
 	return fmt.Sprintf("%v@%v:%v", ssi.UserName, ssi.Host, ssi.Path)
-}
-
-// Policy describes snapshot policy for a single source.
-type Policy struct {
-	// Labels contains key-value pairs associated with this policy.
-	Labels map[string]string `json:"-"`
-
-	// RetentionPolicy defines how long snapshots should be retained.
-	RetentionPolicy RetentionPolicy `json:"retention"`
-
-	// NoParent indicates whether this policy inherits from parent policies.
-	NoParent bool `json:"noParent,omitempty"`
-}
-
-// RetentionPolicy describes snapshot retention policy.
-type RetentionPolicy struct {
-	// KeepLatest is the number of most recent snapshots to keep.
-	KeepLatest *int `json:"keepLatest,omitempty"`
-
-	// KeepHourly is the number of hourly snapshots to keep.
-	KeepHourly *int `json:"keepHourly,omitempty"`
-
-	// KeepDaily is the number of daily snapshots to keep.
-	KeepDaily *int `json:"keepDaily,omitempty"`
-
-	// KeepWeekly is the number of weekly snapshots to keep.
-	KeepWeekly *int `json:"keepWeekly,omitempty"`
-
-	// KeepMonthly is the number of monthly snapshots to keep.
-	KeepMonthly *int `json:"keepMonthly,omitempty"`
-
-	// KeepAnnual is the number of annual snapshots to keep.
-	KeepAnnual *int `json:"keepAnnual,omitempty"`
 }
 
 // CompressionPolicy describes the compression policy for a source.

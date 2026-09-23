@@ -139,7 +139,7 @@ func connectToKopiaServer(
 
 	// Extract username and hostname from certificate Common Name.
 	// The CN must be in the format: userName@hostName
-	userName, certHostName, err := extractUserNameAndHostName(clientCertificate.Leaf.Subject.CommonName)
+	userName, certHostName, err := ExtractUserNameAndHostName(clientCertificate.Leaf.Subject.CommonName)
 	if err != nil {
 		return nil, fmt.Errorf("error while extracting userName and hostName from client certificate: %w", err)
 	}
@@ -218,9 +218,9 @@ func (s *Connection) Close(ctx context.Context) {
 	CleanupConfigFile(ctx, s.kopia.ConfigFile)
 }
 
-// extractUserNameAndHostName from the common name in the client certificate.
+// ExtractUserNameAndHostName from the common name in the client certificate.
 // The common name must be in the form userName@hostName.
-func extractUserNameAndHostName(commonName string) (string, string, error) {
+func ExtractUserNameAndHostName(commonName string) (string, string, error) {
 	commonNameSplit := strings.Split(commonName, "@")
 	if len(commonNameSplit) != 2 {
 		return "", "", fmt.Errorf(`commonName must be in the form userName@hostName, got %q`, commonName)
