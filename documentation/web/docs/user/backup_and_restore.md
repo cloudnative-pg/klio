@@ -42,6 +42,22 @@ CloudNativePG's [`Backup` resource](https://cloudnative-pg.io/documentation/curr
 or the [Kubectl plugin](https://cloudnative-pg.io/documentation/current/kubectl-plugin/#requesting-a-new-physical-backup)
 for CNPG.
 
+### Backup Target: Primary or Standby
+
+Backups can be taken from the primary instance or from a standby, using
+the `target` field of the `Backup` resource (`primary` or `standby`).
+Running backups on a standby offloads I/O from the primary, at the cost
+of the warning below.
+
+:::warning
+A standby cannot mark a backup as completed if the primary is idle. WAL
+files are only shipped once the primary switches to a new WAL segment,
+and an idle primary has no reason to trigger that switch. If the
+primary receives no write traffic, a standby backup can stay stuck in
+progress indefinitely. Ensure the primary has periodic write activity
+before relying on standby backups on an otherwise idle cluster.
+:::
+
 ### Create a Backup
 
 You can trigger a new backup by creating a `Backup` resource.
