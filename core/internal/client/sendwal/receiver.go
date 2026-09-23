@@ -317,15 +317,20 @@ func (s *Process) ensureReplicationSlotExists(
 	// command is built and parsed manually here.
 	sql := fmt.Sprintf("CREATE_REPLICATION_SLOT %s PHYSICAL RESERVE_WAL", s.config.Source.Slot)
 
-	replicationSlotResult, err := pglogrepl.ParseCreateReplicationSlot(conn.Exec(ctx, sql))
+	_, err = pglogrepl.ParseCreateReplicationSlot(conn.Exec(ctx, sql))
 	if err != nil {
-		return fmt.Errorf("while creating temporary replication slot: %w", err)
+		return fmt.Errorf("while creating replication slot: %w", err)
 	}
 
+	slotResult, err = ReadReplicationSlot(ctx, conn, s.config.Source.Slot)
+	if err != nil {
+		return fmt.Errorf("while reading replication slot after creation: %w", err)
+	}
 	contextLogger.Info(
 		"Created replication slot",
-		"consistentPoint", replicationSlotResult.ConsistentPoint,
-		"name", replicationSlotResult.SlotName)
+		"slotName", s.config.Source.Slot,
+		"restartLSN", slotResult.RestartLSN,
+		"restartTLI", slotResult.RestartTLI)
 
 	return nil
 }
