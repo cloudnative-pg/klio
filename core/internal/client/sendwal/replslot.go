@@ -46,14 +46,14 @@ func (e *ReadReplicationSlotParserError) Error() string {
 	return e.reason
 }
 
-// ParseReadReplicationSlotResult is the parsed result of the IDENTIFY_SYSTEM command.
+// ParseReadReplicationSlotResult is the parsed result of the READ_REPLICATION_SLOT command.
 type ParseReadReplicationSlotResult struct {
 	SlotType   string
 	RestartLSN pglogrepl.LSN
 	RestartTLI int
 }
 
-// ReadReplicationSlot executes the IDENTIFY_SYSTEM command.
+// ReadReplicationSlot executes the READ_REPLICATION_SLOT command.
 func ReadReplicationSlot(
 	ctx context.Context,
 	conn *pgconn.PgConn,
@@ -63,7 +63,7 @@ func ReadReplicationSlot(
 	return ParseReadReplicationSlot(conn.Exec(ctx, sql))
 }
 
-// ParseReadReplicationSlot parses the result of the IDENTIFY_SYSTEM command.
+// ParseReadReplicationSlot parses the result of the READ_REPLICATION_SLOT command.
 func ParseReadReplicationSlot(mrr *pgconn.MultiResultReader) (ParseReadReplicationSlotResult, error) {
 	var rrs ParseReadReplicationSlotResult
 	results, err := mrr.ReadAll()
