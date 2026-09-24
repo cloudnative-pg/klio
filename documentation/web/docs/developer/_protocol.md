@@ -33,13 +33,19 @@
     - [GetMetadataRequest](#klio-wal-v1-GetMetadataRequest)
     - [GetRequest](#klio-wal-v1-GetRequest)
     - [GetResult](#klio-wal-v1-GetResult)
+    - [GetRetentionPolicyRequest](#klio-wal-v1-GetRetentionPolicyRequest)
+    - [GetRetentionPolicyResult](#klio-wal-v1-GetRetentionPolicyResult)
     - [PutRequest](#klio-wal-v1-PutRequest)
     - [PutResult](#klio-wal-v1-PutResult)
     - [RequestWALStartRequest](#klio-wal-v1-RequestWALStartRequest)
     - [RequestWALStartResult](#klio-wal-v1-RequestWALStartResult)
     - [ResetWALStreamRequest](#klio-wal-v1-ResetWALStreamRequest)
     - [ResetWALStreamResult](#klio-wal-v1-ResetWALStreamResult)
+    - [RetentionPolicy](#klio-wal-v1-RetentionPolicy)
+    - [SetRetentionPolicyRequest](#klio-wal-v1-SetRetentionPolicyRequest)
+    - [SetRetentionPolicyResult](#klio-wal-v1-SetRetentionPolicyResult)
     - [StartWALFile](#klio-wal-v1-StartWALFile)
+    - [TierRetentionPolicy](#klio-wal-v1-TierRetentionPolicy)
     - [WALGap](#klio-wal-v1-WALGap)
   
     - [WAL](#klio-wal-v1-WAL)
@@ -350,7 +356,6 @@ been completed.
 | end_wal | [string](#string) |  | The last WAL required to restore this backup. |
 | segment_size | [uint64](#uint64) |  | The size of a WAL segment. Needed to generate the sequence of WAL files between the start and the end. |
 | send_to_tier2 | [bool](#bool) |  | Require this backup to be sent to tier2. |
-| tier2_retention_policy | [string](#string) |  | When present, set the tier2 retention policy to the specified JSON-serialized policy. |
 | tier2_compression_policy | [string](#string) |  | When present, set the tier2 compression policy to the specified JSON-serialized policy. |
 
 
@@ -433,6 +438,36 @@ file
 | ----- | ---- | ----- | ----------- |
 | wal_block | [bytes](#bytes) |  |  |
 | segment_size | [uint64](#uint64) |  |  |
+
+
+
+
+
+
+<a name="klio-wal-v1-GetRetentionPolicyRequest"></a>
+
+### GetRetentionPolicyRequest
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| cluster_name | [string](#string) |  |  |
+
+
+
+
+
+
+<a name="klio-wal-v1-GetRetentionPolicyResult"></a>
+
+### GetRetentionPolicyResult
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| retention_policy | [RetentionPolicy](#klio-wal-v1-RetentionPolicy) |  |  |
 
 
 
@@ -539,6 +574,48 @@ file
 
 
 
+<a name="klio-wal-v1-RetentionPolicy"></a>
+
+### RetentionPolicy
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| tier1_policy | [TierRetentionPolicy](#klio-wal-v1-TierRetentionPolicy) |  |  |
+| tier2_policy | [TierRetentionPolicy](#klio-wal-v1-TierRetentionPolicy) |  |  |
+
+
+
+
+
+
+<a name="klio-wal-v1-SetRetentionPolicyRequest"></a>
+
+### SetRetentionPolicyRequest
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| cluster_name | [string](#string) |  |  |
+| retention_policy | [RetentionPolicy](#klio-wal-v1-RetentionPolicy) |  |  |
+
+
+
+
+
+
+<a name="klio-wal-v1-SetRetentionPolicyResult"></a>
+
+### SetRetentionPolicyResult
+
+
+
+
+
+
+
 <a name="klio-wal-v1-StartWALFile"></a>
 
 ### StartWALFile
@@ -550,6 +627,21 @@ in the Klio WAL Storage area
 | ----- | ---- | ----- | ----------- |
 | klio_version | [uint64](#uint64) |  |  |
 | file_length | [uint64](#uint64) |  |  |
+
+
+
+
+
+
+<a name="klio-wal-v1-TierRetentionPolicy"></a>
+
+### TierRetentionPolicy
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| latest | [int32](#int32) |  |  |
 
 
 
@@ -594,6 +686,8 @@ feature.
 | RequestWALStart | [RequestWALStartRequest](#klio-wal-v1-RequestWALStartRequest) | [RequestWALStartResult](#klio-wal-v1-RequestWALStartResult) |  |
 | ResetWALStream | [ResetWALStreamRequest](#klio-wal-v1-ResetWALStreamRequest) | [ResetWALStreamResult](#klio-wal-v1-ResetWALStreamResult) |  |
 | CloseBackup | [CloseBackupRequest](#klio-wal-v1-CloseBackupRequest) | [CloseBackupResult](#klio-wal-v1-CloseBackupResult) |  |
+| SetRetentionPolicy | [SetRetentionPolicyRequest](#klio-wal-v1-SetRetentionPolicyRequest) | [SetRetentionPolicyResult](#klio-wal-v1-SetRetentionPolicyResult) |  |
+| GetRetentionPolicy | [GetRetentionPolicyRequest](#klio-wal-v1-GetRetentionPolicyRequest) | [GetRetentionPolicyResult](#klio-wal-v1-GetRetentionPolicyResult) |  |
 
  
 

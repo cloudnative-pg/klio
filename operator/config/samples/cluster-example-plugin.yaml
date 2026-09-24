@@ -51,4 +51,4 @@ spec:
   pprof: true
   tier1:
     retention:
-      keepAnnual: 1
+      latest: 1

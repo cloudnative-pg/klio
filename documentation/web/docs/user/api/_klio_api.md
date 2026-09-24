@@ -215,12 +215,7 @@ _Appears in:_
 
 | Field | Description | Required | Default | Validation |
 | --- | --- | --- | --- | --- |
-| `keepLatest` _integer_ | KeepLatest is the number of latest backups to keep<br />optional | True |  |  |
-| `keepAnnual` _integer_ | KeepAnnual is the number of annual backups to keep<br />optional | True |  |  |
-| `keepMonthly` _integer_ | KeepMonthly is the number of monthly backups to keep<br />optional | True |  |  |
-| `keepWeekly` _integer_ | KeepWeekly is the number of weekly backups to keep<br />optional | True |  |  |
-| `keepDaily` _integer_ | KeepDaily is the number of daily backups to keep<br />optional | True |  |  |
-| `keepHourly` _integer_ | KeepHourly is the number of hourly backups to keep<br />optional | True |  |  |
+| `latest` _integer_ | Latest is the number of latest backups to keep. Zero disables<br />retention: every backup is kept, the same as leaving this policy unset. |  |  | Optional: \{\} <br /> |
 
 
 #### S3Configuration

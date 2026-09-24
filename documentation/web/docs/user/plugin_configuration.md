@@ -209,9 +209,9 @@ customize the plugin's behavior.
 
 ### Retention policies
 
-Define how long backups should be retained by configuring retention policies
-for Tier 1 and Tier 2 storage. Retention policies can be configured
-independently for each tier:
+Define how many backups to keep by configuring retention policies for Tier 1
+and Tier 2 storage. Retention policies can be configured independently for
+each tier:
 
 ```yaml
 apiVersion: klio.cnpg.io/v1alpha1
@@ -225,47 +225,29 @@ spec:
   clusterName: cluster-example
   tier1:
     retention:
-      keepLatest: 5
-      keepHourly: 12
-      keepDaily: 7
-      keepWeekly: 4
-      keepMonthly: 6
-      keepAnnual: 2
+      latest: 5
   tier2:
     enableBackup: true
     enableRecovery: true
     retention:
-      keepLatest: 10
-      keepDaily: 30
-      keepMonthly: 12
-      keepAnnual: 5
+      latest: 10
 ```
 
-Except for `keepLatest`, each option defines how many backups to retain
-for the specified time period. For example, `keepDaily: 7` means that we should
-retain at most one backup for each of the past 7 days.
+`latest` is the only retention option: it keeps the N most recent backups on
+that tier and deletes the rest. `latest: 0` disables retention on that tier,
+the same as not setting `retention` at all: no backup is ever automatically
+deleted on that tier.
 
-If multiple backups exist within the same time bucket, the most recent one is
-kept, unless preserved by a different *keep* rule. Backups that are not
-retained by any rule are deleted. Rule evaluation is done when a new backup is
-taken.
+Retention is evaluated periodically by the Klio server, not only right after
+a backup completes, so out-of-retention backups are removed even if no new
+backup is taken for a while.
 
-The Klio server will automatically delete WAL files that are no longer needed
-for recovery by any retained backup.
+A Tier 1 backup that has not yet been copied to Tier 2 is never deleted by
+Tier 1 retention, even if it is otherwise out of retention: it is kept until
+Tier 2 has it.
 
-All retention settings are optional. For each unspecified retention level,
-the default Kopia value is applied:
-
-```yaml
-keepLatest: 10
-keepHourly: 48
-keepDaily: 7
-keepWeekly: 4
-keepMonthly: 24
-keepAnnual: 1
-```
-
-Set a rule to `0` to disable that retention level.
+The Klio server automatically deletes WAL files that are no longer needed
+for recovery by any retained backup on that tier.
 
 ### Compression policies
 
@@ -457,8 +439,7 @@ spec:
     enableBackup: true
     enableRecovery: true
     retention:
-      keepDaily: 30
-      keepMonthly: 12
+      latest: 10
 ```
 
 #### Options
@@ -473,7 +454,7 @@ spec:
   be faster.
 
 - **`retention`**: Configure a separate retention policy for Tier 2.
-  Typically, you would configure longer retention periods for Tier 2 since
+  Typically, you would keep more backups on Tier 2 than on Tier 1, since
   object storage is more cost-effective for long-term storage.
 
 See the [Architecture documentation](./concepts/architectures.md#tier-2-secondary-storage-object-storage)

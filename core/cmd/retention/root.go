@@ -23,12 +23,12 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// RetentionCmd the `klio backup` command
+// RetentionCmd the `klio retention` command
 //
 //nolint:gochecknoglobals
 var RetentionCmd = &cobra.Command{
 	Use:   "retention",
-	Short: "Manage the retention policy",
+	Short: "Manage the retention policies",
 	// Uncomment the following line if your bare application
 	// has an action associated with it:
 	// Run: func(cmd *cobra.Command, args []string) { },

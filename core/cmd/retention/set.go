@@ -21,14 +21,13 @@ package retention
 
 import (
 	"fmt"
-	"strconv"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 
 	"github.com/cloudnative-pg/klio/core/internal/cli"
-	"github.com/cloudnative-pg/klio/core/internal/client/klioclient/kopia"
-	kopiaWrapper "github.com/cloudnative-pg/klio/core/internal/kopia"
+	"github.com/cloudnative-pg/klio/core/internal/client/klioclient/grpcclient"
+	"github.com/cloudnative-pg/klio/core/internal/grpc"
 	"github.com/cloudnative-pg/klio/core/pkg/config"
 )
 
@@ -50,65 +49,33 @@ var setCmd = &cobra.Command{
 		// Sets the defaults values, to be overridden by the user configuration
 		configuration.SetDefaults()
 
+		if configuration.Source == (config.SourceConfig{}) {
+			return cli.ErrSourceSectionIsRequired
+		}
+
 		if configuration.Client == (config.ClientConfig{}) {
 			return cli.ErrClientSectionIsRequired
 		}
-		if configuration.Client.Base == (config.BaseRepositoryClientConfig{}) {
-			return cli.ErrKopiaClientSectionIsRequired
+
+		if configuration.Client.Wal == (config.WalRepositoryClientConfig{}) {
+			return cli.ErrKlioClientSectionIsRequired
 		}
 
 		if err := configuration.Validate(); err != nil {
 			return fmt.Errorf("configuration validation error: %w", err)
 		}
 
-		client, err := kopia.MultiConnect(
-			cmd.Context(),
-			&configuration.Client,
-		)
+		client, err := grpcclient.Connect(&configuration.Client, configuration.Client.Wal.Address)
 		if err != nil {
-			return fmt.Errorf("while connecting to the Klio server: %w %q", err, configuration.Client.Base.URL)
-		}
-		defer client.Close(cmd.Context())
-
-		target := kopiaWrapper.Target{
-			Hostname: client.GetHostname(),
-			Username: client.GetUsername(),
+			return fmt.Errorf("while connecting to the Klio server: %w", err)
 		}
 
-		effectivePolicy, err := client.GetRetentionPolicy(cmd.Context(), target)
+		policyRequest := &grpc.SetRetentionPolicyRequest{
+			ClusterName:     configuration.Client.ClusterName,
+			RetentionPolicy: toGRPCRetentionPolicy(configuration),
+		}
+		_, err = client.SetRetentionPolicy(cmd.Context(), policyRequest)
 		if err != nil {
-			return fmt.Errorf("while getting the current retention policy: %w", err)
-		}
-
-		getKeepValue := func(name string) *int {
-			f := cmd.Flags().Lookup(name)
-			if f == nil {
-				return nil
-			}
-
-			if !f.Changed {
-				return nil
-			}
-
-			value, err := strconv.Atoi(f.Value.String())
-			if err != nil {
-				return nil
-			}
-
-			return &value
-		}
-
-		if effectivePolicy == nil {
-			effectivePolicy = &kopiaWrapper.RetentionPolicy{}
-		}
-		effectivePolicy.KeepLatest = getKeepValue("keep-latest")
-		effectivePolicy.KeepAnnual = getKeepValue("keep-annual")
-		effectivePolicy.KeepMonthly = getKeepValue("keep-monthly")
-		effectivePolicy.KeepWeekly = getKeepValue("keep-weekly")
-		effectivePolicy.KeepDaily = getKeepValue("keep-daily")
-		effectivePolicy.KeepHourly = getKeepValue("keep-hourly")
-
-		if err := client.SetRetentionPolicy(cmd.Context(), target, *effectivePolicy); err != nil {
 			return fmt.Errorf("while setting the current retention policy: %w", err)
 		}
 
@@ -116,16 +83,26 @@ var setCmd = &cobra.Command{
 	},
 }
 
+// toGRPCRetentionPolicy converts a config.RetentionPolicy into its gRPC
+// wire representation. A nil policy converts to nil.
+func toGRPCRetentionPolicy(configuration config.Data) *grpc.RetentionPolicy {
+	result := &grpc.RetentionPolicy{}
+	tier1RetentionPolicy := &grpc.TierRetentionPolicy{}
+	tier2RetentionPolicy := &grpc.TierRetentionPolicy{}
+	if configuration.Tier1RetentionPolicy != nil {
+		tier1RetentionPolicy.Latest = *configuration.Tier1RetentionPolicy.Latest
+		result.Tier1Policy = tier1RetentionPolicy
+	}
+
+	if configuration.Tier2RetentionPolicy != nil {
+		tier2RetentionPolicy.Latest = *configuration.Tier2RetentionPolicy.Latest
+		result.Tier2Policy = tier2RetentionPolicy
+	}
+
+	return result
+}
+
 //nolint:gochecknoinits
 func init() {
-	// The following flags are really misleading.
-	// We should find a way to better document them.
-	setCmd.Flags().Int("keep-latest", 0, "Number of most recent latest backup kept")
-	setCmd.Flags().Int("keep-annual", 0, "Number of most recent annual backup kept")
-	setCmd.Flags().Int("keep-monthly", 0, "Number of most recent monthly backup kept")
-	setCmd.Flags().Int("keep-weekly", 0, "Number of most recent weekly backup kept")
-	setCmd.Flags().Int("keep-daily", 0, "Number of most recent daily backup kept")
-	setCmd.Flags().Int("keep-hourly", 0, "Number of most recent hourly backup kept")
-
 	RetentionCmd.AddCommand(setCmd)
 }

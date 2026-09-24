@@ -39,9 +39,6 @@ type BackupTask struct {
 	// and maintenance) without touching tier2.
 	SendToTier2 bool `json:"sendToTier2,omitempty"`
 
-	// The retention policy to apply to tier2.
-	Tier2RetentionPolicy *kopia.RetentionPolicy `json:"tier2RetentionPolicy,omitzero"`
-
 	// The compression policy to apply to tier2.
 	Tier2CompressionPolicy *kopia.CompressionPolicy `json:"tier2CompressionPolicy,omitzero"`
 }

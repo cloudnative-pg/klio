@@ -39,19 +39,6 @@ func recordRelay(ctx context.Context, clusterName string, err error) {
 		))
 }
 
-// recordMaintenance records the outcome of a maintenance run (base retention
-// and WAL cleanup) for a cluster on a tier. tier1 maintenance is best-effort
-// and tier2 WAL cleanup is best-effort, so for those this counter is the only
-// signal that they failed.
-func recordMaintenance(ctx context.Context, clusterName string, tier opentelemetry.Tier, err error) {
-	opentelemetry.ServerBackup.Maintenance.Add(ctx, 1,
-		metric.WithAttributes(
-			opentelemetry.AttributeKeyClusterName.Of(clusterName),
-			tier.Attribute(),
-			outcomeOf(err).Attribute(),
-		))
-}
-
 func outcomeOf(err error) opentelemetry.Outcome {
 	if err != nil {
 		return opentelemetry.OutcomeFailure

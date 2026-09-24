@@ -218,6 +218,14 @@ func (s *Connection) Close(ctx context.Context) {
 	CleanupConfigFile(ctx, s.kopia.ConfigFile)
 }
 
+// KopiaClient returns the raw Kopia client backing this connection, for
+// callers that need to run Kopia commands outside the Client interface
+// (e.g. server-refresh, snapshot pinning). Sharing this avoids constructing
+// a second, redundant *kopia.Client from the same config file.
+func (s *Connection) KopiaClient() *kopia.Client {
+	return s.kopia
+}
+
 // extractUserNameAndHostName from the common name in the client certificate.
 // The common name must be in the form userName@hostName.
 func extractUserNameAndHostName(commonName string) (string, string, error) {

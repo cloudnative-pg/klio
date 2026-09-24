@@ -307,21 +307,29 @@ func (w *DirectWriter) writeBlockData(ctx context.Context, wrappedBlock []byte) 
 		return fmt.Errorf("while writing prefix: %w", err)
 	}
 
-	w.metrics.WalWrittenBytes.Add(ctx, int64(nBytes),
-		metric.WithAttributeSet(
-			w.metrics.AttributeSet(opentelemetry.AttributeKeyClusterName.Of(w.clusterName)),
-		),
-	)
+	w.recordBytesWritten(ctx, nBytes)
 
 	nBytes, err = w.buffer.Write(wrappedBlock)
 	if err != nil {
 		return fmt.Errorf("while writing WAL file block: %w", err)
 	}
+	w.recordBytesWritten(ctx, nBytes)
+
+	return nil
+}
+
+// recordBytesWritten records nBytes on the bytes-written counter, if
+// metrics are set. metrics is nil for writes that are not real WAL data
+// (e.g. the retention policy file), the same convention Reader uses for
+// reads.
+func (w *DirectWriter) recordBytesWritten(ctx context.Context, nBytes int) {
+	if w.metrics == nil {
+		return
+	}
+
 	w.metrics.WalWrittenBytes.Add(ctx, int64(nBytes),
 		metric.WithAttributeSet(
 			w.metrics.AttributeSet(opentelemetry.AttributeKeyClusterName.Of(w.clusterName)),
 		),
 	)
-
-	return nil
 }

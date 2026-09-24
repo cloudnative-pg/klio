@@ -13,13 +13,7 @@ klio retention set [flags]
 ### Options
 
 ```
-  -h, --help               help for set
-      --keep-annual int    Number of most recent annual backup kept
-      --keep-daily int     Number of most recent daily backup kept
-      --keep-hourly int    Number of most recent hourly backup kept
-      --keep-latest int    Number of most recent latest backup kept
-      --keep-monthly int   Number of most recent monthly backup kept
-      --keep-weekly int    Number of most recent weekly backup kept
+  -h, --help   help for set
 ```
 
 ### Options inherited from parent commands
@@ -42,5 +36,5 @@ klio retention set [flags]
 
 ### SEE ALSO
 
-* [klio retention](klio_retention.md)	 - Manage the retention policy
+* [klio retention](klio_retention.md)	 - Manage the retention policies
 
