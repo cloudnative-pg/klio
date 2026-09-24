@@ -338,7 +338,7 @@ func (s *compressionScenario) verifyTierCompression(
 	require.Equal(t, int64(globalCompressionMinSize), globalCompression.MinSize,
 		"[%s] unexpected global compression minSize", tier)
 
-	// The per-cluster policy is applied during the backup, so poll until it
+	// The per-cluster policy is applied just before a backup, so poll until it
 	// appears with the expected algorithm and minSize.
 	t.Logf("[%s] waiting for the per-cluster compression policy to become %q...", tier, expectedClusterAlgorithm)
 	var clusterCompression effectiveCompression
@@ -365,41 +365,6 @@ func (s *compressionScenario) verifyTierCompression(
 
 	t.Logf("[%s] compression policies verified: global=%+v, cluster=%+v",
 		tier, globalCompression, clusterCompression)
-}
-
-// waitForBackupCount waits until `klio admin list-backups` on the source Klio
-// server pod reports exactly expectedCount backups, proving every backup
-// taken so far is registered before recovery begins.
-func (s *compressionScenario) waitForBackupCount(
-	t *testing.T,
-	r *resources.Resources,
-	expectedCount int,
-) {
-	t.Helper()
-
-	podName := s.klioServer.Name + compressionKlioPodSuffix
-	err := wait.For(
-		func(ctx context.Context) (bool, error) {
-			var stdout, stderr bytes.Buffer
-			cmd := []string{"klio", "admin", "list-backups"}
-			if err := r.ExecInPod(
-				ctx, s.namespace.Name, podName, compressionServerContainerName, cmd, &stdout, &stderr,
-			); err != nil {
-				// Keep retrying on transient failures.
-				return false, nil //nolint:nilerr
-			}
-
-			var backups []struct{}
-			if err := json.Unmarshal(stdout.Bytes(), &backups); err != nil {
-				return false, nil //nolint:nilerr
-			}
-
-			return len(backups) == expectedCount, nil
-		},
-		wait.WithTimeout(2*time.Minute),
-		wait.WithInterval(5*time.Second),
-	)
-	require.NoError(t, err, "backup count did not reach %d before recovery", expectedCount)
 }
 
 // verifyRecoveredRowCount asserts that the "numbers" table created before the
@@ -482,15 +447,12 @@ func (f *CompressionFeature) Run() types.StepFunc {
 		// The per-cluster policies must differ from the global one and from
 		// each other, otherwise the override assertions below would pass
 		// vacuously and mixed compression algorithms would not be exercised.
-		for _, algorithm := range []string{
+		require.NotContains(t, []string{
 			clusterTier1CompressionAlgorithmRound1,
 			clusterTier1CompressionAlgorithmRound2,
 			clusterTier2CompressionAlgorithmRound1,
 			clusterTier2CompressionAlgorithmRound2,
-		} {
-			require.NotEqual(t, globalCompressionAlgorithm, algorithm,
-				"test misconfigured: per-cluster algorithm %q must differ from the global one", algorithm)
-		}
+		}, globalCompressionAlgorithm, "test misconfigured: global algorithm must differ from per-cluster algorithms")
 		require.NotEqual(t, clusterTier1CompressionAlgorithmRound1, clusterTier1CompressionAlgorithmRound2,
 			"test misconfigured: tier1 round1 and round2 algorithms must differ")
 		require.NotEqual(t, clusterTier2CompressionAlgorithmRound1, clusterTier2CompressionAlgorithmRound2,
@@ -599,7 +561,13 @@ func (f *CompressionFeature) Run() types.StepFunc {
 		// must land on top of the full mixed-algorithm history, not just the
 		// first backup.
 		t.Log("Verifying both backups are registered before recovery...")
-		s.waitForBackupCount(t, r, 2)
+		podName := s.klioServer.Name + compressionKlioPodSuffix
+		err = wait.For(
+			klioConditions.BackupCountEquals(r, s.namespace.Name, podName, compressionServerContainerName, 2),
+			wait.WithTimeout(2*time.Minute),
+			wait.WithInterval(5*time.Second),
+		)
+		require.NoError(t, err, "backup count did not reach %d before recovery", 2)
 
 		// Recover the latest backup (backupRound2) from each tier: with no
 		// explicit RecoveryTarget, recovery defaults to the latest backup.

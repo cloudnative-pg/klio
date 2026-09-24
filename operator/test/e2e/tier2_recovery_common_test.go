@@ -20,9 +20,7 @@ SPDX-License-Identifier: Apache-2.0
 package e2e
 
 import (
-	"bytes"
 	"context"
-	"encoding/json"
 	"fmt"
 	"time"
 
@@ -38,6 +36,7 @@ import (
 
 	kliov1alpha1 "github.com/cloudnative-pg/klio/operator/api/v1alpha1"
 	"github.com/cloudnative-pg/klio/operator/internal/klioconfig"
+	klioConditions "github.com/cloudnative-pg/klio/operator/test/klio/conditions"
 	"github.com/cloudnative-pg/klio/operator/test/utils/conditions"
 	"github.com/cloudnative-pg/klio/operator/test/utils/templates/certificates"
 	"github.com/cloudnative-pg/klio/operator/test/utils/templates/cnpg"
@@ -88,12 +87,6 @@ const (
 
 	// Tier2 S3 configuration.
 	tier2S3Prefix = "tier2"
-
-	// tier2AnnotationName is the annotation key used to mark backups present in tier2.
-	tier2AnnotationName = "klio.io/tier2"
-	//
-	// presentAnnotationValue is the value set when a backup is present in a tier.
-	presentAnnotationValue = "present"
 )
 
 // checkTier2ReplicationComplete checks if tier2 replication is complete by
@@ -106,43 +99,9 @@ func checkTier2ReplicationComplete(
 	serverName string,
 	expectedBackupCount int,
 ) k8swait.ConditionWithContextFunc {
-	return func(ctx context.Context) (bool, error) {
-		podName := serverName + "-klio-0"
+	podName := serverName + "-klio-0"
 
-		// Use the Klio admin API to list backups
-		var stdout, stderr bytes.Buffer
-		klioCmd := []string{
-			"klio", "admin", "list-backups",
-		}
-
-		if err := r.ExecInPod(ctx, namespace, podName, serverContainerName, klioCmd, &stdout, &stderr); err != nil {
-			// Return false without error to keep retrying on transient failures
-			return false, nil //nolint:nilerr
-		}
-
-		// Parse JSON output as BackupList
-		type BackupMetadata struct {
-			Name        string            `json:"name"`
-			ClusterName string            `json:"clusterName"`
-			Annotations map[string]string `json:"annotations,omitempty"`
-		}
-
-		var backups []BackupMetadata
-		if err := json.Unmarshal(stdout.Bytes(), &backups); err != nil {
-			// Return false without error to keep retrying on transient failures
-			return false, nil //nolint:nilerr
-		}
-
-		// Count backups present in tier2 (those with the tier2 annotation)
-		tier2Count := 0
-		for i := range backups {
-			if backups[i].Annotations[tier2AnnotationName] == presentAnnotationValue {
-				tier2Count++
-			}
-		}
-
-		return tier2Count == expectedBackupCount, nil
-	}
+	return klioConditions.Tier2BackupCountEquals(r, namespace, podName, serverContainerName, expectedBackupCount)
 }
 
 // tier2RecoveryServerResources holds resources needed for a tier2 recovery server.

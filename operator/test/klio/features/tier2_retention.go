@@ -40,6 +40,7 @@ import (
 	kliov1alpha1 "github.com/cloudnative-pg/klio/operator/api/v1alpha1"
 	"github.com/cloudnative-pg/klio/operator/internal/cnpgi"
 	"github.com/cloudnative-pg/klio/operator/internal/klioconfig"
+	klioConditions "github.com/cloudnative-pg/klio/operator/test/klio/conditions"
 	machineryConditions "github.com/cloudnative-pg/klio/operator/test/machinery/pkg/conditions"
 )
 
@@ -47,10 +48,6 @@ const (
 	serverContainerName = "server"
 	// klioPodSuffix is the suffix added to the server name to form the pod name.
 	klioPodSuffix = "-klio-0"
-	// tier2AnnotationName is the annotation key used to mark backups present in tier2.
-	tier2AnnotationName = "klio.io/tier2"
-	// presentAnnotationValue is the value set when a backup is present in a tier.
-	presentAnnotationValue = "present"
 	// tier2KopiaConfigPattern is the glob pattern for finding the tier2 Kopia config file.
 	// Used by verifyTier2RetentionPolicySet to run kopia policy commands.
 	// The file ending in .kopia-password contains the path to the actual config.
@@ -375,43 +372,9 @@ func checkTier2HasBackups(
 	serverName string,
 	expectedCount int,
 ) k8swait.ConditionWithContextFunc {
-	return func(ctx context.Context) (bool, error) {
-		podName := serverName + klioPodSuffix
+	podName := serverName + klioPodSuffix
 
-		// Use the Klio admin API to list backups
-		var stdout, stderr bytes.Buffer
-		klioCmd := []string{
-			"klio", "admin", "list-backups",
-		}
-
-		if err := r.ExecInPod(ctx, namespace, podName, serverContainerName, klioCmd, &stdout, &stderr); err != nil {
-			// Return false without error to keep retrying on transient failures
-			return false, nil //nolint:nilerr
-		}
-
-		// Parse JSON output as BackupList
-		type BackupMetadata struct {
-			Name        string            `json:"name"`
-			ClusterName string            `json:"clusterName"`
-			Annotations map[string]string `json:"annotations,omitempty"`
-		}
-
-		var backups []BackupMetadata
-		if err := json.Unmarshal(stdout.Bytes(), &backups); err != nil {
-			// Return false without error to keep retrying on transient failures
-			return false, nil //nolint:nilerr
-		}
-
-		// Count backups present in tier2 (those with the tier2 annotation)
-		tier2Count := 0
-		for i := range backups {
-			if backups[i].Annotations[tier2AnnotationName] == presentAnnotationValue {
-				tier2Count++
-			}
-		}
-
-		return tier2Count == expectedCount, nil
-	}
+	return klioConditions.Tier2BackupCountEquals(r, namespace, podName, serverContainerName, expectedCount)
 }
 
 // verifyTier2RetentionPolicySet verifies that the Kopia retention policy is set in tier2.
