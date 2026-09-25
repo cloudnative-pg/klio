@@ -46,6 +46,7 @@ import (
 	"github.com/grafana/grafana-foundation-sdk/go/stat"
 	"github.com/grafana/grafana-foundation-sdk/go/table"
 	"github.com/grafana/grafana-foundation-sdk/go/timeseries"
+	"github.com/grafana/grafana-foundation-sdk/go/units"
 )
 
 // lsnHalf is 2^32: a PostgreSQL LSN is a 64-bit byte offset that PostgreSQL
@@ -60,9 +61,17 @@ const (
 	// across Grafana installations.
 	datasourceVar = "datasource"
 
-	// panelHeight is the shared grid height (in rows) of every panel, so the
+	// mediumPanelHeight is the shared grid height (in rows) of every panel, so the
 	// dashboard grid packs flush without vertical gaps.
-	panelHeight = 6
+	mediumPanelHeight = 6
+	largePanelHeight  = 8
+
+	gridWidth          = 24
+	smallestPanelWidth = 3
+	smallPanelWidth    = 4
+	mediumPanelWidth   = 6
+	largePanelWidth    = 8
+	largestPanelWidth  = 12
 
 	// clientMatcher selects the plugin sidecar's per-cluster series
 	// (klio_plugin_backup_* and klio_client_wal_*). These carry the PostgreSQL
@@ -165,81 +174,79 @@ type lsnColumn struct {
 }
 
 // lsnTablePanel renders one or more PostgreSQL LSNs per cluster and tier as a
-// table, splitting each 64-bit byte offset into its high and low 32-bit halves
-// shown in hexadecimal (unit "hex"). Read together the two columns are
-// PostgreSQL's own X/Y LSN notation (high / low): Grafana cannot join them into
-// a single "X/Y" string from a numeric series, and rendering the whole offset
-// as one hex value drops the half boundary, so the halves are split in PromQL
-// (floor(lsn/2^32) and lsn%2^32) and shown side by side. A byte-size unit would
-// be wrong: an LSN is a position, not an amount of data.
+// table. Each 64-bit byte offset is split into its high and low 32-bit halves
+// in PromQL (floor(lsn/2^32) and lsn%2^32, hidden targets h<i>/l<i>), then a
+// Grafana SQL expression (the __expr__ datasource) joins the halves on
+// cluster_name/tier and renders PostgreSQL's own X/Y hex notation as a single
+// visible column per LSN. Neither PromQL nor a Grafana transform can do this
+// join+format: PromQL has no decimal-to-hex formatting, and no transform
+// combines two numeric fields into one templated string. __value__ is the
+// numeric column exposed for an instant/table-format query result.
 func lsnTablePanel(title string, cols ...lsnColumn) *table.PanelBuilder {
-	// Two label columns (cluster, tier) plus a hi/lo pair per LSN. Fix a column
-	// width that keeps every hi/lo half visible inside the Span(8) panel instead
-	// of letting Grafana auto-size them wide enough to push columns off-screen.
-	colWidth := 470.0 / float64(2+2*len(cols))
 	panel := table.NewPanelBuilder().
 		Title(title).
 		Datasource(datasourceRef()).
-		Unit("hex").
-		Decimals(0).
-		Width(colWidth).
 		Span(8).
-		Height(panelHeight)
+		Height(mediumPanelHeight)
 
-	// organize transform: drop the Time column, label the cluster/tier columns
-	// and order everything, renaming each query's "Value #<refID>" field.
-	exclude := map[string]any{"Time": true}
-	rename := map[string]any{"cluster_name": "cluster", "tier": "tier"}
-	order := map[string]any{"cluster_name": 0, "tier": 1}
-	idx := 2
+	joins := []string{"JOIN l0 ON l0.cluster_name = h0.cluster_name AND l0.tier = h0.tier"}
+	columns := []string{
+		`h0.cluster_name AS "Cluster Name"`,
+		`h0.tier AS "Tier"`,
+		fmt.Sprintf(`concat(CONV(h0.__value__, 10, 16), "/", CONV(l0.__value__, 10, 16)) as "%s LSN"`,
+			cols[0].label),
+	}
 	for i, c := range cols {
 		hiRef := fmt.Sprintf("h%d", i)
 		loRef := fmt.Sprintf("l%d", i)
 		panel = panel.
-			WithTarget(instantTableTarget(fmt.Sprintf("floor(%s / %d)", c.agg, lsnHalf), hiRef)).
-			WithTarget(instantTableTarget(fmt.Sprintf("%s %% %d", c.agg, lsnHalf), loRef))
-		rename["Value #"+hiRef] = c.label + " (hi)"
-		rename["Value #"+loRef] = c.label + " (lo)"
-		order["Value #"+hiRef] = idx
-		order["Value #"+loRef] = idx + 1
-		idx += 2
+			WithTarget(instantTableTarget(fmt.Sprintf("floor(%s / %d)", c.agg, lsnHalf), hiRef).Hide(true)).
+			WithTarget(instantTableTarget(fmt.Sprintf("%s %% %d", c.agg, lsnHalf), loRef).Hide(true))
+		if i == 0 {
+			continue
+		}
+		joins = append(joins,
+			fmt.Sprintf("JOIN %s ON %s.cluster_name = h0.cluster_name AND %s.tier = h0.tier", hiRef, hiRef, hiRef),
+			fmt.Sprintf("JOIN %s ON %s.cluster_name = h0.cluster_name AND %s.tier = h0.tier", loRef, loRef, loRef))
+		columns = append(columns, fmt.Sprintf(
+			`concat(CONV(%s.__value__, 10, 16), "/", CONV(%s.__value__, 10, 16)) as "%s LSN"`,
+			hiRef, loRef, c.label))
 	}
+	sql := fmt.Sprintf("SELECT\n  %s\nFROM h0\n%s", strings.Join(columns, ",\n  "), strings.Join(joins, "\n"))
 
-	return panel.
-		WithTransformation(dashboard.DataTransformerConfig{
-			Id:      "merge",
-			Options: map[string]any{},
-		}).
-		WithTransformation(dashboard.DataTransformerConfig{
-			Id: "organize",
-			Options: map[string]any{
-				"excludeByName": exclude,
-				"renameByName":  rename,
-				"indexByName":   order,
-			},
-		})
+	return panel.WithTarget(variants.NewUnknownDataqueryBuilderFromObject(variants.UnknownDataquery{
+		"refId":      "sql",
+		"hide":       false,
+		"datasource": map[string]any{"type": "__expr__", "uid": "__expr__"},
+		"type":       "sql",
+		"expression": sql,
+	}))
+}
+
+// quantileSpec is one percentile rendered by a latency panel: the quantile
+// value passed to histogram_quantile and the legend label for its series.
+type quantileSpec struct {
+	q     float64
+	label string
 }
 
 // quantiles are the percentiles every latency panel renders together, so the
-// median, the tail and the extreme tail always appear side by side rather than
-// a single percentile hiding the shape of the distribution.
+// median, the tail and the extreme tail always appear side by side rather
+// than a single percentile hiding the shape of the distribution.
 //
 //nolint:gochecknoglobals
-var quantiles = []struct {
-	q     float64
-	label string
-}{
+var quantiles = []quantileSpec{
 	{0.50, "p50"},
-	{0.95, "p95"},
+	{0.90, "p90"},
 	{0.99, "p99"},
 }
 
-// quantileTargetsWindow builds one p50/p95/p99 target for a histogram, applying
-// counterFn (`rate` or `increase`) over window (e.g. `$__rate_interval` or
-// `$__range`). It groups the _bucket series by groupBy (which MUST include
-// `le`, or histogram_quantile cannot find the bucket boundaries and the panel
-// renders no data) and labels each series "<pN> <legend>", dropping the
-// trailing space when legend is empty.
+// quantileTargetsWindow builds one target per entry in quantiles for a
+// histogram, applying counterFn (`rate` or `increase`) over window (e.g.
+// `$__rate_interval` or `$__range`). It groups the _bucket series by groupBy
+// (which MUST include `le`, or histogram_quantile cannot find the bucket
+// boundaries and the panel renders no data) and labels each series
+// "<legend> <pN>", dropping the leading space when legend is empty.
 func quantileTargetsWindow(
 	bucketMetric, groupBy, matcher, legend, counterFn, window string,
 ) []cog.Builder[variants.Dataquery] {
@@ -248,17 +255,34 @@ func quantileTargetsWindow(
 		targets = append(targets, query(
 			fmt.Sprintf("histogram_quantile(%.2f, sum by (%s) (%s(%s{%s}[%s])))",
 				p.q, groupBy, counterFn, bucketMetric, matcher, window),
-			strings.TrimSpace(p.label+" "+legend)))
+			strings.TrimSpace(legend+" "+p.label)))
 	}
 
 	return targets
 }
 
-// quantileTargets builds p50/p95/p99 targets for a high-frequency histogram,
-// using rate() over $__rate_interval so the percentiles track the dashboard's
-// selected range and zoom.
+// quantileTargets builds one target per entry in quantiles for a
+// high-frequency histogram, using rate() over $__rate_interval so the
+// percentiles track the dashboard's selected range and zoom.
 func quantileTargets(bucketMetric, groupBy, matcher, legend string) []cog.Builder[variants.Dataquery] {
 	return quantileTargetsWindow(bucketMetric, groupBy, matcher, legend, "rate", "$__rate_interval")
+}
+
+// quantileTargetsAbsolute builds one target per entry in quantiles straight
+// off the raw cumulative bucket counters (no rate()/increase()), so a single
+// observation still yields a value instead of NaN. The tradeoff: each point
+// is a since-restart quantile that dilutes as more observations accrue and
+// resets on a server restart, rather than one scoped to the dashboard's
+// selected range or zoom.
+func quantileTargetsAbsolute(bucketMetric, groupBy, matcher, legend string) []cog.Builder[variants.Dataquery] {
+	targets := make([]cog.Builder[variants.Dataquery], 0, len(quantiles))
+	for _, p := range quantiles {
+		targets = append(targets, query(
+			fmt.Sprintf("histogram_quantile(%.2f, sum by (%s) (%s{%s}))", p.q, groupBy, bucketMetric, matcher),
+			strings.TrimSpace(legend+" "+p.label)))
+	}
+
+	return targets
 }
 
 // tableLegend renders a compact table legend at the bottom of a panel.
@@ -280,11 +304,11 @@ func timeseriesPanel(title, unit string, targets ...cog.Builder[variants.Dataque
 		GradientMode(common.GraphGradientModeOpacity).
 		Legend(tableLegend()).
 		// 8/24 columns => three timeseries per row for a dense layout.
-		Span(8).
+		Span(largePanelWidth).
 		// Uniform height across stat and timeseries panels so the grid packs
 		// flush with no vertical gaps (the auto-layout starts each new row below
 		// the tallest panel of the previous one).
-		Height(panelHeight)
+		Height(mediumPanelHeight)
 	for _, target := range targets {
 		panel = panel.WithTarget(target)
 	}
@@ -297,7 +321,7 @@ func timeseriesPanel(title, unit string, targets ...cog.Builder[variants.Dataque
 // when it changed (a promotion or failover), which a single current value (a
 // stat or bar gauge) cannot convey. The unit is a plain count with no decimals.
 func timelinePanel(title string, targets ...cog.Builder[variants.Dataquery]) *timeseries.PanelBuilder {
-	return timeseriesPanel(title, "short", targets...).
+	return timeseriesPanel(title, units.Number, targets...).
 		FillOpacity(0).
 		LineInterpolation(common.LineInterpolationStepAfter).
 		LineWidth(2).
@@ -333,8 +357,8 @@ func statPanel(title, unit string, targets ...cog.Builder[variants.Dataquery]) *
 		// overflow and clip in the dense tiles.
 		Text(common.NewVizTextDisplayOptionsBuilder().TitleSize(14).ValueSize(28)).
 		// 4/24 columns => six stat tiles per row for a dense layout.
-		Span(4).
-		Height(panelHeight)
+		Span(smallPanelWidth).
+		Height(mediumPanelHeight)
 	for _, target := range targets {
 		panel = panel.WithTarget(target)
 	}

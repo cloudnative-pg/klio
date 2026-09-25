@@ -23,6 +23,7 @@ import (
 	"fmt"
 
 	"github.com/grafana/grafana-foundation-sdk/go/common"
+	"github.com/grafana/grafana-foundation-sdk/go/units"
 )
 
 // snapshotCluster wraps a Kopia base-snapshot selector in a label_replace that
@@ -39,10 +40,11 @@ func snapshotCluster(selector string) string {
 // by the Klio server StatefulSet (the `klio.server.*` family, exported to
 // Prometheus as `klio_server_*`): WAL ingest, backup verification, base
 // snapshots, the retention window of physical PostgreSQL backups, and the
-// embedded NATS JetStream queue. Server-level series (uptime, verifications,
-// snapshots, queue) carry no cluster_name and are grouped by service_name (the
-// server identity, scoped by $server); the per-cluster WAL and PostgreSQL-backup
-// series carry cluster_name and are additionally scoped by $cluster.
+// embedded NATS JetStream queue. Server-level series (uptime, snapshots,
+// queue) carry no cluster_name and are grouped by service_name (the server
+// identity, scoped by $server); the per-cluster WAL, PostgreSQL-backup and
+// verification series carry cluster_name and are additionally scoped by
+// $cluster.
 func serverPanels() []sizedPanel {
 	return []sizedPanel{
 		// Compact single/low-cardinality values first (stat tiles), then the
@@ -52,73 +54,28 @@ func serverPanels() []sizedPanel {
 		// Server-level values are grouped by service_name so two servers (even
 		// two with the same pod host name in different namespaces) never
 		// collapse into one number.
-		sized(4, panelHeight, statPanel("Server uptime", "dtdhms",
+		sized(largePanelWidth, mediumPanelHeight, statPanel("Server uptime", units.DurationInDaysHoursMinutesSeconds,
 			query(fmt.Sprintf("max by (service_name) (klio_server_uptime_seconds{%s})", serverMatcher),
 				"{{service_name}}"),
 		).Orientation(common.VizOrientationHorizontal).
 			Description("Time since the Klio server process started, per server. A sudden drop means that "+
 				"server's StatefulSet restarted.")),
-		// A stepped time series shows the timeline per cluster/tier over time, so
-		// a promotion or failover is visible as the step where the line jumps,
-		// not just the value it currently sits at.
-		sized(8, panelHeight, timelinePanel("Latest WAL timeline by cluster and tier",
+
+		// WAL Panel
+		sized(largePanelWidth, mediumPanelHeight, timelinePanel("Timeline",
 			query(fmt.Sprintf("max by (cluster_name, tier) (klio_server_wal_latest_written_timeline{%s})", walMatcher),
 				"{{cluster_name}} {{tier}}"),
-		).Description("PostgreSQL timeline of the latest WAL written per cluster and tier, over time. A step "+
-			"up marks a promotion or failover.")),
-		sized(4, panelHeight, statPanel("Base snapshots by cluster and tier", "short",
-			query(fmt.Sprintf("sum by (cluster, tier) (%s)",
-				snapshotCluster(fmt.Sprintf("klio_server_backup_snapshots{%s}", serverMatcher))), "{{cluster}} {{tier}}"),
-		).Decimals(0).
-			Orientation(common.VizOrientationHorizontal).
-			Description("Base backup snapshots currently retained per cluster and tier (the cluster is derived "+
-				"from the Kopia snapshot source).")),
-		sized(4, panelHeight, statPanel("Latest snapshot size", "bytes",
-			query(fmt.Sprintf("max by (cluster, tier) (%s)",
-				snapshotCluster(fmt.Sprintf("klio_server_backup_latest_snapshot_size_bytes{%s}", serverMatcher))),
-				"{{cluster}} {{tier}}"),
-		).Orientation(common.VizOrientationHorizontal).
-			Description("Size on the backend of the most recent base backup snapshot, per cluster and tier.")),
-		sized(4, panelHeight, statPanel("Latest snapshot files", "none",
-			query(fmt.Sprintf("max by (cluster, tier) (%s)",
-				snapshotCluster(fmt.Sprintf("klio_server_backup_latest_snapshot_files{%s}", serverMatcher))),
-				"{{cluster}} {{tier}}"),
-		).Decimals(0).
-			Orientation(common.VizOrientationHorizontal).
-			Description("Number of files in the most recent base backup snapshot, per cluster and tier.")),
-		sized(4, panelHeight, statPanel("Latest snapshot dirs", "short",
-			query(fmt.Sprintf("max by (cluster, tier) (%s)",
-				snapshotCluster(fmt.Sprintf("klio_server_backup_latest_snapshot_dirs{%s}", serverMatcher))),
-				"{{cluster}} {{tier}}"),
-		).Decimals(0).
-			Orientation(common.VizOrientationHorizontal).
-			Description("Number of directories in the most recent base backup snapshot, per cluster and tier.")),
-		sized(4, panelHeight, statPanel("Latest snapshot age", "dtdhms",
-			query(fmt.Sprintf("time() - max by (cluster, tier) (%s)",
-				snapshotCluster(fmt.Sprintf("klio_server_backup_latest_snapshot_timestamp_seconds{%s}", serverMatcher))),
-				"{{cluster}} {{tier}}"),
-		).Orientation(common.VizOrientationHorizontal).
-			Description("Age of the most recent base backup snapshot, per cluster and tier. Should stay below "+
-				"the backup interval; a tier-2 value drifting above tier-1 means remote relay is lagging.")),
-		sized(4, panelHeight, statPanel("Oldest snapshot age", "dtdhms",
-			query(fmt.Sprintf("time() - min by (cluster, tier) (%s)",
-				snapshotCluster(fmt.Sprintf("klio_server_backup_oldest_snapshot_timestamp_seconds{%s}", serverMatcher))),
-				"{{cluster}} {{tier}}"),
-		).Orientation(common.VizOrientationHorizontal).
-			Description("Age of the oldest retained base backup snapshot, per cluster and tier, reflecting each "+
-				"tier's effective retention horizon.")),
+		).Description("PostgreSQL timeline of the latest WAL written per cluster and tier")),
 
-		// Retention window of the physical PostgreSQL backups (distinct from
-		// the Kopia base-snapshot gauges above): the klio.server.backup.backups
-		// / latest_backup_* / oldest_backup_* family, which carry cluster_name
-		// and are scoped by cluster_name via walMatcher.
-		sized(4, panelHeight, statPanel("Latest backup age (start)", "dtdhms",
-			query(fmt.Sprintf("time() - max by (cluster_name, tier) "+
-				"(klio_server_backup_latest_backup_start_time_seconds{%s})", walMatcher), "{{cluster_name}} {{tier}}"),
-		).Orientation(common.VizOrientationHorizontal).
-			Description("Elapsed time since the most recently retained PostgreSQL backup started, per cluster "+
-				"and tier.")),
-		sized(4, panelHeight, statPanel("Latest backup age (completion)", "dtdhms",
+		// Backup Panel
+		sized(largePanelWidth, mediumPanelHeight, statPanel("Backups", units.Number,
+			query(fmt.Sprintf("sum by (cluster_name, tier) (klio_server_backup_backups{%s})", walMatcher),
+				"{{cluster_name}} {{tier}}"),
+		).Decimals(0).
+			Orientation(common.VizOrientationHorizontal).
+			Description("Number of PostgreSQL backups currently retained per cluster and tier.")),
+
+		sized(largePanelWidth, mediumPanelHeight, statPanel("Latest backup age (completion)", units.DurationInDaysHoursMinutesSeconds,
 			query(
 				fmt.Sprintf("time() - max by (cluster_name, tier) "+
 					"(klio_server_backup_latest_backup_completion_time_seconds{%s})", walMatcher),
@@ -126,13 +83,22 @@ func serverPanels() []sizedPanel {
 		).Orientation(common.VizOrientationHorizontal).
 			Description("Elapsed time since the most recently retained PostgreSQL backup completed, per cluster "+
 				"and tier.")),
-		sized(4, panelHeight, statPanel("Oldest backup age (start)", "dtdhms",
-			query(fmt.Sprintf("time() - min by (cluster_name, tier) "+
-				"(klio_server_backup_oldest_backup_start_time_seconds{%s})", walMatcher), "{{cluster_name}} {{tier}}"),
+
+		sized(largePanelWidth, mediumPanelHeight, statPanel("Latest backup age (start)", units.DurationInDaysHoursMinutesSeconds,
+			query(fmt.Sprintf("time() - max by (cluster_name, tier) "+
+				"(klio_server_backup_latest_backup_start_time_seconds{%s})", walMatcher), "{{cluster_name}} {{tier}}"),
 		).Orientation(common.VizOrientationHorizontal).
-			Description("Elapsed time since the oldest retained PostgreSQL backup started, per cluster and tier, "+
-				"reflecting each tier's effective retention horizon.")),
-		sized(4, panelHeight, statPanel("Oldest backup age (completion)", "dtdhms",
+			Description("Elapsed time since the most recently retained PostgreSQL backup started, per cluster "+
+				"and tier.")),
+
+		sized(largePanelWidth, mediumPanelHeight, statPanel("Latest backup timeline", units.Number,
+			query(fmt.Sprintf("max by (cluster_name, tier) (klio_server_backup_latest_backup_timeline{%s})",
+				walMatcher), "{{cluster_name}} {{tier}}"),
+		).Decimals(0).
+			Orientation(common.VizOrientationHorizontal).
+			Description("PostgreSQL timeline of the latest retained backup, per cluster and tier.")),
+
+		sized(largePanelWidth, mediumPanelHeight, statPanel("Oldest backup age (completion)", units.DurationInDaysHoursMinutesSeconds,
 			query(
 				fmt.Sprintf("time() - min by (cluster_name, tier) "+
 					"(klio_server_backup_oldest_backup_completion_time_seconds{%s})", walMatcher),
@@ -140,111 +106,188 @@ func serverPanels() []sizedPanel {
 		).Orientation(common.VizOrientationHorizontal).
 			Description("Elapsed time since the oldest retained PostgreSQL backup completed, per cluster and "+
 				"tier, reflecting each tier's effective retention horizon.")),
-		sized(4, panelHeight, statPanel("PostgreSQL backups retained by cluster and tier", "short",
-			query(fmt.Sprintf("sum by (cluster_name, tier) (klio_server_backup_backups{%s})", walMatcher),
-				"{{cluster_name}} {{tier}}"),
+
+		sized(largePanelWidth, mediumPanelHeight, statPanel("Oldest backup age (start)", units.DurationInDaysHoursMinutesSeconds,
+			query(fmt.Sprintf("time() - min by (cluster_name, tier) "+
+				"(klio_server_backup_oldest_backup_start_time_seconds{%s})", walMatcher), "{{cluster_name}} {{tier}}"),
+		).Orientation(common.VizOrientationHorizontal).
+			Description("Elapsed time since the oldest retained PostgreSQL backup started, per cluster and tier, "+
+				"reflecting each tier's effective retention horizon.")),
+
+		sized(largePanelWidth, mediumPanelHeight, statPanel("Oldest backup timeline", units.Number,
+			query(fmt.Sprintf("max by (cluster_name, tier) (klio_server_backup_oldest_backup_timeline{%s})",
+				walMatcher), "{{cluster_name}} {{tier}}"),
 		).Decimals(0).
 			Orientation(common.VizOrientationHorizontal).
-			Description("Number of PostgreSQL backups currently retained per cluster and tier.")),
-		sized(8, panelHeight, lsnTablePanel("Latest backup LSN by cluster and tier",
+			Description("PostgreSQL timeline of the oldest retained backup, per cluster and tier. Differing "+
+				"from the latest timeline means the retention window spans a promotion or failover.")),
+
+		sized(largestPanelWidth, mediumPanelHeight, lsnTablePanel("Latest backup LSN",
 			lsnColumn{"start", fmt.Sprintf(
 				"max by (cluster_name, tier) (klio_server_backup_latest_backup_start_lsn_bytes{%s})", walMatcher)},
 			lsnColumn{"end", fmt.Sprintf(
 				"max by (cluster_name, tier) (klio_server_backup_latest_backup_end_lsn_bytes{%s})", walMatcher)},
-		).Description("Start and end LSN of the latest retained PostgreSQL backup, per cluster and tier. Each "+
-			"LSN is split into its high and low 32-bit halves in hexadecimal, matching PostgreSQL's X/Y "+
-			"notation.")),
-		sized(8, panelHeight, lsnTablePanel("Oldest backup LSN by cluster and tier",
+		).Description("Start and end LSN of the latest retained PostgreSQL backup, per cluster and tier.")),
+
+		sized(largestPanelWidth, mediumPanelHeight, lsnTablePanel("Oldest backup LSN",
 			lsnColumn{"start", fmt.Sprintf(
 				"max by (cluster_name, tier) (klio_server_backup_oldest_backup_start_lsn_bytes{%s})", walMatcher)},
 			lsnColumn{"end", fmt.Sprintf(
 				"max by (cluster_name, tier) (klio_server_backup_oldest_backup_end_lsn_bytes{%s})", walMatcher)},
-		).Description("Start and end LSN of the oldest retained PostgreSQL backup, per cluster and tier. Each "+
-			"LSN is split into its high and low 32-bit halves in hexadecimal, matching PostgreSQL's X/Y "+
-			"notation.")),
-		sized(8, panelHeight, timelinePanel("Backup timeline by cluster and tier",
-			query(fmt.Sprintf("max by (cluster_name, tier) (klio_server_backup_latest_backup_timeline{%s})",
-				walMatcher), "{{cluster_name}} {{tier}} latest"),
-			query(fmt.Sprintf("max by (cluster_name, tier) (klio_server_backup_oldest_backup_timeline{%s})",
-				walMatcher), "{{cluster_name}} {{tier}} oldest"),
-		).Description("PostgreSQL timeline of the latest and oldest retained backup, per cluster and tier, "+
-			"over time. The latest and oldest lines diverging means the retention window spans a promotion "+
-			"or failover.")),
+		).Description("Start and end LSN of the oldest retained PostgreSQL backup, per cluster and tier.")),
 
-		// WAL ingest, per cluster and tier.
-		sized(8, panelHeight, timeseriesPanel("WAL files written rate by cluster and tier", "wps",
+		// Snapshot Panel
+		sized(smallPanelWidth, mediumPanelHeight, statPanel("Snapshots count", units.Number,
+			query(fmt.Sprintf("sum by (cluster, tier) (%s)",
+				snapshotCluster(fmt.Sprintf("klio_server_backup_snapshots{%s}", serverMatcher))), "{{cluster}} {{tier}}"),
+		).Decimals(0).
+			Orientation(common.VizOrientationHorizontal).
+			Description("Total kopia snapshots currently retained per cluster and tier.")),
+
+		sized(smallPanelWidth, mediumPanelHeight, statPanel("Latest snapshot size", units.BytesIEC,
+			query(fmt.Sprintf("max by (cluster, tier) (%s)",
+				snapshotCluster(fmt.Sprintf("klio_server_backup_latest_snapshot_size_bytes{%s}", serverMatcher))),
+				"{{cluster}} {{tier}}"),
+		).Orientation(common.VizOrientationHorizontal).
+			Description("Size of the most recent base backup snapshot on Kopia, not accounting for deduplication.")),
+
+		sized(smallPanelWidth, mediumPanelHeight, statPanel("Latest snapshot files", units.Number,
+			query(fmt.Sprintf("max by (cluster, tier) (%s)",
+				snapshotCluster(fmt.Sprintf("klio_server_backup_latest_snapshot_files{%s}", serverMatcher))),
+				"{{cluster}} {{tier}}"),
+		).Decimals(0).
+			Orientation(common.VizOrientationHorizontal).
+			Description("Number of files in the most recent base backup snapshot on Kopia.")),
+
+		sized(smallPanelWidth, mediumPanelHeight, statPanel("Latest snapshot dirs", units.Number,
+			query(fmt.Sprintf("max by (cluster, tier) (%s)",
+				snapshotCluster(fmt.Sprintf("klio_server_backup_latest_snapshot_dirs{%s}", serverMatcher))),
+				"{{cluster}} {{tier}}"),
+		).Decimals(0).
+			Orientation(common.VizOrientationHorizontal).
+			Description("Number of directories in the most recent base backup snapshot on Kopia.")),
+
+		sized(smallPanelWidth, mediumPanelHeight, statPanel("Latest snapshot age", units.DurationInDaysHoursMinutesSeconds,
+			query(fmt.Sprintf("time() - max by (cluster, tier) (%s)",
+				snapshotCluster(fmt.Sprintf("klio_server_backup_latest_snapshot_timestamp_seconds{%s}", serverMatcher))),
+				"{{cluster}} {{tier}}"),
+		).Orientation(common.VizOrientationHorizontal).
+			Description("Age of the most recent base backup snapshot on Kopia, per cluster and tier.")),
+
+		sized(smallPanelWidth, mediumPanelHeight, statPanel("Oldest snapshot age", units.DurationInDaysHoursMinutesSeconds,
+			query(fmt.Sprintf("time() - min by (cluster, tier) (%s)",
+				snapshotCluster(fmt.Sprintf("klio_server_backup_oldest_snapshot_timestamp_seconds{%s}", serverMatcher))),
+				"{{cluster}} {{tier}}"),
+		).Orientation(common.VizOrientationHorizontal).
+			Description("Age of the oldest retained base backup snapshot on Kopia, per cluster and tier.")),
+
+		// WAL file metrics
+		sized(largestPanelWidth, mediumPanelHeight, timeseriesPanel("WAL files written rate", units.OpsPerSecond,
 			query(fmt.Sprintf("sum by (cluster_name, tier) (rate(klio_server_wal_written_total{%s}[$__rate_interval]))",
 				walMatcher), "{{cluster_name}} {{tier}}"),
 		).Description("Rate of WAL files written by the server, split by cluster and storage tier.")),
-		sized(8, panelHeight, timeseriesPanel("WAL bytes written rate by cluster and tier", "Bps",
+
+		sized(largestPanelWidth, mediumPanelHeight, timeseriesPanel("WAL files written", units.Number,
+			query(fmt.Sprintf("sum by (cluster_name, tier) (klio_server_wal_written_total{%s})",
+				walMatcher), "{{cluster_name}} {{tier}}"),
+		).Description("Total WAL files written by the server since it last restarted, split by cluster and "+
+			"storage tier.")),
+
+		sized(largestPanelWidth, mediumPanelHeight, timeseriesPanel("WAL bytes written rate", units.BytesPerSecondIEC,
 			query(
 				fmt.Sprintf("sum by (cluster_name, tier) "+
 					"(rate(klio_server_wal_written_size_bytes_total{%s}[$__rate_interval]))", walMatcher),
 				"{{cluster_name}} {{tier}}"),
 		).Description("Rate of WAL bytes written by the server, split by cluster and storage tier.")),
-		sized(8, panelHeight, timeseriesPanel("Time since last WAL written by cluster and tier", "dtdurations",
+
+		sized(largestPanelWidth, mediumPanelHeight, timeseriesPanel("WAL bytes written", units.BytesIEC,
+			query(
+				fmt.Sprintf("sum by (cluster_name, tier) (klio_server_wal_written_size_bytes_total{%s})", walMatcher),
+				"{{cluster_name}} {{tier}}"),
+		).Description("Total WAL bytes written by the server since it last restarted, split by cluster and "+
+			"storage tier.")),
+
+		sized(largestPanelWidth, mediumPanelHeight, timeseriesPanel("Time since last WAL written", units.DurationSeconds,
 			query(fmt.Sprintf("time() - max by (cluster_name, tier) (klio_server_wal_latest_written_time_seconds{%s})",
 				walMatcher), "{{cluster_name}} {{tier}}"),
-		).Description("Elapsed time since the server last wrote a WAL file for each cluster and tier. A stale "+
-			"tier-1 value means PostgreSQL stopped shipping WALs; a stale tier-2 value means the remote "+
-			"backend stopped receiving them.")),
-		sized(8, panelHeight, lsnTablePanel("Latest written LSN by cluster and tier",
+		).Description("Elapsed time since the server last wrote a WAL file for each cluster and tier.")),
+
+		sized(largestPanelWidth, mediumPanelHeight, lsnTablePanel("Latest written LSN",
 			lsnColumn{"written", fmt.Sprintf(
 				"max by (cluster_name, tier) (klio_server_wal_latest_written_lsn_bytes{%s})", walMatcher)},
-		).Description("Most recent WAL LSN the server has written for each cluster and tier, split into its "+
-			"high and low 32-bit halves in hexadecimal, matching PostgreSQL's X/Y notation.")),
-		sized(8, panelHeight, timeseriesPanel("Backup verification rate by outcome and tier", "ops",
-			query(
-				fmt.Sprintf("sum by (service_name, outcome, tier) "+
-					"(rate(klio_server_backup_verifications_total{%s}[$__rate_interval]))", serverMatcher),
-				"{{service_name}} {{tier}} / {{outcome}}",
-			),
-		).Description("Rate of base backup verification checks, broken down by outcome and tier (the "+
-			"verification counter carries no cluster_name, so it is a per-server signal).")),
+		).Description("Most recent WAL LSN the server has written for each cluster and tier")),
 
-		// WAL processing latency, from the per-block and per-file duration
-		// histograms. These percentile panels aggregate the WAL distribution of
-		// the selected clusters; narrow $cluster to isolate one cluster.
-		sized(8, panelHeight, timeseriesPanel("WAL block duration (p50/p95/p99) by path and stage", "ns",
+		sized(largestPanelWidth, largePanelHeight, timeseriesPanel("WAL block operation duration percentiles (rate)", units.Nanoseconds,
 			quantileTargets("klio_server_wal_block_duration_nanoseconds_bucket", "le, path, stage",
 				walMatcher, "{{path}}/{{stage}}")...,
 		).Description("Percentile per-block WAL processing duration on the server, split by `path` "+
-			"(put ingest / get serve) and `stage`, aggregated across the selected clusters.")),
-		sized(8, panelHeight, timeseriesPanel("WAL file get duration (p50/p95/p99) by tier", "ns",
+			"(put ingest / get serve) and `stage`, aggregated across the selected clusters. Reflects recent "+
+			"activity, over the rate interval window.")),
+
+		sized(largestPanelWidth, largePanelHeight, timeseriesPanel("WAL block operation duration percentiles (total)", units.Nanoseconds,
+			quantileTargetsAbsolute("klio_server_wal_block_duration_nanoseconds_bucket", "le, path, stage",
+				walMatcher, "{{path}}/{{stage}}")...,
+		).Description("Percentile per-block WAL processing duration on the server, split by `path` "+
+			"(put ingest / get serve) and `stage`, aggregated across the selected clusters. Reflects all "+
+			"activity since the server last restarted.")),
+
+		sized(largestPanelWidth, largePanelHeight, timeseriesPanel("WAL file get duration percentiles (rate)", units.Nanoseconds,
 			quantileTargets("klio_server_wal_get_duration_nanoseconds_bucket", "le, tier",
 				walMatcher, "{{tier}}")...,
 		).Description("Percentile duration of a complete WAL file gRPC get, split by the tier that "+
-			"served it, aggregated across the selected clusters.")),
-		sized(8, panelHeight, timeseriesPanel("WAL tier-2 upload duration (p50/p95/p99) by cluster", "ns",
+			"served it, aggregated across the selected clusters. Reflects recent activity, over the rate interval window.")),
+
+		sized(largestPanelWidth, largePanelHeight, timeseriesPanel("WAL file get duration percentiles (total)", units.Nanoseconds,
+			quantileTargetsAbsolute("klio_server_wal_get_duration_nanoseconds_bucket", "le, tier",
+				walMatcher, "{{tier}}")...,
+		).Description("Percentile duration of a complete WAL file gRPC get, split by the tier that "+
+			"served it, aggregated across the selected clusters. Reflects all activity since the server "+
+			"last restarted.")),
+
+		sized(largestPanelWidth, largePanelHeight, timeseriesPanel("WAL tier-2 upload duration percentiles (rate)", units.Nanoseconds,
 			quantileTargets("klio_server_wal_upload_duration_nanoseconds_bucket", "le, cluster_name",
 				walMatcher, "{{cluster_name}}")...,
-		).Description("Percentile duration of the tier-2 archival upload to remote storage, per cluster.")),
+		).Description("Percentile duration of the tier-2 archival upload to remote storage, per cluster. "+
+			"Reflects recent activity, over the rate interval window.")),
 
-		// Post-backup processing: tier-2 relay and per-tier maintenance runs.
-		sized(12, panelHeight, timeseriesPanel("Tier-2 relay rate by cluster and outcome", "ops",
+		sized(largestPanelWidth, largePanelHeight, timeseriesPanel("WAL tier-2 upload duration percentiles (total)", units.Nanoseconds,
+			quantileTargetsAbsolute("klio_server_wal_upload_duration_nanoseconds_bucket", "le, cluster_name",
+				walMatcher, "{{cluster_name}}")...,
+		).Description("Percentile duration of the tier-2 archival upload to remote storage, per cluster. "+
+			"Reflects all activity since the server last restarted.")),
+
+		// Async operations
+		sized(largestPanelWidth, mediumPanelHeight, timeseriesPanel("Tier-2 backup relay", units.Number,
 			query(
-				fmt.Sprintf("sum by (cluster_name, outcome) (rate(klio_server_backup_relay_total{%s}"+
-					"[$__rate_interval]))", walMatcher),
+				fmt.Sprintf("sum by (cluster_name, outcome) (klio_server_backup_relay_total{%s})", walMatcher),
 				"{{cluster_name}} / {{outcome}}",
 			),
-		).Description("Rate of tier-2 relay attempts after a backup (migration and verification), per cluster "+
-			"and outcome.")),
-		sized(12, panelHeight, timeseriesPanel("Maintenance run rate by cluster, tier and outcome", "ops",
+		).Description("Total tier-2 relay attempts since the server last restarted, per cluster and outcome.")),
+
+		sized(largestPanelWidth, mediumPanelHeight, timeseriesPanel("Backup verifications", units.Number,
 			query(
-				fmt.Sprintf("sum by (cluster_name, tier, outcome) (rate(klio_server_backup_maintenance_total{%s}"+
-					"[$__rate_interval]))", walMatcher),
+				fmt.Sprintf("sum by (cluster_name, outcome, tier) (klio_server_backup_verifications_total{%s})", walMatcher),
+				"{{cluster_name}} {{tier}} / {{outcome}}",
+			),
+		).Description("Total base backup verification checks since the server last restarted, per cluster, "+
+			"broken down by outcome and tier.")),
+
+		sized(largestPanelWidth, mediumPanelHeight, timeseriesPanel("Maintenance runs", units.Number,
+			query(
+				fmt.Sprintf("sum by (cluster_name, tier, outcome) (klio_server_backup_maintenance_total{%s})", walMatcher),
 				"{{cluster_name}} {{tier}}/{{outcome}}",
 			),
-		).Description("Rate of post-backup maintenance runs (base-snapshot retention and WAL cleanup), "+
-			"per cluster, tier and outcome.")),
+		).Description("Total post-backup maintenance runs since the server last restarted, per cluster, "+
+			"tier and outcome.")),
 
 		// Embedded NATS JetStream queue, per server and stream.
-		sized(8, panelHeight, timeseriesPanel("Queue messages by stream", "none",
+		sized(largePanelWidth, mediumPanelHeight, timeseriesPanel("Queue messages", units.Number,
 			query(fmt.Sprintf("sum by (service_name, stream) (klio_server_queue_messages{%s})", serverMatcher),
 				"{{service_name}} / {{stream}}"),
 		).Description("Messages currently held in each NATS JetStream stream of the embedded queue, per "+
 			"server.")),
-		sized(8, panelHeight, timeseriesPanel("Queue bytes by stream", "bytes",
+
+		sized(largePanelWidth, mediumPanelHeight, timeseriesPanel("Queue bytes", units.BytesIEC,
 			query(fmt.Sprintf("sum by (service_name, stream) (klio_server_queue_bytes{%s})", serverMatcher),
 				"{{service_name}} / {{stream}}"),
 		).Description("Bytes currently held in each NATS JetStream stream of the embedded queue, per server.")),

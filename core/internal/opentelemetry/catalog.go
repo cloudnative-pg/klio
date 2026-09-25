@@ -161,10 +161,10 @@ type PluginBackupMetrics struct {
 //   - The Verifications counter, paired with `klio.plugin.backup.*` from the
 //     plugin sidecar: the plugin records backup lifecycle, the server records
 //     the verifications it runs against those backups. Each recording carries
-//     a `tier` attribute that distinguishes tier-1 verification (post-backup
-//     local check) from tier-2 verification (post-upload remote check), and
-//     an `outcome` attribute (`success` / `failure`) so one instrument
-//     exposes both flavors.
+//     a `cluster_name` attribute, a `tier` attribute that distinguishes tier-1
+//     verification (post-backup local check) from tier-2 verification
+//     (post-upload remote check), and an `outcome` attribute (`success` /
+//     `failure`) so one instrument exposes both flavors.
 //   - Base snapshot gauges populated from Kopia, describing the current set
 //     of base backups stored on the server. Each recording carries a
 //     `tier` attribute (tier-1 for local disk, tier-2 for remote object

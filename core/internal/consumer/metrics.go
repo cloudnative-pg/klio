@@ -60,17 +60,19 @@ func outcomeOf(err error) opentelemetry.Outcome {
 	return opentelemetry.OutcomeSuccess
 }
 
-func recordVerificationSuccess(ctx context.Context, tier opentelemetry.Tier) {
+func recordVerificationSuccess(ctx context.Context, clusterName string, tier opentelemetry.Tier) {
 	opentelemetry.ServerBackup.Verifications.Add(ctx, 1,
 		metric.WithAttributes(
+			opentelemetry.AttributeKeyClusterName.Of(clusterName),
 			tier.Attribute(),
 			opentelemetry.OutcomeSuccess.Attribute(),
 		))
 }
 
-func recordVerificationFailure(ctx context.Context, tier opentelemetry.Tier) {
+func recordVerificationFailure(ctx context.Context, clusterName string, tier opentelemetry.Tier) {
 	opentelemetry.ServerBackup.Verifications.Add(ctx, 1,
 		metric.WithAttributes(
+			opentelemetry.AttributeKeyClusterName.Of(clusterName),
 			tier.Attribute(),
 			opentelemetry.OutcomeFailure.Attribute(),
 		))
