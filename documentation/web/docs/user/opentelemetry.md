@@ -623,10 +623,9 @@ spec:
 
 When deploying Klio as a CNPG Cluster plugin, configure OpenTelemetry by
 specifying the necessary environment variables in the `containers` section of
-the `PluginConfiguration` spec. The available container names are:
+the `PluginConfiguration` spec. The available container name is:
 
-- `klio-plugin`: Main plugin sidecar for backup management
-- `klio-restore`: Restore operations sidecar
+- `klio-plugin`: Plugin sidecar for backup, WAL and restore operations
 
 Create a `ConfigMap` for the shared OpenTelemetry configuration:
 
@@ -667,13 +666,6 @@ spec:
       env:
         - name: OTEL_SERVICE_NAME
           value: "klio-plugin"
-      envFrom:
-        - configMapRef:
-            name: cluster-klio-otel-config
-    - name: klio-restore
-      env:
-        - name: OTEL_SERVICE_NAME
-          value: "klio-restore"
       envFrom:
         - configMapRef:
             name: cluster-klio-otel-config

@@ -10,8 +10,8 @@ CloudNativePG. It adds a `klio-plugin` container to each PostgreSQL instance
 pod, handling both backup creation/management and WAL streaming to the Klio
 server in real-time.
 
-During recovery, Klio also injects a `klio-restore` container into the
-CloudNativePG recovery Job to restore backups from the Klio server. See
+The same container serves the restore hooks while a cluster bootstraps from
+a Klio backup, so a backup requested during recovery is served as well. See
 [Available sidecar containers](#available-sidecar-containers) for details.
 
 ## Configuration
@@ -563,7 +563,7 @@ following merge behavior:
 1. **Your container is the base**: When you define a container
    (e.g., `klio-plugin`), your specification serves as the starting point
 1. **Klio enforces required values**: Klio sets its essential configuration:
-   - Container `name` (klio-plugin or klio-restore)
+   - Container `name` (`klio-plugin`)
    - Container `args` (the command arguments needed for operation)
    - `CONTAINER_NAME` environment variable
 1. **Your customizations are preserved**: All other fields you define remain
@@ -633,8 +633,8 @@ above.
 The following containers can be customized:
 
 - **`klio-plugin`**: Handles backup creation/management and WAL streaming to
-  the Klio server in PostgreSQL instance pods
-- **`klio-restore`**: Restores backups during recovery jobs
+  the Klio server in PostgreSQL instance pods, and restores backups while the
+  cluster bootstraps from a Klio backup
 
 ### Example: Resource limits and environment variables
 
