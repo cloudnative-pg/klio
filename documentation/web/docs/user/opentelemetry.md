@@ -161,7 +161,7 @@ attribute key.
 | Attribute | Values | Applies to |
 |---|---|---|
 | `tier` | `tier1` (local disk on the Klio server), `tier2` (remote object store) | All `klio.server.wal.*` and `klio.server.backup.*` instruments. |
-| `cluster_name` | Name of the PostgreSQL cluster the recording belongs to | All `klio.server.wal.*` instruments (counters, gauges, and the WAL duration histograms), `klio.client.wal.*`, the `klio.server.backup.*` PostgreSQL backup gauges (`backups`, `latest_backup_*`, `oldest_backup_*`) and the `klio.server.backup.relay` / `klio.server.backup.maintenance` counters. |
+| `cluster_name` | Name of the PostgreSQL cluster the recording belongs to | All `klio.plugin.backup.*` instruments, all `klio.server.wal.*` instruments (counters, gauges, and the WAL duration histograms), `klio.client.wal.*`, the `klio.server.backup.*` PostgreSQL backup gauges (`backups`, `latest_backup_*`, `oldest_backup_*`) and the `klio.server.backup.relay` / `klio.server.backup.maintenance` counters. |
 | `outcome` | `success`, `failure` | `klio.plugin.backup.runs`, `klio.server.backup.relay`, `klio.server.backup.maintenance`, `klio.server.backup.verifications`, and all WAL duration histograms (`klio.server.wal.*_duration`, `klio.client.wal.block_duration`). |
 | `failure_category` | `repository_error`, `source_error`, `verification`, `timeout`, `canceled`, `unknown` | `klio.plugin.backup.runs` failure data points only. |
 | `path` | `put` (WAL ingest), `get` (WAL serve) | `klio.server.wal.block_duration`, `klio.client.wal.block_duration`. |
@@ -172,17 +172,20 @@ attribute key.
 ### Backup lifecycle metrics (plugin sidecar)
 
 These metrics are emitted by the plugin sidecar and track backup
-operations on each PostgreSQL instance:
+operations on each PostgreSQL instance. Every instrument carries a
+`cluster_name` attribute identifying the PostgreSQL cluster the sidecar
+serves, so backup activity can be attributed per cluster even when several
+clusters share a namespace:
 
 | Metric Name | Type | Unit | Description |
 |---|---|---|---|
-| `klio.plugin.backup.in_progress` | UpDownCounter | `{backups}` | Number of backups currently in progress |
-| `klio.plugin.backup.latest_start_time` | Gauge | s | Unix epoch timestamp when the most recent backup started |
-| `klio.plugin.backup.latest_completion_time` | Gauge | s | Unix epoch timestamp when the most recent backup completed successfully |
-| `klio.plugin.backup.latest_failure_time` | Gauge | s | Unix epoch timestamp when the most recent backup failed |
-| `klio.plugin.backup.latest_duration` | Gauge | s | Duration of the most recent backup |
-| `klio.plugin.backup.duration` | Histogram | s | Distribution of backup durations, split by the `outcome` attribute (`success` / `failure`) |
-| `klio.plugin.backup.runs` | Counter | `{backups}` | Total number of backup runs, split by the `outcome` attribute (`success` / `failure`). Failure data points additionally carry a `failure_category` attribute classifying the failure. Backup verification is part of a run: a verification failure is recorded here with `failure_category="verification"`, and a clean verification is included in the `outcome="success"` count |
+| `klio.plugin.backup.in_progress` | UpDownCounter | `{backups}` | Number of backups currently in progress, broken down by `cluster_name` |
+| `klio.plugin.backup.latest_start_time` | Gauge | s | Unix epoch timestamp when the most recent backup started, broken down by `cluster_name` |
+| `klio.plugin.backup.latest_completion_time` | Gauge | s | Unix epoch timestamp when the most recent backup completed successfully, broken down by `cluster_name` |
+| `klio.plugin.backup.latest_failure_time` | Gauge | s | Unix epoch timestamp when the most recent backup failed, broken down by `cluster_name` |
+| `klio.plugin.backup.latest_duration` | Gauge | s | Duration of the most recent backup, broken down by `cluster_name` |
+| `klio.plugin.backup.duration` | Histogram | s | Distribution of backup durations, broken down by `cluster_name` and split by the `outcome` attribute (`success` / `failure`) |
+| `klio.plugin.backup.runs` | Counter | `{backups}` | Total number of backup runs, broken down by `cluster_name` and split by the `outcome` attribute (`success` / `failure`). Failure data points additionally carry a `failure_category` attribute classifying the failure. Backup verification is part of a run: a verification failure is recorded here with `failure_category="verification"`, and a clean verification is included in the `outcome="success"` count |
 
 The `failure_category` attribute on `klio.plugin.backup.runs` failure
 data points takes one of the following values:

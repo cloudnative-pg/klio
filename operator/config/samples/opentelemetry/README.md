@@ -137,8 +137,19 @@ kubectl apply -f https://github.com/open-telemetry/opentelemetry-operator/releas
 
 helm upgrade --install \
   -f https://raw.githubusercontent.com/cloudnative-pg/cloudnative-pg/main/docs/src/samples/monitoring/kube-stack-config.yaml \
+  --version 90.2.0 \
   prometheus-community prometheus-community/kube-prometheus-stack
 ```
+
+> **Note:** chart pinned to `90.2.0` (prometheus-operator `v0.93.1`). Newer
+> chart versions ship prometheus-operator `v0.94.0`, whose ClusterRole grants
+> only `patch` on `alertmanagers/finalizers`, `prometheuses/finalizers`, and
+> `thanosrulers/finalizers` (regression from
+> [prometheus-operator#8752](https://github.com/prometheus-operator/prometheus-operator/pull/8752)).
+> Kubernetes' GC admission controller hardcodes `update` as the required verb
+> on `<kind>/finalizers`, so the operator can't set `blockOwnerDeletion` on
+> owned ConfigMaps/Secrets, reconciliation fails, and no Prometheus/Alertmanager
+> pod is ever created. Remove this pin once the upstream fix lands.
 
 ## Deploying the "single" sample
 
