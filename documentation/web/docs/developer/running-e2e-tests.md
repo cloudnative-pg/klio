@@ -121,8 +121,9 @@ The E2E tests are located in `operator/test/e2e/` and include:
    - `RecoverReplicaCluster`: replica cluster creation from backup
 - **`tablespace_recovery_test.go`** - Recovery preserving PostgreSQL
   tablespaces (`RecoverClusterWithTablespaces`)
-- **`tier2_recovery_test.go`** - Recovery from tier2 S3 storage
-  (`RecoverClusterFromTier2`)
+- **`tier2_recovery_test.go`** - Recovery from tier2 S3 storage of a
+  backup taken on a standby of a two-instance cluster, which must reach
+  tier2 without waiting for its last WAL (`RecoverClusterFromTier2`)
 - **`tier2_pitr_test.go`** - Point-in-time recovery from tier2 storage
   (`RecoverClusterFromTier2Pitr`)
 - **`tier2_recovery_common_test.go`** - Shared tier2 recovery helpers used

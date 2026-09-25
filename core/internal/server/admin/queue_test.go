@@ -38,6 +38,7 @@ import (
 
 	klioGRPC "github.com/cloudnative-pg/klio/core/internal/grpc"
 	"github.com/cloudnative-pg/klio/core/internal/queue"
+	"github.com/cloudnative-pg/klio/core/internal/queue/queuetest"
 )
 
 // The following mirror the stream and consumer names owned by the queue
@@ -50,28 +51,6 @@ const (
 	backupStreamName   = "klio-backup-stream"
 	backupConsumerName = "klio-backup-consumer"
 )
-
-// startNATSServer starts an embedded NATS server with JetStream enabled.
-func startNATSServer(t *testing.T) string {
-	t.Helper()
-
-	ns, err := server.NewServer(&server.Options{
-		Host:      "127.0.0.1",
-		Port:      -1,
-		JetStream: true,
-		StoreDir:  t.TempDir(),
-	})
-	require.NoError(t, err, "failed to create NATS server")
-
-	go ns.Start()
-	t.Cleanup(ns.Shutdown)
-
-	if !ns.ReadyForConnections(4 * time.Second) {
-		t.Fatal("NATS server not ready")
-	}
-
-	return ns.ClientURL()
-}
 
 // seedFailedTask publishes a task onto its source subject and then writes a
 // synthetic max-deliveries advisory pointing at it, mimicking the DLQ entry
@@ -145,7 +124,7 @@ func startAdminServer(t *testing.T, queueURL string) *grpc.ClientConn {
 }
 
 func TestQueueListFailedWALsOverSocket(t *testing.T) {
-	url := startNATSServer(t)
+	url := queuetest.StartNATSServer(t)
 
 	nc, err := nats.Connect(url)
 	require.NoError(t, err)
@@ -194,7 +173,7 @@ func TestQueueListFailedWALsOverSocket(t *testing.T) {
 }
 
 func TestQueueListFailedBackupsOverSocket(t *testing.T) {
-	url := startNATSServer(t)
+	url := queuetest.StartNATSServer(t)
 
 	nc, err := nats.Connect(url)
 	require.NoError(t, err)
