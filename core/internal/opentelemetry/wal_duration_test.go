@@ -56,6 +56,7 @@ func setupWalDurationProvider(t *testing.T) *sdkmetric.ManualReader {
 
 	opentelemetry.InitServerWalMetrics()
 	opentelemetry.InitClientWalMetrics()
+	opentelemetry.InitPluginWalMetrics()
 
 	return reader
 }
@@ -168,6 +169,45 @@ func TestClientWalBlockDurationSend(t *testing.T) {
 	stage, ok := dps[0].Attributes.Value(attribute.Key("stage"))
 	require.True(t, ok)
 	assert.Equal(t, string(opentelemetry.StageSend), stage.AsString())
+}
+
+// TestPluginWalRestoreDuration verifies the plugin end-to-end WAL restore
+// histogram records with the outcome, cache_hit, tier and cluster_name
+// attributes and that the per-file bucket boundaries are applied.
+func TestPluginWalRestoreDuration(t *testing.T) {
+	reader := setupWalDurationProvider(t)
+	ctx := context.Background()
+
+	opentelemetry.PluginWal.RestoreDuration.Record(ctx, 250_000_000,
+		metric.WithAttributes(
+			opentelemetry.OutcomeSuccess.Attribute(),
+			opentelemetry.CacheHitOf(true).Attribute(),
+			opentelemetry.Tier1.Attribute(),
+			opentelemetry.AttributeKeyClusterName.Of("cluster-a"),
+		))
+
+	dps := collectHistogram(t, reader, opentelemetry.PluginWalRestoreDurationMetric)
+	require.Len(t, dps, 1)
+
+	outcome, ok := dps[0].Attributes.Value(attribute.Key("outcome"))
+	require.True(t, ok, "data point must carry an outcome attribute")
+	assert.Equal(t, string(opentelemetry.OutcomeSuccess), outcome.AsString())
+
+	cacheHit, ok := dps[0].Attributes.Value(attribute.Key("cache_hit"))
+	require.True(t, ok, "data point must carry a cache_hit attribute")
+	assert.Equal(t, "true", cacheHit.AsString())
+
+	tier, ok := dps[0].Attributes.Value(attribute.Key("tier"))
+	require.True(t, ok, "data point must carry a tier attribute")
+	assert.Equal(t, string(opentelemetry.Tier1), tier.AsString())
+
+	cluster, ok := dps[0].Attributes.Value(attribute.Key("cluster_name"))
+	require.True(t, ok, "data point must carry a cluster_name attribute")
+	assert.Equal(t, "cluster-a", cluster.AsString())
+
+	// The per-file ladder must be in force (not a single +Inf bucket).
+	assert.Greater(t, len(dps[0].Bounds), 1,
+		"explicit per-file bucket boundaries must be applied to the restore histogram")
 }
 
 // TestClientWalTimeline verifies the client timeline gauge reports the most

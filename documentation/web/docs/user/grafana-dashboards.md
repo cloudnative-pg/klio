@@ -25,7 +25,9 @@ The dashboard is a single dashboard split into row sections:
   and the backup success ratio. Also the WAL
   streaming client the sidecar supervises as a child process: the PostgreSQL
   timeline it is currently streaming and the p50/p95/p99 latency of sending
-  a WAL block to the server.
+  a WAL block to the server. Finally the WAL restores the plugin serves back
+  to PostgreSQL: the p95 end-to-end restore latency split by prefetch cache
+  hit, and the restore rate by outcome.
 
 ![Klio client and plugin metrics](images/klio_client_and_plugin_metrics.png)
 
@@ -70,6 +72,15 @@ histogram percentiles that need enough recent samples to be reliable:
   sent too infrequently for the underlying `histogram_quantile` to produce
   a reliable percentile, so the line can look sparse or noisy rather than
   simply absent.
+- **WAL restore latency (p95) by cache hit** splits on whether the segment was
+  already sitting complete in the prefetch spool when PostgreSQL asked for it.
+  A hit is a local rename and a miss waits on a download, so the two lines sit
+  orders of magnitude apart and are deliberately not pooled: a single line
+  would drift with the hit rate rather than describe either case. Because a hit
+  is usually well under the histogram's smallest bucket, read that line as
+  "fast" rather than as a precise value; the miss line is the one that carries
+  detail. A hit rate falling over time means prefetch is no longer keeping up
+  with replay.
 - **Backup duration (p50/p95/p99)** has the same limitation, more acutely:
   backups are infrequent, so this panel is computed over the whole selected
   range (rather than a short rate window) to stay populated between runs.
