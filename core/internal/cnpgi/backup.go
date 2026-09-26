@@ -123,7 +123,6 @@ func (b backupServiceImplementation) Backup(
 	metadata, err := b.runBackup(
 		ctx,
 		backupName,
-		isPrimary,
 	)
 	if err != nil {
 		recordBackupFailure(ctx, time.Since(backupStart), err)
@@ -189,24 +188,17 @@ func classifyRunBackupError(ctx context.Context, err error) backupfailure.Catego
 func (b backupServiceImplementation) runBackup(
 	ctx context.Context,
 	backupName string,
-	isPrimary bool,
 ) (*klioclient.BackupMetadata, error) {
 	ctx, span := tracer.Start(ctx, opentelemetry.BackupRunSpan)
 	defer span.End()
 
 	contextLogger := log.FromContext(ctx)
 
-	waitForWals := "--wait-for-wals=true"
-	if !isPrimary {
-		waitForWals = "--wait-for-wals=false"
-	}
-
 	args := []string{
 		"backup",
 		"run",
 		"--config",
 		backupRepositoryConfigPath,
-		waitForWals,
 		"-n",
 		backupName,
 	}
