@@ -453,7 +453,7 @@ tasks:
       # renovate: datasource=git-refs depName=golangci-lint lookupName=https://github.com/sagikazarmark/daggerverse currentValue=main
       DAGGER_GOLANGCI_LINT_SHA: ff27cd50f6b4eed2e3753c520632cd6099e1ce52
       # renovate: datasource=docker depName=golangci/golangci-lint versioning=docker
-      GOLANGCI_LINT_VERSION: v2.13.2@sha256:ba07dffad130794ae79ebaa0056809d18c0168f3f846480ffd3eb6c04578b83d
+      GOLANGCI_LINT_VERSION: v2.14.0@sha256:ad862ba6b3798cbe0fd9fd7408d498fd74fbd2623a92406b2fd3898faf0bf98f
     internal: true
     dir: '{{ .WORKDIR }}'
     cmds:
