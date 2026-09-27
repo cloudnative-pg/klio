@@ -51,7 +51,7 @@ require (
 	google.golang.org/protobuf v1.36.12
 	k8s.io/api v0.37.1
 	k8s.io/apimachinery v0.37.1
-	k8s.io/client-go v0.37.1
+	k8s.io/client-go v11.0.0+incompatible
 	sigs.k8s.io/controller-runtime v0.25.1
 	sigs.k8s.io/yaml v1.6.0
 )
