@@ -899,7 +899,7 @@
         }
       ],
       "title": "Backup duration percentiles",
-      "description": "50th/95th/99th-percentile duration of successful base backup runs, per cluster.",
+      "description": "50th/90th/99th-percentile duration of successful base backup runs, per cluster.",
       "transparent": false,
       "datasource": {
         "type": "prometheus",
@@ -943,7 +943,7 @@
             "type": "prometheus",
             "uid": "${datasource}"
           },
-          "expr": "histogram_quantile(0.50, sum by (le, cluster_name) (klio_client_wal_block_duration_nanoseconds_bucket{k8s_namespace_name=~\"$namespace\",cluster_name=~\"$cluster\"}))",
+          "expr": "histogram_quantile(0.50, sum by (le, cluster_name) (rate(klio_client_wal_block_duration_nanoseconds_bucket{k8s_namespace_name=~\"$namespace\",cluster_name=~\"$cluster\"}[$__rate_interval])))",
           "instant": false,
           "legendFormat": "{{cluster_name}} p50",
           "range": true
@@ -953,7 +953,7 @@
             "type": "prometheus",
             "uid": "${datasource}"
           },
-          "expr": "histogram_quantile(0.90, sum by (le, cluster_name) (klio_client_wal_block_duration_nanoseconds_bucket{k8s_namespace_name=~\"$namespace\",cluster_name=~\"$cluster\"}))",
+          "expr": "histogram_quantile(0.90, sum by (le, cluster_name) (rate(klio_client_wal_block_duration_nanoseconds_bucket{k8s_namespace_name=~\"$namespace\",cluster_name=~\"$cluster\"}[$__rate_interval])))",
           "instant": false,
           "legendFormat": "{{cluster_name}} p90",
           "range": true
@@ -963,14 +963,14 @@
             "type": "prometheus",
             "uid": "${datasource}"
           },
-          "expr": "histogram_quantile(0.99, sum by (le, cluster_name) (klio_client_wal_block_duration_nanoseconds_bucket{k8s_namespace_name=~\"$namespace\",cluster_name=~\"$cluster\"}))",
+          "expr": "histogram_quantile(0.99, sum by (le, cluster_name) (rate(klio_client_wal_block_duration_nanoseconds_bucket{k8s_namespace_name=~\"$namespace\",cluster_name=~\"$cluster\"}[$__rate_interval])))",
           "instant": false,
           "legendFormat": "{{cluster_name}} p99",
           "range": true
         }
       ],
-      "title": "WAL block send duration percentiles",
-      "description": "50th/95th/99th-percentile duration of the client's gRPC send of a WAL block to the server, per cluster.",
+      "title": "WAL block send duration percentiles (rate)",
+      "description": "50th/90th/99th-percentile duration of the client's gRPC send of a WAL block to the server, per cluster. Reflects recent activity, over a rolling few-minute window.",
       "transparent": false,
       "datasource": {
         "type": "prometheus",
@@ -1007,6 +1007,77 @@
       }
     },
     {
+      "type": "timeseries",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "expr": "histogram_quantile(0.50, sum by (le, cluster_name) (klio_client_wal_block_duration_nanoseconds_bucket{k8s_namespace_name=~\"$namespace\",cluster_name=~\"$cluster\"}))",
+          "instant": false,
+          "legendFormat": "{{cluster_name}} p50",
+          "range": true
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "expr": "histogram_quantile(0.90, sum by (le, cluster_name) (klio_client_wal_block_duration_nanoseconds_bucket{k8s_namespace_name=~\"$namespace\",cluster_name=~\"$cluster\"}))",
+          "instant": false,
+          "legendFormat": "{{cluster_name}} p90",
+          "range": true
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "expr": "histogram_quantile(0.99, sum by (le, cluster_name) (klio_client_wal_block_duration_nanoseconds_bucket{k8s_namespace_name=~\"$namespace\",cluster_name=~\"$cluster\"}))",
+          "instant": false,
+          "legendFormat": "{{cluster_name}} p99",
+          "range": true
+        }
+      ],
+      "title": "WAL block send duration percentiles (total)",
+      "description": "50th/90th/99th-percentile duration of the client's gRPC send of a WAL block to the server, per cluster. Reflects all activity since the server last restarted.",
+      "transparent": false,
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 43
+      },
+      "repeatDirection": "h",
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true,
+          "calcs": []
+        },
+        "tooltip": {
+          "mode": "",
+          "sort": ""
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ns",
+          "custom": {
+            "gradientMode": "opacity",
+            "fillOpacity": 10
+          }
+        },
+        "overrides": []
+      }
+    },
+    {
       "type": "row",
       "collapsed": false,
       "title": "Server",
@@ -1014,7 +1085,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 43
+        "y": 51
       },
       "id": 0,
       "panels": []
@@ -1044,7 +1115,7 @@
         "h": 6,
         "w": 8,
         "x": 0,
-        "y": 44
+        "y": 52
       },
       "repeatDirection": "h",
       "options": {
@@ -1101,7 +1172,7 @@
         "h": 6,
         "w": 8,
         "x": 8,
-        "y": 44
+        "y": 52
       },
       "repeatDirection": "h",
       "options": {
@@ -1155,7 +1226,7 @@
         "h": 6,
         "w": 8,
         "x": 16,
-        "y": 44
+        "y": 52
       },
       "repeatDirection": "h",
       "options": {
@@ -1213,7 +1284,7 @@
         "h": 6,
         "w": 8,
         "x": 0,
-        "y": 50
+        "y": 58
       },
       "repeatDirection": "h",
       "options": {
@@ -1270,7 +1341,7 @@
         "h": 6,
         "w": 8,
         "x": 8,
-        "y": 50
+        "y": 58
       },
       "repeatDirection": "h",
       "options": {
@@ -1327,7 +1398,7 @@
         "h": 6,
         "w": 8,
         "x": 16,
-        "y": 50
+        "y": 58
       },
       "repeatDirection": "h",
       "options": {
@@ -1385,7 +1456,7 @@
         "h": 6,
         "w": 8,
         "x": 0,
-        "y": 56
+        "y": 64
       },
       "repeatDirection": "h",
       "options": {
@@ -1442,7 +1513,7 @@
         "h": 6,
         "w": 8,
         "x": 8,
-        "y": 56
+        "y": 64
       },
       "repeatDirection": "h",
       "options": {
@@ -1499,7 +1570,7 @@
         "h": 6,
         "w": 8,
         "x": 16,
-        "y": 56
+        "y": 64
       },
       "repeatDirection": "h",
       "options": {
@@ -1605,7 +1676,7 @@
         "h": 6,
         "w": 12,
         "x": 0,
-        "y": 62
+        "y": 70
       },
       "repeatDirection": "h",
       "options": {
@@ -1702,7 +1773,7 @@
         "h": 6,
         "w": 12,
         "x": 12,
-        "y": 62
+        "y": 70
       },
       "repeatDirection": "h",
       "options": {
@@ -1751,7 +1822,7 @@
         "h": 6,
         "w": 4,
         "x": 0,
-        "y": 68
+        "y": 76
       },
       "repeatDirection": "h",
       "options": {
@@ -1809,7 +1880,7 @@
         "h": 6,
         "w": 4,
         "x": 4,
-        "y": 68
+        "y": 76
       },
       "repeatDirection": "h",
       "options": {
@@ -1866,7 +1937,7 @@
         "h": 6,
         "w": 4,
         "x": 8,
-        "y": 68
+        "y": 76
       },
       "repeatDirection": "h",
       "options": {
@@ -1924,7 +1995,7 @@
         "h": 6,
         "w": 4,
         "x": 12,
-        "y": 68
+        "y": 76
       },
       "repeatDirection": "h",
       "options": {
@@ -1982,7 +2053,7 @@
         "h": 6,
         "w": 4,
         "x": 16,
-        "y": 68
+        "y": 76
       },
       "repeatDirection": "h",
       "options": {
@@ -2039,7 +2110,7 @@
         "h": 6,
         "w": 4,
         "x": 20,
-        "y": 68
+        "y": 76
       },
       "repeatDirection": "h",
       "options": {
@@ -2096,7 +2167,7 @@
         "h": 6,
         "w": 12,
         "x": 0,
-        "y": 74
+        "y": 82
       },
       "repeatDirection": "h",
       "options": {
@@ -2147,7 +2218,7 @@
         "h": 6,
         "w": 12,
         "x": 12,
-        "y": 74
+        "y": 82
       },
       "repeatDirection": "h",
       "options": {
@@ -2198,7 +2269,7 @@
         "h": 6,
         "w": 12,
         "x": 0,
-        "y": 80
+        "y": 88
       },
       "repeatDirection": "h",
       "options": {
@@ -2249,7 +2320,7 @@
         "h": 6,
         "w": 12,
         "x": 12,
-        "y": 80
+        "y": 88
       },
       "repeatDirection": "h",
       "options": {
@@ -2300,7 +2371,7 @@
         "h": 6,
         "w": 12,
         "x": 0,
-        "y": 86
+        "y": 94
       },
       "repeatDirection": "h",
       "options": {
@@ -2375,7 +2446,7 @@
         "h": 6,
         "w": 12,
         "x": 12,
-        "y": 86
+        "y": 94
       },
       "repeatDirection": "h",
       "options": {
@@ -2433,8 +2504,8 @@
           "range": true
         }
       ],
-      "title": "WAL block operation duration (p50/p90/p99)",
-      "description": "Percentile per-block WAL processing duration on the server, split by `path` (put ingest / get serve) and `stage`, aggregated across the selected clusters. Reflects recent activity, over a rolling few-minute window.",
+      "title": "WAL block operation duration percentiles (rate)",
+      "description": "Percentile per-block WAL processing duration on the server, split by `path` (put ingest / get serve) and `stage`, aggregated across the selected clusters. Reflects recent activity, over the rate interval window.",
       "transparent": false,
       "datasource": {
         "type": "prometheus",
@@ -2444,7 +2515,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 92
+        "y": 100
       },
       "repeatDirection": "h",
       "options": {
@@ -2515,7 +2586,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 92
+        "y": 100
       },
       "repeatDirection": "h",
       "options": {
@@ -2575,8 +2646,8 @@
           "range": true
         }
       ],
-      "title": "WAL file get duration (p50/p90/p99) by tier",
-      "description": "Percentile duration of a complete WAL file gRPC get, split by the tier that served it, aggregated across the selected clusters. Reflects recent activity, over a rolling few-minute window.",
+      "title": "WAL file get duration percentiles (rate)",
+      "description": "Percentile duration of a complete WAL file gRPC get, split by the tier that served it, aggregated across the selected clusters. Reflects recent activity, over the rate interval window.",
       "transparent": false,
       "datasource": {
         "type": "prometheus",
@@ -2586,7 +2657,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 100
+        "y": 108
       },
       "repeatDirection": "h",
       "options": {
@@ -2646,7 +2717,7 @@
           "range": true
         }
       ],
-      "title": "WAL file get duration percentiles (total) by tier",
+      "title": "WAL file get duration percentiles (total)",
       "description": "Percentile duration of a complete WAL file gRPC get, split by the tier that served it, aggregated across the selected clusters. Reflects all activity since the server last restarted.",
       "transparent": false,
       "datasource": {
@@ -2657,7 +2728,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 100
+        "y": 108
       },
       "repeatDirection": "h",
       "options": {
@@ -2717,8 +2788,8 @@
           "range": true
         }
       ],
-      "title": "WAL tier-2 upload duration (p50/p90/p99) by cluster",
-      "description": "Percentile duration of the tier-2 archival upload to remote storage, per cluster. Reflects recent activity, over a rolling few-minute window.",
+      "title": "WAL tier-2 upload duration percentiles (rate)",
+      "description": "Percentile duration of the tier-2 archival upload to remote storage, per cluster. Reflects recent activity, over the rate interval window.",
       "transparent": false,
       "datasource": {
         "type": "prometheus",
@@ -2728,7 +2799,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 108
+        "y": 116
       },
       "repeatDirection": "h",
       "options": {
@@ -2788,7 +2859,7 @@
           "range": true
         }
       ],
-      "title": "WAL tier-2 upload duration percentiles (total) by cluster",
+      "title": "WAL tier-2 upload duration percentiles (total)",
       "description": "Percentile duration of the tier-2 archival upload to remote storage, per cluster. Reflects all activity since the server last restarted.",
       "transparent": false,
       "datasource": {
@@ -2799,7 +2870,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 108
+        "y": 116
       },
       "repeatDirection": "h",
       "options": {
@@ -2850,7 +2921,7 @@
         "h": 6,
         "w": 12,
         "x": 0,
-        "y": 116
+        "y": 124
       },
       "repeatDirection": "h",
       "options": {
@@ -2901,7 +2972,7 @@
         "h": 6,
         "w": 12,
         "x": 12,
-        "y": 116
+        "y": 124
       },
       "repeatDirection": "h",
       "options": {
@@ -2952,7 +3023,7 @@
         "h": 6,
         "w": 14,
         "x": 0,
-        "y": 122
+        "y": 130
       },
       "repeatDirection": "h",
       "options": {
@@ -3003,7 +3074,7 @@
         "h": 6,
         "w": 10,
         "x": 14,
-        "y": 122
+        "y": 130
       },
       "repeatDirection": "h",
       "options": {
@@ -3054,7 +3125,7 @@
         "h": 6,
         "w": 24,
         "x": 0,
-        "y": 128
+        "y": 136
       },
       "repeatDirection": "h",
       "options": {
@@ -3088,7 +3159,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 134
+        "y": 142
       },
       "id": 0,
       "panels": []
@@ -3128,7 +3199,7 @@
         "h": 6,
         "w": 8,
         "x": 0,
-        "y": 135
+        "y": 143
       },
       "repeatDirection": "h",
       "options": {
@@ -3189,7 +3260,7 @@
         "h": 6,
         "w": 8,
         "x": 8,
-        "y": 135
+        "y": 143
       },
       "repeatDirection": "h",
       "options": {
@@ -3240,7 +3311,7 @@
         "h": 6,
         "w": 8,
         "x": 16,
-        "y": 135
+        "y": 143
       },
       "repeatDirection": "h",
       "options": {
