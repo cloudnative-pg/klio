@@ -7,7 +7,7 @@ require (
 	github.com/cert-manager/cert-manager v1.21.2
 	github.com/cloudnative-pg/api v1.30.0
 	github.com/cloudnative-pg/cloudnative-pg v1.30.1
-	github.com/cloudnative-pg/cloudnative-pg/tests v0.0.0-20260923135128-c60ac252f566
+	github.com/cloudnative-pg/cloudnative-pg/tests v0.0.0-20260928153228-5c04bb036b94
 	github.com/cloudnative-pg/cnpg-i v0.6.0
 	github.com/cloudnative-pg/cnpg-i-machinery v0.4.2
 	github.com/cloudnative-pg/machinery v0.6.0
@@ -15,7 +15,7 @@ require (
 	github.com/evanphx/json-patch/v5 v5.9.11
 	github.com/onsi/ginkgo/v2 v2.33.0
 	github.com/onsi/gomega v1.44.0
-	github.com/prometheus/common v0.71.0
+	github.com/prometheus/common v0.72.0
 	github.com/spf13/viper v1.21.0
 	github.com/stretchr/testify v1.12.1
 	go.opentelemetry.io/contrib/bridges/prometheus v0.71.0
@@ -181,14 +181,14 @@ require (
 	go.uber.org/zap v1.28.0 // indirect
 	go.yaml.in/yaml/v2 v2.4.4 // indirect
 	go.yaml.in/yaml/v3 v3.0.5 // indirect
-	golang.org/x/crypto v0.56.0 // indirect
+	golang.org/x/crypto v0.57.0 // indirect
 	golang.org/x/exp v0.0.0-20260410095643-746e56fc9e2f // indirect
-	golang.org/x/mod v0.40.0 // indirect
-	golang.org/x/net v0.58.0 // indirect
-	golang.org/x/oauth2 v0.36.0 // indirect
+	golang.org/x/mod v0.41.0 // indirect
+	golang.org/x/net v0.59.0 // indirect
+	golang.org/x/oauth2 v0.37.0 // indirect
 	golang.org/x/sys v0.48.0 // indirect
 	golang.org/x/term v0.46.0 // indirect
-	golang.org/x/text v0.41.0 // indirect
+	golang.org/x/text v0.42.0 // indirect
 	golang.org/x/time v0.15.0 // indirect
 	golang.org/x/tools v0.49.0 // indirect
 	gomodules.xyz/jsonpatch/v2 v2.5.0 // indirect
