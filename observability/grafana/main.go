@@ -328,16 +328,6 @@ func timelinePanel(title string, targets ...cog.Builder[variants.Dataquery]) *ti
 		Decimals(0)
 }
 
-// barPanel builds a stacked bar chart (a timeseries in bar draw style) for
-// counting discrete events over time, such as backups per bucket.
-func barPanel(title, unit string, targets ...cog.Builder[variants.Dataquery]) *timeseries.PanelBuilder {
-	return timeseriesPanel(title, unit, targets...).
-		DrawStyle(common.GraphDrawStyleBars).
-		FillOpacity(80).
-		Stacking(common.NewStackingConfigBuilder().Mode(common.StackingModeNormal)).
-		Decimals(0)
-}
-
 // statPanel builds a stat panel showing the last value of its query targets,
 // wired to the dashboard data source.
 func statPanel(title, unit string, targets ...cog.Builder[variants.Dataquery]) *stat.PanelBuilder {

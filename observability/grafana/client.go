@@ -93,32 +93,36 @@ func clientPanels() []sizedPanel {
 				"{{cluster_name}}"),
 		).Description("PostgreSQL timeline of the WAL streaming client.")),
 
-		sized(mediumPanelWidth, mediumPanelHeight, statPanel("Latest backup duration", units.DurationInDaysHoursMinutesSeconds,
-			query(fmt.Sprintf("max by (cluster_name) (klio_plugin_backup_latest_duration_seconds{%s})", clientMatcher),
-				"{{cluster_name}}"),
-		).Orientation(common.VizOrientationHorizontal).
-			Description("Wall-clock duration of the most recent base backup, per cluster.")),
+		sized(mediumPanelWidth, mediumPanelHeight,
+			statPanel("Latest backup duration", units.DurationInDaysHoursMinutesSeconds,
+				query(fmt.Sprintf("max by (cluster_name) (klio_plugin_backup_latest_duration_seconds{%s})", clientMatcher),
+					"{{cluster_name}}"),
+			).Orientation(common.VizOrientationHorizontal).
+				Description("Wall-clock duration of the most recent base backup, per cluster.")),
 
-		sized(mediumPanelWidth, mediumPanelHeight, statPanel("Latest successful backup age", units.DurationInDaysHoursMinutesSeconds,
-			query(fmt.Sprintf("time() - max by (cluster_name) (klio_plugin_backup_latest_completion_time_seconds{%s})",
-				clientMatcher), "{{cluster_name}}"),
-		).Orientation(common.VizOrientationHorizontal).
-			Description("Elapsed time since the most recent base backup completed successfully, per cluster. A "+
-				"value well above the backup interval means that cluster's backups have stopped succeeding.")),
+		sized(mediumPanelWidth, mediumPanelHeight,
+			statPanel("Latest successful backup age", units.DurationInDaysHoursMinutesSeconds,
+				query(fmt.Sprintf("time() - max by (cluster_name) (klio_plugin_backup_latest_completion_time_seconds{%s})",
+					clientMatcher), "{{cluster_name}}"),
+			).Orientation(common.VizOrientationHorizontal).
+				Description("Elapsed time since the most recent base backup completed successfully, per cluster. A "+
+					"value well above the backup interval means that cluster's backups have stopped succeeding.")),
 
-		sized(mediumPanelWidth, mediumPanelHeight, statPanel("Latest failed backup age", units.DurationInDaysHoursMinutesSeconds,
-			query(fmt.Sprintf("time() - max by (cluster_name) (klio_plugin_backup_latest_failure_time_seconds{%s})",
-				clientMatcher), "{{cluster_name}}"),
-		).Orientation(common.VizOrientationHorizontal).
-			Description("Elapsed time since the most recent base backup failure, per cluster. A small value means "+
-				"a failure happened recently.")),
+		sized(mediumPanelWidth, mediumPanelHeight,
+			statPanel("Latest failed backup age", units.DurationInDaysHoursMinutesSeconds,
+				query(fmt.Sprintf("time() - max by (cluster_name) (klio_plugin_backup_latest_failure_time_seconds{%s})",
+					clientMatcher), "{{cluster_name}}"),
+			).Orientation(common.VizOrientationHorizontal).
+				Description("Elapsed time since the most recent base backup failure, per cluster. A small value means "+
+					"a failure happened recently.")),
 
-		sized(mediumPanelWidth, mediumPanelHeight, statPanel("Latest backup start age", units.DurationInDaysHoursMinutesSeconds,
-			query(fmt.Sprintf("time() - max by (cluster_name) (klio_plugin_backup_latest_start_time_seconds{%s})",
-				clientMatcher), "{{cluster_name}}"),
-		).Orientation(common.VizOrientationHorizontal).
-			Description("Elapsed time since the most recent base backup started, per cluster. Compare against the "+
-				"latest duration to tell whether a backup is still running or overdue.")),
+		sized(mediumPanelWidth, mediumPanelHeight,
+			statPanel("Latest backup start age", units.DurationInDaysHoursMinutesSeconds,
+				query(fmt.Sprintf("time() - max by (cluster_name) (klio_plugin_backup_latest_start_time_seconds{%s})",
+					clientMatcher), "{{cluster_name}}"),
+			).Orientation(common.VizOrientationHorizontal).
+				Description("Elapsed time since the most recent base backup started, per cluster. Compare against the "+
+					"latest duration to tell whether a backup is still running or overdue.")),
 
 		sized(largestPanelWidth, largePanelHeight, timeseriesPanel("Backup runs (total)", units.Number,
 			query(fmt.Sprintf("sum by (cluster_name, outcome) (klio_plugin_backup_runs_total{%s})",
@@ -148,19 +152,21 @@ func clientPanels() []sizedPanel {
 
 		sized(largestPanelWidth, largePanelHeight, timeseriesPanel("Backup duration percentiles", units.Seconds,
 			quantileTargetsAbsolute("klio_plugin_backup_duration_seconds_bucket", "le, cluster_name",
-				fmt.Sprintf("outcome=\"success\",%s", clientMatcher), "{{cluster_name}}")...,
+				"outcome=\"success\","+clientMatcher, "{{cluster_name}}")...,
 		).Description("50th/90th/99th-percentile duration of successful base backup runs, per cluster.")),
 
-		sized(largestPanelWidth, largePanelHeight, timeseriesPanel("WAL block send duration percentiles (rate)", units.Nanoseconds,
-			quantileTargets("klio_client_wal_block_duration_nanoseconds_bucket", "le, cluster_name",
-				clientMatcher, "{{cluster_name}}")...,
-		).Description("50th/90th/99th-percentile duration of the client's gRPC send of a WAL block to the "+
-			"server, per cluster. Reflects recent activity, over a rolling few-minute window.")),
+		sized(largestPanelWidth, largePanelHeight,
+			timeseriesPanel("WAL block send duration percentiles (rate)", units.Nanoseconds,
+				quantileTargets("klio_client_wal_block_duration_nanoseconds_bucket", "le, cluster_name",
+					clientMatcher, "{{cluster_name}}")...,
+			).Description("50th/90th/99th-percentile duration of the client's gRPC send of a WAL block to the "+
+				"server, per cluster. Reflects recent activity, over a rolling few-minute window.")),
 
-		sized(largestPanelWidth, largePanelHeight, timeseriesPanel("WAL block send duration percentiles (total)", units.Nanoseconds,
-			quantileTargetsAbsolute("klio_client_wal_block_duration_nanoseconds_bucket", "le, cluster_name",
-				clientMatcher, "{{cluster_name}}")...,
-		).Description("50th/90th/99th-percentile duration of the client's gRPC send of a WAL block to the "+
-			"server, per cluster. Reflects all activity since the server last restarted.")),
+		sized(largestPanelWidth, largePanelHeight,
+			timeseriesPanel("WAL block send duration percentiles (total)", units.Nanoseconds,
+				quantileTargetsAbsolute("klio_client_wal_block_duration_nanoseconds_bucket", "le, cluster_name",
+					clientMatcher, "{{cluster_name}}")...,
+			).Description("50th/90th/99th-percentile duration of the client's gRPC send of a WAL block to the "+
+				"server, per cluster. Reflects all activity since the server last restarted.")),
 	}
 }
