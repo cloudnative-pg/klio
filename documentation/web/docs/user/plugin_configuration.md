@@ -10,9 +10,8 @@ CloudNativePG. It adds a `klio-plugin` container to each PostgreSQL instance
 pod, handling both backup creation/management and WAL streaming to the Klio
 server in real-time.
 
-During recovery, Klio also injects a `klio-restore` container into the
-CloudNativePG recovery Job to restore backups from the Klio server. See
-[Available sidecar containers](#available-sidecar-containers) for details.
+The same container serves the restore hooks while a cluster bootstraps from
+a Klio backup, so a backup requested during recovery is served as well.
 
 ## Configuration
 
@@ -529,12 +528,15 @@ unless necessary.
 ## Container customization
 
 The `PluginConfiguration` resource allows you to customize the Klio sidecar
-containers by providing base container specifications that are used as the
-foundation for the sidecars. This feature enables you to add custom environment
+container by providing a base container specification that is used as the
+foundation for the sidecar. This feature enables you to add custom environment
 variables, volume mounts, resource limits, and other container settings without
 modifying the PostgreSQL container environment.
 
-### Basic example
+### Example
+
+The following `PluginConfiguration` customizes the `klio-plugin` sidecar
+with extra environment variables and resource limits:
 
 ```yaml
 apiVersion: klio.cnpg.io/v1alpha1
@@ -549,10 +551,17 @@ spec:
   containers:
     - name: klio-plugin
       env:
-        - name: CUSTOM_ENV_VAR
-          value: "my-value"
-        - name: DEBUG_LEVEL
-          value: "info"
+        - name: LOG_LEVEL
+          value: "debug"
+        - name: OTEL_EXPORTER_OTLP_ENDPOINT
+          value: "http://otel-collector:4317"
+      resources:
+        limits:
+          memory: "512Mi"
+          cpu: "1"
+        requests:
+          memory: "256Mi"
+          cpu: "500m"
 ```
 
 ### How container merging works
@@ -563,7 +572,7 @@ following merge behavior:
 1. **Your container is the base**: When you define a container
    (e.g., `klio-plugin`), your specification serves as the starting point
 1. **Klio enforces required values**: Klio sets its essential configuration:
-   - Container `name` (klio-plugin or klio-restore)
+   - Container `name` (`klio-plugin`)
    - Container `args` (the command arguments needed for operation)
    - `CONTAINER_NAME` environment variable
 1. **Your customizations are preserved**: All other fields you define remain
@@ -627,39 +636,3 @@ Klio sidecar, configured from the `source-plugin-config`
 `PluginConfiguration` (image, resources, environment variables, etc.)
 are applied to the sidecar following the same merging rules described
 above.
-
-### Available sidecar containers
-
-The following containers can be customized:
-
-- **`klio-plugin`**: Handles backup creation/management and WAL streaming to
-  the Klio server in PostgreSQL instance pods
-- **`klio-restore`**: Restores backups during recovery jobs
-
-### Example: Resource limits and environment variables
-
-```yaml
-apiVersion: klio.cnpg.io/v1alpha1
-kind: PluginConfiguration
-metadata:
-  name: klio-plugin-config
-spec:
-  serverAddress: klio-server.default
-  clientSecretName: cluster-example-klio-user
-  serverSecretName: klio-server-tls
-  clusterName: cluster-example
-  containers:
-    - name: klio-plugin
-      env:
-        - name: LOG_LEVEL
-          value: "debug"
-        - name: OTEL_EXPORTER_OTLP_ENDPOINT
-          value: "http://otel-collector:4317"
-      resources:
-        limits:
-          memory: "512Mi"
-          cpu: "1"
-        requests:
-          memory: "256Mi"
-          cpu: "500m"
-```

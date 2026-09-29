@@ -33,6 +33,17 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
+// KlioConfigDir is the mount point of the projected klio-config volume,
+// holding one file per resolved PluginConfiguration (e.g. klio-archive,
+// the recovery source, the replica source). It must stay in sync with the
+// mount path injected by the operator (KlioConfigDir in
+// operator/internal/klioconfig).
+const KlioConfigDir = "/var/lib/postgresql/klio"
+
+// ArchiveConfigKey is the config key of the archive PluginConfiguration. It
+// must stay in sync with ArchiveConfigKey in operator/internal/klioconfig.
+const ArchiveConfigKey = "klio-archive"
+
 // CNPGI is the implementation of the PostgreSQL sidecar.
 type CNPGI struct {
 	Client       client.Client

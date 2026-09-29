@@ -341,7 +341,10 @@ func getWalRepositoryConfigurationPath(cluster *cnpgv1.Cluster, instanceName str
 	return repositoryName, err
 }
 
-const backupRepositoryConfigPath = "/var/lib/postgresql/klio/klio-archive"
+// backupRepositoryConfigPath is the config file of the archive repository.
+//
+//nolint:gochecknoglobals
+var backupRepositoryConfigPath = filepath.Join(KlioConfigDir, ArchiveConfigKey)
 
 func getSourceRepositoryConfigPath(cluster *cnpgv1.Cluster) (string, error) {
 	if cluster.Spec.ReplicaCluster == nil {
@@ -349,7 +352,7 @@ func getSourceRepositoryConfigPath(cluster *cnpgv1.Cluster) (string, error) {
 	}
 	source := cluster.Spec.ReplicaCluster.Source
 
-	return filepath.Clean(filepath.Join("/var/lib/postgresql/klio", source)), nil
+	return filepath.Clean(filepath.Join(KlioConfigDir, source)), nil
 }
 
 func getBootstrapRepositoryConfigPath(cluster *cnpgv1.Cluster) (string, error) {
@@ -363,5 +366,5 @@ func getBootstrapRepositoryConfigPath(cluster *cnpgv1.Cluster) (string, error) {
 		return "", fmt.Errorf("cluster %s does not have a bootstrap recovery source configured", cluster.Name)
 	}
 
-	return filepath.Clean(filepath.Join("/var/lib/postgresql/klio", cluster.Spec.Bootstrap.Recovery.Source)), nil
+	return filepath.Clean(filepath.Join(KlioConfigDir, cluster.Spec.Bootstrap.Recovery.Source)), nil
 }

@@ -44,6 +44,12 @@ const (
 	// ArchiveConfigKey is the key used for the archive plugin configuration.
 	ArchiveConfigKey = "klio-archive"
 
+	// KlioConfigDir is the mount point of the projected klio-config volume
+	// injected into instance pods, holding one file per resolved
+	// PluginConfiguration. It must stay in sync with KlioConfigDir in
+	// core/internal/cnpgi.
+	KlioConfigDir = "/var/lib/postgresql/klio"
+
 	// PluginConfigurationRefParam is the name of the parameter that contains
 	// the reference to the Klio PluginConfiguration resource.
 	PluginConfigurationRefParam = "pluginConfigurationRef"

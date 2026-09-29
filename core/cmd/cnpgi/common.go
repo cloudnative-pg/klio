@@ -25,6 +25,7 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"syscall"
 	"time"
 
@@ -113,13 +114,21 @@ func runCNPGI(
 		}
 	}
 
-	// Add config file watcher so the sidecar restarts when the config changes
+	// Watch the whole config mount, not only the file behind --config: the
+	// restore and WAL services read the recovery source and replica source
+	// configurations from sibling files, and a rotated Secret must restart
+	// the sidecar for those too. Always watch the directory, even when no
+	// --config was passed (archive-less bootstrap or replica-source primary):
+	// those sidecars only consume sibling files.
+	watchDir := cnpgi.KlioConfigDir
 	if configFile != "" {
-		if err := mgr.Add(
-			cnpgi.NewConfigFileWatcher(configFile, 10*time.Second),
-		); err != nil {
-			return fmt.Errorf("while adding config watcher: %w", err)
-		}
+		watchDir = filepath.Dir(configFile)
+	}
+
+	if err := mgr.Add(
+		cnpgi.NewConfigFileWatcher(watchDir, 10*time.Second),
+	); err != nil {
+		return fmt.Errorf("while adding config watcher: %w", err)
 	}
 
 	// Start the manager and handle graceful shutdown

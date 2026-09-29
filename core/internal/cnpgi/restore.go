@@ -25,6 +25,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
 
 	cnpgv1 "github.com/cloudnative-pg/api/pkg/api/v1"
 	"github.com/cloudnative-pg/cloudnative-pg/pkg/postgres"
@@ -61,7 +62,7 @@ func (impl restoreImpl) Restore(
 	if err := json.Unmarshal(request.GetClusterDefinition(), &cluster); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal cluster definition: %w", err)
 	}
-	configFile := "/var/lib/postgresql/klio/" + cluster.Spec.Bootstrap.Recovery.Source
+	configFile := filepath.Join(KlioConfigDir, cluster.Spec.Bootstrap.Recovery.Source)
 
 	var backupID string
 	var targetTime string

@@ -10,6 +10,17 @@ see the [Helm chart page](helm_chart.mdx#upgrades).
 
 ## 0.0.20 to 0.0.21
 
+### The `klio-restore` container is gone
+
+The `klio-plugin` sidecar now also serves the restore while a cluster
+bootstraps from a Klio backup, so Klio no longer injects a separate
+`klio-restore` container into the recovery Job. The `PluginConfiguration`
+CRD only accepts `klio-plugin` in `spec.containers`: a `PluginConfiguration`
+that still lists a `klio-restore` entry is rejected on its next update, and
+its status cannot be written on Kubernetes versions without CRD validation
+ratcheting. Remove the `klio-restore` entry and move any customization you
+need onto `klio-plugin` before upgrading.
+
 ### Migrating from the Multi-PVC Model
 
 Klio servers created until v0.0.20 used four separate
