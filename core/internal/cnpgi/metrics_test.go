@@ -29,12 +29,17 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
 	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
 	"go.opentelemetry.io/otel/sdk/metric/metricdata"
 
 	"github.com/cloudnative-pg/klio/core/internal/backupfailure"
 	"github.com/cloudnative-pg/klio/core/internal/opentelemetry"
 )
+
+// testClusterName is the PostgreSQL cluster name every record* call in these
+// tests tags its metrics with.
+const testClusterName = "cluster-test"
 
 // setupTestMeter installs a test MeterProvider with a ManualReader,
 // re-creates all instruments against it, and returns the reader.
@@ -99,12 +104,10 @@ func findInProgressValue(rm metricdata.ResourceMetrics) (int64, bool) {
 	return 0, false
 }
 
-func findInt64SumDataPoints(
-	rm metricdata.ResourceMetrics, name string,
-) []metricdata.DataPoint[int64] {
+func findInt64SumDataPoints(rm metricdata.ResourceMetrics) []metricdata.DataPoint[int64] {
 	for _, sm := range rm.ScopeMetrics {
 		for _, m := range sm.Metrics {
-			if m.Name == name {
+			if m.Name == opentelemetry.PluginBackupRunsMetric {
 				if s, ok := m.Data.(metricdata.Sum[int64]); ok {
 					return s.DataPoints
 				}
@@ -123,7 +126,7 @@ func findBackupInt64SumValueByOutcome(
 ) (int64, bool) {
 	var total int64
 	var found bool
-	for _, dp := range findInt64SumDataPoints(rm, opentelemetry.PluginBackupRunsMetric) {
+	for _, dp := range findInt64SumDataPoints(rm) {
 		v, ok := dp.Attributes.Value("outcome")
 		if !ok {
 			continue
@@ -143,7 +146,7 @@ func findBackupInt64SumValueByOutcome(
 func findBackupInt64SumValueByFailureCategory(
 	rm metricdata.ResourceMetrics, category backupfailure.Category,
 ) (int64, bool) {
-	for _, dp := range findInt64SumDataPoints(rm, opentelemetry.PluginBackupRunsMetric) {
+	for _, dp := range findInt64SumDataPoints(rm) {
 		v, ok := dp.Attributes.Value("failure_category")
 		if !ok {
 			continue
@@ -197,7 +200,7 @@ func TestRecordBackupStart(t *testing.T) {
 	reader := setupTestMeter(t)
 
 	before := time.Now().Unix()
-	recordBackupStart(context.Background())
+	recordBackupStart(context.Background(), testClusterName)
 
 	rm := collectOTelMetrics(t, reader)
 
@@ -213,11 +216,11 @@ func TestRecordBackupStart(t *testing.T) {
 func TestRecordBackupSuccess(t *testing.T) {
 	reader := setupTestMeter(t)
 
-	recordBackupStart(context.Background())
+	recordBackupStart(context.Background(), testClusterName)
 	duration := 42 * time.Second
 	before := time.Now().Unix()
-	recordBackupSuccess(context.Background(), duration)
-	recordBackupFinished(context.Background())
+	recordBackupSuccess(context.Background(), testClusterName, duration)
+	recordBackupFinished(context.Background(), testClusterName)
 
 	rm := collectOTelMetrics(t, reader)
 
@@ -252,15 +255,15 @@ func TestRecordBackupSuccess(t *testing.T) {
 func TestRecordBackupFailure(t *testing.T) {
 	reader := setupTestMeter(t)
 
-	recordBackupStart(t.Context())
+	recordBackupStart(t.Context(), testClusterName)
 	before := time.Now().Unix()
 
 	//nolint:gosec // hardcoded test input
 	exitErr := exec.CommandContext(t.Context(), "sh",
 		"-c", fmt.Sprintf("exit %d", backupfailure.RepositoryError.ExitCode)).Run()
 
-	recordBackupFailure(t.Context(), 7*time.Second, exitErr)
-	recordBackupFinished(t.Context())
+	recordBackupFailure(t.Context(), testClusterName, 7*time.Second, exitErr)
+	recordBackupFinished(t.Context(), testClusterName)
 
 	rm := collectOTelMetrics(t, reader)
 
@@ -294,16 +297,16 @@ func TestRecordBackupFailureCategoriesAreSeparateSeries(t *testing.T) {
 	expiredCtx, cancelTimeout := context.WithTimeout(t.Context(), 0)
 	defer cancelTimeout()
 
-	recordBackupFailure(expiredCtx, time.Second, nil)
+	recordBackupFailure(expiredCtx, testClusterName, time.Second, nil)
 	canceledCtx, cancelCanceled := context.WithCancel(t.Context())
 	cancelCanceled()
-	recordBackupFailure(canceledCtx, time.Second, nil)
-	recordBackupFailure(canceledCtx, time.Second, nil)
+	recordBackupFailure(canceledCtx, testClusterName, time.Second, nil)
+	recordBackupFailure(canceledCtx, testClusterName, time.Second, nil)
 
 	//nolint:gosec // hardcoded test input
 	exitErr := exec.CommandContext(t.Context(), "sh",
 		"-c", fmt.Sprintf("exit %d", backupfailure.Verification.ExitCode)).Run()
-	recordBackupFailure(t.Context(), time.Second, exitErr)
+	recordBackupFailure(t.Context(), testClusterName, time.Second, exitErr)
 
 	rm := collectOTelMetrics(t, reader)
 
@@ -327,7 +330,7 @@ func TestRecordBackupFailureCategoriesAreSeparateSeries(t *testing.T) {
 func TestRecordBackupFailureNilErrorDefaultsToUnknown(t *testing.T) {
 	reader := setupTestMeter(t)
 
-	recordBackupFailure(context.Background(), time.Second, nil)
+	recordBackupFailure(context.Background(), testClusterName, time.Second, nil)
 
 	rm := collectOTelMetrics(t, reader)
 
@@ -337,23 +340,145 @@ func TestRecordBackupFailureNilErrorDefaultsToUnknown(t *testing.T) {
 	assert.Equal(t, int64(1), unknown)
 }
 
+// metricAttributeSets returns the attribute set of every data point on a
+// metric, across the aggregation types the plugin backup instruments use
+// (Int64/Float64 gauges, the Int64 up/down counter and runs counter, and the
+// Float64 duration histogram).
+func metricAttributeSets(a metricdata.Aggregation) []attribute.Set {
+	var sets []attribute.Set
+	switch d := a.(type) {
+	case metricdata.Gauge[int64]:
+		for _, dp := range d.DataPoints {
+			sets = append(sets, dp.Attributes)
+		}
+	case metricdata.Gauge[float64]:
+		for _, dp := range d.DataPoints {
+			sets = append(sets, dp.Attributes)
+		}
+	case metricdata.Sum[int64]:
+		for _, dp := range d.DataPoints {
+			sets = append(sets, dp.Attributes)
+		}
+	case metricdata.Histogram[float64]:
+		for _, dp := range d.DataPoints {
+			sets = append(sets, dp.Attributes)
+		}
+	}
+
+	return sets
+}
+
+// dataPointClusterNames collects the distinct `cluster_name` attribute values
+// seen across every plugin backup instrument (the empty string keys the data
+// points that carry no cluster_name), so a test can assert every series is
+// attributed to a cluster.
+func dataPointClusterNames(rm metricdata.ResourceMetrics) map[string]int {
+	names := map[string]int{}
+	for _, sm := range rm.ScopeMetrics {
+		for _, m := range sm.Metrics {
+			for _, set := range metricAttributeSets(m.Data) {
+				if v, ok := set.Value("cluster_name"); ok {
+					names[v.AsString()]++
+				} else {
+					names[""]++
+				}
+			}
+		}
+	}
+
+	return names
+}
+
+func TestBackupMetricsCarryClusterName(t *testing.T) {
+	reader := setupTestMeter(t)
+
+	recordBackupStart(context.Background(), testClusterName)
+	recordBackupSuccess(context.Background(), testClusterName, 5*time.Second)
+	recordBackupFinished(context.Background(), testClusterName)
+	recordBackupFailure(context.Background(), testClusterName, time.Second, assert.AnError)
+
+	rm := collectOTelMetrics(t, reader)
+
+	names := dataPointClusterNames(rm)
+	require.NotEmpty(t, names)
+	assert.Equal(t, 0, names[""], "every plugin backup data point must carry a cluster_name attribute")
+	assert.Contains(t, names, testClusterName)
+}
+
+func TestBackupMetricsClustersAreSeparateSeries(t *testing.T) {
+	reader := setupTestMeter(t)
+
+	recordBackupStart(context.Background(), "cluster-a")
+	recordBackupSuccess(context.Background(), "cluster-a", 5*time.Second)
+	recordBackupFinished(context.Background(), "cluster-a")
+
+	recordBackupStart(context.Background(), "cluster-b")
+	recordBackupSuccess(context.Background(), "cluster-b", 9*time.Second)
+	recordBackupFinished(context.Background(), "cluster-b")
+
+	rm := collectOTelMetrics(t, reader)
+
+	// The runs counter must expose one data point per (cluster_name, outcome),
+	// not a single folded series.
+	perCluster := map[string]int64{}
+	for _, dp := range findInt64SumDataPoints(rm) {
+		v, ok := dp.Attributes.Value("cluster_name")
+		require.True(t, ok, "runs data point missing cluster_name")
+		perCluster[v.AsString()] += dp.Value
+	}
+	assert.Equal(t, int64(1), perCluster["cluster-a"])
+	assert.Equal(t, int64(1), perCluster["cluster-b"])
+}
+
+func TestInitPluginBackupSeriesSeedsZero(t *testing.T) {
+	reader := setupTestMeter(t)
+
+	opentelemetry.InitPluginBackupSeries(context.Background(), testClusterName)
+
+	rm := collectOTelMetrics(t, reader)
+
+	inProgress, ok := findInProgressValue(rm)
+	require.True(t, ok)
+	assert.Equal(t, int64(0), inProgress, "in-progress must be seeded at 0")
+
+	dps := findInt64SumDataPoints(rm)
+	require.NotEmpty(t, dps)
+
+	sawSuccess := false
+	seededCategories := map[string]bool{}
+	for _, dp := range dps {
+		assert.Equal(t, int64(0), dp.Value, "seeded runs series must start at 0")
+		if v, ok := dp.Attributes.Value("outcome"); ok &&
+			v.AsString() == string(opentelemetry.OutcomeSuccess) {
+			sawSuccess = true
+		}
+		if v, ok := dp.Attributes.Value("failure_category"); ok {
+			seededCategories[v.AsString()] = true
+		}
+	}
+	assert.True(t, sawSuccess, "the success runs series must be seeded")
+	for _, name := range backupfailure.Names() {
+		assert.True(t, seededCategories[name], "failure category %q must be seeded", name)
+	}
+}
+
 func TestBackupMetricsMultipleRuns(t *testing.T) {
 	reader := setupTestMeter(t)
 
 	// First backup: success.
-	recordBackupStart(context.Background())
-	recordBackupSuccess(context.Background(), 10*time.Second)
-	recordBackupFinished(context.Background())
+	recordBackupStart(context.Background(), testClusterName)
+	recordBackupSuccess(context.Background(), testClusterName, 10*time.Second)
+	recordBackupFinished(context.Background(), testClusterName)
 
 	// Second backup: failure.
-	recordBackupStart(context.Background())
-	recordBackupFailure(context.Background(), 3*time.Second, assert.AnError)
-	recordBackupFinished(context.Background())
+	recordBackupStart(context.Background(), testClusterName)
+	recordBackupFailure(context.Background(), testClusterName, 3*time.Second, assert.AnError)
+	recordBackupFinished(context.Background(), testClusterName)
 
 	// Third backup: success.
-	recordBackupStart(context.Background())
-	recordBackupSuccess(context.Background(), 30*time.Second)
-	recordBackupFinished(context.Background())
+	recordBackupStart(context.Background(), testClusterName)
+	recordBackupSuccess(context.Background(), testClusterName, 30*time.Second)
+	recordBackupFinished(context.Background(), testClusterName)
 
 	rm := collectOTelMetrics(t, reader)
 

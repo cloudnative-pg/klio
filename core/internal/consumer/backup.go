@@ -441,7 +441,7 @@ func (d *Backup) verifyTier1(ctx context.Context, clusterName string) error {
 	})
 	if err != nil {
 		if _, ok := errors.AsType[*klioclientkopia.BackupVerificationError](err); ok {
-			recordVerificationFailure(ctx, opentelemetry.Tier1)
+			recordVerificationFailure(ctx, clusterName, opentelemetry.Tier1)
 
 			return fmt.Errorf("tier1 verification detected corruption: %w", err)
 		}
@@ -450,7 +450,7 @@ func (d *Backup) verifyTier1(ctx context.Context, clusterName string) error {
 		return err
 	}
 
-	recordVerificationSuccess(ctx, opentelemetry.Tier1)
+	recordVerificationSuccess(ctx, clusterName, opentelemetry.Tier1)
 
 	return nil
 }
@@ -465,13 +465,13 @@ func (d *Backup) verifyTier2Backups(ctx context.Context, clusterName string) err
 	})
 	if err != nil {
 		if _, ok := errors.AsType[*klioclientkopia.BackupVerificationError](err); ok {
-			recordVerificationFailure(ctx, opentelemetry.Tier2)
+			recordVerificationFailure(ctx, clusterName, opentelemetry.Tier2)
 
 			return fmt.Errorf("tier2 verification detected corruption: %w", err)
 		}
 		contextLogger.Error(err, "Tier2 verification encountered infrastructure error, continuing")
 	} else {
-		recordVerificationSuccess(ctx, opentelemetry.Tier2)
+		recordVerificationSuccess(ctx, clusterName, opentelemetry.Tier2)
 	}
 
 	return nil

@@ -21,19 +21,20 @@ The dashboard is a single dashboard split into row sections:
 - **Client / Plugin** — the backup lifecycle as seen by the plugin sidecar
   running in each PostgreSQL pod: backups in progress, time since the last
   backup started, succeeded and failed, the latest backup duration, the
-  p50/p95/p99 backup duration distribution, backup run and failure rates,
+  p50/p90/p99 backup duration distribution, backup run and failure rates,
   and the backup success ratio. Also the WAL
   streaming client the sidecar supervises as a child process: the PostgreSQL
-  timeline it is currently streaming and the p50/p95/p99 latency of sending
+  timeline it is currently streaming and the p50/p90/p99 latency of sending
   a WAL block to the server.
 
 ![Klio client and plugin metrics](images/klio_client_and_plugin_metrics.png)
 
 - **Server** — the state of the Klio server StatefulSet: uptime, WAL ingest
   throughput and freshness per tier, the latest written LSN, backup
-  verification outcomes, the base snapshot inventory (including file and
-  directory counts), p50/p95/p99 WAL block/get/upload duration by path,
-  stage and tier, tier-2 relay and maintenance run rates, the retention
+  verification totals per cluster, the base snapshot inventory (including
+  file and directory counts), p50/p90/p99 WAL block/get/upload duration by
+  path, stage and tier (each as both a rolling-window and a since-restart
+  total variant), tier-2 relay and maintenance run totals, the retention
   window of the
   physical PostgreSQL backups (counts by tier, latest/oldest backup age,
   start/end LSN and PostgreSQL timeline per cluster), and the embedded NATS
@@ -41,42 +42,28 @@ The dashboard is a single dashboard split into row sections:
 
 ![Klio server metrics](images/klio_server_metrics.png)
 
-- **WAL Replication Lag** — how far Klio's WAL streaming client trails the
-  PostgreSQL primary, using CloudNativePG's replication metrics: the replay
-  lag in bytes and the flush lag in seconds. These panels read the
-  `cnpg_pg_stat_replication_*` metrics, so they require CloudNativePG
-  monitoring to be scraped into the same Prometheus (see the prerequisites
-  below).
+- **WAL Replication Lag** — how far behind Klio is in copying WAL:
+  - **Tier-1 Replication lag (Bytes)** and **(Seconds)**: how much WAL,
+    and how much time, Klio is behind the PostgreSQL primary. The *write*
+    line is WAL Klio has received; the *flush* line is WAL Klio has
+    safely saved to disk. These two panels need CloudNativePG monitoring
+    (see the prerequisites below).
+  - **Tier-2 archival lag (Bytes)**: how much WAL is on Klio's local disk
+    (tier 1) but not yet copied to remote storage (tier 2).
 
 ![Klio WAL replication lag metrics](images/klio_wal_replication_lag_metrics.png)
 
 Some panels need extra context to interpret correctly. Two are derived
 from the alerting guidance in [OpenTelemetry](opentelemetry.md):
 
-- **Time since last WAL written by tier** surfaces the staleness signal
+- **Time since last WAL written** surfaces the staleness signal
   described under *Alerting on stalled WAL processing*: a stale tier-1 value
   means PostgreSQL is no longer shipping WALs, while a stale tier-2 value
   means the remote backend is no longer receiving them.
-- **Tier-2 archival backlog (LSN gap)** plots the LSN difference between
+- **Tier-2 archival lag (Bytes)** plots the LSN difference between
   tier 1 (local disk) and tier 2 (remote storage). Read together with the
   staleness panel, it tells a slow pipeline (timestamps advancing, gap
   growing) apart from a stalled one (timestamps and LSN both frozen).
-
-Two more are a statistical caveat rather than an alerting signal. Both are
-histogram percentiles that need enough recent samples to be reliable:
-
-- **WAL block send duration (p50/p95/p99) by cluster** is most meaningful
-  under active write load. On an idle or low-write cluster, WAL blocks are
-  sent too infrequently for the underlying `histogram_quantile` to produce
-  a reliable percentile, so the line can look sparse or noisy rather than
-  simply absent.
-- **Backup duration (p50/p95/p99)** has the same limitation, more acutely:
-  backups are infrequent, so this panel is computed over the whole selected
-  range (rather than a short rate window) to stay populated between runs.
-  Widen the dashboard range to span several backups for a stable reading; if
-  the selected range contains no backup, the panel is empty. Use it to spot
-  backup runtime trending up over time rather than to read an instantaneous
-  value.
 
 ## Prerequisites
 
@@ -94,6 +81,11 @@ The **WAL Replication Lag** row additionally reads CloudNativePG's
 `cnpg_pg_stat_replication_*` metrics. To populate it, scrape the
 CloudNativePG cluster monitoring (its `PodMonitor`) into the same
 Prometheus. The rest of the dashboard works without it.
+
+The LSN table panels (**Latest backup LSN**, **Oldest backup LSN**,
+**Latest written LSN**) need Grafana 13 or later: they use SQL
+Expressions, available starting in that version. Without it, these
+three panels show an error instead of a table.
 
 :::note
 When you route metrics through an OpenTelemetry Collector, enable
@@ -113,8 +105,33 @@ this.
 
 The dashboard declares a `datasource` template variable, so it is portable
 across Grafana installations and is not tied to a specific data source UID.
-The `namespace` and `cluster` template variables at the top filter the panels
-by Kubernetes namespace and PostgreSQL cluster.
+Three more template variables at the top filter the panels:
+
+- `namespace`: the Kubernetes namespace, matched against
+  `k8s.namespace.name`. It scopes the Client / Plugin and WAL Replication
+  Lag panels, whose metrics are emitted from the PostgreSQL pods and
+  therefore carry the *cluster's* namespace.
+- `server`: the Klio server, matched against the OpenTelemetry
+  `service.name` (not the pod host name, which two servers of the same name
+  in different namespaces would share). It scopes the Server panels.
+- `cluster`: the PostgreSQL cluster, matched against `cluster_name`. It
+  scopes every per-cluster panel across all sections. Because the
+  server-side metrics carry the server's own namespace, per-cluster Server
+  panels are filtered by `server` and `cluster` rather than `namespace`, so a
+  cluster backed up by a server in another namespace is still attributed
+  correctly.
+
+Every aggregation groups by the identifying label (cluster, server, tier),
+so multiple clusters or servers are never folded into a single misleading
+value.
+
+:::note
+Give each Klio server a distinct `OTEL_SERVICE_NAME` (as the sample server
+manifests do). The `server` variable identifies servers by their OpenTelemetry
+`service.name`; if it is left unset, every server reports the SDK default
+(`unknown_service:klio`) and they collapse into a single, indistinguishable
+entry.
+:::
 
 ### Example: kube-prometheus-stack
 

@@ -21,6 +21,8 @@ package main
 
 import (
 	"fmt"
+
+	"github.com/grafana/grafana-foundation-sdk/go/units"
 )
 
 // cnpgMatcher selects the CloudNativePG replication metrics for Klio's WAL
@@ -37,38 +39,34 @@ const cnpgMatcher = `namespace=~"$namespace",application_name="klio"`
 // scraped into the same Prometheus as Klio's metrics.
 func replicationPanels() []sizedPanel {
 	return []sizedPanel{
-		// WAL lag as the byte distance between the primary's current LSN and
-		// the LSN Klio's streaming client has flushed. Reported in bytes;
-		// Grafana scales the unit for display.
-		sized(8, panelHeight, timeseriesPanel("Tier-1 Replication lag (Bytes)", "bytes",
+		sized(largePanelWidth, mediumPanelHeight, timeseriesPanel("Tier-1 Replication lag (Bytes)", units.BytesIEC,
+			query(
+				fmt.Sprintf("cnpg_pg_stat_replication_write_diff_bytes{%s}", cnpgMatcher),
+				"{{pod}} write"),
 			query(
 				fmt.Sprintf("cnpg_pg_stat_replication_flush_diff_bytes{%s}", cnpgMatcher),
-				"{{pod}}"),
+				"{{pod}} flush"),
 		).Description("Byte distance between the primary's current WAL LSN and the LSN Klio's streaming "+
-			"client has flushed, from CloudNativePG's pg_stat_replication.")),
-		// Flush lag in seconds: time between a commit on the primary and Klio's
-		// client flushing the corresponding WAL.
-		sized(8, panelHeight, timeseriesPanel("Tier-1 Replication lag (Seconds)", "s",
+			"client has written to disk and flushed.")),
+
+		sized(largePanelWidth, mediumPanelHeight, timeseriesPanel("Tier-1 Replication lag (Seconds)", units.Seconds,
+			query(
+				fmt.Sprintf("cnpg_pg_stat_replication_write_lag_seconds{%s}", cnpgMatcher),
+				"{{pod}} write"),
 			query(
 				fmt.Sprintf("cnpg_pg_stat_replication_flush_lag_seconds{%s}", cnpgMatcher),
-				"{{pod}}"),
-		).Description("Time between a commit on the primary and Klio's streaming client flushing the "+
-			"corresponding WAL, from CloudNativePG's pg_stat_replication.")),
-		// Derived: tier-2 archival backlog as the LSN gap between what the
-		// server has on local disk (tier1) and what has been archived remotely
-		// (tier2), in MiB. max by (cluster_name) collapses each tier to one
-		// series per cluster so the subtraction is one-to-one even when several
-		// namespaces or server instances export the metric.
-		sized(8, panelHeight, timeseriesPanel("Tier-2 archival lag (Tier-1 LSN gap)", "mbytes",
+				"{{pod}} flush"),
+		).Description("Time between a commit on the primary and Klio's streaming client writing to disk "+
+			"and flushing the corresponding WAL.")),
+
+		sized(largePanelWidth, mediumPanelHeight, timeseriesPanel("Tier-2 archival lag (Bytes)", units.BytesIEC,
 			query(
 				fmt.Sprintf(
-					"(klio_server_wal_latest_written_lsn_bytes{tier=\"tier1\",%s} - "+
-						"on (cluster_name) klio_server_wal_latest_written_lsn_bytes{tier=\"tier2\",%s}) "+
-						"/ 1024 / 1024",
+					"(max by (cluster_name) (klio_server_wal_latest_written_lsn_bytes{tier=\"tier1\",%s}) - "+
+						"max by (cluster_name) (klio_server_wal_latest_written_lsn_bytes{tier=\"tier2\",%s})) ",
 					walMatcher, walMatcher),
 				"{{cluster_name}}",
 			),
-		).Description("LSN distance between tier 1 (local disk) and tier 2 (remote storage) per cluster. "+
-			"A growing gap means remote archival is falling behind.")),
+		).Description("Bytes difference between the WALs in tier 1 and tier 2 per cluster. ")),
 	}
 }
