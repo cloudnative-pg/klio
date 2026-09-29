@@ -66,8 +66,8 @@ github.com/cloudnative-pg/barman-cloud v0.6.0 h1:OtBFmCDyVUAcgFa++FIoCCJwPfd5Ttq
 github.com/cloudnative-pg/barman-cloud v0.6.0/go.mod h1:eqSPRGz/s8M0Mea8mkqiVQUTkoSquAhvJF49feh+Ks4=
 github.com/cloudnative-pg/cloudnative-pg v1.30.1 h1:d1jxp0jQi7/3zrEhsv9ycD+G5ssmkNvDvTmogaGccCw=
 github.com/cloudnative-pg/cloudnative-pg v1.30.1/go.mod h1:k931EKEiGsGwHid+Lwo3vt4ZvnmnaIUYS0SJ29Bpivw=
-github.com/cloudnative-pg/cloudnative-pg/tests v0.0.0-20260928153228-5c04bb036b94 h1:MGzLcizh8hr6mf2EnQa/mjlu39S2dp4OfGO9+R4KYyc=
-github.com/cloudnative-pg/cloudnative-pg/tests v0.0.0-20260928153228-5c04bb036b94/go.mod h1:pnWKY0CaLG5r6hnCtuRNyujJVWfU1YCTHKDbMRAaigc=
+github.com/cloudnative-pg/cloudnative-pg/tests v0.0.0-20260929162245-f11b5e1eec3a h1:XuDDvnGErecH3+iy18QMS7OyOE0/QNkQ54XAKSeBz7k=
+github.com/cloudnative-pg/cloudnative-pg/tests v0.0.0-20260929162245-f11b5e1eec3a/go.mod h1:XbQ1VBuhl2m6G/DcHDDFuNiQv+bQWDhbnLtWFL+Zgz4=
 github.com/cloudnative-pg/cnpg-i v0.6.0 h1:LA//DLkFOLIjU0ASOpFkydZhGir9IAIDfgSsTTX9IpU=
 github.com/cloudnative-pg/cnpg-i v0.6.0/go.mod h1:4kcpLAj+feMTnh0TVadXRASdVnEhBytNSm/BvktLgmI=
 github.com/cloudnative-pg/cnpg-i-machinery v0.4.2 h1:0reS9MtyLYINHXQ/MfxJ9jp39hhBf8e3Qdj+T5Nsq6I=
@@ -249,8 +249,8 @@ github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2 h1:Jamvg5psRI
 github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2/go.mod h1:iKH77koFhYxTK1pcRnkKkqfTogsbg7gZNVY4sRDYZ/4=
 github.com/power-devops/perfstat v0.0.0-20260805114148-88456608a4f6 h1:jL3a8soXdzuTCcRnKhOmtcsVOObdDTFf4O2B403HPRU=
 github.com/power-devops/perfstat v0.0.0-20260805114148-88456608a4f6/go.mod h1:OmDBASR4679mdNQnz2pUhc2G8CO2JrUAVFDRBDP/hJE=
-github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring v0.94.0 h1:Gvs3KO8elkAvrGGPXycg6VndtJYIm4vJukywOu5bzOw=
-github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring v0.94.0/go.mod h1:n4uH73YCwqQomLLIKEthHFwh4F9PneNaP6eaIIscpVg=
+github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring v0.94.1 h1:TWZqERWd1r20mHm6rCahhWuCaDq4PQFHgzQifOpFsc0=
+github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring v0.94.1/go.mod h1:n4uH73YCwqQomLLIKEthHFwh4F9PneNaP6eaIIscpVg=
 github.com/prometheus/client_golang v1.24.1 h1:JnJkREXzWxUdCuPFpIWZiPispT9xVV59uiuyR2bPlnU=
 github.com/prometheus/client_golang v1.24.1/go.mod h1:F+oSRECHg4sse5ucfYpYDeIv/hu68Zo0uoHKetWnzcE=
 github.com/prometheus/client_model v0.6.3 h1:O0jaTVAYNxTHYInEPFJt5I3+sN8zqBtVMPTB1qyxiEo=
