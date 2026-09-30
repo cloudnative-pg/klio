@@ -31,7 +31,7 @@ vars:
   # the Dagger engine) and olm:preflight-operator (check operator, host-side);
   # the two must use the same version.
   # renovate: datasource=docker depName=quay.io/opdev/preflight versioning=docker
-  PREFLIGHT_VERSION: 1.21.0@sha256:a5ee1785e7def527aec34573e19e8e4959341d378a8f3e92f0f8fba35fc23304
+  PREFLIGHT_VERSION: 1.21.1@sha256:67db41a9017845764695fddb6546e4ad97adb9117d67edc2ebaf1096bb9099ec
   # Tag suffix of the UBI variant of the operator image, as produced by the
   # "ubi" target of operator/docker-bake.hcl. The OLM bundle ships the UBI
   # image, since that is the variant submitted to Red Hat certification.
