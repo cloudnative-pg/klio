@@ -960,60 +960,6 @@
       }
     },
     {
-      "type": "timeseries",
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "${datasource}"
-          },
-          "expr": "max by (cluster_name, tier) (klio_server_wal_latest_written_timeline{service_name=~\"$server\",cluster_name=~\"$cluster\"})",
-          "instant": false,
-          "legendFormat": "{{cluster_name}} {{tier}}",
-          "range": true
-        }
-      ],
-      "title": "WAL timeline",
-      "description": "PostgreSQL timeline of the latest WAL written per cluster and tier",
-      "transparent": false,
-      "datasource": {
-        "type": "prometheus",
-        "uid": "${datasource}"
-      },
-      "gridPos": {
-        "h": 6,
-        "w": 8,
-        "x": 8,
-        "y": 34
-      },
-      "repeatDirection": "h",
-      "options": {
-        "legend": {
-          "displayMode": "list",
-          "placement": "bottom",
-          "showLegend": true,
-          "calcs": []
-        },
-        "tooltip": {
-          "mode": "",
-          "sort": ""
-        }
-      },
-      "fieldConfig": {
-        "defaults": {
-          "unit": "none",
-          "decimals": 0,
-          "custom": {
-            "gradientMode": "opacity",
-            "lineWidth": 2,
-            "lineInterpolation": "stepAfter",
-            "fillOpacity": 0
-          }
-        },
-        "overrides": []
-      }
-    },
-    {
       "type": "stat",
       "targets": [
         {
@@ -1029,6 +975,64 @@
       ],
       "title": "Retained backups",
       "description": "Number of PostgreSQL backups currently retained per cluster and tier.",
+      "transparent": false,
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "gridPos": {
+        "h": 6,
+        "w": 8,
+        "x": 8,
+        "y": 34
+      },
+      "repeatDirection": "h",
+      "options": {
+        "graphMode": "none",
+        "colorMode": "value",
+        "justifyMode": "auto",
+        "textMode": "auto",
+        "wideLayout": true,
+        "showPercentChange": false,
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "text": {
+          "titleSize": 14,
+          "valueSize": 28
+        },
+        "percentChangeColorMode": "standard",
+        "orientation": "horizontal"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "decimals": 0,
+          "color": {
+            "mode": "palette-classic"
+          }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "type": "stat",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "expr": "min by (cluster_name, tier) (klio_server_backup_oldest_backup_completion_time_seconds{service_name=~\"$server\",cluster_name=~\"$cluster\"}) * 1000",
+          "instant": false,
+          "legendFormat": "{{cluster_name}} {{tier}}",
+          "range": true
+        }
+      ],
+      "title": "Oldest restorable point",
+      "description": "Timestamp at which the oldest retained PostgreSQL backup completed, per cluster and tier. It is the earliest point in time a restore can target, as long as all the WAL files since the backup started are still retained.",
       "transparent": false,
       "datasource": {
         "type": "prometheus",
@@ -1062,8 +1066,7 @@
       },
       "fieldConfig": {
         "defaults": {
-          "unit": "none",
-          "decimals": 0,
+          "unit": "dateTimeAsIso",
           "color": {
             "mode": "palette-classic"
           }
@@ -1244,235 +1247,6 @@
       }
     },
     {
-      "type": "stat",
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "${datasource}"
-          },
-          "expr": "time() - min by (cluster_name, tier) (klio_server_backup_oldest_backup_completion_time_seconds{service_name=~\"$server\",cluster_name=~\"$cluster\"})",
-          "instant": false,
-          "legendFormat": "{{cluster_name}} {{tier}}",
-          "range": true
-        }
-      ],
-      "title": "Oldest backup age (completion)",
-      "description": "Elapsed time since the oldest retained PostgreSQL backup completed, per cluster and tier, reflecting each tier's effective retention horizon.",
-      "transparent": false,
-      "datasource": {
-        "type": "prometheus",
-        "uid": "${datasource}"
-      },
-      "gridPos": {
-        "h": 6,
-        "w": 8,
-        "x": 0,
-        "y": 46
-      },
-      "repeatDirection": "h",
-      "options": {
-        "graphMode": "none",
-        "colorMode": "value",
-        "justifyMode": "auto",
-        "textMode": "auto",
-        "wideLayout": true,
-        "showPercentChange": false,
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ]
-        },
-        "text": {
-          "titleSize": 14,
-          "valueSize": 28
-        },
-        "percentChangeColorMode": "standard",
-        "orientation": "horizontal"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "unit": "dtdhms",
-          "color": {
-            "mode": "palette-classic"
-          }
-        },
-        "overrides": []
-      }
-    },
-    {
-      "type": "stat",
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "${datasource}"
-          },
-          "expr": "min by (cluster_name, tier) (klio_server_backup_oldest_backup_completion_time_seconds{service_name=~\"$server\",cluster_name=~\"$cluster\"}) * 1000",
-          "instant": false,
-          "legendFormat": "{{cluster_name}} {{tier}}",
-          "range": true
-        }
-      ],
-      "title": "Oldest restorable point",
-      "description": "Timestamp at which the oldest retained PostgreSQL backup completed, per cluster and tier. It is the earliest point in time a restore can target, as long as all the WAL files since the backup started are still retained.",
-      "transparent": false,
-      "datasource": {
-        "type": "prometheus",
-        "uid": "${datasource}"
-      },
-      "gridPos": {
-        "h": 6,
-        "w": 8,
-        "x": 8,
-        "y": 46
-      },
-      "repeatDirection": "h",
-      "options": {
-        "graphMode": "none",
-        "colorMode": "value",
-        "justifyMode": "auto",
-        "textMode": "auto",
-        "wideLayout": true,
-        "showPercentChange": false,
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ]
-        },
-        "text": {
-          "titleSize": 14,
-          "valueSize": 28
-        },
-        "percentChangeColorMode": "standard",
-        "orientation": "horizontal"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "unit": "dateTimeAsIso",
-          "color": {
-            "mode": "palette-classic"
-          }
-        },
-        "overrides": []
-      }
-    },
-    {
-      "type": "stat",
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "${datasource}"
-          },
-          "expr": "time() - min by (cluster_name, tier) (klio_server_backup_oldest_backup_start_time_seconds{service_name=~\"$server\",cluster_name=~\"$cluster\"})",
-          "instant": false,
-          "legendFormat": "{{cluster_name}} {{tier}}",
-          "range": true
-        }
-      ],
-      "title": "Oldest backup age (start)",
-      "description": "Elapsed time since the oldest retained PostgreSQL backup started, per cluster and tier, reflecting each tier's effective retention horizon.",
-      "transparent": false,
-      "datasource": {
-        "type": "prometheus",
-        "uid": "${datasource}"
-      },
-      "gridPos": {
-        "h": 6,
-        "w": 8,
-        "x": 16,
-        "y": 46
-      },
-      "repeatDirection": "h",
-      "options": {
-        "graphMode": "none",
-        "colorMode": "value",
-        "justifyMode": "auto",
-        "textMode": "auto",
-        "wideLayout": true,
-        "showPercentChange": false,
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ]
-        },
-        "text": {
-          "titleSize": 14,
-          "valueSize": 28
-        },
-        "percentChangeColorMode": "standard",
-        "orientation": "horizontal"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "unit": "dtdhms",
-          "color": {
-            "mode": "palette-classic"
-          }
-        },
-        "overrides": []
-      }
-    },
-    {
-      "type": "stat",
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "${datasource}"
-          },
-          "expr": "max by (cluster_name, tier) (klio_server_backup_oldest_backup_timeline{service_name=~\"$server\",cluster_name=~\"$cluster\"})",
-          "instant": false,
-          "legendFormat": "{{cluster_name}} {{tier}}",
-          "range": true
-        }
-      ],
-      "title": "Oldest backup timeline",
-      "description": "PostgreSQL timeline of the oldest retained backup, per cluster and tier. Differing from the latest timeline means the retention window spans a promotion or failover.",
-      "transparent": false,
-      "datasource": {
-        "type": "prometheus",
-        "uid": "${datasource}"
-      },
-      "gridPos": {
-        "h": 6,
-        "w": 10,
-        "x": 0,
-        "y": 52
-      },
-      "repeatDirection": "h",
-      "options": {
-        "graphMode": "none",
-        "colorMode": "value",
-        "justifyMode": "auto",
-        "textMode": "auto",
-        "wideLayout": true,
-        "showPercentChange": false,
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ]
-        },
-        "text": {
-          "titleSize": 14,
-          "valueSize": 28
-        },
-        "percentChangeColorMode": "standard",
-        "orientation": "horizontal"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "unit": "none",
-          "decimals": 0,
-          "color": {
-            "mode": "palette-classic"
-          }
-        },
-        "overrides": []
-      }
-    },
-    {
       "type": "table",
       "targets": [
         {
@@ -1543,9 +1317,9 @@
       },
       "gridPos": {
         "h": 6,
-        "w": 14,
-        "x": 10,
-        "y": 52
+        "w": 24,
+        "x": 0,
+        "y": 46
       },
       "repeatDirection": "h",
       "options": {
@@ -1564,6 +1338,178 @@
           "custom": {
             "align": "auto",
             "inspect": false
+          }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "type": "stat",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "expr": "time() - min by (cluster_name, tier) (klio_server_backup_oldest_backup_completion_time_seconds{service_name=~\"$server\",cluster_name=~\"$cluster\"})",
+          "instant": false,
+          "legendFormat": "{{cluster_name}} {{tier}}",
+          "range": true
+        }
+      ],
+      "title": "Oldest backup age (completion)",
+      "description": "Elapsed time since the oldest retained PostgreSQL backup completed, per cluster and tier, reflecting each tier's effective retention horizon.",
+      "transparent": false,
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "gridPos": {
+        "h": 6,
+        "w": 8,
+        "x": 0,
+        "y": 52
+      },
+      "repeatDirection": "h",
+      "options": {
+        "graphMode": "none",
+        "colorMode": "value",
+        "justifyMode": "auto",
+        "textMode": "auto",
+        "wideLayout": true,
+        "showPercentChange": false,
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "text": {
+          "titleSize": 14,
+          "valueSize": 28
+        },
+        "percentChangeColorMode": "standard",
+        "orientation": "horizontal"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "dtdhms",
+          "color": {
+            "mode": "palette-classic"
+          }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "type": "stat",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "expr": "time() - min by (cluster_name, tier) (klio_server_backup_oldest_backup_start_time_seconds{service_name=~\"$server\",cluster_name=~\"$cluster\"})",
+          "instant": false,
+          "legendFormat": "{{cluster_name}} {{tier}}",
+          "range": true
+        }
+      ],
+      "title": "Oldest backup age (start)",
+      "description": "Elapsed time since the oldest retained PostgreSQL backup started, per cluster and tier, reflecting each tier's effective retention horizon.",
+      "transparent": false,
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "gridPos": {
+        "h": 6,
+        "w": 8,
+        "x": 8,
+        "y": 52
+      },
+      "repeatDirection": "h",
+      "options": {
+        "graphMode": "none",
+        "colorMode": "value",
+        "justifyMode": "auto",
+        "textMode": "auto",
+        "wideLayout": true,
+        "showPercentChange": false,
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "text": {
+          "titleSize": 14,
+          "valueSize": 28
+        },
+        "percentChangeColorMode": "standard",
+        "orientation": "horizontal"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "dtdhms",
+          "color": {
+            "mode": "palette-classic"
+          }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "type": "stat",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "expr": "max by (cluster_name, tier) (klio_server_backup_oldest_backup_timeline{service_name=~\"$server\",cluster_name=~\"$cluster\"})",
+          "instant": false,
+          "legendFormat": "{{cluster_name}} {{tier}}",
+          "range": true
+        }
+      ],
+      "title": "Oldest backup timeline",
+      "description": "PostgreSQL timeline of the oldest retained backup, per cluster and tier. Differing from the latest timeline means the retention window spans a promotion or failover.",
+      "transparent": false,
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "gridPos": {
+        "h": 6,
+        "w": 8,
+        "x": 16,
+        "y": 52
+      },
+      "repeatDirection": "h",
+      "options": {
+        "graphMode": "none",
+        "colorMode": "value",
+        "justifyMode": "auto",
+        "textMode": "auto",
+        "wideLayout": true,
+        "showPercentChange": false,
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "text": {
+          "titleSize": 14,
+          "valueSize": 28
+        },
+        "percentChangeColorMode": "standard",
+        "orientation": "horizontal"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "decimals": 0,
+          "color": {
+            "mode": "palette-classic"
           }
         },
         "overrides": []
@@ -1640,7 +1586,7 @@
       },
       "gridPos": {
         "h": 6,
-        "w": 12,
+        "w": 24,
         "x": 0,
         "y": 58
       },
@@ -1690,8 +1636,8 @@
       "gridPos": {
         "h": 6,
         "w": 4,
-        "x": 12,
-        "y": 58
+        "x": 0,
+        "y": 64
       },
       "repeatDirection": "h",
       "options": {
@@ -1748,8 +1694,8 @@
       "gridPos": {
         "h": 6,
         "w": 4,
-        "x": 16,
-        "y": 58
+        "x": 4,
+        "y": 64
       },
       "repeatDirection": "h",
       "options": {
@@ -1805,8 +1751,8 @@
       "gridPos": {
         "h": 6,
         "w": 4,
-        "x": 20,
-        "y": 58
+        "x": 8,
+        "y": 64
       },
       "repeatDirection": "h",
       "options": {
@@ -1863,7 +1809,7 @@
       "gridPos": {
         "h": 6,
         "w": 4,
-        "x": 0,
+        "x": 12,
         "y": 64
       },
       "repeatDirection": "h",
@@ -1921,7 +1867,7 @@
       "gridPos": {
         "h": 6,
         "w": 4,
-        "x": 4,
+        "x": 16,
         "y": 64
       },
       "repeatDirection": "h",
@@ -1978,7 +1924,7 @@
       "gridPos": {
         "h": 6,
         "w": 4,
-        "x": 8,
+        "x": 20,
         "y": 64
       },
       "repeatDirection": "h",
@@ -2019,14 +1965,14 @@
             "type": "prometheus",
             "uid": "${datasource}"
           },
-          "expr": "sum by (cluster_name, tier) (rate(klio_server_wal_written_total{service_name=~\"$server\",cluster_name=~\"$cluster\"}[$__rate_interval]))",
+          "expr": "max by (cluster_name, tier) (klio_server_wal_latest_written_timeline{service_name=~\"$server\",cluster_name=~\"$cluster\"})",
           "instant": false,
           "legendFormat": "{{cluster_name}} {{tier}}",
           "range": true
         }
       ],
-      "title": "WAL files written (rate)",
-      "description": "Rate of WAL files written by the server, split by cluster and storage tier.",
+      "title": "WAL timeline",
+      "description": "PostgreSQL timeline of the latest WAL written per cluster and tier",
       "transparent": false,
       "datasource": {
         "type": "prometheus",
@@ -2034,58 +1980,7 @@
       },
       "gridPos": {
         "h": 6,
-        "w": 12,
-        "x": 12,
-        "y": 64
-      },
-      "repeatDirection": "h",
-      "options": {
-        "legend": {
-          "displayMode": "list",
-          "placement": "bottom",
-          "showLegend": true,
-          "calcs": []
-        },
-        "tooltip": {
-          "mode": "",
-          "sort": ""
-        }
-      },
-      "fieldConfig": {
-        "defaults": {
-          "unit": "ops",
-          "custom": {
-            "gradientMode": "opacity",
-            "fillOpacity": 10
-          }
-        },
-        "overrides": []
-      }
-    },
-    {
-      "type": "timeseries",
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "${datasource}"
-          },
-          "expr": "sum by (cluster_name, tier) (klio_server_wal_written_total{service_name=~\"$server\",cluster_name=~\"$cluster\"})",
-          "instant": false,
-          "legendFormat": "{{cluster_name}} {{tier}}",
-          "range": true
-        }
-      ],
-      "title": "WAL files written",
-      "description": "Total WAL files written by the server since it last restarted, split by cluster and storage tier.",
-      "transparent": false,
-      "datasource": {
-        "type": "prometheus",
-        "uid": "${datasource}"
-      },
-      "gridPos": {
-        "h": 6,
-        "w": 12,
+        "w": 8,
         "x": 0,
         "y": 70
       },
@@ -2105,111 +2000,12 @@
       "fieldConfig": {
         "defaults": {
           "unit": "none",
+          "decimals": 0,
           "custom": {
             "gradientMode": "opacity",
-            "fillOpacity": 10
-          }
-        },
-        "overrides": []
-      }
-    },
-    {
-      "type": "timeseries",
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "${datasource}"
-          },
-          "expr": "sum by (cluster_name, tier) (rate(klio_server_wal_written_size_bytes_total{service_name=~\"$server\",cluster_name=~\"$cluster\"}[$__rate_interval]))",
-          "instant": false,
-          "legendFormat": "{{cluster_name}} {{tier}}",
-          "range": true
-        }
-      ],
-      "title": "WAL bytes written (rate)",
-      "description": "Rate of WAL bytes written by the server, split by cluster and storage tier.",
-      "transparent": false,
-      "datasource": {
-        "type": "prometheus",
-        "uid": "${datasource}"
-      },
-      "gridPos": {
-        "h": 6,
-        "w": 12,
-        "x": 12,
-        "y": 70
-      },
-      "repeatDirection": "h",
-      "options": {
-        "legend": {
-          "displayMode": "list",
-          "placement": "bottom",
-          "showLegend": true,
-          "calcs": []
-        },
-        "tooltip": {
-          "mode": "",
-          "sort": ""
-        }
-      },
-      "fieldConfig": {
-        "defaults": {
-          "unit": "binBps",
-          "custom": {
-            "gradientMode": "opacity",
-            "fillOpacity": 10
-          }
-        },
-        "overrides": []
-      }
-    },
-    {
-      "type": "timeseries",
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "${datasource}"
-          },
-          "expr": "sum by (cluster_name, tier) (klio_server_wal_written_size_bytes_total{service_name=~\"$server\",cluster_name=~\"$cluster\"})",
-          "instant": false,
-          "legendFormat": "{{cluster_name}} {{tier}}",
-          "range": true
-        }
-      ],
-      "title": "WAL bytes written",
-      "description": "Total WAL bytes written by the server since it last restarted, split by cluster and storage tier.",
-      "transparent": false,
-      "datasource": {
-        "type": "prometheus",
-        "uid": "${datasource}"
-      },
-      "gridPos": {
-        "h": 6,
-        "w": 12,
-        "x": 0,
-        "y": 76
-      },
-      "repeatDirection": "h",
-      "options": {
-        "legend": {
-          "displayMode": "list",
-          "placement": "bottom",
-          "showLegend": true,
-          "calcs": []
-        },
-        "tooltip": {
-          "mode": "",
-          "sort": ""
-        }
-      },
-      "fieldConfig": {
-        "defaults": {
-          "unit": "bytes",
-          "custom": {
-            "gradientMode": "opacity",
-            "fillOpacity": 10
+            "lineWidth": 2,
+            "lineInterpolation": "stepAfter",
+            "fillOpacity": 0
           }
         },
         "overrides": []
@@ -2238,9 +2034,9 @@
       },
       "gridPos": {
         "h": 6,
-        "w": 12,
-        "x": 12,
-        "y": 76
+        "w": 8,
+        "x": 8,
+        "y": 70
       },
       "repeatDirection": "h",
       "options": {
@@ -2312,10 +2108,10 @@
         "uid": "${datasource}"
       },
       "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 0,
-        "y": 82
+        "h": 6,
+        "w": 8,
+        "x": 16,
+        "y": 70
       },
       "repeatDirection": "h",
       "options": {
@@ -2334,6 +2130,210 @@
           "custom": {
             "align": "auto",
             "inspect": false
+          }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "type": "timeseries",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "expr": "sum by (cluster_name, tier) (rate(klio_server_wal_written_total{service_name=~\"$server\",cluster_name=~\"$cluster\"}[$__rate_interval]))",
+          "instant": false,
+          "legendFormat": "{{cluster_name}} {{tier}}",
+          "range": true
+        }
+      ],
+      "title": "WAL files written (rate)",
+      "description": "Rate of WAL files written by the server, split by cluster and storage tier.",
+      "transparent": false,
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "gridPos": {
+        "h": 6,
+        "w": 12,
+        "x": 0,
+        "y": 76
+      },
+      "repeatDirection": "h",
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true,
+          "calcs": []
+        },
+        "tooltip": {
+          "mode": "",
+          "sort": ""
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ops",
+          "custom": {
+            "gradientMode": "opacity",
+            "fillOpacity": 10
+          }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "type": "timeseries",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "expr": "sum by (cluster_name, tier) (klio_server_wal_written_total{service_name=~\"$server\",cluster_name=~\"$cluster\"})",
+          "instant": false,
+          "legendFormat": "{{cluster_name}} {{tier}}",
+          "range": true
+        }
+      ],
+      "title": "WAL files written",
+      "description": "Total WAL files written by the server since it last restarted, split by cluster and storage tier.",
+      "transparent": false,
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "gridPos": {
+        "h": 6,
+        "w": 12,
+        "x": 12,
+        "y": 76
+      },
+      "repeatDirection": "h",
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true,
+          "calcs": []
+        },
+        "tooltip": {
+          "mode": "",
+          "sort": ""
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "custom": {
+            "gradientMode": "opacity",
+            "fillOpacity": 10
+          }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "type": "timeseries",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "expr": "sum by (cluster_name, tier) (rate(klio_server_wal_written_size_bytes_total{service_name=~\"$server\",cluster_name=~\"$cluster\"}[$__rate_interval]))",
+          "instant": false,
+          "legendFormat": "{{cluster_name}} {{tier}}",
+          "range": true
+        }
+      ],
+      "title": "WAL bytes written (rate)",
+      "description": "Rate of WAL bytes written by the server, split by cluster and storage tier.",
+      "transparent": false,
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "gridPos": {
+        "h": 6,
+        "w": 12,
+        "x": 0,
+        "y": 82
+      },
+      "repeatDirection": "h",
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true,
+          "calcs": []
+        },
+        "tooltip": {
+          "mode": "",
+          "sort": ""
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "binBps",
+          "custom": {
+            "gradientMode": "opacity",
+            "fillOpacity": 10
+          }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "type": "timeseries",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "expr": "sum by (cluster_name, tier) (klio_server_wal_written_size_bytes_total{service_name=~\"$server\",cluster_name=~\"$cluster\"})",
+          "instant": false,
+          "legendFormat": "{{cluster_name}} {{tier}}",
+          "range": true
+        }
+      ],
+      "title": "WAL bytes written",
+      "description": "Total WAL bytes written by the server since it last restarted, split by cluster and storage tier.",
+      "transparent": false,
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "gridPos": {
+        "h": 6,
+        "w": 12,
+        "x": 12,
+        "y": 82
+      },
+      "repeatDirection": "h",
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true,
+          "calcs": []
+        },
+        "tooltip": {
+          "mode": "",
+          "sort": ""
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bytes",
+          "custom": {
+            "gradientMode": "opacity",
+            "fillOpacity": 10
           }
         },
         "overrides": []
@@ -2383,8 +2383,8 @@
       "gridPos": {
         "h": 8,
         "w": 12,
-        "x": 12,
-        "y": 82
+        "x": 0,
+        "y": 88
       },
       "repeatDirection": "h",
       "options": {
@@ -2454,8 +2454,8 @@
       "gridPos": {
         "h": 8,
         "w": 12,
-        "x": 0,
-        "y": 90
+        "x": 12,
+        "y": 88
       },
       "repeatDirection": "h",
       "options": {
@@ -2525,8 +2525,8 @@
       "gridPos": {
         "h": 8,
         "w": 12,
-        "x": 12,
-        "y": 90
+        "x": 0,
+        "y": 96
       },
       "repeatDirection": "h",
       "options": {
@@ -2596,8 +2596,8 @@
       "gridPos": {
         "h": 8,
         "w": 12,
-        "x": 0,
-        "y": 98
+        "x": 12,
+        "y": 96
       },
       "repeatDirection": "h",
       "options": {
@@ -2667,8 +2667,8 @@
       "gridPos": {
         "h": 8,
         "w": 12,
-        "x": 12,
-        "y": 98
+        "x": 0,
+        "y": 104
       },
       "repeatDirection": "h",
       "options": {
@@ -2738,8 +2738,8 @@
       "gridPos": {
         "h": 8,
         "w": 12,
-        "x": 0,
-        "y": 106
+        "x": 12,
+        "y": 104
       },
       "repeatDirection": "h",
       "options": {
@@ -2787,10 +2787,10 @@
         "uid": "${datasource}"
       },
       "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 12,
-        "y": 106
+        "h": 6,
+        "w": 8,
+        "x": 0,
+        "y": 112
       },
       "repeatDirection": "h",
       "options": {
@@ -2839,9 +2839,9 @@
       },
       "gridPos": {
         "h": 6,
-        "w": 12,
-        "x": 0,
-        "y": 114
+        "w": 8,
+        "x": 8,
+        "y": 112
       },
       "repeatDirection": "h",
       "options": {
@@ -2890,9 +2890,9 @@
       },
       "gridPos": {
         "h": 6,
-        "w": 12,
-        "x": 12,
-        "y": 114
+        "w": 8,
+        "x": 16,
+        "y": 112
       },
       "repeatDirection": "h",
       "options": {
@@ -2943,7 +2943,7 @@
         "h": 6,
         "w": 12,
         "x": 0,
-        "y": 120
+        "y": 118
       },
       "repeatDirection": "h",
       "options": {
@@ -2994,7 +2994,7 @@
         "h": 6,
         "w": 12,
         "x": 12,
-        "y": 120
+        "y": 118
       },
       "repeatDirection": "h",
       "options": {
@@ -3028,7 +3028,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 126
+        "y": 124
       },
       "id": 0,
       "panels": []
@@ -3040,7 +3040,7 @@
         "h": 2,
         "w": 24,
         "x": 0,
-        "y": 127
+        "y": 125
       },
       "repeatDirection": "h",
       "options": {
@@ -3083,7 +3083,7 @@
         "h": 6,
         "w": 8,
         "x": 0,
-        "y": 129
+        "y": 127
       },
       "repeatDirection": "h",
       "options": {
@@ -3144,7 +3144,7 @@
         "h": 6,
         "w": 8,
         "x": 8,
-        "y": 129
+        "y": 127
       },
       "repeatDirection": "h",
       "options": {
@@ -3195,7 +3195,7 @@
         "h": 6,
         "w": 8,
         "x": 16,
-        "y": 129
+        "y": 127
       },
       "repeatDirection": "h",
       "options": {

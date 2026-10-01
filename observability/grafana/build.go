@@ -83,7 +83,7 @@ func build() *dashboard.DashboardBuilder {
 		clientPanels())
 	layoutSection(builder, &y, "Server",
 		"State of the Klio server: WAL ingest, retained backups and snapshots, and the internal queue.",
-		[][]sizedPanel{serverPanels()})
+		serverPanels())
 	layoutSection(builder, &y, "WAL replication lag",
 		"How far the WAL stored in tier 1 and tier 2 trails behind the PostgreSQL primary.",
 		[][]sizedPanel{replicationPanels()})
