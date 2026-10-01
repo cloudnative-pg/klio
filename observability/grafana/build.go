@@ -80,7 +80,7 @@ func build() *dashboard.DashboardBuilder {
 	y := 0
 	layoutSection(builder, &y, "Client / Plugin",
 		"Backup lifecycle and WAL streaming as seen by the plugin sidecar running in each PostgreSQL pod.",
-		[][]sizedPanel{clientPanels()})
+		clientPanels())
 	layoutSection(builder, &y, "Server",
 		"State of the Klio server: WAL ingest, retained backups and snapshots, and the internal queue.",
 		[][]sizedPanel{serverPanels()})
