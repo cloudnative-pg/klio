@@ -2,7 +2,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.21.0
+    controller-gen.kubebuilder.io/version: v0.22.0
   name: servers.klio.cnpg.io
 spec:
   group: klio.cnpg.io
@@ -11194,8 +11194,7 @@ spec:
                     x-kubernetes-validations:
                     - message: exactly one of the fields in [fileReference] must be
                         set
-                      rule: '[has(self.fileReference)].filter(x,x==true).size() ==
-                        1'
+                      rule: (has(self.fileReference)?1:0) == 1
                   identityFile:
                     description: |-
                       IdentityFile specifies the Age identity (private key) file used to
@@ -13237,8 +13236,7 @@ spec:
                     x-kubernetes-validations:
                     - message: exactly one of the fields in [fileReference] must be
                         set
-                      rule: '[has(self.fileReference)].filter(x,x==true).size() ==
-                        1'
+                      rule: (has(self.fileReference)?1:0) == 1
                 required:
                 - encryptionKeyFile
                 - identityFile
@@ -15335,8 +15333,7 @@ spec:
                     x-kubernetes-validations:
                     - message: exactly one of the fields in [fileReference] must be
                         set
-                      rule: '[has(self.fileReference)].filter(x,x==true).size() ==
-                        1'
+                      rule: (has(self.fileReference)?1:0) == 1
                   identityFile:
                     description: |-
                       IdentityFile specifies the Age identity (private key) file used to
@@ -17378,8 +17375,7 @@ spec:
                     x-kubernetes-validations:
                     - message: exactly one of the fields in [fileReference] must be
                         set
-                      rule: '[has(self.fileReference)].filter(x,x==true).size() ==
-                        1'
+                      rule: (has(self.fileReference)?1:0) == 1
                   s3:
                     description: S3 contains the configuration parameters for an S3-based
                       tier 2.
