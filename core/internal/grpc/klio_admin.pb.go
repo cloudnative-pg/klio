@@ -210,7 +210,6 @@ type ListBackupsResult struct {
 	//   - cluster_name: string
 	//   - timestamp: RFC3339 string
 	//   - size_bytes: number
-	//
 	// See klioclient.BackupManifest for the canonical structure.
 	// We use JSON bytes here to avoid duplicating the internal type definition
 	// and conversion logic, as this is a local admin API.
