@@ -221,7 +221,7 @@ func serverPanels() [][]sizedPanel {
 					walMatcher), "{{cluster_name}} {{tier}}"),
 			).Description("Rate of WAL files written by the server, split by cluster and storage tier.")),
 
-			sized(largestPanelWidth, mediumPanelHeight, timeseriesPanel("WAL files written", units.Number,
+			sized(largestPanelWidth, mediumPanelHeight, timeseriesPanel("WAL files written (total)", units.Number,
 				query(fmt.Sprintf("sum by (cluster_name, tier) (klio_server_wal_written_total{%s})",
 					walMatcher), "{{cluster_name}} {{tier}}"),
 			).Description("Total WAL files written by the server since it last restarted, split by cluster and "+
@@ -234,7 +234,7 @@ func serverPanels() [][]sizedPanel {
 					"{{cluster_name}} {{tier}}"),
 			).Description("Rate of WAL bytes written by the server, split by cluster and storage tier.")),
 
-			sized(largestPanelWidth, mediumPanelHeight, timeseriesPanel("WAL bytes written", units.BytesIEC,
+			sized(largestPanelWidth, mediumPanelHeight, timeseriesPanel("WAL bytes written (total)", units.BytesIEC,
 				query(
 					fmt.Sprintf("sum by (cluster_name, tier) (klio_server_wal_written_size_bytes_total{%s})", walMatcher),
 					"{{cluster_name}} {{tier}}"),

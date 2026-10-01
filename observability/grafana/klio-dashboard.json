@@ -2200,7 +2200,7 @@
           "range": true
         }
       ],
-      "title": "WAL files written",
+      "title": "WAL files written (total)",
       "description": "Total WAL files written by the server since it last restarted, split by cluster and storage tier.",
       "transparent": false,
       "datasource": {
@@ -2302,7 +2302,7 @@
           "range": true
         }
       ],
-      "title": "WAL bytes written",
+      "title": "WAL bytes written (total)",
       "description": "Total WAL bytes written by the server since it last restarted, split by cluster and storage tier.",
       "transparent": false,
       "datasource": {
