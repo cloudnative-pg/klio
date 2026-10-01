@@ -42,8 +42,7 @@ type RemoteRepoOpts struct {
 	ClientKeyPath string
 
 	// ServerCertCAFile is the path to a PEM file with the CA certificate(s)
-	// the server certificate must chain to. Plugin clients only ever see
-	// the CA bundle, never the server's leaf certificate or key.
+	// the server certificate must chain to.
 	ServerCertCAFile string
 
 	// Username is the username to use when connecting to the remote repository.

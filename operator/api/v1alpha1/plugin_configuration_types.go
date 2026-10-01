@@ -60,11 +60,7 @@ type PluginConfigurationSpec struct {
 
 	// ClientIdentity is the TLS identity the PostgreSQL instances
 	// present to the Klio server: the client certificate and its
-	// matching private key. Both files come from a single volume
-	// so the pair always belongs together: CSI drivers that mint
-	// an identity per mount and atomic rotation during Secret
-	// updates only work this way. A cert-manager Certificate
-	// secret exposes them as `tls.crt` and `tls.key`.
+	// matching private key.
 	// +kubebuilder:validation:Required
 	ClientIdentity TLSIdentity `json:"clientIdentity"`
 
@@ -72,10 +68,7 @@ type PluginConfigurationSpec struct {
 	// It is mounted into PostgreSQL instance pods and used for both
 	// base backups (Kopia, via --server-cert-ca-file) and WAL streaming
 	// (gRPC).
-	// The referenced file must contain the PEM-encoded CA certificate(s),
-	// e.g. key `ca.crt` of a cert-manager TLS secret, a trust-manager
-	// `ConfigMap` bundle, or a CSI volume (OpenBao / Secrets Store CSI).
-	// It must never contain a private key.
+	// The referenced file must contain the PEM-encoded CA certificate(s).
 	// +kubebuilder:validation:Required
 	ServerCA FileSource `json:"serverCa"`
 

@@ -41,10 +41,7 @@ spec:
               clientCa:
                 description: |-
                   ClientCA is the CA bundle used to verify client certificates.
-                  It must contain the PEM-encoded CA certificate(s), e.g. key
-                  `tls.crt` of a cert-manager CA secret, a trust-manager
-                  `ConfigMap` bundle, or a CSI volume. It must never contain a
-                  private key.
+                  It must contain the PEM-encoded CA certificate(s).
                 properties:
                   fileReference:
                     description: FileReference specifies a file from a volume source.
@@ -2106,23 +2103,15 @@ spec:
               serverIdentity:
                 description: |-
                   ServerIdentity is the TLS identity presented to clients: the
-                  server certificate and its matching private key. Both files
-                  come from a single volume so the pair always belongs
-                  together: CSI drivers that mint an identity per mount and
-                  atomic rotation during Secret updates only work this way.
-                  A cert-manager TLS secret exposes them as `tls.crt` and
-                  `tls.key`.
+                  server certificate and its matching private key.
                 properties:
                   certPath:
-                    description: |-
-                      CertPath is the certificate file path within the volume,
-                      e.g. `tls.crt` of a cert-manager TLS secret.
+                    description: CertPath is the certificate file path within the
+                      volume.
                     minLength: 1
                     type: string
                   keyPath:
-                    description: |-
-                      KeyPath is the private key file path within the volume,
-                      e.g. `tls.key` of a cert-manager TLS secret.
+                    description: KeyPath is the private key file path within the volume.
                     minLength: 1
                     type: string
                   volume:

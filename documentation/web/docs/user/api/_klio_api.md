@@ -163,8 +163,8 @@ _Appears in:_
 | `tier1` _[Tier1PluginConfiguration](#tier1pluginconfiguration)_ | Tier1 is the Tier 1 configuration |  |  | Optional: \{\} <br /> |
 | `tier2` _[Tier2PluginConfiguration](#tier2pluginconfiguration)_ | Tier2 is the Tier 2 configuration |  |  | Optional: \{\} <br /> |
 | `walPrefetch` _[WALPrefetchConfiguration](#walprefetchconfiguration)_ | WALPrefetch configures WAL prefetching behavior during recovery operations. |  |  | Optional: \{\} <br /> |
-| `clientIdentity` _[TLSIdentity](#tlsidentity)_ | ClientIdentity is the TLS identity the PostgreSQL instances<br />present to the Klio server: the client certificate and its<br />matching private key. Both files come from a single volume<br />so the pair always belongs together: CSI drivers that mint<br />an identity per mount and atomic rotation during Secret<br />updates only work this way. A cert-manager Certificate<br />secret exposes them as `tls.crt` and `tls.key`. | True |  | Required: \{\} <br /> |
-| `serverCa` _[FileSource](#filesource)_ | ServerCA is the CA bundle used to verify the Klio server.<br />It is mounted into PostgreSQL instance pods and used for both<br />base backups (Kopia, via --server-cert-ca-file) and WAL streaming<br />(gRPC).<br />The referenced file must contain the PEM-encoded CA certificate(s),<br />e.g. key `ca.crt` of a cert-manager TLS secret, a trust-manager<br />`ConfigMap` bundle, or a CSI volume (OpenBao / Secrets Store CSI).<br />It must never contain a private key. | True |  | ExactlyOneOf: [fileReference] <br />Required: \{\} <br /> |
+| `clientIdentity` _[TLSIdentity](#tlsidentity)_ | ClientIdentity is the TLS identity the PostgreSQL instances<br />present to the Klio server: the client certificate and its<br />matching private key. | True |  | Required: \{\} <br /> |
+| `serverCa` _[FileSource](#filesource)_ | ServerCA is the CA bundle used to verify the Klio server.<br />It is mounted into PostgreSQL instance pods and used for both<br />base backups (Kopia, via --server-cert-ca-file) and WAL streaming<br />(gRPC).<br />The referenced file must contain the PEM-encoded CA certificate(s). | True |  | ExactlyOneOf: [fileReference] <br />Required: \{\} <br /> |
 | `clusterName` _string_ | ClusterName is the name of the PostgreSQL cluster we are connecting to | True |  | MinLength: 1 <br />Required: \{\} <br /> |
 | `pprof` _boolean_ | Pprof enables the pprof endpoint for performance profiling |  |  | Optional: \{\} <br /> |
 | `mode` _[ServerMode](#servermode)_ | Mode selects the operation mode of the plugin. | True | standard | Enum: [standard read-only] <br /> |
@@ -302,8 +302,8 @@ _Appears in:_
 | `image` _string_ | Image is the image to be used for the Klio server | True |  |  |
 | `imagePullPolicy` _[PullPolicy](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.37/#pullpolicy-v1-core)_ | ImagePullPolicy defines the policy for pulling the image |  | IfNotPresent | Optional: \{\} <br /> |
 | `imagePullSecrets` _[LocalObjectReference](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.37/#localobjectreference-v1-core) array_ | ImagePullSecrets is an optional list of references to secrets in the same namespace to use for pulling any of the<br />images |  |  | Optional: \{\} <br /> |
-| `serverIdentity` _[TLSIdentity](#tlsidentity)_ | ServerIdentity is the TLS identity presented to clients: the<br />server certificate and its matching private key. Both files<br />come from a single volume so the pair always belongs<br />together: CSI drivers that mint an identity per mount and<br />atomic rotation during Secret updates only work this way.<br />A cert-manager TLS secret exposes them as `tls.crt` and<br />`tls.key`. | True |  | Required: \{\} <br /> |
-| `clientCa` _[FileSource](#filesource)_ | ClientCA is the CA bundle used to verify client certificates.<br />It must contain the PEM-encoded CA certificate(s), e.g. key<br />`tls.crt` of a cert-manager CA secret, a trust-manager<br />`ConfigMap` bundle, or a CSI volume. It must never contain a<br />private key. | True |  | ExactlyOneOf: [fileReference] <br />Required: \{\} <br /> |
+| `serverIdentity` _[TLSIdentity](#tlsidentity)_ | ServerIdentity is the TLS identity presented to clients: the<br />server certificate and its matching private key. | True |  | Required: \{\} <br /> |
+| `clientCa` _[FileSource](#filesource)_ | ClientCA is the CA bundle used to verify client certificates.<br />It must contain the PEM-encoded CA certificate(s). | True |  | ExactlyOneOf: [fileReference] <br />Required: \{\} <br /> |
 | `mode` _[ServerMode](#servermode)_ | Mode selects the operation mode of the server. | True | standard | Enum: [standard read-only] <br /> |
 | `tier1` _[Tier1Configuration](#tier1configuration)_ | Tier1 is the Tier 1 configuration | True |  |  |
 | `tier2` _[Tier2Configuration](#tier2configuration)_ | Tier2 is the Tier 2 configuration | True |  |  |
@@ -355,8 +355,8 @@ _Appears in:_
 
 | Field | Description | Required | Default | Validation |
 | --- | --- | --- | --- | --- |
-| `serverIdentity` _[TLSIdentity](#tlsidentity)_ | ServerIdentity is the TLS identity presented to clients: the<br />server certificate and its matching private key. Both files<br />come from a single volume so the pair always belongs<br />together: CSI drivers that mint an identity per mount and<br />atomic rotation during Secret updates only work this way.<br />A cert-manager TLS secret exposes them as `tls.crt` and<br />`tls.key`. | True |  | Required: \{\} <br /> |
-| `clientCa` _[FileSource](#filesource)_ | ClientCA is the CA bundle used to verify client certificates.<br />It must contain the PEM-encoded CA certificate(s), e.g. key<br />`tls.crt` of a cert-manager CA secret, a trust-manager<br />`ConfigMap` bundle, or a CSI volume. It must never contain a<br />private key. | True |  | ExactlyOneOf: [fileReference] <br />Required: \{\} <br /> |
+| `serverIdentity` _[TLSIdentity](#tlsidentity)_ | ServerIdentity is the TLS identity presented to clients: the<br />server certificate and its matching private key. | True |  | Required: \{\} <br /> |
+| `clientCa` _[FileSource](#filesource)_ | ClientCA is the CA bundle used to verify client certificates.<br />It must contain the PEM-encoded CA certificate(s). | True |  | ExactlyOneOf: [fileReference] <br />Required: \{\} <br /> |
 
 
 #### TLSIdentity
@@ -365,9 +365,7 @@ _Appears in:_
 
 TLSIdentity is a TLS identity: a certificate and its matching
 private key served from a single volume, so the pair always
-belongs together. Splitting them across volumes risks serving a
-mismatched pair, whether from CSI drivers that mint an identity
-per mount or from independent volume updates during rotation.
+belongs together.
 
 
 
@@ -379,8 +377,8 @@ _Appears in:_
 | Field | Description | Required | Default | Validation |
 | --- | --- | --- | --- | --- |
 | `volume` _[VolumeSource](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.37/#volumesource-v1-core)_ | Volume is the volume source holding both files. | True |  |  |
-| `certPath` _string_ | CertPath is the certificate file path within the volume,<br />e.g. `tls.crt` of a cert-manager TLS secret. | True |  | MinLength: 1 <br />Required: \{\} <br /> |
-| `keyPath` _string_ | KeyPath is the private key file path within the volume,<br />e.g. `tls.key` of a cert-manager TLS secret. | True |  | MinLength: 1 <br />Required: \{\} <br /> |
+| `certPath` _string_ | CertPath is the certificate file path within the volume. | True |  | MinLength: 1 <br />Required: \{\} <br /> |
+| `keyPath` _string_ | KeyPath is the private key file path within the volume. | True |  | MinLength: 1 <br />Required: \{\} <br /> |
 
 
 #### Tier1Configuration

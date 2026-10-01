@@ -102,10 +102,7 @@ type RefreshServerOptions struct {
 	// ServerControlPassword is the password for server control authentication.
 	ServerControlPassword string
 
-	// ServerCertFingerprint is the lowercase hex SHA256 fingerprint of
-	// the DER bytes of the served leaf certificate. It is computed
-	// fresh from the serving certificate file on every refresh, so
-	// rotated certificates are tracked without restart.
+	// ServerCertFingerprint is the SHA256 fingerprint of the server's certificate.
 	ServerCertFingerprint string
 
 	// Address is the address of the Kopia server to refresh.

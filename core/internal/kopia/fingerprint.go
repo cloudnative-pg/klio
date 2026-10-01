@@ -35,8 +35,7 @@ var ErrNoCertificateFound = errors.New("no certificate found in file")
 
 // LeafFingerprint computes the lowercase hex SHA256 fingerprint of the
 // first certificate in a PEM file, matching the format Kopia expects
-// for server certificate pinning. It reads the file fresh on every
-// call, so rotated certificates are picked up without restart.
+// for server certificate pinning.
 func LeafFingerprint(certPath string) (string, error) {
 	pemBytes, err := os.ReadFile(certPath) //nolint:gosec
 	if err != nil {

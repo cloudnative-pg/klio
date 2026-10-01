@@ -130,20 +130,12 @@ type ImageConfiguration struct {
 // the PKI infrastructure of the Klio server.
 type TLSConfiguration struct {
 	// ServerIdentity is the TLS identity presented to clients: the
-	// server certificate and its matching private key. Both files
-	// come from a single volume so the pair always belongs
-	// together: CSI drivers that mint an identity per mount and
-	// atomic rotation during Secret updates only work this way.
-	// A cert-manager TLS secret exposes them as `tls.crt` and
-	// `tls.key`.
+	// server certificate and its matching private key.
 	// +kubebuilder:validation:Required
 	ServerIdentity TLSIdentity `json:"serverIdentity"`
 
 	// ClientCA is the CA bundle used to verify client certificates.
-	// It must contain the PEM-encoded CA certificate(s), e.g. key
-	// `tls.crt` of a cert-manager CA secret, a trust-manager
-	// `ConfigMap` bundle, or a CSI volume. It must never contain a
-	// private key.
+	// It must contain the PEM-encoded CA certificate(s).
 	// +kubebuilder:validation:Required
 	ClientCA FileSource `json:"clientCa"`
 }
@@ -176,21 +168,17 @@ type FileSource struct {
 
 // TLSIdentity is a TLS identity: a certificate and its matching
 // private key served from a single volume, so the pair always
-// belongs together. Splitting them across volumes risks serving a
-// mismatched pair, whether from CSI drivers that mint an identity
-// per mount or from independent volume updates during rotation.
+// belongs together.
 type TLSIdentity struct {
 	// Volume is the volume source holding both files.
 	Volume corev1.VolumeSource `json:"volume"`
 
-	// CertPath is the certificate file path within the volume,
-	// e.g. `tls.crt` of a cert-manager TLS secret.
+	// CertPath is the certificate file path within the volume.
 	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:MinLength=1
 	CertPath string `json:"certPath"`
 
-	// KeyPath is the private key file path within the volume,
-	// e.g. `tls.key` of a cert-manager TLS secret.
+	// KeyPath is the private key file path within the volume.
 	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:MinLength=1
 	KeyPath string `json:"keyPath"`

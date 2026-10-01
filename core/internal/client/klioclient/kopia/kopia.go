@@ -173,11 +173,9 @@ func connectToKopiaServer(
 			CacheDirectory:     cacheDirectory,
 			ReadOnly:           readOnly,
 		},
-		URL:            kopiaURL,
-		ClientCertPath: clientConfig.Base.ClientCertPath,
-		ClientKeyPath:  clientConfig.Base.ClientKeyPath,
-		// The plugin verifies the Kopia server through the CA bundle.
-		// It never sees the server's leaf certificate or private key.
+		URL:              kopiaURL,
+		ClientCertPath:   clientConfig.Base.ClientCertPath,
+		ClientKeyPath:    clientConfig.Base.ClientKeyPath,
 		ServerCertCAFile: clientConfig.Base.ServerCertPath,
 		Username:         userName,
 		Hostname:         certHostName,

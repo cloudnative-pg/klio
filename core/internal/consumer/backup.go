@@ -76,9 +76,7 @@ type BackupOptions struct {
 	Tier1ServerAddress string
 
 	// ServerTLSCertFile is the path to the PEM file with the serving
-	// certificate shared by the tier 1 and tier 2 Kopia servers. Its
-	// fingerprint is computed fresh on every server refresh, so
-	// rotated certificates are tracked without restart.
+	// certificate shared by the tier 1 and tier 2 Kopia servers.
 	ServerTLSCertFile string
 
 	// A config file to connect to tier 2
