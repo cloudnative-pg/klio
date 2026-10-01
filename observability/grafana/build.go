@@ -22,6 +22,7 @@ package main
 import (
 	"github.com/grafana/grafana-foundation-sdk/go/cog"
 	"github.com/grafana/grafana-foundation-sdk/go/dashboard"
+	"github.com/grafana/grafana-foundation-sdk/go/text"
 )
 
 const (
@@ -30,6 +31,9 @@ const (
 	dashboardUID = "klio"
 	// dashboardTitle is the title shown in Grafana.
 	dashboardTitle = "Klio"
+	// descriptionPanelHeight is the grid height (in rows) of the text panel
+	// that explains each row section.
+	descriptionPanelHeight = 2
 )
 
 // build assembles the full dashboard: the data source variable, then each
@@ -74,21 +78,40 @@ func build() *dashboard.DashboardBuilder {
 		)
 
 	y := 0
-	layoutSection(builder, &y, "Client / Plugin", clientPanels())
-	layoutSection(builder, &y, "Server", serverPanels())
-	layoutSection(builder, &y, "WAL replication lag", replicationPanels())
+	layoutSection(builder, &y, "Client / Plugin",
+		"Backup lifecycle and WAL streaming as seen by the plugin sidecar running in each PostgreSQL pod.",
+		clientPanels())
+	layoutSection(builder, &y, "Server",
+		"State of the Klio server: WAL ingest, retained backups and snapshots, and the internal queue.",
+		serverPanels())
+	layoutSection(builder, &y, "WAL replication lag",
+		"How far the WAL stored in tier 1 and tier 2 trails behind the PostgreSQL primary.",
+		replicationPanels())
 
 	return builder
 }
 
-// layoutSection adds a row header at the current y offset, then packs the
-// panels into a dense grid: each grid row is filled to the full 24-column width
-// (slack is distributed across the row's panels) so there are no empty gaps
-// between panels. y is advanced past the section.
-func layoutSection(builder *dashboard.DashboardBuilder, y *int, title string, panels []sizedPanel) {
+// layoutSection adds a row header at the current y offset, followed by a
+// full-width text panel with the given description (a Grafana row has no
+// description field of its own), then packs the panels into a dense grid:
+// each grid row is filled to the full 24-column width (slack is distributed
+// across the row's panels) so there are no empty gaps between panels. y is
+// advanced past the section.
+func layoutSection(
+	builder *dashboard.DashboardBuilder, y *int, title, description string, panels []sizedPanel,
+) {
 	builder.WithRow(dashboard.NewRowBuilder(title).
 		GridPos(dashboard.GridPos{X: 0, Y: uint32(*y), W: 24, H: 1})) //nolint:gosec // small positive ints
 	*y++
+
+	builder.WithPanel(text.NewPanelBuilder().
+		Transparent(true).
+		Mode(text.TextModeMarkdown).
+		Content(description).
+		GridPos(dashboard.GridPos{
+			X: 0, Y: uint32(*y), W: 24, H: descriptionPanelHeight, //nolint:gosec // small positive ints
+		}))
+	*y += descriptionPanelHeight
 
 	for i := 0; i < len(panels); {
 		// Greedily gather panels until the row would overflow 24 columns.
