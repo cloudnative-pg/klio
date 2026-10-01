@@ -48,22 +48,22 @@ func clientPanels() []sizedPanel {
 			Orientation(common.VizOrientationHorizontal).
 			Description("Base backups currently running, per cluster.")),
 
-		sized(mediumPanelWidth, mediumPanelHeight, statPanel("Successful backups", units.Number,
+		sized(mediumPanelWidth, mediumPanelHeight, statPanel("Successful backup runs", units.Number,
 			query(fmt.Sprintf("sum by (cluster_name) (increase(klio_plugin_backup_runs_total{outcome=\"success\",%s}"+
 				"[$__range]))", clientMatcher), "{{cluster_name}}"),
 		).Decimals(0).
 			Orientation(common.VizOrientationHorizontal).
-			Description("Base backups completed successfully by the running clients sidecars, per cluster,"+
+			Description("Base backups completed successfully by the running clients sidecars, per cluster, "+
 				"over the selected time range.")),
 
-		sized(mediumPanelWidth, mediumPanelHeight, statPanel("Failed backups", units.Number,
+		sized(mediumPanelWidth, mediumPanelHeight, statPanel("Failed backup runs", units.Number,
 			query(fmt.Sprintf("sum by (cluster_name) (increase(klio_plugin_backup_runs_total{outcome=\"failure\",%s}"+
 				"[$__range]))", clientMatcher), "{{cluster_name}}"),
 		).Decimals(0).
 			Orientation(common.VizOrientationHorizontal).
 			Description("Base backups that failed on the running clients sidecars, per cluster, over the selected time range.")),
 
-		sized(mediumPanelWidth, mediumPanelHeight, statPanel("Backup success ratio", units.PercentUnit,
+		sized(mediumPanelWidth, mediumPanelHeight, statPanel("Backup run success ratio", units.PercentUnit,
 			query(
 				fmt.Sprintf("sum by (cluster_name) (increase(klio_plugin_backup_runs_total{outcome=\"success\",%s}"+
 					"[$__range])) / clamp_min(sum by (cluster_name) (increase(klio_plugin_backup_runs_total{%s}"+
@@ -74,7 +74,7 @@ func clientPanels() []sizedPanel {
 			Description("Fraction of base backup runs that succeeded over the selected time range "+
 				"(successful runs / total runs), per cluster.")),
 
-		sized(mediumPanelWidth, mediumPanelHeight, timelinePanel("Timeline",
+		sized(mediumPanelWidth, mediumPanelHeight, timelinePanel("WAL streaming timeline",
 			query(fmt.Sprintf("max by (cluster_name) (klio_client_wal_timeline{%s})", clientMatcher),
 				"{{cluster_name}}"),
 		).Description("PostgreSQL timeline of the WAL streaming client.")),
@@ -110,13 +110,13 @@ func clientPanels() []sizedPanel {
 				Description("Elapsed time since the most recent base backup started, per cluster. Compare against the "+
 					"latest duration to tell whether a backup is still running or overdue.")),
 
-		sized(largestPanelWidth, largePanelHeight, timeseriesPanel("Backup runs", units.Number,
+		sized(largestPanelWidth, largePanelHeight, timeseriesPanel("Backup runs by outcome", units.Number,
 			query(fmt.Sprintf(
 				"round(sum by(cluster_name, outcome) (increase(klio_plugin_backup_runs_total{%s}[$__range])), 1)",
 				clientMatcher), "{{cluster_name}} / {{outcome}}"),
 		).Description("Base backup runs, grouped by cluster and outcome (success or failure).")),
 
-		sized(largestPanelWidth, largePanelHeight, timeseriesPanel("Backup failures", units.Number,
+		sized(largestPanelWidth, largePanelHeight, timeseriesPanel("Failed backup runs by reason", units.Number,
 			query(fmt.Sprintf(
 				"round(sum by (cluster_name, failure_category) "+
 					"(increase(klio_plugin_backup_runs_total{outcome=\"failure\",%s}[$__range])), 1)", clientMatcher),

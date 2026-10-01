@@ -103,8 +103,8 @@
           "range": true
         }
       ],
-      "title": "Successful backups",
-      "description": "Base backups completed successfully by the running clients sidecars, per cluster,over the selected time range.",
+      "title": "Successful backup runs",
+      "description": "Base backups completed successfully by the running clients sidecars, per cluster, over the selected time range.",
       "transparent": false,
       "datasource": {
         "type": "prometheus",
@@ -161,7 +161,7 @@
           "range": true
         }
       ],
-      "title": "Failed backups",
+      "title": "Failed backup runs",
       "description": "Base backups that failed on the running clients sidecars, per cluster, over the selected time range.",
       "transparent": false,
       "datasource": {
@@ -219,7 +219,7 @@
           "range": true
         }
       ],
-      "title": "Backup success ratio",
+      "title": "Backup run success ratio",
       "description": "Fraction of base backup runs that succeeded over the selected time range (successful runs / total runs), per cluster.",
       "transparent": false,
       "datasource": {
@@ -276,7 +276,7 @@
           "range": true
         }
       ],
-      "title": "Timeline",
+      "title": "WAL streaming timeline",
       "description": "PostgreSQL timeline of the WAL streaming client.",
       "transparent": false,
       "datasource": {
@@ -558,7 +558,7 @@
           "range": true
         }
       ],
-      "title": "Backup runs",
+      "title": "Backup runs by outcome",
       "description": "Base backup runs, grouped by cluster and outcome (success or failure).",
       "transparent": false,
       "datasource": {
@@ -609,7 +609,7 @@
           "range": true
         }
       ],
-      "title": "Backup failures",
+      "title": "Failed backup runs by reason",
       "description": "Failed base backup runs, grouped by cluster and failure reason.",
       "transparent": false,
       "datasource": {
@@ -943,7 +943,7 @@
           "range": true
         }
       ],
-      "title": "Timeline",
+      "title": "WAL timeline",
       "description": "PostgreSQL timeline of the latest WAL written per cluster and tier",
       "transparent": false,
       "datasource": {
@@ -997,7 +997,7 @@
           "range": true
         }
       ],
-      "title": "Backups",
+      "title": "Retained backups",
       "description": "Number of PostgreSQL backups currently retained per cluster and tier.",
       "transparent": false,
       "datasource": {
@@ -1170,7 +1170,7 @@
         }
       ],
       "title": "Latest backup timeline",
-      "description": "PostgreSQL timeline of the latest retained backup, per cluster and tier.",
+      "description": "PostgreSQL timeline of the latest retained backup, per cluster and tier. Differing from the oldest timeline means the retention window spans a promotion or failover.",
       "transparent": false,
       "datasource": {
         "type": "prometheus",
@@ -1650,7 +1650,7 @@
           "range": true
         }
       ],
-      "title": "Snapshots count",
+      "title": "Retained snapshots",
       "description": "Total kopia snapshots currently retained per cluster and tier.",
       "transparent": false,
       "datasource": {
@@ -1995,7 +1995,7 @@
           "range": true
         }
       ],
-      "title": "WAL files written rate",
+      "title": "WAL files written (rate)",
       "description": "Rate of WAL files written by the server, split by cluster and storage tier.",
       "transparent": false,
       "datasource": {
@@ -2097,7 +2097,7 @@
           "range": true
         }
       ],
-      "title": "WAL bytes written rate",
+      "title": "WAL bytes written (rate)",
       "description": "Rate of WAL bytes written by the server, split by cluster and storage tier.",
       "transparent": false,
       "datasource": {
@@ -2749,7 +2749,7 @@
           "range": true
         }
       ],
-      "title": "Tier-2 backup relay",
+      "title": "Tier-2 backup relay attempts",
       "description": "Total tier-2 relay attempts since the server last restarted, per cluster and outcome.",
       "transparent": false,
       "datasource": {
@@ -2800,7 +2800,7 @@
           "range": true
         }
       ],
-      "title": "Backup verifications",
+      "title": "Backup verification runs",
       "description": "Total base backup verification checks since the server last restarted, per cluster, broken down by outcome and tier.",
       "transparent": false,
       "datasource": {
@@ -2902,7 +2902,7 @@
           "range": true
         }
       ],
-      "title": "Queue messages",
+      "title": "Queue size (messages)",
       "description": "Messages currently held in each NATS JetStream stream of the embedded queue, per server.",
       "transparent": false,
       "datasource": {
@@ -2953,7 +2953,7 @@
           "range": true
         }
       ],
-      "title": "Queue bytes",
+      "title": "Queue size (bytes)",
       "description": "Bytes currently held in each NATS JetStream stream of the embedded queue, per server.",
       "transparent": false,
       "datasource": {
@@ -2993,7 +2993,7 @@
     {
       "type": "row",
       "collapsed": false,
-      "title": "WAL Replication Lag",
+      "title": "WAL replication lag",
       "gridPos": {
         "h": 1,
         "w": 24,
@@ -3027,7 +3027,7 @@
           "range": true
         }
       ],
-      "title": "Tier-1 Replication lag (Bytes)",
+      "title": "Tier-1 replication lag (bytes)",
       "description": "Byte distance between the primary's current WAL LSN and the LSN Klio's streaming client has written to disk and flushed.",
       "transparent": false,
       "datasource": {
@@ -3088,7 +3088,7 @@
           "range": true
         }
       ],
-      "title": "Tier-1 Replication lag (Seconds)",
+      "title": "Tier-1 replication lag (seconds)",
       "description": "Time between a commit on the primary and Klio's streaming client writing to disk and flushing the corresponding WAL.",
       "transparent": false,
       "datasource": {
@@ -3139,7 +3139,7 @@
           "range": true
         }
       ],
-      "title": "Tier-2 archival lag (Bytes)",
+      "title": "Tier-2 archival lag (bytes)",
       "description": "Bytes difference between the WALs in tier 1 and tier 2 per cluster. ",
       "transparent": false,
       "datasource": {

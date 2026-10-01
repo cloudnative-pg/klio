@@ -76,7 +76,7 @@ func build() *dashboard.DashboardBuilder {
 	y := 0
 	layoutSection(builder, &y, "Client / Plugin", clientPanels())
 	layoutSection(builder, &y, "Server", serverPanels())
-	layoutSection(builder, &y, "WAL Replication Lag", replicationPanels())
+	layoutSection(builder, &y, "WAL replication lag", replicationPanels())
 
 	return builder
 }
