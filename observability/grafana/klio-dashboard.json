@@ -54,124 +54,8 @@
       },
       "gridPos": {
         "h": 6,
-        "w": 8,
+        "w": 10,
         "x": 0,
-        "y": 1
-      },
-      "repeatDirection": "h",
-      "options": {
-        "graphMode": "none",
-        "colorMode": "value",
-        "justifyMode": "auto",
-        "textMode": "auto",
-        "wideLayout": true,
-        "showPercentChange": false,
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ]
-        },
-        "text": {
-          "titleSize": 14,
-          "valueSize": 28
-        },
-        "percentChangeColorMode": "standard",
-        "orientation": "horizontal"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "unit": "none",
-          "decimals": 0,
-          "color": {
-            "mode": "palette-classic"
-          }
-        },
-        "overrides": []
-      }
-    },
-    {
-      "type": "stat",
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "${datasource}"
-          },
-          "expr": "sum by (cluster_name) (klio_plugin_backup_runs_total{outcome=\"success\",k8s_namespace_name=~\"$namespace\",cluster_name=~\"$cluster\"})",
-          "instant": false,
-          "legendFormat": "{{cluster_name}}",
-          "range": true
-        }
-      ],
-      "title": "Successful backups (total)",
-      "description": "Base backups completed successfully by the running clients sidecars, per cluster.",
-      "transparent": false,
-      "datasource": {
-        "type": "prometheus",
-        "uid": "${datasource}"
-      },
-      "gridPos": {
-        "h": 6,
-        "w": 8,
-        "x": 8,
-        "y": 1
-      },
-      "repeatDirection": "h",
-      "options": {
-        "graphMode": "none",
-        "colorMode": "value",
-        "justifyMode": "auto",
-        "textMode": "auto",
-        "wideLayout": true,
-        "showPercentChange": false,
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ]
-        },
-        "text": {
-          "titleSize": 14,
-          "valueSize": 28
-        },
-        "percentChangeColorMode": "standard",
-        "orientation": "horizontal"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "unit": "none",
-          "decimals": 0,
-          "color": {
-            "mode": "palette-classic"
-          }
-        },
-        "overrides": []
-      }
-    },
-    {
-      "type": "stat",
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "${datasource}"
-          },
-          "expr": "sum by (cluster_name) (klio_plugin_backup_runs_total{outcome=\"failure\",k8s_namespace_name=~\"$namespace\",cluster_name=~\"$cluster\"})",
-          "instant": false,
-          "legendFormat": "{{cluster_name}}",
-          "range": true
-        }
-      ],
-      "title": "Failed backups (total)",
-      "description": "Base backups that failed on the running clients sidecars, per cluster.",
-      "transparent": false,
-      "datasource": {
-        "type": "prometheus",
-        "uid": "${datasource}"
-      },
-      "gridPos": {
-        "h": 6,
-        "w": 8,
-        "x": 16,
         "y": 1
       },
       "repeatDirection": "h",
@@ -219,7 +103,7 @@
           "range": true
         }
       ],
-      "title": "Successful backups (time range)",
+      "title": "Successful backups",
       "description": "Base backups completed successfully by the running clients sidecars, per cluster,over the selected time range.",
       "transparent": false,
       "datasource": {
@@ -228,9 +112,9 @@
       },
       "gridPos": {
         "h": 6,
-        "w": 6,
-        "x": 0,
-        "y": 7
+        "w": 7,
+        "x": 10,
+        "y": 1
       },
       "repeatDirection": "h",
       "options": {
@@ -277,7 +161,7 @@
           "range": true
         }
       ],
-      "title": "Failed backups (time range)",
+      "title": "Failed backups",
       "description": "Base backups that failed on the running clients sidecars, per cluster, over the selected time range.",
       "transparent": false,
       "datasource": {
@@ -286,9 +170,9 @@
       },
       "gridPos": {
         "h": 6,
-        "w": 6,
-        "x": 6,
-        "y": 7
+        "w": 7,
+        "x": 17,
+        "y": 1
       },
       "repeatDirection": "h",
       "options": {
@@ -335,7 +219,7 @@
           "range": true
         }
       ],
-      "title": "Backup success ratio (time range)",
+      "title": "Backup success ratio",
       "description": "Fraction of base backup runs that succeeded over the selected time range (successful runs / total runs), per cluster.",
       "transparent": false,
       "datasource": {
@@ -345,7 +229,7 @@
       "gridPos": {
         "h": 6,
         "w": 6,
-        "x": 12,
+        "x": 0,
         "y": 7
       },
       "repeatDirection": "h",
@@ -402,7 +286,7 @@
       "gridPos": {
         "h": 6,
         "w": 6,
-        "x": 18,
+        "x": 6,
         "y": 7
       },
       "repeatDirection": "h",
@@ -456,8 +340,8 @@
       "gridPos": {
         "h": 6,
         "w": 6,
-        "x": 0,
-        "y": 13
+        "x": 12,
+        "y": 7
       },
       "repeatDirection": "h",
       "options": {
@@ -513,8 +397,8 @@
       "gridPos": {
         "h": 6,
         "w": 6,
-        "x": 6,
-        "y": 13
+        "x": 18,
+        "y": 7
       },
       "repeatDirection": "h",
       "options": {
@@ -568,9 +452,9 @@
         "uid": "${datasource}"
       },
       "gridPos": {
-        "h": 6,
+        "h": 8,
         "w": 6,
-        "x": 12,
+        "x": 0,
         "y": 13
       },
       "repeatDirection": "h",
@@ -625,9 +509,9 @@
         "uid": "${datasource}"
       },
       "gridPos": {
-        "h": 6,
+        "h": 8,
         "w": 6,
-        "x": 18,
+        "x": 6,
         "y": 13
       },
       "repeatDirection": "h",
@@ -668,64 +552,13 @@
             "type": "prometheus",
             "uid": "${datasource}"
           },
-          "expr": "sum by (cluster_name, outcome) (klio_plugin_backup_runs_total{k8s_namespace_name=~\"$namespace\",cluster_name=~\"$cluster\"})",
-          "instant": false,
-          "legendFormat": "{{cluster_name}} / {{outcome}}",
-          "range": true
-        }
-      ],
-      "title": "Backup runs (total)",
-      "description": "Base backup runs, grouped by cluster and outcome (success or failure).",
-      "transparent": false,
-      "datasource": {
-        "type": "prometheus",
-        "uid": "${datasource}"
-      },
-      "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 0,
-        "y": 19
-      },
-      "repeatDirection": "h",
-      "options": {
-        "legend": {
-          "displayMode": "list",
-          "placement": "bottom",
-          "showLegend": true,
-          "calcs": []
-        },
-        "tooltip": {
-          "mode": "",
-          "sort": ""
-        }
-      },
-      "fieldConfig": {
-        "defaults": {
-          "unit": "none",
-          "custom": {
-            "gradientMode": "opacity",
-            "fillOpacity": 10
-          }
-        },
-        "overrides": []
-      }
-    },
-    {
-      "type": "timeseries",
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "${datasource}"
-          },
           "expr": "round(sum by(cluster_name, outcome) (increase(klio_plugin_backup_runs_total{k8s_namespace_name=~\"$namespace\",cluster_name=~\"$cluster\"}[$__range])), 1)",
           "instant": false,
           "legendFormat": "{{cluster_name}} / {{outcome}}",
           "range": true
         }
       ],
-      "title": "Backup runs (range)",
+      "title": "Backup runs",
       "description": "Base backup runs, grouped by cluster and outcome (success or failure).",
       "transparent": false,
       "datasource": {
@@ -736,58 +569,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 19
-      },
-      "repeatDirection": "h",
-      "options": {
-        "legend": {
-          "displayMode": "list",
-          "placement": "bottom",
-          "showLegend": true,
-          "calcs": []
-        },
-        "tooltip": {
-          "mode": "",
-          "sort": ""
-        }
-      },
-      "fieldConfig": {
-        "defaults": {
-          "unit": "none",
-          "custom": {
-            "gradientMode": "opacity",
-            "fillOpacity": 10
-          }
-        },
-        "overrides": []
-      }
-    },
-    {
-      "type": "timeseries",
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "${datasource}"
-          },
-          "expr": "sum by (cluster_name, failure_category) (klio_plugin_backup_runs_total{outcome=\"failure\",k8s_namespace_name=~\"$namespace\",cluster_name=~\"$cluster\"})",
-          "instant": false,
-          "legendFormat": "{{cluster_name}} / {{failure_category}}",
-          "range": true
-        }
-      ],
-      "title": "Backup failures (total)",
-      "description": "Failed base backup runs, grouped by cluster and failure reason.",
-      "transparent": false,
-      "datasource": {
-        "type": "prometheus",
-        "uid": "${datasource}"
-      },
-      "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 0,
-        "y": 27
+        "y": 13
       },
       "repeatDirection": "h",
       "options": {
@@ -827,7 +609,7 @@
           "range": true
         }
       ],
-      "title": "Backup failures (range)",
+      "title": "Backup failures",
       "description": "Failed base backup runs, grouped by cluster and failure reason.",
       "transparent": false,
       "datasource": {
@@ -837,8 +619,8 @@
       "gridPos": {
         "h": 8,
         "w": 12,
-        "x": 12,
-        "y": 27
+        "x": 0,
+        "y": 21
       },
       "repeatDirection": "h",
       "options": {
@@ -908,8 +690,8 @@
       "gridPos": {
         "h": 8,
         "w": 12,
-        "x": 0,
-        "y": 35
+        "x": 12,
+        "y": 21
       },
       "repeatDirection": "h",
       "options": {
@@ -979,8 +761,8 @@
       "gridPos": {
         "h": 8,
         "w": 12,
-        "x": 12,
-        "y": 35
+        "x": 0,
+        "y": 29
       },
       "repeatDirection": "h",
       "options": {
@@ -1049,9 +831,9 @@
       },
       "gridPos": {
         "h": 8,
-        "w": 24,
-        "x": 0,
-        "y": 43
+        "w": 12,
+        "x": 12,
+        "y": 29
       },
       "repeatDirection": "h",
       "options": {
@@ -1085,7 +867,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 51
+        "y": 37
       },
       "id": 0,
       "panels": []
@@ -1115,7 +897,7 @@
         "h": 6,
         "w": 8,
         "x": 0,
-        "y": 52
+        "y": 38
       },
       "repeatDirection": "h",
       "options": {
@@ -1172,7 +954,7 @@
         "h": 6,
         "w": 8,
         "x": 8,
-        "y": 52
+        "y": 38
       },
       "repeatDirection": "h",
       "options": {
@@ -1226,7 +1008,7 @@
         "h": 6,
         "w": 8,
         "x": 16,
-        "y": 52
+        "y": 38
       },
       "repeatDirection": "h",
       "options": {
@@ -1284,7 +1066,7 @@
         "h": 6,
         "w": 8,
         "x": 0,
-        "y": 58
+        "y": 44
       },
       "repeatDirection": "h",
       "options": {
@@ -1341,7 +1123,7 @@
         "h": 6,
         "w": 8,
         "x": 8,
-        "y": 58
+        "y": 44
       },
       "repeatDirection": "h",
       "options": {
@@ -1398,7 +1180,7 @@
         "h": 6,
         "w": 8,
         "x": 16,
-        "y": 58
+        "y": 44
       },
       "repeatDirection": "h",
       "options": {
@@ -1456,7 +1238,7 @@
         "h": 6,
         "w": 8,
         "x": 0,
-        "y": 64
+        "y": 50
       },
       "repeatDirection": "h",
       "options": {
@@ -1513,7 +1295,7 @@
         "h": 6,
         "w": 8,
         "x": 8,
-        "y": 64
+        "y": 50
       },
       "repeatDirection": "h",
       "options": {
@@ -1570,7 +1352,7 @@
         "h": 6,
         "w": 8,
         "x": 16,
-        "y": 64
+        "y": 50
       },
       "repeatDirection": "h",
       "options": {
@@ -1676,7 +1458,7 @@
         "h": 6,
         "w": 12,
         "x": 0,
-        "y": 70
+        "y": 56
       },
       "repeatDirection": "h",
       "options": {
@@ -1773,7 +1555,7 @@
         "h": 6,
         "w": 12,
         "x": 12,
-        "y": 70
+        "y": 56
       },
       "repeatDirection": "h",
       "options": {
@@ -1822,7 +1604,7 @@
         "h": 6,
         "w": 4,
         "x": 0,
-        "y": 76
+        "y": 62
       },
       "repeatDirection": "h",
       "options": {
@@ -1880,7 +1662,7 @@
         "h": 6,
         "w": 4,
         "x": 4,
-        "y": 76
+        "y": 62
       },
       "repeatDirection": "h",
       "options": {
@@ -1937,7 +1719,7 @@
         "h": 6,
         "w": 4,
         "x": 8,
-        "y": 76
+        "y": 62
       },
       "repeatDirection": "h",
       "options": {
@@ -1995,7 +1777,7 @@
         "h": 6,
         "w": 4,
         "x": 12,
-        "y": 76
+        "y": 62
       },
       "repeatDirection": "h",
       "options": {
@@ -2053,7 +1835,7 @@
         "h": 6,
         "w": 4,
         "x": 16,
-        "y": 76
+        "y": 62
       },
       "repeatDirection": "h",
       "options": {
@@ -2110,7 +1892,7 @@
         "h": 6,
         "w": 4,
         "x": 20,
-        "y": 76
+        "y": 62
       },
       "repeatDirection": "h",
       "options": {
@@ -2167,7 +1949,7 @@
         "h": 6,
         "w": 12,
         "x": 0,
-        "y": 82
+        "y": 68
       },
       "repeatDirection": "h",
       "options": {
@@ -2218,7 +2000,7 @@
         "h": 6,
         "w": 12,
         "x": 12,
-        "y": 82
+        "y": 68
       },
       "repeatDirection": "h",
       "options": {
@@ -2269,7 +2051,7 @@
         "h": 6,
         "w": 12,
         "x": 0,
-        "y": 88
+        "y": 74
       },
       "repeatDirection": "h",
       "options": {
@@ -2320,7 +2102,7 @@
         "h": 6,
         "w": 12,
         "x": 12,
-        "y": 88
+        "y": 74
       },
       "repeatDirection": "h",
       "options": {
@@ -2371,7 +2153,7 @@
         "h": 6,
         "w": 12,
         "x": 0,
-        "y": 94
+        "y": 80
       },
       "repeatDirection": "h",
       "options": {
@@ -2446,7 +2228,7 @@
         "h": 6,
         "w": 12,
         "x": 12,
-        "y": 94
+        "y": 80
       },
       "repeatDirection": "h",
       "options": {
@@ -2515,7 +2297,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 100
+        "y": 86
       },
       "repeatDirection": "h",
       "options": {
@@ -2586,7 +2368,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 100
+        "y": 86
       },
       "repeatDirection": "h",
       "options": {
@@ -2657,7 +2439,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 108
+        "y": 94
       },
       "repeatDirection": "h",
       "options": {
@@ -2728,7 +2510,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 108
+        "y": 94
       },
       "repeatDirection": "h",
       "options": {
@@ -2799,7 +2581,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 116
+        "y": 102
       },
       "repeatDirection": "h",
       "options": {
@@ -2870,7 +2652,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 116
+        "y": 102
       },
       "repeatDirection": "h",
       "options": {
@@ -2921,7 +2703,7 @@
         "h": 6,
         "w": 12,
         "x": 0,
-        "y": 124
+        "y": 110
       },
       "repeatDirection": "h",
       "options": {
@@ -2972,7 +2754,7 @@
         "h": 6,
         "w": 12,
         "x": 12,
-        "y": 124
+        "y": 110
       },
       "repeatDirection": "h",
       "options": {
@@ -3023,7 +2805,7 @@
         "h": 6,
         "w": 14,
         "x": 0,
-        "y": 130
+        "y": 116
       },
       "repeatDirection": "h",
       "options": {
@@ -3074,7 +2856,7 @@
         "h": 6,
         "w": 10,
         "x": 14,
-        "y": 130
+        "y": 116
       },
       "repeatDirection": "h",
       "options": {
@@ -3125,7 +2907,7 @@
         "h": 6,
         "w": 24,
         "x": 0,
-        "y": 136
+        "y": 122
       },
       "repeatDirection": "h",
       "options": {
@@ -3159,7 +2941,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 142
+        "y": 128
       },
       "id": 0,
       "panels": []
@@ -3199,7 +2981,7 @@
         "h": 6,
         "w": 8,
         "x": 0,
-        "y": 143
+        "y": 129
       },
       "repeatDirection": "h",
       "options": {
@@ -3260,7 +3042,7 @@
         "h": 6,
         "w": 8,
         "x": 8,
-        "y": 143
+        "y": 129
       },
       "repeatDirection": "h",
       "options": {
@@ -3311,7 +3093,7 @@
         "h": 6,
         "w": 8,
         "x": 16,
-        "y": 143
+        "y": 129
       },
       "repeatDirection": "h",
       "options": {
