@@ -1278,6 +1278,63 @@
             "type": "prometheus",
             "uid": "${datasource}"
           },
+          "expr": "min by (cluster_name, tier) (klio_server_backup_oldest_backup_completion_time_seconds{service_name=~\"$server\",cluster_name=~\"$cluster\"}) * 1000",
+          "instant": false,
+          "legendFormat": "{{cluster_name}} {{tier}}",
+          "range": true
+        }
+      ],
+      "title": "Oldest restorable point",
+      "description": "Timestamp at which the oldest retained PostgreSQL backup completed, per cluster and tier. It is the earliest point in time a restore can target, as long as all the WAL files since the backup started are still retained.",
+      "transparent": false,
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "gridPos": {
+        "h": 6,
+        "w": 8,
+        "x": 8,
+        "y": 50
+      },
+      "repeatDirection": "h",
+      "options": {
+        "graphMode": "none",
+        "colorMode": "value",
+        "justifyMode": "auto",
+        "textMode": "auto",
+        "wideLayout": true,
+        "showPercentChange": false,
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "text": {
+          "titleSize": 14,
+          "valueSize": 28
+        },
+        "percentChangeColorMode": "standard",
+        "orientation": "horizontal"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "dateTimeAsIso",
+          "color": {
+            "mode": "palette-classic"
+          }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "type": "stat",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
           "expr": "time() - min by (cluster_name, tier) (klio_server_backup_oldest_backup_start_time_seconds{service_name=~\"$server\",cluster_name=~\"$cluster\"})",
           "instant": false,
           "legendFormat": "{{cluster_name}} {{tier}}",
@@ -1294,7 +1351,7 @@
       "gridPos": {
         "h": 6,
         "w": 8,
-        "x": 8,
+        "x": 16,
         "y": 50
       },
       "repeatDirection": "h",
@@ -1350,9 +1407,9 @@
       },
       "gridPos": {
         "h": 6,
-        "w": 8,
-        "x": 16,
-        "y": 50
+        "w": 10,
+        "x": 0,
+        "y": 56
       },
       "repeatDirection": "h",
       "options": {
@@ -1456,8 +1513,8 @@
       },
       "gridPos": {
         "h": 6,
-        "w": 12,
-        "x": 0,
+        "w": 14,
+        "x": 10,
         "y": 56
       },
       "repeatDirection": "h",
@@ -1554,8 +1611,8 @@
       "gridPos": {
         "h": 6,
         "w": 12,
-        "x": 12,
-        "y": 56
+        "x": 0,
+        "y": 62
       },
       "repeatDirection": "h",
       "options": {
@@ -1603,7 +1660,7 @@
       "gridPos": {
         "h": 6,
         "w": 4,
-        "x": 0,
+        "x": 12,
         "y": 62
       },
       "repeatDirection": "h",
@@ -1661,7 +1718,7 @@
       "gridPos": {
         "h": 6,
         "w": 4,
-        "x": 4,
+        "x": 16,
         "y": 62
       },
       "repeatDirection": "h",
@@ -1718,7 +1775,7 @@
       "gridPos": {
         "h": 6,
         "w": 4,
-        "x": 8,
+        "x": 20,
         "y": 62
       },
       "repeatDirection": "h",
@@ -1776,8 +1833,8 @@
       "gridPos": {
         "h": 6,
         "w": 4,
-        "x": 12,
-        "y": 62
+        "x": 0,
+        "y": 68
       },
       "repeatDirection": "h",
       "options": {
@@ -1834,8 +1891,8 @@
       "gridPos": {
         "h": 6,
         "w": 4,
-        "x": 16,
-        "y": 62
+        "x": 4,
+        "y": 68
       },
       "repeatDirection": "h",
       "options": {
@@ -1891,8 +1948,8 @@
       "gridPos": {
         "h": 6,
         "w": 4,
-        "x": 20,
-        "y": 62
+        "x": 8,
+        "y": 68
       },
       "repeatDirection": "h",
       "options": {
@@ -1948,7 +2005,7 @@
       "gridPos": {
         "h": 6,
         "w": 12,
-        "x": 0,
+        "x": 12,
         "y": 68
       },
       "repeatDirection": "h",
@@ -1999,8 +2056,8 @@
       "gridPos": {
         "h": 6,
         "w": 12,
-        "x": 12,
-        "y": 68
+        "x": 0,
+        "y": 74
       },
       "repeatDirection": "h",
       "options": {
@@ -2050,7 +2107,7 @@
       "gridPos": {
         "h": 6,
         "w": 12,
-        "x": 0,
+        "x": 12,
         "y": 74
       },
       "repeatDirection": "h",
@@ -2101,8 +2158,8 @@
       "gridPos": {
         "h": 6,
         "w": 12,
-        "x": 12,
-        "y": 74
+        "x": 0,
+        "y": 80
       },
       "repeatDirection": "h",
       "options": {
@@ -2152,7 +2209,7 @@
       "gridPos": {
         "h": 6,
         "w": 12,
-        "x": 0,
+        "x": 12,
         "y": 80
       },
       "repeatDirection": "h",
@@ -2225,10 +2282,10 @@
         "uid": "${datasource}"
       },
       "gridPos": {
-        "h": 6,
+        "h": 8,
         "w": 12,
-        "x": 12,
-        "y": 80
+        "x": 0,
+        "y": 86
       },
       "repeatDirection": "h",
       "options": {
@@ -2296,7 +2353,7 @@
       "gridPos": {
         "h": 8,
         "w": 12,
-        "x": 0,
+        "x": 12,
         "y": 86
       },
       "repeatDirection": "h",
@@ -2367,8 +2424,8 @@
       "gridPos": {
         "h": 8,
         "w": 12,
-        "x": 12,
-        "y": 86
+        "x": 0,
+        "y": 94
       },
       "repeatDirection": "h",
       "options": {
@@ -2438,7 +2495,7 @@
       "gridPos": {
         "h": 8,
         "w": 12,
-        "x": 0,
+        "x": 12,
         "y": 94
       },
       "repeatDirection": "h",
@@ -2509,8 +2566,8 @@
       "gridPos": {
         "h": 8,
         "w": 12,
-        "x": 12,
-        "y": 94
+        "x": 0,
+        "y": 102
       },
       "repeatDirection": "h",
       "options": {
@@ -2580,7 +2637,7 @@
       "gridPos": {
         "h": 8,
         "w": 12,
-        "x": 0,
+        "x": 12,
         "y": 102
       },
       "repeatDirection": "h",
@@ -2651,8 +2708,8 @@
       "gridPos": {
         "h": 8,
         "w": 12,
-        "x": 12,
-        "y": 102
+        "x": 0,
+        "y": 110
       },
       "repeatDirection": "h",
       "options": {
@@ -2700,9 +2757,9 @@
         "uid": "${datasource}"
       },
       "gridPos": {
-        "h": 6,
+        "h": 8,
         "w": 12,
-        "x": 0,
+        "x": 12,
         "y": 110
       },
       "repeatDirection": "h",
@@ -2753,8 +2810,8 @@
       "gridPos": {
         "h": 6,
         "w": 12,
-        "x": 12,
-        "y": 110
+        "x": 0,
+        "y": 118
       },
       "repeatDirection": "h",
       "options": {
@@ -2803,9 +2860,9 @@
       },
       "gridPos": {
         "h": 6,
-        "w": 14,
-        "x": 0,
-        "y": 116
+        "w": 12,
+        "x": 12,
+        "y": 118
       },
       "repeatDirection": "h",
       "options": {
@@ -2854,9 +2911,9 @@
       },
       "gridPos": {
         "h": 6,
-        "w": 10,
-        "x": 14,
-        "y": 116
+        "w": 12,
+        "x": 0,
+        "y": 124
       },
       "repeatDirection": "h",
       "options": {
@@ -2905,9 +2962,9 @@
       },
       "gridPos": {
         "h": 6,
-        "w": 24,
-        "x": 0,
-        "y": 122
+        "w": 12,
+        "x": 12,
+        "y": 124
       },
       "repeatDirection": "h",
       "options": {
@@ -2941,7 +2998,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 128
+        "y": 130
       },
       "id": 0,
       "panels": []
@@ -2981,7 +3038,7 @@
         "h": 6,
         "w": 8,
         "x": 0,
-        "y": 129
+        "y": 131
       },
       "repeatDirection": "h",
       "options": {
@@ -3042,7 +3099,7 @@
         "h": 6,
         "w": 8,
         "x": 8,
-        "y": 129
+        "y": 131
       },
       "repeatDirection": "h",
       "options": {
@@ -3093,7 +3150,7 @@
         "h": 6,
         "w": 8,
         "x": 16,
-        "y": 129
+        "y": 131
       },
       "repeatDirection": "h",
       "options": {

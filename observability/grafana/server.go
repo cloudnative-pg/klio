@@ -111,6 +111,17 @@ func serverPanels() []sizedPanel {
 					"tier, reflecting each tier's effective retention horizon.")),
 
 		sized(largePanelWidth, mediumPanelHeight,
+			statPanel("Oldest restorable point", units.DatetimeISO,
+				query(
+					fmt.Sprintf("min by (cluster_name, tier) "+
+						"(klio_server_backup_oldest_backup_completion_time_seconds{%s}) * 1000", walMatcher),
+					"{{cluster_name}} {{tier}}"),
+			).Orientation(common.VizOrientationHorizontal).
+				Description("Timestamp at which the oldest retained PostgreSQL backup completed, per cluster and "+
+					"tier. It is the earliest point in time a restore can target, as long as all the WAL files "+
+					"since the backup started are still retained.")),
+
+		sized(largePanelWidth, mediumPanelHeight,
 			statPanel("Oldest backup age (start)", units.DurationInDaysHoursMinutesSeconds,
 				query(fmt.Sprintf("time() - min by (cluster_name, tier) "+
 					"(klio_server_backup_oldest_backup_start_time_seconds{%s})", walMatcher), "{{cluster_name}} {{tier}}"),
