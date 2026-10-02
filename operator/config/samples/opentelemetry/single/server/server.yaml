@@ -25,9 +25,18 @@ spec:
             secretName: klio-encryption
         path: secret-key
 
-  caSecretName: klio-server-ca
-  tlsSecretName: klio-server-tls
-
+  serverIdentity:
+    volume:
+      secret:
+        secretName: klio-server-tls
+    certPath: tls.crt
+    keyPath: tls.key
+  clientCa:
+    fileReference:
+      volume:
+        secret:
+          secretName: klio-client-ca
+      path: tls.crt
   image: registry.dev:5000/klio-testing:dev
   imagePullPolicy: Always
 

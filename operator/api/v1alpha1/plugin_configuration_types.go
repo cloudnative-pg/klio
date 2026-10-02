@@ -58,15 +58,19 @@ type PluginConfigurationSpec struct {
 	// +optional
 	WALPrefetch *WALPrefetchConfiguration `json:"walPrefetch,omitempty"`
 
-	// ClientSecretName is the name of the secret containing the client credentials
+	// ClientIdentity is the TLS identity the PostgreSQL instances
+	// present to the Klio server: the client certificate and its
+	// matching private key.
 	// +kubebuilder:validation:Required
-	// +kubebuilder:validation:MinLength=1
-	ClientSecretName string `json:"clientSecretName"`
+	ClientIdentity TLSIdentity `json:"clientIdentity"`
 
-	// ServerSecretName is the name of the secret containing the server TLS certificate
+	// ServerCA is the CA bundle used to verify the Klio server.
+	// It is mounted into PostgreSQL instance pods and used for both
+	// base backups (Kopia, via --server-cert-ca-file) and WAL streaming
+	// (gRPC).
+	// The referenced file must contain the PEM-encoded CA certificate(s).
 	// +kubebuilder:validation:Required
-	// +kubebuilder:validation:MinLength=1
-	ServerSecretName string `json:"serverSecretName"`
+	ServerCA FileSource `json:"serverCa"`
 
 	// ClusterName is the name of the PostgreSQL cluster we are connecting to
 	// +kubebuilder:validation:Required

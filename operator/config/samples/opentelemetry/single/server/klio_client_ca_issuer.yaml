@@ -1,10 +1,10 @@
-# Namespace-scoped Issuer backed by this server's own CA (klio_ca.yaml).
+# Namespace-scoped Issuer backed by this server's own CA (klio_client_ca.yaml).
 # Reused per instance by ../../multi. cluster-c (a client of klio-b) is
 # requested here too and mirrored into team-c.
 apiVersion: cert-manager.io/v1
 kind: Issuer
 metadata:
-  name: klio-server-ca
+  name: klio-client-ca
 spec:
   ca:
-    secretName: klio-server-ca
+    secretName: klio-client-ca

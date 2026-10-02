@@ -129,13 +129,15 @@ type ImageConfiguration struct {
 // TLSConfiguration contains the information needed to configure
 // the PKI infrastructure of the Klio server.
 type TLSConfiguration struct {
-	// TLSSecretName is the name of the Kubernetes secret containing the server-side certificate
-	// to be used for the Klio server.
-	TLSSecretName string `json:"tlsSecretName"`
+	// ServerIdentity is the TLS identity presented to clients: the
+	// server certificate and its matching private key.
+	// +kubebuilder:validation:Required
+	ServerIdentity TLSIdentity `json:"serverIdentity"`
 
-	// ClientCASecretName is the name of the Kubernetes secret containing the CA certificate
-	// to be used by the Klio server to validate the users.
-	ClientCASecretName string `json:"caSecretName"`
+	// ClientCA is the CA bundle used to verify client certificates.
+	// It must contain the PEM-encoded CA certificate(s).
+	// +kubebuilder:validation:Required
+	ClientCA FileSource `json:"clientCa"`
 }
 
 // Storage defines the configuration for the Klio server's
@@ -162,6 +164,24 @@ type FileSource struct {
 	// FileReference specifies a file from a volume source.
 	// +optional
 	FileReference *FileReference `json:"fileReference,omitempty"`
+}
+
+// TLSIdentity is a TLS identity: a certificate and its matching
+// private key served from a single volume, so the pair always
+// belongs together.
+type TLSIdentity struct {
+	// Volume is the volume source holding both files.
+	Volume corev1.VolumeSource `json:"volume"`
+
+	// CertPath is the certificate file path within the volume.
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:MinLength=1
+	CertPath string `json:"certPath"`
+
+	// KeyPath is the private key file path within the volume.
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:MinLength=1
+	KeyPath string `json:"keyPath"`
 }
 
 // Tier1Configuration is the tier 1 configuration.

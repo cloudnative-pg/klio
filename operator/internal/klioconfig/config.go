@@ -58,6 +58,10 @@ const (
 	tlsCertFile = "tls.crt"
 	// tlsKeyFile is the standard TLS private key filename.
 	tlsKeyFile = "tls.key"
+	// serverCAFile is the default filename of the server CA bundle within
+	// the mounted server CA volume. It is only used when the
+	// PluginConfiguration does not specify a file path.
+	serverCAFile = "ca.crt"
 )
 
 const (
@@ -97,8 +101,10 @@ func GenerateConfig(
 	spec kliov1alpha1.PluginConfigurationSpec,
 	configKey string,
 ) *config.Data {
-	serverCertPath := GetServerSecretVolumeMountPath(configKey)
-	clientCertPath := GetClientSecretVolumeMountPath(configKey)
+	serverCertPath := path.Join(GetServerSecretVolumeMountPath(configKey), serverCAFileName(spec))
+	clientIdentityMount := GetClientSecretVolumeMountPath(configKey)
+	clientCertPath := path.Join(clientIdentityMount, clientCertFileName(spec))
+	clientKeyPath := path.Join(clientIdentityMount, clientKeyFileName(spec))
 
 	klioTier1RetentionPolicy := convertTier1RetentionPolicy(spec.Tier1)
 	klioTier2RetentionPolicy := convertTier2RetentionPolicy(spec.Tier2)
@@ -117,14 +123,14 @@ func GenerateConfig(
 		Client: config.ClientConfig{
 			ClusterName: spec.ClusterName,
 			Base: config.BaseRepositoryClientConfig{
-				ServerCertPath: path.Join(serverCertPath, tlsCertFile),
-				ClientCertPath: path.Join(clientCertPath, tlsCertFile),
-				ClientKeyPath:  path.Join(clientCertPath, tlsKeyFile),
+				ServerCertPath: serverCertPath,
+				ClientCertPath: clientCertPath,
+				ClientKeyPath:  clientKeyPath,
 			},
 			Wal: config.WalRepositoryClientConfig{
-				ServerCertPath: path.Join(serverCertPath, tlsCertFile),
-				ClientCertPath: path.Join(clientCertPath, tlsCertFile),
-				ClientKeyPath:  path.Join(clientCertPath, tlsKeyFile),
+				ServerCertPath: serverCertPath,
+				ClientCertPath: clientCertPath,
+				ClientKeyPath:  clientKeyPath,
 			},
 		},
 		Tier1RetentionPolicy:   klioTier1RetentionPolicy,
@@ -426,6 +432,39 @@ func IsPluginConfigurationNotFound(err error) bool {
 	var notFoundErr *PluginConfigurationNotFoundError
 
 	return errors.As(err, &notFoundErr)
+}
+
+// serverCAFileName returns the filename of the server CA bundle within the
+// mounted server CA volume, defaulting to ca.crt when the PluginConfiguration
+// does not specify one.
+func serverCAFileName(spec kliov1alpha1.PluginConfigurationSpec) string {
+	if spec.ServerCA.FileReference != nil && spec.ServerCA.FileReference.Path != "" {
+		return spec.ServerCA.FileReference.Path
+	}
+
+	return serverCAFile
+}
+
+// clientCertFileName returns the filename of the client certificate within
+// the mounted client identity volume, defaulting to tls.crt when the
+// PluginConfiguration does not specify one.
+func clientCertFileName(spec kliov1alpha1.PluginConfigurationSpec) string {
+	if spec.ClientIdentity.CertPath != "" {
+		return spec.ClientIdentity.CertPath
+	}
+
+	return tlsCertFile
+}
+
+// clientKeyFileName returns the filename of the client private key within
+// the mounted client identity volume, defaulting to tls.key when the
+// PluginConfiguration does not specify one.
+func clientKeyFileName(spec kliov1alpha1.PluginConfigurationSpec) string {
+	if spec.ClientIdentity.KeyPath != "" {
+		return spec.ClientIdentity.KeyPath
+	}
+
+	return tlsKeyFile
 }
 
 // GetServerSecretVolumeMountPath returns the volume mount path for server secrets.

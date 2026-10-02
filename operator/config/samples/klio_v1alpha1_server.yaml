@@ -28,9 +28,18 @@ spec:
       accessModes:
         - ReadWriteOnce
 
-  tlsSecretName: server-sample-tls
-  caSecretName: server-sample-ca
-
+  serverIdentity:
+    volume:
+      secret:
+        secretName: server-sample-tls
+    certPath: tls.crt
+    keyPath: tls.key
+  clientCa:
+    fileReference:
+      volume:
+        secret:
+          secretName: server-sample-client-ca
+      path: tls.crt
   image: registry.dev:5000/klio-testing:dev
   imagePullPolicy: Always
 ---
@@ -77,17 +86,17 @@ spec:
     - server auth
 
   issuerRef:
-    name: selfsigned-issuer
+    name: server-sample-server-ca
     kind: Issuer
     group: cert-manager.io
 ---
 apiVersion: cert-manager.io/v1
 kind: Certificate
 metadata:
-  name: server-sample-ca
+  name: server-sample-server-ca
 spec:
-  commonName: server-sample
-  secretName: server-sample-ca
+  commonName: server-sample-server-ca
+  secretName: server-sample-server-ca
 
   duration: 2160h # 90d
   renewBefore: 360h # 15d
@@ -104,7 +113,35 @@ spec:
 apiVersion: cert-manager.io/v1
 kind: Issuer
 metadata:
-  name: server-sample-ca
+  name: server-sample-server-ca
 spec:
   ca:
-    secretName: server-sample-ca
+    secretName: server-sample-server-ca
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: server-sample-client-ca
+spec:
+  commonName: server-sample-client-ca
+  secretName: server-sample-client-ca
+
+  duration: 2160h # 90d
+  renewBefore: 360h # 15d
+
+  isCA: true
+  usages:
+    - cert sign
+
+  issuerRef:
+    name: selfsigned-issuer
+    kind: Issuer
+    group: cert-manager.io
+---
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  name: server-sample-client-ca
+spec:
+  ca:
+    secretName: server-sample-client-ca

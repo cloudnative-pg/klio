@@ -688,20 +688,17 @@ func getTLSVolumesAndMounts(
 		pc := plugins[key]
 		pcName := pc.Name
 
-		serverSecretName := pc.Spec.ServerSecretName
-		if serverSecretName != "" {
+		serverCA := pc.Spec.ServerCA
+		if serverCA.FileReference != nil {
 			volume := corev1.Volume{
-				Name: getServerSecretVolumeName(pcName),
-				VolumeSource: corev1.VolumeSource{
-					Secret: &corev1.SecretVolumeSource{
-						SecretName: serverSecretName,
-					},
-				},
+				Name:         getServerSecretVolumeName(pcName),
+				VolumeSource: serverCA.FileReference.Volume,
 			}
 
 			volumeMount := corev1.VolumeMount{
 				Name:      getServerSecretVolumeName(pcName),
 				MountPath: klioconfig.GetServerSecretVolumeMountPath(pcName),
+				ReadOnly:  true,
 			}
 
 			volumesAndMounts = append(volumesAndMounts, volumeAndMount{
@@ -710,27 +707,22 @@ func getTLSVolumesAndMounts(
 			})
 		}
 
-		clientSecretName := pc.Spec.ClientSecretName
-		if clientSecretName != "" {
-			volume := corev1.Volume{
-				Name: getClientSecretVolumeName(pcName),
-				VolumeSource: corev1.VolumeSource{
-					Secret: &corev1.SecretVolumeSource{
-						SecretName: clientSecretName,
-					},
-				},
-			}
-
-			volumeMount := corev1.VolumeMount{
-				Name:      getClientSecretVolumeName(pcName),
-				MountPath: klioconfig.GetClientSecretVolumeMountPath(pcName),
-			}
-
-			volumesAndMounts = append(volumesAndMounts, volumeAndMount{
-				Volume:      volume,
-				VolumeMount: volumeMount,
-			})
+		clientIdentity := pc.Spec.ClientIdentity
+		volume := corev1.Volume{
+			Name:         getClientSecretVolumeName(pcName),
+			VolumeSource: clientIdentity.Volume,
 		}
+
+		volumeMount := corev1.VolumeMount{
+			Name:      getClientSecretVolumeName(pcName),
+			MountPath: klioconfig.GetClientSecretVolumeMountPath(pcName),
+			ReadOnly:  true,
+		}
+
+		volumesAndMounts = append(volumesAndMounts, volumeAndMount{
+			Volume:      volume,
+			VolumeMount: volumeMount,
+		})
 	}
 
 	return volumesAndMounts

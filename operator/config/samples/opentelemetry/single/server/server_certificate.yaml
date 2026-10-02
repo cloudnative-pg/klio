@@ -1,5 +1,5 @@
 # This server's own TLS identity, signed by the root CA (../../base/root_ca.yaml)
-# — unrelated to this server's own client-cert CA (klio_ca.yaml).
+# — unrelated to this server's own client-cert CA (klio_client_ca.yaml).
 apiVersion: cert-manager.io/v1
 kind: Certificate
 metadata:

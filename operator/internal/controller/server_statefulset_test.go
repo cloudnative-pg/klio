@@ -53,8 +53,16 @@ func newTestServerForStatefulSet() *kliov1alpha1.Server {
 				Image: "klio:test",
 			},
 			TLSConfiguration: kliov1alpha1.TLSConfiguration{
-				TLSSecretName:      "tls-secret",
-				ClientCASecretName: "ca-secret",
+				ServerIdentity: kliov1alpha1.TLSIdentity{
+					Volume: corev1.VolumeSource{
+						Secret: &corev1.SecretVolumeSource{
+							SecretName: "tls-secret",
+						},
+					},
+					CertPath: "tls.crt",
+					KeyPath:  "tls.key",
+				},
+				ClientCA: newTestFileSource("ca-secret", "tls.crt"),
 			},
 			Mode:    kliov1alpha1.ModeStandard,
 			Storage: kliov1alpha1.Storage{PersistentVolumeClaimTemplate: newPVCSpec("10Gi")},

@@ -14,12 +14,16 @@ CNPG
 CRC
 CRC's
 CRDs
+CSI
 CSV
 CSV's
 CatalogSource
+CertPath
 CheckpointTime
+ClientCA
 ClientCASecretName
 ClientConfig
+ClientIdentity
 ClientSecretName
 CloseBackup
 CloseBackupRequest
@@ -78,6 +82,7 @@ KeepHourly
 KeepLatest
 KeepMonthly
 KeepWeekly
+KeyPath
 KiB
 Klio
 Klio's
@@ -108,10 +113,12 @@ OLTP
 OTEL
 OTLP
 ObjectMeta
+OpenBao
 OpenEBS
 OpenShift
 OpenTelemetry
 PBKDF
+PEM
 PGDATA
 PITR
 PKI
@@ -167,6 +174,7 @@ SDK
 SNO
 SecretKeySelector
 ServerAddress
+ServerCA
 ServerMode
 ServerSecretName
 ServerSpec
@@ -182,6 +190,7 @@ StorageClass
 StorageClasses
 TLS
 TLSConfiguration
+TLSIdentity
 TLSSecretName
 TODO
 Taskfile
@@ -220,6 +229,8 @@ backupId
 benchmarking
 bool
 certmanager
+clientCa
+clientIdentity
 clientSecret
 clusterDomain
 cnpg
@@ -321,6 +332,8 @@ renewBefore
 restorable
 rollout
 securityContext
+serverCa
+serverIdentity
 serverSecret
 serviceAccount
 serviceAccountName

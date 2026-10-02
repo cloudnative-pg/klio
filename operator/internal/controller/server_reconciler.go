@@ -45,24 +45,70 @@ const klioServerLabel = "klio.cnpg.io/klio-server"
 
 var errNilFileReference = errors.New("fileReference is not set in FileSource")
 
+var errEmptyPath = errors.New("path must not be empty")
+
+// validateFileSource checks that a single FileSource has a non-nil
+// FileReference, returning an error before any dereference occurs.
+func validateFileSource(src kliov1alpha1.FileSource, name string) error {
+	if src.FileReference == nil {
+		return fmt.Errorf("%s: %w", name, errNilFileReference)
+	}
+
+	return nil
+}
+
+// validateTLSIdentity checks that both identity file paths are set,
+// returning an error before any path is used.
+func validateTLSIdentity(id kliov1alpha1.TLSIdentity) error {
+	if id.CertPath == "" {
+		return fmt.Errorf("serverIdentity certPath: %w", errEmptyPath)
+	}
+
+	if id.KeyPath == "" {
+		return fmt.Errorf("serverIdentity keyPath: %w", errEmptyPath)
+	}
+
+	return nil
+}
+
 // validateFileSources checks that all FileSource fields that will be used have
-// a non-nil FileReference, returning an error before any dereference occurs.
+// a non-nil FileReference, and that the server identity paths are set,
+// returning an error before any dereference occurs.
 func validateFileSources(server *kliov1alpha1.Server) error {
-	if server.Spec.Tier1 != nil {
-		if server.Spec.Tier1.EncryptionKeyFile.FileReference == nil {
-			return fmt.Errorf("tier1 encryptionKeyFile: %w", errNilFileReference)
+	if err := validateTLSIdentity(server.Spec.ServerIdentity); err != nil {
+		return err
+	}
+
+	tlsSources := []struct {
+		name string
+		src  kliov1alpha1.FileSource
+	}{
+		{"clientCa", server.Spec.ClientCA},
+	}
+
+	for _, ts := range tlsSources {
+		if err := validateFileSource(ts.src, ts.name); err != nil {
+			return err
 		}
-		if server.Spec.Tier1.IdentityFile.FileReference == nil {
-			return fmt.Errorf("tier1 identityFile: %w", errNilFileReference)
+	}
+
+	if server.Spec.Tier1 != nil {
+		if err := validateFileSource(server.Spec.Tier1.EncryptionKeyFile, "tier1 encryptionKeyFile"); err != nil {
+			return err
+		}
+
+		if err := validateFileSource(server.Spec.Tier1.IdentityFile, "tier1 identityFile"); err != nil {
+			return err
 		}
 	}
 
 	if server.Spec.Tier2 != nil {
-		if server.Spec.Tier2.EncryptionKeyFile.FileReference == nil {
-			return fmt.Errorf("tier2 encryptionKeyFile: %w", errNilFileReference)
+		if err := validateFileSource(server.Spec.Tier2.EncryptionKeyFile, "tier2 encryptionKeyFile"); err != nil {
+			return err
 		}
-		if server.Spec.Tier2.IdentityFile.FileReference == nil {
-			return fmt.Errorf("tier2 identityFile: %w", errNilFileReference)
+
+		if err := validateFileSource(server.Spec.Tier2.IdentityFile, "tier2 identityFile"); err != nil {
+			return err
 		}
 	}
 
@@ -79,6 +125,8 @@ const (
 	tier1IdentityVolName   = "tier1-identity"
 	tier2EncKeyFileVolName = "tier2-enc-key-file"
 	tier2IdentityVolName   = "tier2-identity"
+	serverIdentityVolName  = "server-identity"
+	clientCAVolName        = "client-ca"
 )
 
 func (r *ServerReconciler) reconcile(ctx context.Context, server *kliov1alpha1.Server) (ctrl.Result, error) {
@@ -437,23 +485,15 @@ func buildIdentityVolMount(volName string, src kliov1alpha1.FileSource) (corev1.
 }
 
 func (r *ServerReconciler) buildVolumes(server *kliov1alpha1.Server) []corev1.Volume {
+	identityVol := corev1.Volume{
+		Name:         serverIdentityVolName,
+		VolumeSource: server.Spec.ServerIdentity.Volume,
+	}
+	clientCAVol, _ := buildFileSourceVolMount(clientCAVolName, server.Spec.ClientCA)
+
 	volumes := []corev1.Volume{
-		{
-			Name: "tls",
-			VolumeSource: corev1.VolumeSource{
-				Secret: &corev1.SecretVolumeSource{
-					SecretName: server.Spec.TLSSecretName,
-				},
-			},
-		},
-		{
-			Name: "client-ca",
-			VolumeSource: corev1.VolumeSource{
-				Secret: &corev1.SecretVolumeSource{
-					SecretName: server.Spec.ClientCASecretName,
-				},
-			},
-		},
+		identityVol,
+		clientCAVol,
 		{
 			Name: "tmp",
 			VolumeSource: corev1.VolumeSource{
@@ -511,15 +551,16 @@ func (r *ServerReconciler) buildVolumes(server *kliov1alpha1.Server) []corev1.Vo
 }
 
 func (r *ServerReconciler) buildVolumeMounts(server *kliov1alpha1.Server) []corev1.VolumeMount {
+	identityMount := corev1.VolumeMount{
+		Name:      serverIdentityVolName,
+		MountPath: path.Join(fileSourceBasePath, serverIdentityVolName),
+		ReadOnly:  true,
+	}
+	_, clientCAMount := buildFileSourceVolMount(clientCAVolName, server.Spec.ClientCA)
+
 	volumeMounts := []corev1.VolumeMount{
-		{
-			Name:      "tls",
-			MountPath: "/certs",
-		},
-		{
-			Name:      "client-ca",
-			MountPath: "/client-ca",
-		},
+		identityMount,
+		clientCAMount,
 		{
 			Name:      "tmp",
 			MountPath: "/tmp",

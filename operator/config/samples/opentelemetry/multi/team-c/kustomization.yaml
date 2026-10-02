@@ -1,9 +1,10 @@
 # cluster-c reuses ../../single's Cluster/PluginConfiguration, backed by
 # klio-b in "default" (see ../team-a for how the reuse looks). Its client
-# certificate (../team-b/cluster_c_klio_client_auth.yaml) and klio-b's own
-# TLS certificate (klio-b-tls) arrive via kubernetes-reflector; the OTel
-# collector's trust anchor arrives as "otel-collector-ca" via
-# trust-manager (see ../../base/otel_collector_ca_bundle.yaml).
+# certificate (../team-b/cluster_c_klio_client_auth.yaml) arrives via
+# kubernetes-reflector. The root CA's public certificate arrives as
+# "k8s-cluster-ca" via trust-manager (see
+# ../../base/k8s_cluster_ca_bundle.yaml): it verifies both the OTel
+# collector and klio-b, whose TLS certificate the root CA signs.
 namespace: team-c
 resources:
   - namespace.yaml
@@ -22,7 +23,7 @@ patches:
         value: client-config-cluster-c
       - op: replace
         path: /spec/projectedVolumeTemplate/sources/0/secret/name
-        value: otel-collector-ca
+        value: k8s-cluster-ca
   - target:
       kind: PluginConfiguration
       name: client-config-cluster-example
@@ -34,11 +35,24 @@ patches:
         path: /spec/serverAddress
         value: klio-b.default.svc.cluster.local
       - op: replace
-        path: /spec/clientSecretName
-        value: cluster-c-klio-user
+        path: /spec/clientIdentity
+        value:
+          volume:
+            secret:
+              secretName: cluster-c-klio-user
+          certPath: tls.crt
+          keyPath: tls.key
       - op: replace
-        path: /spec/serverSecretName
-        value: klio-b-tls
+        path: /spec/serverCa
+        value:
+          fileReference:
+            volume:
+              secret:
+                secretName: k8s-cluster-ca
+                items:
+                - key: ca.crt
+                  path: ca.crt
+            path: ca.crt
       - op: replace
         path: /spec/clusterName
         value: cluster-c

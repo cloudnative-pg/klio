@@ -54,11 +54,31 @@ var _ = Describe("PluginConfiguration Controller", func() {
 					Namespace: namespace,
 				},
 				Spec: kliov1alpha1.PluginConfigurationSpec{
-					ServerAddress:    "klio-server.default",
-					ClientSecretName: "client-tls",
-					ServerSecretName: "server-tls",
-					ClusterName:      "test-cluster",
-					Mode:             kliov1alpha1.ModeStandard,
+					ServerAddress: "klio-server.default",
+					ClientIdentity: kliov1alpha1.TLSIdentity{
+						Volume: corev1.VolumeSource{
+							Secret: &corev1.SecretVolumeSource{
+								SecretName: "client-tls",
+							},
+						},
+						CertPath: "tls.crt",
+						KeyPath:  "tls.key",
+					},
+					ServerCA: kliov1alpha1.FileSource{
+						FileReference: &kliov1alpha1.FileReference{
+							Volume: corev1.VolumeSource{
+								Secret: &corev1.SecretVolumeSource{
+									SecretName: "server-ca",
+									Items: []corev1.KeyToPath{
+										{Key: "ca.crt", Path: "ca.crt"},
+									},
+								},
+							},
+							Path: "ca.crt",
+						},
+					},
+					ClusterName: "test-cluster",
+					Mode:        kliov1alpha1.ModeStandard,
 					Tier2: &kliov1alpha1.Tier2PluginConfiguration{
 						EnableBackup:   true,
 						EnableRecovery: true,
