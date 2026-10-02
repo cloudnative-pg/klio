@@ -18,11 +18,21 @@ patches:
         path: /metadata/name
         value: klio-b
       - op: replace
-        path: /spec/tlsSecretName
-        value: klio-b-tls
+        path: /spec/serverIdentity
+        value:
+          volume:
+            secret:
+              secretName: klio-b-tls
+          certPath: tls.crt
+          keyPath: tls.key
       - op: replace
-        path: /spec/caSecretName
-        value: klio-b-ca
+        path: /spec/clientCa
+        value:
+          fileReference:
+            volume:
+              secret:
+                secretName: klio-b-ca
+            path: tls.crt
       - op: replace
         path: /spec/template/spec/containers/0/env/2/value
         value: klio-server-b
@@ -102,11 +112,24 @@ patches:
         path: /spec/serverAddress
         value: klio-b.default
       - op: replace
-        path: /spec/clientSecretName
-        value: cluster-b-klio-user
+        path: /spec/clientIdentity
+        value:
+          volume:
+            secret:
+              secretName: cluster-b-klio-user
+          certPath: tls.crt
+          keyPath: tls.key
       - op: replace
-        path: /spec/serverSecretName
-        value: klio-b-tls
+        path: /spec/serverCa
+        value:
+          fileReference:
+            volume:
+              secret:
+                secretName: klio-b-ca
+                items:
+                - key: ca.crt
+                  path: ca.crt
+            path: ca.crt
       - op: replace
         path: /spec/clusterName
         value: cluster-b

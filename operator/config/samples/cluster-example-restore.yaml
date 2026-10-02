@@ -47,6 +47,19 @@ metadata:
   name: client-config-example-restore
 spec:
   serverAddress: server-sample.default
-  clientSecretName: cluster-example-klio-user
-  serverSecretName: server-sample-tls
+  clientIdentity:
+    volume:
+      secret:
+        secretName: cluster-example-klio-user
+    certPath: tls.crt
+    keyPath: tls.key
+  serverCa:
+    fileReference:
+      volume:
+        secret:
+          secretName: server-sample-ca
+          items:
+          - key: ca.crt
+            path: ca.crt
+      path: ca.crt
   clusterName: cluster-example

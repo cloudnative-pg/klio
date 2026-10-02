@@ -75,8 +75,11 @@ type BackupOptions struct {
 	// Tier1ServerAddress is the address of the tier 1 Kopia server.
 	Tier1ServerAddress string
 
-	// Tier1ServerCertificateFingerprint is the SHA256 fingerprint of the tier 1 server certificate.
-	Tier1ServerCertificateFingerprint string
+	// ServerTLSCertFile is the path to the PEM file with the serving
+	// certificate shared by the tier 1 and tier 2 Kopia servers. Its
+	// fingerprint is computed fresh on every server refresh, so
+	// rotated certificates are tracked without restart.
+	ServerTLSCertFile string
 
 	// A config file to connect to tier 2
 	Tier2KopiaConfig string
@@ -92,9 +95,6 @@ type BackupOptions struct {
 
 	// Tier2ServerAddress is the address of the tier 2 Kopia server.
 	Tier2ServerAddress string
-
-	// Tier2ServerCertificateFingerprint is the SHA256 fingerprint of the tier 2 server certificate.
-	Tier2ServerCertificateFingerprint string
 
 	// Tier2WALRepository is the connection to the tier 2 WAL repository.
 	// Used to apply WAL retention after backup retention is applied.
@@ -336,10 +336,15 @@ func (d *Backup) maintainTier2(ctx context.Context, task *queue.BackupTask, entr
 }
 
 func (d *Backup) refreshTier1KopiaServer(ctx context.Context) error {
+	fingerprint, err := kopia.LeafFingerprint(d.opts.ServerTLSCertFile)
+	if err != nil {
+		return fmt.Errorf("while fingerprinting the tier 1 server certificate: %w", err)
+	}
+
 	return d.tier1Kopia.RefreshServer(ctx, kopia.RefreshServerOptions{
 		ServerControlUser:     d.opts.RunID,
 		ServerControlPassword: d.opts.RunSecret,
-		ServerCertFingerprint: d.opts.Tier1ServerCertificateFingerprint,
+		ServerCertFingerprint: fingerprint,
 		Address:               d.opts.Tier1ServerAddress,
 	})
 }
@@ -387,10 +392,15 @@ func getPinnedSnapshots(manifests []kopia.Manifest) []string {
 // refreshTier2KopiaServer makes sure the tier 2 kopia server
 // has downloaded the latest manifests from the object store.
 func (d *Backup) refreshTier2KopiaServer(ctx context.Context) error {
+	fingerprint, err := kopia.LeafFingerprint(d.opts.ServerTLSCertFile)
+	if err != nil {
+		return fmt.Errorf("while fingerprinting the tier 2 server certificate: %w", err)
+	}
+
 	return d.tier2Kopia.RefreshServer(ctx, kopia.RefreshServerOptions{
 		ServerControlUser:     d.opts.RunID,
 		ServerControlPassword: d.opts.RunSecret,
-		ServerCertFingerprint: d.opts.Tier2ServerCertificateFingerprint,
+		ServerCertFingerprint: fingerprint,
 		Address:               d.opts.Tier2ServerAddress,
 	})
 }

@@ -70,16 +70,12 @@ spec:
         x-descriptors:
         - urn:alm:descriptor:com.tectonic.ui:select:standard
         - urn:alm:descriptor:com.tectonic.ui:select:read-only
-      - description: Secret containing the server-side TLS certificate.
-        displayName: Server TLS Secret
-        path: tlsSecretName
-        x-descriptors:
-        - urn:alm:descriptor:io.kubernetes:Secret
-      - description: Secret containing the CA certificate used to validate clients.
-        displayName: Client CA Secret
-        path: caSecretName
-        x-descriptors:
-        - urn:alm:descriptor:io.kubernetes:Secret
+      - description: TLS identity presented to clients (certificate and key).
+        displayName: Server Identity
+        path: serverIdentity
+      - description: CA bundle used to verify client certificates.
+        displayName: Client CA Bundle
+        path: clientCa
       - description: Configuration for the PersistentVolumeClaim backing
           the server's base backups, WAL archive, Kopia caches, and task queue.
         displayName: Storage
@@ -206,18 +202,12 @@ spec:
         x-descriptors:
         - urn:alm:descriptor:com.tectonic.ui:select:standard
         - urn:alm:descriptor:com.tectonic.ui:select:read-only
-      - description: Secret containing the client credentials used to authenticate
-          to the Klio server.
-        displayName: Client Credentials Secret
-        path: clientSecretName
-        x-descriptors:
-        - urn:alm:descriptor:io.kubernetes:Secret
-      - description: Secret containing the server TLS certificate used to verify
-          the Klio server.
-        displayName: Server TLS Secret
-        path: serverSecretName
-        x-descriptors:
-        - urn:alm:descriptor:io.kubernetes:Secret
+      - description: TLS identity presented to the Klio server (certificate and key).
+        displayName: Client Identity
+        path: clientIdentity
+      - description: CA bundle used to verify the Klio server.
+        displayName: Server CA Bundle
+        path: serverCa
       - description: Configuration for Tier 1 backup and recovery settings.
         displayName: Tier 1 Configuration
         path: tier1
@@ -388,7 +378,7 @@ spec:
       identity that decrypts it).
 
     Those names are only the example's defaults: any names work, as long
-    as `tlsSecretName`, `caSecretName`, and the
+    as `serverIdentity`, `clientCa`, and the
     `encryptionKeyFile`/`identityFile` references agree with them.
 
     ## Getting started

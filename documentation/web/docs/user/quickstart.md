@@ -173,7 +173,9 @@ spec:
   ca:
     secretName: klio-server-ca
 ---
-# The certificate presented by the Klio server
+# The certificate presented by the Klio server, signed by the CA above
+# so the plugin can verify it with the CA bundle alone (it never sees
+# the server's private key).
 apiVersion: cert-manager.io/v1
 kind: Certificate
 metadata:
@@ -193,7 +195,7 @@ spec:
   usages:
     - server auth
   issuerRef:
-    name: selfsigned-issuer
+    name: klio-server-ca-issuer
     kind: Issuer
     group: cert-manager.io
 ---
@@ -250,10 +252,23 @@ metadata:
 spec:
   image: ghcr.io/cloudnative-pg/klio:v0.0.20
 
-  # TLS certificate presented to clients
-  tlsSecretName: klio-server-tls
-  # CA used to verify client certificates
-  caSecretName: klio-server-ca
+  # TLS identity presented to clients. Both files come from a
+  # single volume so the pair always belongs together — never
+  # split across volumes.
+  serverIdentity:
+    volume:
+      secret:
+        secretName: klio-server-tls
+    certPath: tls.crt
+    keyPath: tls.key
+  # CA bundle used to verify client certificates. Only the
+  # referenced key is mounted, never the whole secret.
+  clientCa:
+    fileReference:
+      volume:
+        secret:
+          secretName: klio-server-ca
+      path: tls.crt
 
   # Single PVC backing base backups, WAL, the work queue, and the
   # Kopia cache. The default Kopia cache is 5 GB of content plus 5 GB
@@ -324,8 +339,23 @@ metadata:
 spec:
   # The Klio server Service is named after the Server resource
   serverAddress: klio-server.default
-  clientSecretName: cluster-example-klio-user
-  serverSecretName: klio-server-tls
+  # TLS identity the instances present to the server. Both files
+  # come from a single volume so the pair always belongs together.
+  clientIdentity:
+    volume:
+      secret:
+        secretName: cluster-example-klio-user
+    certPath: tls.crt
+    keyPath: tls.key
+  serverCa:
+    fileReference:
+      volume:
+        secret:
+          secretName: klio-server-ca
+          items:
+          - key: ca.crt
+            path: ca.crt
+      path: ca.crt
   # Must match the host part of the client certificate Common Name
   clusterName: cluster-example
 ---

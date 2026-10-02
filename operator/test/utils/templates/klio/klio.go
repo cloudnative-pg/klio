@@ -120,7 +120,9 @@ type ServerTemplateOptions struct {
 	// is used.
 	StorageClass string
 
-	// TLSSecretName is the secret to be used to expose the Klio server.
+	// TLSSecretName is the secret holding the server certificate
+	// (`tls.crt`), key (`tls.key`) and CA bundle (`ca.crt`). The three
+	// server TLS FileSources are built from it.
 	TLSSecretName string
 
 	// ClientCASecretName is the secret that will be used by Kopia and by
@@ -151,8 +153,16 @@ func newBaseServer(name, namespace string, opts ServerTemplateOptions) *kliov1al
 		Spec: kliov1alpha1.ServerSpec{
 			ImageConfiguration: imgCfg,
 			TLSConfiguration: kliov1alpha1.TLSConfiguration{
-				TLSSecretName:      opts.TLSSecretName,
-				ClientCASecretName: opts.ClientCASecretName,
+				ServerIdentity: kliov1alpha1.TLSIdentity{
+					Volume: corev1.VolumeSource{
+						Secret: &corev1.SecretVolumeSource{
+							SecretName: opts.TLSSecretName,
+						},
+					},
+					CertPath: "tls.crt",
+					KeyPath:  "tls.key",
+				},
+				ClientCA: newFileSource(opts.ClientCASecretName, "tls.crt"),
 			},
 			Storage: kliov1alpha1.Storage{
 				PersistentVolumeClaimTemplate: corev1.PersistentVolumeClaimSpec{
@@ -189,6 +199,9 @@ func GetServerObject(
 type PluginConfigurationTemplateOptions struct {
 	// ServerCertificate is the server certificate for the Klio server.
 	ServerCertificate *certmanagerv1.Certificate
+	// ServerCACertificate is the CA certificate used to verify the Klio
+	// server. The plugin mounts only its `ca.crt` key, never any private key.
+	ServerCACertificate *certmanagerv1.Certificate
 	// ClientCertificate is the client certificate for authentication.
 	ClientCertificate *certmanagerv1.Certificate
 	// ClusterName is the name of the PostgreSQL cluster.
@@ -214,11 +227,31 @@ func GetPluginConfigurationObject(
 		mode = kliov1alpha1.ModeStandard
 	}
 	spec := kliov1alpha1.PluginConfigurationSpec{
-		ServerAddress:    opts.ServerCertificate.Spec.DNSNames[0],
-		ClientSecretName: opts.ClientCertificate.Spec.SecretName,
-		ServerSecretName: opts.ServerCertificate.Spec.SecretName,
-		ClusterName:      opts.ClusterName,
-		Mode:             mode,
+		ServerAddress: opts.ServerCertificate.Spec.DNSNames[0],
+		ClientIdentity: kliov1alpha1.TLSIdentity{
+			Volume: corev1.VolumeSource{
+				Secret: &corev1.SecretVolumeSource{
+					SecretName: opts.ClientCertificate.Spec.SecretName,
+				},
+			},
+			CertPath: "tls.crt",
+			KeyPath:  "tls.key",
+		},
+		ServerCA: kliov1alpha1.FileSource{
+			FileReference: &kliov1alpha1.FileReference{
+				Volume: corev1.VolumeSource{
+					Secret: &corev1.SecretVolumeSource{
+						SecretName: opts.ServerCACertificate.Spec.SecretName,
+						Items: []corev1.KeyToPath{
+							{Key: "ca.crt", Path: "ca.crt"},
+						},
+					},
+				},
+				Path: "ca.crt",
+			},
+		},
+		ClusterName: opts.ClusterName,
+		Mode:        mode,
 	}
 
 	// Only populate Tier2 if either backup or recovery is enabled

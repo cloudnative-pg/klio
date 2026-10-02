@@ -34,11 +34,24 @@ patches:
         path: /spec/serverAddress
         value: klio-b.default.svc.cluster.local
       - op: replace
-        path: /spec/clientSecretName
-        value: cluster-c-klio-user
+        path: /spec/clientIdentity
+        value:
+          volume:
+            secret:
+              secretName: cluster-c-klio-user
+          certPath: tls.crt
+          keyPath: tls.key
       - op: replace
-        path: /spec/serverSecretName
-        value: klio-b-tls
+        path: /spec/serverCa
+        value:
+          fileReference:
+            volume:
+              secret:
+                secretName: klio-b-ca
+                items:
+                - key: ca.crt
+                  path: ca.crt
+            path: ca.crt
       - op: replace
         path: /spec/clusterName
         value: cluster-c

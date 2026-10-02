@@ -647,7 +647,7 @@ func newCompressionTier1RecoveryTarget(
 // it.
 func newCompressionTier2RecoveryTarget(
 	namespace, sourceClusterName string,
-	serverCertificate, clientCertificate *certmanagerv1.Certificate,
+	serverCertificate, serverCACertificate, clientCertificate *certmanagerv1.Certificate,
 	cnpgCluster *cnpgv1.Cluster,
 	pluginConfigName, clusterName string,
 ) compressionRecoveryTarget {
@@ -656,6 +656,7 @@ func newCompressionTier2RecoveryTarget(
 		namespace,
 		klio.PluginConfigurationTemplateOptions{
 			ServerCertificate:   serverCertificate,
+			ServerCACertificate: serverCACertificate,
 			ClientCertificate:   clientCertificate,
 			ClusterName:         sourceClusterName,
 			EnableTier2Backup:   false,
@@ -776,7 +777,7 @@ func newCompressionScenario(name string, namespace string) *compressionScenario 
 	caCertificate := certificates.GetCACertificateObject(caCertificateName, namespace, issuer)
 	caIssuer := certificates.GetCAIssuerObject(caIssuerName, namespace, caCertificate.Spec.SecretName)
 	serverCertificate := certificates.GetCertificateObject(serverCertificateName, namespace, []string{klioServerName},
-		issuer)
+		caIssuer)
 	userCertificate := certificates.GetUserCertificateObject(
 		cnpgClientCertName, namespace, cnpgClientCertName+"@"+cnpgClusterName, caIssuer)
 
@@ -832,6 +833,7 @@ func newCompressionScenario(name string, namespace string) *compressionScenario 
 		namespace,
 		klio.PluginConfigurationTemplateOptions{
 			ServerCertificate:   serverCertificate,
+			ServerCACertificate: caCertificate,
 			ClientCertificate:   userCertificate,
 			ClusterName:         cnpgClusterName,
 			EnableTier2Backup:   true,
@@ -866,7 +868,7 @@ func newCompressionScenario(name string, namespace string) *compressionScenario 
 		issuer, encOpts, s3Opts)
 
 	tier2Recovery := newCompressionTier2RecoveryTarget(namespace, cnpgClusterName,
-		tier2Server.serverCertificate, tier2Server.userCertificate, cnpgCluster,
+		tier2Server.serverCertificate, tier2Server.serverCACertificate, tier2Server.userCertificate, cnpgCluster,
 		pluginConfigTier2Recovery, tier2RestoredClusterName)
 
 	return &compressionScenario{

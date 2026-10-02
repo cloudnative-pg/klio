@@ -33,9 +33,18 @@ spec:
       accessModes:
         - ReadWriteOnce
 
-  tlsSecretName: klioserver-dc-a-tls
-  caSecretName: klioserver-dc-a-ca
-
+  serverIdentity:
+    volume:
+      secret:
+        secretName: klioserver-dc-a-tls
+    certPath: tls.crt
+    keyPath: tls.key
+  clientCa:
+    fileReference:
+      volume:
+        secret:
+          secretName: klioserver-dc-a-ca
+      path: tls.crt
   image: registry.dev:5000/klio-testing:dev
   imagePullPolicy: Always
 ---

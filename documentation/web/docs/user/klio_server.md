@@ -220,11 +220,23 @@ spec:
   image: ghcr.io/cloudnative-pg/klio:v0.0.20
   imagePullPolicy: IfNotPresent
 
-  # TLS configuration
-  tlsSecretName: dr-server-tls
-
-  # Client authentication configuration
-  caSecretName: klio-server-ca
+  # TLS identity presented to clients. Both files come from a
+  # single volume so the pair always belongs together — never
+  # split across volumes.
+  serverIdentity:
+    volume:
+      secret:
+        secretName: dr-server-tls
+    certPath: tls.crt
+    keyPath: tls.key
+  # CA bundle used to verify client certificates. Only the
+  # referenced key is mounted, never the whole secret.
+  clientCa:
+    fileReference:
+      volume:
+        secret:
+          secretName: klio-server-ca
+      path: tls.crt
 
   # The single PVC, mounted at /klio. In read-only mode the
   # server only ever populates the cache_tier2 subdirectory, but the
@@ -550,10 +562,22 @@ with TLS:
 - **WAL Streaming**: PostgreSQL instances streaming WAL files to the Klio server
   use gRPC over TLS, ensuring WAL data is encrypted during transmission
 
-The TLS certificate is configured via the `.spec.tlsSecretName` field in the
-Server resource, which references a Kubernetes secret containing the TLS
-certificate and private key. This provides end-to-end encryption, ensuring that
-backup data is protected both at rest and in transit.
+The server TLS identity is configured via the `.spec.serverIdentity`
+field in the Server resource: a single volume holding both the
+certificate and its matching private key, referenced by `certPath`
+and `keyPath`. The pair shares one mount so it always belongs
+together — splitting it across volumes risks serving a mismatched
+pair, whether from CSI drivers that mint an identity per mount or
+from independent volume updates during rotation. Only the two
+referenced files are mounted, never a whole secret. This provides
+end-to-end encryption, ensuring that backup data is protected both
+at rest and in transit.
+
+Local Kopia control connections (`kopia server refresh` between
+the server's own components on localhost) verify the served leaf
+by fingerprint, computed fresh from the serving certificate file
+on every call — no CA bundle needed, and rotated certificates
+are tracked without restart.
 
 ### Age Encryption
 
@@ -667,9 +691,9 @@ the Klio server.
 A client certificate is accepted by the Klio server when it satisfies
 all of the following:
 
-- It is signed by the CA whose secret is referenced by
-  `.spec.caSecretName` on the `Server`. In practice this means signing
-  it with a cert-manager `Issuer` backed by that CA secret.
+- It is signed by the CA referenced by `.spec.clientCa` on the
+  `Server`. In practice this means signing it with a cert-manager
+  `Issuer` backed by that CA secret.
 - It carries the `client auth` usage.
 - Its Common Name has the form `userName@hostName`. The host part
   identifies the cluster whose backups and WAL archive the client may

@@ -34,12 +34,14 @@ const kopiaCacheSubdirectory = "kopia-cache"
 type envBuilder struct {
 	builtEnvs []corev1.EnvVar
 
+	tls   kliov1alpha1.TLSConfiguration
 	tier1 *kliov1alpha1.Tier1Configuration
 	tier2 *kliov1alpha1.Tier2Configuration
 }
 
 func newServerEnvBuilder(server *kliov1alpha1.Server) *envBuilder {
 	return &envBuilder{
+		tls:   server.Spec.TLSConfiguration,
 		tier1: server.Spec.Tier1,
 		tier2: server.Spec.Tier2,
 	}
@@ -98,15 +100,15 @@ func (e *envBuilder) getCoreEnvVars() []corev1.EnvVar {
 	result := []corev1.EnvVar{
 		{
 			Name:  "TLS_CERT",
-			Value: "/certs/tls.crt",
+			Value: path.Join(fileSourceBasePath, serverIdentityVolName, e.tls.ServerIdentity.CertPath),
 		},
 		{
 			Name:  "TLS_KEY",
-			Value: "/certs/tls.key",
+			Value: path.Join(fileSourceBasePath, serverIdentityVolName, e.tls.ServerIdentity.KeyPath),
 		},
 		{
 			Name:  "TLS_CLIENT_CA_CERT",
-			Value: "/client-ca/tls.crt",
+			Value: fileSourcePath(clientCAVolName, e.tls.ClientCA),
 		},
 	}
 
