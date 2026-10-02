@@ -16,7 +16,7 @@ metrics. It is split into row sections:
   window of physical PostgreSQL backups (start/end time, LSN and timeline per
   cluster and tier), and queue metrics emitted by the Klio server StatefulSet
   (`klio_server_*`). Built in [`server.go`](server.go).
-- **WAL Replication Lag** — how far Klio's WAL streaming client trails the
+- **WAL replication lag** — how far Klio's WAL streaming client trails the
   PostgreSQL primary, from CloudNativePG's `cnpg_pg_stat_replication_*`
   metrics (requires CloudNativePG monitoring scraped into the same
   Prometheus). Built in [`replication.go`](replication.go).

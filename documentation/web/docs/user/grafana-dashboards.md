@@ -42,13 +42,13 @@ The dashboard is a single dashboard split into row sections:
 
 ![Klio server metrics](images/klio_server_metrics.png)
 
-- **WAL Replication Lag** — how far behind Klio is in copying WAL:
-  - **Tier-1 Replication lag (Bytes)** and **(Seconds)**: how much WAL,
+- **WAL replication lag** — how far behind Klio is in copying WAL:
+  - **Tier-1 replication lag (bytes)** and **(seconds)**: how much WAL,
     and how much time, Klio is behind the PostgreSQL primary. The *write*
     line is WAL Klio has received; the *flush* line is WAL Klio has
     safely saved to disk. These two panels need CloudNativePG monitoring
     (see the prerequisites below).
-  - **Tier-2 archival lag (Bytes)**: how much WAL is on Klio's local disk
+  - **Tier-2 archival lag (bytes)**: how much WAL is on Klio's local disk
     (tier 1) but not yet copied to remote storage (tier 2).
 
 ![Klio WAL replication lag metrics](images/klio_wal_replication_lag_metrics.png)
@@ -60,7 +60,7 @@ from the alerting guidance in [OpenTelemetry](opentelemetry.md):
   described under *Alerting on stalled WAL processing*: a stale tier-1 value
   means PostgreSQL is no longer shipping WALs, while a stale tier-2 value
   means the remote backend is no longer receiving them.
-- **Tier-2 archival lag (Bytes)** plots the LSN difference between
+- **Tier-2 archival lag (bytes)** plots the LSN difference between
   tier 1 (local disk) and tier 2 (remote storage). Read together with the
   staleness panel, it tells a slow pipeline (timestamps advancing, gap
   growing) apart from a stalled one (timestamps and LSN both frozen).
@@ -77,7 +77,7 @@ described in [OpenTelemetry](opentelemetry.md) works:
 - The Klio Prometheus exporter (`OTEL_METRICS_EXPORTER=prometheus`),
   scraped directly.
 
-The **WAL Replication Lag** row additionally reads CloudNativePG's
+The **WAL replication lag** row additionally reads CloudNativePG's
 `cnpg_pg_stat_replication_*` metrics. To populate it, scrape the
 CloudNativePG cluster monitoring (its `PodMonitor`) into the same
 Prometheus. The rest of the dashboard works without it.

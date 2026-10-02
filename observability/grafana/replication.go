@@ -39,7 +39,7 @@ const cnpgMatcher = `namespace=~"$namespace",application_name="klio"`
 // scraped into the same Prometheus as Klio's metrics.
 func replicationPanels() []sizedPanel {
 	return []sizedPanel{
-		sized(largePanelWidth, mediumPanelHeight, timeseriesPanel("Tier-1 Replication lag (Bytes)", units.BytesIEC,
+		sized(largePanelWidth, mediumPanelHeight, timeseriesPanel("Tier-1 replication lag (bytes)", units.BytesIEC,
 			query(
 				fmt.Sprintf("cnpg_pg_stat_replication_write_diff_bytes{%s}", cnpgMatcher),
 				"{{pod}} write"),
@@ -49,7 +49,7 @@ func replicationPanels() []sizedPanel {
 		).Description("Byte distance between the primary's current WAL LSN and the LSN Klio's streaming "+
 			"client has written to disk and flushed.")),
 
-		sized(largePanelWidth, mediumPanelHeight, timeseriesPanel("Tier-1 Replication lag (Seconds)", units.Seconds,
+		sized(largePanelWidth, mediumPanelHeight, timeseriesPanel("Tier-1 replication lag (seconds)", units.Seconds,
 			query(
 				fmt.Sprintf("cnpg_pg_stat_replication_write_lag_seconds{%s}", cnpgMatcher),
 				"{{pod}} write"),
@@ -59,7 +59,7 @@ func replicationPanels() []sizedPanel {
 		).Description("Time between a commit on the primary and Klio's streaming client writing to disk "+
 			"and flushing the corresponding WAL.")),
 
-		sized(largePanelWidth, mediumPanelHeight, timeseriesPanel("Tier-2 archival lag (Bytes)", units.BytesIEC,
+		sized(largePanelWidth, mediumPanelHeight, timeseriesPanel("Tier-2 archival lag (bytes)", units.BytesIEC,
 			query(
 				fmt.Sprintf(
 					"(max by (cluster_name) (klio_server_wal_latest_written_lsn_bytes{tier=\"tier1\",%s}) - "+
