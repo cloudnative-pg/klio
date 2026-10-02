@@ -367,12 +367,14 @@ spec:
 
     A `Server` names the TLS and encryption material it needs, and the
     operator does not create it: the Secrets must already exist in the
-    `Server`'s namespace. The example `Server` below expects three that
+    `Server`'s namespace. The example `Server` below expects four that
     are **not** part of this bundle:
 
-    * `server-sample-tls`, the certificate the Klio server presents, and
-      `server-sample-ca`, the CA it validates clients against. Both are
-      normally issued by cert-manager `Certificate` resources.
+    * `server-sample-tls`, the certificate the Klio server presents,
+      `server-sample-server-ca`, the CA that signs it and that clients
+      trust, and `server-sample-client-ca`, the separate CA the server
+      validates clients against. All are normally issued by
+      cert-manager `Certificate` resources.
     * `server-sample-encryption`, holding an `encryption-key` entry (the
       Age-encrypted encryption key) and a `secret-key` entry (the Age
       identity that decrypts it).

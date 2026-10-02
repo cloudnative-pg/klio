@@ -123,9 +123,11 @@ to every backup. There is no key recovery mechanism.
 ## Step 3: Create the certificates
 
 Klio secures all traffic with TLS and authenticates clients with
-mutual TLS. This step creates three certificates with cert-manager:
+mutual TLS. This step creates four certificates with cert-manager:
 
-- a **CA**, used to sign and verify client certificates
+- a **client CA**, used to sign and verify client certificates
+- a **server CA**, used to sign the server certificate and verified by
+  the plugin
 - a **server certificate**, presented by the Klio server
 - a **client certificate**, presented by the PostgreSQL instances
 
@@ -133,9 +135,9 @@ Save the following as `klio-certificates.yaml`:
 
 ```yaml
 ---
-# Self-signed issuer, used to bootstrap the CA and the server
-# certificate. Trust is established through configuration, so a
-# self-signed root is not a security problem here.
+# Self-signed issuer, used to bootstrap the two CAs. Trust is
+# established through configuration, so a self-signed root is not a
+# security problem here.
 apiVersion: cert-manager.io/v1
 kind: Issuer
 metadata:
@@ -145,6 +147,37 @@ spec:
   selfSigned: {}
 ---
 # The CA that signs client certificates
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: klio-client-ca
+  namespace: default
+spec:
+  commonName: klio-client-ca
+  secretName: klio-client-ca
+  duration: 2160h # 90d
+  renewBefore: 360h # 15d
+  isCA: true
+  usages:
+    - cert sign
+  issuerRef:
+    name: selfsigned-issuer
+    kind: Issuer
+    group: cert-manager.io
+---
+# An issuer backed by the CA above, used for client certificates
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  name: klio-client-ca-issuer
+  namespace: default
+spec:
+  ca:
+    secretName: klio-client-ca
+---
+# A separate CA that signs only the server certificate. The plugin
+# trusts this CA to verify the server; it must not be the CA that
+# signs client certificates.
 apiVersion: cert-manager.io/v1
 kind: Certificate
 metadata:
@@ -163,7 +196,7 @@ spec:
     kind: Issuer
     group: cert-manager.io
 ---
-# An issuer backed by the CA above, used for client certificates
+# An issuer backed by the server CA, used for the server certificate
 apiVersion: cert-manager.io/v1
 kind: Issuer
 metadata:
@@ -173,9 +206,7 @@ spec:
   ca:
     secretName: klio-server-ca
 ---
-# The certificate presented by the Klio server, signed by the CA above
-# so the plugin can verify it with the CA bundle alone (it never sees
-# the server's private key).
+# The certificate presented by the Klio server, signed by the server CA.
 apiVersion: cert-manager.io/v1
 kind: Certificate
 metadata:
@@ -216,7 +247,7 @@ spec:
   usages:
     - client auth
   issuerRef:
-    name: klio-server-ca-issuer
+    name: klio-client-ca-issuer
     kind: Issuer
     group: cert-manager.io
 ```
@@ -267,7 +298,7 @@ spec:
     fileReference:
       volume:
         secret:
-          secretName: klio-server-ca
+          secretName: klio-client-ca
       path: tls.crt
 
   # Single PVC backing base backups, WAL, the work queue, and the

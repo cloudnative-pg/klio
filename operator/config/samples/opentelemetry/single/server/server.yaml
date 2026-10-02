@@ -35,7 +35,7 @@ spec:
     fileReference:
       volume:
         secret:
-          secretName: klio-server-ca
+          secretName: klio-client-ca
       path: tls.crt
   image: registry.dev:5000/klio-testing:dev
   imagePullPolicy: Always

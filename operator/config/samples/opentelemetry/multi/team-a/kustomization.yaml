@@ -1,6 +1,6 @@
 # Instantiates ../../single's server/cluster as "klio-a"/"cluster-a" in
 # "default". Only name-derived fields are patched; the rest, including its
-# own CA (klio-a-ca), is inherited unchanged.
+# own CA (klio-a-client-ca), is inherited unchanged.
 namespace: default
 resources:
   - ../../single/server
@@ -28,7 +28,7 @@ patches:
           fileReference:
             volume:
               secret:
-                secretName: klio-a-ca
+                secretName: klio-a-client-ca
             path: tls.crt
       - op: replace
         path: /spec/template/spec/containers/0/env/2/value
@@ -51,27 +51,27 @@ patches:
         value: [klio-a, klio-a.default, klio-a.default.svc]
   - target:
       kind: Certificate
-      name: klio-server-ca
+      name: klio-client-ca
     patch: |-
       - op: replace
         path: /metadata/name
-        value: klio-a-ca
+        value: klio-a-client-ca
       - op: replace
         path: /spec/secretName
-        value: klio-a-ca
+        value: klio-a-client-ca
       - op: replace
         path: /spec/commonName
-        value: klio-a-ca
+        value: klio-a-client-ca
   - target:
       kind: Issuer
-      name: klio-server-ca
+      name: klio-client-ca
     patch: |-
       - op: replace
         path: /metadata/name
-        value: klio-a-ca
+        value: klio-a-client-ca
       - op: replace
         path: /spec/ca/secretName
-        value: klio-a-ca
+        value: klio-a-client-ca
   - target:
       kind: Cluster
       name: cluster-example
@@ -106,7 +106,7 @@ patches:
           fileReference:
             volume:
               secret:
-                secretName: klio-a-ca
+                secretName: klio-a-tls
                 items:
                 - key: ca.crt
                   path: ca.crt

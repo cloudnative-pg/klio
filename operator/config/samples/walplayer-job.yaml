@@ -25,7 +25,7 @@ spec:
   usages:
     - client auth
   issuerRef:
-    name: server-sample-ca
+    name: server-sample-client-ca
     kind: Issuer
     group: cert-manager.io
 ---

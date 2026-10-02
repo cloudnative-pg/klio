@@ -37,7 +37,7 @@ spec:
     - client auth
 
   issuerRef:
-    name: server-sample-ca
+    name: server-sample-client-ca
     kind: Issuer
     group: cert-manager.io
 ---
@@ -57,7 +57,7 @@ spec:
     fileReference:
       volume:
         secret:
-          secretName: server-sample-ca
+          secretName: server-sample-server-ca
           items:
           - key: ca.crt
             path: ca.crt

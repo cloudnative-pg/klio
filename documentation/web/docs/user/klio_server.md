@@ -235,7 +235,7 @@ spec:
     fileReference:
       volume:
         secret:
-          secretName: klio-server-ca
+          secretName: klio-client-ca
       path: tls.crt
 
   # The single PVC, mounted at /klio. In read-only mode the

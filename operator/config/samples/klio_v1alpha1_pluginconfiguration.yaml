@@ -15,7 +15,7 @@ spec:
     fileReference:
       volume:
         secret:
-          secretName: server-sample-ca
+          secretName: server-sample-server-ca
           items:
           - key: ca.crt
             path: ca.crt

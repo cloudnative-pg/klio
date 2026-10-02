@@ -4,10 +4,10 @@
 > This directory is a **test environment for validating the Klio Grafana
 > dashboard**, not a reference architecture. Do not copy its patterns into a
 > production deployment. In particular:
-> - It reflects the private-key half of TLS secrets into namespaces that
->   never use them (see the Topology section below), purely to keep the
->   sample declarative. A real deployment should never let a private key
->   leave the namespace that needs it.
+> - It reflects `cluster-c`'s client certificate, private key included,
+>   from `default` into `team-c` (see the Topology section below), purely
+>   to keep the sample declarative. A real deployment should issue it
+>   in the namespace that uses it.
 > - It deliberately reuses/overloads names across namespaces (e.g. two
 >   independent Klio servers both named `klio-a`) to exercise a dashboard
 >   disambiguation edge case. Overloading names like this is a testing
@@ -71,11 +71,9 @@ clients. The root CA's own secret lives in the `cert-manager` namespace,
 matching where cert-manager looks for a `ClusterIssuer`'s secret by
 default.
 
-`klio-b`'s own certificate needs an exact copy in `team-c`: Kopia
-(`connection.go`) validates a Klio server's certificate by exact
-fingerprint, not by CA chain, regardless of who signed it, so
-kubernetes-reflector mirrors `klio-b-tls` *whole*, private key included,
-even though only the public half is ever used there.
+`klio-b`'s own certificate needs no copying either: `cluster-c` verifies
+it through the root CA's *public* certificate, the same trust anchor it
+uses for the OTel collector.
 
 The OTel collector's own certificate needs no copying: since it's issued
 by the root CA, OTel's exporters validate it through normal CA-chain
@@ -96,10 +94,9 @@ A running Kubernetes cluster with the following operators installed:
 
 `multi`'s `cluster-c` is a client of `klio-b`, whose CA/Issuer lives in
 `default`; kubernetes-reflector mirrors the resulting client certificate
-and `klio-b`'s own TLS certificate into `team-c` (Kopia validates the
-latter by exact fingerprint, so an exact copy is unavoidable). trust-manager
-delivers the root CA's public certificate into `team-c`/`team-d` as the
-OTel collector's trust anchor. See the next section for both install
+into `team-c`. trust-manager delivers the root CA's public certificate
+into `team-c`/`team-d` as the trust anchor for both the OTel collector and
+the Klio server. See the next section for both install
 commands.
 
 ## Deploying a Kubernetes cluster with the required operators
@@ -131,7 +128,7 @@ helm upgrade trust-manager oci://quay.io/jetstack/charts/trust-manager \
   --install --namespace cert-manager --wait \
   --set app.trust.namespace=cert-manager \
   --set secretTargets.enabled=true \
-  --set secretTargets.authorizedSecrets='{otel-collector-ca}'
+  --set secretTargets.authorizedSecrets='{k8s-cluster-ca}'
 
 kubectl apply -f https://github.com/open-telemetry/opentelemetry-operator/releases/latest/download/opentelemetry-operator.yaml
 
