@@ -74,8 +74,23 @@ func (c *Connection) StoreWALStreaming(
 	return g, nil
 }
 
-// Connect opens a connection to a Klio server.
-func Connect(clientConfig *config.ClientConfig, address string) (*Connection, error) {
+// loadClientIdentity loads the client key pair referenced by the client
+// configuration, reading the files fresh on every call. It backs the
+// GetClientCertificate callback, so a rotated client identity is
+// presented on new handshakes without restarting the process.
+func loadClientIdentity(clientConfig *config.ClientConfig) (tls.Certificate, error) {
+	clientCertificate, err := tls.LoadX509KeyPair(clientConfig.Wal.ClientCertPath, clientConfig.Wal.ClientKeyPath)
+	if err != nil {
+		return tls.Certificate{}, fmt.Errorf("while parsing the client certificate: %w", err)
+	}
+
+	return clientCertificate, nil
+}
+
+// buildTLSConfig builds the client TLS configuration, reading the server
+// trust bundle once and wiring the client identity for per-handshake
+// reloads. The eager identity load fails fast on invalid files.
+func buildTLSConfig(clientConfig *config.ClientConfig) (*tls.Config, error) {
 	certPEMBlock, err := os.ReadFile(clientConfig.Wal.ServerCertPath)
 	if err != nil {
 		return nil, fmt.Errorf("while reading the server certificate: %w", err)
@@ -86,17 +101,35 @@ func Connect(clientConfig *config.ClientConfig, address string) (*Connection, er
 		return nil, ErrInconsistentCertificate
 	}
 
-	clientCertificate, err := tls.LoadX509KeyPair(clientConfig.Wal.ClientCertPath, clientConfig.Wal.ClientKeyPath)
-	if err != nil {
-		return nil, fmt.Errorf("while parsing the client certificate: %w", err)
+	// Load once to fail fast on invalid files at connection setup.
+	// Afterwards the identity is re-read on every handshake, so a
+	// rotated client certificate takes effect on reconnects without
+	// restarting the process. A reload failure fails that handshake
+	// closed. The server trust bundle (RootCAs) is still read once
+	// here; its rotation relies on process restart.
+	if _, err := loadClientIdentity(clientConfig); err != nil {
+		return nil, err
 	}
 
-	tlsConfig := &tls.Config{
+	return &tls.Config{
 		RootCAs:    serverCertificatePool,
 		MinVersion: tls.VersionTLS12,
-		Certificates: []tls.Certificate{
-			clientCertificate,
+		GetClientCertificate: func(*tls.CertificateRequestInfo) (*tls.Certificate, error) {
+			clientCertificate, err := loadClientIdentity(clientConfig)
+			if err != nil {
+				return nil, err
+			}
+
+			return &clientCertificate, nil
 		},
+	}, nil
+}
+
+// Connect opens a connection to a Klio server.
+func Connect(clientConfig *config.ClientConfig, address string) (*Connection, error) {
+	tlsConfig, err := buildTLSConfig(clientConfig)
+	if err != nil {
+		return nil, err
 	}
 
 	conn, err := grpc.NewClient(
