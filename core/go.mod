@@ -17,7 +17,7 @@ require (
 	github.com/fclairamb/afero-s3 v0.5.0
 	github.com/go-viper/mapstructure/v2 v2.5.0
 	github.com/google/uuid v1.6.0
-	github.com/jackc/pglogrepl v0.0.0-20260824121319-4ae5c490f7ce
+	github.com/jackc/pglogrepl v0.0.0-20261003132456-662581bb6bb6
 	github.com/jackc/pgx/v5 v5.11.0
 	github.com/klauspost/compress v1.20.1
 	github.com/minio/sio v0.5.1
