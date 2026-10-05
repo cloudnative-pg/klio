@@ -45,6 +45,8 @@ func snapshotCluster(selector string) string {
 // identity, scoped by $server); the per-cluster WAL, PostgreSQL-backup and
 // verification series carry cluster_name and are additionally scoped by
 // $cluster.
+//
+//nolint:maintidx
 func serverPanels() []sizedPanel {
 	return []sizedPanel{
 		sized(gridWidth, descriptionPanelHeight, descriptionPanel(
