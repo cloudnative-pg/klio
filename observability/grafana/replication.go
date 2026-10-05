@@ -39,6 +39,8 @@ const cnpgMatcher = `namespace=~"$namespace",application_name="klio"`
 // scraped into the same Prometheus as Klio's metrics.
 func replicationPanels() []sizedPanel {
 	return []sizedPanel{
+		sized(gridWidth, descriptionPanelHeight, descriptionPanel(
+			"How far the WAL stored in tier 1 and tier 2 trails behind the PostgreSQL primary.")),
 		sized(largePanelWidth, mediumPanelHeight, timeseriesPanel("Tier-1 replication lag (bytes)", units.BytesIEC,
 			query(
 				fmt.Sprintf("cnpg_pg_stat_replication_write_diff_bytes{%s}", cnpgMatcher),

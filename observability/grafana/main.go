@@ -45,6 +45,7 @@ import (
 	"github.com/grafana/grafana-foundation-sdk/go/prometheus"
 	"github.com/grafana/grafana-foundation-sdk/go/stat"
 	"github.com/grafana/grafana-foundation-sdk/go/table"
+	"github.com/grafana/grafana-foundation-sdk/go/text"
 	"github.com/grafana/grafana-foundation-sdk/go/timeseries"
 	"github.com/grafana/grafana-foundation-sdk/go/units"
 )
@@ -65,6 +66,9 @@ const (
 	// dashboard grid packs flush without vertical gaps.
 	mediumPanelHeight = 6
 	largePanelHeight  = 8
+	// descriptionPanelHeight is the grid height (in rows) of the text panel
+	// that explains each row section.
+	descriptionPanelHeight = 2
 
 	gridWidth          = 24
 	smallestPanelWidth = 3
@@ -326,6 +330,15 @@ func timelinePanel(title string, targets ...cog.Builder[variants.Dataquery]) *ti
 		LineInterpolation(common.LineInterpolationStepAfter).
 		LineWidth(2).
 		Decimals(0)
+}
+
+// descriptionPanel builds a transparent markdown text panel that explains a
+// row section (a Grafana row has no description field of its own).
+func descriptionPanel(content string) *text.PanelBuilder {
+	return text.NewPanelBuilder().
+		Transparent(true).
+		Mode(text.TextModeMarkdown).
+		Content(content)
 }
 
 // statPanel builds a stat panel showing the last value of its query targets,
