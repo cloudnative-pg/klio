@@ -259,6 +259,10 @@ type Tier2Configuration struct {
 }
 
 // S3Configuration is the configuration to a S3 defined tier 2.
+// +kubebuilder:validation:XValidation:rule="!has(self.credentialsFile) || !(has(self.accessKeyId) || has(self.secretAccessKey) || has(self.sessionToken))",message="credentialsFile cannot be combined with accessKeyId, secretAccessKey or sessionToken"
+// +kubebuilder:validation:XValidation:rule="!has(self.profile) || has(self.credentialsFile)",message="profile requires credentialsFile"
+// +kubebuilder:validation:XValidation:rule="has(self.accessKeyId) == has(self.secretAccessKey)",message="accessKeyId and secretAccessKey must be set together"
+// +kubebuilder:validation:XValidation:rule="!has(self.sessionToken) || (has(self.accessKeyId) && has(self.secretAccessKey))",message="sessionToken requires accessKeyId and secretAccessKey"
 type S3Configuration struct {
 	// BucketName is the name of the bucket
 	BucketName string `json:"bucketName"`
@@ -288,9 +292,20 @@ type S3Configuration struct {
 	// +optional
 	SessionToken *machineryapi.SecretKeySelector `json:"sessionToken,omitempty"`
 
-	// A pointer to a custom CA bundle
+	// CredentialsFile is an AWS shared credentials file (INI format) mounted
+	// from a volume. It is mutually exclusive with accessKeyId,
+	// secretAccessKey and sessionToken.
 	// +optional
-	CustomCABundle *machineryapi.SecretKeySelector `json:"customCaBundle,omitempty"`
+	CredentialsFile *VolumeFileReference `json:"credentialsFile,omitempty"`
+
+	// Profile is the profile to use within CredentialsFile.
+	// +optional
+	Profile string `json:"profile,omitempty"`
+
+	// CustomCABundle is a PEM-encoded CA bundle, mounted from a volume, that
+	// is trusted when connecting to the S3 endpoint.
+	// +optional
+	CustomCABundle *VolumeFileReference `json:"customCaBundle,omitempty"`
 }
 
 // ServerStatus defines the observed state of Server.
