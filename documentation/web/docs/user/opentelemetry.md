@@ -160,9 +160,10 @@ attribute key.
 
 | Attribute | Values | Applies to |
 |---|---|---|
-| `tier` | `tier1` (local disk on the Klio server), `tier2` (remote object store) | All `klio.server.wal.*` and `klio.server.backup.*` instruments. |
-| `cluster_name` | Name of the PostgreSQL cluster the recording belongs to | All `klio.plugin.backup.*` instruments, all `klio.server.wal.*` instruments (counters, gauges, and the WAL duration histograms), `klio.client.wal.*`, the `klio.server.backup.*` PostgreSQL backup gauges (`backups`, `latest_backup_*`, `oldest_backup_*`) and the `klio.server.backup.relay` / `klio.server.backup.maintenance` counters. |
-| `outcome` | `success`, `failure` | `klio.plugin.backup.runs`, `klio.server.backup.relay`, `klio.server.backup.maintenance`, `klio.server.backup.verifications`, and all WAL duration histograms (`klio.server.wal.*_duration`, `klio.client.wal.block_duration`). |
+| `tier` | `tier1` (local disk on the Klio server), `tier2` (remote object store); `unknown` on `klio.plugin.wal.restore_duration` when the restore failed before any tier was tried | All `klio.server.wal.*` and `klio.server.backup.*` instruments, `klio.plugin.wal.restore_duration`. |
+| `cluster_name` | Name of the PostgreSQL cluster the recording belongs to | All `klio.plugin.backup.*` instruments, `klio.plugin.wal.restore_duration`, all `klio.server.wal.*` instruments (counters, gauges, and the WAL duration histograms), `klio.client.wal.*`, the `klio.server.backup.*` PostgreSQL backup gauges (`backups`, `latest_backup_*`, `oldest_backup_*`) and the `klio.server.backup.relay` / `klio.server.backup.maintenance` counters. |
+| `outcome` | `success`, `failure`; `not_found` on `klio.plugin.wal.restore_duration` only | `klio.plugin.backup.runs`, `klio.plugin.wal.restore_duration`, `klio.server.backup.relay`, `klio.server.backup.maintenance`, `klio.server.backup.verifications`, and all WAL duration histograms (`klio.server.wal.*_duration`, `klio.client.wal.block_duration`). |
+| `cache_hit` | `true` (served from the prefetch spool), `false` (downloaded) | `klio.plugin.wal.restore_duration`. |
 | `failure_category` | `repository_error`, `source_error`, `verification`, `timeout`, `canceled`, `unknown` | `klio.plugin.backup.runs` failure data points only. |
 | `path` | `put` (WAL ingest), `get` (WAL serve) | `klio.server.wal.block_duration`, `klio.client.wal.block_duration`. |
 | `stage` | put: `wrap`, `write`, `flush`, `send` (client); get: `read`, `unwrap`, `send` | `klio.server.wal.block_duration`, `klio.client.wal.block_duration`. |
@@ -291,6 +292,21 @@ to the server-side `klio.server.wal.latest_written_timeline` gauge
 | Metric Name | Type | Unit | Description |
 |---|---|---|---|
 | `klio.client.wal.timeline` | Gauge | - | Timeline ID the WAL streaming client is currently streaming. Carries `cluster_name` |
+
+### WAL restore duration (plugin sidecar)
+
+The plugin sidecar times every WAL file it restores for PostgreSQL
+(`restore_command`), from the request to the file being in place. This
+is the restore latency PostgreSQL sees, including prefetch hits that
+never reach the Klio server and so are missing from
+`klio.server.wal.get_duration`.
+
+| Metric Name | Type | Unit | Description |
+|---|---|---|---|
+| `klio.plugin.wal.restore_duration` | Histogram | ns | Per-file end-to-end duration of a WAL restore, split by `outcome` (`success`, `failure`, or `not_found` when PostgreSQL asks for a WAL file that was never archived, which is normal at the end of the archive). Carries `cache_hit`, `tier` and `cluster_name` |
+
+It uses the same buckets as the per-file server histograms. A
+prefetch hit is usually faster than the smallest bucket.
 
 ### Backup verification metrics (server)
 
