@@ -345,7 +345,7 @@ func ServerTierReconfiguration(namespace string) *serverReconfigFeature {
 	caCertificate := certificates.GetCACertificateObject(caCertificateName, namespace, issuer)
 	caIssuer := certificates.GetCAIssuerObject(caIssuerName, namespace, caCertificate.Spec.SecretName)
 	serverCertificate := certificates.GetCertificateObject(
-		serverCertificateName, namespace, []string{klioServerName}, issuer)
+		serverCertificateName, namespace, []string{klioServerName}, caIssuer)
 	userCertificate := certificates.GetUserCertificateObject(
 		clientCertName, namespace, clientCertName+"@reconfig", caIssuer)
 	ageSecrets := secrets.GetKlioAgeEncryptionSecrets(encryptionSecretName, namespace, encryptionPassword)

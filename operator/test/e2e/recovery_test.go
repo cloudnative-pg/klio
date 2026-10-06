@@ -47,10 +47,10 @@ func NewRecoveryFeatureConfig(
 	}
 
 	issuer := certificates.GetSelfSignedIssuerObject("selfsigned-issuer", namespace)
-	certificate := certificates.GetCertificateObject("test", namespace, []string{klioServerName}, issuer)
 
 	caCertificate := certificates.GetCACertificateObject("test-ca", namespace, issuer)
 	caIssuer := certificates.GetCAIssuerObject("test-ca-issuer", namespace, caCertificate.Spec.SecretName)
+	certificate := certificates.GetCertificateObject("test", namespace, []string{klioServerName}, caIssuer)
 
 	cnpgCluster := cnpg.GetCnpgClusterObject(cnpgSourceClusterName, namespace, instances,
 		"klio-plugin-configuration",
@@ -62,9 +62,10 @@ func NewRecoveryFeatureConfig(
 		"klio-plugin-configuration",
 		namespace,
 		klio.PluginConfigurationTemplateOptions{
-			ServerCertificate: certificate,
-			ClientCertificate: userCertificate,
-			ClusterName:       cnpgSourceClusterName,
+			ServerCertificate:   certificate,
+			ServerCACertificate: caCertificate,
+			ClientCertificate:   userCertificate,
+			ClusterName:         cnpgSourceClusterName,
 		},
 	)
 	ageSecrets := secrets.GetKlioAgeEncryptionSecrets("encryption", namespace, "testencryptionpassword123")

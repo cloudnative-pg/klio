@@ -129,13 +129,15 @@ type ImageConfiguration struct {
 // TLSConfiguration contains the information needed to configure
 // the PKI infrastructure of the Klio server.
 type TLSConfiguration struct {
-	// TLSSecretName is the name of the Kubernetes secret containing the server-side certificate
-	// to be used for the Klio server.
-	TLSSecretName string `json:"tlsSecretName"`
+	// ServerTLSIdentity is the TLS identity presented to clients: the
+	// server certificate and its matching private key.
+	// +kubebuilder:validation:Required
+	ServerTLSIdentity TLSIdentity `json:"serverTlsIdentity"`
 
-	// ClientCASecretName is the name of the Kubernetes secret containing the CA certificate
-	// to be used by the Klio server to validate the users.
-	ClientCASecretName string `json:"caSecretName"`
+	// ClientCA is the CA bundle used to verify client certificates.
+	// It must contain the PEM-encoded CA certificate(s).
+	// +kubebuilder:validation:Required
+	ClientCA VolumeFileReference `json:"clientCa"`
 }
 
 // Storage defines the configuration for the Klio server's
@@ -146,32 +148,89 @@ type Storage struct {
 	PersistentVolumeClaimTemplate corev1.PersistentVolumeClaimSpec `json:"pvcTemplate"`
 }
 
-// FileReference specifies a file from a volume source.
-type FileReference struct {
+// VolumeSource is the subset of volume sources Klio can read files from.
+// +kubebuilder:validation:ExactlyOneOf=secret;configMap;projected;csi
+// +kubebuilder:validation:XValidation:rule="!has(self.secret) || (has(self.secret.secretName) && size(self.secret.secretName) > 0)",message="secret.secretName must be set when the secret volume source is used"
+// +kubebuilder:validation:XValidation:rule="!has(self.configMap) || (has(self.configMap.name) && size(self.configMap.name) > 0)",message="configMap.name must be set when the configMap volume source is used"
+// +kubebuilder:validation:XValidation:rule="!has(self.projected) || (has(self.projected.sources) && size(self.projected.sources) > 0)",message="projected.sources must not be empty when the projected volume source is used"
+// +kubebuilder:validation:XValidation:rule="!has(self.csi) || (has(self.csi.driver) && size(self.csi.driver) > 0)",message="csi.driver must be set when the csi volume source is used"
+// +kubebuilder:validation:XValidation:rule="!has(self.secret) || !has(self.secret.optional) || !self.secret.optional",message="secret.optional must be unset or false, credential volumes cannot be optional"
+// +kubebuilder:validation:XValidation:rule="!has(self.configMap) || !has(self.configMap.optional) || !self.configMap.optional",message="configMap.optional must be unset or false, credential volumes cannot be optional"
+type VolumeSource struct {
+	// Secret is a volume populated by a Secret.
+	// +optional
+	Secret *corev1.SecretVolumeSource `json:"secret,omitempty"`
+
+	// ConfigMap is a volume populated by a ConfigMap.
+	// +optional
+	ConfigMap *corev1.ConfigMapVolumeSource `json:"configMap,omitempty"`
+
+	// Projected is a projected volume (secrets, config maps, cluster
+	// trust bundles, ...).
+	// +optional
+	Projected *corev1.ProjectedVolumeSource `json:"projected,omitempty"`
+
+	// CSI is a volume provided by a CSI driver.
+	// +optional
+	CSI *corev1.CSIVolumeSource `json:"csi,omitempty"`
+}
+
+// ToCoreV1 converts the subset to a corev1.VolumeSource. The result is a
+// deep copy, so callers may mutate it.
+func (s *VolumeSource) ToCoreV1() corev1.VolumeSource {
+	c := s.DeepCopy()
+
+	return corev1.VolumeSource{
+		Secret:    c.Secret,
+		ConfigMap: c.ConfigMap,
+		Projected: c.Projected,
+		CSI:       c.CSI,
+	}
+}
+
+// VolumeFileReference specifies a file from a volume source.
+type VolumeFileReference struct {
 	// Volume is the volume source to mount.
-	Volume corev1.VolumeSource `json:"volume"`
+	Volume VolumeSource `json:"volume"`
 
 	// Path is the file path within the mounted volume.
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:MaxLength=1024
+	// +kubebuilder:validation:XValidation:rule="!self.startsWith('/') && !self.split('/').exists(s, s == '..')",message="must be a relative path without '..' segments"
 	Path string `json:"path"`
 }
 
-// FileSource specifies a source for a file. This wrapper allows future
-// alternatives to be added without breaking the API.
-// +kubebuilder:validation:ExactlyOneOf=fileReference
-type FileSource struct {
-	// FileReference specifies a file from a volume source.
-	// +optional
-	FileReference *FileReference `json:"fileReference,omitempty"`
+// TLSIdentity is the certificate and private key a component uses to
+// authenticate itself over TLS.
+type TLSIdentity struct {
+	// Volume is the volume source that holds the certificate and the
+	// private key.
+	Volume VolumeSource `json:"volume"`
+
+	// CertPath is the path of the certificate file within the volume.
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:MaxLength=1024
+	// +kubebuilder:validation:XValidation:rule="!self.startsWith('/') && !self.split('/').exists(s, s == '..')",message="must be a relative path without '..' segments"
+	CertPath string `json:"certPath"`
+
+	// KeyPath is the path of the private key file within the volume.
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:MaxLength=1024
+	// +kubebuilder:validation:XValidation:rule="!self.startsWith('/') && !self.split('/').exists(s, s == '..')",message="must be a relative path without '..' segments"
+	KeyPath string `json:"keyPath"`
 }
 
 // Tier1Configuration is the tier 1 configuration.
 type Tier1Configuration struct {
 	// EncryptionKeyFile specifies the Age-encrypted encryption key file.
-	EncryptionKeyFile FileSource `json:"encryptionKeyFile"`
+	EncryptionKeyFile VolumeFileReference `json:"encryptionKeyFile"`
 
 	// IdentityFile specifies the Age identity (private key) file used to
 	// decrypt the encryption key.
-	IdentityFile FileSource `json:"identityFile"`
+	IdentityFile VolumeFileReference `json:"identityFile"`
 
 	// Compression defines the repository-wide (global) compression policy
 	// applied to base backups stored on tier1. Individual clusters can
@@ -186,11 +245,11 @@ type Tier2Configuration struct {
 	S3 *S3Configuration `json:"s3"`
 
 	// EncryptionKeyFile specifies the Age-encrypted encryption key file.
-	EncryptionKeyFile FileSource `json:"encryptionKeyFile"`
+	EncryptionKeyFile VolumeFileReference `json:"encryptionKeyFile"`
 
 	// IdentityFile specifies the Age identity (private key) file used to
 	// decrypt the encryption key.
-	IdentityFile FileSource `json:"identityFile"`
+	IdentityFile VolumeFileReference `json:"identityFile"`
 
 	// Compression defines the repository-wide (global) compression policy
 	// applied to base backups stored on tier2. Individual clusters can
