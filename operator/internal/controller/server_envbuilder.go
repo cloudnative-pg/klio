@@ -225,10 +225,18 @@ func (e *envBuilder) getTier2EnvVars() []corev1.EnvVar {
 			ValueFrom: secretKeySelectorToEnvVarSource(e.tier2.S3.SessionToken),
 		})
 	}
+	if e.tier2.S3.CredentialsFile != nil {
+		result = append(result, corev1.EnvVar{
+			// Read by the AWS SDK and, through the inherited environment,
+			// by the Kopia processes.
+			Name:  "AWS_SHARED_CREDENTIALS_FILE",
+			Value: fileRefPath(tier2S3CredentialsVolName, *e.tier2.S3.CredentialsFile),
+		})
+	}
 	if e.tier2.S3.CustomCABundle != nil {
 		result = append(result, corev1.EnvVar{
 			Name:  "TIER2_S3_CUSTOM_CA_BUNDLE_FILE",
-			Value: "/tier2/custom_ca_bundle.pem",
+			Value: fileRefPath(tier2S3CABundleVolName, *e.tier2.S3.CustomCABundle),
 		})
 	}
 
@@ -236,6 +244,7 @@ func (e *envBuilder) getTier2EnvVars() []corev1.EnvVar {
 	result = appendEnvIfNotEmpty(result, "TIER2_S3_ENDPOINT", e.tier2.S3.Endpoint)
 	result = appendEnvIfNotEmpty(result, "TIER2_S3_PREFIX", e.tier2.S3.Prefix)
 	result = appendEnvIfNotEmpty(result, "TIER2_S3_REGION", e.tier2.S3.Region)
+	result = appendEnvIfNotEmpty(result, "AWS_PROFILE", e.tier2.S3.Profile)
 
 	result = appendCompressionEnvs(result, "TIER2", e.tier2.Compression)
 

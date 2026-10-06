@@ -95,11 +95,11 @@ func BuildTier2Configuration(
 				},
 				Key: "RUSTFS_SECRET_KEY",
 			},
-			CustomCABundle: &cnpgv1.SecretKeySelector{
-				LocalObjectReference: api.LocalObjectReference{
-					Name: s3Opts.S3CABundleSecretName,
+			CustomCABundle: &kliov1alpha1.VolumeFileReference{
+				Volume: kliov1alpha1.VolumeSource{
+					Secret: &corev1.SecretVolumeSource{SecretName: s3Opts.S3CABundleSecretName},
 				},
-				Key: "ca.crt",
+				Path: "ca.crt",
 			},
 		},
 		EncryptionKeyFile: newFileRef(encOpts.EncryptionKeySecretName, encOpts.EncryptionKeyFileName),

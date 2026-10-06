@@ -294,10 +294,15 @@ func (in *S3Configuration) DeepCopyInto(out *S3Configuration) {
 		*out = new(api.SecretKeySelector)
 		**out = **in
 	}
+	if in.CredentialsFile != nil {
+		in, out := &in.CredentialsFile, &out.CredentialsFile
+		*out = new(VolumeFileReference)
+		(*in).DeepCopyInto(*out)
+	}
 	if in.CustomCABundle != nil {
 		in, out := &in.CustomCABundle, &out.CustomCABundle
-		*out = new(api.SecretKeySelector)
-		**out = **in
+		*out = new(VolumeFileReference)
+		(*in).DeepCopyInto(*out)
 	}
 }
 

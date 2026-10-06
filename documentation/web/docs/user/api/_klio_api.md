@@ -207,7 +207,9 @@ _Appears in:_
 | `accessKeyId` _[SecretKeySelector](https://pkg.go.dev/github.com/cloudnative-pg/machinery/pkg/api#SecretKeySelector)_ | The S3 access key ID |  |  | Optional: \{\} <br /> |
 | `secretAccessKey` _[SecretKeySelector](https://pkg.go.dev/github.com/cloudnative-pg/machinery/pkg/api#SecretKeySelector)_ | The S3 access key |  |  | Optional: \{\} <br /> |
 | `sessionToken` _[SecretKeySelector](https://pkg.go.dev/github.com/cloudnative-pg/machinery/pkg/api#SecretKeySelector)_ | The S3 session token |  |  | Optional: \{\} <br /> |
-| `customCaBundle` _[SecretKeySelector](https://pkg.go.dev/github.com/cloudnative-pg/machinery/pkg/api#SecretKeySelector)_ | A pointer to a custom CA bundle |  |  | Optional: \{\} <br /> |
+| `credentialsFile` _[VolumeFileReference](#volumefilereference)_ | CredentialsFile is an AWS shared credentials file (INI format) mounted<br />from a volume. It is mutually exclusive with accessKeyId,<br />secretAccessKey and sessionToken. |  |  | Optional: \{\} <br /> |
+| `profile` _string_ | Profile is the profile to use within CredentialsFile. |  |  | Optional: \{\} <br /> |
+| `customCaBundle` _[VolumeFileReference](#volumefilereference)_ | CustomCABundle is a PEM-encoded CA bundle, mounted from a volume, that<br />is trusted when connecting to the S3 endpoint. |  |  | Optional: \{\} <br /> |
 
 
 #### Server
@@ -424,6 +426,7 @@ VolumeFileReference specifies a file from a volume source.
 
 _Appears in:_
 - [PluginConfigurationSpec](#pluginconfigurationspec)
+- [S3Configuration](#s3configuration)
 - [ServerSpec](#serverspec)
 - [TLSConfiguration](#tlsconfiguration)
 - [Tier1Configuration](#tier1configuration)

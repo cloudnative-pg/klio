@@ -229,6 +229,41 @@ func TestGetTier2EnvVarsIncludesCompression(t *testing.T) {
 	})
 }
 
+func TestGetTier2EnvVarsS3CredentialsFile(t *testing.T) {
+	newBuilder := func(s3 *kliov1alpha1.S3Configuration) *envBuilder {
+		return &envBuilder{
+			tier2: &kliov1alpha1.Tier2Configuration{
+				S3:                s3,
+				EncryptionKeyFile: newTestFileRef("enc-secret", "encryption-key.age"),
+				IdentityFile:      newTestFileRef("id-secret", "identity.txt"),
+			},
+		}
+	}
+
+	t.Run("file and profile", func(t *testing.T) {
+		ref := newTestFileRef("aws-creds", "credentials")
+		envVars := newBuilder(&kliov1alpha1.S3Configuration{
+			BucketName:      "test-bucket",
+			CredentialsFile: &ref,
+			Profile:         "klio",
+		}).getTier2EnvVars()
+
+		file := findEnvVar(envVars, "AWS_SHARED_CREDENTIALS_FILE")
+		require.NotNil(t, file)
+		assert.Equal(t, "/files/tier2-s3-credentials/credentials", file.Value)
+		profile := findEnvVar(envVars, "AWS_PROFILE")
+		require.NotNil(t, profile)
+		assert.Equal(t, "klio", profile.Value)
+	})
+
+	t.Run("unset", func(t *testing.T) {
+		envVars := newBuilder(&kliov1alpha1.S3Configuration{BucketName: "test-bucket"}).getTier2EnvVars()
+
+		assert.Nil(t, findEnvVar(envVars, "AWS_SHARED_CREDENTIALS_FILE"))
+		assert.Nil(t, findEnvVar(envVars, "AWS_PROFILE"))
+	})
+}
+
 func TestGetCoreEnvVarsOnlyTLSWhenNoTier1(t *testing.T) {
 	builder := &envBuilder{
 		tls:   newTestTLSConfiguration(),
@@ -487,4 +522,67 @@ func TestBuildIdentityVolMountProjected(t *testing.T) {
 	assert.True(t, mount.ReadOnly)
 	// The source spec must not be mutated.
 	assert.Nil(t, src.Volume.Projected.DefaultMode)
+}
+
+func TestTier2S3CustomCABundle(t *testing.T) {
+	ref := kliov1alpha1.VolumeFileReference{
+		Volume: kliov1alpha1.VolumeSource{
+			CSI: &corev1.CSIVolumeSource{Driver: "secrets-store.csi.k8s.io"},
+		},
+		Path: "ca.crt",
+	}
+	tier2 := &kliov1alpha1.Tier2Configuration{
+		S3:                &kliov1alpha1.S3Configuration{BucketName: "b", CustomCABundle: &ref},
+		EncryptionKeyFile: newTestFileRef("enc-secret", "encryption-key.age"),
+		IdentityFile:      newTestFileRef("id-secret", "identity.txt"),
+	}
+
+	t.Run("env var points to the mounted file", func(t *testing.T) {
+		env := findEnvVar((&envBuilder{tier2: tier2}).getTier2EnvVars(), "TIER2_S3_CUSTOM_CA_BUNDLE_FILE")
+		require.NotNil(t, env)
+		assert.Equal(t, "/files/tier2-s3-ca-bundle/ca.crt", env.Value)
+	})
+
+	r := &ServerReconciler{}
+	server := &kliov1alpha1.Server{
+		Spec: kliov1alpha1.ServerSpec{
+			TLSConfiguration: newTestTLSConfiguration(),
+			Tier2:            tier2,
+		},
+	}
+
+	t.Run("volume and read-only mount", func(t *testing.T) {
+		var vol *corev1.Volume
+		volumes := r.buildVolumes(server)
+		for i := range volumes {
+			assert.NotEqual(t, "tier2", volumes[i].Name, "the old projected tier2 volume must be gone")
+			if volumes[i].Name == tier2S3CABundleVolName {
+				vol = &volumes[i]
+			}
+		}
+		require.NotNil(t, vol)
+		require.NotNil(t, vol.CSI)
+		assert.Equal(t, "secrets-store.csi.k8s.io", vol.CSI.Driver)
+
+		var mount *corev1.VolumeMount
+		for _, m := range r.buildVolumeMounts(server) {
+			if m.Name == tier2S3CABundleVolName {
+				mount = &m
+			}
+		}
+		require.NotNil(t, mount)
+		assert.Equal(t, "/files/tier2-s3-ca-bundle", mount.MountPath)
+		assert.True(t, mount.ReadOnly)
+	})
+
+	t.Run("nothing is mounted when unset", func(t *testing.T) {
+		server.Spec.Tier2 = &kliov1alpha1.Tier2Configuration{
+			S3:                &kliov1alpha1.S3Configuration{BucketName: "b"},
+			EncryptionKeyFile: tier2.EncryptionKeyFile,
+			IdentityFile:      tier2.IdentityFile,
+		}
+		for _, v := range r.buildVolumes(server) {
+			assert.NotEqual(t, tier2S3CABundleVolName, v.Name)
+		}
+	})
 }

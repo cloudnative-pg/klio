@@ -424,6 +424,36 @@ tier2:
       key: SECRET_ACCESS_KEY
 ```
 
+#### Credentials from a File
+
+Instead of `accessKeyId` and `secretAccessKey`, you can mount an
+[AWS shared credentials file](https://docs.aws.amazon.com/sdkref/latest/guide/file-format.html)
+(INI format) from a volume:
+
+```yaml
+tier2:
+  s3:
+    bucketName: klio-backups
+    region: us-east-1
+    credentialsFile:
+      volume:
+        secret:
+          secretName: s3-credentials-file
+      path: credentials
+    profile: klio  # Optional, defaults to "default"
+```
+
+The file is exposed to the server through `AWS_SHARED_CREDENTIALS_FILE`
+(and `AWS_PROFILE` when `profile` is set). `credentialsFile` cannot be
+combined with `accessKeyId`, `secretAccessKey` or `sessionToken`.
+
+:::note
+Kopia only reads this file when the Klio Kopia build includes the
+shared-credentials provider. Both Kopia and the Klio server re-read the file,
+so a rotated Secret takes effect without a restart once Kubernetes refreshes
+the mounted volume (the server re-reads at most once a minute).
+:::
+
 #### S3-Compatible Storage with Custom Endpoint
 
 For S3-compatible providers, add the `endpoint` field:
@@ -444,7 +474,9 @@ tier2:
 
 #### Custom CA Certificates
 
-For providers using self-signed certificates or custom CAs:
+For providers using self-signed certificates or custom CAs, reference the
+PEM-encoded CA bundle as a file. Like every other file reference, it can
+come from a `secret`, `configMap`, `projected` or `csi` volume:
 
 ```yaml
 tier2:
@@ -452,8 +484,10 @@ tier2:
     bucketName: klio-backups
     endpoint: https://<endpoint>:<port>
     customCaBundle:
-      name: minio-ca-cert
-      key: ca.crt
+      volume:
+        secret:
+          secretName: minio-ca-cert
+      path: ca.crt
     accessKeyId:
       name: s3-credentials
       key: ACCESS_KEY_ID
