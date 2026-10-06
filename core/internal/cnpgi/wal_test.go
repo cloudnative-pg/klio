@@ -224,9 +224,8 @@ func TestRestoreRecordsRestoreFailure(t *testing.T) {
 }
 
 // TestRestoreResult checks how a restore error is classified for the `outcome`
-// attribute. The success case has no end-to-end coverage — a served restore
-// needs a real Klio server — and it is exactly the case a per-return-path
-// assignment lost, so it is asserted here.
+// attribute. A served restore needs a real Klio server, so the success case is
+// asserted here too: it is exactly the case a per-return-path assignment lost.
 func TestRestoreResult(t *testing.T) {
 	tests := []struct {
 		name string

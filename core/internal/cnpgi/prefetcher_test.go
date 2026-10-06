@@ -21,7 +21,9 @@ package cnpgi
 
 import (
 	"context"
+	"errors"
 	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -432,4 +434,68 @@ func TestCanHavePartial(t *testing.T) {
 	assert.False(t, canHavePartial("00000002.history"))
 	assert.False(t, canHavePartial("000000010000000000000001.00000028.backup"))
 	assert.False(t, canHavePartial("000000010000000000000001.partial"))
+}
+
+// TestGetCompleteWALCacheHit checks the cache_hit result of getCompleteWAL for
+// entries already tracked by the prefetcher. Only a prefetch that was complete
+// when the WAL was requested is a hit: one still downloading makes the caller
+// wait, so it is a miss even once its download completes.
+func TestGetCompleteWALCacheHit(t *testing.T) {
+	const walName = "000000010000000000000001"
+	errDownload := errors.New("download failed")
+
+	tests := []struct {
+		name       string
+		isPrefetch bool
+		inFlight   bool
+		err        error
+		wantHit    bool
+	}{
+		{name: "ready prefetch is a hit", isPrefetch: true, wantHit: true},
+		{name: "in-flight prefetch is a miss", isPrefetch: true, inFlight: true},
+		{name: "ready direct download is a miss"},
+		{name: "failed download is a miss", isPrefetch: true, err: errDownload},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			spoolDir := t.TempDir()
+			p := newWALPrefetcher(spoolDir, nil, 2, 2)
+			defer func() { _ = p.Close() }()
+
+			spoolPath := filepath.Join(spoolDir, walName)
+			require.NoError(t, os.WriteFile(spoolPath, []byte("wal"), 0o600))
+
+			entry := &walEntry{
+				state:      walStateReady,
+				spoolPath:  spoolPath,
+				done:       make(chan struct{}),
+				isPrefetch: tt.isPrefetch,
+			}
+			if tt.err != nil {
+				entry.err = tt.err
+			}
+			// The hit is decided from the state seen at lookup. An in-flight
+			// entry keeps its downloading state, while its done channel is
+			// closed so the request does not block waiting for it.
+			if tt.inFlight {
+				entry.state = walStateDownloading
+			}
+			close(entry.done)
+
+			p.mu.Lock()
+			p.entries[walName] = entry
+			p.mu.Unlock()
+
+			targetPath := filepath.Join(t.TempDir(), walName)
+			hit, err := p.getCompleteWAL(context.Background(), walName, targetPath)
+			if tt.err != nil {
+				require.ErrorIs(t, err, tt.err)
+			} else {
+				require.NoError(t, err)
+				assert.FileExists(t, targetPath)
+			}
+			assert.Equal(t, tt.wantHit, hit)
+		})
+	}
 }
