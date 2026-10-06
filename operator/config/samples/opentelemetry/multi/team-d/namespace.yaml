@@ -3,7 +3,7 @@ kind: Namespace
 metadata:
   name: team-d
   labels:
-    # Selected by ../../base/otel_collector_ca_bundle.yaml's Bundle,
-    # telling trust-manager to deliver the OTel collector's trust anchor
+    # Selected by ../../base/k8s_cluster_ca_bundle.yaml's Bundle,
+    # telling trust-manager to deliver the k8s cluster CA's public certificate
     # here.
-    klio.cnpg.io/trust-otel-collector-ca: "true"
+    klio.cnpg.io/trust-k8s-cluster-ca: "true"

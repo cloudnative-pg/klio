@@ -45,8 +45,20 @@ metadata:
   namespace: dc-a
 spec:
   serverAddress: klioserver-dc-a.dc-a
-  clientSecretName: cluster-dc-a-klio-user
-  serverSecretName: klioserver-dc-a-tls
+  clientTlsIdentity:
+    volume:
+      secret:
+        secretName: cluster-dc-a-klio-user
+    certPath: tls.crt
+    keyPath: tls.key
+  serverCa:
+    volume:
+      secret:
+        secretName: klioserver-dc-a-tls
+        items:
+        - key: ca.crt
+          path: ca.crt
+    path: ca.crt
   clusterName: cluster-dc-a
 ---
 apiVersion: klio.cnpg.io/v1alpha1
@@ -55,9 +67,21 @@ metadata:
   name: client-config-external-cluster-dc-b
   namespace: dc-a
 spec:
-  serverAddress: klioserver-dc-a.dc-b
-  clientSecretName: cluster-dc-b-klio-user-for-dc-a
-  serverSecretName: klioserver-dc-b-tls
+  serverAddress: klioserver-dc-b.dc-b
+  clientTlsIdentity:
+    volume:
+      secret:
+        secretName: cluster-dc-b-klio-user-for-dc-a
+    certPath: tls.crt
+    keyPath: tls.key
+  serverCa:
+    volume:
+      secret:
+        secretName: klioserver-dc-b-tls
+        items:
+        - key: ca.crt
+          path: ca.crt
+    path: ca.crt
   clusterName: cluster-dc-b
 ---
 ## Generate client certificate for local cluster in dc-a, using the CA in dc-a.
