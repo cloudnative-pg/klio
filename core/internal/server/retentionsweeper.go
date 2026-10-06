@@ -27,7 +27,6 @@ import (
 	"github.com/cloudnative-pg/machinery/pkg/log"
 	"github.com/spf13/afero"
 
-	"github.com/cloudnative-pg/klio/core/internal/kopia"
 	"github.com/cloudnative-pg/klio/core/internal/repository"
 	"github.com/cloudnative-pg/klio/core/internal/retention"
 	"github.com/cloudnative-pg/klio/core/internal/tier2"
@@ -103,21 +102,13 @@ func (s *RetentionSweeper) buildSweeperOptions(ctx context.Context) (*retention.
 		return nil, fmt.Errorf("failed to open tier1 WAL repository: %w", err)
 	}
 
-	// Extract the certificate fingerprint for the Kopia servers. Tier1 and
-	// tier2 share the same server certificate.
-	certificateFingerprint, err := kopia.ExtractSHA256CertificateFingerprint(
-		s.Config.TLS.TLSCert)
-	if err != nil {
-		return nil, fmt.Errorf("error while extracting fingerprint of the kopia server certificate: %w", err)
-	}
-
 	sweeperOptions := &retention.Options{
-		Tier1KopiaConfig:                  s.Tier1KopiaConfigFile,
-		Tier1ServerAddress:                "https://" + s.Config.Tier1.Base.ListenAddress,
-		Tier1ServerCertificateFingerprint: certificateFingerprint,
-		RunID:                             s.RunID,
-		RunSecret:                         s.RunSecret,
-		Tier1WALRepository:                tier1WALRepository,
+		Tier1KopiaConfig:   s.Tier1KopiaConfigFile,
+		Tier1ServerAddress: "https://" + s.Config.Tier1.Base.ListenAddress,
+		ServerTLSCertFile:  s.Config.TLS.TLSCert,
+		RunID:              s.RunID,
+		RunSecret:          s.RunSecret,
+		Tier1WALRepository: tier1WALRepository,
 	}
 
 	// When tier2 is configured, wire it so the sweep also prunes tier2
@@ -137,7 +128,6 @@ func (s *RetentionSweeper) buildSweeperOptions(ctx context.Context) (*retention.
 
 		sweeperOptions.Tier2KopiaConfig = s.Tier2KopiaConfigFile
 		sweeperOptions.Tier2ServerAddress = "https://" + s.Config.Tier2.BaseListenAddress
-		sweeperOptions.Tier2ServerCertificateFingerprint = certificateFingerprint
 		sweeperOptions.Tier2WALRepository = tier2WALRepository
 	}
 
