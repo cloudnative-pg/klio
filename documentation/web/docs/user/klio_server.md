@@ -220,11 +220,25 @@ spec:
   image: ghcr.io/cloudnative-pg/klio:v0.0.20
   imagePullPolicy: IfNotPresent
 
-  # TLS configuration
-  tlsSecretName: dr-server-tls
-
-  # Client authentication configuration
-  caSecretName: klio-server-ca
+  # TLS identity presented to clients. Both files come from a
+  # single volume so the pair always belongs together — never
+  # split across volumes.
+  serverTlsIdentity:
+    volume:
+      secret:
+        secretName: dr-server-tls
+    certPath: tls.crt
+    keyPath: tls.key
+  # CA bundle used to verify client certificates. Only the
+  # referenced key is mounted, never the whole secret.
+  clientCa:
+    volume:
+      secret:
+        secretName: klio-client-ca
+        items:
+          - key: ca.crt
+            path: ca.crt
+    path: ca.crt
 
   # The single PVC, mounted at /klio. In read-only mode the
   # server only ever populates the cache_tier2 subdirectory, but the
@@ -242,18 +256,19 @@ spec:
   tier2:
     # Age-encrypted encryption key file
     encryptionKeyFile:
-      fileReference:
-        volume:
-          secret:
-            secretName: dr-server-encryption-key
-        path: encryption-key.age
+      volume:
+        secret:
+          secretName: dr-server-encryption-key
+          items:
+            - key: encryption-key.age
+              path: encryption-key.age
+      path: encryption-key.age
     # Age identity file for decryption
     identityFile:
-      fileReference:
-        volume:
-          secret:
-            secretName: dr-server-age-identity
-        path: identity.txt
+      volume:
+        secret:
+          secretName: dr-server-age-identity
+      path: identity.txt
 
     # S3 access configuration
     # See Object Store section for authentication options
@@ -409,6 +424,29 @@ tier2:
       key: SECRET_ACCESS_KEY
 ```
 
+#### Credentials from a File
+
+Instead of `accessKeyId` and `secretAccessKey`, you can mount an
+[AWS shared credentials file](https://docs.aws.amazon.com/sdkref/latest/guide/file-format.html)
+(INI format) from a volume:
+
+```yaml
+tier2:
+  s3:
+    bucketName: klio-backups
+    region: us-east-1
+    credentialsFile:
+      volume:
+        secret:
+          secretName: s3-credentials-file
+      path: credentials
+    profile: klio  # Optional, defaults to "default"
+```
+
+The file is exposed to the server through `AWS_SHARED_CREDENTIALS_FILE`
+(and `AWS_PROFILE` when `profile` is set). `credentialsFile` cannot be
+combined with `accessKeyId`, `secretAccessKey` or `sessionToken`.
+
 #### S3-Compatible Storage with Custom Endpoint
 
 For S3-compatible providers, add the `endpoint` field:
@@ -550,10 +588,27 @@ with TLS:
 - **WAL Streaming**: PostgreSQL instances streaming WAL files to the Klio server
   use gRPC over TLS, ensuring WAL data is encrypted during transmission
 
-The TLS certificate is configured via the `.spec.tlsSecretName` field in the
-Server resource, which references a Kubernetes secret containing the TLS
-certificate and private key. This provides end-to-end encryption, ensuring that
-backup data is protected both at rest and in transit.
+The server TLS identity is configured via the `.spec.serverTlsIdentity`
+field in the Server resource: a single volume holding both the
+certificate and its matching private key, referenced by `certPath`
+and `keyPath`. This provides end-to-end encryption, ensuring that backup
+data is protected both at rest and in transit.
+
+#### Rotating the server identity
+
+The WAL server reads the identity and client CA files on every TLS
+handshake, so rotating them needs no restart: new connections use
+the new files. Existing connections are unaffected and keep serving
+with the identity they negotiated. A broken rotation (unreadable
+files, a mismatched pair, an unparsable CA bundle) is logged
+server-side and fails new handshakes closed; the server also
+refuses to start with invalid files.
+
+Local Kopia control connections (`kopia server refresh` between
+the server's own components on localhost) verify the served leaf
+by fingerprint, computed fresh from the serving certificate file
+on every call — no CA bundle needed, and rotated certificates
+are tracked without restart.
 
 ### Age Encryption
 
@@ -581,17 +636,18 @@ Once the Secrets exist, reference them in the Server spec:
 ```yaml
 tier1:
   encryptionKeyFile:
-    fileReference:
-      volume:
-        secret:
-          secretName: klio-encryption-key-age
-      path: encryption-key.age
+    volume:
+      secret:
+        secretName: klio-encryption-key-age
+        items:
+          - key: encryption-key.age
+            path: encryption-key.age
+    path: encryption-key.age
   identityFile:
-    fileReference:
-      volume:
-        secret:
-          secretName: klio-age-identity
-      path: identity.txt
+    volume:
+      secret:
+        secretName: klio-age-identity
+    path: identity.txt
 ```
 
 The same configuration applies to `tier2`.
@@ -605,22 +661,30 @@ plugin-based recipient and a standard X25519 recipient.
 
 #### Using External Secret Managers
 
-The `encryptionKeyFile` and `identityFile` fields accept any
-Kubernetes `VolumeSource`, not just Secrets. This enables
+Every file reference, including `encryptionKeyFile` and
+`identityFile`, accepts exactly one of four volume sources:
+`secret`, `configMap`, `projected` or `csi`. A `csi` volume enables
 integration with external secret management systems:
 
 ```yaml
 tier1:
   encryptionKeyFile:
-    fileReference:
-      volume:
-        csi:
-          driver: secrets-store.csi.k8s.io
-          readOnly: true
-          volumeAttributes:
-            secretProviderClass: klio-aws-secrets
-      path: encryption-key.age
+    volume:
+      csi:
+        driver: secrets-store.csi.k8s.io
+        readOnly: true
+        volumeAttributes:
+          secretProviderClass: klio-secrets
+    path: encryption-key.age
 ```
+
+The `secretProviderClass` above is a `SecretProviderClass` resource
+of the Secrets Store CSI driver. Its `parameters` are specific to
+the provider: see the
+provider's documentation for the exact fields, and keep the object
+names in sync with the `volumeAttributes` of each file reference.
+The driver mounts one file per secret, and Klio reads the file named
+by `path` — no Kubernetes Secret is created.
 
 #### Rotating Age Credentials
 
@@ -651,7 +715,10 @@ kubectl create secret generic klio-age-identity \
     --dry-run=client -o yaml | kubectl apply -f -
 ```
 
-4. Restart the Klio server pod to pick up the new files.
+4. Optionally, restart the Klio server pod to check the new files. The
+   running server decrypts the key once at startup and does not read these
+   files again, so it keeps working without a restart. A restart makes sure
+   the new identity decrypts the new key file before you delete the old ones.
 
 5. Securely delete the old identity and plaintext files.
 
@@ -667,9 +734,8 @@ the Klio server.
 A client certificate is accepted by the Klio server when it satisfies
 all of the following:
 
-- It is signed by the CA whose secret is referenced by
-  `.spec.caSecretName` on the `Server`. In practice this means signing
-  it with a cert-manager `Issuer` backed by that CA secret.
+- It is signed by the CA referenced by `.spec.clientCa` on the
+  `Server`.
 - It carries the `client auth` usage.
 - Its Common Name has the form `userName@hostName`. The host part
   identifies the cluster whose backups and WAL archive the client may
