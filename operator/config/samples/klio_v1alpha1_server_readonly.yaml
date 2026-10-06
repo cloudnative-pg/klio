@@ -15,17 +15,18 @@ spec:
   mode: read-only
   tier2:
     encryptionKeyFile:
-      fileReference:
-        volume:
-          secret:
-            secretName: server-ro-encryption
-        path: encryption-key
+      volume:
+        secret:
+          secretName: server-ro-encryption
+          items:
+            - key: encryption-key
+              path: encryption-key
+      path: encryption-key
     identityFile:
-      fileReference:
-        volume:
-          secret:
-            secretName: server-ro-encryption
-        path: secret-key
+      volume:
+        secret:
+          secretName: server-ro-encryption
+      path: secret-key
     s3:
       prefix: klio
       bucketName: klio-bucket
@@ -49,9 +50,20 @@ spec:
       accessModes:
         - ReadWriteOnce
 
-  tlsSecretName: server-ro-tls
-  caSecretName: server-ro-ca
-
+  serverTlsIdentity:
+    volume:
+      secret:
+        secretName: server-ro-tls
+    certPath: tls.crt
+    keyPath: tls.key
+  clientCa:
+    volume:
+      secret:
+        secretName: server-ro-client-ca
+        items:
+          - key: ca.crt
+            path: ca.crt
+    path: ca.crt
   image: registry.dev:5000/klio-testing:dev
   imagePullPolicy: Always
 ---
@@ -98,17 +110,17 @@ spec:
     - server auth
 
   issuerRef:
-    name: selfsigned-issuer
+    name: server-ro-server-ca
     kind: Issuer
     group: cert-manager.io
 ---
 apiVersion: cert-manager.io/v1
 kind: Certificate
 metadata:
-  name: server-ro-ca
+  name: server-ro-server-ca
 spec:
-  commonName: server-ro
-  secretName: server-ro-ca
+  commonName: server-ro-server-ca
+  secretName: server-ro-server-ca
 
   duration: 2160h # 90d
   renewBefore: 360h # 15d
@@ -125,7 +137,35 @@ spec:
 apiVersion: cert-manager.io/v1
 kind: Issuer
 metadata:
-  name: server-ro-ca
+  name: server-ro-server-ca
 spec:
   ca:
-    secretName: server-ro-ca
+    secretName: server-ro-server-ca
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: server-ro-client-ca
+spec:
+  commonName: server-ro-client-ca
+  secretName: server-ro-client-ca
+
+  duration: 2160h # 90d
+  renewBefore: 360h # 15d
+
+  isCA: true
+  usages:
+    - cert sign
+
+  issuerRef:
+    name: selfsigned-issuer
+    kind: Issuer
+    group: cert-manager.io
+---
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  name: server-ro-client-ca
+spec:
+  ca:
+    secretName: server-ro-client-ca

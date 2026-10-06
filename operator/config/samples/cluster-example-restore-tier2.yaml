@@ -37,7 +37,7 @@ spec:
     - client auth
 
   issuerRef:
-    name: server-sample-ca
+    name: server-sample-client-ca
     kind: Issuer
     group: cert-manager.io
 ---
@@ -47,8 +47,20 @@ metadata:
   name: client-config-example-restore
 spec:
   serverAddress: server-sample.default
-  clientSecretName: cluster-restore-klio-user
-  serverSecretName: server-sample-tls
+  clientTlsIdentity:
+    volume:
+      secret:
+        secretName: cluster-restore-klio-user
+    certPath: tls.crt
+    keyPath: tls.key
+  serverCa:
+    volume:
+      secret:
+        secretName: server-sample-server-ca
+        items:
+        - key: ca.crt
+          path: ca.crt
+    path: ca.crt
   clusterName: cluster-example
   tier2:
     enableRecovery: true
