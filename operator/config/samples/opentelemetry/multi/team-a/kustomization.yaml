@@ -1,6 +1,6 @@
 # Instantiates ../../single's server/cluster as "klio-a"/"cluster-a" in
 # "default". Only name-derived fields are patched; the rest, including its
-# own CA (klio-a-ca), is inherited unchanged.
+# own CA (klio-a-client-ca), is inherited unchanged.
 namespace: default
 resources:
   - ../../single/server
@@ -15,11 +15,23 @@ patches:
         path: /metadata/name
         value: klio-a
       - op: replace
-        path: /spec/tlsSecretName
-        value: klio-a-tls
+        path: /spec/serverTlsIdentity
+        value:
+          volume:
+            secret:
+              secretName: klio-a-tls
+          certPath: tls.crt
+          keyPath: tls.key
       - op: replace
-        path: /spec/caSecretName
-        value: klio-a-ca
+        path: /spec/clientCa
+        value:
+          volume:
+            secret:
+              secretName: klio-a-client-ca
+              items:
+                - key: tls.crt
+                  path: tls.crt
+          path: tls.crt
       - op: replace
         path: /spec/template/spec/containers/0/env/2/value
         value: klio-server-a
@@ -41,27 +53,27 @@ patches:
         value: [klio-a, klio-a.default, klio-a.default.svc]
   - target:
       kind: Certificate
-      name: klio-server-ca
+      name: klio-client-ca
     patch: |-
       - op: replace
         path: /metadata/name
-        value: klio-a-ca
+        value: klio-a-client-ca
       - op: replace
         path: /spec/secretName
-        value: klio-a-ca
+        value: klio-a-client-ca
       - op: replace
         path: /spec/commonName
-        value: klio-a-ca
+        value: klio-a-client-ca
   - target:
       kind: Issuer
-      name: klio-server-ca
+      name: klio-client-ca
     patch: |-
       - op: replace
         path: /metadata/name
-        value: klio-a-ca
+        value: klio-a-client-ca
       - op: replace
         path: /spec/ca/secretName
-        value: klio-a-ca
+        value: klio-a-client-ca
   - target:
       kind: Cluster
       name: cluster-example
@@ -83,11 +95,23 @@ patches:
         path: /spec/serverAddress
         value: klio-a.default
       - op: replace
-        path: /spec/clientSecretName
-        value: cluster-a-klio-user
+        path: /spec/clientTlsIdentity
+        value:
+          volume:
+            secret:
+              secretName: cluster-a-klio-user
+          certPath: tls.crt
+          keyPath: tls.key
       - op: replace
-        path: /spec/serverSecretName
-        value: klio-a-tls
+        path: /spec/serverCa
+        value:
+          volume:
+            secret:
+              secretName: klio-a-tls
+              items:
+              - key: ca.crt
+                path: ca.crt
+          path: ca.crt
       - op: replace
         path: /spec/clusterName
         value: cluster-a

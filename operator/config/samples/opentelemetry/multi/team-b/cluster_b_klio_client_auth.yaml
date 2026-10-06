@@ -14,6 +14,6 @@ spec:
     - client auth
 
   issuerRef:
-    name: klio-b-ca
+    name: klio-b-client-ca
     kind: Issuer
     group: cert-manager.io
