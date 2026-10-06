@@ -53,14 +53,13 @@ type tierPolicySelector func(*grpc.RetentionPolicy) *grpc.TierRetentionPolicy
 // tier1 and tier2 (identical logic, different clients/config) share one
 // implementation instead of two near-duplicate functions.
 type tierConfig struct {
-	name            string
-	metricTier      opentelemetry.Tier
-	kopiaClient     *kopia.Client
-	backupClient    backupDeleter
-	selectPolicy    tierPolicySelector
-	serverAddress   string
-	certFingerprint string
-	walRepository   *repository.Connection
+	name          string
+	metricTier    opentelemetry.Tier
+	kopiaClient   *kopia.Client
+	backupClient  backupDeleter
+	selectPolicy  tierPolicySelector
+	serverAddress string
+	walRepository *repository.Connection
 
 	// syncGuardClient, when set, is queried before deleting a candidate
 	// backup: the candidate is only deleted if it already exists there.
@@ -89,7 +88,6 @@ func (s *Sweeper) Sweep(ctx context.Context) error {
 		backupClient:    s.tier1Client,
 		selectPolicy:    func(p *grpc.RetentionPolicy) *grpc.TierRetentionPolicy { return p.GetTier1Policy() },
 		serverAddress:   s.opts.Tier1ServerAddress,
-		certFingerprint: s.opts.Tier1ServerCertificateFingerprint,
 		walRepository:   s.opts.Tier1WALRepository,
 		syncGuardClient: tier1SyncGuard,
 	}); err != nil {
@@ -98,14 +96,13 @@ func (s *Sweeper) Sweep(ctx context.Context) error {
 
 	if s.tier2Enabled {
 		if err := s.sweepTier(ctx, tierConfig{
-			name:            "tier2",
-			metricTier:      opentelemetry.Tier2,
-			kopiaClient:     s.tier2Kopia,
-			backupClient:    s.tier2Client,
-			selectPolicy:    func(p *grpc.RetentionPolicy) *grpc.TierRetentionPolicy { return p.GetTier2Policy() },
-			serverAddress:   s.opts.Tier2ServerAddress,
-			certFingerprint: s.opts.Tier2ServerCertificateFingerprint,
-			walRepository:   s.opts.Tier2WALRepository,
+			name:          "tier2",
+			metricTier:    opentelemetry.Tier2,
+			kopiaClient:   s.tier2Kopia,
+			backupClient:  s.tier2Client,
+			selectPolicy:  func(p *grpc.RetentionPolicy) *grpc.TierRetentionPolicy { return p.GetTier2Policy() },
+			serverAddress: s.opts.Tier2ServerAddress,
+			walRepository: s.opts.Tier2WALRepository,
 		}); err != nil {
 			errs = append(errs, fmt.Errorf("while sweeping tier2 retention: %w", err))
 		}
@@ -160,12 +157,7 @@ func (s *Sweeper) sweepTier(ctx context.Context, tc tierConfig) error {
 	if deletedAny {
 		contextLogger.Info("Refreshing Kopia server cache after retention sweep", "tier", tc.name)
 
-		if err := tc.kopiaClient.RefreshServer(ctx, kopia.RefreshServerOptions{
-			ServerControlUser:     s.opts.RunID,
-			ServerControlPassword: s.opts.RunSecret,
-			ServerCertFingerprint: tc.certFingerprint,
-			Address:               tc.serverAddress,
-		}); err != nil {
+		if err := s.refreshServer(ctx, tc); err != nil {
 			errs = append(errs, fmt.Errorf("while refreshing the %s Kopia server: %w", tc.name, err))
 		}
 	}
@@ -403,4 +395,20 @@ func groupHostnames(entries []kopia.Manifest) []string {
 	}
 
 	return hostnames
+}
+
+// refreshServer makes the Kopia server of a tier reload its manifests,
+// pinning the served certificate by its current fingerprint.
+func (s *Sweeper) refreshServer(ctx context.Context, tc tierConfig) error {
+	fingerprint, err := kopia.LeafFingerprint(s.opts.ServerTLSCertFile)
+	if err != nil {
+		return fmt.Errorf("while fingerprinting the server certificate: %w", err)
+	}
+
+	return tc.kopiaClient.RefreshServer(ctx, kopia.RefreshServerOptions{
+		ServerControlUser:     s.opts.RunID,
+		ServerControlPassword: s.opts.RunSecret,
+		ServerCertFingerprint: fingerprint,
+		Address:               tc.serverAddress,
+	})
 }

@@ -53,11 +53,6 @@ const (
 	// PluginConfigurationRefParam is the name of the parameter that contains
 	// the reference to the Klio PluginConfiguration resource.
 	PluginConfigurationRefParam = "pluginConfigurationRef"
-
-	// tlsCertFile is the standard TLS certificate filename.
-	tlsCertFile = "tls.crt"
-	// tlsKeyFile is the standard TLS private key filename.
-	tlsKeyFile = "tls.key"
 )
 
 const (
@@ -97,8 +92,10 @@ func GenerateConfig(
 	spec kliov1alpha1.PluginConfigurationSpec,
 	configKey string,
 ) *config.Data {
-	serverCertPath := GetServerSecretVolumeMountPath(configKey)
-	clientCertPath := GetClientSecretVolumeMountPath(configKey)
+	serverCertPath := path.Join(GetServerSecretVolumeMountPath(configKey), spec.ServerCA.Path)
+	clientIdentityMount := GetClientSecretVolumeMountPath(configKey)
+	clientCertPath := path.Join(clientIdentityMount, spec.ClientTLSIdentity.CertPath)
+	clientKeyPath := path.Join(clientIdentityMount, spec.ClientTLSIdentity.KeyPath)
 
 	klioTier1RetentionPolicy := convertTier1RetentionPolicy(spec.Tier1)
 	klioTier2RetentionPolicy := convertTier2RetentionPolicy(spec.Tier2)
@@ -117,14 +114,14 @@ func GenerateConfig(
 		Client: config.ClientConfig{
 			ClusterName: spec.ClusterName,
 			Base: config.BaseRepositoryClientConfig{
-				ServerCertPath: path.Join(serverCertPath, tlsCertFile),
-				ClientCertPath: path.Join(clientCertPath, tlsCertFile),
-				ClientKeyPath:  path.Join(clientCertPath, tlsKeyFile),
+				ServerCertPath: serverCertPath,
+				ClientCertPath: clientCertPath,
+				ClientKeyPath:  clientKeyPath,
 			},
 			Wal: config.WalRepositoryClientConfig{
-				ServerCertPath: path.Join(serverCertPath, tlsCertFile),
-				ClientCertPath: path.Join(clientCertPath, tlsCertFile),
-				ClientKeyPath:  path.Join(clientCertPath, tlsKeyFile),
+				ServerCertPath: serverCertPath,
+				ClientCertPath: clientCertPath,
+				ClientKeyPath:  clientKeyPath,
 			},
 		},
 		Tier1RetentionPolicy:   klioTier1RetentionPolicy,

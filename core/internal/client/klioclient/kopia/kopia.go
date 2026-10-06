@@ -119,12 +119,6 @@ func connectToKopiaServer(
 		return nil, fmt.Errorf("while writing a temporary Kopia config: %w", err)
 	}
 
-	certificateFingerprint, err := kopia.ExtractSHA256CertificateFingerprint(
-		clientConfig.Base.ServerCertPath)
-	if err != nil {
-		return nil, fmt.Errorf("error while extracting fingerprint of the kopia server certificate: %w", err)
-	}
-
 	clientCertificate, err := tls.LoadX509KeyPair(
 		clientConfig.Base.ClientCertPath,
 		clientConfig.Base.ClientKeyPath,
@@ -179,12 +173,12 @@ func connectToKopiaServer(
 			CacheDirectory:     cacheDirectory,
 			ReadOnly:           readOnly,
 		},
-		URL:                   kopiaURL,
-		ClientCertPath:        clientConfig.Base.ClientCertPath,
-		ClientKeyPath:         clientConfig.Base.ClientKeyPath,
-		ServerCertFingerprint: certificateFingerprint,
-		Username:              userName,
-		Hostname:              certHostName,
+		URL:              kopiaURL,
+		ClientCertPath:   clientConfig.Base.ClientCertPath,
+		ClientKeyPath:    clientConfig.Base.ClientKeyPath,
+		ServerCertCAFile: clientConfig.Base.ServerCertPath,
+		Username:         userName,
+		Hostname:         certHostName,
 	}); err != nil {
 		return nil, fmt.Errorf("while executing Kopia command: %w", err)
 	}
