@@ -440,12 +440,15 @@ tier2:
         secret:
           secretName: s3-credentials-file
       path: credentials
-    profile: klio  # Optional, defaults to "default"
+    profile: default
 ```
 
 The file is exposed to the server through `AWS_SHARED_CREDENTIALS_FILE`
 (and `AWS_PROFILE` when `profile` is set). `credentialsFile` cannot be
 combined with `accessKeyId`, `secretAccessKey` or `sessionToken`.
+
+Unlike the static keys, a changed credentials file is used without
+restarting the server: see [Rotating Credentials](#rotating-credentials).
 
 #### S3-Compatible Storage with Custom Endpoint
 
@@ -467,7 +470,9 @@ tier2:
 
 #### Custom CA Certificates
 
-For providers using self-signed certificates or custom CAs:
+For providers using self-signed certificates or custom CAs, reference the
+PEM-encoded CA bundle as a file. Like every other file reference, it can
+come from a `secret`, `configMap`, `projected` or `csi` volume:
 
 ```yaml
 tier2:
@@ -475,8 +480,10 @@ tier2:
     bucketName: klio-backups
     endpoint: https://<endpoint>:<port>
     customCaBundle:
-      name: minio-ca-cert
-      key: ca.crt
+      volume:
+        secret:
+          secretName: custom-ca-crt
+      path: ca.crt
     accessKeyId:
       name: s3-credentials
       key: ACCESS_KEY_ID
@@ -484,6 +491,9 @@ tier2:
       name: s3-credentials
       key: SECRET_ACCESS_KEY
 ```
+
+The bundle is read when the server starts. Changes won't have effects
+until a restart.
 
 #### AWS IAM Roles (IRSA/Pod Identity)
 
@@ -594,21 +604,24 @@ certificate and its matching private key, referenced by `certPath`
 and `keyPath`. This provides end-to-end encryption, ensuring that backup
 data is protected both at rest and in transit.
 
-#### Rotating the server identity
+### Rotating Credentials
 
-The WAL server reads the identity and client CA files on every TLS
-handshake, so rotating them needs no restart: new connections use
-the new files. Existing connections are unaffected and keep serving
-with the identity they negotiated. A broken rotation (unreadable
-files, a mismatched pair, an unparsable CA bundle) is logged
-server-side and fails new handshakes closed; the server also
-refuses to start with invalid files.
+Most credentials are read again when Klio next needs them: after a
+change, the next connection or request uses the current files.
+Connections already established keep what they negotiated. The table
+lists which credentials need a restart instead.
 
-Local Kopia control connections (`kopia server refresh` between
-the server's own components on localhost) verify the served leaf
-by fingerprint, computed fresh from the serving certificate file
-on every call — no CA bundle needed, and rotated certificates
-are tracked without restart.
+| Credential | Picked up | Restart needed |
+|---|---|---|
+| `serverTlsIdentity`, `clientCa` | on the next TLS handshake | no |
+| `tier1`/`tier2` Age files | not read again (key already in memory) | no |
+| `credentialsFile` | on the next request (within a minute for the server's own client) | no |
+| `accessKeyId`, `secretAccessKey`, `sessionToken` | at pod start only | yes |
+| `customCaBundle` | at pod start only | yes |
+
+Klio only sees a change once the volume shows it. Secret, ConfigMap and
+projected volumes are refreshed by the kubelet. A Secrets Store CSI
+volume changes only when the driver's secret rotation is enabled.
 
 ### Age Encryption
 

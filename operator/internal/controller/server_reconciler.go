@@ -64,13 +64,15 @@ const (
 	// lives under it as fixed subdirectories.
 	klioMountPath = "/klio"
 
-	fileBasePath           = "/files"
-	tier1EncKeyFileVolName = "tier1-enc-key-file"
-	tier1IdentityVolName   = "tier1-identity"
-	tier2EncKeyFileVolName = "tier2-enc-key-file"
-	tier2IdentityVolName   = "tier2-identity"
-	serverIdentityVolName  = "server-identity"
-	clientCAVolName        = "client-ca"
+	fileBasePath              = "/files"
+	tier1EncKeyFileVolName    = "tier1-enc-key-file"
+	tier1IdentityVolName      = "tier1-identity"
+	tier2EncKeyFileVolName    = "tier2-enc-key-file"
+	tier2IdentityVolName      = "tier2-identity"
+	tier2S3CredentialsVolName = "tier2-s3-credentials" //nolint:gosec // volume name, not a credential
+	tier2S3CABundleVolName    = "tier2-s3-ca-bundle"
+	serverIdentityVolName     = "server-identity"
+	clientCAVolName           = "client-ca"
 )
 
 func (r *ServerReconciler) reconcile(ctx context.Context, server *kliov1alpha1.Server) (ctrl.Result, error) {
@@ -461,34 +463,15 @@ func (r *ServerReconciler) buildVolumes(server *kliov1alpha1.Server) []corev1.Vo
 		vol, _ = buildIdentityVolMount(tier2IdentityVolName, server.Spec.Tier2.IdentityFile)
 		volumes = append(volumes, vol)
 
-		var sources []corev1.VolumeProjection
-
-		if server.Spec.Tier2.S3 != nil && server.Spec.Tier2.S3.CustomCABundle != nil {
-			sources = append(sources, corev1.VolumeProjection{
-				Secret: &corev1.SecretProjection{
-					LocalObjectReference: corev1.LocalObjectReference{
-						Name: server.Spec.Tier2.S3.CustomCABundle.Name,
-					},
-					Items: []corev1.KeyToPath{
-						{
-							Path: "custom_ca_bundle.pem",
-							Key:  server.Spec.Tier2.S3.CustomCABundle.Key,
-						},
-					},
-				},
-			})
+		if s3 := server.Spec.Tier2.S3; s3 != nil && s3.CredentialsFile != nil {
+			vol, _ = buildIdentityVolMount(tier2S3CredentialsVolName, *s3.CredentialsFile)
+			volumes = append(volumes, vol)
 		}
 
-		volumes = append(
-			volumes,
-			corev1.Volume{
-				Name: "tier2",
-				VolumeSource: corev1.VolumeSource{
-					Projected: &corev1.ProjectedVolumeSource{
-						Sources: sources,
-					},
-				},
-			})
+		if s3 := server.Spec.Tier2.S3; s3 != nil && s3.CustomCABundle != nil {
+			vol, _ := buildFileVolMount(tier2S3CABundleVolName, *s3.CustomCABundle)
+			volumes = append(volumes, vol)
+		}
 	}
 
 	return volumes
@@ -524,18 +507,21 @@ func (r *ServerReconciler) buildVolumeMounts(server *kliov1alpha1.Server) []core
 	}
 
 	if server.Spec.Tier2 != nil {
-		volumeMounts = append(
-			volumeMounts,
-			corev1.VolumeMount{
-				Name:      "tier2",
-				MountPath: "/tier2",
-			},
-		)
 		_, mount := buildFileVolMount(tier2EncKeyFileVolName, server.Spec.Tier2.EncryptionKeyFile)
 		volumeMounts = append(volumeMounts, mount)
 
 		_, mount = buildIdentityVolMount(tier2IdentityVolName, server.Spec.Tier2.IdentityFile)
 		volumeMounts = append(volumeMounts, mount)
+
+		if s3 := server.Spec.Tier2.S3; s3 != nil && s3.CredentialsFile != nil {
+			_, mount = buildIdentityVolMount(tier2S3CredentialsVolName, *s3.CredentialsFile)
+			volumeMounts = append(volumeMounts, mount)
+		}
+
+		if s3 := server.Spec.Tier2.S3; s3 != nil && s3.CustomCABundle != nil {
+			_, mount = buildFileVolMount(tier2S3CABundleVolName, *s3.CustomCABundle)
+			volumeMounts = append(volumeMounts, mount)
+		}
 	}
 
 	return volumeMounts
