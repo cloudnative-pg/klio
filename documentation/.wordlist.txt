@@ -37,6 +37,7 @@ CompressionAlgorithm
 CompressionPolicy
 ConfigMap
 ConfigMapVolumeSource
+CredentialsFile
 DNS
 Debian
 DeleteBackup
@@ -65,6 +66,7 @@ GetRequest
 GetResult
 Grafana
 IAM
+INI
 IRSA
 IdentityFile
 IfNotPresent
@@ -216,6 +218,7 @@ WALPrefetchConfiguration
 WALs
 YAML
 Zstandard
+accessKeyId
 api
 args
 aspirational
@@ -335,12 +338,14 @@ recompressed
 renewBefore
 restorable
 rollout
+secretAccessKey
 securityContext
 serverCa
 serverSecret
 serverTlsIdentity
 serviceAccount
 serviceAccountName
+sessionToken
 sfixed
 sint
 snapshotted

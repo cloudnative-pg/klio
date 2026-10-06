@@ -440,7 +440,7 @@ tier2:
         secret:
           secretName: s3-credentials-file
       path: credentials
-    profile: klio  # Optional, defaults to "default"
+    profile: default
 ```
 
 The file is exposed to the server through `AWS_SHARED_CREDENTIALS_FILE`
@@ -467,7 +467,9 @@ tier2:
 
 #### Custom CA Certificates
 
-For providers using self-signed certificates or custom CAs:
+For providers using self-signed certificates or custom CAs, reference the
+PEM-encoded CA bundle as a file. Like every other file reference, it can
+come from a `secret`, `configMap`, `projected` or `csi` volume:
 
 ```yaml
 tier2:
@@ -475,8 +477,10 @@ tier2:
     bucketName: klio-backups
     endpoint: https://<endpoint>:<port>
     customCaBundle:
-      name: minio-ca-cert
-      key: ca.crt
+      volume:
+        secret:
+          secretName: custom-ca-crt
+      path: ca.crt
     accessKeyId:
       name: s3-credentials
       key: ACCESS_KEY_ID

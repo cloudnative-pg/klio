@@ -95,11 +95,14 @@ func BuildTier2Configuration(
 				},
 				Key: "RUSTFS_SECRET_KEY",
 			},
-			CustomCABundle: &cnpgv1.SecretKeySelector{
-				LocalObjectReference: api.LocalObjectReference{
-					Name: s3Opts.S3CABundleSecretName,
+			CustomCABundle: &kliov1alpha1.VolumeFileReference{
+				Volume: kliov1alpha1.VolumeSource{
+					Secret: &corev1.SecretVolumeSource{
+						SecretName: s3Opts.S3CABundleSecretName,
+						Items:      []corev1.KeyToPath{{Key: "ca.crt", Path: "ca.crt"}},
+					},
 				},
-				Key: "ca.crt",
+				Path: "ca.crt",
 			},
 		},
 		EncryptionKeyFile: newFileRef(encOpts.EncryptionKeySecretName, encOpts.EncryptionKeyFileName),
@@ -146,8 +149,8 @@ func newBaseServer(name, namespace string, opts ServerTemplateOptions) *kliov1al
 
 	// The client CA secret also holds the CA private key: mount only
 	// the certificate.
-	clientCA := newFileRef(opts.ClientCASecretName, "tls.crt")
-	clientCA.Volume.Secret.Items = []corev1.KeyToPath{{Key: "tls.crt", Path: "tls.crt"}}
+	clientCA := newFileRef(opts.ClientCASecretName, "ca.crt")
+	clientCA.Volume.Secret.Items = []corev1.KeyToPath{{Key: "ca.crt", Path: "ca.crt"}}
 
 	return &kliov1alpha1.Server{
 		ObjectMeta: metav1.ObjectMeta{
