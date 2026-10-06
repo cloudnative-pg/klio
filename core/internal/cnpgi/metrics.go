@@ -29,6 +29,10 @@ import (
 	"github.com/cloudnative-pg/klio/core/internal/opentelemetry"
 )
 
+// unknownAttributeValue tags an attribute whose real value was not yet known
+// when the metric was recorded.
+const unknownAttributeValue = "unknown"
+
 // clusterAttr returns the `cluster_name` attribute every plugin backup metric
 // carries, so panels can attribute backup activity to a specific PostgreSQL
 // cluster even when several clusters share one namespace.
@@ -80,9 +84,9 @@ func recordWalRestore(
 	info restoreOutcome,
 	clusterName string,
 ) {
-	restoreTier := info.tier
+	restoreTier := string(info.tier)
 	if restoreTier == "" {
-		restoreTier = tierUnknown
+		restoreTier = unknownAttributeValue
 	}
 	if clusterName == "" {
 		clusterName = unknownAttributeValue
@@ -92,14 +96,10 @@ func recordWalRestore(
 		metric.WithAttributes(
 			info.result.Attribute(),
 			opentelemetry.CacheHitOf(info.cacheHit).Attribute(),
-			opentelemetry.AttributeKeyTier.Of(string(restoreTier)),
+			opentelemetry.AttributeKeyTier.Of(restoreTier),
 			opentelemetry.AttributeKeyClusterName.Of(clusterName),
 		))
 }
-
-// unknownAttributeValue tags an attribute whose real value was not yet known
-// when the metric was recorded.
-const unknownAttributeValue = "unknown"
 
 // recordBackupFailure records a failed backup.
 func recordBackupFailure(ctx context.Context, clusterName string, duration time.Duration, err error) {
