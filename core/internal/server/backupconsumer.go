@@ -29,7 +29,6 @@ import (
 	"github.com/spf13/afero"
 
 	"github.com/cloudnative-pg/klio/core/internal/consumer"
-	"github.com/cloudnative-pg/klio/core/internal/kopia"
 	"github.com/cloudnative-pg/klio/core/internal/queue"
 	"github.com/cloudnative-pg/klio/core/internal/repository"
 	"github.com/cloudnative-pg/klio/core/internal/tier2"
@@ -78,23 +77,18 @@ func (s *BackupConsumer) Serve(ctx context.Context) error {
 		return fmt.Errorf("failed to open tier1 WAL repository: %w", err)
 	}
 
-	// Extract the certificate fingerprint for the Kopia servers. Tier1 and
-	// tier2 share the same server certificate.
-	certificateFingerprint, err := kopia.ExtractSHA256CertificateFingerprint(
-		s.Config.TLS.TLSCert)
-	if err != nil {
-		return fmt.Errorf("error while extracting fingerprint of the kopia server certificate: %w", err)
-	}
-
+	// The tier 1 and tier 2 Kopia servers share the same serving
+	// certificate, whose fingerprint is computed fresh from this file
+	// on every server refresh.
 	backupOptions := &consumer.BackupOptions{
-		Queue:                             queueConnection,
-		Tier1KopiaConfig:                  s.Tier1KopiaConfigFile,
-		Tier1ServerAddress:                "https://" + s.Config.Tier1.Base.ListenAddress,
-		Tier1ServerCertificateFingerprint: certificateFingerprint,
-		CacheDirectory:                    s.Config.Tier1.Base.CacheDirectory,
-		RunID:                             s.RunID,
-		RunSecret:                         s.RunSecret,
-		Tier1WALRepository:                tier1WALRepository,
+		Queue:              queueConnection,
+		Tier1KopiaConfig:   s.Tier1KopiaConfigFile,
+		Tier1ServerAddress: "https://" + s.Config.Tier1.Base.ListenAddress,
+		ServerTLSCertFile:  s.Config.TLS.TLSCert,
+		CacheDirectory:     s.Config.Tier1.Base.CacheDirectory,
+		RunID:              s.RunID,
+		RunSecret:          s.RunSecret,
+		Tier1WALRepository: tier1WALRepository,
 	}
 
 	// When tier2 is configured, wire the tier2 connections so the consumer
@@ -116,7 +110,6 @@ func (s *BackupConsumer) Serve(ctx context.Context) error {
 
 		backupOptions.Tier2KopiaConfig = s.Tier2KopiaConfigFile
 		backupOptions.Tier2ServerAddress = "https://" + s.Config.Tier2.BaseListenAddress
-		backupOptions.Tier2ServerCertificateFingerprint = certificateFingerprint
 		backupOptions.Tier2WALRepository = tier2WALRepository
 	}
 
