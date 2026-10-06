@@ -27,6 +27,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	corev1 "k8s.io/api/core/v1"
 
 	kliov1alpha1 "github.com/cloudnative-pg/klio/operator/api/v1alpha1"
 	"github.com/cloudnative-pg/klio/operator/pkg/config"
@@ -152,20 +153,60 @@ func TestGenerateConfig(t *testing.T) {
 			},
 		},
 		{
-			name: "TLS cert paths derived from configKey",
+			name: "server CA path follows the configured path",
 			spec: kliov1alpha1.PluginConfigurationSpec{
 				ServerAddress: testServerAddress,
 				Mode:          kliov1alpha1.ModeStandard,
 				ClusterName:   testClusterName,
+				ServerCA: kliov1alpha1.VolumeFileReference{
+					Volume: kliov1alpha1.VolumeSource{
+						Projected: &corev1.ProjectedVolumeSource{
+							Sources: []corev1.VolumeProjection{{
+								ConfigMap: &corev1.ConfigMapProjection{
+									LocalObjectReference: corev1.LocalObjectReference{Name: "klio-server-ca-bundle"},
+								},
+							}},
+						},
+					},
+					Path: "trust-bundle.pem",
+				},
 			},
 			configKey: testCustomKey,
 			assertions: func(t *testing.T, cfg *config.Data) {
 				t.Helper()
 				serverPath := GetServerSecretVolumeMountPath(testCustomKey)
+				assert.Equal(t, path.Join(serverPath, "trust-bundle.pem"), cfg.Client.Base.ServerCertPath)
+				assert.Equal(t, path.Join(serverPath, "trust-bundle.pem"), cfg.Client.Wal.ServerCertPath)
+			},
+		},
+		{
+			name: "client identity paths follow certPath and keyPath",
+			spec: kliov1alpha1.PluginConfigurationSpec{
+				ServerAddress: testServerAddress,
+				Mode:          kliov1alpha1.ModeStandard,
+				ClusterName:   testClusterName,
+				ClientTLSIdentity: kliov1alpha1.TLSIdentity{
+					Volume: kliov1alpha1.VolumeSource{
+						Projected: &corev1.ProjectedVolumeSource{
+							Sources: []corev1.VolumeProjection{{
+								Secret: &corev1.SecretProjection{
+									LocalObjectReference: corev1.LocalObjectReference{Name: "client-identity"},
+								},
+							}},
+						},
+					},
+					CertPath: "client.pem",
+					KeyPath:  "client-key.pem",
+				},
+			},
+			configKey: testCustomKey,
+			assertions: func(t *testing.T, cfg *config.Data) {
+				t.Helper()
 				clientPath := GetClientSecretVolumeMountPath(testCustomKey)
-				assert.Equal(t, path.Join(serverPath, "tls.crt"), cfg.Client.Base.ServerCertPath)
-				assert.Equal(t, path.Join(clientPath, "tls.crt"), cfg.Client.Base.ClientCertPath)
-				assert.Equal(t, path.Join(clientPath, "tls.key"), cfg.Client.Base.ClientKeyPath)
+				assert.Equal(t, path.Join(clientPath, "client.pem"), cfg.Client.Base.ClientCertPath)
+				assert.Equal(t, path.Join(clientPath, "client-key.pem"), cfg.Client.Base.ClientKeyPath)
+				assert.Equal(t, path.Join(clientPath, "client.pem"), cfg.Client.Wal.ClientCertPath)
+				assert.Equal(t, path.Join(clientPath, "client-key.pem"), cfg.Client.Wal.ClientKeyPath)
 			},
 		},
 		{

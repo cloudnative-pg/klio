@@ -41,8 +41,9 @@ type RemoteRepoOpts struct {
 	// ClientKeyPath is the path to the client private key file for TLS authentication.
 	ClientKeyPath string
 
-	// ServerCertFingerprint is the fingerprint of the server's TLS certificate for verification.
-	ServerCertFingerprint string
+	// ServerCertCAFile is the path to a PEM file with the CA certificate(s)
+	// the server certificate must chain to.
+	ServerCertCAFile string
 
 	// Username is the username to use when connecting to the remote repository.
 	Username string
@@ -80,7 +81,7 @@ func buildConnectRemoteArgs(configFileName string, opts RemoteRepoOpts) []string
 		"--url=" + opts.URL,
 		"--client-certificate=" + opts.ClientCertPath,
 		"--client-key=" + opts.ClientKeyPath,
-		"--server-cert-fingerprint=" + opts.ServerCertFingerprint,
+		"--server-cert-ca-file=" + opts.ServerCertCAFile,
 		"--override-username=" + opts.Username,
 		"--override-hostname=" + opts.Hostname,
 		"--metadata-cache-size-mb=0",

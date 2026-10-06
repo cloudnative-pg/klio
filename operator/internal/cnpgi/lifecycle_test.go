@@ -56,6 +56,44 @@ const (
 	expectedArchiveConfigPath = "/var/lib/postgresql/klio/klio-archive"
 )
 
+// makeTestClientIdentity returns a TLSIdentity referencing the standard
+// test client secret.
+func makeTestClientIdentity() kliov1alpha1.TLSIdentity {
+	return kliov1alpha1.TLSIdentity{
+		Volume: kliov1alpha1.VolumeSource{
+			Projected: &corev1.ProjectedVolumeSource{
+				Sources: []corev1.VolumeProjection{{
+					Secret: &corev1.SecretProjection{
+						LocalObjectReference: corev1.LocalObjectReference{Name: "client-secret"},
+					},
+				}},
+			},
+		},
+		CertPath: "tls.crt",
+		KeyPath:  "tls.key",
+	}
+}
+
+// makeTestServerCA returns a VolumeFileReference referencing the standard test
+// server CA secret.
+func makeTestServerCA() kliov1alpha1.VolumeFileReference {
+	return kliov1alpha1.VolumeFileReference{
+		Volume: kliov1alpha1.VolumeSource{
+			Projected: &corev1.ProjectedVolumeSource{
+				Sources: []corev1.VolumeProjection{{
+					Secret: &corev1.SecretProjection{
+						LocalObjectReference: corev1.LocalObjectReference{Name: "server-ca"},
+						Items: []corev1.KeyToPath{
+							{Key: "ca.crt", Path: "ca.crt"},
+						},
+					},
+				}},
+			},
+		},
+		Path: "ca.crt",
+	}
+}
+
 func TestCnpgGroupVersion(t *testing.T) {
 	defaultGroup := cnpgv1.SchemeGroupVersion.Group
 	defaultVersion := cnpgv1.SchemeGroupVersion.Version
@@ -780,10 +818,10 @@ func TestReconcilePodPluginSelection(t *testing.T) {
 			Namespace: testClusterNamespace,
 		},
 		Spec: kliov1alpha1.PluginConfigurationSpec{
-			ClusterName:      sourceCluster,
-			ServerAddress:    "klio-server.example.com",
-			ClientSecretName: "client-secret",
-			ServerSecretName: "server-secret",
+			ClusterName:       sourceCluster,
+			ServerAddress:     "klio-server.example.com",
+			ClientTLSIdentity: makeTestClientIdentity(),
+			ServerCA:          makeTestServerCA(),
 			Containers: []corev1.Container{
 				{
 					Name:  KlioPluginContainerName,
@@ -894,10 +932,10 @@ func TestReconcilePodPluginSelection(t *testing.T) {
 				Namespace: testClusterNamespace,
 			},
 			Spec: kliov1alpha1.PluginConfigurationSpec{
-				ClusterName:      replicaCluster,
-				ServerAddress:    "klio-server.example.com",
-				ClientSecretName: "client-secret",
-				ServerSecretName: "server-secret",
+				ClusterName:       replicaCluster,
+				ServerAddress:     "klio-server.example.com",
+				ClientTLSIdentity: makeTestClientIdentity(),
+				ServerCA:          makeTestServerCA(),
 				Containers: []corev1.Container{
 					{
 						Name:  KlioPluginContainerName,
@@ -1191,10 +1229,10 @@ func TestBootstrapSidecar(t *testing.T) {
 		return &kliov1alpha1.PluginConfiguration{
 			ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: testClusterNamespace},
 			Spec: kliov1alpha1.PluginConfigurationSpec{
-				ClusterName:      testClusterName,
-				ServerAddress:    "klio-server.example.com",
-				ClientSecretName: "client-secret",
-				ServerSecretName: "server-secret",
+				ClusterName:       testClusterName,
+				ServerAddress:     "klio-server.example.com",
+				ClientTLSIdentity: makeTestClientIdentity(),
+				ServerCA:          makeTestServerCA(),
 				Containers: []corev1.Container{
 					{Name: KlioPluginContainerName, Image: image},
 				},

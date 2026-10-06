@@ -21,9 +21,7 @@ package server
 
 import (
 	"context"
-	"fmt"
 
-	"github.com/cloudnative-pg/klio/core/internal/kopia"
 	"github.com/cloudnative-pg/klio/core/internal/server/admin"
 	"github.com/cloudnative-pg/klio/core/pkg/config"
 )
@@ -42,21 +40,15 @@ type AdminServer struct {
 
 // Serve starts the admin server and blocks until the context is canceled.
 func (a *AdminServer) Serve(ctx context.Context) error {
-	certificateFingerprint, err := kopia.ExtractSHA256CertificateFingerprint(
-		a.Config.TLS.TLSCert)
-	if err != nil {
-		return fmt.Errorf("error while extracting fingerprint of the kopia server certificate: %w", err)
-	}
-
 	opts := admin.Options{
-		Tier1KopiaConfigFile:   a.Tier1KopiaConfigFile,
-		Tier2KopiaConfigFile:   a.Tier2KopiaConfigFile,
-		SocketPath:             a.SocketPath,
-		RunID:                  a.RunID,
-		RunSecret:              a.RunSecret,
-		CertificateFingerprint: certificateFingerprint,
-		Tier2ServerAddress:     "https://" + a.Config.Tier2.BaseListenAddress,
-		QueueURL:               a.QueueURL,
+		Tier1KopiaConfigFile: a.Tier1KopiaConfigFile,
+		Tier2KopiaConfigFile: a.Tier2KopiaConfigFile,
+		SocketPath:           a.SocketPath,
+		RunID:                a.RunID,
+		RunSecret:            a.RunSecret,
+		ServerTLSCertFile:    a.Config.TLS.TLSCert,
+		Tier2ServerAddress:   "https://" + a.Config.Tier2.BaseListenAddress,
+		QueueURL:             a.QueueURL,
 	}
 
 	server, err := admin.New(opts)

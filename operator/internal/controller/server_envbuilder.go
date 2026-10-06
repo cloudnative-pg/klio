@@ -34,12 +34,14 @@ const kopiaCacheSubdirectory = "kopia-cache"
 type envBuilder struct {
 	builtEnvs []corev1.EnvVar
 
+	tls   kliov1alpha1.TLSConfiguration
 	tier1 *kliov1alpha1.Tier1Configuration
 	tier2 *kliov1alpha1.Tier2Configuration
 }
 
 func newServerEnvBuilder(server *kliov1alpha1.Server) *envBuilder {
 	return &envBuilder{
+		tls:   server.Spec.TLSConfiguration,
 		tier1: server.Spec.Tier1,
 		tier2: server.Spec.Tier2,
 	}
@@ -86,9 +88,9 @@ func (e *envBuilder) getKubernetesDownwardAPIEnvVars() []corev1.EnvVar {
 	}
 }
 
-// fileSourcePath computes the container file path for a FileSource volume.
-func fileSourcePath(volName string, src kliov1alpha1.FileSource) string {
-	return path.Join(fileSourceBasePath, volName, src.FileReference.Path)
+// fileRefPath computes the container path of a VolumeFileReference.
+func fileRefPath(volName string, src kliov1alpha1.VolumeFileReference) string {
+	return path.Join(fileBasePath, volName, src.Path)
 }
 
 func (e *envBuilder) getCoreEnvVars() []corev1.EnvVar {
@@ -98,15 +100,15 @@ func (e *envBuilder) getCoreEnvVars() []corev1.EnvVar {
 	result := []corev1.EnvVar{
 		{
 			Name:  "TLS_CERT",
-			Value: "/certs/tls.crt",
+			Value: path.Join(fileBasePath, serverIdentityVolName, e.tls.ServerTLSIdentity.CertPath),
 		},
 		{
 			Name:  "TLS_KEY",
-			Value: "/certs/tls.key",
+			Value: path.Join(fileBasePath, serverIdentityVolName, e.tls.ServerTLSIdentity.KeyPath),
 		},
 		{
 			Name:  "TLS_CLIENT_CA_CERT",
-			Value: "/client-ca/tls.crt",
+			Value: fileRefPath(clientCAVolName, e.tls.ClientCA),
 		},
 	}
 
@@ -138,11 +140,11 @@ func (e *envBuilder) getCoreEnvVars() []corev1.EnvVar {
 		tier1Envs = append(tier1Envs,
 			corev1.EnvVar{
 				Name:  "TIER1_ENCRYPTION_KEY_FILE",
-				Value: fileSourcePath(tier1EncKeyFileVolName, e.tier1.EncryptionKeyFile),
+				Value: fileRefPath(tier1EncKeyFileVolName, e.tier1.EncryptionKeyFile),
 			},
 			corev1.EnvVar{
 				Name:  "TIER1_IDENTITY_FILE",
-				Value: fileSourcePath(tier1IdentityVolName, e.tier1.IdentityFile),
+				Value: fileRefPath(tier1IdentityVolName, e.tier1.IdentityFile),
 			},
 		)
 
@@ -195,11 +197,11 @@ func (e *envBuilder) getTier2EnvVars() []corev1.EnvVar {
 	result = append(result,
 		corev1.EnvVar{
 			Name:  "TIER2_ENCRYPTION_KEY_FILE",
-			Value: fileSourcePath(tier2EncKeyFileVolName, e.tier2.EncryptionKeyFile),
+			Value: fileRefPath(tier2EncKeyFileVolName, e.tier2.EncryptionKeyFile),
 		},
 		corev1.EnvVar{
 			Name:  "TIER2_IDENTITY_FILE",
-			Value: fileSourcePath(tier2IdentityVolName, e.tier2.IdentityFile),
+			Value: fileRefPath(tier2IdentityVolName, e.tier2.IdentityFile),
 		},
 	)
 
