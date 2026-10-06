@@ -56,8 +56,10 @@ spec:
         name: rustfs-secret
         key: RUSTFS_SECRET_KEY
       customCaBundle:
-        name: rustfs-tls
-        key: tls.crt
+        volume:
+          secret:
+            secretName: rustfs-tls
+        path: ca.crt
 
   storage:
     pvcTemplate:

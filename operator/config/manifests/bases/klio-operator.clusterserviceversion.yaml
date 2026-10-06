@@ -147,17 +147,10 @@ spec:
         x-descriptors:
         - urn:alm:descriptor:io.kubernetes:Secret
         - urn:alm:descriptor:com.tectonic.ui:advanced
-      - description: Reference to the Secret holding a custom CA bundle to trust for
-          the S3 endpoint.
+      - description: File holding a custom CA bundle to trust for the S3 endpoint.
         displayName: S3 Custom CA Bundle
         path: tier2.s3.customCaBundle
         x-descriptors:
-        - urn:alm:descriptor:com.tectonic.ui:advanced
-      - description: Secret holding a custom CA bundle to trust for the S3 endpoint.
-        displayName: S3 Custom CA Bundle Secret
-        path: tier2.s3.customCaBundle.name
-        x-descriptors:
-        - urn:alm:descriptor:io.kubernetes:Secret
         - urn:alm:descriptor:com.tectonic.ui:advanced
       - description: Age-encrypted encryption key used to encrypt Tier 2 data at rest.
         displayName: Tier 2 Encryption Key File
