@@ -26,8 +26,9 @@ your PostgreSQL clusters. To use Klio with a CloudNativePG cluster, you need to:
 ## Prerequisites
 
 Before configuring a cluster to use the Klio plugin you need a running
-Klio `Server`, a client TLS certificate and the server's TLS
-certificate. The [Quickstart](quickstart.md) creates all three.
+Klio `Server`, a client TLS certificate and the CA bundle that signed
+the server's TLS certificate. The [Quickstart](quickstart.md) creates
+all three.
 
 ## Creating a PluginConfiguration resource
 
@@ -37,19 +38,36 @@ details, authentication credentials, and optional configuration for metrics,
 profiling, and backup retention policies.
 
 A minimal `PluginConfiguration` requires only `serverAddress`,
-`clientSecretName`, `serverSecretName` and `clusterName` — see
+`clientTlsIdentity`, `serverCa` and `clusterName` — see
 [Configure the PostgreSQL cluster](quickstart.md#step-5-configure-the-postgresql-cluster)
 for an example. The sections below document each field and the
 optional settings.
 
-### Client credentials secret
+### Client identity
 
-The client credentials must be stored in a Kubernetes Secret of type
-`kubernetes.io/tls`, containing a secret to be presented to the Klio server.
+The client identity is the TLS identity the PostgreSQL instances
+present to the Klio server: the client certificate and its matching
+private key. Both files come from a single volume — referenced by
+`certPath` and `keyPath` — so the pair always belongs together and
+is never split across volumes. A cert-manager `Certificate` secret
+exposes them as `tls.crt` and `tls.key`:
 
-This secret can be generated with cert-manager by following the [documentation
-in the Klio server page](klio_server.md#creating-a-client-side-certificate),
-or be provided by the user.
+```yaml
+clientTlsIdentity:
+  volume:
+    secret:
+      secretName: cluster-example-klio-user
+  certPath: tls.crt
+  keyPath: tls.key
+```
+
+The identity can also come from a CSI volume that mints it per
+mount.
+
+This identity can be generated with cert-manager by following the
+[documentation in the Klio server
+page](klio_server.md#creating-a-client-side-certificate), or be
+provided by the user.
 
 ### Server Address
 
@@ -65,9 +83,14 @@ for base backups and 52000 for WAL streaming.
 
 ### TLS configuration
 
-The `serverSecretName` field references a Secret containing the TLS certificate
-used to secure communication with the Klio server. This is the same
-certificate configured on the `Server` resource.
+The `serverCa` field references the CA bundle used to verify the Klio
+server for both base backups (Kopia) and WAL streaming (gRPC). It is a
+file reference, so the bundle can come from a `Secret` (e.g. the
+`ca.crt` key of a cert-manager TLS secret), a `ConfigMap` (e.g. a
+trust-manager `Bundle`), or a CSI volume (e.g. OpenBao or Secrets
+Store CSI, with no Kubernetes Secret at all). Set `items` so only
+the CA file is mounted into the PostgreSQL pods: the server's
+`tls.crt` and `tls.key` are then never exposed to the plugin.
 
 ## Configuring a Cluster to use the Klio plugin
 
@@ -219,8 +242,20 @@ metadata:
   name: klio-plugin-config
 spec:
   serverAddress: klio-server.default
-  clientSecretName: cluster-example-klio-user
-  serverSecretName: klio-server-tls
+  clientTlsIdentity:
+    volume:
+      secret:
+        secretName: cluster-example-klio-user
+    certPath: tls.crt
+    keyPath: tls.key
+  serverCa:
+    volume:
+      secret:
+        secretName: klio-server-ca
+        items:
+        - key: ca.crt
+          path: ca.crt
+    path: ca.crt
   clusterName: cluster-example
   tier1:
     retention:
@@ -280,8 +315,20 @@ metadata:
   name: klio-plugin-config
 spec:
   serverAddress: klio-server.default
-  clientSecretName: cluster-example-klio-user
-  serverSecretName: klio-server-tls
+  clientTlsIdentity:
+    volume:
+      secret:
+        secretName: cluster-example-klio-user
+    certPath: tls.crt
+    keyPath: tls.key
+  serverCa:
+    volume:
+      secret:
+        secretName: klio-server-ca
+        items:
+        - key: ca.crt
+          path: ca.crt
+    path: ca.crt
   clusterName: cluster-example
   tier1:
     compression:
@@ -370,8 +417,20 @@ metadata:
   name: dr-restore-config
 spec:
   serverAddress: dr-server.default
-  clientSecretName: dr-client-credentials
-  serverSecretName: dr-server-tls
+  clientTlsIdentity:
+    volume:
+      secret:
+        secretName: dr-client-credentials
+    certPath: tls.crt
+    keyPath: tls.key
+  serverCa:
+    volume:
+      secret:
+        secretName: dr-server-ca
+        items:
+        - key: ca.crt
+          path: ca.crt
+    path: ca.crt
   mode: read-only
   # Must match the name of the original cluster whose backups you are
   # restoring from, not the name of the new cluster being created.
@@ -545,8 +604,20 @@ metadata:
   name: klio-plugin-config
 spec:
   serverAddress: klio-server.default
-  clientSecretName: cluster-example-klio-user
-  serverSecretName: klio-server-tls
+  clientTlsIdentity:
+    volume:
+      secret:
+        secretName: cluster-example-klio-user
+    certPath: tls.crt
+    keyPath: tls.key
+  serverCa:
+    volume:
+      secret:
+        secretName: klio-server-ca
+        items:
+        - key: ca.crt
+          path: ca.crt
+    path: ca.crt
   clusterName: cluster-example
   containers:
     - name: klio-plugin

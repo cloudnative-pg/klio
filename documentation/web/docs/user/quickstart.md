@@ -123,9 +123,11 @@ to every backup. There is no key recovery mechanism.
 ## Step 3: Create the certificates
 
 Klio secures all traffic with TLS and authenticates clients with
-mutual TLS. This step creates three certificates with cert-manager:
+mutual TLS. This step creates four certificates with cert-manager:
 
-- a **CA**, used to sign and verify client certificates
+- a **client CA**, used to sign and verify client certificates
+- a **server CA**, used to sign the server certificate and verified by
+  the plugin
 - a **server certificate**, presented by the Klio server
 - a **client certificate**, presented by the PostgreSQL instances
 
@@ -133,9 +135,9 @@ Save the following as `klio-certificates.yaml`:
 
 ```yaml
 ---
-# Self-signed issuer, used to bootstrap the CA and the server
-# certificate. Trust is established through configuration, so a
-# self-signed root is not a security problem here.
+# Self-signed issuer, used to bootstrap the two CAs. Trust is
+# established through configuration, so a self-signed root is not a
+# security problem here.
 apiVersion: cert-manager.io/v1
 kind: Issuer
 metadata:
@@ -145,6 +147,37 @@ spec:
   selfSigned: {}
 ---
 # The CA that signs client certificates
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: klio-client-ca
+  namespace: default
+spec:
+  commonName: klio-client-ca
+  secretName: klio-client-ca
+  duration: 2160h # 90d
+  renewBefore: 360h # 15d
+  isCA: true
+  usages:
+    - cert sign
+  issuerRef:
+    name: selfsigned-issuer
+    kind: Issuer
+    group: cert-manager.io
+---
+# An issuer backed by the CA above, used for client certificates
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  name: klio-client-ca-issuer
+  namespace: default
+spec:
+  ca:
+    secretName: klio-client-ca
+---
+# A separate CA that signs only the server certificate. The plugin
+# trusts this CA to verify the server; it must not be the CA that
+# signs client certificates.
 apiVersion: cert-manager.io/v1
 kind: Certificate
 metadata:
@@ -163,7 +196,7 @@ spec:
     kind: Issuer
     group: cert-manager.io
 ---
-# An issuer backed by the CA above, used for client certificates
+# An issuer backed by the server CA, used for the server certificate
 apiVersion: cert-manager.io/v1
 kind: Issuer
 metadata:
@@ -173,7 +206,7 @@ spec:
   ca:
     secretName: klio-server-ca
 ---
-# The certificate presented by the Klio server
+# The certificate presented by the Klio server, signed by the server CA.
 apiVersion: cert-manager.io/v1
 kind: Certificate
 metadata:
@@ -193,7 +226,7 @@ spec:
   usages:
     - server auth
   issuerRef:
-    name: selfsigned-issuer
+    name: klio-server-ca-issuer
     kind: Issuer
     group: cert-manager.io
 ---
@@ -214,7 +247,7 @@ spec:
   usages:
     - client auth
   issuerRef:
-    name: klio-server-ca-issuer
+    name: klio-client-ca-issuer
     kind: Issuer
     group: cert-manager.io
 ```
@@ -250,10 +283,25 @@ metadata:
 spec:
   image: ghcr.io/cloudnative-pg/klio:v0.0.20
 
-  # TLS certificate presented to clients
-  tlsSecretName: klio-server-tls
-  # CA used to verify client certificates
-  caSecretName: klio-server-ca
+  # TLS identity presented to clients. Both files come from a
+  # single volume so the pair always belongs together — never
+  # split across volumes.
+  serverTlsIdentity:
+    volume:
+      secret:
+        secretName: klio-server-tls
+    certPath: tls.crt
+    keyPath: tls.key
+  # CA bundle used to verify client certificates. Only the
+  # referenced key is mounted, never the whole secret.
+  clientCa:
+    volume:
+      secret:
+        secretName: klio-client-ca
+        items:
+          - key: tls.crt
+            path: tls.crt
+    path: tls.crt
 
   # Single PVC backing base backups, WAL, the work queue, and the
   # Kopia cache. The default Kopia cache is 5 GB of content plus 5 GB
@@ -268,17 +316,18 @@ spec:
 
   tier1:
     encryptionKeyFile:
-      fileReference:
-        volume:
-          secret:
-            secretName: klio-encryption-key-age
-        path: encryption-key.age
+      volume:
+        secret:
+          secretName: klio-encryption-key-age
+          items:
+            - key: encryption-key.age
+              path: encryption-key.age
+      path: encryption-key.age
     identityFile:
-      fileReference:
-        volume:
-          secret:
-            secretName: klio-age-identity
-        path: identity.txt
+      volume:
+        secret:
+          secretName: klio-age-identity
+      path: identity.txt
 ```
 <!-- x-release-please-end -->
 
@@ -324,8 +373,22 @@ metadata:
 spec:
   # The Klio server Service is named after the Server resource
   serverAddress: klio-server.default
-  clientSecretName: cluster-example-klio-user
-  serverSecretName: klio-server-tls
+  # TLS identity the instances present to the server. Both files
+  # come from a single volume so the pair always belongs together.
+  clientTlsIdentity:
+    volume:
+      secret:
+        secretName: cluster-example-klio-user
+    certPath: tls.crt
+    keyPath: tls.key
+  serverCa:
+    volume:
+      secret:
+        secretName: klio-server-ca
+        items:
+        - key: ca.crt
+          path: ca.crt
+    path: ca.crt
   # Must match the host part of the client certificate Common Name
   clusterName: cluster-example
 ---

@@ -12,22 +12,34 @@ spec:
         - ReadWriteOnce
   tier1:
     encryptionKeyFile:
-      fileReference:
-        volume:
-          secret:
-            secretName: klio-encryption
-        path: encryption-key
+      volume:
+        secret:
+          secretName: klio-encryption
+          items:
+            - key: encryption-key
+              path: encryption-key
+      path: encryption-key
 
     identityFile:
-      fileReference:
-        volume:
-          secret:
-            secretName: klio-encryption
-        path: secret-key
+      volume:
+        secret:
+          secretName: klio-encryption
+      path: secret-key
 
-  caSecretName: klio-server-ca
-  tlsSecretName: klio-server-tls
-
+  serverTlsIdentity:
+    volume:
+      secret:
+        secretName: klio-server-tls
+    certPath: tls.crt
+    keyPath: tls.key
+  clientCa:
+    volume:
+      secret:
+        secretName: klio-client-ca
+        items:
+          - key: tls.crt
+            path: tls.crt
+    path: tls.crt
   image: registry.dev:5000/klio-testing:dev
   imagePullPolicy: Always
 

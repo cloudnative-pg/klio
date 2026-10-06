@@ -55,8 +55,20 @@ metadata:
   namespace: dc-b
 spec:
   serverAddress: klioserver-dc-a.dc-a
-  clientSecretName: cluster-dc-a-klio-user-for-dc-b
-  serverSecretName: klioserver-dc-a-tls
+  clientTlsIdentity:
+    volume:
+      secret:
+        secretName: cluster-dc-a-klio-user-for-dc-b
+    certPath: tls.crt
+    keyPath: tls.key
+  serverCa:
+    volume:
+      secret:
+        secretName: klioserver-dc-a-tls
+        items:
+        - key: ca.crt
+          path: ca.crt
+    path: ca.crt
   clusterName: cluster-dc-a
 ---
 apiVersion: klio.cnpg.io/v1alpha1
@@ -66,8 +78,20 @@ metadata:
   namespace: dc-b
 spec:
   serverAddress: klioserver-dc-a.dc-a
-  clientSecretName: cluster-dc-a-klio-user-for-dc-b
-  serverSecretName: klioserver-dc-a-tls
+  clientTlsIdentity:
+    volume:
+      secret:
+        secretName: cluster-dc-a-klio-user-for-dc-b
+    certPath: tls.crt
+    keyPath: tls.key
+  serverCa:
+    volume:
+      secret:
+        secretName: klioserver-dc-a-tls
+        items:
+        - key: ca.crt
+          path: ca.crt
+    path: ca.crt
   clusterName: cluster-dc-a
 ---
 apiVersion: klio.cnpg.io/v1alpha1
@@ -77,8 +101,20 @@ metadata:
   namespace: dc-b
 spec:
   serverAddress: klioserver-dc-b.dc-b
-  clientSecretName: cluster-dc-b-klio-user
-  serverSecretName: klioserver-dc-b-tls
+  clientTlsIdentity:
+    volume:
+      secret:
+        secretName: cluster-dc-b-klio-user
+    certPath: tls.crt
+    keyPath: tls.key
+  serverCa:
+    volume:
+      secret:
+        secretName: klioserver-dc-b-ca
+        items:
+        - key: ca.crt
+          path: ca.crt
+    path: ca.crt
   clusterName: cluster-dc-b
 ---
 ## Generate client certificate for local cluster in dc-b, using the CA in dc-b.
