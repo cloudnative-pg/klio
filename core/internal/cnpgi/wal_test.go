@@ -178,7 +178,7 @@ func TestRestoreRecordsEarlyFailure(t *testing.T) {
 
 	tier, ok := dps[0].Attributes.Value("tier")
 	require.True(t, ok, "data point must carry a tier attribute")
-	assert.Equal(t, string(tierUnknown), tier.AsString())
+	assert.Equal(t, unknownAttributeValue, tier.AsString())
 
 	cluster, ok := dps[0].Attributes.Value("cluster_name")
 	require.True(t, ok, "data point must carry a cluster_name attribute")
@@ -216,7 +216,7 @@ func TestRestoreRecordsRestoreFailure(t *testing.T) {
 
 	tier, ok := dps[0].Attributes.Value("tier")
 	require.True(t, ok, "data point must carry a tier attribute")
-	assert.Equal(t, string(tierUnknown), tier.AsString(), "no tier was reached")
+	assert.Equal(t, unknownAttributeValue, tier.AsString(), "no tier was reached")
 
 	cluster, ok := dps[0].Attributes.Value("cluster_name")
 	require.True(t, ok, "data point must carry a cluster_name attribute")

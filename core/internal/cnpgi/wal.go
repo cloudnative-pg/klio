@@ -49,9 +49,6 @@ type tier string
 const (
 	tier1 tier = "tier1"
 	tier2 tier = "tier2"
-	// tierUnknown tags a restore that failed before any tier served it, so the
-	// metric never carries an empty attribute value.
-	tierUnknown tier = "unknown"
 )
 
 type walServiceImplementation struct {
@@ -180,7 +177,7 @@ func restoreResult(err error) opentelemetry.Outcome {
 // restoreOutcome carries what Restore tags its end-to-end duration metric
 // with: the result it classifies from the restore error, plus the facts only
 // known deep in the restore path. On failure the latter hold whatever was known
-// so far (tier is the last one attempted, or tierUnknown; cacheHit is false).
+// so far (tier is the last one attempted, or empty; cacheHit is false).
 type restoreOutcome struct {
 	tier     tier
 	cacheHit bool
@@ -194,12 +191,12 @@ func (w *walServiceImplementation) restoreWAL(
 ) (bool, tier, error) {
 	cfg, err := config.NewFromFile(afero.NewOsFs(), configPath)
 	if err != nil {
-		return false, tierUnknown, fmt.Errorf("while loading configuration from file %q: %w", configPath, err)
+		return false, "", fmt.Errorf("while loading configuration from file %q: %w", configPath, err)
 	}
 
 	tiers := availableTiers(cfg)
 	if len(tiers) == 0 {
-		return false, tierUnknown, errors.New("no WAL tier configured")
+		return false, "", errors.New("no WAL tier configured")
 	}
 
 	// Try the previously-successful tier first, when both are available.
@@ -289,9 +286,6 @@ func (mgr *grpcClientManager) getClient(ctx context.Context, opts walRestoreOpti
 		address = configuration.Client.Wal.Address
 	case tier2:
 		address = configuration.Client.Wal.Tier2Address
-	case tierUnknown:
-		// Only ever a metric attribute value, never a tier to connect to.
-		fallthrough
 	default:
 		return nil, fmt.Errorf("unknown tier %q", opts.targetTier)
 	}
