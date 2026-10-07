@@ -49,6 +49,11 @@ var errIncompleteDLQListing = errors.New("incomplete DLQ listing")
 // empty result without one is ambiguous.
 var errAmbiguousSourceRead = errors.New("ambiguous source stream read: no message and no error")
 
+// errAmbiguousStreamRead indicates a direct stream read returned no message
+// and no error. A missing message always surfaces as a not-found error, so an
+// empty result without one cannot be trusted.
+var errAmbiguousStreamRead = errors.New("ambiguous stream read: no message and no error")
+
 // errWALFilterUnsupported indicates WithWALs was passed to an operation on a
 // task type that has no WAL name to filter on (e.g. backups).
 var errWALFilterUnsupported = errors.New("WAL name filtering is only supported for WAL tasks")
@@ -513,6 +518,9 @@ func (m *StreamManager) purgeDLQEntryBySequence(
 		}
 
 		return fmt.Errorf("while fetching dead-letter queue entry at sequence %d: %w", dlqSeq, err)
+	}
+	if advisoryMsg == nil {
+		return fmt.Errorf("while fetching dead-letter queue entry at sequence %d: %w", dlqSeq, errAmbiguousStreamRead)
 	}
 
 	var advisory server.JSConsumerDeliveryExceededAdvisory
