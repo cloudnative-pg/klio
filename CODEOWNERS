@@ -6,4 +6,4 @@
 # CODEOWNERS only honors the LAST matching pattern for a given path —
 # it does not merge an earlier, less-specific rule into a later one.
 
-* @cloudnative-pg/klio-owners @jlong49
+* @cloudnative-pg/klio-owners

@@ -18,10 +18,24 @@ them for review.
 
 | Name | GitHub Handle | Country |
 | :--- | :--- | :--- |
-| Francesco Canovai | [@fcanovai](https://github.com/fcanovai) |  |
-| Leonardo Cecchi | [@leonardoce](https://github.com/leonardoce) |  |
+| Francesco Canovai | [@fcanovai](https://github.com/fcanovai) | Italy |
+| Leonardo Cecchi | [@leonardoce](https://github.com/leonardoce) | Italy |
 | Gabriele Fedi | [@GabriFedi97](https://github.com/GabriFedi97) | Italy |
 | Gabriele Quaresima | [@gabriele-wolfox](https://github.com/gabriele-wolfox) | Italy |
+| Armando Ruocco | [@armru](https://github.com/armru) | Italy |
+
+
+## Reviewers
+
+Trusted with review of the paths below, and requested automatically on any
+pull request touching them. Advisory rather than blocking: the Component
+Owners above co-own every path, so a review here is never the only one
+available.
+
+| Reviewer | Paths |
+| :--- | :--- |
+| Jonathan Battiato ([@jbattiato](https://github.com/jbattiato)) | - |
+| John Long ([@jlong49](https://github.com/jlong49)) | - |
 
 Component Owner is a rung of the CloudNativePG contributor ladder. A new
 owner is added by a ⅔ vote of this repository's existing Component Owners,
