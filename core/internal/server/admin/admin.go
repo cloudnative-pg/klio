@@ -313,29 +313,12 @@ func (s *Server) QueueRetryWALs(
 	ctx context.Context,
 	req *klioGRPC.QueueRetryWALsRequest,
 ) (*klioGRPC.QueueRetryResponse, error) {
-	if s.streamMgr == nil {
-		return nil, status.Errorf(
-			codes.Unavailable,
-			"failed WALs not available: server not configured with Stream Manager",
-		)
+	opts, err := s.failedWALOptions(req.GetClusterName(), req.GetWalNames())
+	if err != nil {
+		return nil, err
 	}
 
-	clusterName := req.GetClusterName()
-	wals := req.GetWalNames()
-
-	if len(wals) > 0 && clusterName == "" {
-		return nil, status.Errorf(codes.InvalidArgument, "WAL names require a cluster name")
-	}
-
-	var retryOpts []queue.Option
-	if clusterName != "" {
-		retryOpts = append(retryOpts, queue.WithCluster(clusterName))
-	}
-	if len(wals) > 0 {
-		retryOpts = append(retryOpts, queue.WithWALs(wals...))
-	}
-
-	if err := s.streamMgr.RetryFailedWALTasks(ctx, retryOpts...); err != nil {
+	if err := s.streamMgr.RetryFailedWALTasks(ctx, opts...); err != nil {
 		return nil, status.Errorf(codes.Internal, "while retrying failed WALs: %s", err.Error())
 	}
 
@@ -347,29 +330,12 @@ func (s *Server) QueueDiscardWALs(
 	ctx context.Context,
 	req *klioGRPC.QueueDiscardWALsRequest,
 ) (*klioGRPC.QueueDiscardResponse, error) {
-	if s.streamMgr == nil {
-		return nil, status.Errorf(
-			codes.Unavailable,
-			"failed WALs not available: server not configured with Stream Manager",
-		)
+	opts, err := s.failedWALOptions(req.GetClusterName(), req.GetWalNames())
+	if err != nil {
+		return nil, err
 	}
 
-	clusterName := req.GetClusterName()
-	wals := req.GetWalNames()
-
-	if len(wals) > 0 && clusterName == "" {
-		return nil, status.Errorf(codes.InvalidArgument, "WAL names require a cluster name")
-	}
-
-	var discardOpts []queue.Option
-	if clusterName != "" {
-		discardOpts = append(discardOpts, queue.WithCluster(clusterName))
-	}
-	if len(wals) > 0 {
-		discardOpts = append(discardOpts, queue.WithWALs(wals...))
-	}
-
-	if err := s.streamMgr.DiscardFailedWALTasks(ctx, discardOpts...); err != nil {
+	if err := s.streamMgr.DiscardFailedWALTasks(ctx, opts...); err != nil {
 		return nil, status.Errorf(codes.Internal, "while discarding failed WALs: %s", err.Error())
 	}
 
@@ -381,21 +347,12 @@ func (s *Server) QueueRetryBackups(
 	ctx context.Context,
 	req *klioGRPC.QueueRetryBackupsRequest,
 ) (*klioGRPC.QueueRetryResponse, error) {
-	if s.streamMgr == nil {
-		return nil, status.Errorf(
-			codes.Unavailable,
-			"failed backups not available: server not configured with Stream Manager",
-		)
+	opts, err := s.failedBackupOptions(req.GetClusterName())
+	if err != nil {
+		return nil, err
 	}
 
-	clusterName := req.GetClusterName()
-
-	var retryOpts []queue.Option
-	if clusterName != "" {
-		retryOpts = append(retryOpts, queue.WithCluster(clusterName))
-	}
-
-	if err := s.streamMgr.RetryFailedBackupTasks(ctx, retryOpts...); err != nil {
+	if err := s.streamMgr.RetryFailedBackupTasks(ctx, opts...); err != nil {
 		return nil, status.Errorf(codes.Internal, "while retrying failed backups: %s", err.Error())
 	}
 
@@ -407,21 +364,12 @@ func (s *Server) QueueDiscardBackups(
 	ctx context.Context,
 	req *klioGRPC.QueueDiscardBackupsRequest,
 ) (*klioGRPC.QueueDiscardResponse, error) {
-	if s.streamMgr == nil {
-		return nil, status.Errorf(
-			codes.Unavailable,
-			"failed backups not available: server not configured with Stream Manager",
-		)
+	opts, err := s.failedBackupOptions(req.GetClusterName())
+	if err != nil {
+		return nil, err
 	}
 
-	clusterName := req.GetClusterName()
-
-	var discardOpts []queue.Option
-	if clusterName != "" {
-		discardOpts = append(discardOpts, queue.WithCluster(clusterName))
-	}
-
-	if err := s.streamMgr.DiscardFailedBackupTasks(ctx, discardOpts...); err != nil {
+	if err := s.streamMgr.DiscardFailedBackupTasks(ctx, opts...); err != nil {
 		return nil, status.Errorf(codes.Internal, "while discarding failed backups: %s", err.Error())
 	}
 
@@ -507,4 +455,51 @@ func (s *Server) createListener(ctx context.Context) (net.Listener, error) {
 	}
 
 	return listener, nil
+}
+
+// failedWALOptions validates a request acting on failed WAL tasks and returns
+// the queue options selecting them. An empty cluster name selects every
+// cluster; WAL names are only accepted together with a cluster name.
+func (s *Server) failedWALOptions(clusterName string, wals []string) ([]queue.Option, error) {
+	if s.streamMgr == nil {
+		return nil, status.Errorf(
+			codes.Unavailable,
+			"failed WALs not available: server not configured with Stream Manager",
+		)
+	}
+
+	if len(wals) > 0 && clusterName == "" {
+		return nil, status.Errorf(codes.InvalidArgument, "WAL names require a cluster name")
+	}
+
+	opts := clusterOptions(clusterName)
+	if len(wals) > 0 {
+		opts = append(opts, queue.WithWALs(wals...))
+	}
+
+	return opts, nil
+}
+
+// failedBackupOptions validates a request acting on failed backup tasks and
+// returns the queue options selecting them. An empty cluster name selects
+// every cluster.
+func (s *Server) failedBackupOptions(clusterName string) ([]queue.Option, error) {
+	if s.streamMgr == nil {
+		return nil, status.Errorf(
+			codes.Unavailable,
+			"failed backups not available: server not configured with Stream Manager",
+		)
+	}
+
+	return clusterOptions(clusterName), nil
+}
+
+// clusterOptions returns the queue options restricting an operation to the
+// given cluster, or none when the cluster name is empty.
+func clusterOptions(clusterName string) []queue.Option {
+	if clusterName == "" {
+		return nil
+	}
+
+	return []queue.Option{queue.WithCluster(clusterName)}
 }

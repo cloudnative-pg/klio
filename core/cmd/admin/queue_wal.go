@@ -20,6 +20,7 @@ SPDX-License-Identifier: Apache-2.0
 package admin
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"time"
@@ -115,52 +116,19 @@ var retryWALCmd = &cobra.Command{
 		"are retried. If WAL files are also given, only those are retried. Pass " +
 		"--all-clusters instead of a cluster name to retry all failed WAL tasks " +
 		"across every cluster.",
-	Args: func(cmd *cobra.Command, args []string) error {
-		allClusters, err := cmd.Flags().GetBool("all-clusters")
-		if err != nil {
-			return fmt.Errorf("while getting the all-clusters flag: %w", err)
-		}
-		if allClusters {
-			return cobra.NoArgs(cmd, args)
-		}
-
-		return cobra.MinimumNArgs(1)(cmd, args)
-	},
+	Args: failedTaskArgs(cobra.MinimumNArgs(1)),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		socketPath, err := cmd.Flags().GetString("socket-path")
-		if err != nil {
-			return fmt.Errorf("while getting the socketPath flag: %w", err)
-		}
+		return runFailedTaskAction(cmd, args,
+			func(ctx context.Context, client klioGRPC.AdminClient, target failedTaskTarget) error {
+				if _, err := client.QueueRetryWALs(ctx, &klioGRPC.QueueRetryWALsRequest{
+					ClusterName: target.clusterName,
+					WalNames:    target.walNames,
+				}); err != nil {
+					return fmt.Errorf("while calling queue retry wals entrypoint: %w", err)
+				}
 
-		allClusters, err := cmd.Flags().GetBool("all-clusters")
-		if err != nil {
-			return fmt.Errorf("while getting the all-clusters flag: %w", err)
-		}
-
-		conn, err := connectToAdminServer(socketPath)
-		if err != nil {
-			return err
-		}
-		defer func() {
-			_ = conn.Close()
-		}()
-
-		var request klioGRPC.QueueRetryWALsRequest
-		if !allClusters {
-			clusterName := args[0]
-			request.ClusterName = &clusterName
-			if len(args) > 1 {
-				request.WalNames = args[1:]
-			}
-		}
-
-		adminClient := klioGRPC.NewAdminClient(conn)
-		_, err = adminClient.QueueRetryWALs(cmd.Context(), &request)
-		if err != nil {
-			return fmt.Errorf("while calling queue retry wals entrypoint: %w", err)
-		}
-
-		return nil
+				return nil
+			})
 	},
 }
 
@@ -173,52 +141,19 @@ var discardWALCmd = &cobra.Command{
 		"are discarded. If WAL files are also given, only those are discarded. Pass " +
 		"--all-clusters instead of a cluster name to discard all failed WAL tasks " +
 		"across every cluster.",
-	Args: func(cmd *cobra.Command, args []string) error {
-		allClusters, err := cmd.Flags().GetBool("all-clusters")
-		if err != nil {
-			return fmt.Errorf("while getting the all-clusters flag: %w", err)
-		}
-		if allClusters {
-			return cobra.NoArgs(cmd, args)
-		}
-
-		return cobra.MinimumNArgs(1)(cmd, args)
-	},
+	Args: failedTaskArgs(cobra.MinimumNArgs(1)),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		socketPath, err := cmd.Flags().GetString("socket-path")
-		if err != nil {
-			return fmt.Errorf("while getting the socketPath flag: %w", err)
-		}
+		return runFailedTaskAction(cmd, args,
+			func(ctx context.Context, client klioGRPC.AdminClient, target failedTaskTarget) error {
+				if _, err := client.QueueDiscardWALs(ctx, &klioGRPC.QueueDiscardWALsRequest{
+					ClusterName: target.clusterName,
+					WalNames:    target.walNames,
+				}); err != nil {
+					return fmt.Errorf("while calling queue discard wals entrypoint: %w", err)
+				}
 
-		allClusters, err := cmd.Flags().GetBool("all-clusters")
-		if err != nil {
-			return fmt.Errorf("while getting the all-clusters flag: %w", err)
-		}
-
-		conn, err := connectToAdminServer(socketPath)
-		if err != nil {
-			return err
-		}
-		defer func() {
-			_ = conn.Close()
-		}()
-
-		var request klioGRPC.QueueDiscardWALsRequest
-		if !allClusters {
-			clusterName := args[0]
-			request.ClusterName = &clusterName
-			if len(args) > 1 {
-				request.WalNames = args[1:]
-			}
-		}
-
-		adminClient := klioGRPC.NewAdminClient(conn)
-		_, err = adminClient.QueueDiscardWALs(cmd.Context(), &request)
-		if err != nil {
-			return fmt.Errorf("while calling queue discard wals entrypoint: %w", err)
-		}
-
-		return nil
+				return nil
+			})
 	},
 }
 

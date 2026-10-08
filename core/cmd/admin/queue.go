@@ -20,6 +20,7 @@ SPDX-License-Identifier: Apache-2.0
 package admin
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -87,6 +88,68 @@ var queueStatusCmd = &cobra.Command{
 
 		return nil
 	},
+}
+
+// failedTaskTarget selects the failed tasks a retry or discard command acts on.
+// A nil cluster name selects every cluster, and empty WAL names select every
+// WAL of the cluster.
+type failedTaskTarget struct {
+	clusterName *string
+	walNames    []string
+}
+
+// failedTaskArgs validates the positional arguments of a retry or discard
+// command: none are allowed with --all-clusters, otherwise withoutAllClusters
+// applies.
+func failedTaskArgs(withoutAllClusters cobra.PositionalArgs) cobra.PositionalArgs {
+	return func(cmd *cobra.Command, args []string) error {
+		allClusters, err := cmd.Flags().GetBool("all-clusters")
+		if err != nil {
+			return fmt.Errorf("while getting the all-clusters flag: %w", err)
+		}
+		if allClusters {
+			return cobra.NoArgs(cmd, args)
+		}
+
+		return withoutAllClusters(cmd, args)
+	}
+}
+
+// runFailedTaskAction parses the target of a retry or discard command,
+// connects to the administration server and runs action against it.
+func runFailedTaskAction(
+	cmd *cobra.Command,
+	args []string,
+	action func(ctx context.Context, client klioGRPC.AdminClient, target failedTaskTarget) error,
+) error {
+	socketPath, err := cmd.Flags().GetString("socket-path")
+	if err != nil {
+		return fmt.Errorf("while getting the socketPath flag: %w", err)
+	}
+
+	allClusters, err := cmd.Flags().GetBool("all-clusters")
+	if err != nil {
+		return fmt.Errorf("while getting the all-clusters flag: %w", err)
+	}
+
+	var target failedTaskTarget
+	if !allClusters {
+		clusterName := args[0]
+		target.clusterName = &clusterName
+		if len(args) > 1 {
+			target.walNames = args[1:]
+		}
+	}
+
+	conn, err := connectToAdminServer(socketPath)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		_ = conn.Close()
+	}()
+
+	return action(cmd.Context(), klioGRPC.NewAdminClient(conn), target)
 }
 
 //nolint:gochecknoinits
