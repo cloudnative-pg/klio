@@ -1968,7 +1968,7 @@ tasks:
     run: once
     vars:
       # renovate: datasource=docker depName=renovate/renovate versioning=docker
-      RENOVATE_IMAGE_VERSION: 44.145.1@sha256:6f1f3e2d9d0c3f99aa1f61f7509d302185de7deb173ac8c5ff88a5ce283ec435
+      RENOVATE_IMAGE_VERSION: 44.147.0@sha256:ece849d1b759467ef2f992fd6237d3cd7590486a10f52638d9d91a1e640b8ac1
     cmds:
       - >
         dagger core container from --address renovate/renovate:{{ .RENOVATE_IMAGE_VERSION }}
