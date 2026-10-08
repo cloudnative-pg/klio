@@ -441,59 +441,8 @@ func TestBuildVolumeMounts(t *testing.T) {
 	assert.Equal(t, "/klio", klioMount.MountPath)
 }
 
-func TestBuildIdentityVolumeDefaultMode(t *testing.T) {
-	r := &ServerReconciler{}
-	server := &kliov1alpha1.Server{
-		Spec: kliov1alpha1.ServerSpec{
-			TLSConfiguration: newTestTLSConfiguration(),
-			Tier1: &kliov1alpha1.Tier1Configuration{
-				EncryptionKeyFile: newTestFileRef("enc-secret", "encryption-key.age"),
-				IdentityFile:      newTestFileRef("id-secret", "identity.txt"),
-			},
-		},
-	}
-
-	volumes := r.buildVolumes(server)
-
-	findVolume := func(name string) *corev1.Volume {
-		for i := range volumes {
-			if volumes[i].Name == name {
-				return &volumes[i]
-			}
-		}
-
-		return nil
-	}
-
-	// Encryption key volume should NOT have DefaultMode forced.
-	encVol := findVolume(tier1EncKeyFileVolName)
-	require.NotNil(t, encVol)
-	assert.Nil(t, encVol.Secret.DefaultMode)
-
-	// Identity volume MUST have DefaultMode 0400.
-	idVol := findVolume(tier1IdentityVolName)
-	require.NotNil(t, idVol)
-	require.NotNil(t, idVol.Secret.DefaultMode)
-	assert.Equal(t, int32(0o400), *idVol.Secret.DefaultMode)
-}
-
-func TestBuildIdentityVolMountConfigMap(t *testing.T) {
-	vol, mount := buildIdentityVolMount("test-id", kliov1alpha1.VolumeFileReference{
-		Volume: kliov1alpha1.VolumeSource{
-			ConfigMap: &corev1.ConfigMapVolumeSource{
-				LocalObjectReference: corev1.LocalObjectReference{Name: "cm"},
-			},
-		},
-		Path: "identity.txt",
-	})
-
-	require.NotNil(t, vol.ConfigMap.DefaultMode)
-	assert.Equal(t, int32(0o400), *vol.ConfigMap.DefaultMode)
-	assert.True(t, mount.ReadOnly)
-}
-
-func TestBuildIdentityVolMountCSI(t *testing.T) {
-	vol, mount := buildIdentityVolMount("test-id",
+func TestBuildFileVolMountCSI(t *testing.T) {
+	vol, mount := buildFileVolMount("test-id",
 		kliov1alpha1.VolumeFileReference{
 			Volume: kliov1alpha1.VolumeSource{
 				CSI: &corev1.CSIVolumeSource{Driver: "csi.cert-manager.io"},
@@ -507,21 +456,150 @@ func TestBuildIdentityVolMountCSI(t *testing.T) {
 	assert.True(t, mount.ReadOnly)
 }
 
-func TestBuildIdentityVolMountProjected(t *testing.T) {
-	src := kliov1alpha1.VolumeFileReference{
-		Volume: kliov1alpha1.VolumeSource{
-			Projected: &corev1.ProjectedVolumeSource{},
+func TestBuildRestrictedVolMountSecretDefaults0400(t *testing.T) {
+	vol, mount := buildRestrictedVolMount("test-id", newTestFileRef("id-secret", "identity.txt"))
+
+	require.NotNil(t, vol.Secret)
+	require.NotNil(t, vol.Secret.DefaultMode)
+	assert.Equal(t, int32(0o400), *vol.Secret.DefaultMode)
+	assert.True(t, mount.ReadOnly)
+}
+
+func TestBuildRestrictedVolMountPreservesUserMode(t *testing.T) {
+	mode := int32(0o440)
+	vol, _ := buildRestrictedVolMount("test-id",
+		kliov1alpha1.VolumeFileReference{
+			Volume: kliov1alpha1.VolumeSource{
+				Secret: &corev1.SecretVolumeSource{SecretName: "id-secret", DefaultMode: &mode},
+			},
+			Path: "identity.txt",
 		},
-		Path: "identity.txt",
-	}
+	)
 
-	vol, mount := buildIdentityVolMount("test-id", src)
+	require.NotNil(t, vol.Secret.DefaultMode)
+	assert.Equal(t, int32(0o440), *vol.Secret.DefaultMode)
+}
 
+func TestBuildRestrictedVolMountConfigMapAndProjected(t *testing.T) {
+	vol, _ := buildRestrictedVolMount("test-id",
+		kliov1alpha1.VolumeFileReference{
+			Volume: kliov1alpha1.VolumeSource{
+				ConfigMap: &corev1.ConfigMapVolumeSource{
+					LocalObjectReference: corev1.LocalObjectReference{Name: "cm"},
+				},
+			},
+			Path: "identity.txt",
+		},
+	)
+	require.NotNil(t, vol.ConfigMap.DefaultMode)
+	assert.Equal(t, int32(0o400), *vol.ConfigMap.DefaultMode)
+
+	vol, _ = buildRestrictedVolMount("test-id",
+		kliov1alpha1.VolumeFileReference{
+			Volume: kliov1alpha1.VolumeSource{
+				Projected: &corev1.ProjectedVolumeSource{},
+			},
+			Path: "identity.txt",
+		},
+	)
 	require.NotNil(t, vol.Projected.DefaultMode)
 	assert.Equal(t, int32(0o400), *vol.Projected.DefaultMode)
-	assert.True(t, mount.ReadOnly)
-	// The source spec must not be mutated.
-	assert.Nil(t, src.Volume.Projected.DefaultMode)
+}
+
+func TestBuildRestrictedVolMountCSIUntouched(t *testing.T) {
+	vol, _ := buildRestrictedVolMount("test-id",
+		kliov1alpha1.VolumeFileReference{
+			Volume: kliov1alpha1.VolumeSource{
+				CSI: &corev1.CSIVolumeSource{Driver: "secrets-store.csi.k8s.io"},
+			},
+			Path: "identity.txt",
+		},
+	)
+
+	require.NotNil(t, vol.CSI)
+	assert.Nil(t, vol.Secret)
+}
+
+func TestTier2S3CredentialsVolumeDefaultMode(t *testing.T) {
+	creds := newTestFileRef("aws-creds", "credentials")
+	caBundle := newTestFileRef("ca-secret", "ca.crt")
+	r := &ServerReconciler{}
+	server := &kliov1alpha1.Server{
+		Spec: kliov1alpha1.ServerSpec{
+			TLSConfiguration: newTestTLSConfiguration(),
+			Tier2: &kliov1alpha1.Tier2Configuration{
+				S3: &kliov1alpha1.S3Configuration{
+					BucketName:      "b",
+					CredentialsFile: &creds,
+					CustomCABundle:  &caBundle,
+				},
+				EncryptionKeyFile: newTestFileRef("enc-secret", "encryption-key.age"),
+				IdentityFile:      newTestFileRef("id-secret", "identity.txt"),
+			},
+		},
+	}
+
+	volumes := r.buildVolumes(server)
+	findVolume := func(name string) *corev1.Volume {
+		for i := range volumes {
+			if volumes[i].Name == name {
+				return &volumes[i]
+			}
+		}
+
+		return nil
+	}
+
+	credsVol := findVolume(tier2S3CredentialsVolName)
+	require.NotNil(t, credsVol)
+	require.NotNil(t, credsVol.Secret.DefaultMode)
+	assert.Equal(t, int32(0o400), *credsVol.Secret.DefaultMode)
+
+	bundleVol := findVolume(tier2S3CABundleVolName)
+	require.NotNil(t, bundleVol)
+	assert.Nil(t, bundleVol.Secret.DefaultMode)
+}
+
+func TestServerIdentityVolumeDefaultMode(t *testing.T) {
+	r := &ServerReconciler{}
+	server := &kliov1alpha1.Server{
+		Spec: kliov1alpha1.ServerSpec{
+			TLSConfiguration: newTestTLSConfiguration(),
+			Tier1: &kliov1alpha1.Tier1Configuration{
+				EncryptionKeyFile: newTestFileRef("enc-secret", "encryption-key.age"),
+				IdentityFile:      newTestFileRef("id-secret", "identity.txt"),
+			},
+		},
+	}
+
+	volumes := r.buildVolumes(server)
+	findVolume := func(name string) *corev1.Volume {
+		for i := range volumes {
+			if volumes[i].Name == name {
+				return &volumes[i]
+			}
+		}
+
+		return nil
+	}
+
+	identityVol := findVolume(serverIdentityVolName)
+	require.NotNil(t, identityVol)
+	require.NotNil(t, identityVol.Projected.DefaultMode)
+	assert.Equal(t, int32(0o400), *identityVol.Projected.DefaultMode)
+
+	tier1IdentityVol := findVolume(tier1IdentityVolName)
+	require.NotNil(t, tier1IdentityVol)
+	require.NotNil(t, tier1IdentityVol.Secret.DefaultMode)
+	assert.Equal(t, int32(0o400), *tier1IdentityVol.Secret.DefaultMode)
+
+	encVol := findVolume(tier1EncKeyFileVolName)
+	require.NotNil(t, encVol)
+	assert.Nil(t, encVol.Secret.DefaultMode)
+
+	clientCAVol := findVolume(clientCAVolName)
+	require.NotNil(t, clientCAVol)
+	assert.Nil(t, clientCAVol.Secret.DefaultMode)
 }
 
 func TestTier2S3CustomCABundle(t *testing.T) {

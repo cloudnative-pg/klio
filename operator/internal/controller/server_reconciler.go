@@ -408,24 +408,38 @@ func buildFileVolMount(volName string, src kliov1alpha1.VolumeFileReference) (co
 	return vol, mount
 }
 
-// identityVolumeDefaultMode is the file mode for identity file volumes.
-// The core refuses to start if the identity file is group/other-readable.
-var identityVolumeDefaultMode = new(int32(0o400)) //nolint:gochecknoglobals // constant-like value
-
-// buildIdentityVolMount builds a volume and mount for an identity file,
-// forcing DefaultMode 0400 on volume sources that support it so the
-// core's permission check passes.
-func buildIdentityVolMount(volName string, src kliov1alpha1.VolumeFileReference) (corev1.Volume, corev1.VolumeMount) {
-	vol, mount := buildFileVolMount(volName, src)
+// applyRestrictedVolumeDefaultMode sets DefaultMode 0400 on volume sources
+// that support it when the user did not set one. Secret, ConfigMap and
+// projected volumes default to 0644, which would leave private keys and
+// plaintext credentials world-readable; with fsGroup set on the Pod,
+// kubelet delivers 0400 files as 0440, which the server user can read.
+// CSI volumes have no mode field and are left untouched: the driver
+// decides the mode.
+func applyRestrictedVolumeDefaultMode(vol *corev1.Volume) {
+	defaultMode := int32(0o400)
 
 	switch {
 	case vol.Secret != nil:
-		vol.Secret.DefaultMode = identityVolumeDefaultMode
+		if vol.Secret.DefaultMode == nil {
+			vol.Secret.DefaultMode = &defaultMode
+		}
 	case vol.ConfigMap != nil:
-		vol.ConfigMap.DefaultMode = identityVolumeDefaultMode
+		if vol.ConfigMap.DefaultMode == nil {
+			vol.ConfigMap.DefaultMode = &defaultMode
+		}
 	case vol.Projected != nil:
-		vol.Projected.DefaultMode = identityVolumeDefaultMode
+		if vol.Projected.DefaultMode == nil {
+			vol.Projected.DefaultMode = &defaultMode
+		}
 	}
+}
+
+// buildRestrictedVolMount builds a volume and mount for a file holding
+// secrets (a private key or plaintext credentials), defaulting the volume
+// mode to 0400. See applyRestrictedVolumeDefaultMode.
+func buildRestrictedVolMount(volName string, src kliov1alpha1.VolumeFileReference) (corev1.Volume, corev1.VolumeMount) {
+	vol, mount := buildFileVolMount(volName, src)
+	applyRestrictedVolumeDefaultMode(&vol)
 
 	return vol, mount
 }
@@ -435,6 +449,7 @@ func (r *ServerReconciler) buildVolumes(server *kliov1alpha1.Server) []corev1.Vo
 		Name:         serverIdentityVolName,
 		VolumeSource: server.Spec.ServerTLSIdentity.Volume.ToCoreV1(),
 	}
+	applyRestrictedVolumeDefaultMode(&identityVol)
 	clientCAVol, _ := buildFileVolMount(clientCAVolName, server.Spec.ClientCA)
 
 	volumes := []corev1.Volume{
@@ -452,7 +467,7 @@ func (r *ServerReconciler) buildVolumes(server *kliov1alpha1.Server) []corev1.Vo
 		vol, _ := buildFileVolMount(tier1EncKeyFileVolName, server.Spec.Tier1.EncryptionKeyFile)
 		volumes = append(volumes, vol)
 
-		vol, _ = buildIdentityVolMount(tier1IdentityVolName, server.Spec.Tier1.IdentityFile)
+		vol, _ = buildRestrictedVolMount(tier1IdentityVolName, server.Spec.Tier1.IdentityFile)
 		volumes = append(volumes, vol)
 	}
 
@@ -460,11 +475,11 @@ func (r *ServerReconciler) buildVolumes(server *kliov1alpha1.Server) []corev1.Vo
 		vol, _ := buildFileVolMount(tier2EncKeyFileVolName, server.Spec.Tier2.EncryptionKeyFile)
 		volumes = append(volumes, vol)
 
-		vol, _ = buildIdentityVolMount(tier2IdentityVolName, server.Spec.Tier2.IdentityFile)
+		vol, _ = buildRestrictedVolMount(tier2IdentityVolName, server.Spec.Tier2.IdentityFile)
 		volumes = append(volumes, vol)
 
 		if s3 := server.Spec.Tier2.S3; s3 != nil && s3.CredentialsFile != nil {
-			vol, _ = buildIdentityVolMount(tier2S3CredentialsVolName, *s3.CredentialsFile)
+			vol, _ = buildRestrictedVolMount(tier2S3CredentialsVolName, *s3.CredentialsFile)
 			volumes = append(volumes, vol)
 		}
 
@@ -502,7 +517,7 @@ func (r *ServerReconciler) buildVolumeMounts(server *kliov1alpha1.Server) []core
 		_, mount := buildFileVolMount(tier1EncKeyFileVolName, server.Spec.Tier1.EncryptionKeyFile)
 		volumeMounts = append(volumeMounts, mount)
 
-		_, mount = buildIdentityVolMount(tier1IdentityVolName, server.Spec.Tier1.IdentityFile)
+		_, mount = buildFileVolMount(tier1IdentityVolName, server.Spec.Tier1.IdentityFile)
 		volumeMounts = append(volumeMounts, mount)
 	}
 
@@ -510,11 +525,11 @@ func (r *ServerReconciler) buildVolumeMounts(server *kliov1alpha1.Server) []core
 		_, mount := buildFileVolMount(tier2EncKeyFileVolName, server.Spec.Tier2.EncryptionKeyFile)
 		volumeMounts = append(volumeMounts, mount)
 
-		_, mount = buildIdentityVolMount(tier2IdentityVolName, server.Spec.Tier2.IdentityFile)
+		_, mount = buildFileVolMount(tier2IdentityVolName, server.Spec.Tier2.IdentityFile)
 		volumeMounts = append(volumeMounts, mount)
 
 		if s3 := server.Spec.Tier2.S3; s3 != nil && s3.CredentialsFile != nil {
-			_, mount = buildIdentityVolMount(tier2S3CredentialsVolName, *s3.CredentialsFile)
+			_, mount = buildFileVolMount(tier2S3CredentialsVolName, *s3.CredentialsFile)
 			volumeMounts = append(volumeMounts, mount)
 		}
 
