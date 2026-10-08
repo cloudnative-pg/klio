@@ -449,10 +449,16 @@ func TestRetryFailedBackupTasksRejectsWALFilter(t *testing.T) {
 	require.ErrorIs(t, err, errWALFilterUnsupported)
 }
 
-// discardTestEnv starts an embedded NATS server and returns a queue connection
-// plus a JetStream handle for seeding failed tasks. The server and the NATS
-// connection are torn down when the test ends.
-func discardTestEnv(t *testing.T) (context.Context, *Conn, jetstream.JetStream) {
+// discardTestEnv bundles what a discard test needs: a queue connection and a
+// JetStream handle for seeding failed tasks.
+type discardTestEnv struct {
+	conn *Conn
+	js   jetstream.JetStream
+}
+
+// newDiscardTestEnv starts an embedded NATS server and connects a queue to it.
+// The server and the NATS connection are torn down when the test ends.
+func newDiscardTestEnv(t *testing.T) discardTestEnv {
 	t.Helper()
 
 	ns, url := startNATSServer(t)
@@ -462,20 +468,18 @@ func discardTestEnv(t *testing.T) (context.Context, *Conn, jetstream.JetStream) 
 	require.NoError(t, err)
 	t.Cleanup(nc.Close)
 
-	ctx := context.Background()
-	conn, err := New(ctx, nc)
+	conn, err := New(t.Context(), nc)
 	require.NoError(t, err)
 
 	js, err := jetstream.New(nc)
 	require.NoError(t, err)
 
-	return ctx, conn, js
+	return discardTestEnv{conn: conn, js: js}
 }
 
 // assertQueueCounts checks the number of messages left in a work-queue stream
 // and in its dead-letter queue stream.
 func assertQueueCounts(
-	ctx context.Context,
 	t *testing.T,
 	conn *Conn,
 	workStream, dlqStream string,
@@ -483,34 +487,36 @@ func assertQueueCounts(
 ) {
 	t.Helper()
 
-	assert.Equal(t, wantDLQ, dlqMsgCount(t, streamHandle(ctx, t, conn.conn, dlqStream)),
+	assert.Equal(t, wantDLQ, dlqMsgCount(t, streamHandle(t.Context(), t, conn.conn, dlqStream)),
 		"unexpected number of dead-letter queue entries")
-	assert.Equal(t, wantWork, dlqMsgCount(t, streamHandle(ctx, t, conn.conn, workStream)),
+	assert.Equal(t, wantWork, dlqMsgCount(t, streamHandle(t.Context(), t, conn.conn, workStream)),
 		"unexpected number of messages left in the work queue")
 }
 
 func TestDiscardFailedWALTasksDiscardsAllClusters(t *testing.T) {
-	ctx, conn, js := discardTestEnv(t)
+	env := newDiscardTestEnv(t)
+	ctx, conn, js := t.Context(), env.conn, env.js
 
 	seedFailedWAL(t, js, "cluster-a", "000000010000000000000001")
 	seedFailedWAL(t, js, "cluster-b", "000000010000000000000002")
 
 	require.NoError(t, conn.DiscardFailedWALTasks(ctx))
 
-	assertQueueCounts(ctx, t, conn, klioWalStreamName, klioDLQWalStreamName, 0, 0)
+	assertQueueCounts(t, conn, klioWalStreamName, klioDLQWalStreamName, 0, 0)
 	assert.Empty(t, retriedWALs(t, streamHandle(ctx, t, conn.conn, klioWalStreamName)),
 		"discarded WALs must not be re-enqueued")
 }
 
 func TestDiscardFailedWALTasksDiscardsSingleCluster(t *testing.T) {
-	ctx, conn, js := discardTestEnv(t)
+	env := newDiscardTestEnv(t)
+	ctx, conn, js := t.Context(), env.conn, env.js
 
 	seedFailedWAL(t, js, "cluster-a", "000000010000000000000001")
 	seedFailedWAL(t, js, "cluster-b", "000000010000000000000002")
 
 	require.NoError(t, conn.DiscardFailedWALTasks(ctx, WithCluster("cluster-a")))
 
-	assertQueueCounts(ctx, t, conn, klioWalStreamName, klioDLQWalStreamName, 1, 1)
+	assertQueueCounts(t, conn, klioWalStreamName, klioDLQWalStreamName, 1, 1)
 
 	remaining, err := conn.ListFailedWALTasks(ctx)
 	require.NoError(t, err)
@@ -520,7 +526,8 @@ func TestDiscardFailedWALTasksDiscardsSingleCluster(t *testing.T) {
 }
 
 func TestDiscardFailedWALTasksDiscardsSpecificWALs(t *testing.T) {
-	ctx, conn, js := discardTestEnv(t)
+	env := newDiscardTestEnv(t)
+	ctx, conn, js := t.Context(), env.conn, env.js
 
 	seedFailedWAL(t, js, "cluster-a", "000000010000000000000001")
 	seedFailedWAL(t, js, "cluster-a", "000000010000000000000002")
@@ -532,7 +539,7 @@ func TestDiscardFailedWALTasksDiscardsSpecificWALs(t *testing.T) {
 		WithWALs("000000010000000000000001", "000000010000000000000003"),
 	))
 
-	assertQueueCounts(ctx, t, conn, klioWalStreamName, klioDLQWalStreamName, 1, 1)
+	assertQueueCounts(t, conn, klioWalStreamName, klioDLQWalStreamName, 1, 1)
 
 	remaining, err := conn.ListFailedWALTasks(ctx)
 	require.NoError(t, err)
@@ -542,7 +549,8 @@ func TestDiscardFailedWALTasksDiscardsSpecificWALs(t *testing.T) {
 }
 
 func TestDiscardFailedWALTasksSkipsUnknownWALs(t *testing.T) {
-	ctx, conn, js := discardTestEnv(t)
+	env := newDiscardTestEnv(t)
+	ctx, conn, js := t.Context(), env.conn, env.js
 
 	seedFailedWAL(t, js, "cluster-a", "000000010000000000000001")
 
@@ -553,31 +561,33 @@ func TestDiscardFailedWALTasksSkipsUnknownWALs(t *testing.T) {
 		WithWALs("000000010000000000000001", "000000019999999999999999"),
 	))
 
-	assertQueueCounts(ctx, t, conn, klioWalStreamName, klioDLQWalStreamName, 0, 0)
+	assertQueueCounts(t, conn, klioWalStreamName, klioDLQWalStreamName, 0, 0)
 }
 
 func TestDiscardFailedBackupTasksDiscardsAllClusters(t *testing.T) {
-	ctx, conn, js := discardTestEnv(t)
+	env := newDiscardTestEnv(t)
+	ctx, conn, js := t.Context(), env.conn, env.js
 
 	seedFailedBackup(t, js, "cluster-a")
 	seedFailedBackup(t, js, "cluster-b")
 
 	require.NoError(t, conn.DiscardFailedBackupTasks(ctx))
 
-	assertQueueCounts(ctx, t, conn, klioBackupStreamName, klioDLQBackupStreamName, 0, 0)
+	assertQueueCounts(t, conn, klioBackupStreamName, klioDLQBackupStreamName, 0, 0)
 	assert.Empty(t, retriedBackupClusters(t, streamHandle(ctx, t, conn.conn, klioBackupStreamName)),
 		"discarded backups must not be re-enqueued")
 }
 
 func TestDiscardFailedBackupTasksDiscardsSingleCluster(t *testing.T) {
-	ctx, conn, js := discardTestEnv(t)
+	env := newDiscardTestEnv(t)
+	ctx, conn, js := t.Context(), env.conn, env.js
 
 	seedFailedBackup(t, js, "cluster-a")
 	seedFailedBackup(t, js, "cluster-b")
 
 	require.NoError(t, conn.DiscardFailedBackupTasks(ctx, WithCluster("cluster-a")))
 
-	assertQueueCounts(ctx, t, conn, klioBackupStreamName, klioDLQBackupStreamName, 1, 1)
+	assertQueueCounts(t, conn, klioBackupStreamName, klioDLQBackupStreamName, 1, 1)
 
 	remaining, err := conn.ListFailedBackupTasks(ctx)
 	require.NoError(t, err)
@@ -587,7 +597,8 @@ func TestDiscardFailedBackupTasksDiscardsSingleCluster(t *testing.T) {
 }
 
 func TestDiscardFailedBackupTasksDiscardsEveryEntryOfCluster(t *testing.T) {
-	ctx, conn, js := discardTestEnv(t)
+	env := newDiscardTestEnv(t)
+	ctx, conn, js := t.Context(), env.conn, env.js
 
 	// Unlike retry, which collapses them into one task, discard must release
 	// every failed backup entry of the cluster.
@@ -596,11 +607,12 @@ func TestDiscardFailedBackupTasksDiscardsEveryEntryOfCluster(t *testing.T) {
 
 	require.NoError(t, conn.DiscardFailedBackupTasks(ctx))
 
-	assertQueueCounts(ctx, t, conn, klioBackupStreamName, klioDLQBackupStreamName, 0, 0)
+	assertQueueCounts(t, conn, klioBackupStreamName, klioDLQBackupStreamName, 0, 0)
 }
 
 func TestDiscardFailedBackupTasksRejectsWALFilter(t *testing.T) {
-	ctx, conn, js := discardTestEnv(t)
+	env := newDiscardTestEnv(t)
+	ctx, conn, js := t.Context(), env.conn, env.js
 
 	seedFailedBackup(t, js, "cluster-a")
 
@@ -609,5 +621,5 @@ func TestDiscardFailedBackupTasksRejectsWALFilter(t *testing.T) {
 	err := conn.DiscardFailedBackupTasks(ctx, WithWALs("000000010000000000000001"))
 	require.ErrorIs(t, err, errWALFilterUnsupported)
 
-	assertQueueCounts(ctx, t, conn, klioBackupStreamName, klioDLQBackupStreamName, 1, 1)
+	assertQueueCounts(t, conn, klioBackupStreamName, klioDLQBackupStreamName, 1, 1)
 }
