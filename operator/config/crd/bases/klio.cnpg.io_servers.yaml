@@ -14666,6 +14666,30 @@ spec:
                                 type: object
                             type: object
                             x-kubernetes-validations:
+                            - message: secret.secretName must be set when the secret
+                                volume source is used
+                              rule: '!has(self.secret) || (has(self.secret.secretName)
+                                && size(self.secret.secretName) > 0)'
+                            - message: configMap.name must be set when the configMap
+                                volume source is used
+                              rule: '!has(self.configMap) || (has(self.configMap.name)
+                                && size(self.configMap.name) > 0)'
+                            - message: projected.sources must not be empty when the
+                                projected volume source is used
+                              rule: '!has(self.projected) || (has(self.projected.sources)
+                                && size(self.projected.sources) > 0)'
+                            - message: csi.driver must be set when the csi volume
+                                source is used
+                              rule: '!has(self.csi) || (has(self.csi.driver) && size(self.csi.driver)
+                                > 0)'
+                            - message: secret.optional must be unset or false, credential
+                                volumes cannot be optional
+                              rule: '!has(self.secret) || !has(self.secret.optional)
+                                || !self.secret.optional'
+                            - message: configMap.optional must be unset or false,
+                                credential volumes cannot be optional
+                              rule: '!has(self.configMap) || !has(self.configMap.optional)
+                                || !self.configMap.optional'
                             - message: exactly one of the fields in [secret configMap
                                 projected csi] must be set
                               rule: (has(self.secret)?1:0)+(has(self.configMap)?1:0)+(has(self.projected)?1:0)+(has(self.csi)?1:0)
@@ -15431,6 +15455,30 @@ spec:
                                 type: object
                             type: object
                             x-kubernetes-validations:
+                            - message: secret.secretName must be set when the secret
+                                volume source is used
+                              rule: '!has(self.secret) || (has(self.secret.secretName)
+                                && size(self.secret.secretName) > 0)'
+                            - message: configMap.name must be set when the configMap
+                                volume source is used
+                              rule: '!has(self.configMap) || (has(self.configMap.name)
+                                && size(self.configMap.name) > 0)'
+                            - message: projected.sources must not be empty when the
+                                projected volume source is used
+                              rule: '!has(self.projected) || (has(self.projected.sources)
+                                && size(self.projected.sources) > 0)'
+                            - message: csi.driver must be set when the csi volume
+                                source is used
+                              rule: '!has(self.csi) || (has(self.csi.driver) && size(self.csi.driver)
+                                > 0)'
+                            - message: secret.optional must be unset or false, credential
+                                volumes cannot be optional
+                              rule: '!has(self.secret) || !has(self.secret.optional)
+                                || !self.secret.optional'
+                            - message: configMap.optional must be unset or false,
+                                credential volumes cannot be optional
+                              rule: '!has(self.configMap) || !has(self.configMap.optional)
+                                || !self.configMap.optional'
                             - message: exactly one of the fields in [secret configMap
                                 projected csi] must be set
                               rule: (has(self.secret)?1:0)+(has(self.configMap)?1:0)+(has(self.projected)?1:0)+(has(self.csi)?1:0)
