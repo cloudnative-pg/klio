@@ -110,7 +110,7 @@ spec:
   serverCa:
     volume:
       secret:
-        secretName: klioserver-dc-b-ca
+        secretName: klioserver-dc-b-tls
         items:
         - key: ca.crt
           path: ca.crt

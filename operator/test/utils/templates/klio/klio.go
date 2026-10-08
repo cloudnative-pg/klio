@@ -97,7 +97,10 @@ func BuildTier2Configuration(
 			},
 			CustomCABundle: &kliov1alpha1.VolumeFileReference{
 				Volume: kliov1alpha1.VolumeSource{
-					Secret: &corev1.SecretVolumeSource{SecretName: s3Opts.S3CABundleSecretName},
+					Secret: &corev1.SecretVolumeSource{
+						SecretName: s3Opts.S3CABundleSecretName,
+						Items:      []corev1.KeyToPath{{Key: "ca.crt", Path: "ca.crt"}},
+					},
 				},
 				Path: "ca.crt",
 			},
@@ -119,8 +122,9 @@ type ServerTemplateOptions struct {
 	StorageClass string
 
 	// TLSSecretName is the secret holding the server certificate
-	// (`tls.crt`), key (`tls.key`) and CA bundle (`ca.crt`). The three
-	// server TLS file references are built from it.
+	// (`tls.crt`), key (`tls.key`) and CA bundle (`ca.crt`). The server
+	// identity and client CA references are built from it; the plugin
+	// `serverCa` comes from ServerCACertificate instead.
 	TLSSecretName string
 
 	// ClientCASecretName is the secret that will be used by Kopia and by
@@ -225,6 +229,10 @@ func GetPluginConfigurationObject(
 	namespace string,
 	opts PluginConfigurationTemplateOptions,
 ) *kliov1alpha1.PluginConfiguration {
+	if opts.ServerCertificate == nil || opts.ServerCACertificate == nil || opts.ClientCertificate == nil {
+		panic("PluginConfigurationTemplateOptions requires ServerCertificate, ServerCACertificate and ClientCertificate")
+	}
+
 	mode := opts.Mode
 	if mode == "" {
 		mode = kliov1alpha1.ModeStandard
