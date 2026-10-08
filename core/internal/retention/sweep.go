@@ -35,6 +35,10 @@ import (
 	"github.com/cloudnative-pg/klio/core/internal/server/walserver"
 )
 
+// ErrInvalidRetentionLatest is returned when a stored retention policy asks to
+// keep a negative number of backups.
+var ErrInvalidRetentionLatest = errors.New("invalid retention policy: latest must be greater than or equal to 0")
+
 // backupDeleter is the subset of klioclient.Client that sweepCluster needs.
 type backupDeleter interface {
 	ListBackups(ctx context.Context, hostname string) (klioclient.BackupList, error)
@@ -288,7 +292,7 @@ func protectUnsyncedToTier2(
 func policyFromProto(p *grpc.TierRetentionPolicy) (policy.Policy, error) {
 	latest := int(p.GetLatest())
 	if latest < 0 {
-		return nil, fmt.Errorf("invalid retention policy: latest=%d must be >= 0", latest)
+		return nil, fmt.Errorf("%w: got %d", ErrInvalidRetentionLatest, latest)
 	}
 
 	return &policy.LatestPolicy{Count: latest}, nil

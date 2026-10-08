@@ -210,6 +210,7 @@ type RetentionPolicy struct {
 	// Latest is the number of latest backups to keep. Zero disables
 	// retention: every backup is kept, the same as leaving this policy unset.
 	// +optional
+	// +kubebuilder:validation:Minimum=0
 	Latest *int32 `json:"latest,omitempty" mapstructure:"latest"`
 }
 

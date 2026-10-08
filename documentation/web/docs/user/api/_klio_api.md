@@ -215,7 +215,7 @@ _Appears in:_
 
 | Field | Description | Required | Default | Validation |
 | --- | --- | --- | --- | --- |
-| `latest` _integer_ | Latest is the number of latest backups to keep. Zero disables<br />retention: every backup is kept, the same as leaving this policy unset. |  |  | Optional: \{\} <br /> |
+| `latest` _integer_ | Latest is the number of latest backups to keep. Zero disables<br />retention: every backup is kept, the same as leaving this policy unset. |  |  | Minimum: 0 <br />Optional: \{\} <br /> |
 
 
 #### S3Configuration

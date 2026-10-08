@@ -1732,6 +1732,7 @@ spec:
                           Latest is the number of latest backups to keep. Zero disables
                           retention: every backup is kept, the same as leaving this policy unset.
                         format: int32
+                        minimum: 0
                         type: integer
                     type: object
                 type: object
@@ -1804,6 +1805,7 @@ spec:
                           Latest is the number of latest backups to keep. Zero disables
                           retention: every backup is kept, the same as leaving this policy unset.
                         format: int32
+                        minimum: 0
                         type: integer
                     type: object
                 type: object

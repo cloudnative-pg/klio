@@ -83,20 +83,27 @@ var setCmd = &cobra.Command{
 	},
 }
 
-// toGRPCRetentionPolicy converts a config.RetentionPolicy into its gRPC
-// wire representation. A nil policy converts to nil.
+// toGRPCRetentionPolicy converts the retention policies of the configuration
+// into their gRPC wire representation. A tier without a retention policy
+// converts to nil.
 func toGRPCRetentionPolicy(configuration config.Data) *grpc.RetentionPolicy {
-	result := &grpc.RetentionPolicy{}
-	tier1RetentionPolicy := &grpc.TierRetentionPolicy{}
-	tier2RetentionPolicy := &grpc.TierRetentionPolicy{}
-	if configuration.Tier1RetentionPolicy != nil {
-		tier1RetentionPolicy.Latest = *configuration.Tier1RetentionPolicy.Latest
-		result.Tier1Policy = tier1RetentionPolicy
+	return &grpc.RetentionPolicy{
+		Tier1Policy: toGRPCTierRetentionPolicy(configuration.Tier1RetentionPolicy),
+		Tier2Policy: toGRPCTierRetentionPolicy(configuration.Tier2RetentionPolicy),
+	}
+}
+
+// toGRPCTierRetentionPolicy converts one tier's retention policy. A nil policy
+// converts to nil. A policy without a value for latest, such as an empty
+// retention block, keeps every backup, the same as an explicit zero.
+func toGRPCTierRetentionPolicy(policy *config.RetentionPolicy) *grpc.TierRetentionPolicy {
+	if policy == nil {
+		return nil
 	}
 
-	if configuration.Tier2RetentionPolicy != nil {
-		tier2RetentionPolicy.Latest = *configuration.Tier2RetentionPolicy.Latest
-		result.Tier2Policy = tier2RetentionPolicy
+	result := &grpc.TierRetentionPolicy{}
+	if policy.Latest != nil {
+		result.Latest = *policy.Latest
 	}
 
 	return result

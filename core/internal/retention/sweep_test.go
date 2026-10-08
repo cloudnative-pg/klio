@@ -26,6 +26,7 @@ import (
 	"testing"
 
 	"github.com/cloudnative-pg/klio/core/internal/client/klioclient"
+	"github.com/cloudnative-pg/klio/core/internal/grpc"
 )
 
 // stubTier2Client is a minimal backupDeleter stub for testing
@@ -100,4 +101,21 @@ func TestProtectUnsyncedToTier2(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestPolicyFromProto(t *testing.T) {
+	t.Run("a negative latest is rejected", func(t *testing.T) {
+		_, err := policyFromProto(&grpc.TierRetentionPolicy{Latest: -1})
+		if !errors.Is(err, ErrInvalidRetentionLatest) {
+			t.Fatalf("policyFromProto() error = %v, want %v", err, ErrInvalidRetentionLatest)
+		}
+	})
+
+	t.Run("zero and positive values are accepted", func(t *testing.T) {
+		for _, latest := range []int32{0, 1, 10} {
+			if _, err := policyFromProto(&grpc.TierRetentionPolicy{Latest: latest}); err != nil {
+				t.Errorf("policyFromProto(latest=%d) unexpected error: %v", latest, err)
+			}
+		}
+	})
 }
