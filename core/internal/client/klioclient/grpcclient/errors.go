@@ -27,6 +27,13 @@ import (
 // ErrInconsistentCertificate is raised when the server certificate cannot be parsed.
 var ErrInconsistentCertificate = errors.New("inconsistent server certificate (parsing)")
 
+// ErrNoServerCertificate is raised when the server presents no certificate.
+var ErrNoServerCertificate = errors.New("no server certificate presented")
+
+// ErrNoServerName is raised when the TLS handshake carries no server name to
+// verify the server certificate against.
+var ErrNoServerName = errors.New("no server name to verify the server certificate against")
+
 // ErrNoResultReceived is raised when the server closes the WAL upload stream
 // without sending a result.
 var ErrNoResultReceived = errors.New("server closed stream without sending a result")

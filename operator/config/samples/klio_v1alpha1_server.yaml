@@ -7,18 +7,19 @@ metadata:
 spec:
   tier1:
     encryptionKeyFile:
-      fileReference:
-        volume:
-          secret:
-            secretName: server-sample-encryption
-        path: encryption-key
+      volume:
+        secret:
+          secretName: server-sample-encryption
+          items:
+            - key: encryption-key
+              path: encryption-key
+      path: encryption-key
 
     identityFile:
-      fileReference:
-        volume:
-          secret:
-            secretName: server-sample-encryption
-        path: secret-key
+      volume:
+        secret:
+          secretName: server-sample-encryption
+      path: secret-key
 
   storage:
     pvcTemplate:
@@ -28,9 +29,20 @@ spec:
       accessModes:
         - ReadWriteOnce
 
-  tlsSecretName: server-sample-tls
-  caSecretName: server-sample-ca
-
+  serverTlsIdentity:
+    volume:
+      secret:
+        secretName: server-sample-tls
+    certPath: tls.crt
+    keyPath: tls.key
+  clientCa:
+    volume:
+      secret:
+        secretName: server-sample-client-ca
+        items:
+          - key: tls.crt
+            path: tls.crt
+    path: tls.crt
   image: registry.dev:5000/klio-testing:dev
   imagePullPolicy: Always
 ---
@@ -77,17 +89,17 @@ spec:
     - server auth
 
   issuerRef:
-    name: selfsigned-issuer
+    name: server-sample-server-ca
     kind: Issuer
     group: cert-manager.io
 ---
 apiVersion: cert-manager.io/v1
 kind: Certificate
 metadata:
-  name: server-sample-ca
+  name: server-sample-server-ca
 spec:
-  commonName: server-sample
-  secretName: server-sample-ca
+  commonName: server-sample-server-ca
+  secretName: server-sample-server-ca
 
   duration: 2160h # 90d
   renewBefore: 360h # 15d
@@ -104,7 +116,35 @@ spec:
 apiVersion: cert-manager.io/v1
 kind: Issuer
 metadata:
-  name: server-sample-ca
+  name: server-sample-server-ca
 spec:
   ca:
-    secretName: server-sample-ca
+    secretName: server-sample-server-ca
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: server-sample-client-ca
+spec:
+  commonName: server-sample-client-ca
+  secretName: server-sample-client-ca
+
+  duration: 2160h # 90d
+  renewBefore: 360h # 15d
+
+  isCA: true
+  usages:
+    - cert sign
+
+  issuerRef:
+    name: selfsigned-issuer
+    kind: Issuer
+    group: cert-manager.io
+---
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  name: server-sample-client-ca
+spec:
+  ca:
+    secretName: server-sample-client-ca

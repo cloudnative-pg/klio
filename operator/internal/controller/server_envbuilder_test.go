@@ -39,24 +39,40 @@ func findEnvVar(envVars []corev1.EnvVar, name string) *corev1.EnvVar {
 	return nil
 }
 
-func newTestFileSource(secretName, filePath string) kliov1alpha1.FileSource {
-	return kliov1alpha1.FileSource{
-		FileReference: &kliov1alpha1.FileReference{
-			Volume: corev1.VolumeSource{
-				Secret: &corev1.SecretVolumeSource{
-					SecretName: secretName,
+func newTestFileRef(secretName, filePath string) kliov1alpha1.VolumeFileReference {
+	return kliov1alpha1.VolumeFileReference{
+		Volume: kliov1alpha1.VolumeSource{
+			Secret: &corev1.SecretVolumeSource{SecretName: secretName},
+		},
+		Path: filePath,
+	}
+}
+
+func newTestTLSConfiguration() kliov1alpha1.TLSConfiguration {
+	return kliov1alpha1.TLSConfiguration{
+		ServerTLSIdentity: kliov1alpha1.TLSIdentity{
+			Volume: kliov1alpha1.VolumeSource{
+				Projected: &corev1.ProjectedVolumeSource{
+					Sources: []corev1.VolumeProjection{{
+						Secret: &corev1.SecretProjection{
+							LocalObjectReference: corev1.LocalObjectReference{Name: "tls-secret"},
+						},
+					}},
 				},
 			},
-			Path: filePath,
+			CertPath: "tls.crt",
+			KeyPath:  "tls.key",
 		},
+		ClientCA: newTestFileRef("ca-secret", "tls.crt"),
 	}
 }
 
 func TestGetCoreEnvVarsIncludesQueueWhenTier1Configured(t *testing.T) {
 	builder := &envBuilder{
+		tls: newTestTLSConfiguration(),
 		tier1: &kliov1alpha1.Tier1Configuration{
-			EncryptionKeyFile: newTestFileSource("enc-secret", "encryption-key.age"),
-			IdentityFile:      newTestFileSource("id-secret", "identity.txt"),
+			EncryptionKeyFile: newTestFileRef("enc-secret", "encryption-key.age"),
+			IdentityFile:      newTestFileRef("id-secret", "identity.txt"),
 		},
 	}
 
@@ -68,6 +84,7 @@ func TestGetCoreEnvVarsIncludesQueueWhenTier1Configured(t *testing.T) {
 
 func TestGetCoreEnvVarsExcludesQueueWhenNoTier1(t *testing.T) {
 	builder := &envBuilder{
+		tls:   newTestTLSConfiguration(),
 		tier1: nil,
 	}
 
@@ -78,9 +95,10 @@ func TestGetCoreEnvVarsExcludesQueueWhenNoTier1(t *testing.T) {
 
 func TestGetCoreEnvVarsIncludesTier1EnvVars(t *testing.T) {
 	builder := &envBuilder{
+		tls: newTestTLSConfiguration(),
 		tier1: &kliov1alpha1.Tier1Configuration{
-			EncryptionKeyFile: newTestFileSource("enc-secret", "encryption-key.age"),
-			IdentityFile:      newTestFileSource("id-secret", "identity.txt"),
+			EncryptionKeyFile: newTestFileRef("enc-secret", "encryption-key.age"),
+			IdentityFile:      newTestFileRef("id-secret", "identity.txt"),
 		},
 	}
 
@@ -111,9 +129,10 @@ func TestGetCoreEnvVarsIncludesTier1EnvVars(t *testing.T) {
 func TestGetCoreEnvVarsIncludesTier1Compression(t *testing.T) {
 	t.Run("compression set with sizes", func(t *testing.T) {
 		builder := &envBuilder{
+			tls: newTestTLSConfiguration(),
 			tier1: &kliov1alpha1.Tier1Configuration{
-				EncryptionKeyFile: newTestFileSource("enc-secret", "encryption-key.age"),
-				IdentityFile:      newTestFileSource("id-secret", "identity.txt"),
+				EncryptionKeyFile: newTestFileRef("enc-secret", "encryption-key.age"),
+				IdentityFile:      newTestFileRef("id-secret", "identity.txt"),
 				Compression: &kliov1alpha1.CompressionPolicy{
 					Algorithm: "zstd",
 					MinSize:   4096,
@@ -139,9 +158,10 @@ func TestGetCoreEnvVarsIncludesTier1Compression(t *testing.T) {
 
 	t.Run("algorithm only omits size vars", func(t *testing.T) {
 		builder := &envBuilder{
+			tls: newTestTLSConfiguration(),
 			tier1: &kliov1alpha1.Tier1Configuration{
-				EncryptionKeyFile: newTestFileSource("enc-secret", "encryption-key.age"),
-				IdentityFile:      newTestFileSource("id-secret", "identity.txt"),
+				EncryptionKeyFile: newTestFileRef("enc-secret", "encryption-key.age"),
+				IdentityFile:      newTestFileRef("id-secret", "identity.txt"),
 				Compression:       &kliov1alpha1.CompressionPolicy{Algorithm: "zstd"},
 			},
 		}
@@ -154,9 +174,10 @@ func TestGetCoreEnvVarsIncludesTier1Compression(t *testing.T) {
 
 	t.Run("compression unset", func(t *testing.T) {
 		builder := &envBuilder{
+			tls: newTestTLSConfiguration(),
 			tier1: &kliov1alpha1.Tier1Configuration{
-				EncryptionKeyFile: newTestFileSource("enc-secret", "encryption-key.age"),
-				IdentityFile:      newTestFileSource("id-secret", "identity.txt"),
+				EncryptionKeyFile: newTestFileRef("enc-secret", "encryption-key.age"),
+				IdentityFile:      newTestFileRef("id-secret", "identity.txt"),
 			},
 		}
 
@@ -171,8 +192,8 @@ func TestGetTier2EnvVarsIncludesCompression(t *testing.T) {
 				S3: &kliov1alpha1.S3Configuration{
 					BucketName: "test-bucket",
 				},
-				EncryptionKeyFile: newTestFileSource("enc-secret", "encryption-key.age"),
-				IdentityFile:      newTestFileSource("id-secret", "identity.txt"),
+				EncryptionKeyFile: newTestFileRef("enc-secret", "encryption-key.age"),
+				IdentityFile:      newTestFileRef("id-secret", "identity.txt"),
 				Compression: &kliov1alpha1.CompressionPolicy{
 					Algorithm: "s2-default",
 					MinSize:   8192,
@@ -199,8 +220,8 @@ func TestGetTier2EnvVarsIncludesCompression(t *testing.T) {
 				S3: &kliov1alpha1.S3Configuration{
 					BucketName: "test-bucket",
 				},
-				EncryptionKeyFile: newTestFileSource("enc-secret", "encryption-key.age"),
-				IdentityFile:      newTestFileSource("id-secret", "identity.txt"),
+				EncryptionKeyFile: newTestFileRef("enc-secret", "encryption-key.age"),
+				IdentityFile:      newTestFileRef("id-secret", "identity.txt"),
 			},
 		}
 
@@ -208,30 +229,73 @@ func TestGetTier2EnvVarsIncludesCompression(t *testing.T) {
 	})
 }
 
+func TestGetTier2EnvVarsS3CredentialsFile(t *testing.T) {
+	newBuilder := func(s3 *kliov1alpha1.S3Configuration) *envBuilder {
+		return &envBuilder{
+			tier2: &kliov1alpha1.Tier2Configuration{
+				S3:                s3,
+				EncryptionKeyFile: newTestFileRef("enc-secret", "encryption-key.age"),
+				IdentityFile:      newTestFileRef("id-secret", "identity.txt"),
+			},
+		}
+	}
+
+	t.Run("file and profile", func(t *testing.T) {
+		ref := newTestFileRef("aws-creds", "credentials")
+		envVars := newBuilder(&kliov1alpha1.S3Configuration{
+			BucketName:      "test-bucket",
+			CredentialsFile: &ref,
+			Profile:         "klio",
+		}).getTier2EnvVars()
+
+		file := findEnvVar(envVars, "AWS_SHARED_CREDENTIALS_FILE")
+		require.NotNil(t, file)
+		assert.Equal(t, "/files/tier2-s3-credentials/credentials", file.Value)
+		profile := findEnvVar(envVars, "AWS_PROFILE")
+		require.NotNil(t, profile)
+		assert.Equal(t, "klio", profile.Value)
+	})
+
+	t.Run("unset", func(t *testing.T) {
+		envVars := newBuilder(&kliov1alpha1.S3Configuration{BucketName: "test-bucket"}).getTier2EnvVars()
+
+		assert.Nil(t, findEnvVar(envVars, "AWS_SHARED_CREDENTIALS_FILE"))
+		assert.Nil(t, findEnvVar(envVars, "AWS_PROFILE"))
+	})
+}
+
 func TestGetCoreEnvVarsOnlyTLSWhenNoTier1(t *testing.T) {
 	builder := &envBuilder{
+		tls:   newTestTLSConfiguration(),
 		tier1: nil,
 	}
 
 	envVars := builder.getCoreEnvVars()
 	assert.Len(t, envVars, 3)
-	assert.NotNil(t, findEnvVar(envVars, "TLS_CERT"))
-	assert.NotNil(t, findEnvVar(envVars, "TLS_KEY"))
-	assert.NotNil(t, findEnvVar(envVars, "TLS_CLIENT_CA_CERT"))
+	cert := findEnvVar(envVars, "TLS_CERT")
+	require.NotNil(t, cert)
+	assert.Equal(t, "/files/server-identity/tls.crt", cert.Value)
+	key := findEnvVar(envVars, "TLS_KEY")
+	require.NotNil(t, key)
+	assert.Equal(t, "/files/server-identity/tls.key", key.Value)
+	clientCA := findEnvVar(envVars, "TLS_CLIENT_CA_CERT")
+	require.NotNil(t, clientCA)
+	assert.Equal(t, "/files/client-ca/tls.crt", clientCA.Value)
 }
 
 func TestGetTier2EnvVarsExcludesQueueDirectory(t *testing.T) {
 	builder := &envBuilder{
+		tls: newTestTLSConfiguration(),
 		tier1: &kliov1alpha1.Tier1Configuration{
-			EncryptionKeyFile: newTestFileSource("enc-secret", "encryption-key.age"),
-			IdentityFile:      newTestFileSource("id-secret", "identity.txt"),
+			EncryptionKeyFile: newTestFileRef("enc-secret", "encryption-key.age"),
+			IdentityFile:      newTestFileRef("id-secret", "identity.txt"),
 		},
 		tier2: &kliov1alpha1.Tier2Configuration{
 			S3: &kliov1alpha1.S3Configuration{
 				BucketName: "test-bucket",
 			},
-			EncryptionKeyFile: newTestFileSource("enc-secret", "encryption-key.age"),
-			IdentityFile:      newTestFileSource("id-secret", "identity.txt"),
+			EncryptionKeyFile: newTestFileRef("enc-secret", "encryption-key.age"),
+			IdentityFile:      newTestFileRef("id-secret", "identity.txt"),
 		},
 	}
 
@@ -252,16 +316,17 @@ func TestGetTier2EnvVarsNilWhenNoTier2(t *testing.T) {
 func TestQueueDirectoryAppearsOnceWithBothTiers(t *testing.T) {
 	server := &kliov1alpha1.Server{
 		Spec: kliov1alpha1.ServerSpec{
+			TLSConfiguration: newTestTLSConfiguration(),
 			Tier1: &kliov1alpha1.Tier1Configuration{
-				EncryptionKeyFile: newTestFileSource("enc-secret", "encryption-key.age"),
-				IdentityFile:      newTestFileSource("id-secret", "identity.txt"),
+				EncryptionKeyFile: newTestFileRef("enc-secret", "encryption-key.age"),
+				IdentityFile:      newTestFileRef("id-secret", "identity.txt"),
 			},
 			Tier2: &kliov1alpha1.Tier2Configuration{
 				S3: &kliov1alpha1.S3Configuration{
 					BucketName: "test-bucket",
 				},
-				EncryptionKeyFile: newTestFileSource("enc-secret", "encryption-key.age"),
-				IdentityFile:      newTestFileSource("id-secret", "identity.txt"),
+				EncryptionKeyFile: newTestFileRef("enc-secret", "encryption-key.age"),
+				IdentityFile:      newTestFileRef("id-secret", "identity.txt"),
 			},
 		},
 	}
@@ -284,8 +349,8 @@ func TestGetTier2EnvVars(t *testing.T) {
 			S3: &kliov1alpha1.S3Configuration{
 				BucketName: "test-bucket",
 			},
-			EncryptionKeyFile: newTestFileSource("enc-secret", "encryption-key.age"),
-			IdentityFile:      newTestFileSource("id-secret", "identity.txt"),
+			EncryptionKeyFile: newTestFileRef("enc-secret", "encryption-key.age"),
+			IdentityFile:      newTestFileRef("id-secret", "identity.txt"),
 		},
 	}
 
@@ -308,13 +373,10 @@ func TestBuildVolumes(t *testing.T) {
 	r := &ServerReconciler{}
 	server := &kliov1alpha1.Server{
 		Spec: kliov1alpha1.ServerSpec{
-			TLSConfiguration: kliov1alpha1.TLSConfiguration{
-				TLSSecretName:      "tls-secret",
-				ClientCASecretName: "ca-secret",
-			},
+			TLSConfiguration: newTestTLSConfiguration(),
 			Tier1: &kliov1alpha1.Tier1Configuration{
-				EncryptionKeyFile: newTestFileSource("enc-secret", "encryption-key.age"),
-				IdentityFile:      newTestFileSource("id-secret", "identity.txt"),
+				EncryptionKeyFile: newTestFileRef("enc-secret", "encryption-key.age"),
+				IdentityFile:      newTestFileRef("id-secret", "identity.txt"),
 			},
 		},
 	}
@@ -344,9 +406,10 @@ func TestBuildVolumeMounts(t *testing.T) {
 	r := &ServerReconciler{}
 	server := &kliov1alpha1.Server{
 		Spec: kliov1alpha1.ServerSpec{
+			TLSConfiguration: newTestTLSConfiguration(),
 			Tier1: &kliov1alpha1.Tier1Configuration{
-				EncryptionKeyFile: newTestFileSource("enc-secret", "encryption-key.age"),
-				IdentityFile:      newTestFileSource("id-secret", "identity.txt"),
+				EncryptionKeyFile: newTestFileRef("enc-secret", "encryption-key.age"),
+				IdentityFile:      newTestFileRef("id-secret", "identity.txt"),
 			},
 		},
 	}
@@ -378,23 +441,105 @@ func TestBuildVolumeMounts(t *testing.T) {
 	assert.Equal(t, "/klio", klioMount.MountPath)
 }
 
-func TestBuildIdentityVolumeDefaultMode(t *testing.T) {
+func TestBuildFileVolMountCSI(t *testing.T) {
+	vol, mount := buildFileVolMount("test-id",
+		kliov1alpha1.VolumeFileReference{
+			Volume: kliov1alpha1.VolumeSource{
+				CSI: &corev1.CSIVolumeSource{Driver: "csi.cert-manager.io"},
+			},
+			Path: "identity.txt",
+		},
+	)
+
+	require.NotNil(t, vol.CSI)
+	assert.Nil(t, vol.Projected)
+	assert.True(t, mount.ReadOnly)
+}
+
+func TestBuildRestrictedVolMountSecretDefaults0400(t *testing.T) {
+	vol, mount := buildRestrictedVolMount("test-id", newTestFileRef("id-secret", "identity.txt"))
+
+	require.NotNil(t, vol.Secret)
+	require.NotNil(t, vol.Secret.DefaultMode)
+	assert.Equal(t, int32(0o400), *vol.Secret.DefaultMode)
+	assert.True(t, mount.ReadOnly)
+}
+
+func TestBuildRestrictedVolMountPreservesUserMode(t *testing.T) {
+	mode := int32(0o440)
+	vol, _ := buildRestrictedVolMount("test-id",
+		kliov1alpha1.VolumeFileReference{
+			Volume: kliov1alpha1.VolumeSource{
+				Secret: &corev1.SecretVolumeSource{SecretName: "id-secret", DefaultMode: &mode},
+			},
+			Path: "identity.txt",
+		},
+	)
+
+	require.NotNil(t, vol.Secret.DefaultMode)
+	assert.Equal(t, int32(0o440), *vol.Secret.DefaultMode)
+}
+
+func TestBuildRestrictedVolMountConfigMapAndProjected(t *testing.T) {
+	vol, _ := buildRestrictedVolMount("test-id",
+		kliov1alpha1.VolumeFileReference{
+			Volume: kliov1alpha1.VolumeSource{
+				ConfigMap: &corev1.ConfigMapVolumeSource{
+					LocalObjectReference: corev1.LocalObjectReference{Name: "cm"},
+				},
+			},
+			Path: "identity.txt",
+		},
+	)
+	require.NotNil(t, vol.ConfigMap.DefaultMode)
+	assert.Equal(t, int32(0o400), *vol.ConfigMap.DefaultMode)
+
+	vol, _ = buildRestrictedVolMount("test-id",
+		kliov1alpha1.VolumeFileReference{
+			Volume: kliov1alpha1.VolumeSource{
+				Projected: &corev1.ProjectedVolumeSource{},
+			},
+			Path: "identity.txt",
+		},
+	)
+	require.NotNil(t, vol.Projected.DefaultMode)
+	assert.Equal(t, int32(0o400), *vol.Projected.DefaultMode)
+}
+
+func TestBuildRestrictedVolMountCSIUntouched(t *testing.T) {
+	vol, _ := buildRestrictedVolMount("test-id",
+		kliov1alpha1.VolumeFileReference{
+			Volume: kliov1alpha1.VolumeSource{
+				CSI: &corev1.CSIVolumeSource{Driver: "secrets-store.csi.k8s.io"},
+			},
+			Path: "identity.txt",
+		},
+	)
+
+	require.NotNil(t, vol.CSI)
+	assert.Nil(t, vol.Secret)
+}
+
+func TestTier2S3CredentialsVolumeDefaultMode(t *testing.T) {
+	creds := newTestFileRef("aws-creds", "credentials")
+	caBundle := newTestFileRef("ca-secret", "ca.crt")
 	r := &ServerReconciler{}
 	server := &kliov1alpha1.Server{
 		Spec: kliov1alpha1.ServerSpec{
-			TLSConfiguration: kliov1alpha1.TLSConfiguration{
-				TLSSecretName:      "tls-secret",
-				ClientCASecretName: "ca-secret",
-			},
-			Tier1: &kliov1alpha1.Tier1Configuration{
-				EncryptionKeyFile: newTestFileSource("enc-secret", "encryption-key.age"),
-				IdentityFile:      newTestFileSource("id-secret", "identity.txt"),
+			TLSConfiguration: newTestTLSConfiguration(),
+			Tier2: &kliov1alpha1.Tier2Configuration{
+				S3: &kliov1alpha1.S3Configuration{
+					BucketName:      "b",
+					CredentialsFile: &creds,
+					CustomCABundle:  &caBundle,
+				},
+				EncryptionKeyFile: newTestFileRef("enc-secret", "encryption-key.age"),
+				IdentityFile:      newTestFileRef("id-secret", "identity.txt"),
 			},
 		},
 	}
 
 	volumes := r.buildVolumes(server)
-
 	findVolume := func(name string) *corev1.Volume {
 		for i := range volumes {
 			if volumes[i].Name == name {
@@ -405,46 +550,117 @@ func TestBuildIdentityVolumeDefaultMode(t *testing.T) {
 		return nil
 	}
 
-	// Encryption key volume should NOT have DefaultMode forced.
+	credsVol := findVolume(tier2S3CredentialsVolName)
+	require.NotNil(t, credsVol)
+	require.NotNil(t, credsVol.Secret.DefaultMode)
+	assert.Equal(t, int32(0o400), *credsVol.Secret.DefaultMode)
+
+	bundleVol := findVolume(tier2S3CABundleVolName)
+	require.NotNil(t, bundleVol)
+	assert.Nil(t, bundleVol.Secret.DefaultMode)
+}
+
+func TestServerIdentityVolumeDefaultMode(t *testing.T) {
+	r := &ServerReconciler{}
+	server := &kliov1alpha1.Server{
+		Spec: kliov1alpha1.ServerSpec{
+			TLSConfiguration: newTestTLSConfiguration(),
+			Tier1: &kliov1alpha1.Tier1Configuration{
+				EncryptionKeyFile: newTestFileRef("enc-secret", "encryption-key.age"),
+				IdentityFile:      newTestFileRef("id-secret", "identity.txt"),
+			},
+		},
+	}
+
+	volumes := r.buildVolumes(server)
+	findVolume := func(name string) *corev1.Volume {
+		for i := range volumes {
+			if volumes[i].Name == name {
+				return &volumes[i]
+			}
+		}
+
+		return nil
+	}
+
+	identityVol := findVolume(serverIdentityVolName)
+	require.NotNil(t, identityVol)
+	require.NotNil(t, identityVol.Projected.DefaultMode)
+	assert.Equal(t, int32(0o400), *identityVol.Projected.DefaultMode)
+
+	tier1IdentityVol := findVolume(tier1IdentityVolName)
+	require.NotNil(t, tier1IdentityVol)
+	require.NotNil(t, tier1IdentityVol.Secret.DefaultMode)
+	assert.Equal(t, int32(0o400), *tier1IdentityVol.Secret.DefaultMode)
+
 	encVol := findVolume(tier1EncKeyFileVolName)
 	require.NotNil(t, encVol)
 	assert.Nil(t, encVol.Secret.DefaultMode)
 
-	// Identity volume MUST have DefaultMode 0400.
-	idVol := findVolume(tier1IdentityVolName)
-	require.NotNil(t, idVol)
-	require.NotNil(t, idVol.Secret.DefaultMode)
-	assert.Equal(t, int32(0o400), *idVol.Secret.DefaultMode)
+	clientCAVol := findVolume(clientCAVolName)
+	require.NotNil(t, clientCAVol)
+	assert.Nil(t, clientCAVol.Secret.DefaultMode)
 }
 
-func TestBuildIdentityVolMountConfigMap(t *testing.T) {
-	vol, mount := buildIdentityVolMount("test-id", kliov1alpha1.FileSource{
-		FileReference: &kliov1alpha1.FileReference{
-			Volume: corev1.VolumeSource{
-				ConfigMap: &corev1.ConfigMapVolumeSource{
-					LocalObjectReference: corev1.LocalObjectReference{Name: "cm"},
-				},
-			},
-			Path: "identity.txt",
+func TestTier2S3CustomCABundle(t *testing.T) {
+	ref := kliov1alpha1.VolumeFileReference{
+		Volume: kliov1alpha1.VolumeSource{
+			CSI: &corev1.CSIVolumeSource{Driver: "secrets-store.csi.k8s.io"},
 		},
+		Path: "ca.crt",
+	}
+	tier2 := &kliov1alpha1.Tier2Configuration{
+		S3:                &kliov1alpha1.S3Configuration{BucketName: "b", CustomCABundle: &ref},
+		EncryptionKeyFile: newTestFileRef("enc-secret", "encryption-key.age"),
+		IdentityFile:      newTestFileRef("id-secret", "identity.txt"),
+	}
+
+	t.Run("env var points to the mounted file", func(t *testing.T) {
+		env := findEnvVar((&envBuilder{tier2: tier2}).getTier2EnvVars(), "TIER2_S3_CUSTOM_CA_BUNDLE_FILE")
+		require.NotNil(t, env)
+		assert.Equal(t, "/files/tier2-s3-ca-bundle/ca.crt", env.Value)
 	})
 
-	require.NotNil(t, vol.ConfigMap.DefaultMode)
-	assert.Equal(t, int32(0o400), *vol.ConfigMap.DefaultMode)
-	assert.True(t, mount.ReadOnly)
-}
-
-func TestBuildIdentityVolMountProjected(t *testing.T) {
-	vol, mount := buildIdentityVolMount("test-id", kliov1alpha1.FileSource{
-		FileReference: &kliov1alpha1.FileReference{
-			Volume: corev1.VolumeSource{
-				Projected: &corev1.ProjectedVolumeSource{},
-			},
-			Path: "identity.txt",
+	r := &ServerReconciler{}
+	server := &kliov1alpha1.Server{
+		Spec: kliov1alpha1.ServerSpec{
+			TLSConfiguration: newTestTLSConfiguration(),
+			Tier2:            tier2,
 		},
+	}
+
+	t.Run("volume and read-only mount", func(t *testing.T) {
+		var vol *corev1.Volume
+		volumes := r.buildVolumes(server)
+		for i := range volumes {
+			assert.NotEqual(t, "tier2", volumes[i].Name, "the old projected tier2 volume must be gone")
+			if volumes[i].Name == tier2S3CABundleVolName {
+				vol = &volumes[i]
+			}
+		}
+		require.NotNil(t, vol)
+		require.NotNil(t, vol.CSI)
+		assert.Equal(t, "secrets-store.csi.k8s.io", vol.CSI.Driver)
+
+		var mount *corev1.VolumeMount
+		for _, m := range r.buildVolumeMounts(server) {
+			if m.Name == tier2S3CABundleVolName {
+				mount = &m
+			}
+		}
+		require.NotNil(t, mount)
+		assert.Equal(t, "/files/tier2-s3-ca-bundle", mount.MountPath)
+		assert.True(t, mount.ReadOnly)
 	})
 
-	require.NotNil(t, vol.Projected.DefaultMode)
-	assert.Equal(t, int32(0o400), *vol.Projected.DefaultMode)
-	assert.True(t, mount.ReadOnly)
+	t.Run("nothing is mounted when unset", func(t *testing.T) {
+		server.Spec.Tier2 = &kliov1alpha1.Tier2Configuration{
+			S3:                &kliov1alpha1.S3Configuration{BucketName: "b"},
+			EncryptionKeyFile: tier2.EncryptionKeyFile,
+			IdentityFile:      tier2.IdentityFile,
+		}
+		for _, v := range r.buildVolumes(server) {
+			assert.NotEqual(t, tier2S3CABundleVolName, v.Name)
+		}
+	})
 }

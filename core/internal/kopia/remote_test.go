@@ -29,12 +29,12 @@ func TestBuildConnectRemoteArgs(t *testing.T) {
 		CommonRepoOpts: CommonRepoOpts{
 			CacheDirectory: "/cache",
 		},
-		URL:                   "https://kopia.example.com:51515",
-		ClientCertPath:        "/certs/client.crt",
-		ClientKeyPath:         "/certs/client.key",
-		ServerCertFingerprint: "sha256:abc123",
-		Username:              "testuser",
-		Hostname:              "testhost",
+		URL:              "https://kopia.example.com:51515",
+		ClientCertPath:   "/certs/client.crt",
+		ClientKeyPath:    "/certs/client.key",
+		ServerCertCAFile: "/certs/ca.crt",
+		Username:         "testuser",
+		Hostname:         "testhost",
 	}
 
 	t.Run("ReadOnly true includes --readonly", func(t *testing.T) {
@@ -85,13 +85,13 @@ func TestBuildConnectRemoteArgs(t *testing.T) {
 		}
 	})
 
-	t.Run("server fingerprint and overrides are included", func(t *testing.T) {
+	t.Run("server CA file and overrides are included", func(t *testing.T) {
 		opts := baseOpts
 
 		args := buildConnectRemoteArgs("/etc/kopia/config", opts)
 
-		if !slices.Contains(args, "--server-cert-fingerprint=sha256:abc123") {
-			t.Errorf("expected args to contain server cert fingerprint, got %v", args)
+		if !slices.Contains(args, "--server-cert-ca-file=/certs/ca.crt") {
+			t.Errorf("expected args to contain server CA file, got %v", args)
 		}
 		if !slices.Contains(args, "--override-username=testuser") {
 			t.Errorf("expected args to contain override username, got %v", args)

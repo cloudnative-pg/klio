@@ -212,7 +212,7 @@ func NewTier2RetentionFeatureConfig(
 	caCertificate := certificates.GetCACertificateObject(caCertificateName, namespace, issuer)
 	caIssuer := certificates.GetCAIssuerObject(caIssuerName, namespace, caCertificate.Spec.SecretName)
 	serverCertificate := certificates.GetCertificateObject(serverCertificateName, namespace, []string{klioServerName},
-		issuer)
+		caIssuer)
 	userCertificate := certificates.GetUserCertificateObject(
 		clientCertName, namespace, clientCertName+"@"+cnpgClusterName, caIssuer)
 
@@ -265,6 +265,7 @@ func NewTier2RetentionFeatureConfig(
 		namespace,
 		klio.PluginConfigurationTemplateOptions{
 			ServerCertificate:   serverCertificate,
+			ServerCACertificate: caCertificate,
 			ClientCertificate:   userCertificate,
 			ClusterName:         cnpgClusterName,
 			EnableTier2Backup:   true,
