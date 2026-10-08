@@ -138,6 +138,11 @@ PullPolicy
 PutRequest
 PutResult
 Pyxis
+QueueDiscardBackups
+QueueDiscardBackupsRequest
+QueueDiscardResponse
+QueueDiscardWALs
+QueueDiscardWALsRequest
 QueueListFailedBackups
 QueueListFailedBackupsRequest
 QueueListFailedBackupsResponse

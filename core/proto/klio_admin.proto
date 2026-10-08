@@ -40,8 +40,14 @@ service Admin {
   // Retry WAL files that failed to be processed from the queue
   rpc QueueRetryWALs(QueueRetryWALsRequest) returns (QueueRetryResponse) {}
 
+  // Discard WAL files that failed to be processed from the queue
+  rpc QueueDiscardWALs(QueueDiscardWALsRequest) returns (QueueDiscardResponse) {}
+
   // Retry Backups that failed to be processed from the queue
   rpc QueueRetryBackups(QueueRetryBackupsRequest) returns (QueueRetryResponse) {}
+
+  // Discard Backups that failed to be processed from the queue
+  rpc QueueDiscardBackups(QueueDiscardBackupsRequest) returns (QueueDiscardResponse) {}
 
   // Get the status of the task queue (pending backups and WALs)
   rpc QueueStatus(QueueStatusRequest) returns (QueueStatusResponse) {}
@@ -109,7 +115,19 @@ message QueueRetryBackupsRequest {
   optional string cluster_name = 1;
 }
 
+message QueueDiscardWALsRequest {
+  optional string cluster_name = 1;
+  repeated string wal_names = 2;
+}
+
+message QueueDiscardBackupsRequest {
+  optional string cluster_name = 1;
+}
+
 message QueueRetryResponse {
+}
+
+message QueueDiscardResponse {
 }
 
 message QueueStatusRequest {

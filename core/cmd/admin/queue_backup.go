@@ -155,6 +155,60 @@ var retryBackupCmd = &cobra.Command{
 	},
 }
 
+//nolint:gochecknoglobals
+var discardBackupCmd = &cobra.Command{
+	Use:   "discard [cluster-name]",
+	Short: "Discard failed backup tasks in the queue",
+	Long: "Discard failed backup tasks in the queue.\n\n" +
+		"A cluster name is required, and all failed backup tasks for that cluster " +
+		"are discarded. Pass --all-clusters instead of a cluster name to discard all " +
+		"failed backup tasks across every cluster.",
+	Args: func(cmd *cobra.Command, args []string) error {
+		allClusters, err := cmd.Flags().GetBool("all-clusters")
+		if err != nil {
+			return fmt.Errorf("while getting the all-clusters flag: %w", err)
+		}
+		if allClusters {
+			return cobra.NoArgs(cmd, args)
+		}
+
+		return cobra.ExactArgs(1)(cmd, args)
+	},
+	RunE: func(cmd *cobra.Command, args []string) error {
+		socketPath, err := cmd.Flags().GetString("socket-path")
+		if err != nil {
+			return fmt.Errorf("while getting the socketPath flag: %w", err)
+		}
+
+		allClusters, err := cmd.Flags().GetBool("all-clusters")
+		if err != nil {
+			return fmt.Errorf("while getting the all-clusters flag: %w", err)
+		}
+
+		conn, err := connectToAdminServer(socketPath)
+		if err != nil {
+			return err
+		}
+		defer func() {
+			_ = conn.Close()
+		}()
+
+		var request klioGRPC.QueueDiscardBackupsRequest
+		if !allClusters {
+			clusterName := args[0]
+			request.ClusterName = &clusterName
+		}
+
+		adminClient := klioGRPC.NewAdminClient(conn)
+		_, err = adminClient.QueueDiscardBackups(cmd.Context(), &request)
+		if err != nil {
+			return fmt.Errorf("while calling queue discard backups entrypoint: %w", err)
+		}
+
+		return nil
+	},
+}
+
 //nolint:gochecknoinits
 func init() {
 	queueCmd.AddCommand(queueBackupCmd)
@@ -164,4 +218,7 @@ func init() {
 
 	queueBackupCmd.AddCommand(retryBackupCmd)
 	retryBackupCmd.Flags().Bool("all-clusters", false, "Retry failed backup tasks across every cluster")
+
+	queueBackupCmd.AddCommand(discardBackupCmd)
+	discardBackupCmd.Flags().Bool("all-clusters", false, "Discard failed backup tasks across every cluster")
 }

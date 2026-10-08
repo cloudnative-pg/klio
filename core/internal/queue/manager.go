@@ -218,6 +218,35 @@ func (m *StreamManager) RetryFailedWALTasks(
 	return m.enqueueWALTasks(ctx, failedTasks)
 }
 
+// DiscardFailedWALTasks discards failed WAL tasks from the dead-letter queue.
+func (m *StreamManager) DiscardFailedWALTasks(
+	ctx context.Context,
+	opts ...Option,
+) error {
+	var cfg optionConfig
+	for _, opt := range opts {
+		opt(&cfg)
+	}
+
+	return m.purgeWALDLQEntries(ctx, cfg.cluster, cfg.wals...)
+}
+
+// DiscardFailedBackupTasks discards failed backup tasks from the dead-letter queue.
+func (m *StreamManager) DiscardFailedBackupTasks(
+	ctx context.Context,
+	opts ...Option,
+) error {
+	var cfg optionConfig
+	for _, opt := range opts {
+		opt(&cfg)
+	}
+	if len(cfg.wals) > 0 {
+		return errWALFilterUnsupported
+	}
+
+	return m.purgeBackupDLQEntries(ctx, cfg.cluster)
+}
+
 // RetryFailedBackupTasks re-enqueues failed backup tasks from the dead-letter queue.
 func (m *StreamManager) RetryFailedBackupTasks(
 	ctx context.Context,
@@ -388,7 +417,7 @@ func (m *StreamManager) configureStreams(ctx context.Context, js jetstream.JetSt
 	return nil
 }
 
-func (m *StreamManager) purgeWALDLQEntries(ctx context.Context, clusterName, walName string) error {
+func (m *StreamManager) purgeWALDLQEntries(ctx context.Context, clusterName string, walNames ...string) error {
 	dlqStream, err := m.loadStreamOrNil(klioDLQWalStreamName)
 	if err != nil {
 		return err
@@ -407,8 +436,11 @@ func (m *StreamManager) purgeWALDLQEntries(ctx context.Context, clusterName, wal
 	}
 
 	var errs []error
+	retainWALTask := func(task FailedTask[WALTask]) bool {
+		return len(walNames) != 0 && !slices.Contains(walNames, task.Task.WALName)
+	}
 	for _, task := range failed {
-		if task.Task.WALName != walName {
+		if retainWALTask(task) {
 			continue
 		}
 		if err := m.purgeDLQEntryBySequence(dlqStream, sourceStream, task.Sequence); err != nil {
