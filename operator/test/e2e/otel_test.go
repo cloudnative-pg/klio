@@ -621,7 +621,7 @@ func assertOTELMetricsReceived(
 	// Verify WAL metrics (Tier 1 and Tier 2)
 	assertOTELWALMetrics(ctx, t, cfg, scenario, promMetrics, collectorPod)
 
-	// Verify server-side backup processing metrics (emitted by the consumer)
+	// Verify server-side backup processing metrics (relay + maintenance)
 	assertOTELServerBackupProcessingMetrics(t, cfg, scenario, collectorPod)
 
 	t.Log("OTEL metrics verification completed successfully")
@@ -1007,9 +1007,10 @@ func assertServerBackupSeriesForTier(
 }
 
 // assertOTELServerBackupProcessingMetrics verifies the server-side backup
-// processing metrics emitted by the backup queue consumer. The server processes
-// backups asynchronously after the client closes them, so the metrics may not
-// be present immediately; poll for them.
+// processing metrics: relay is emitted by the backup queue consumer right
+// after the client closes the backup, but maintenance is emitted by the
+// periodic retention sweeper (internal/retention), independent of backup
+// completion, so it can lag behind relay by up to a full sweep interval.
 func assertOTELServerBackupProcessingMetrics(
 	t *testing.T,
 	cfg *envconf.Config,

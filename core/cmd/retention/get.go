@@ -27,8 +27,8 @@ import (
 	"github.com/spf13/viper"
 
 	"github.com/cloudnative-pg/klio/core/internal/cli"
-	"github.com/cloudnative-pg/klio/core/internal/client/klioclient/kopia"
-	kopiaWrapper "github.com/cloudnative-pg/klio/core/internal/kopia"
+	"github.com/cloudnative-pg/klio/core/internal/client/klioclient/grpcclient"
+	"github.com/cloudnative-pg/klio/core/internal/grpc"
 	"github.com/cloudnative-pg/klio/core/pkg/config"
 )
 
@@ -47,42 +47,36 @@ var getCmd = &cobra.Command{
 			return fmt.Errorf("could not unmarshal configuration: %w", err)
 		}
 
-		// Sets the default values, to be overridden by the user configuration
-		configuration.SetDefaults()
+		if configuration.Source == (config.SourceConfig{}) {
+			return cli.ErrSourceSectionIsRequired
+		}
 
 		if configuration.Client == (config.ClientConfig{}) {
 			return cli.ErrClientSectionIsRequired
 		}
-		if configuration.Client.Base == (config.BaseRepositoryClientConfig{}) {
-			return cli.ErrKopiaClientSectionIsRequired
+
+		if configuration.Client.Wal == (config.WalRepositoryClientConfig{}) {
+			return cli.ErrKlioClientSectionIsRequired
 		}
 
 		if err := configuration.Validate(); err != nil {
 			return fmt.Errorf("configuration validation error: %w", err)
 		}
 
-		client, err := kopia.MultiConnect(
-			cmd.Context(),
-			&configuration.Client,
-		)
+		client, err := grpcclient.Connect(&configuration.Client, configuration.Client.Wal.Address)
 		if err != nil {
-			return fmt.Errorf("while connecting to the Klio server: %w %q", err, configuration.Client.Base.URL)
+			return fmt.Errorf("while connecting to the Klio server: %w", err)
 		}
-		defer client.Close(cmd.Context())
 
-		effectivePolicy, err := client.GetRetentionPolicy(
-			cmd.Context(),
-			kopiaWrapper.Target{
-				Hostname: client.GetHostname(),
-				Username: client.GetUsername(),
-			},
+		result, err := client.GetRetentionPolicy(cmd.Context(),
+			&grpc.GetRetentionPolicyRequest{ClusterName: configuration.Client.ClusterName},
 		)
 		if err != nil {
 			return fmt.Errorf("while getting the current retention policy: %w", err)
 		}
 
 		// Marshal metadata to JSON
-		jsonData, err := json.Marshal(effectivePolicy)
+		jsonData, err := json.Marshal(result)
 		if err != nil {
 			return fmt.Errorf("failed to marshal metadata to JSON: %w", err)
 		}

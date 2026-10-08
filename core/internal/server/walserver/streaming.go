@@ -42,6 +42,10 @@ func (w *Implementation) GetMetadata(
 		return nil, status.Errorf(codes.InvalidArgument, "invalid cluster name: %v", err.Error())
 	}
 
+	if err := authorizeClusterName(ctx, req.GetClusterName()); err != nil {
+		return nil, err
+	}
+
 	var metadata *grpc.ClusterMetadata
 	var err error
 
@@ -76,6 +80,10 @@ func (w *Implementation) RequestWALStart( //nolint: cyclop
 
 	if err := repository.ValidatePathComponent(req.GetClusterName()); err != nil {
 		return nil, status.Errorf(codes.InvalidArgument, "invalid cluster name: %v", err.Error())
+	}
+
+	if err := authorizeClusterName(ctx, req.GetClusterName()); err != nil {
+		return nil, err
 	}
 
 	// Step 1: recover cluster metadata or create new metadata for this cluster
@@ -144,6 +152,10 @@ func (w *Implementation) ResetWALStream(
 
 	if err := repository.ValidatePathComponent(req.GetClusterName()); err != nil {
 		return nil, status.Errorf(codes.InvalidArgument, "invalid cluster name: %v", err.Error())
+	}
+
+	if err := authorizeClusterName(ctx, req.GetClusterName()); err != nil {
+		return nil, err
 	}
 
 	// Step 1: recover cluster metadata
