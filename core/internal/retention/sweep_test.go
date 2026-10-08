@@ -44,6 +44,27 @@ func (s *stubTier2Client) DeleteBackup(_ context.Context, _ string, _ string) er
 	return nil
 }
 
+// stubDeleter is a backupDeleter that records the deletions and fails the ones
+// named in failing.
+type stubDeleter struct {
+	failing map[string]error
+	deleted []string
+}
+
+func (s *stubDeleter) ListBackups(_ context.Context, _ string) (klioclient.BackupList, error) {
+	return nil, nil
+}
+
+func (s *stubDeleter) DeleteBackup(_ context.Context, host string, name string) error {
+	if err := s.failing[name]; err != nil {
+		return err
+	}
+
+	s.deleted = append(s.deleted, host+"/"+name)
+
+	return nil
+}
+
 func TestProtectUnsyncedToTier2(t *testing.T) {
 	tests := []struct {
 		name       string
@@ -118,4 +139,47 @@ func TestPolicyFromProto(t *testing.T) {
 			}
 		}
 	})
+}
+
+func TestDeleteBackupsContinuesAfterAFailure(t *testing.T) {
+	errBoom := errors.New("boom")
+	deleter := &stubDeleter{failing: map[string]error{"b": errBoom}}
+
+	deleted, err := deleteBackups(context.Background(), deleter, []hostBackupName{
+		{Host: "cluster", Name: "a"},
+		{Host: "cluster", Name: "b"},
+		{Host: "cluster", Name: "c"},
+	})
+
+	if deleted != 2 {
+		t.Errorf("deleteBackups() deleted %d backups, want 2", deleted)
+	}
+
+	if !errors.Is(err, errBoom) {
+		t.Errorf("deleteBackups() error = %v, want it to wrap %v", err, errBoom)
+	}
+
+	if want := []string{"cluster/a", "cluster/c"}; !slices.Equal(deleter.deleted, want) {
+		t.Errorf("deleted backups = %v, want %v", deleter.deleted, want)
+	}
+}
+
+func TestDeleteBackupsWithoutFailures(t *testing.T) {
+	deleter := &stubDeleter{}
+
+	deleted, err := deleteBackups(context.Background(), deleter, []hostBackupName{
+		{Host: "cluster", Name: "a"},
+	})
+
+	if err != nil || deleted != 1 {
+		t.Errorf("deleteBackups() = (%d, %v), want (1, nil)", deleted, err)
+	}
+}
+
+func TestBackupNames(t *testing.T) {
+	got := backupNames([]hostBackupName{{Host: "h1", Name: "a"}, {Host: "h2", Name: "b"}})
+
+	if want := []string{"h1/a", "h2/b"}; !slices.Equal(got, want) {
+		t.Errorf("backupNames() = %v, want %v", got, want)
+	}
 }

@@ -39,7 +39,8 @@ type hostBackupName struct {
 // never produced a metadata snapshot (an interrupted upload) and for which
 // a later, completed backup exists on the same cluster -- proof the
 // interrupted attempt was abandoned rather than still in flight. It returns
-// how many it deleted.
+// how many it deleted; the errors of the failed deletions are joined and
+// returned.
 func (s *Sweeper) sweepOrphans(ctx context.Context, tc tierConfig, hostnames []string) (int, error) {
 	contextLogger := log.FromContext(ctx)
 
@@ -52,17 +53,21 @@ func (s *Sweeper) sweepOrphans(ctx context.Context, tc tierConfig, hostnames []s
 	}
 
 	orphans := orphanBackupNames(entries, hostnames)
-
-	deleted := 0
-	for _, o := range orphans {
-		if err := tc.backupClient.DeleteBackup(ctx, o.Host, o.Name); err != nil {
-			contextLogger.Error(err, "Error while deleting orphaned backup", "cluster", o.Host, "backup", o.Name)
-			continue
-		}
-		deleted++
+	if len(orphans) == 0 {
+		return 0, nil
 	}
 
-	return deleted, nil
+	deleted, err := deleteBackups(ctx, tc.backupClient, orphans)
+	if deleted > 0 {
+		contextLogger.Info(
+			"Delete orphaned backups",
+			"tier", tc.name,
+			"deleted", deleted,
+			"failed", len(orphans)-deleted,
+		)
+	}
+
+	return deleted, err
 }
 
 // backupGroup tracks, for one (host, backup-name) pair, whether a metadata

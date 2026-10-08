@@ -61,6 +61,8 @@ func (t policyTarget) isGlobal() bool {
 // the global one. It must run before the Kopia server starts, so the direct
 // writes predate any server cache.
 func (s *Client) DisableKopiaRetention(ctx context.Context) error {
+	contextLogger := log.FromContext(ctx)
+
 	if err := s.setPolicyRetention(ctx, "--global", "0"); err != nil {
 		return fmt.Errorf("while disabling global Kopia retention: %w", err)
 	}
@@ -70,6 +72,7 @@ func (s *Client) DisableKopiaRetention(ctx context.Context) error {
 		return err
 	}
 
+	reset := 0
 	for _, target := range targets {
 		if target.isGlobal() {
 			continue
@@ -78,6 +81,14 @@ func (s *Client) DisableKopiaRetention(ctx context.Context) error {
 		if err := s.setPolicyRetention(ctx, target.String(), "inherit"); err != nil {
 			return fmt.Errorf("while resetting Kopia retention of %q: %w", target.String(), err)
 		}
+
+		reset++
+	}
+
+	if reset > 0 {
+		contextLogger.Info(
+			"Kopia's own snapshot retention disabled",
+			"perSourcePoliciesReset", reset, "totalPolicies", len(targets))
 	}
 
 	return nil

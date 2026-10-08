@@ -72,10 +72,10 @@ type tierConfig struct {
 
 // Sweep evaluates and deletes out-of-retention backups for tier1 (and,
 // when configured, tier2), across every cluster in the repository.
-// Failures are per-tier and best-effort: one tier's error is logged and
-// does not stop the other from being swept.
+// Failures are per-tier and best-effort: one tier's error does not stop the
+// other from being swept. All the errors are joined and returned.
 func (s *Sweeper) Sweep(ctx context.Context) error {
-	contextLogger := log.FromContext(ctx)
+	var errs []error
 
 	var tier1SyncGuard backupDeleter
 	if s.tier2Enabled {
@@ -93,7 +93,7 @@ func (s *Sweeper) Sweep(ctx context.Context) error {
 		walRepository:   s.opts.Tier1WALRepository,
 		syncGuardClient: tier1SyncGuard,
 	}); err != nil {
-		contextLogger.Error(err, "Error while sweeping tier1 retention")
+		errs = append(errs, fmt.Errorf("while sweeping tier1 retention: %w", err))
 	}
 
 	if s.tier2Enabled {
@@ -107,15 +107,17 @@ func (s *Sweeper) Sweep(ctx context.Context) error {
 			certFingerprint: s.opts.Tier2ServerCertificateFingerprint,
 			walRepository:   s.opts.Tier2WALRepository,
 		}); err != nil {
-			contextLogger.Error(err, "Error while sweeping tier2 retention")
+			errs = append(errs, fmt.Errorf("while sweeping tier2 retention: %w", err))
 		}
 	}
 
-	return nil
+	return errors.Join(errs...)
 }
 
 // sweepTier sweeps every cluster on one tier, refreshing that tier's Kopia
-// server cache once at the end if, and only if, something was deleted.
+// server cache once at the end if, and only if, something was deleted. A
+// failure on one cluster does not stop the others; all the failures are
+// logged with their context and returned joined.
 func (s *Sweeper) sweepTier(ctx context.Context, tc tierConfig) error {
 	contextLogger := log.FromContext(ctx)
 
@@ -124,19 +126,25 @@ func (s *Sweeper) sweepTier(ctx context.Context, tc tierConfig) error {
 		return fmt.Errorf("while listing %s clusters: %w", tc.name, err)
 	}
 
+	var errs []error
+
 	deletedAny := false
 	for _, hostname := range hostnames {
 		deleted, retentionErr := s.sweepCluster(ctx, hostname, tc)
 		if retentionErr != nil {
-			contextLogger.Error(retentionErr, "Error while sweeping retention for cluster, skipping",
+			contextLogger.Error(retentionErr, "Error while sweeping retention for cluster",
 				"tier", tc.name, "cluster", hostname)
-		} else {
-			deletedAny = deletedAny || deleted > 0
+			errs = append(errs, fmt.Errorf("cluster %q: %w", hostname, retentionErr))
 		}
+
+		// Deletions that succeeded must be reflected in the server cache even
+		// when other deletions of the same cluster failed.
+		deletedAny = deletedAny || deleted > 0
 
 		walErr := s.applyWALRetention(ctx, hostname, tc)
 		if walErr != nil {
 			contextLogger.Error(walErr, "Error while applying WAL retention", "tier", tc.name, "cluster", hostname)
+			errs = append(errs, fmt.Errorf("cluster %q WAL retention: %w", hostname, walErr))
 		}
 
 		recordMaintenance(ctx, hostname, tc.metricTier, errors.Join(retentionErr, walErr))
@@ -145,21 +153,24 @@ func (s *Sweeper) sweepTier(ctx context.Context, tc tierConfig) error {
 	orphansDeleted, err := s.sweepOrphans(ctx, tc, hostnames)
 	if err != nil {
 		contextLogger.Error(err, "Error while sweeping orphan snapshots", "tier", tc.name)
+		errs = append(errs, fmt.Errorf("orphan snapshots: %w", err))
 	}
 	deletedAny = deletedAny || orphansDeleted > 0
 
-	if !deletedAny {
-		return nil
+	if deletedAny {
+		contextLogger.Info("Refreshing Kopia server cache after retention sweep", "tier", tc.name)
+
+		if err := tc.kopiaClient.RefreshServer(ctx, kopia.RefreshServerOptions{
+			ServerControlUser:     s.opts.RunID,
+			ServerControlPassword: s.opts.RunSecret,
+			ServerCertFingerprint: tc.certFingerprint,
+			Address:               tc.serverAddress,
+		}); err != nil {
+			errs = append(errs, fmt.Errorf("while refreshing the %s Kopia server: %w", tc.name, err))
+		}
 	}
 
-	contextLogger.Info("Refreshing Kopia server cache after retention sweep", "tier", tc.name)
-
-	return tc.kopiaClient.RefreshServer(ctx, kopia.RefreshServerOptions{
-		ServerControlUser:     s.opts.RunID,
-		ServerControlPassword: s.opts.RunSecret,
-		ServerCertFingerprint: tc.certFingerprint,
-		Address:               tc.serverAddress,
-	})
+	return errors.Join(errs...)
 }
 
 // sweepCluster deletes, for one cluster on one tier, whatever backups the
@@ -179,8 +190,9 @@ func (s *Sweeper) sweepCluster(
 
 	tierPolicy := tc.selectPolicy(retentionPolicy)
 	if tierPolicy == nil {
-		// No policy configured yet for this cluster: do nothing.
-		contextLogger.Info("No retention policy configured for cluster, skipping",
+		// No policy configured yet for this cluster: do nothing. This happens
+		// on every pass, so it is not logged above debug level.
+		contextLogger.Debug("No retention policy configured for cluster, skipping",
 			"tier", tc.name, "cluster", clusterName)
 
 		return 0, nil
@@ -204,16 +216,60 @@ func (s *Sweeper) sweepCluster(
 		return 0, err
 	}
 
-	deleted := 0
+	if len(toDelete) == 0 {
+		contextLogger.Debug("No backup is out of retention",
+			"tier", tc.name, "cluster", clusterName, "latest", tierPolicy.GetLatest(), "backups", len(backups))
+
+		return 0, nil
+	}
+
+	targets := make([]hostBackupName, 0, len(toDelete))
 	for _, b := range toDelete {
-		if err := tc.backupClient.DeleteBackup(ctx, clusterName, b.Name); err != nil {
-			contextLogger.Error(err, "Error while deleting out-of-retention backup", "cluster", clusterName, "backup", b.Name)
+		targets = append(targets, hostBackupName{Host: clusterName, Name: b.Name})
+	}
+
+	contextLogger.Info("Deleting out-of-retention backups",
+		"tier", tc.name, "cluster", clusterName, "latest", tierPolicy.GetLatest(),
+		"backups", len(backups), "toDelete", backupNames(targets))
+
+	deleted, err := deleteBackups(ctx, tc.backupClient, targets)
+	contextLogger.Info("Out-of-retention backups deleted",
+		"tier", tc.name, "cluster", clusterName, "deleted", deleted, "failed", len(targets)-deleted)
+
+	return deleted, err
+}
+
+// deleteBackups deletes every target and returns how many were deleted. A
+// failure does not stop the remaining deletions: the errors of all the
+// failed ones are joined and returned.
+func deleteBackups(ctx context.Context, deleter backupDeleter, targets []hostBackupName) (int, error) {
+	contextLogger := log.FromContext(ctx)
+
+	var errs []error
+
+	deleted := 0
+	for _, t := range targets {
+		if err := deleter.DeleteBackup(ctx, t.Host, t.Name); err != nil {
+			contextLogger.Error(err, "Error while deleting backup", "cluster", t.Host, "backup", t.Name)
+			errs = append(errs, fmt.Errorf("while deleting backup %q of cluster %q: %w", t.Name, t.Host, err))
+
 			continue
 		}
+
 		deleted++
 	}
 
-	return deleted, nil
+	return deleted, errors.Join(errs...)
+}
+
+// backupNames returns the "cluster/backup" names of targets, for logging.
+func backupNames(targets []hostBackupName) []string {
+	names := make([]string, 0, len(targets))
+	for _, t := range targets {
+		names = append(names, t.Host+"/"+t.Name)
+	}
+
+	return names
 }
 
 // deletionCandidates computes which of backups are out of retention

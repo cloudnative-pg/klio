@@ -71,7 +71,7 @@ func (s *RetentionSweeper) Serve(ctx context.Context) error {
 	// Run once immediately so a fresh server doesn't wait a full interval
 	// before its first sweep.
 	if err := sweeper.Sweep(ctx); err != nil {
-		contextLogger.Error(err, "Error while sweeping retention")
+		contextLogger.Error(err, "Retention sweep finished with errors")
 	}
 
 	for {
@@ -80,7 +80,7 @@ func (s *RetentionSweeper) Serve(ctx context.Context) error {
 			return nil
 		case <-ticker.C:
 			if err := sweeper.Sweep(ctx); err != nil {
-				contextLogger.Error(err, "Error while sweeping retention")
+				contextLogger.Error(err, "Retention sweep finished with errors")
 			}
 		}
 	}

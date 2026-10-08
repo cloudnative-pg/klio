@@ -50,6 +50,13 @@ func (w *Implementation) SetRetentionPolicy(
 	}
 
 	logger := log.FromContext(ctx)
+	logger.Info(
+		"Storing retention policy",
+		"clusterName", request.GetClusterName(),
+		"tier1Policy", request.GetRetentionPolicy().GetTier1Policy(),
+		"tier2Policy", request.GetRetentionPolicy().GetTier2Policy(),
+	)
+
 	retentionPolicy, err := proto.Marshal(request.GetRetentionPolicy())
 	if err != nil {
 		return nil, fmt.Errorf("internal error while marshalling protobuf data: %w", err)
