@@ -43,6 +43,13 @@ A minimal `PluginConfiguration` requires only `serverAddress`,
 for an example. The sections below document each field and the
 optional settings.
 
+Upgrading from Secret names: `clientSecretName` is now
+`clientTlsIdentity` (certificate plus key as `certPath`/`keyPath`
+in one volume) and `serverSecretName` is now `serverCa` (CA bundle
+as `path`). The full old-to-new mapping, including the `Server`
+fields, is in [Migrating from Secret-name
+credentials](klio_server.md#migrating-from-secret-name-credentials).
+
 ### Client identity
 
 The client identity is the TLS identity the PostgreSQL instances

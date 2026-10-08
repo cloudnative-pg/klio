@@ -173,6 +173,30 @@ The rest of this page is the reference for the `Server` resource — the
 storage tiers and how to size them, read-only servers, object storage,
 encryption and authentication.
 
+### Migrating from Secret-name credentials
+
+Credential fields changed shape: every credential is now a file
+reference (`volume` plus `path`), and the volume can be a `secret`,
+`configMap`, `projected` or `csi` source. The API is `v1alpha1`, so
+there is no automatic conversion — update existing manifests:
+
+| Before | After |
+|---|---|
+| `tlsSecretName` | `serverTlsIdentity` |
+| `caSecretName` | `clientCa` |
+| `clientSecretName` | `clientTlsIdentity` |
+| `serverSecretName` | `serverCa` |
+| `... {fileReference: {volume, path}}` | `... {volume, path}` |
+| `customCaBundle` secret name and key | `customCaBundle` volume and path |
+
+The identities carry the certificate and key as `certPath` and
+`keyPath` in one volume instead of the fixed `tls.crt`, `tls.key`
+and `ca.crt` names — except those are still the right paths when
+the source stays a plain Secret. To mount only the CA out of a
+secret that also holds a private key, add `items` mapping the CA
+key. The S3 static keys are unchanged, with `credentialsFile` and
+`profile` as a mutually exclusive alternative.
+
 ## Read-Only Mode
 
 Klio servers can operate in read-only mode, allowing them to serve backups and
@@ -448,10 +472,13 @@ The file is exposed to the server through `AWS_SHARED_CREDENTIALS_FILE`
 combined with `accessKeyId`, `secretAccessKey` or `sessionToken`.
 
 :::note
-Kopia only reads this file when the Klio Kopia build includes the
-shared-credentials provider. Both Kopia and the Klio server re-read the file,
-so a rotated Secret takes effect without a restart once Kubernetes refreshes
-the mounted volume (the server re-reads at most once a minute).
+The Klio server re-reads this file about once a minute, so a rotated
+Secret takes effect without a restart once Kubernetes refreshes the
+mounted volume. The selected profile supports static keys and an
+optional session token only: SSO, `credential_process` and role
+assumption are not supported through this file. The Kopia processes
+read the file at startup instead, so rotating their credentials
+still needs a restart of the Klio server pods.
 :::
 
 #### S3-Compatible Storage with Custom Endpoint
@@ -695,6 +722,18 @@ tier1:
           secretProviderClass: klio-aws-secrets
     path: encryption-key.age
 ```
+
+The `secretProviderClass` above is a `SecretProviderClass` resource
+of the Secrets Store CSI driver. Its `parameters` are specific to
+the provider (OpenBao, Vault, AWS, Azure, GCP, ...): see the
+provider's documentation for the exact fields, and keep the object
+names in sync with the `volumeAttributes` of each file reference.
+The driver mounts one file per secret, and Klio reads the file named
+by `path` — no Kubernetes Secret is created.
+
+If you use External Secrets Operator instead, its `ExternalSecret`
+resources materialize plain Secrets: reference them with a `secret`
+volume as in the previous examples, with no CSI setup needed.
 
 #### Rotating Age Credentials
 

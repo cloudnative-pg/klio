@@ -670,7 +670,7 @@ spec:
   serverCa:
     volume:
       secret:
-        secretName: klio-server-ca
+        secretName: klio-server-tls
         items:
         - key: ca.crt
           path: ca.crt

@@ -22,10 +22,8 @@ CatalogSource
 CertPath
 CheckpointTime
 ClientCA
-ClientCASecretName
 ClientConfig
 ClientIdentity
-ClientSecretName
 ClientTLSIdentity
 CloseBackup
 CloseBackupRequest
@@ -182,7 +180,6 @@ SecretVolumeSource
 ServerAddress
 ServerCA
 ServerMode
-ServerSecretName
 ServerSpec
 ServerStatus
 ServerTLSIdentity
@@ -198,7 +195,6 @@ StorageClasses
 TLS
 TLSConfiguration
 TLSIdentity
-TLSSecretName
 TODO
 Taskfile
 Tolerations
