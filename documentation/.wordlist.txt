@@ -38,6 +38,7 @@ CompressionPolicy
 ConfigMap
 ConfigMapVolumeSource
 CredentialsFile
+CustomCABundle
 DNS
 Debian
 DeleteBackup
@@ -103,6 +104,7 @@ Liveness
 LocalObjectReference
 MaxConcurrentDownloads
 MaxItems
+MaxLength
 MaxSize
 MiB
 MinLength
@@ -262,6 +264,7 @@ datacenter
 datacenters
 decrypt
 decrypted
+decrypts
 deduplicated
 deduplicates
 deduplication
