@@ -49,6 +49,7 @@ import (
 	machineryFeatures "github.com/cloudnative-pg/klio/operator/test/machinery/pkg/features"
 	"github.com/cloudnative-pg/klio/operator/test/machinery/pkg/namespaces"
 	"github.com/cloudnative-pg/klio/operator/test/machinery/pkg/pods"
+	machineryPostgres "github.com/cloudnative-pg/klio/operator/test/machinery/pkg/postgres"
 	"github.com/cloudnative-pg/klio/operator/test/utils/conditions"
 	"github.com/cloudnative-pg/klio/operator/test/utils/metrics"
 	"github.com/cloudnative-pg/klio/operator/test/utils/templates/certificates"
@@ -621,6 +622,9 @@ func assertOTELMetricsReceived(
 	// Verify WAL metrics (Tier 1 and Tier 2)
 	assertOTELWALMetrics(ctx, t, cfg, scenario, promMetrics, collectorPod)
 
+	// Verify the plugin WAL restore metric
+	assertOTELWALRestoreMetrics(ctx, t, cfg, scenario, collectorPod)
+
 	// Verify server-side backup processing metrics (emitted by the consumer)
 	assertOTELServerBackupProcessingMetrics(t, cfg, scenario, collectorPod)
 
@@ -877,6 +881,111 @@ func assertOTELWALMetrics(
 		assert.GreaterOrEqual(t, timeline, float64(1),
 			"client streaming timeline should be a valid (1-based) timeline ID")
 	}
+}
+
+// assertOTELWALRestoreMetrics verifies klio.plugin.wal.restore_duration. The
+// scenario has a single instance, so PostgreSQL never restores a WAL on its
+// own: the test runs CNPG's wal-restore (the restore_command) in the primary,
+// once for a WAL Klio holds and once for one it never archived, and checks
+// that both a success and a not_found restore are recorded.
+func assertOTELWALRestoreMetrics(
+	ctx context.Context,
+	t *testing.T,
+	cfg *envconf.Config,
+	scenario *otelMetricsScenario,
+	collectorPod *corev1.Pod,
+) {
+	t.Helper()
+
+	r, err := resources.New(cfg.Client().RESTConfig())
+	require.NoError(t, err, "failed to create resources client")
+
+	var cluster cnpgv1.Cluster
+	require.NoError(t, r.Get(ctx, scenario.cnpgCluster.Name, scenario.namespace.Name, &cluster),
+		"failed to get CNPG cluster")
+	var primaryPod corev1.Pod
+	require.NoError(t, r.Get(ctx, cluster.Status.CurrentPrimary, scenario.namespace.Name, &primaryPod),
+		"failed to get primary pod")
+
+	// pg_switch_wal returns the end of the segment it closed, so this is the
+	// name of a complete WAL file the streaming client has sent to Klio. The
+	// checkpoint runs on its own: psql would print its command tag too.
+	_, err = machineryPostgres.ExecPostgresQuery(ctx, r, &primaryPod, "postgres", "CHECKPOINT")
+	require.NoError(t, err, "failed to run a checkpoint")
+	walName, err := machineryPostgres.ExecPostgresQuery(ctx, r, &primaryPod, "postgres",
+		"SELECT pg_walfile_name(pg_switch_wal())")
+	require.NoError(t, err, "failed to switch WAL")
+
+	// restoreWAL runs the restore_command for walName into a scratch file in
+	// PGDATA, which the plugin sidecar shares, and removes it afterwards.
+	restoreWAL := func(walName string) error {
+		var stdout, stderr bytes.Buffer
+		cmd := []string{
+			"sh", "-c",
+			`/controller/manager wal-restore "$1" "$PGDATA/$1.e2e" && rm -f "$PGDATA/$1.e2e"`,
+			"sh", walName,
+		}
+
+		return r.ExecInPod(ctx, primaryPod.Namespace, primaryPod.Name, "postgres", cmd, &stdout, &stderr)
+	}
+
+	t.Logf("Restoring WAL %s through the plugin", walName)
+	err = wait.For(
+		func(context.Context) (bool, error) {
+			// The WAL may not be on the Klio server yet: retry until it is.
+			return restoreWAL(walName) == nil, nil
+		},
+		wait.WithTimeout(90*time.Second),
+		wait.WithInterval(5*time.Second),
+	)
+	require.NoError(t, err, "WAL %s could not be restored through the plugin", walName)
+
+	// A WAL far past the end of the archive, which Klio never received.
+	require.Error(t, restoreWAL("00000001000000FF000000FF"),
+		"restoring a never-archived WAL must fail")
+
+	successLabels := map[string]string{
+		"outcome": "success", "tier": "tier1", "cache_hit": "false",
+		"cluster_name": scenario.cnpgCluster.Name,
+	}
+	notFoundLabels := map[string]string{
+		"outcome": "not_found", "cluster_name": scenario.cnpgCluster.Name,
+	}
+
+	t.Log("Waiting for the WAL restore duration metric")
+	err = wait.For(
+		func(ctx context.Context) (bool, error) {
+			freshMetrics, fetchErr := fetchCollectorMetrics(ctx, cfg.Client().RESTConfig(),
+				scenario.namespace.Name, collectorPod.Name)
+			if fetchErr != nil {
+				return false, nil //nolint:nilerr // retry on transient errors
+			}
+
+			success, found := freshMetrics.GetHistogram("klio_plugin_wal_restore_duration_nanoseconds",
+				successLabels)
+			if !found {
+				return false, nil
+			}
+			notFound, found := freshMetrics.GetHistogram("klio_plugin_wal_restore_duration_nanoseconds",
+				notFoundLabels)
+			if !found {
+				return false, nil
+			}
+
+			assert.GreaterOrEqual(t, success.SampleCount, uint64(1),
+				"should have at least 1 successful WAL restore")
+			assert.Greater(t, success.BucketCount, 1,
+				"restore duration histogram should expose explicit buckets, not just +Inf")
+			assert.GreaterOrEqual(t, notFound.SampleCount, uint64(1),
+				"should have at least 1 not_found WAL restore")
+
+			return true, nil
+		},
+		wait.WithTimeout(90*time.Second),
+		wait.WithInterval(10*time.Second),
+	)
+	require.NoError(t, err, "klio_plugin_wal_restore_duration_nanoseconds success and not_found "+
+		"data points not found within timeout")
 }
 
 // assertOTELServerBackupMetrics verifies the server-side PostgreSQL backup

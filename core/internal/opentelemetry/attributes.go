@@ -51,11 +51,44 @@ const (
 	OutcomeSuccess Outcome = "success"
 	// OutcomeFailure marks the failure flavor of an operation counter.
 	OutcomeFailure Outcome = "failure"
+	// OutcomeNotFound marks an operation that completed normally but found
+	// nothing to act on.
+	OutcomeNotFound Outcome = "not_found"
 )
 
 // Attribute returns the `outcome` attribute for this outcome.
 func (o Outcome) Attribute() attribute.KeyValue {
 	return AttributeKeyOutcome.Of(string(o))
+}
+
+// CacheHit identifies whether a plugin WAL restore was served straight from the
+// local prefetch spool (`true`) or had to wait on a download from the Klio
+// server (`false`), used as the value of the `cache_hit` attribute. A prefetch
+// still in flight when PostgreSQL asks counts as `false`, because the restore
+// waits for that download to finish.
+type CacheHit string
+
+const (
+	// CacheHitTrue marks a restore served from a speculative prefetch already
+	// waiting in the local spool.
+	CacheHitTrue CacheHit = "true"
+	// CacheHitFalse marks a restore that had to download the WAL (no prefetch
+	// hit, or a partial/fallback download).
+	CacheHitFalse CacheHit = "false"
+)
+
+// CacheHitOf maps a boolean prefetch-hit result to its CacheHit value.
+func CacheHitOf(hit bool) CacheHit {
+	if hit {
+		return CacheHitTrue
+	}
+
+	return CacheHitFalse
+}
+
+// Attribute returns the `cache_hit` attribute for this value.
+func (c CacheHit) Attribute() attribute.KeyValue {
+	return AttributeKeyCacheHit.Of(string(c))
 }
 
 // Stage identifies a single step in the per-block WAL pipeline, used as the
@@ -138,6 +171,10 @@ const (
 	// AttributeKeyPath is the attribute key for the WAL data-flow path (put or
 	// get) of a per-block WAL duration histogram.
 	AttributeKeyPath AttributeKey = "path"
+	// AttributeKeyCacheHit is the attribute key for whether a plugin WAL restore
+	// was served from a prefetch already complete in the spool (true) or had to
+	// wait on a download (false).
+	AttributeKeyCacheHit AttributeKey = "cache_hit"
 )
 
 // Of builds an OTEL string attribute with the attribute key and the given value.

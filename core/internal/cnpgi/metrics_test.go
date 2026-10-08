@@ -57,6 +57,7 @@ func setupTestMeter(t *testing.T) *sdkmetric.ManualReader {
 	})
 
 	opentelemetry.InitPluginBackupMetrics()
+	opentelemetry.InitPluginWalMetrics()
 
 	return reader
 }

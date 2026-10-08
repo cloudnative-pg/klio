@@ -43,7 +43,7 @@
       "repeatDirection": "h",
       "options": {
         "mode": "markdown",
-        "content": "Backup lifecycle and WAL streaming as seen by the plugin sidecar running in each PostgreSQL pod."
+        "content": "Backup lifecycle, WAL streaming and WAL restore as seen by the plugin sidecar running in each PostgreSQL pod."
       }
     },
     {
@@ -875,6 +875,301 @@
       }
     },
     {
+      "type": "timeseries",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "expr": "histogram_quantile(0.50, sum by (le, cluster_name, cache_hit) (rate(klio_plugin_wal_restore_duration_nanoseconds_bucket{outcome=\"success\",k8s_namespace_name=~\"$namespace\",cluster_name=~\"$cluster\"}[$__rate_interval])))",
+          "instant": false,
+          "legendFormat": "{{cluster_name}} / cache_hit={{cache_hit}} p50",
+          "range": true
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "expr": "histogram_quantile(0.90, sum by (le, cluster_name, cache_hit) (rate(klio_plugin_wal_restore_duration_nanoseconds_bucket{outcome=\"success\",k8s_namespace_name=~\"$namespace\",cluster_name=~\"$cluster\"}[$__rate_interval])))",
+          "instant": false,
+          "legendFormat": "{{cluster_name}} / cache_hit={{cache_hit}} p90",
+          "range": true
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "expr": "histogram_quantile(0.99, sum by (le, cluster_name, cache_hit) (rate(klio_plugin_wal_restore_duration_nanoseconds_bucket{outcome=\"success\",k8s_namespace_name=~\"$namespace\",cluster_name=~\"$cluster\"}[$__rate_interval])))",
+          "instant": false,
+          "legendFormat": "{{cluster_name}} / cache_hit={{cache_hit}} p99",
+          "range": true
+        }
+      ],
+      "title": "WAL restore duration percentiles (rate)",
+      "description": "50th/90th/99th-percentile end-to-end duration of successful WAL restores served by the plugin to PostgreSQL, per cluster, split by whether the WAL was already in the prefetch spool (cache_hit=true) or had to be downloaded (cache_hit=false). Reflects recent activity, over the rate interval window.",
+      "transparent": false,
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 31
+      },
+      "repeatDirection": "h",
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true,
+          "calcs": []
+        },
+        "tooltip": {
+          "mode": "",
+          "sort": ""
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ns",
+          "custom": {
+            "gradientMode": "opacity",
+            "fillOpacity": 10
+          }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "type": "timeseries",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "expr": "histogram_quantile(0.50, sum by (le, cluster_name, cache_hit) (klio_plugin_wal_restore_duration_nanoseconds_bucket{outcome=\"success\",k8s_namespace_name=~\"$namespace\",cluster_name=~\"$cluster\"}))",
+          "instant": false,
+          "legendFormat": "{{cluster_name}} / cache_hit={{cache_hit}} p50",
+          "range": true
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "expr": "histogram_quantile(0.90, sum by (le, cluster_name, cache_hit) (klio_plugin_wal_restore_duration_nanoseconds_bucket{outcome=\"success\",k8s_namespace_name=~\"$namespace\",cluster_name=~\"$cluster\"}))",
+          "instant": false,
+          "legendFormat": "{{cluster_name}} / cache_hit={{cache_hit}} p90",
+          "range": true
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "expr": "histogram_quantile(0.99, sum by (le, cluster_name, cache_hit) (klio_plugin_wal_restore_duration_nanoseconds_bucket{outcome=\"success\",k8s_namespace_name=~\"$namespace\",cluster_name=~\"$cluster\"}))",
+          "instant": false,
+          "legendFormat": "{{cluster_name}} / cache_hit={{cache_hit}} p99",
+          "range": true
+        }
+      ],
+      "title": "WAL restore duration percentiles (total)",
+      "description": "50th/90th/99th-percentile end-to-end duration of successful WAL restores served by the plugin to PostgreSQL, per cluster, split by whether the WAL was already in the prefetch spool (cache_hit=true) or had to be downloaded (cache_hit=false). Reflects all activity since the plugin sidecar last restarted.",
+      "transparent": false,
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 31
+      },
+      "repeatDirection": "h",
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true,
+          "calcs": []
+        },
+        "tooltip": {
+          "mode": "",
+          "sort": ""
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ns",
+          "custom": {
+            "gradientMode": "opacity",
+            "fillOpacity": 10
+          }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "type": "timeseries",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "expr": "sum by (cluster_name, tier, outcome) (rate(klio_plugin_wal_restore_duration_nanoseconds_count{k8s_namespace_name=~\"$namespace\",cluster_name=~\"$cluster\"}[$__rate_interval]))",
+          "instant": false,
+          "legendFormat": "{{cluster_name}} {{tier}} / {{outcome}}",
+          "range": true
+        }
+      ],
+      "title": "WAL restores (rate)",
+      "description": "Rate of WAL restores served by the plugin to PostgreSQL, per cluster, split by the tier that served them and by outcome. not_found is PostgreSQL asking for a WAL that was never archived, the routine end-of-archive signal rather than an error.",
+      "transparent": false,
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "gridPos": {
+        "h": 6,
+        "w": 8,
+        "x": 0,
+        "y": 39
+      },
+      "repeatDirection": "h",
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true,
+          "calcs": []
+        },
+        "tooltip": {
+          "mode": "",
+          "sort": ""
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ops",
+          "custom": {
+            "gradientMode": "opacity",
+            "fillOpacity": 10
+          }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "type": "timeseries",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "expr": "sum by (cluster_name, tier, outcome) (klio_plugin_wal_restore_duration_nanoseconds_count{k8s_namespace_name=~\"$namespace\",cluster_name=~\"$cluster\"})",
+          "instant": false,
+          "legendFormat": "{{cluster_name}} {{tier}} / {{outcome}}",
+          "range": true
+        }
+      ],
+      "title": "WAL restores (total)",
+      "description": "Total WAL restores served by the plugin to PostgreSQL since the plugin sidecar last restarted, per cluster, split by the tier that served them and by outcome.",
+      "transparent": false,
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "gridPos": {
+        "h": 6,
+        "w": 8,
+        "x": 8,
+        "y": 39
+      },
+      "repeatDirection": "h",
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true,
+          "calcs": []
+        },
+        "tooltip": {
+          "mode": "",
+          "sort": ""
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "custom": {
+            "gradientMode": "opacity",
+            "fillOpacity": 10
+          }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "type": "timeseries",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "expr": "sum by (cluster_name) (rate(klio_plugin_wal_restore_duration_nanoseconds_count{outcome=\"success\",cache_hit=\"true\",k8s_namespace_name=~\"$namespace\",cluster_name=~\"$cluster\"}[$__rate_interval])) / sum by (cluster_name) (rate(klio_plugin_wal_restore_duration_nanoseconds_count{outcome=\"success\",k8s_namespace_name=~\"$namespace\",cluster_name=~\"$cluster\"}[$__rate_interval]))",
+          "instant": false,
+          "legendFormat": "{{cluster_name}}",
+          "range": true
+        }
+      ],
+      "title": "WAL restore prefetch hit ratio",
+      "description": "Fraction of successful WAL restores served straight from the prefetch spool instead of waiting on a download, per cluster. A falling ratio means prefetch is not keeping pace with PostgreSQL replay.",
+      "transparent": false,
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "gridPos": {
+        "h": 6,
+        "w": 8,
+        "x": 16,
+        "y": 39
+      },
+      "repeatDirection": "h",
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true,
+          "calcs": []
+        },
+        "tooltip": {
+          "mode": "",
+          "sort": ""
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "custom": {
+            "gradientMode": "opacity",
+            "fillOpacity": 10
+          }
+        },
+        "overrides": []
+      }
+    },
+    {
       "type": "row",
       "collapsed": false,
       "title": "Server",
@@ -882,7 +1177,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 31
+        "y": 45
       },
       "id": 0,
       "panels": []
@@ -894,7 +1189,7 @@
         "h": 2,
         "w": 24,
         "x": 0,
-        "y": 32
+        "y": 46
       },
       "repeatDirection": "h",
       "options": {
@@ -927,7 +1222,7 @@
         "h": 6,
         "w": 8,
         "x": 0,
-        "y": 34
+        "y": 48
       },
       "repeatDirection": "h",
       "options": {
@@ -984,7 +1279,7 @@
         "h": 6,
         "w": 8,
         "x": 8,
-        "y": 34
+        "y": 48
       },
       "repeatDirection": "h",
       "options": {
@@ -1042,7 +1337,7 @@
         "h": 6,
         "w": 8,
         "x": 16,
-        "y": 34
+        "y": 48
       },
       "repeatDirection": "h",
       "options": {
@@ -1099,7 +1394,7 @@
         "h": 6,
         "w": 8,
         "x": 0,
-        "y": 40
+        "y": 54
       },
       "repeatDirection": "h",
       "options": {
@@ -1156,7 +1451,7 @@
         "h": 6,
         "w": 8,
         "x": 8,
-        "y": 40
+        "y": 54
       },
       "repeatDirection": "h",
       "options": {
@@ -1213,7 +1508,7 @@
         "h": 6,
         "w": 8,
         "x": 16,
-        "y": 40
+        "y": 54
       },
       "repeatDirection": "h",
       "options": {
@@ -1319,7 +1614,7 @@
         "h": 6,
         "w": 24,
         "x": 0,
-        "y": 46
+        "y": 60
       },
       "repeatDirection": "h",
       "options": {
@@ -1368,7 +1663,7 @@
         "h": 6,
         "w": 8,
         "x": 0,
-        "y": 52
+        "y": 66
       },
       "repeatDirection": "h",
       "options": {
@@ -1425,7 +1720,7 @@
         "h": 6,
         "w": 8,
         "x": 8,
-        "y": 52
+        "y": 66
       },
       "repeatDirection": "h",
       "options": {
@@ -1482,7 +1777,7 @@
         "h": 6,
         "w": 8,
         "x": 16,
-        "y": 52
+        "y": 66
       },
       "repeatDirection": "h",
       "options": {
@@ -1588,7 +1883,7 @@
         "h": 6,
         "w": 24,
         "x": 0,
-        "y": 58
+        "y": 72
       },
       "repeatDirection": "h",
       "options": {
@@ -1637,7 +1932,7 @@
         "h": 6,
         "w": 4,
         "x": 0,
-        "y": 64
+        "y": 78
       },
       "repeatDirection": "h",
       "options": {
@@ -1695,7 +1990,7 @@
         "h": 6,
         "w": 4,
         "x": 4,
-        "y": 64
+        "y": 78
       },
       "repeatDirection": "h",
       "options": {
@@ -1752,7 +2047,7 @@
         "h": 6,
         "w": 4,
         "x": 8,
-        "y": 64
+        "y": 78
       },
       "repeatDirection": "h",
       "options": {
@@ -1810,7 +2105,7 @@
         "h": 6,
         "w": 4,
         "x": 12,
-        "y": 64
+        "y": 78
       },
       "repeatDirection": "h",
       "options": {
@@ -1868,7 +2163,7 @@
         "h": 6,
         "w": 4,
         "x": 16,
-        "y": 64
+        "y": 78
       },
       "repeatDirection": "h",
       "options": {
@@ -1925,7 +2220,7 @@
         "h": 6,
         "w": 4,
         "x": 20,
-        "y": 64
+        "y": 78
       },
       "repeatDirection": "h",
       "options": {
@@ -1982,7 +2277,7 @@
         "h": 6,
         "w": 8,
         "x": 0,
-        "y": 70
+        "y": 84
       },
       "repeatDirection": "h",
       "options": {
@@ -2036,7 +2331,7 @@
         "h": 6,
         "w": 8,
         "x": 8,
-        "y": 70
+        "y": 84
       },
       "repeatDirection": "h",
       "options": {
@@ -2111,7 +2406,7 @@
         "h": 6,
         "w": 8,
         "x": 16,
-        "y": 70
+        "y": 84
       },
       "repeatDirection": "h",
       "options": {
@@ -2160,7 +2455,7 @@
         "h": 6,
         "w": 12,
         "x": 0,
-        "y": 76
+        "y": 90
       },
       "repeatDirection": "h",
       "options": {
@@ -2211,7 +2506,7 @@
         "h": 6,
         "w": 12,
         "x": 12,
-        "y": 76
+        "y": 90
       },
       "repeatDirection": "h",
       "options": {
@@ -2262,7 +2557,7 @@
         "h": 6,
         "w": 12,
         "x": 0,
-        "y": 82
+        "y": 96
       },
       "repeatDirection": "h",
       "options": {
@@ -2313,7 +2608,7 @@
         "h": 6,
         "w": 12,
         "x": 12,
-        "y": 82
+        "y": 96
       },
       "repeatDirection": "h",
       "options": {
@@ -2384,7 +2679,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 88
+        "y": 102
       },
       "repeatDirection": "h",
       "options": {
@@ -2455,7 +2750,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 88
+        "y": 102
       },
       "repeatDirection": "h",
       "options": {
@@ -2526,7 +2821,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 96
+        "y": 110
       },
       "repeatDirection": "h",
       "options": {
@@ -2597,7 +2892,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 96
+        "y": 110
       },
       "repeatDirection": "h",
       "options": {
@@ -2668,7 +2963,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 104
+        "y": 118
       },
       "repeatDirection": "h",
       "options": {
@@ -2739,7 +3034,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 104
+        "y": 118
       },
       "repeatDirection": "h",
       "options": {
@@ -2790,7 +3085,7 @@
         "h": 6,
         "w": 8,
         "x": 0,
-        "y": 112
+        "y": 126
       },
       "repeatDirection": "h",
       "options": {
@@ -2841,7 +3136,7 @@
         "h": 6,
         "w": 8,
         "x": 8,
-        "y": 112
+        "y": 126
       },
       "repeatDirection": "h",
       "options": {
@@ -2892,7 +3187,7 @@
         "h": 6,
         "w": 8,
         "x": 16,
-        "y": 112
+        "y": 126
       },
       "repeatDirection": "h",
       "options": {
@@ -2943,7 +3238,7 @@
         "h": 6,
         "w": 12,
         "x": 0,
-        "y": 118
+        "y": 132
       },
       "repeatDirection": "h",
       "options": {
@@ -2994,7 +3289,7 @@
         "h": 6,
         "w": 12,
         "x": 12,
-        "y": 118
+        "y": 132
       },
       "repeatDirection": "h",
       "options": {
@@ -3028,7 +3323,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 124
+        "y": 138
       },
       "id": 0,
       "panels": []
@@ -3040,7 +3335,7 @@
         "h": 2,
         "w": 24,
         "x": 0,
-        "y": 125
+        "y": 139
       },
       "repeatDirection": "h",
       "options": {
@@ -3083,7 +3378,7 @@
         "h": 6,
         "w": 8,
         "x": 0,
-        "y": 127
+        "y": 141
       },
       "repeatDirection": "h",
       "options": {
@@ -3144,7 +3439,7 @@
         "h": 6,
         "w": 8,
         "x": 8,
-        "y": 127
+        "y": 141
       },
       "repeatDirection": "h",
       "options": {
@@ -3195,7 +3490,7 @@
         "h": 6,
         "w": 8,
         "x": 16,
-        "y": 127
+        "y": 141
       },
       "repeatDirection": "h",
       "options": {

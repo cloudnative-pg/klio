@@ -152,7 +152,9 @@ The E2E tests are located in `operator/test/e2e/` and include:
   backing `/klio` (`PVCResize`)
 - **`otel_test.go`** - OpenTelemetry metrics and traces export: deploys
   an OTEL Collector and verifies that backup lifecycle metrics and
-  traces are correctly exported via OTLP. After the success-path
+  traces are correctly exported via OTLP. It also runs the
+  `restore_command` in the primary to check that WAL restores are recorded
+  in `klio.plugin.wal.restore_duration`. After the success-path
   assertions it deletes the Klio server and triggers a failing backup to
   verify the `failure_category=repository_error` attribute on
   `klio.plugin.backup.runs` (`OTELMetricsAndTraces`)
