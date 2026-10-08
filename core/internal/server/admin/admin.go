@@ -342,6 +342,40 @@ func (s *Server) QueueRetryWALs(
 	return &klioGRPC.QueueRetryResponse{}, nil
 }
 
+// QueueDiscardWALs implements [grpc.AdminServer].
+func (s *Server) QueueDiscardWALs(
+	ctx context.Context,
+	req *klioGRPC.QueueDiscardWALsRequest,
+) (*klioGRPC.QueueDiscardResponse, error) {
+	if s.streamMgr == nil {
+		return nil, status.Errorf(
+			codes.Unavailable,
+			"failed WALs not available: server not configured with Stream Manager",
+		)
+	}
+
+	clusterName := req.GetClusterName()
+	wals := req.GetWalNames()
+
+	if len(wals) > 0 && clusterName == "" {
+		return nil, status.Errorf(codes.InvalidArgument, "WAL names require a cluster name")
+	}
+
+	var discardOpts []queue.Option
+	if clusterName != "" {
+		discardOpts = append(discardOpts, queue.WithCluster(clusterName))
+	}
+	if len(wals) > 0 {
+		discardOpts = append(discardOpts, queue.WithWALs(wals...))
+	}
+
+	if err := s.streamMgr.DiscardFailedWALTasks(ctx, discardOpts...); err != nil {
+		return nil, status.Errorf(codes.Internal, "while discarding failed WALs: %s", err.Error())
+	}
+
+	return &klioGRPC.QueueDiscardResponse{}, nil
+}
+
 // QueueRetryBackups implements [grpc.AdminServer].
 func (s *Server) QueueRetryBackups(
 	ctx context.Context,
@@ -366,6 +400,32 @@ func (s *Server) QueueRetryBackups(
 	}
 
 	return &klioGRPC.QueueRetryResponse{}, nil
+}
+
+// QueueDiscardBackups implements [grpc.AdminServer].
+func (s *Server) QueueDiscardBackups(
+	ctx context.Context,
+	req *klioGRPC.QueueDiscardBackupsRequest,
+) (*klioGRPC.QueueDiscardResponse, error) {
+	if s.streamMgr == nil {
+		return nil, status.Errorf(
+			codes.Unavailable,
+			"failed backups not available: server not configured with Stream Manager",
+		)
+	}
+
+	clusterName := req.GetClusterName()
+
+	var discardOpts []queue.Option
+	if clusterName != "" {
+		discardOpts = append(discardOpts, queue.WithCluster(clusterName))
+	}
+
+	if err := s.streamMgr.DiscardFailedBackupTasks(ctx, discardOpts...); err != nil {
+		return nil, status.Errorf(codes.Internal, "while discarding failed backups: %s", err.Error())
+	}
+
+	return &klioGRPC.QueueDiscardResponse{}, nil
 }
 
 // DeleteBackup implements [grpc.AdminServer].

@@ -35,6 +35,7 @@ Manage the queue backup tasks
 ### SEE ALSO
 
 * [klio admin queue](klio_admin_queue.md)	 - Manage the queue tasks
+* [klio admin queue backup discard](klio_admin_queue_backup_discard.md)	 - Discard failed backup tasks in the queue
 * [klio admin queue backup list-failed](klio_admin_queue_backup_list-failed.md)	 - List failed backup tasks in the queue
 * [klio admin queue backup retry](klio_admin_queue_backup_retry.md)	 - Retry failed backup tasks in the queue
 

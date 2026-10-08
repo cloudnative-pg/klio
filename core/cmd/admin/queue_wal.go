@@ -164,6 +164,64 @@ var retryWALCmd = &cobra.Command{
 	},
 }
 
+//nolint:gochecknoglobals
+var discardWALCmd = &cobra.Command{
+	Use:   "discard [cluster-name] [WAL1 WAL2 ...]",
+	Short: "Discard failed WAL tasks in the queue",
+	Long: "Discard failed WAL tasks in the queue.\n\n" +
+		"A cluster name is required, and all failed WAL tasks for that cluster " +
+		"are discarded. If WAL files are also given, only those are discarded. Pass " +
+		"--all-clusters instead of a cluster name to discard all failed WAL tasks " +
+		"across every cluster.",
+	Args: func(cmd *cobra.Command, args []string) error {
+		allClusters, err := cmd.Flags().GetBool("all-clusters")
+		if err != nil {
+			return fmt.Errorf("while getting the all-clusters flag: %w", err)
+		}
+		if allClusters {
+			return cobra.NoArgs(cmd, args)
+		}
+
+		return cobra.MinimumNArgs(1)(cmd, args)
+	},
+	RunE: func(cmd *cobra.Command, args []string) error {
+		socketPath, err := cmd.Flags().GetString("socket-path")
+		if err != nil {
+			return fmt.Errorf("while getting the socketPath flag: %w", err)
+		}
+
+		allClusters, err := cmd.Flags().GetBool("all-clusters")
+		if err != nil {
+			return fmt.Errorf("while getting the all-clusters flag: %w", err)
+		}
+
+		conn, err := connectToAdminServer(socketPath)
+		if err != nil {
+			return err
+		}
+		defer func() {
+			_ = conn.Close()
+		}()
+
+		var request klioGRPC.QueueDiscardWALsRequest
+		if !allClusters {
+			clusterName := args[0]
+			request.ClusterName = &clusterName
+			if len(args) > 1 {
+				request.WalNames = args[1:]
+			}
+		}
+
+		adminClient := klioGRPC.NewAdminClient(conn)
+		_, err = adminClient.QueueDiscardWALs(cmd.Context(), &request)
+		if err != nil {
+			return fmt.Errorf("while calling queue discard wals entrypoint: %w", err)
+		}
+
+		return nil
+	},
+}
+
 //nolint:gochecknoinits
 func init() {
 	queueCmd.AddCommand(queueWALCmd)
@@ -173,4 +231,7 @@ func init() {
 
 	queueWALCmd.AddCommand(retryWALCmd)
 	retryWALCmd.Flags().Bool("all-clusters", false, "Retry failed WAL tasks across every cluster")
+
+	queueWALCmd.AddCommand(discardWALCmd)
+	discardWALCmd.Flags().Bool("all-clusters", false, "Discard failed WAL tasks across every cluster")
 }

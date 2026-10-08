@@ -1,15 +1,26 @@
 ---
-title: klio admin queue wal
+title: klio admin queue backup discard
 ---
 
-## klio admin queue wal
+## klio admin queue backup discard
 
-Manage the queue WAL tasks
+Discard failed backup tasks in the queue
+
+### Synopsis
+
+Discard failed backup tasks in the queue.
+
+A cluster name is required, and all failed backup tasks for that cluster are discarded. Pass --all-clusters instead of a cluster name to discard all failed backup tasks across every cluster.
+
+```
+klio admin queue backup discard [cluster-name] [flags]
+```
 
 ### Options
 
 ```
-  -h, --help   help for wal
+      --all-clusters   Discard failed backup tasks across every cluster
+  -h, --help           help for discard
 ```
 
 ### Options inherited from parent commands
@@ -34,8 +45,5 @@ Manage the queue WAL tasks
 
 ### SEE ALSO
 
-* [klio admin queue](klio_admin_queue.md)	 - Manage the queue tasks
-* [klio admin queue wal discard](klio_admin_queue_wal_discard.md)	 - Discard failed WAL tasks in the queue
-* [klio admin queue wal list-failed](klio_admin_queue_wal_list-failed.md)	 - List failed WAL tasks in the queue
-* [klio admin queue wal retry](klio_admin_queue_wal_retry.md)	 - Retry failed WAL tasks in the queue
+* [klio admin queue backup](klio_admin_queue_backup.md)	 - Manage the queue backup tasks
 
