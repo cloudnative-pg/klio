@@ -36,7 +36,7 @@ CSI_DRIVER_HOST_PATH_VERSION="v1.18.0"
 # csi-hostpath-sc PVC stuck Pending. These versions track the sidecar images in
 # csi-driver-host-path ${CSI_DRIVER_HOST_PATH_VERSION}.
 # renovate: datasource=github-releases depName=kubernetes-csi/external-provisioner
-EXTERNAL_PROVISIONER_VERSION="v6.3.0"
+EXTERNAL_PROVISIONER_VERSION="v6.4.0"
 # renovate: datasource=github-releases depName=kubernetes-csi/external-attacher
 EXTERNAL_ATTACHER_VERSION="v4.13.0"
 # renovate: datasource=github-releases depName=kubernetes-csi/external-resizer
