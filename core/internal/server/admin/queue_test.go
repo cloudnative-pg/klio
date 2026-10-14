@@ -302,11 +302,12 @@ func TestQueueDiscardWALsOverSocket(t *testing.T) {
 		js, client := seed(t)
 
 		cluster := "cluster-a"
-		_, err := client.QueueDiscardWALs(t.Context(), &klioGRPC.QueueDiscardWALsRequest{
+		resp, err := client.QueueDiscardWALs(t.Context(), &klioGRPC.QueueDiscardWALsRequest{
 			ClusterName: &cluster,
 			WalNames:    []string{"000000010000000000000001"},
 		})
 		require.NoError(t, err)
+		assert.Equal(t, uint64(1), resp.GetDiscarded())
 
 		assert.ElementsMatch(t,
 			[]string{"000000010000000000000002", "000000010000000000000003"}, listWALs(t, client))
@@ -317,9 +318,10 @@ func TestQueueDiscardWALsOverSocket(t *testing.T) {
 		js, client := seed(t)
 
 		cluster := "cluster-b"
-		_, err := client.QueueDiscardWALs(t.Context(),
+		resp, err := client.QueueDiscardWALs(t.Context(),
 			&klioGRPC.QueueDiscardWALsRequest{ClusterName: &cluster})
 		require.NoError(t, err)
+		assert.Equal(t, uint64(1), resp.GetDiscarded())
 
 		assert.ElementsMatch(t,
 			[]string{"000000010000000000000001", "000000010000000000000002"}, listWALs(t, client))
@@ -329,8 +331,9 @@ func TestQueueDiscardWALsOverSocket(t *testing.T) {
 	t.Run("every cluster", func(t *testing.T) {
 		js, client := seed(t)
 
-		_, err := client.QueueDiscardWALs(t.Context(), &klioGRPC.QueueDiscardWALsRequest{})
+		resp, err := client.QueueDiscardWALs(t.Context(), &klioGRPC.QueueDiscardWALsRequest{})
 		require.NoError(t, err)
+		assert.Equal(t, uint64(3), resp.GetDiscarded())
 
 		assert.Empty(t, listWALs(t, client))
 		assert.Zero(t, streamMsgs(t, js, walStreamName))
@@ -381,9 +384,10 @@ func TestQueueDiscardBackupsOverSocket(t *testing.T) {
 		js, client := seed(t)
 
 		cluster := "cluster-a"
-		_, err := client.QueueDiscardBackups(t.Context(),
+		resp, err := client.QueueDiscardBackups(t.Context(),
 			&klioGRPC.QueueDiscardBackupsRequest{ClusterName: &cluster})
 		require.NoError(t, err)
+		assert.Equal(t, uint64(1), resp.GetDiscarded())
 
 		assert.Equal(t, []string{"cluster-b"}, listClusters(t, client))
 		assert.Equal(t, uint64(1), streamMsgs(t, js, backupStreamName), "source message not released")
@@ -392,8 +396,9 @@ func TestQueueDiscardBackupsOverSocket(t *testing.T) {
 	t.Run("every cluster", func(t *testing.T) {
 		js, client := seed(t)
 
-		_, err := client.QueueDiscardBackups(t.Context(), &klioGRPC.QueueDiscardBackupsRequest{})
+		resp, err := client.QueueDiscardBackups(t.Context(), &klioGRPC.QueueDiscardBackupsRequest{})
 		require.NoError(t, err)
+		assert.Equal(t, uint64(2), resp.GetDiscarded())
 
 		assert.Empty(t, listClusters(t, client))
 		assert.Zero(t, streamMsgs(t, js, backupStreamName))

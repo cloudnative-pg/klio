@@ -152,6 +152,29 @@ func runFailedTaskAction(
 	return action(cmd.Context(), klioGRPC.NewAdminClient(conn), target)
 }
 
+// printDiscarded reports how many failed tasks a discard command removed,
+// as JSON when the --json flag is set.
+func printDiscarded(cmd *cobra.Command, discarded uint64, kind string) error {
+	jsonOutput, err := cmd.Flags().GetBool("json")
+	if err != nil {
+		return fmt.Errorf("while getting the json flag: %w", err)
+	}
+
+	if !jsonOutput {
+		_, _ = fmt.Fprintf(os.Stdout, "Discarded %d failed %s task(s)\n", discarded, kind)
+
+		return nil
+	}
+
+	data, err := json.MarshalIndent(map[string]uint64{"discarded": discarded}, "", "  ")
+	if err != nil {
+		return fmt.Errorf("while marshalling JSON output: %w", err)
+	}
+	_, _ = fmt.Fprintf(os.Stdout, "%s\n", data)
+
+	return nil
+}
+
 //nolint:gochecknoinits
 func init() {
 	AdminCmd.AddCommand(queueCmd)
