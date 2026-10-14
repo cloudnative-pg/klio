@@ -53,6 +53,11 @@ var errAmbiguousSourceRead = errors.New("ambiguous source stream read: no messag
 // task type that has no WAL name to filter on (e.g. backups).
 var errWALFilterUnsupported = errors.New("WAL name filtering is only supported for WAL tasks")
 
+// errWALFilterRequiresCluster indicates WithWALs was passed without
+// WithCluster. WAL names are only unique within a cluster, so filtering by
+// name alone would select WAL files of unrelated clusters.
+var errWALFilterRequiresCluster = errors.New("WAL name filtering requires a cluster name")
+
 // FailedTask represents a task that has failed and has been sent to the Dead Letter Queue (DLQ) stream.
 type FailedTask[T clusterTask] struct {
 	// Sequence is the sequence number of the message in the DLQ stream.
@@ -143,6 +148,14 @@ func (m *StreamManager) GetStatus() (*Status, error) {
 
 // ListFailedWALTasks retrieves a list of failed WAL tasks from the Dead Letter Queue (DLQ) stream.
 func (m *StreamManager) ListFailedWALTasks(ctx context.Context, opts ...Option) ([]FailedTask[WALTask], error) {
+	var cfg optionConfig
+	for _, opt := range opts {
+		opt(&cfg)
+	}
+	if len(cfg.wals) > 0 && cfg.cluster == "" {
+		return nil, errWALFilterRequiresCluster
+	}
+
 	walStream, err := m.loadStreamOrNil(klioWalStreamName)
 	if err != nil {
 		return nil, err
@@ -162,10 +175,6 @@ func (m *StreamManager) ListFailedWALTasks(ctx context.Context, opts ...Option) 
 		return nil, err
 	}
 
-	var cfg optionConfig
-	for _, opt := range opts {
-		opt(&cfg)
-	}
 	if len(cfg.wals) > 0 {
 		tasks = slices.DeleteFunc(tasks, func(task FailedTask[WALTask]) bool {
 			return !slices.Contains(cfg.wals, task.Task.WALName)
@@ -223,12 +232,12 @@ func (m *StreamManager) DiscardFailedWALTasks(
 	ctx context.Context,
 	opts ...Option,
 ) error {
-	var cfg optionConfig
-	for _, opt := range opts {
-		opt(&cfg)
+	failed, err := m.ListFailedWALTasks(ctx, opts...)
+	if err != nil {
+		return fmt.Errorf("while listing failed WAL tasks: %w", err)
 	}
 
-	return m.purgeWALDLQEntries(ctx, cfg.cluster, cfg.wals...)
+	return purgeDLQEntries(m, klioDLQWalStreamName, klioWalStreamName, failed)
 }
 
 // DiscardFailedBackupTasks discards failed backup tasks from the dead-letter queue.
@@ -236,15 +245,12 @@ func (m *StreamManager) DiscardFailedBackupTasks(
 	ctx context.Context,
 	opts ...Option,
 ) error {
-	var cfg optionConfig
-	for _, opt := range opts {
-		opt(&cfg)
-	}
-	if len(cfg.wals) > 0 {
-		return errWALFilterUnsupported
+	failed, err := m.ListFailedBackupTasks(ctx, opts...)
+	if err != nil {
+		return fmt.Errorf("while listing failed backup tasks: %w", err)
 	}
 
-	return m.purgeBackupDLQEntries(ctx, cfg.cluster)
+	return purgeDLQEntries(m, klioDLQBackupStreamName, klioBackupStreamName, failed)
 }
 
 // RetryFailedBackupTasks re-enqueues failed backup tasks from the dead-letter queue.
@@ -417,59 +423,50 @@ func (m *StreamManager) configureStreams(ctx context.Context, js jetstream.JetSt
 	return nil
 }
 
-func (m *StreamManager) purgeWALDLQEntries(ctx context.Context, clusterName string, walNames ...string) error {
-	dlqStream, err := m.loadStreamOrNil(klioDLQWalStreamName)
-	if err != nil {
-		return err
-	}
-	sourceStream, err := m.loadStreamOrNil(klioWalStreamName)
-	if err != nil {
-		return err
-	}
-	if dlqStream == nil || sourceStream == nil {
-		return nil
-	}
-
-	failed, err := listFailedTasks[WALTask](ctx, dlqStream, sourceStream, WithCluster(clusterName))
+// purgeWALDLQEntries removes the WAL dead-letter queue entries for the given
+// cluster and WAL file, releasing the original failed messages they reference.
+func (m *StreamManager) purgeWALDLQEntries(ctx context.Context, clusterName, walName string) error {
+	failed, err := m.ListFailedWALTasks(ctx, WithCluster(clusterName), WithWALs(walName))
 	if err != nil {
 		return err
 	}
 
-	var errs []error
-	retainWALTask := func(task FailedTask[WALTask]) bool {
-		return len(walNames) != 0 && !slices.Contains(walNames, task.Task.WALName)
-	}
-	for _, task := range failed {
-		if retainWALTask(task) {
-			continue
-		}
-		if err := m.purgeDLQEntryBySequence(dlqStream, sourceStream, task.Sequence); err != nil {
-			errs = append(errs, err)
-		}
-	}
-
-	return errors.Join(errs...)
+	return purgeDLQEntries(m, klioDLQWalStreamName, klioWalStreamName, failed)
 }
 
 // purgeBackupDLQEntries removes every backup dead-letter queue entry belonging to the
 // given cluster. For each matching entry it deletes the DLQ advisory and releases the
 // original failed message it references from the backup work-queue stream.
 func (m *StreamManager) purgeBackupDLQEntries(ctx context.Context, clusterName string) error {
-	dlqStream, err := m.loadStreamOrNil(klioDLQBackupStreamName)
+	failed, err := m.ListFailedBackupTasks(ctx, WithCluster(clusterName))
 	if err != nil {
 		return err
 	}
-	sourceStream, err := m.loadStreamOrNil(klioBackupStreamName)
+
+	return purgeDLQEntries(m, klioDLQBackupStreamName, klioBackupStreamName, failed)
+}
+
+// purgeDLQEntries removes the given dead-letter queue entries from dlqName and
+// releases the original failed messages they reference from sourceName.
+func purgeDLQEntries[T clusterTask](
+	m *StreamManager,
+	dlqName, sourceName string,
+	failed []FailedTask[T],
+) error {
+	if len(failed) == 0 {
+		return nil
+	}
+
+	dlqStream, err := m.loadStreamOrNil(dlqName)
+	if err != nil {
+		return err
+	}
+	sourceStream, err := m.loadStreamOrNil(sourceName)
 	if err != nil {
 		return err
 	}
 	if dlqStream == nil || sourceStream == nil {
 		return nil
-	}
-
-	failed, err := listFailedTasks[BackupTask](ctx, dlqStream, sourceStream, WithCluster(clusterName))
-	if err != nil {
-		return err
 	}
 
 	var errs []error

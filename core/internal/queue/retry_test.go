@@ -612,3 +612,20 @@ func TestDiscardFailedBackupTasksRejectsWALFilter(t *testing.T) {
 
 	assertQueueCounts(t, conn, klioBackupStreamName, klioDLQBackupStreamName, 1, 1)
 }
+
+func TestFailedWALTasksRejectWALFilterWithoutCluster(t *testing.T) {
+	env := newDiscardTestEnv(t)
+	ctx, conn, js := t.Context(), env.conn, env.js
+
+	seedFailedWAL(t, js, "cluster-a", "000000010000000000000001")
+	seedFailedWAL(t, js, "cluster-b", "000000010000000000000001")
+
+	wal := WithWALs("000000010000000000000001")
+
+	_, err := conn.ListFailedWALTasks(ctx, wal)
+	require.ErrorIs(t, err, errWALFilterRequiresCluster)
+	require.ErrorIs(t, conn.RetryFailedWALTasks(ctx, wal), errWALFilterRequiresCluster)
+	require.ErrorIs(t, conn.DiscardFailedWALTasks(ctx, wal), errWALFilterRequiresCluster)
+
+	assertQueueCounts(t, conn, klioWalStreamName, klioDLQWalStreamName, 2, 2)
+}
