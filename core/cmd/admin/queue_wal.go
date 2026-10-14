@@ -145,14 +145,15 @@ var discardWALCmd = &cobra.Command{
 	RunE: func(cmd *cobra.Command, args []string) error {
 		return runFailedTaskAction(cmd, args,
 			func(ctx context.Context, client klioGRPC.AdminClient, target failedTaskTarget) error {
-				if _, err := client.QueueDiscardWALs(ctx, &klioGRPC.QueueDiscardWALsRequest{
+				resp, err := client.QueueDiscardWALs(ctx, &klioGRPC.QueueDiscardWALsRequest{
 					ClusterName: target.clusterName,
 					WalNames:    target.walNames,
-				}); err != nil {
+				})
+				if err != nil {
 					return fmt.Errorf("while calling queue discard wals entrypoint: %w", err)
 				}
 
-				return nil
+				return printDiscarded(cmd, resp.GetDiscarded(), "WAL")
 			})
 	},
 }

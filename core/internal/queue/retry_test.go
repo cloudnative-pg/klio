@@ -489,7 +489,9 @@ func TestDiscardFailedWALTasksDiscardsAllClusters(t *testing.T) {
 	seedFailedWAL(t, js, "cluster-a", "000000010000000000000001")
 	seedFailedWAL(t, js, "cluster-b", "000000010000000000000002")
 
-	require.NoError(t, conn.DiscardFailedWALTasks(ctx))
+	discarded, err := conn.DiscardFailedWALTasks(ctx)
+	require.NoError(t, err)
+	assert.Equal(t, uint64(2), discarded)
 
 	assertQueueCounts(t, conn, klioWalStreamName, klioDLQWalStreamName, 0, 0)
 	assert.Empty(t, retriedWALs(t, streamHandle(ctx, t, conn.conn, klioWalStreamName)),
@@ -503,7 +505,9 @@ func TestDiscardFailedWALTasksDiscardsSingleCluster(t *testing.T) {
 	seedFailedWAL(t, js, "cluster-a", "000000010000000000000001")
 	seedFailedWAL(t, js, "cluster-b", "000000010000000000000002")
 
-	require.NoError(t, conn.DiscardFailedWALTasks(ctx, WithCluster("cluster-a")))
+	discarded, err := conn.DiscardFailedWALTasks(ctx, WithCluster("cluster-a"))
+	require.NoError(t, err)
+	assert.Equal(t, uint64(1), discarded)
 
 	assertQueueCounts(t, conn, klioWalStreamName, klioDLQWalStreamName, 1, 1)
 
@@ -522,11 +526,13 @@ func TestDiscardFailedWALTasksDiscardsSpecificWALs(t *testing.T) {
 	seedFailedWAL(t, js, "cluster-a", "000000010000000000000002")
 	seedFailedWAL(t, js, "cluster-a", "000000010000000000000003")
 
-	require.NoError(t, conn.DiscardFailedWALTasks(
+	discarded, err := conn.DiscardFailedWALTasks(
 		ctx,
 		WithCluster("cluster-a"),
 		WithWALs("000000010000000000000001", "000000010000000000000003"),
-	))
+	)
+	require.NoError(t, err)
+	assert.Equal(t, uint64(2), discarded)
 
 	assertQueueCounts(t, conn, klioWalStreamName, klioDLQWalStreamName, 1, 1)
 
@@ -544,11 +550,13 @@ func TestDiscardFailedWALTasksSkipsUnknownWALs(t *testing.T) {
 	seedFailedWAL(t, js, "cluster-a", "000000010000000000000001")
 
 	// An unknown WAL name is silently ignored; the known one is still discarded.
-	require.NoError(t, conn.DiscardFailedWALTasks(
+	discarded, err := conn.DiscardFailedWALTasks(
 		ctx,
 		WithCluster("cluster-a"),
 		WithWALs("000000010000000000000001", "000000019999999999999999"),
-	))
+	)
+	require.NoError(t, err)
+	assert.Equal(t, uint64(1), discarded)
 
 	assertQueueCounts(t, conn, klioWalStreamName, klioDLQWalStreamName, 0, 0)
 }
@@ -560,7 +568,9 @@ func TestDiscardFailedBackupTasksDiscardsAllClusters(t *testing.T) {
 	seedFailedBackup(t, js, "cluster-a")
 	seedFailedBackup(t, js, "cluster-b")
 
-	require.NoError(t, conn.DiscardFailedBackupTasks(ctx))
+	discarded, err := conn.DiscardFailedBackupTasks(ctx)
+	require.NoError(t, err)
+	assert.Equal(t, uint64(2), discarded)
 
 	assertQueueCounts(t, conn, klioBackupStreamName, klioDLQBackupStreamName, 0, 0)
 	assert.Empty(t, retriedBackupClusters(t, streamHandle(ctx, t, conn.conn, klioBackupStreamName)),
@@ -574,7 +584,9 @@ func TestDiscardFailedBackupTasksDiscardsSingleCluster(t *testing.T) {
 	seedFailedBackup(t, js, "cluster-a")
 	seedFailedBackup(t, js, "cluster-b")
 
-	require.NoError(t, conn.DiscardFailedBackupTasks(ctx, WithCluster("cluster-a")))
+	discarded, err := conn.DiscardFailedBackupTasks(ctx, WithCluster("cluster-a"))
+	require.NoError(t, err)
+	assert.Equal(t, uint64(1), discarded)
 
 	assertQueueCounts(t, conn, klioBackupStreamName, klioDLQBackupStreamName, 1, 1)
 
@@ -594,7 +606,9 @@ func TestDiscardFailedBackupTasksDiscardsEveryEntryOfCluster(t *testing.T) {
 	seedFailedBackup(t, js, "cluster-a")
 	seedFailedBackup(t, js, "cluster-a")
 
-	require.NoError(t, conn.DiscardFailedBackupTasks(ctx))
+	discarded, err := conn.DiscardFailedBackupTasks(ctx)
+	require.NoError(t, err)
+	assert.Equal(t, uint64(2), discarded)
 
 	assertQueueCounts(t, conn, klioBackupStreamName, klioDLQBackupStreamName, 0, 0)
 }
@@ -607,7 +621,7 @@ func TestDiscardFailedBackupTasksRejectsWALFilter(t *testing.T) {
 
 	// BackupTask has no individual WAL name to filter on: WithWALs must be
 	// rejected rather than silently ignored, and nothing must be discarded.
-	err := conn.DiscardFailedBackupTasks(ctx, WithWALs("000000010000000000000001"))
+	_, err := conn.DiscardFailedBackupTasks(ctx, WithWALs("000000010000000000000001"))
 	require.ErrorIs(t, err, errWALFilterUnsupported)
 
 	assertQueueCounts(t, conn, klioBackupStreamName, klioDLQBackupStreamName, 1, 1)
@@ -625,7 +639,22 @@ func TestFailedWALTasksRejectWALFilterWithoutCluster(t *testing.T) {
 	_, err := conn.ListFailedWALTasks(ctx, wal)
 	require.ErrorIs(t, err, errWALFilterRequiresCluster)
 	require.ErrorIs(t, conn.RetryFailedWALTasks(ctx, wal), errWALFilterRequiresCluster)
-	require.ErrorIs(t, conn.DiscardFailedWALTasks(ctx, wal), errWALFilterRequiresCluster)
+	_, err = conn.DiscardFailedWALTasks(ctx, wal)
+	require.ErrorIs(t, err, errWALFilterRequiresCluster)
 
 	assertQueueCounts(t, conn, klioWalStreamName, klioDLQWalStreamName, 2, 2)
+}
+
+func TestDiscardFailedWALTasksReportsNothingDiscarded(t *testing.T) {
+	env := newDiscardTestEnv(t)
+	ctx, conn, js := t.Context(), env.conn, env.js
+
+	seedFailedWAL(t, js, "cluster-a", "000000010000000000000001")
+
+	// A cluster with no failed WALs, e.g. a mistyped name, discards nothing.
+	discarded, err := conn.DiscardFailedWALTasks(ctx, WithCluster("cluster-x"))
+	require.NoError(t, err)
+	assert.Zero(t, discarded)
+
+	assertQueueCounts(t, conn, klioWalStreamName, klioDLQWalStreamName, 1, 1)
 }

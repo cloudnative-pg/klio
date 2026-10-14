@@ -137,13 +137,14 @@ var discardBackupCmd = &cobra.Command{
 	RunE: func(cmd *cobra.Command, args []string) error {
 		return runFailedTaskAction(cmd, args,
 			func(ctx context.Context, client klioGRPC.AdminClient, target failedTaskTarget) error {
-				if _, err := client.QueueDiscardBackups(ctx, &klioGRPC.QueueDiscardBackupsRequest{
+				resp, err := client.QueueDiscardBackups(ctx, &klioGRPC.QueueDiscardBackupsRequest{
 					ClusterName: target.clusterName,
-				}); err != nil {
+				})
+				if err != nil {
 					return fmt.Errorf("while calling queue discard backups entrypoint: %w", err)
 				}
 
-				return nil
+				return printDiscarded(cmd, resp.GetDiscarded(), "backup")
 			})
 	},
 }

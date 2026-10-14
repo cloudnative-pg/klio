@@ -335,11 +335,12 @@ func (s *Server) QueueDiscardWALs(
 		return nil, err
 	}
 
-	if err := s.streamMgr.DiscardFailedWALTasks(ctx, opts...); err != nil {
+	discarded, err := s.streamMgr.DiscardFailedWALTasks(ctx, opts...)
+	if err != nil {
 		return nil, status.Errorf(codes.Internal, "while discarding failed WALs: %s", err.Error())
 	}
 
-	return &klioGRPC.QueueDiscardResponse{}, nil
+	return &klioGRPC.QueueDiscardResponse{Discarded: discarded}, nil
 }
 
 // QueueRetryBackups implements [grpc.AdminServer].
@@ -369,11 +370,12 @@ func (s *Server) QueueDiscardBackups(
 		return nil, err
 	}
 
-	if err := s.streamMgr.DiscardFailedBackupTasks(ctx, opts...); err != nil {
+	discarded, err := s.streamMgr.DiscardFailedBackupTasks(ctx, opts...)
+	if err != nil {
 		return nil, status.Errorf(codes.Internal, "while discarding failed backups: %s", err.Error())
 	}
 
-	return &klioGRPC.QueueDiscardResponse{}, nil
+	return &klioGRPC.QueueDiscardResponse{Discarded: discarded}, nil
 }
 
 // DeleteBackup implements [grpc.AdminServer].

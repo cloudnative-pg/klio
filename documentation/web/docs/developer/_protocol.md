@@ -171,6 +171,11 @@ DeleteBackupResponse is the response to a backup deletion request.
 
 
 
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| discarded | [uint64](#uint64) |  | Number of failed tasks removed from the dead-letter queue. |
+
+
 
 
 

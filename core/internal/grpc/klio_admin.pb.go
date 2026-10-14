@@ -786,7 +786,9 @@ func (*QueueRetryResponse) Descriptor() ([]byte, []int) {
 }
 
 type QueueDiscardResponse struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Number of failed tasks removed from the dead-letter queue.
+	Discarded     uint64 `protobuf:"varint,1,opt,name=discarded,proto3" json:"discarded,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -819,6 +821,13 @@ func (x *QueueDiscardResponse) ProtoReflect() protoreflect.Message {
 // Deprecated: Use QueueDiscardResponse.ProtoReflect.Descriptor instead.
 func (*QueueDiscardResponse) Descriptor() ([]byte, []int) {
 	return file_proto_klio_admin_proto_rawDescGZIP(), []int{15}
+}
+
+func (x *QueueDiscardResponse) GetDiscarded() uint64 {
+	if x != nil {
+		return x.Discarded
+	}
+	return 0
 }
 
 type QueueStatusRequest struct {
@@ -1055,8 +1064,9 @@ const file_proto_klio_admin_proto_rawDesc = "" +
 	"\x1aQueueDiscardBackupsRequest\x12&\n" +
 	"\fcluster_name\x18\x01 \x01(\tH\x00R\vclusterName\x88\x01\x01B\x0f\n" +
 	"\r_cluster_name\"\x14\n" +
-	"\x12QueueRetryResponse\"\x16\n" +
-	"\x14QueueDiscardResponse\"\x14\n" +
+	"\x12QueueRetryResponse\"4\n" +
+	"\x14QueueDiscardResponse\x12\x1c\n" +
+	"\tdiscarded\x18\x01 \x01(\x04R\tdiscarded\"\x14\n" +
 	"\x12QueueStatusRequest\"a\n" +
 	"\x13QueueStatusResponse\x12'\n" +
 	"\x0fpending_backups\x18\x01 \x01(\x04R\x0ependingBackups\x12!\n" +

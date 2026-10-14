@@ -227,27 +227,29 @@ func (m *StreamManager) RetryFailedWALTasks(
 	return m.enqueueWALTasks(ctx, failedTasks)
 }
 
-// DiscardFailedWALTasks discards failed WAL tasks from the dead-letter queue.
+// DiscardFailedWALTasks discards failed WAL tasks from the dead-letter queue
+// and returns how many were discarded.
 func (m *StreamManager) DiscardFailedWALTasks(
 	ctx context.Context,
 	opts ...Option,
-) error {
+) (uint64, error) {
 	failed, err := m.ListFailedWALTasks(ctx, opts...)
 	if err != nil {
-		return fmt.Errorf("while listing failed WAL tasks: %w", err)
+		return 0, fmt.Errorf("while listing failed WAL tasks: %w", err)
 	}
 
 	return purgeDLQEntries(m, klioDLQWalStreamName, klioWalStreamName, failed)
 }
 
-// DiscardFailedBackupTasks discards failed backup tasks from the dead-letter queue.
+// DiscardFailedBackupTasks discards failed backup tasks from the dead-letter
+// queue and returns how many were discarded.
 func (m *StreamManager) DiscardFailedBackupTasks(
 	ctx context.Context,
 	opts ...Option,
-) error {
+) (uint64, error) {
 	failed, err := m.ListFailedBackupTasks(ctx, opts...)
 	if err != nil {
-		return fmt.Errorf("while listing failed backup tasks: %w", err)
+		return 0, fmt.Errorf("while listing failed backup tasks: %w", err)
 	}
 
 	return purgeDLQEntries(m, klioDLQBackupStreamName, klioBackupStreamName, failed)
@@ -431,7 +433,9 @@ func (m *StreamManager) purgeWALDLQEntries(ctx context.Context, clusterName, wal
 		return err
 	}
 
-	return purgeDLQEntries(m, klioDLQWalStreamName, klioWalStreamName, failed)
+	_, err = purgeDLQEntries(m, klioDLQWalStreamName, klioWalStreamName, failed)
+
+	return err
 }
 
 // purgeBackupDLQEntries removes every backup dead-letter queue entry belonging to the
@@ -443,40 +447,47 @@ func (m *StreamManager) purgeBackupDLQEntries(ctx context.Context, clusterName s
 		return err
 	}
 
-	return purgeDLQEntries(m, klioDLQBackupStreamName, klioBackupStreamName, failed)
+	_, err = purgeDLQEntries(m, klioDLQBackupStreamName, klioBackupStreamName, failed)
+
+	return err
 }
 
-// purgeDLQEntries removes the given dead-letter queue entries from dlqName and
-// releases the original failed messages they reference from sourceName.
+// purgeDLQEntries removes the given dead-letter queue entries from dlqName,
+// releases the original failed messages they reference from sourceName, and
+// returns how many entries were purged.
 func purgeDLQEntries[T clusterTask](
 	m *StreamManager,
 	dlqName, sourceName string,
 	failed []FailedTask[T],
-) error {
+) (uint64, error) {
 	if len(failed) == 0 {
-		return nil
+		return 0, nil
 	}
 
 	dlqStream, err := m.loadStreamOrNil(dlqName)
 	if err != nil {
-		return err
+		return 0, err
 	}
 	sourceStream, err := m.loadStreamOrNil(sourceName)
 	if err != nil {
-		return err
+		return 0, err
 	}
 	if dlqStream == nil || sourceStream == nil {
-		return nil
+		return 0, nil
 	}
 
+	var purged uint64
 	var errs []error
 	for _, task := range failed {
 		if err := m.purgeDLQEntryBySequence(dlqStream, sourceStream, task.Sequence); err != nil {
 			errs = append(errs, err)
+
+			continue
 		}
+		purged++
 	}
 
-	return errors.Join(errs...)
+	return purged, errors.Join(errs...)
 }
 
 // loadStreamOrNil loads a stream by name, caching the handle.
