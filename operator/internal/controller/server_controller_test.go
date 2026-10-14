@@ -21,16 +21,21 @@ package controller
 
 import (
 	"context"
+	"errors"
+	"strings"
+	"time"
 
 	corev1 "k8s.io/api/core/v1"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/events"
+	"k8s.io/client-go/util/retry"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	kliov1alpha1 "github.com/cloudnative-pg/klio/operator/api/v1alpha1"
@@ -39,7 +44,68 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-const serverCRDName = "servers.klio.cnpg.io"
+const (
+	serverCRDName = "servers.klio.cnpg.io"
+
+	// schemaPropagationTimeout bounds the wait for a CRD schema change to be
+	// enforced by the API server.
+	schemaPropagationTimeout = 30 * time.Second
+	// schemaPropagationPolling is the interval between schema probes.
+	schemaPropagationPolling = 250 * time.Millisecond
+)
+
+var (
+	errStorageStillRequired = errors.New("the API server still requires spec.storage")
+	errStorageNotRequired   = errors.New("the API server does not require spec.storage yet")
+)
+
+// setServerSpecRequired sets the required fields of spec in the given
+// version of the Server CRD, retrying on conflicts.
+func setServerSpecRequired(ctx context.Context, versionIdx int, required []string) {
+	Expect(retry.RetryOnConflict(retry.DefaultRetry, func() error {
+		crd := &apiextensionsv1.CustomResourceDefinition{}
+		if err := k8sClient.Get(ctx, types.NamespacedName{Name: serverCRDName}, crd); err != nil {
+			return err
+		}
+		specSchema := crd.Spec.Versions[versionIdx].Schema.OpenAPIV3Schema.Properties["spec"]
+		specSchema.Required = required
+		crd.Spec.Versions[versionIdx].Schema.OpenAPIV3Schema.Properties["spec"] = specSchema
+
+		return k8sClient.Update(ctx, crd)
+	})).To(Succeed())
+}
+
+// isStorageRequiredError reports whether err is the validation error the
+// API server returns for a Server without spec.storage.
+func isStorageRequiredError(err error) bool {
+	return apierrors.IsInvalid(err) && strings.Contains(err.Error(), "spec.storage")
+}
+
+// waitForStorageRequirement waits until the API server enforces the given
+// spec.storage requirement. CRD schema changes are applied asynchronously,
+// so it probes with a dry-run create of withoutStorage, a Server lacking
+// spec.storage, under a generated name.
+func waitForStorageRequirement(ctx context.Context, withoutStorage *unstructured.Unstructured, required bool) {
+	probe := withoutStorage.DeepCopy()
+	probe.SetName("")
+	probe.SetGenerateName("schema-probe-")
+
+	Eventually(ctx, func(ctx context.Context) error {
+		err := k8sClient.Create(ctx, probe.DeepCopy(), client.DryRunAll)
+		switch {
+		case err == nil && required:
+			return errStorageNotRequired
+		case err == nil:
+			return nil
+		case isStorageRequiredError(err) && required:
+			return nil
+		case isStorageRequiredError(err):
+			return errStorageStillRequired
+		default:
+			return StopTrying("unexpected error probing the Server CRD schema").Wrap(err)
+		}
+	}).WithTimeout(schemaPropagationTimeout).WithPolling(schemaPropagationPolling).Should(Succeed())
+}
 
 var _ = Describe("Server Controller", func() {
 	Context("When reconciling a resource", func() {
@@ -56,7 +122,7 @@ var _ = Describe("Server Controller", func() {
 		BeforeEach(func() {
 			By("creating the custom resource for the Kind Server")
 			err := k8sClient.Get(ctx, typeNamespacedName, server)
-			if err != nil && errors.IsNotFound(err) {
+			if err != nil && apierrors.IsNotFound(err) {
 				pvcTemplate := corev1.PersistentVolumeClaimSpec{
 					AccessModes: []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce},
 					Resources: corev1.VolumeResourceRequirements{
@@ -156,7 +222,7 @@ var _ = Describe("Server Controller", func() {
 			storageName := "server-without-storage"
 			storageKey := types.NamespacedName{Name: storageName, Namespace: "default"}
 
-			By("relaxing the CRD's required fields so a Server without spec.storage can be created")
+			By("finding the storage version of the Server CRD")
 			crd := &apiextensionsv1.CustomResourceDefinition{}
 			Expect(k8sClient.Get(ctx, types.NamespacedName{Name: serverCRDName}, crd)).To(Succeed())
 
@@ -169,29 +235,14 @@ var _ = Describe("Server Controller", func() {
 			}
 			Expect(versionIdx).To(BeNumerically(">=", 0), "no storage version found for the Server CRD")
 
-			specSchema := crd.Spec.Versions[versionIdx].Schema.OpenAPIV3Schema.Properties["spec"]
-			originalRequired := specSchema.Required
+			originalRequired := crd.Spec.Versions[versionIdx].Schema.OpenAPIV3Schema.Properties["spec"].Required
 			relaxedRequired := make([]string, 0, len(originalRequired))
 			for _, field := range originalRequired {
 				if field != "storage" {
 					relaxedRequired = append(relaxedRequired, field)
 				}
 			}
-			specSchema.Required = relaxedRequired
-			crd.Spec.Versions[versionIdx].Schema.OpenAPIV3Schema.Properties["spec"] = specSchema
-			Expect(k8sClient.Update(ctx, crd)).To(Succeed())
 
-			DeferCleanup(func() {
-				By("restoring the storage requirement on the CRD")
-				restored := &apiextensionsv1.CustomResourceDefinition{}
-				Expect(k8sClient.Get(ctx, types.NamespacedName{Name: serverCRDName}, restored)).To(Succeed())
-				restoredSpecSchema := restored.Spec.Versions[versionIdx].Schema.OpenAPIV3Schema.Properties["spec"]
-				restoredSpecSchema.Required = originalRequired
-				restored.Spec.Versions[versionIdx].Schema.OpenAPIV3Schema.Properties["spec"] = restoredSpecSchema
-				Expect(k8sClient.Update(ctx, restored)).To(Succeed())
-			})
-
-			By("creating a Server with no spec.storage")
 			typed := &kliov1alpha1.Server{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      storageName,
@@ -232,7 +283,21 @@ var _ = Describe("Server Controller", func() {
 
 			withoutStorage := &unstructured.Unstructured{Object: asMap}
 			withoutStorage.SetGroupVersionKind(kliov1alpha1.GroupVersion.WithKind("Server"))
-			Expect(k8sClient.Create(ctx, withoutStorage)).To(Succeed())
+			restoreRequired := func(ctx context.Context) {
+				setServerSpecRequired(ctx, versionIdx, originalRequired)
+				waitForStorageRequirement(ctx, withoutStorage, true)
+			}
+			DeferCleanup(func(ctx SpecContext) {
+				By("restoring the storage requirement on the CRD")
+				restoreRequired(ctx)
+			})
+
+			By("relaxing the CRD's required fields so a Server without spec.storage can be created")
+			setServerSpecRequired(ctx, versionIdx, relaxedRequired)
+			waitForStorageRequirement(ctx, withoutStorage, false)
+
+			By("creating a Server with no spec.storage")
+			Expect(k8sClient.Create(ctx, withoutStorage.DeepCopy())).To(Succeed())
 
 			DeferCleanup(func() {
 				current := &unstructured.Unstructured{}
@@ -242,12 +307,7 @@ var _ = Describe("Server Controller", func() {
 			})
 
 			By("restoring the CRD's required fields")
-			restored := &apiextensionsv1.CustomResourceDefinition{}
-			Expect(k8sClient.Get(ctx, types.NamespacedName{Name: serverCRDName}, restored)).To(Succeed())
-			restoredSpecSchema := restored.Spec.Versions[versionIdx].Schema.OpenAPIV3Schema.Properties["spec"]
-			restoredSpecSchema.Required = originalRequired
-			restored.Spec.Versions[versionIdx].Schema.OpenAPIV3Schema.Properties["spec"] = restoredSpecSchema
-			Expect(k8sClient.Update(ctx, restored)).To(Succeed())
+			restoreRequired(ctx)
 
 			By("updating the Server to add spec.storage")
 			current := &unstructured.Unstructured{}
