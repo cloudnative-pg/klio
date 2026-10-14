@@ -132,7 +132,8 @@ var discardBackupCmd = &cobra.Command{
 	Long: "Discard failed backup tasks in the queue.\n\n" +
 		"A cluster name is required, and all failed backup tasks for that cluster " +
 		"are discarded. Pass --all-clusters instead of a cluster name to discard all " +
-		"failed backup tasks across every cluster.",
+		"failed backup tasks across every cluster.\n\n" +
+		"The number of discarded tasks is printed when the command completes.",
 	Args: failedTaskArgs(cobra.ExactArgs(1)),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		return runFailedTaskAction(cmd, args,

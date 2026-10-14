@@ -140,7 +140,8 @@ var discardWALCmd = &cobra.Command{
 		"A cluster name is required, and all failed WAL tasks for that cluster " +
 		"are discarded. If WAL files are also given, only those are discarded. Pass " +
 		"--all-clusters instead of a cluster name to discard all failed WAL tasks " +
-		"across every cluster.",
+		"across every cluster.\n\n" +
+		"The number of discarded tasks is printed when the command completes.",
 	Args: failedTaskArgs(cobra.MinimumNArgs(1)),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		return runFailedTaskAction(cmd, args,
