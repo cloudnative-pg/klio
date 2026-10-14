@@ -19,7 +19,7 @@ require (
 	github.com/google/uuid v1.6.0
 	github.com/jackc/pglogrepl v0.0.0-20261003132456-662581bb6bb6
 	github.com/jackc/pgx/v5 v5.11.0
-	github.com/klauspost/compress v1.20.1
+	github.com/klauspost/compress v1.20.3
 	github.com/minio/sio v0.5.1
 	github.com/nats-io/jsm.go v0.4.2-0.20260709123851-d83d1a19c05f // pinned to main for StreamPager cross-delivery fix; switch to a released tag once available
 	github.com/nats-io/nats-server/v2 v2.15.1
