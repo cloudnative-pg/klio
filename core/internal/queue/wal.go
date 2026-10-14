@@ -134,7 +134,7 @@ func (q *Conn) GetLatestUploadedWAL(_ context.Context, clusterName string) (stri
 		return "", fmt.Errorf("while fetching latest uploaded WAL message: %w", err)
 	}
 	if msg == nil {
-		return "", fmt.Errorf("while fetching latest uploaded WAL message: %w", errAmbiguousStreamRead)
+		return "", fmt.Errorf("while fetching latest uploaded WAL message: %w", errAmbiguousSourceRead)
 	}
 
 	var task WALTask
