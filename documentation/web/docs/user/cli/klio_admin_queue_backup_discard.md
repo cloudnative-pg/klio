@@ -12,6 +12,8 @@ Discard failed backup tasks in the queue.
 
 A cluster name is required, and all failed backup tasks for that cluster are discarded. Pass --all-clusters instead of a cluster name to discard all failed backup tasks across every cluster.
 
+The number of discarded tasks is printed when the command completes.
+
 ```
 klio admin queue backup discard [cluster-name] [flags]
 ```
