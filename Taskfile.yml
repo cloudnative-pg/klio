@@ -171,7 +171,7 @@ tasks:
       # renovate: datasource=github-tags depName=goreleaser/goreleaser versioning=semver
       GORELEASER_VERSION: v2.18.3
       # renovate: datasource=docker depName=golang versioning=docker
-      GOLANG_IMAGE_VERSION: 1.27.2@sha256:5bc7f572bbaa98885a3a1fd9c0aa76b59e3e14e8628bfc316bbfd0c701e4818c
+      GOLANG_IMAGE_VERSION: 1.27.2@sha256:820153096fda4de6ac1b7194d12e416b7dd8f4e9a33d17e0345b111b945162d8
     run: once
     cmds:
       # Goreleaser needs the .git directory to figure out the version from the tags.
@@ -222,7 +222,7 @@ tasks:
       # renovate: datasource=github-tags depName=goreleaser/goreleaser versioning=semver
       GORELEASER_VERSION: v2.18.3
       # renovate: datasource=docker depName=golang versioning=docker
-      GOLANG_IMAGE_VERSION: 1.27.2@sha256:5bc7f572bbaa98885a3a1fd9c0aa76b59e3e14e8628bfc316bbfd0c701e4818c
+      GOLANG_IMAGE_VERSION: 1.27.2@sha256:820153096fda4de6ac1b7194d12e416b7dd8f4e9a33d17e0345b111b945162d8
     cmds:
       # Goreleaser needs the .git directory to figure out the version from the tags.
       # Given that it is easier to have .goreleaser.yaml in the core directory, we
@@ -469,7 +469,7 @@ tasks:
     dir: '{{ .WORKDIR }}'
     env:
       # renovate: datasource=docker depName=golang versioning=docker
-      GOLANG_IMAGE_VERSION: 1.27.2@sha256:5bc7f572bbaa98885a3a1fd9c0aa76b59e3e14e8628bfc316bbfd0c701e4818c
+      GOLANG_IMAGE_VERSION: 1.27.2@sha256:820153096fda4de6ac1b7194d12e416b7dd8f4e9a33d17e0345b111b945162d8
       # renovate: datasource=custom.envtest depName=kubernetes packageName=https://github.com/kubernetes/kubernetes versioning=semver
       K8S_VERSION: 1.37.0
       # renovate: datasource=git-refs depName=controller-runtime packageName=https://github.com/kubernetes-sigs/controller-runtime versioning=semver
@@ -621,7 +621,7 @@ tasks:
       # renovate: datasource=git-refs depName=controller-gen lookupName=https://github.com/cloudnative-pg/daggerverse currentValue=main
       DAGGER_CONTROLLER_GEN_SHA: dc19c14a7a71ffd692795326d897702b855de461
       # renovate: datasource=docker depName=golang versioning=docker
-      GOLANG_IMAGE_VERSION: 1.27.2@sha256:5bc7f572bbaa98885a3a1fd9c0aa76b59e3e14e8628bfc316bbfd0c701e4818c
+      GOLANG_IMAGE_VERSION: 1.27.2@sha256:820153096fda4de6ac1b7194d12e416b7dd8f4e9a33d17e0345b111b945162d8
     cmds:
       - >
         GITHUB_REF= dagger -s call -m github.com/cloudnative-pg/daggerverse/controller-gen@${DAGGER_CONTROLLER_GEN_SHA}

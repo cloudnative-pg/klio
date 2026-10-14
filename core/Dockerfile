@@ -3,7 +3,7 @@
 ARG BASE_IMAGE=debian:13.7-slim@sha256:a29215f6a35e51e22adffa17f89e9d2ef06214e64a2bad10d765c46aea49f11f
 
 # Build Kopia on the host platform for the target platform
-FROM --platform=${BUILDPLATFORM} golang:1.27.2@sha256:5bc7f572bbaa98885a3a1fd9c0aa76b59e3e14e8628bfc316bbfd0c701e4818c AS builder
+FROM --platform=${BUILDPLATFORM} golang:1.27.2@sha256:820153096fda4de6ac1b7194d12e416b7dd8f4e9a33d17e0345b111b945162d8 AS builder
 
 ARG TARGETOS
 ARG TARGETARCH
