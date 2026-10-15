@@ -1512,7 +1512,7 @@ tasks:
     desc: Lint the generated Grafana dashboard JSON with gcx
     vars:
       # renovate: datasource=github-releases depName=grafana/gcx versioning=semver
-      GCX_VERSION: 1.5.0
+      GCX_VERSION: 1.6.0
       # renovate: datasource=docker depName=golang versioning=docker
       GOLANG_IMAGE_VERSION: 1.27.2-alpine@sha256:f92b6ef800e499660581efdabdf25d9d817a9d124eaf900924f0504e7e27e12d
       # gcx dev lint only accepts the resource-as-code envelope, so the classic
