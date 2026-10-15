@@ -10,6 +10,45 @@ see the [Helm chart page](helm_chart.mdx#upgrades).
 
 ## 0.0.20 to 0.0.21
 
+### Upgrade procedure
+
+This release changes both the `Server` and the `PluginConfiguration` CRDs
+in incompatible ways, and every `Server` must be migrated to a new storage
+layout by hand. Klio cannot archive WAL files or take backups until each
+`Server` is migrated, so run the whole procedure in a maintenance window,
+in this order:
+
+1. **Prepare.** Remove any `klio-restore` entry from your
+   `PluginConfiguration` resources (see
+   [The `klio-restore` container is gone](#the-klio-restore-container-is-gone)),
+   work out the PVC name, size and StorageClass of each `Server` (see
+   [Migrating from the Multi-PVC Model](#migrating-from-the-multi-pvc-model)),
+   and write the updated `Server` and `PluginConfiguration` manifests.
+
+1. **[Upgrade the CRDs](helm_chart.mdx#upgrade-the-crds).** From this
+   moment every `Server` on the old layout is down, even before the
+   operator is upgraded. PostgreSQL keeps the WAL files in the `klio`
+   replication slot until the `Server` is back, so make sure the
+   PostgreSQL volumes have room for them.
+
+1. **[Upgrade the operator](helm_chart.mdx#upgrade-the-operator).** The
+   PostgreSQL instance pods of every cluster using Klio are restarted to
+   roll out the new `klio-plugin` sidecar.
+
+1. **Migrate each `Server`** to the unified PVC and apply its updated
+   manifest, following
+   [Migrating from the Multi-PVC Model](#migrating-from-the-multi-pvc-model).
+
+1. **Update each `PluginConfiguration`** to the new retention format (see
+   [Klio-managed retention policies](#klio-managed-retention-policies)).
+
+1. **Verify.** Take a backup of each cluster and check that it completes.
+
+The old manifests are not accepted any more: applying a `Server` or
+`PluginConfiguration` manifest written for 0.0.20 fails with errors such as
+`unknown field "spec.queue"` or
+`unknown field "spec.tier1.retention.keepLatest"`.
+
 ### Klio-managed retention policies
 
 Retention is now enforced by the Klio server, which periodically evaluates
@@ -22,6 +61,9 @@ outside it, instead of delegating the decision to Kopia.
   field, which keeps the given number of most recent backups. Update any
   `tier1.retention` and `tier2.retention` blocks accordingly. Omit the block,
   or set `latest` to `0`, to keep every backup.
+- Once the new CRDs are applied, Kubernetes silently drops the old `keep*`
+  fields from existing `PluginConfiguration` resources, so Klio keeps every
+  backup until you set `latest`.
 - Kopia's own retention is disabled: on start, the Klio server sets the
   global Kopia retention policy of each tier to keep every snapshot and
   resets the per-source retention policies written by earlier versions to
@@ -35,7 +77,8 @@ The `klio-plugin` sidecar now also serves the restore while a cluster
 bootstraps from a Klio backup, so Klio no longer injects a separate
 `klio-restore` container into the recovery Job. The `PluginConfiguration`
 CRD only accepts `klio-plugin` in `spec.containers`: a `PluginConfiguration`
-that still lists a `klio-restore` entry is rejected on its next update, and
+that still lists a `klio-restore` entry is rejected on its next change to
+`spec.containers`, and
 its status cannot be written on Kubernetes versions without CRD validation
 ratcheting. Remove the `klio-restore` entry and move any customization you
 need onto `klio-plugin` before upgrading.
@@ -56,22 +99,22 @@ moved to the new PVC. `cachetier1` and `cachetier2` will be automatically
 recreated and populated on demand.
 
 :::warning Plan for immediate, cluster-wide downtime on upgrade
-Upgrading the operator to 0.0.21 deletes the StatefulSet for
+Applying the 0.0.21 CRDs deletes the StatefulSet for
 **every** Server still on the old PVC layout, the
-moment the new operator starts reconciling them — not when you get
+moment the operator reconciles them — not when you get
 around to migrating a given server. There is no way to defer or stage
 this per server. Work out the PVC name and StorageClass for each
 server (step 2 below) and schedule a maintenance window *before*
-upgrading the operator, not after.
+applying the CRDs, not after.
 
-Between the operator upgrade and the Server rewrite (step 4), the
+Between the CRD upgrade and the Server rewrite (step 4), the
 `Server` object shows no status and emits no event: the only signal
 that a given server is affected is an operator log line such as
 `failed to reconcile statefulset ...
 spec.volumeClaimTemplates[0].spec.accessModes: Required value`.
 :::
 
-1. **Installing the operator 0.0.21 will delete the StatefulSets and
+1. **Applying the 0.0.21 CRDs will delete the StatefulSets and
    the pods associated with the `Server` resources**.
    The old PVCs survive this because the StatefulSet's
    `persistentVolumeClaimRetentionPolicy` is `Retain`.
