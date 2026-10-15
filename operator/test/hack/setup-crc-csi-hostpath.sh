@@ -42,7 +42,7 @@ EXTERNAL_ATTACHER_VERSION="v4.13.0"
 # renovate: datasource=github-releases depName=kubernetes-csi/external-resizer
 EXTERNAL_RESIZER_VERSION="v2.3.0"
 # renovate: datasource=github-releases depName=kubernetes-csi/external-snapshotter
-EXTERNAL_SNAPSHOTTER_VERSION="v8.6.0"
+EXTERNAL_SNAPSHOTTER_VERSION="v8.7.0"
 # renovate: datasource=github-releases depName=kubernetes-csi/external-health-monitor
 EXTERNAL_HEALTH_MONITOR_VERSION="v0.19.0"
 
