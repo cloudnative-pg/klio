@@ -239,9 +239,10 @@ type ClientWalMetrics struct {
 // download, and the spool→destination rename). Each recording carries an
 // `outcome` (`success` / `failure` / `not_found`), a `cache_hit` (`true` when
 // the segment was already complete in the prefetch spool when PostgreSQL asked
-// for it), a `tier` (which storage tier served it), and a `cluster_name`. A
-// restore that fails before a tier is chosen reports `tier` and `cluster_name`
-// as `unknown`.
+// for it), a `tier` (the tier that served it, or the one that failed), and a
+// `cluster_name`. `tier` is `unknown` on a `not_found` restore and on one that
+// fails before a tier is tried; `cluster_name` is `unknown` when the restore
+// fails before the cluster is known.
 type PluginWalMetrics struct {
 	RestoreDuration metric.Int64Histogram
 }
@@ -533,7 +534,8 @@ func InitPluginWalMetrics() {
 			"history file that was never archived, which is the routine end-of-archive signal and not "+
 			"an error; `cache_hit` is `true` when the segment was already complete in the "+
 			"prefetch spool when PostgreSQL asked for it, so no download wait was needed; `tier` is the "+
-			"storage tier that served the restore; `cluster_name` identifies the PostgreSQL cluster."),
+			"storage tier that served the restore, or the one that failed, and `unknown` when no tier "+
+			"was tried or none held the file; `cluster_name` identifies the PostgreSQL cluster."),
 		metric.WithUnit("ns"),
 	)
 }
