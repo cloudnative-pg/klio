@@ -61,36 +61,6 @@ func (o Outcome) Attribute() attribute.KeyValue {
 	return AttributeKeyOutcome.Of(string(o))
 }
 
-// CacheHit identifies whether a plugin WAL restore was served straight from the
-// local prefetch spool (`true`) or had to wait on a download from the Klio
-// server (`false`), used as the value of the `cache_hit` attribute. A prefetch
-// still in flight when PostgreSQL asks counts as `false`, because the restore
-// waits for that download to finish.
-type CacheHit string
-
-const (
-	// CacheHitTrue marks a restore served from a speculative prefetch already
-	// waiting in the local spool.
-	CacheHitTrue CacheHit = "true"
-	// CacheHitFalse marks a restore that had to download the WAL (no prefetch
-	// hit, or a partial/fallback download).
-	CacheHitFalse CacheHit = "false"
-)
-
-// CacheHitOf maps a boolean prefetch-hit result to its CacheHit value.
-func CacheHitOf(hit bool) CacheHit {
-	if hit {
-		return CacheHitTrue
-	}
-
-	return CacheHitFalse
-}
-
-// Attribute returns the `cache_hit` attribute for this value.
-func (c CacheHit) Attribute() attribute.KeyValue {
-	return AttributeKeyCacheHit.Of(string(c))
-}
-
 // Stage identifies a single step in the per-block WAL pipeline, used as the
 // value of the `stage` attribute to split a block-duration histogram across
 // its constituent steps instead of emitting one instrument per step.
@@ -173,7 +143,8 @@ const (
 	AttributeKeyPath AttributeKey = "path"
 	// AttributeKeyCacheHit is the attribute key for whether a plugin WAL restore
 	// was served from a prefetch already complete in the spool (true) or had to
-	// wait on a download (false).
+	// wait on a download (false). A prefetch still in flight when PostgreSQL
+	// asks counts as false, because the restore waits for that download.
 	AttributeKeyCacheHit AttributeKey = "cache_hit"
 )
 

@@ -21,6 +21,7 @@ package cnpgi
 
 import (
 	"context"
+	"strconv"
 	"time"
 
 	"go.opentelemetry.io/otel/attribute"
@@ -95,7 +96,7 @@ func recordWalRestore(
 	opentelemetry.PluginWal.RestoreDuration.Record(ctx, duration.Nanoseconds(),
 		metric.WithAttributes(
 			info.result.Attribute(),
-			opentelemetry.CacheHitOf(info.cacheHit).Attribute(),
+			opentelemetry.AttributeKeyCacheHit.Of(strconv.FormatBool(info.cacheHit)),
 			opentelemetry.AttributeKeyTier.Of(restoreTier),
 			opentelemetry.AttributeKeyClusterName.Of(clusterName),
 		))

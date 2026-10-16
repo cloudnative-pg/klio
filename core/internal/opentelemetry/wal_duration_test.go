@@ -181,7 +181,7 @@ func TestPluginWalRestoreDuration(t *testing.T) {
 	opentelemetry.PluginWal.RestoreDuration.Record(ctx, 250_000_000,
 		metric.WithAttributes(
 			opentelemetry.OutcomeSuccess.Attribute(),
-			opentelemetry.CacheHitOf(true).Attribute(),
+			opentelemetry.AttributeKeyCacheHit.Of("true"),
 			opentelemetry.Tier1.Attribute(),
 			opentelemetry.AttributeKeyClusterName.Of("cluster-a"),
 		))
