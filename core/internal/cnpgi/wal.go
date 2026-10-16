@@ -136,9 +136,7 @@ func (w *walServiceImplementation) Restore(
 		return nil, errors.New("no WAL repository found for the cluster")
 	}
 
-	cacheHit, restoreTier, err := w.restoreWAL(ctx, walName, destinationPath, confPath)
-	outcome.cacheHit = cacheHit
-	outcome.tier = restoreTier
+	outcome, err = w.restoreWAL(ctx, walName, destinationPath, confPath)
 	outcome.result = restoreResult(err)
 	if outcome.result == opentelemetry.OutcomeNotFound {
 		return &wal.WALRestoreResult{}, status.Errorf(codes.NotFound, "WAL file not found: %q", walName)
@@ -175,9 +173,10 @@ func restoreResult(err error) opentelemetry.Outcome {
 }
 
 // restoreOutcome carries what Restore tags its end-to-end duration metric
-// with: the result it classifies from the restore error, plus the facts only
-// known deep in the restore path. On failure the latter hold whatever was known
-// so far (tier is the last one attempted, or empty; cacheHit is false).
+// with: the facts only known deep in the restore path, which restoreWAL
+// returns, plus the result Restore classifies from the restore error. On
+// failure the former hold whatever was known so far (tier is the last one
+// attempted, or empty; cacheHit is false).
 type restoreOutcome struct {
 	tier     tier
 	cacheHit bool
@@ -188,15 +187,15 @@ func (w *walServiceImplementation) restoreWAL(
 	ctx context.Context,
 	walName, destinationPath string,
 	configPath string,
-) (bool, tier, error) {
+) (restoreOutcome, error) {
 	cfg, err := config.NewFromFile(afero.NewOsFs(), configPath)
 	if err != nil {
-		return false, "", fmt.Errorf("while loading configuration from file %q: %w", configPath, err)
+		return restoreOutcome{}, fmt.Errorf("while loading configuration from file %q: %w", configPath, err)
 	}
 
 	tiers := availableTiers(cfg)
 	if len(tiers) == 0 {
-		return false, "", errors.New("no WAL tier configured")
+		return restoreOutcome{}, errors.New("no WAL tier configured")
 	}
 
 	// Try the previously-successful tier first, when both are available.
@@ -214,14 +213,14 @@ func (w *walServiceImplementation) restoreWAL(
 		}, walName, destinationPath)
 		if err == nil {
 			w.currentTier.Store(t)
-			return cacheHit, t, nil
+			return restoreOutcome{tier: t, cacheHit: cacheHit}, nil
 		}
 		if !errors.Is(err, errWALNotFound) {
-			return false, t, err
+			return restoreOutcome{tier: t}, err
 		}
 	}
 
-	return false, lastTier, errWALNotFound
+	return restoreOutcome{tier: lastTier}, errWALNotFound
 }
 
 // availableTiers returns the tiers the user has opted in to as recovery
