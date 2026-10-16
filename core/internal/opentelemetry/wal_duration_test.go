@@ -181,7 +181,7 @@ func TestPluginWalRestoreDuration(t *testing.T) {
 	opentelemetry.PluginWal.RestoreDuration.Record(ctx, 250_000_000,
 		metric.WithAttributes(
 			opentelemetry.OutcomeSuccess.Attribute(),
-			opentelemetry.AttributeKeyCacheHit.Of("true"),
+			attribute.Bool(string(opentelemetry.AttributeKeyCacheHit), true),
 			opentelemetry.Tier1.Attribute(),
 			opentelemetry.AttributeKeyClusterName.Of("cluster-a"),
 		))
@@ -195,7 +195,8 @@ func TestPluginWalRestoreDuration(t *testing.T) {
 
 	cacheHit, ok := dps[0].Attributes.Value(attribute.Key("cache_hit"))
 	require.True(t, ok, "data point must carry a cache_hit attribute")
-	assert.Equal(t, "true", cacheHit.AsString())
+	assert.Equal(t, attribute.BOOL, cacheHit.Type())
+	assert.True(t, cacheHit.AsBool())
 
 	tier, ok := dps[0].Attributes.Value(attribute.Key("tier"))
 	require.True(t, ok, "data point must carry a tier attribute")
