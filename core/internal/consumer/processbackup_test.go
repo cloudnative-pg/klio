@@ -37,9 +37,11 @@ type stubBackupSteps struct {
 	manifestsErr error
 	verifyErr    error
 	relayErr     error
+	refreshErr   error
 
-	verifyCalled bool
-	relayCalled  bool
+	verifyCalled  bool
+	relayCalled   bool
+	refreshCalled bool
 }
 
 func (s *stubBackupSteps) listManifests(_ context.Context, _ string) ([]kopia.Manifest, error) {
@@ -54,6 +56,11 @@ func (s *stubBackupSteps) verifyTier1(_ context.Context, _ string) error {
 func (s *stubBackupSteps) relayTier2(_ context.Context, _ *queue.BackupTask, _ []kopia.Manifest) error {
 	s.relayCalled = true
 	return s.relayErr
+}
+
+func (s *stubBackupSteps) refreshTier2(_ context.Context) error {
+	s.refreshCalled = true
+	return s.refreshErr
 }
 
 func TestProcessBackup(t *testing.T) {
@@ -74,10 +81,12 @@ func TestProcessBackup(t *testing.T) {
 		manifestsErr error
 		verifyErr    error
 		relayErr     error
+		refreshErr   error
 
-		wantErr    bool
-		wantVerify bool
-		wantRelay  bool
+		wantErr     bool
+		wantVerify  bool
+		wantRelay   bool
+		wantRefresh bool
 	}{
 		{
 			name:         "manifest listing fails is retried",
@@ -101,12 +110,23 @@ func TestProcessBackup(t *testing.T) {
 			wantVerify: true,
 		},
 		{
-			name:         "tier2 relay success",
+			name:         "tier2 relay success refreshes the tier2 server",
 			sendToTier2:  true,
 			tier2Enabled: true,
 			manifests:    someEntries,
 			wantVerify:   true,
 			wantRelay:    true,
+			wantRefresh:  true,
+		},
+		{
+			name:         "tier2 server refresh failure is not retried",
+			sendToTier2:  true,
+			tier2Enabled: true,
+			manifests:    someEntries,
+			refreshErr:   errBoom,
+			wantVerify:   true,
+			wantRelay:    true,
+			wantRefresh:  true,
 		},
 		{
 			name:         "tier2 relay failure is retried",
@@ -135,6 +155,7 @@ func TestProcessBackup(t *testing.T) {
 				manifestsErr: tt.manifestsErr,
 				verifyErr:    tt.verifyErr,
 				relayErr:     tt.relayErr,
+				refreshErr:   tt.refreshErr,
 			}
 
 			b := &Backup{
@@ -153,6 +174,9 @@ func TestProcessBackup(t *testing.T) {
 			}
 			if stub.relayCalled != tt.wantRelay {
 				t.Errorf("relayTier2 called = %v, want %v", stub.relayCalled, tt.wantRelay)
+			}
+			if stub.refreshCalled != tt.wantRefresh {
+				t.Errorf("refreshTier2 called = %v, want %v", stub.refreshCalled, tt.wantRefresh)
 			}
 		})
 	}

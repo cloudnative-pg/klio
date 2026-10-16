@@ -42,12 +42,13 @@ import (
 var errTier2NotConfigured = errors.New("backup requested tier2 relay but the server has no tier2 configured")
 
 // backupSteps is implemented by *Backup in production and by a test stub in
-// unit tests. It covers the five steps that processBackup orchestrates so
+// unit tests. It covers the steps that processBackup orchestrates so
 // that the orchestration logic can be exercised without real Kopia clients.
 type backupSteps interface {
 	listManifests(ctx context.Context, clusterName string) ([]kopia.Manifest, error)
 	verifyTier1(ctx context.Context, clusterName string) error
 	relayTier2(ctx context.Context, task *queue.BackupTask, entries []kopia.Manifest) error
+	refreshTier2(ctx context.Context) error
 }
 
 // Backup represents a Backup consumer.
@@ -71,6 +72,18 @@ type BackupOptions struct {
 
 	// A config file to connect to tier 2
 	Tier2KopiaConfig string
+
+	// Tier2ServerAddress is the address of the tier 2 Kopia server.
+	Tier2ServerAddress string
+
+	// Tier2ServerCertificateFingerprint is the SHA256 fingerprint of the tier 2 server certificate.
+	Tier2ServerCertificateFingerprint string
+
+	// RunID is the unique identifier for this server run.
+	RunID string
+
+	// RunSecret is the secret credential for server control operations.
+	RunSecret string
 
 	// The cache directory
 	CacheDirectory string
@@ -180,8 +193,34 @@ func (d *Backup) relayToTier2IfRequested(ctx context.Context, task *queue.Backup
 
 	relayErr := d.steps.relayTier2(ctx, task, entries)
 	recordRelay(ctx, task.ClusterName, relayErr)
+	if relayErr != nil {
+		return relayErr
+	}
 
-	return relayErr
+	// The relay writes the new snapshots directly to the tier2 repository,
+	// so the tier2 Kopia server doesn't list them until its cache is
+	// refreshed. This is best-effort: the backup is already safely on tier2,
+	// and the server picks it up on its next refresh anyway.
+	if err := d.steps.refreshTier2(ctx); err != nil {
+		contextLogger.Error(err, "Error while refreshing the tier2 Kopia server after relay, continuing",
+			"cluster", task.ClusterName)
+	}
+
+	return nil
+}
+
+// refreshTier2 makes the tier2 Kopia server reload the manifests from the
+// repository, so the relayed snapshots are listed by the clients.
+func (d *Backup) refreshTier2(ctx context.Context) error {
+	contextLogger := log.FromContext(ctx)
+	contextLogger.Info("Refreshing tier2 Kopia server cache after relay")
+
+	return d.tier2Kopia.RefreshServer(ctx, kopia.RefreshServerOptions{
+		ServerControlUser:     d.opts.RunID,
+		ServerControlPassword: d.opts.RunSecret,
+		ServerCertFingerprint: d.opts.Tier2ServerCertificateFingerprint,
+		Address:               d.opts.Tier2ServerAddress,
+	})
 }
 
 // relayTier2 migrates the cluster's backups to tier2 and verifies them there.
