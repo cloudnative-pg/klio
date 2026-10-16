@@ -212,6 +212,10 @@ var _ = Describe("Server Controller", func() {
 			Expect(err.Error()).To(ContainSubstring("storage PVC size cannot be decreased"))
 		})
 
+		// TODO: remove this test, along with the helpers used only by it
+		// (setServerSpecRequired, waitForStorageRequirement and
+		// isStorageRequiredError), once the Server CRD spec stabilizes and
+		// stored objects can no longer lack spec.storage.
 		It("should not error when adding spec.storage to a Server whose stored object lacks it", func() {
 			// spec.storage is required on write, but the required-field check
 			// does not apply retroactively: a Server stored while an older
