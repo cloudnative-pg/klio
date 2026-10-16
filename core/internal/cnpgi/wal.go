@@ -44,11 +44,13 @@ import (
 
 var errWALNotFound = errors.New("wal not found")
 
-type tier string
+// tier aliases opentelemetry.Tier so the `tier` attribute on the restore
+// metric and the tier the plugin restores from share a single definition.
+type tier = opentelemetry.Tier
 
 const (
-	tier1 tier = "tier1"
-	tier2 tier = "tier2"
+	tier1 = opentelemetry.Tier1
+	tier2 = opentelemetry.Tier2
 )
 
 type walServiceImplementation struct {
