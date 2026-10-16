@@ -949,7 +949,7 @@ func assertOTELWALRestoreMetrics(
 		"cluster_name": scenario.cnpgCluster.Name,
 	}
 	notFoundLabels := map[string]string{
-		"outcome": "not_found", "cluster_name": scenario.cnpgCluster.Name,
+		"outcome": "not_found", "tier": "unknown", "cluster_name": scenario.cnpgCluster.Name,
 	}
 
 	t.Log("Waiting for the WAL restore duration metric")

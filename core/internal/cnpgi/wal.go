@@ -177,8 +177,9 @@ func restoreResult(err error) opentelemetry.Outcome {
 // restoreOutcome carries what Restore tags its end-to-end duration metric
 // with: the facts only known deep in the restore path, which restoreWAL
 // returns, plus the result Restore classifies from the restore error. On
-// failure the former hold whatever was known so far (tier is the last one
-// attempted, or empty; cacheHit is false).
+// failure the former hold whatever was known so far (tier is the one that
+// failed, or empty when none was tried or none held the WAL; cacheHit is
+// false).
 type restoreOutcome struct {
 	tier     tier
 	cacheHit bool
@@ -206,9 +207,7 @@ func (w *walServiceImplementation) restoreWAL(
 		tiers[0], tiers[1] = tiers[1], tiers[0]
 	}
 
-	var lastTier tier
 	for _, t := range tiers {
-		lastTier = t
 		cacheHit, err := w.mgr.restoreWAL(ctx, walRestoreOptions{
 			configFile: configPath,
 			targetTier: t,
@@ -222,7 +221,9 @@ func (w *walServiceImplementation) restoreWAL(
 		}
 	}
 
-	return restoreOutcome{tier: lastTier}, errWALNotFound
+	// No tier served the WAL, so none is reported: naming the last one tried
+	// would split not_found restores across tiers by try order.
+	return restoreOutcome{}, errWALNotFound
 }
 
 // availableTiers returns the tiers the user has opted in to as recovery

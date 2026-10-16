@@ -160,7 +160,7 @@ attribute key.
 
 | Attribute | Values | Applies to |
 |---|---|---|
-| `tier` | `tier1` (local disk on the Klio server), `tier2` (remote object store); `unknown` on `klio.plugin.wal.restore_duration` when the restore failed before any tier was tried | All `klio.server.wal.*` and `klio.server.backup.*` instruments, `klio.plugin.wal.restore_duration`. |
+| `tier` | `tier1` (local disk on the Klio server), `tier2` (remote object store); `unknown` on `klio.plugin.wal.restore_duration` when the restore failed before any tier was tried, and on every `not_found` restore | All `klio.server.wal.*` and `klio.server.backup.*` instruments, `klio.plugin.wal.restore_duration`. |
 | `cluster_name` | Name of the PostgreSQL cluster the recording belongs to | All `klio.plugin.backup.*` instruments, `klio.plugin.wal.restore_duration`, all `klio.server.wal.*` instruments (counters, gauges, and the WAL duration histograms), `klio.client.wal.*`, the `klio.server.backup.*` PostgreSQL backup gauges (`backups`, `latest_backup_*`, `oldest_backup_*`) and the `klio.server.backup.relay` / `klio.server.backup.maintenance` counters. |
 | `outcome` | `success`, `failure`; `not_found` on `klio.plugin.wal.restore_duration` only | `klio.plugin.backup.runs`, `klio.plugin.wal.restore_duration`, `klio.server.backup.relay`, `klio.server.backup.maintenance`, `klio.server.backup.verifications`, and all WAL duration histograms (`klio.server.wal.*_duration`, `klio.client.wal.block_duration`). |
 | `cache_hit` | `true` (served from the prefetch spool), `false` (downloaded) | `klio.plugin.wal.restore_duration`. |
