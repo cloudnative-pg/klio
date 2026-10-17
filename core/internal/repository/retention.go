@@ -27,6 +27,8 @@ import (
 
 	"github.com/cloudnative-pg/machinery/pkg/log"
 	"github.com/spf13/afero"
+
+	"github.com/cloudnative-pg/klio/core/internal/wal"
 )
 
 // SetFirstRequiredOnCluster sets the first WAL that is required on a certain
@@ -115,7 +117,20 @@ func setFirstRequiredOnDirectory( //nolint:cyclop
 			continue
 		}
 
-		if path.Ext(baseName) != "" {
+		// A .partial file is either a WAL segment still being received or
+		// one left behind by an interrupted upload that was never
+		// resumed (see Writer.CloseMarkDone). Compare it against firstWAL
+		// using its underlying segment name, the same as a completed WAL
+		// file, instead of retaining it unconditionally: an upload still
+		// in progress always targets a WAL at or beyond the first
+		// required WAL, since no current backup can require a segment
+		// newer than the live write position, so this cannot delete an
+		// active upload. Other non-segment files (.backup, .history) are
+		// left untouched, as before.
+		compareName := baseName
+		if wal.IsPartialWALFile(baseName) {
+			compareName = wal.TrimPartialSuffix(baseName)
+		} else if path.Ext(baseName) != "" {
 			logger.Trace(
 				"Skipping potentially uncompleted WAL file",
 				"path", fullPath)
@@ -123,7 +138,7 @@ func setFirstRequiredOnDirectory( //nolint:cyclop
 			continue
 		}
 
-		if strings.Compare(baseName, firstWAL) == -1 {
+		if strings.Compare(compareName, firstWAL) == -1 {
 			if err := fs.Remove(fullPath); err != nil {
 				logger.Error(
 					err,
