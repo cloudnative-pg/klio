@@ -40,8 +40,8 @@ const tier2AnnotationName = "klio.io/tier2"
 // presentAnnotationValue is the value set when a backup is present in a tier.
 const presentAnnotationValue = "present"
 
-// backupMetadata is the subset of `klio admin list-backups` JSON output
-// needed to count backups.
+// backupMetadata is the subset of the `klio admin list-backups` and
+// `klio backup list` JSON output needed to count backups.
 type backupMetadata struct {
 	Name        string            `json:"name"`
 	ClusterName string            `json:"clusterName"`
@@ -55,9 +55,10 @@ func BackupCountEquals(
 	namespace, podName, containerName string,
 	expectedCount int,
 ) wait.ConditionWithContextFunc {
-	return backupCountMatches(r, namespace, podName, containerName, expectedCount, func(backupMetadata) bool {
-		return true
-	})
+	return backupCountMatches(r, namespace, podName, containerName, adminListBackupsCmd, expectedCount,
+		func(backupMetadata) bool {
+			return true
+		})
 }
 
 // Tier2BackupCountEquals checks if `klio admin list-backups`, run in the
@@ -68,23 +69,51 @@ func Tier2BackupCountEquals(
 	namespace, podName, containerName string,
 	expectedCount int,
 ) wait.ConditionWithContextFunc {
-	return backupCountMatches(r, namespace, podName, containerName, expectedCount, func(b backupMetadata) bool {
-		return b.Annotations[tier2AnnotationName] == presentAnnotationValue
-	})
+	return backupCountMatches(r, namespace, podName, containerName, adminListBackupsCmd, expectedCount,
+		isOnTier2)
 }
 
-// backupCountMatches lists backups via `klio admin list-backups` and checks
+// ClientTier2BackupCountEquals checks if `klio backup list`, run in the
+// given pod and container (usually the klio-plugin sidecar of a cluster
+// instance) with the given Klio configuration file, reports exactly
+// expectedCount backups present in tier2 storage.
+//
+// Unlike `klio admin list-backups`, which reads the repositories directly,
+// this goes through the Klio server's Kopia servers, so it only succeeds
+// once their manifest cache reflects the backups.
+func ClientTier2BackupCountEquals(
+	r *resources.Resources,
+	namespace, podName, containerName, configPath string,
+	expectedCount int,
+) wait.ConditionWithContextFunc {
+	cmd := []string{"klio", "backup", "list", "--config", configPath}
+
+	return backupCountMatches(r, namespace, podName, containerName, cmd, expectedCount, isOnTier2)
+}
+
+// adminListBackupsCmd lists the backups of every cluster, reading the
+// repositories directly from the Klio server pod.
+//
+//nolint:gochecknoglobals
+var adminListBackupsCmd = []string{"klio", "admin", "list-backups"}
+
+// isOnTier2 reports whether the backup is marked as present in tier2.
+func isOnTier2(b backupMetadata) bool {
+	return b.Annotations[tier2AnnotationName] == presentAnnotationValue
+}
+
+// backupCountMatches lists backups with the given klio command and checks
 // that exactly expectedCount of them match the given predicate. It returns
 // (false, nil) on transient errors, so the wait keeps retrying.
 func backupCountMatches(
 	r *resources.Resources,
 	namespace, podName, containerName string,
+	cmd []string,
 	expectedCount int,
 	predicate func(backupMetadata) bool,
 ) wait.ConditionWithContextFunc {
 	return func(ctx context.Context) (bool, error) {
 		var stdout, stderr bytes.Buffer
-		cmd := []string{"klio", "admin", "list-backups"}
 		if err := r.ExecInPod(ctx, namespace, podName, containerName, cmd, &stdout, &stderr); err != nil {
 			return false, nil //nolint:nilerr // keep retrying on transient failures
 		}

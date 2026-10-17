@@ -174,14 +174,15 @@ func (s *tier2RecoveryScenario) deployRecoveryServer(
 	_ *cnpgv1.Cluster,
 	r *resources.Resources,
 ) error {
-	return deployTier2RecoveryServer(ctx, r, s.namespace.Name, s.klioServer.Name, 1, &tier2RecoveryServerResources{
-		RecoveryServerCertificate:   s.recoveryServerCertificate,
-		RecoveryServerCACertificate: s.recoveryServerCACertificate,
-		RecoveryServerCAIssuer:      s.recoveryServerCAIssuer,
-		RecoveryUserCertificate:     s.recoveryUserCertificate,
-		RecoveryServer:              s.recoveryServer,
-		PluginConfigurationRecovery: s.klioPluginConfigurationRecovery,
-	})
+	return deployTier2RecoveryServer(ctx, r, s.namespace.Name, s.klioServer.Name, s.sourcePrimaryPod.Name, 1,
+		&tier2RecoveryServerResources{
+			RecoveryServerCertificate:   s.recoveryServerCertificate,
+			RecoveryServerCACertificate: s.recoveryServerCACertificate,
+			RecoveryServerCAIssuer:      s.recoveryServerCAIssuer,
+			RecoveryUserCertificate:     s.recoveryUserCertificate,
+			RecoveryServer:              s.recoveryServer,
+			PluginConfigurationRecovery: s.klioPluginConfigurationRecovery,
+		})
 }
 
 // NewTier2RecoveryFeatureConfig creates a new tier2 recovery feature configuration.

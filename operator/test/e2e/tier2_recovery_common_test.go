@@ -35,6 +35,7 @@ import (
 	"sigs.k8s.io/e2e-framework/klient/wait"
 
 	kliov1alpha1 "github.com/cloudnative-pg/klio/operator/api/v1alpha1"
+	"github.com/cloudnative-pg/klio/operator/internal/cnpgi"
 	"github.com/cloudnative-pg/klio/operator/internal/klioconfig"
 	klioConditions "github.com/cloudnative-pg/klio/operator/test/klio/conditions"
 	"github.com/cloudnative-pg/klio/operator/test/utils/conditions"
@@ -48,6 +49,10 @@ import (
 const (
 	// kopiaContainerName is the name of the container running kopia in the Klio server pod.
 	serverContainerName = "server"
+
+	// klioClientConfigPath is the Klio configuration file mounted in the
+	// klio-plugin sidecar of the cluster instances.
+	klioClientConfigPath = "/var/lib/postgresql/klio/klio-archive"
 
 	// Tier2 test cluster names.
 	tier2SourceClusterName   = "pg-source"
@@ -115,7 +120,9 @@ type tier2RecoveryServerResources struct {
 }
 
 // deployTier2RecoveryServer creates the recovery Klio Server after tier2
-// replication has delivered exactly expectedBackupCount backups.
+// replication has delivered exactly expectedBackupCount backups, and the
+// source cluster (through its primary's klio-plugin sidecar) lists them as
+// present in tier2.
 //
 //nolint:cyclop
 func deployTier2RecoveryServer(
@@ -123,6 +130,7 @@ func deployTier2RecoveryServer(
 	r *resources.Resources,
 	namespace string,
 	sourceServerName string,
+	sourcePrimaryPodName string,
 	expectedBackupCount int,
 	resources *tier2RecoveryServerResources,
 ) error {
@@ -135,6 +143,20 @@ func deployTier2RecoveryServer(
 	)
 	if err != nil {
 		return fmt.Errorf("tier2 replication not complete: %w", err)
+	}
+
+	// The check above reads the tier2 repository directly. Clients go
+	// through the tier2 Kopia server instead, which only lists the relayed
+	// backups once its cache has been refreshed after the relay.
+	err = wait.For(
+		klioConditions.ClientTier2BackupCountEquals(
+			r, namespace, sourcePrimaryPodName, cnpgi.KlioPluginContainerName,
+			klioClientConfigPath, expectedBackupCount),
+		wait.WithTimeout(2*time.Minute),
+		wait.WithInterval(10*time.Second),
+	)
+	if err != nil {
+		return fmt.Errorf("tier2 backups not listed by the source cluster client: %w", err)
 	}
 
 	// Now create second Klio Server after backup has reached tier2

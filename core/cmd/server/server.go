@@ -309,6 +309,8 @@ func runServer(ctx context.Context, opts serverOpts) error {
 			Tier1KopiaConfigFile: tier1ConfigFileName,
 			Tier2KopiaConfigFile: tier2RWConfigFileName,
 			QueueURL:             queueURL,
+			RunID:                opts.runID,
+			RunSecret:            opts.runSecret,
 		})
 		postBackup.Add(&server.RetentionSweeper{
 			Config:               opts.cfg,
