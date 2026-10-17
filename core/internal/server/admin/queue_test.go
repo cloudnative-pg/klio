@@ -34,7 +34,9 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/grpc/status"
 
 	klioGRPC "github.com/cloudnative-pg/klio/core/internal/grpc"
 	"github.com/cloudnative-pg/klio/core/internal/queue"
@@ -230,4 +232,185 @@ func TestQueueListFailedBackupsOverSocket(t *testing.T) {
 		require.NoError(t, err)
 		assert.Len(t, resp.GetBackups(), 2)
 	})
+}
+
+// startQueueFixture starts NATS with the Klio streams and an admin server.
+//
+//nolint:ireturn // returns jetstream and gRPC client interfaces
+func startQueueFixture(t *testing.T) (jetstream.JetStream, klioGRPC.AdminClient) {
+	t.Helper()
+
+	url := startNATSServer(t)
+
+	nc, err := nats.Connect(url)
+	require.NoError(t, err)
+	t.Cleanup(nc.Close)
+
+	_, err = queue.New(t.Context(), nc)
+	require.NoError(t, err)
+
+	js, err := jetstream.New(nc)
+	require.NoError(t, err)
+
+	return js, klioGRPC.NewAdminClient(startAdminServer(t, url))
+}
+
+// streamMsgs returns the message count of the named stream.
+func streamMsgs(t *testing.T, js jetstream.JetStream, name string) uint64 {
+	t.Helper()
+
+	stream, err := js.Stream(t.Context(), name)
+	require.NoError(t, err)
+
+	info, err := stream.Info(t.Context())
+	require.NoError(t, err)
+
+	return info.State.Msgs
+}
+
+func TestQueueDiscardWALsOverSocket(t *testing.T) {
+	seed := func(t *testing.T) (jetstream.JetStream, klioGRPC.AdminClient) {
+		t.Helper()
+
+		js, client := startQueueFixture(t)
+		seedFailedTask(t, js, "klio.wal.cluster-a", walStreamName, walConsumerName,
+			queue.WALTask{ClusterName: "cluster-a", WALName: "000000010000000000000001"}, 10)
+		seedFailedTask(t, js, "klio.wal.cluster-a", walStreamName, walConsumerName,
+			queue.WALTask{ClusterName: "cluster-a", WALName: "000000010000000000000002"}, 10)
+		seedFailedTask(t, js, "klio.wal.cluster-b", walStreamName, walConsumerName,
+			queue.WALTask{ClusterName: "cluster-b", WALName: "000000010000000000000003"}, 7)
+		require.Equal(t, uint64(3), streamMsgs(t, js, walStreamName))
+
+		return js, client
+	}
+
+	listWALs := func(t *testing.T, client klioGRPC.AdminClient) []string {
+		t.Helper()
+
+		resp, err := client.QueueListFailedWALs(t.Context(), &klioGRPC.QueueListFailedWALsRequest{})
+		require.NoError(t, err)
+
+		names := make([]string, 0, len(resp.GetWals()))
+		for _, w := range resp.GetWals() {
+			names = append(names, w.GetWalName())
+		}
+
+		return names
+	}
+
+	t.Run("by cluster and WAL name", func(t *testing.T) {
+		js, client := seed(t)
+
+		cluster := "cluster-a"
+		resp, err := client.QueueDiscardWALs(t.Context(), &klioGRPC.QueueDiscardWALsRequest{
+			ClusterName: &cluster,
+			WalNames:    []string{"000000010000000000000001"},
+		})
+		require.NoError(t, err)
+		assert.Equal(t, uint64(1), resp.GetDiscarded())
+
+		assert.ElementsMatch(t,
+			[]string{"000000010000000000000002", "000000010000000000000003"}, listWALs(t, client))
+		assert.Equal(t, uint64(2), streamMsgs(t, js, walStreamName), "source message not released")
+	})
+
+	t.Run("by cluster", func(t *testing.T) {
+		js, client := seed(t)
+
+		cluster := "cluster-b"
+		resp, err := client.QueueDiscardWALs(t.Context(),
+			&klioGRPC.QueueDiscardWALsRequest{ClusterName: &cluster})
+		require.NoError(t, err)
+		assert.Equal(t, uint64(1), resp.GetDiscarded())
+
+		assert.ElementsMatch(t,
+			[]string{"000000010000000000000001", "000000010000000000000002"}, listWALs(t, client))
+		assert.Equal(t, uint64(2), streamMsgs(t, js, walStreamName))
+	})
+
+	t.Run("every cluster", func(t *testing.T) {
+		js, client := seed(t)
+
+		resp, err := client.QueueDiscardWALs(t.Context(), &klioGRPC.QueueDiscardWALsRequest{})
+		require.NoError(t, err)
+		assert.Equal(t, uint64(3), resp.GetDiscarded())
+
+		assert.Empty(t, listWALs(t, client))
+		assert.Zero(t, streamMsgs(t, js, walStreamName))
+	})
+
+	t.Run("WAL names without a cluster are rejected", func(t *testing.T) {
+		js, client := seed(t)
+
+		_, err := client.QueueDiscardWALs(t.Context(), &klioGRPC.QueueDiscardWALsRequest{
+			WalNames: []string{"000000010000000000000001"},
+		})
+		assert.Equal(t, codes.InvalidArgument, status.Code(err))
+
+		assert.Len(t, listWALs(t, client), 3)
+		assert.Equal(t, uint64(3), streamMsgs(t, js, walStreamName))
+	})
+}
+
+func TestQueueDiscardBackupsOverSocket(t *testing.T) {
+	seed := func(t *testing.T) (jetstream.JetStream, klioGRPC.AdminClient) {
+		t.Helper()
+
+		js, client := startQueueFixture(t)
+		seedFailedTask(t, js, "klio.backup.cluster-a", backupStreamName, backupConsumerName,
+			queue.BackupTask{ClusterName: "cluster-a"}, 5)
+		seedFailedTask(t, js, "klio.backup.cluster-b", backupStreamName, backupConsumerName,
+			queue.BackupTask{ClusterName: "cluster-b"}, 3)
+		require.Equal(t, uint64(2), streamMsgs(t, js, backupStreamName))
+
+		return js, client
+	}
+
+	listClusters := func(t *testing.T, client klioGRPC.AdminClient) []string {
+		t.Helper()
+
+		resp, err := client.QueueListFailedBackups(t.Context(), &klioGRPC.QueueListFailedBackupsRequest{})
+		require.NoError(t, err)
+
+		clusters := make([]string, 0, len(resp.GetBackups()))
+		for _, b := range resp.GetBackups() {
+			clusters = append(clusters, b.GetClusterName())
+		}
+
+		return clusters
+	}
+
+	t.Run("by cluster", func(t *testing.T) {
+		js, client := seed(t)
+
+		cluster := "cluster-a"
+		resp, err := client.QueueDiscardBackups(t.Context(),
+			&klioGRPC.QueueDiscardBackupsRequest{ClusterName: &cluster})
+		require.NoError(t, err)
+		assert.Equal(t, uint64(1), resp.GetDiscarded())
+
+		assert.Equal(t, []string{"cluster-b"}, listClusters(t, client))
+		assert.Equal(t, uint64(1), streamMsgs(t, js, backupStreamName), "source message not released")
+	})
+
+	t.Run("every cluster", func(t *testing.T) {
+		js, client := seed(t)
+
+		resp, err := client.QueueDiscardBackups(t.Context(), &klioGRPC.QueueDiscardBackupsRequest{})
+		require.NoError(t, err)
+		assert.Equal(t, uint64(2), resp.GetDiscarded())
+
+		assert.Empty(t, listClusters(t, client))
+		assert.Zero(t, streamMsgs(t, js, backupStreamName))
+	})
+}
+
+func TestQueueDiscardWithoutStreamManager(t *testing.T) {
+	srv := &Server{}
+
+	_, err := srv.QueueDiscardWALs(t.Context(), &klioGRPC.QueueDiscardWALsRequest{})
+	assert.Equal(t, codes.Unavailable, status.Code(err))
+
+	_, err = srv.QueueDiscardBackups(t.Context(), &klioGRPC.QueueDiscardBackupsRequest{})
+	assert.Equal(t, codes.Unavailable, status.Code(err))
 }
