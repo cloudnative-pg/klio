@@ -27,6 +27,8 @@ import (
 
 	"github.com/cloudnative-pg/machinery/pkg/log"
 	"github.com/spf13/afero"
+
+	"github.com/cloudnative-pg/klio/core/internal/wal"
 )
 
 // SetFirstRequiredOnCluster sets the first WAL that is required on a certain
@@ -115,15 +117,16 @@ func setFirstRequiredOnDirectory( //nolint:cyclop
 			continue
 		}
 
-		if path.Ext(baseName) != "" {
-			logger.Trace(
-				"Skipping potentially uncompleted WAL file",
-				"path", fullPath)
-
+		if !wal.IsWALSegmentOrPartial(baseName) {
 			continue
 		}
 
-		if strings.Compare(baseName, firstWAL) == -1 {
+		compareName := baseName
+		if wal.IsPartialWALFile(baseName) {
+			compareName = wal.TrimPartialSuffix(baseName)
+		}
+
+		if strings.Compare(compareName, firstWAL) == -1 {
 			if err := fs.Remove(fullPath); err != nil {
 				logger.Error(
 					err,

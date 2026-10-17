@@ -139,6 +139,10 @@ func TestRetentionPolicyEnforcementUnknownFiles(t *testing.T) {
 	env.createFile(t, "0000000100000001/000000010000000100000001")
 	env.createFile(t, "0000000100000001/000000010000000100000002")
 	env.createFile(t, "0000000100000001/000000010000000100000003")
+	// A .partial file behind firstWAL is dead: either an interrupted
+	// upload that was never resumed, or (if still somehow in progress)
+	// for a WAL that is no longer required by any current backup. See
+	// TestRetentionPolicyEnforcementPartialFiles for the full behavior.
 	env.createFile(t, "0000000100000001/000000010000000100000004.partial")
 	env.createFile(t, "0000000100000001/00000boh")
 	env.createFile(t, "0000000100000001/000000010000000100000005")
@@ -157,7 +161,7 @@ func TestRetentionPolicyEnforcementUnknownFiles(t *testing.T) {
 	env.requireNotExist(t, "0000000100000001/000000010000000100000001")
 	env.requireNotExist(t, "0000000100000001/000000010000000100000002")
 	env.requireNotExist(t, "0000000100000001/000000010000000100000003")
-	env.requireExist(t, "0000000100000001/000000010000000100000004.partial")
+	env.requireNotExist(t, "0000000100000001/000000010000000100000004.partial")
 	env.requireExist(t, "0000000100000001/00000boh")
 	env.requireNotExist(t, "0000000100000001/000000010000000100000005")
 	env.requireNotExist(t, "0000000100000001/000000010000000100000006")
@@ -169,4 +173,29 @@ func TestRetentionPolicyEnforcementUnknownFiles(t *testing.T) {
 	env.requireExist(t, "0000000100000001/00000001000000010000000C")
 	env.requireExist(t, "0000000100000001/00000001000000010000000D")
 	env.requireExist(t, "0000000100000001/00000001000000010000000E")
+}
+
+func TestRetentionPolicyEnforcementPartialFiles(t *testing.T) {
+	env := newRetentionTestEnv()
+
+	// Stale partial, well behind firstWAL: must be swept.
+	env.createFile(t, "0000000100000001/000000010000000100000002.partial")
+	// Partial exactly at firstWAL: retained, indistinguishable from an
+	// upload in progress for the oldest still-required WAL.
+	env.createFile(t, "0000000100000001/000000010000000100000007.partial")
+	// Partial ahead of firstWAL: retained, as an ordinary future WAL would
+	// be.
+	env.createFile(t, "0000000100000001/000000010000000100000009.partial")
+	// A .backup label and a .history file behind firstWAL: retained
+	// unconditionally, same as before this fix.
+	env.createFile(t, "0000000100000001/0000000100000001000000A0.00000028.backup")
+	env.createFile(t, "0000000100000001/00000001.history")
+
+	env.applyRetentionPolicy(t, "000000010000000100000007")
+
+	env.requireNotExist(t, "0000000100000001/000000010000000100000002.partial")
+	env.requireExist(t, "0000000100000001/000000010000000100000007.partial")
+	env.requireExist(t, "0000000100000001/000000010000000100000009.partial")
+	env.requireExist(t, "0000000100000001/0000000100000001000000A0.00000028.backup")
+	env.requireExist(t, "0000000100000001/00000001.history")
 }
