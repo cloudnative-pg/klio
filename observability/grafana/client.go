@@ -30,14 +30,16 @@ import (
 // emitted by the Klio plugin sidecar that runs in each PostgreSQL pod: the
 // backup lifecycle (`klio.plugin.backup.*`, exported to Prometheus as
 // `klio_plugin_backup_*`) and the WAL streaming client it supervises as a
-// child process (`klio.client.wal.*`, exported as `klio_client_wal_*`). Both
-// families carry a cluster_name, so every panel groups by cluster_name and is
-// scoped by $namespace and $cluster; nothing folds several clusters that share
-// a namespace into a single value.
+// child process (`klio.client.wal.*`, exported as `klio_client_wal_*`), and
+// the WAL restores it serves to PostgreSQL (`klio.plugin.wal.*`, exported as
+// `klio_plugin_wal_*`). All three families carry a cluster_name, so every
+// panel groups by cluster_name and is scoped by $namespace and $cluster;
+// nothing folds several clusters that share a namespace into a single value.
 func clientPanels() []sizedPanel {
 	return []sizedPanel{
 		sized(gridWidth, descriptionPanelHeight, descriptionPanel(
-			"Backup lifecycle and WAL streaming as seen by the plugin sidecar running in each PostgreSQL pod.")),
+			"Backup lifecycle, WAL streaming and WAL restore as seen by the plugin sidecar running in each "+
+				"PostgreSQL pod.")),
 		// Backup activity.
 		// Current backup state, grouped by cluster so a namespace hosting
 		// several clusters shows one series each instead of a folded total.
@@ -149,5 +151,55 @@ func clientPanels() []sizedPanel {
 					clientMatcher, "{{cluster_name}}")...,
 			).Description("50th/90th/99th-percentile duration of the client's gRPC send of a WAL block to the "+
 				"server, per cluster. Reflects all activity since the server last restarted.")),
+
+		// WAL restore. Every RESTORE_WAL request the plugin serves to PostgreSQL
+		// records klio.plugin.wal.restore_duration. The percentiles keep only
+		// successful restores and split on cache_hit: a prefetch hit is a local
+		// rename and a miss waits on a download, so pooled together the
+		// percentiles would drift with the hit ratio instead of describing
+		// either case.
+		sized(largestPanelWidth, largePanelHeight,
+			timeseriesPanel("WAL restore duration percentiles (rate)", units.Nanoseconds,
+				quantileTargets("klio_plugin_wal_restore_duration_nanoseconds_bucket", "le, cluster_name, cache_hit",
+					"outcome=\"success\","+clientMatcher, "{{cluster_name}} / cache_hit={{cache_hit}}")...,
+			).Description("50th/90th/99th-percentile end-to-end duration of successful WAL restores served by the "+
+				"plugin to PostgreSQL, per cluster, split by whether the WAL was already in the prefetch spool "+
+				"(cache_hit=true) or had to be downloaded (cache_hit=false). Reflects recent activity, over the "+
+				"rate interval window.")),
+
+		sized(largestPanelWidth, largePanelHeight,
+			timeseriesPanel("WAL restore duration percentiles (total)", units.Nanoseconds,
+				quantileTargetsAbsolute("klio_plugin_wal_restore_duration_nanoseconds_bucket",
+					"le, cluster_name, cache_hit", "outcome=\"success\","+clientMatcher,
+					"{{cluster_name}} / cache_hit={{cache_hit}}")...,
+			).Description("50th/90th/99th-percentile end-to-end duration of successful WAL restores served by the "+
+				"plugin to PostgreSQL, per cluster, split by whether the WAL was already in the prefetch spool "+
+				"(cache_hit=true) or had to be downloaded (cache_hit=false). Reflects all activity since the "+
+				"plugin sidecar last restarted.")),
+
+		sized(largePanelWidth, mediumPanelHeight, timeseriesPanel("WAL restores (rate)", units.OpsPerSecond,
+			query(fmt.Sprintf("sum by (cluster_name, tier, outcome) "+
+				"(rate(klio_plugin_wal_restore_duration_nanoseconds_count{%s}[$__rate_interval]))", clientMatcher),
+				"{{cluster_name}} {{tier}} / {{outcome}}"),
+		).Description("Rate of WAL restores served by the plugin to PostgreSQL, per cluster, split by the tier "+
+			"that served them and by outcome. not_found is PostgreSQL asking for a WAL that was never archived, "+
+			"the routine end-of-archive signal rather than an error.")),
+
+		sized(largePanelWidth, mediumPanelHeight, timeseriesPanel("WAL restores (total)", units.Number,
+			query(fmt.Sprintf("sum by (cluster_name, tier, outcome) "+
+				"(klio_plugin_wal_restore_duration_nanoseconds_count{%s})", clientMatcher),
+				"{{cluster_name}} {{tier}} / {{outcome}}"),
+		).Description("Total WAL restores served by the plugin to PostgreSQL since the plugin sidecar last "+
+			"restarted, per cluster, split by the tier that served them and by outcome.")),
+
+		sized(largePanelWidth, mediumPanelHeight, timeseriesPanel("WAL restore prefetch hit ratio", units.PercentUnit,
+			query(fmt.Sprintf("sum by (cluster_name) (rate(klio_plugin_wal_restore_duration_nanoseconds_count"+
+				"{outcome=\"success\",cache_hit=\"true\",%s}[$__rate_interval])) / "+
+				"sum by (cluster_name) (rate(klio_plugin_wal_restore_duration_nanoseconds_count"+
+				"{outcome=\"success\",%s}[$__rate_interval]))", clientMatcher, clientMatcher),
+				"{{cluster_name}}"),
+		).Description("Fraction of successful WAL restores served straight from the prefetch spool instead of "+
+			"waiting on a download, per cluster. A falling ratio means prefetch is not keeping pace with "+
+			"PostgreSQL replay.")),
 	}
 }
