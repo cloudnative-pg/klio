@@ -129,7 +129,7 @@ func newOTELMetricsScenario(namespace string) *otelMetricsScenario {
 	// Certificates setup
 	caCertificate := certificates.GetCACertificateObject("test-ca", namespace, issuer)
 	caIssuer := certificates.GetCAIssuerObject("test-ca-issuer", namespace, caCertificate.Spec.SecretName)
-	serverCertificate := certificates.GetCertificateObject("klio-server", namespace, []string{klioServerName}, issuer)
+	serverCertificate := certificates.GetCertificateObject("klio-server", namespace, []string{klioServerName}, caIssuer)
 	userCertificate := certificates.GetUserCertificateObject("klio-user", namespace, "klio-user@test-cluster", caIssuer)
 
 	// OTEL Collector certificates
@@ -236,10 +236,11 @@ func newOTELMetricsScenario(namespace string) *otelMetricsScenario {
 		"klio-plugin-configuration",
 		namespace,
 		klio.PluginConfigurationTemplateOptions{
-			ServerCertificate: serverCertificate,
-			ClientCertificate: userCertificate,
-			ClusterName:       "test-cluster",
-			EnableTier2Backup: true,
+			ServerCertificate:   serverCertificate,
+			ServerCACertificate: caCertificate,
+			ClientCertificate:   userCertificate,
+			ClusterName:         "test-cluster",
+			EnableTier2Backup:   true,
 		},
 	)
 

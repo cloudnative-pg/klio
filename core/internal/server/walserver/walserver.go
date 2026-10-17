@@ -43,6 +43,37 @@ import (
 	"github.com/cloudnative-pg/klio/core/pkg/config"
 )
 
+// loadTLSConfig builds a TLS configuration from the files referenced by
+// tlsConfiguration, reading them fresh on every call. It backs the
+// GetConfigForClient callback, so rotated certificates and CA bundles
+// are picked up by new handshakes without restarting the server.
+func loadTLSConfig(tlsConfiguration *config.TLSConfig) (*tls.Config, error) {
+	cert, err := tls.LoadX509KeyPair(
+		tlsConfiguration.TLSCert,
+		tlsConfiguration.TLSKey,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to load server key pair: %w", err)
+	}
+
+	clientCAPem, err := os.ReadFile(tlsConfiguration.ClientCACertFile)
+	if err != nil {
+		return nil, fmt.Errorf("while reading Client CA certificate file: %w", err)
+	}
+
+	clientCAPool := x509.NewCertPool()
+	if !clientCAPool.AppendCertsFromPEM(clientCAPem) {
+		return nil, ErrParsingClientCACertificate
+	}
+
+	return &tls.Config{
+		Certificates: []tls.Certificate{cert},
+		MinVersion:   tls.VersionTLS12,
+		ClientAuth:   tls.RequireAndVerifyClientCert,
+		ClientCAs:    clientCAPool,
+	}, nil
+}
+
 // Start starts a WAL server.
 func Start(
 	ctx context.Context,
@@ -54,6 +85,13 @@ func Start(
 ) error {
 	logger := log.FromContext(ctx)
 
+	// Fail fast on unreadable or invalid TLS files. Afterwards the
+	// configuration is rebuilt on every handshake (see below), so
+	// rotations take effect without restarting the server.
+	if _, err := loadTLSConfig(tlsConfiguration); err != nil {
+		return fmt.Errorf("invalid TLS configuration: %w", err)
+	}
+
 	// Configure a listener
 	var lc net.ListenConfig
 	listener, err := lc.Listen(ctx, "tcp", walServerConfiguration.ListenAddress)
@@ -61,31 +99,24 @@ func Start(
 		return fmt.Errorf("cannot listen on TCP socket: %w", err)
 	}
 
-	// Configure TLS
-	cert, err := tls.LoadX509KeyPair(
-		tlsConfiguration.TLSCert,
-		tlsConfiguration.TLSKey,
-	)
-	if err != nil {
-		return fmt.Errorf("failed to load server key pair: %w", err)
-	}
-
-	clientCAPem, err := os.ReadFile(tlsConfiguration.ClientCACertFile)
-	if err != nil {
-		return fmt.Errorf("while reading Client CA certificate file: %w", err)
-	}
-
-	clientCAPool := x509.NewCertPool()
-	if !clientCAPool.AppendCertsFromPEM(clientCAPem) {
-		return ErrParsingClientCACertificate
-	}
-
-	// Create TLS configuration
+	// Configure TLS. The configuration is rebuilt on every handshake
+	// so that certificate and CA rotations take effect without
+	// restarting the server: GetConfigForClient re-reads the
+	// identity and trust-bundle files for each new connection.
+	// A rebuild failure fails that handshake closed; the error is
+	// logged server-side so a broken rotation is visible here as
+	// well as in the client's logs.
 	tlsConfig := &tls.Config{
-		Certificates: []tls.Certificate{cert},
-		MinVersion:   tls.VersionTLS12,
-		ClientAuth:   tls.RequireAndVerifyClientCert,
-		ClientCAs:    clientCAPool,
+		MinVersion: tls.VersionTLS12,
+		GetConfigForClient: func(*tls.ClientHelloInfo) (*tls.Config, error) {
+			reloaded, err := loadTLSConfig(tlsConfiguration)
+			if err != nil {
+				logger.Error(err, "Failed to reload TLS configuration, rejecting handshake")
+				return nil, err
+			}
+
+			return reloaded, nil
+		},
 	}
 
 	// Starts the WAL server

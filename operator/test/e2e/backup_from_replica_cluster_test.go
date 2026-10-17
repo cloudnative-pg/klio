@@ -86,10 +86,10 @@ func BackupFromReplicaCluster(namespace string) *ReplicaClusterBackupFeature {
 	}
 
 	issuer := certificates.GetSelfSignedIssuerObject("selfsigned-issuer", namespace)
-	certificate := certificates.GetCertificateObject("test", namespace, []string{klioServerName}, issuer)
 
 	caCertificate := certificates.GetCACertificateObject("test-ca", namespace, issuer)
 	caIssuer := certificates.GetCAIssuerObject("test-ca-issuer", namespace, caCertificate.Spec.SecretName)
+	certificate := certificates.GetCertificateObject("test", namespace, []string{klioServerName}, caIssuer)
 
 	sourceCluster := cnpg.GetCnpgClusterObject(sourceClusterName, namespace, 1,
 		"klio-plugin-configuration",
@@ -108,9 +108,10 @@ func BackupFromReplicaCluster(namespace string) *ReplicaClusterBackupFeature {
 		"klio-plugin-configuration",
 		namespace,
 		klio.PluginConfigurationTemplateOptions{
-			ServerCertificate: certificate,
-			ClientCertificate: sourceUserCertificate,
-			ClusterName:       sourceClusterName,
+			ServerCertificate:   certificate,
+			ServerCACertificate: caCertificate,
+			ClientCertificate:   sourceUserCertificate,
+			ClusterName:         sourceClusterName,
 		},
 	)
 	// The replica reads the source's tier1 (same server, same cluster name) to
@@ -147,9 +148,10 @@ func BackupFromReplicaCluster(namespace string) *ReplicaClusterBackupFeature {
 		"klio-plugin-configuration-replica",
 		namespace,
 		klio.PluginConfigurationTemplateOptions{
-			ServerCertificate: certificate,
-			ClientCertificate: replicaUserCertificate,
-			ClusterName:       replicaClusterName,
+			ServerCertificate:   certificate,
+			ServerCACertificate: caCertificate,
+			ClientCertificate:   replicaUserCertificate,
+			ClusterName:         replicaClusterName,
 		},
 	)
 
