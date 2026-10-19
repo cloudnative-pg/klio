@@ -26,10 +26,11 @@ The dashboard is a single dashboard split into row sections:
   streaming client the sidecar supervises as a child process: the PostgreSQL
   timeline it is currently streaming and the p50/p90/p99 latency of sending
   a WAL block to the server. Finally the WAL restores the plugin serves back
-  to PostgreSQL: the p50/p90/p99 end-to-end restore duration split by
-  prefetch cache hit (as both a rolling-window and a since-restart total
-  variant), the restore rate and total by tier and outcome, and the prefetch
-  hit ratio.
+  to PostgreSQL, per instance (pod), since each instance restores its own WAL
+  through its own prefetch spool: the p50/p90/p99 end-to-end restore duration
+  split by prefetch cache hit (as both a rolling-window and a since-restart
+  total variant), the restore rate and total by tier and outcome, and the
+  prefetch hit ratio.
 
 ![Klio client and plugin metrics](images/klio_client_and_plugin_metrics.png)
 
@@ -79,7 +80,7 @@ One more is a statistical caveat rather than an alerting signal:
   is usually well under the histogram's smallest bucket, read that line as
   "fast" rather than as a precise value; the miss line is the one that carries
   detail. A **WAL restore prefetch hit ratio** falling over time means
-  prefetch is no longer keeping up with replay.
+  prefetch is no longer keeping up with replay on that instance.
 
 ## Prerequisites
 

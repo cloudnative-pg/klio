@@ -882,9 +882,9 @@
             "type": "prometheus",
             "uid": "${datasource}"
           },
-          "expr": "histogram_quantile(0.50, sum by (le, cluster_name, cache_hit) (rate(klio_plugin_wal_restore_duration_nanoseconds_bucket{outcome=\"success\",k8s_namespace_name=~\"$namespace\",cluster_name=~\"$cluster\"}[$__rate_interval])))",
+          "expr": "histogram_quantile(0.50, sum by (le, cluster_name, k8s_pod_name, cache_hit) (rate(klio_plugin_wal_restore_duration_nanoseconds_bucket{outcome=\"success\",k8s_namespace_name=~\"$namespace\",cluster_name=~\"$cluster\"}[$__rate_interval])))",
           "instant": false,
-          "legendFormat": "{{cluster_name}} / cache_hit={{cache_hit}} p50",
+          "legendFormat": "{{k8s_pod_name}} / cache_hit={{cache_hit}} p50",
           "range": true
         },
         {
@@ -892,9 +892,9 @@
             "type": "prometheus",
             "uid": "${datasource}"
           },
-          "expr": "histogram_quantile(0.90, sum by (le, cluster_name, cache_hit) (rate(klio_plugin_wal_restore_duration_nanoseconds_bucket{outcome=\"success\",k8s_namespace_name=~\"$namespace\",cluster_name=~\"$cluster\"}[$__rate_interval])))",
+          "expr": "histogram_quantile(0.90, sum by (le, cluster_name, k8s_pod_name, cache_hit) (rate(klio_plugin_wal_restore_duration_nanoseconds_bucket{outcome=\"success\",k8s_namespace_name=~\"$namespace\",cluster_name=~\"$cluster\"}[$__rate_interval])))",
           "instant": false,
-          "legendFormat": "{{cluster_name}} / cache_hit={{cache_hit}} p90",
+          "legendFormat": "{{k8s_pod_name}} / cache_hit={{cache_hit}} p90",
           "range": true
         },
         {
@@ -902,14 +902,14 @@
             "type": "prometheus",
             "uid": "${datasource}"
           },
-          "expr": "histogram_quantile(0.99, sum by (le, cluster_name, cache_hit) (rate(klio_plugin_wal_restore_duration_nanoseconds_bucket{outcome=\"success\",k8s_namespace_name=~\"$namespace\",cluster_name=~\"$cluster\"}[$__rate_interval])))",
+          "expr": "histogram_quantile(0.99, sum by (le, cluster_name, k8s_pod_name, cache_hit) (rate(klio_plugin_wal_restore_duration_nanoseconds_bucket{outcome=\"success\",k8s_namespace_name=~\"$namespace\",cluster_name=~\"$cluster\"}[$__rate_interval])))",
           "instant": false,
-          "legendFormat": "{{cluster_name}} / cache_hit={{cache_hit}} p99",
+          "legendFormat": "{{k8s_pod_name}} / cache_hit={{cache_hit}} p99",
           "range": true
         }
       ],
       "title": "WAL restore duration percentiles (rate)",
-      "description": "50th/90th/99th-percentile end-to-end duration of successful WAL restores served by the plugin to PostgreSQL, per cluster, split by whether the WAL was already in the prefetch spool (cache_hit=true) or had to be downloaded (cache_hit=false). Reflects recent activity, over the rate interval window.",
+      "description": "50th/90th/99th-percentile end-to-end duration of successful WAL restores served by the plugin to PostgreSQL, per instance (pod), split by whether the WAL was already in the prefetch spool (cache_hit=true) or had to be downloaded (cache_hit=false). Reflects recent activity, over the rate interval window.",
       "transparent": false,
       "datasource": {
         "type": "prometheus",
@@ -953,9 +953,9 @@
             "type": "prometheus",
             "uid": "${datasource}"
           },
-          "expr": "histogram_quantile(0.50, sum by (le, cluster_name, cache_hit) (klio_plugin_wal_restore_duration_nanoseconds_bucket{outcome=\"success\",k8s_namespace_name=~\"$namespace\",cluster_name=~\"$cluster\"}))",
+          "expr": "histogram_quantile(0.50, sum by (le, cluster_name, k8s_pod_name, cache_hit) (klio_plugin_wal_restore_duration_nanoseconds_bucket{outcome=\"success\",k8s_namespace_name=~\"$namespace\",cluster_name=~\"$cluster\"}))",
           "instant": false,
-          "legendFormat": "{{cluster_name}} / cache_hit={{cache_hit}} p50",
+          "legendFormat": "{{k8s_pod_name}} / cache_hit={{cache_hit}} p50",
           "range": true
         },
         {
@@ -963,9 +963,9 @@
             "type": "prometheus",
             "uid": "${datasource}"
           },
-          "expr": "histogram_quantile(0.90, sum by (le, cluster_name, cache_hit) (klio_plugin_wal_restore_duration_nanoseconds_bucket{outcome=\"success\",k8s_namespace_name=~\"$namespace\",cluster_name=~\"$cluster\"}))",
+          "expr": "histogram_quantile(0.90, sum by (le, cluster_name, k8s_pod_name, cache_hit) (klio_plugin_wal_restore_duration_nanoseconds_bucket{outcome=\"success\",k8s_namespace_name=~\"$namespace\",cluster_name=~\"$cluster\"}))",
           "instant": false,
-          "legendFormat": "{{cluster_name}} / cache_hit={{cache_hit}} p90",
+          "legendFormat": "{{k8s_pod_name}} / cache_hit={{cache_hit}} p90",
           "range": true
         },
         {
@@ -973,14 +973,14 @@
             "type": "prometheus",
             "uid": "${datasource}"
           },
-          "expr": "histogram_quantile(0.99, sum by (le, cluster_name, cache_hit) (klio_plugin_wal_restore_duration_nanoseconds_bucket{outcome=\"success\",k8s_namespace_name=~\"$namespace\",cluster_name=~\"$cluster\"}))",
+          "expr": "histogram_quantile(0.99, sum by (le, cluster_name, k8s_pod_name, cache_hit) (klio_plugin_wal_restore_duration_nanoseconds_bucket{outcome=\"success\",k8s_namespace_name=~\"$namespace\",cluster_name=~\"$cluster\"}))",
           "instant": false,
-          "legendFormat": "{{cluster_name}} / cache_hit={{cache_hit}} p99",
+          "legendFormat": "{{k8s_pod_name}} / cache_hit={{cache_hit}} p99",
           "range": true
         }
       ],
       "title": "WAL restore duration percentiles (total)",
-      "description": "50th/90th/99th-percentile end-to-end duration of successful WAL restores served by the plugin to PostgreSQL, per cluster, split by whether the WAL was already in the prefetch spool (cache_hit=true) or had to be downloaded (cache_hit=false). Reflects all activity since the plugin sidecar last restarted.",
+      "description": "50th/90th/99th-percentile end-to-end duration of successful WAL restores served by the plugin to PostgreSQL, per instance (pod), split by whether the WAL was already in the prefetch spool (cache_hit=true) or had to be downloaded (cache_hit=false). Reflects all activity since the plugin sidecar last restarted.",
       "transparent": false,
       "datasource": {
         "type": "prometheus",
@@ -1024,14 +1024,14 @@
             "type": "prometheus",
             "uid": "${datasource}"
           },
-          "expr": "sum by (cluster_name, tier, outcome) (rate(klio_plugin_wal_restore_duration_nanoseconds_count{k8s_namespace_name=~\"$namespace\",cluster_name=~\"$cluster\"}[$__rate_interval]))",
+          "expr": "sum by (cluster_name, k8s_pod_name, tier, outcome) (rate(klio_plugin_wal_restore_duration_nanoseconds_count{k8s_namespace_name=~\"$namespace\",cluster_name=~\"$cluster\"}[$__rate_interval]))",
           "instant": false,
-          "legendFormat": "{{cluster_name}} {{tier}} / {{outcome}}",
+          "legendFormat": "{{k8s_pod_name}} {{tier}} / {{outcome}}",
           "range": true
         }
       ],
       "title": "WAL restores (rate)",
-      "description": "Rate of WAL restores served by the plugin to PostgreSQL, per cluster, split by the tier that served them and by outcome. not_found is PostgreSQL asking for a WAL that was never archived, the routine end-of-archive signal rather than an error.",
+      "description": "Rate of WAL restores served by the plugin to PostgreSQL, per instance (pod), split by the tier that served them and by outcome. not_found is PostgreSQL asking for a WAL that was never archived, the routine end-of-archive signal rather than an error.",
       "transparent": false,
       "datasource": {
         "type": "prometheus",
@@ -1075,14 +1075,14 @@
             "type": "prometheus",
             "uid": "${datasource}"
           },
-          "expr": "sum by (cluster_name, tier, outcome) (klio_plugin_wal_restore_duration_nanoseconds_count{k8s_namespace_name=~\"$namespace\",cluster_name=~\"$cluster\"})",
+          "expr": "sum by (cluster_name, k8s_pod_name, tier, outcome) (klio_plugin_wal_restore_duration_nanoseconds_count{k8s_namespace_name=~\"$namespace\",cluster_name=~\"$cluster\"})",
           "instant": false,
-          "legendFormat": "{{cluster_name}} {{tier}} / {{outcome}}",
+          "legendFormat": "{{k8s_pod_name}} {{tier}} / {{outcome}}",
           "range": true
         }
       ],
       "title": "WAL restores (total)",
-      "description": "Total WAL restores served by the plugin to PostgreSQL since the plugin sidecar last restarted, per cluster, split by the tier that served them and by outcome.",
+      "description": "Total WAL restores served by the plugin to PostgreSQL since the plugin sidecar last restarted, per instance (pod), split by the tier that served them and by outcome.",
       "transparent": false,
       "datasource": {
         "type": "prometheus",
@@ -1126,14 +1126,14 @@
             "type": "prometheus",
             "uid": "${datasource}"
           },
-          "expr": "1 - sum by (cluster_name) (rate(klio_plugin_wal_restore_duration_nanoseconds_count{outcome=\"success\",cache_hit=\"false\",k8s_namespace_name=~\"$namespace\",cluster_name=~\"$cluster\"}[$__rate_interval])) / sum by (cluster_name) (rate(klio_plugin_wal_restore_duration_nanoseconds_count{outcome=\"success\",k8s_namespace_name=~\"$namespace\",cluster_name=~\"$cluster\"}[$__rate_interval]))",
+          "expr": "1 - sum by (cluster_name, k8s_pod_name) (rate(klio_plugin_wal_restore_duration_nanoseconds_count{outcome=\"success\",cache_hit=\"false\",k8s_namespace_name=~\"$namespace\",cluster_name=~\"$cluster\"}[$__rate_interval])) / sum by (cluster_name, k8s_pod_name) (rate(klio_plugin_wal_restore_duration_nanoseconds_count{outcome=\"success\",k8s_namespace_name=~\"$namespace\",cluster_name=~\"$cluster\"}[$__rate_interval]))",
           "instant": false,
-          "legendFormat": "{{cluster_name}}",
+          "legendFormat": "{{k8s_pod_name}}",
           "range": true
         }
       ],
       "title": "WAL restore prefetch hit ratio",
-      "description": "Fraction of successful WAL restores served straight from the prefetch spool instead of waiting on a download, per cluster. A falling ratio means prefetch is not keeping pace with PostgreSQL replay.",
+      "description": "Fraction of successful WAL restores served straight from the prefetch spool instead of waiting on a download, per instance (pod). A falling ratio means prefetch is not keeping pace with PostgreSQL replay.",
       "transparent": false,
       "datasource": {
         "type": "prometheus",
