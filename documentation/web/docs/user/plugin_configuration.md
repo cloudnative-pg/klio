@@ -60,8 +60,8 @@ can be:
 - A fully qualified domain name: `klio-server.default.svc.cluster.local`
 - An external address: `klio.example.com`
 
-Connections are made to the Klio server's two default listening ports: 51515
-for base backups and 52000 for WAL streaming.
+Connections are made to the Klio server's two default listening ports: 11515
+for base backups and 12000 for WAL streaming.
 
 ### TLS configuration
 

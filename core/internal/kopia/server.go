@@ -39,7 +39,7 @@ type ServerOptions struct {
 	// ClientCACertFile is the path to the CA certificate file used to verify client certificates.
 	ClientCACertFile string
 
-	// ListenAddress is the address and port the server should listen on (e.g., "0.0.0.0:51515").
+	// ListenAddress is the address and port the server should listen on (e.g., "0.0.0.0:11515").
 	ListenAddress string
 
 	// ServerControlUser is the username for server control operations.

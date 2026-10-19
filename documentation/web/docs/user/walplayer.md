@@ -103,7 +103,7 @@ Example configuration:
 client:
   cluster_name: walplayer
   wal:
-    address: localhost:52000
+    address: localhost:12000
     server_cert_path: "/path/to/server.crt"
     client_cert_path: "/path/to/client/tls.crt"
     client_key_path: "/path/to/client/tls.key"
@@ -195,7 +195,7 @@ data:
     client:
       cluster_name: walplayer
       wal:
-        address: klio-server.default:52000
+        address: klio-server.default:12000
         server_cert_path: /certs/server/ca.crt
         client_cert_path: /certs/client/tls.crt
         client_key_path: /certs/client/tls.key

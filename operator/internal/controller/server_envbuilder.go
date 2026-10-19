@@ -123,11 +123,11 @@ func (e *envBuilder) getCoreEnvVars() []corev1.EnvVar {
 			},
 			corev1.EnvVar{
 				Name:  "TIER1_BASE_LISTEN_ADDRESS",
-				Value: "0.0.0.0:51515",
+				Value: "0.0.0.0:11515",
 			},
 			corev1.EnvVar{
 				Name:  "TIER1_WAL_LISTEN_ADDRESS",
-				Value: "0.0.0.0:52000",
+				Value: "0.0.0.0:12000",
 			},
 			corev1.EnvVar{
 				Name:  "TIER1_WAL_PATH",
@@ -184,11 +184,11 @@ func (e *envBuilder) getTier2EnvVars() []corev1.EnvVar {
 		},
 		{
 			Name:  "TIER2_BASE_LISTEN_ADDRESS",
-			Value: "0.0.0.0:51516",
+			Value: "0.0.0.0:11516",
 		},
 		{
 			Name:  "TIER2_WAL_LISTEN_ADDRESS",
-			Value: "0.0.0.0:52001",
+			Value: "0.0.0.0:12001",
 		},
 	}
 

@@ -62,13 +62,13 @@ const (
 
 const (
 	// KlioTier1HTTPPort is the default port for Klio Tier1 HTTP API.
-	KlioTier1HTTPPort = "51515"
+	KlioTier1HTTPPort = "11515"
 	// KlioTier2HTTPPort is the default port for Klio Tier2 HTTP API.
-	KlioTier2HTTPPort = "51516"
+	KlioTier2HTTPPort = "11516"
 	// KlioTier1GRPCPort is the default port for Klio Tier1 gRPC API.
-	KlioTier1GRPCPort = "52000"
+	KlioTier1GRPCPort = "12000"
 	// KlioTier2GRPCPort is the default port for Klio Tier2 gRPC API.
-	KlioTier2GRPCPort = "52001"
+	KlioTier2GRPCPort = "12001"
 )
 
 // ClusterPlugins maps config keys to their resolved PluginConfiguration.

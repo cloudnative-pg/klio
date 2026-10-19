@@ -118,13 +118,13 @@ func (r *ServerReconciler) reconcileStatefulSet(
 
 	// Build container ports - always include tier1 ports, add tier2 ports if tier2 is enabled
 	containerPorts := []corev1.ContainerPort{
-		{Name: "base", ContainerPort: 51515, Protocol: corev1.ProtocolTCP},
-		{Name: "wal", ContainerPort: 52000, Protocol: corev1.ProtocolTCP},
+		{Name: "base", ContainerPort: 11515, Protocol: corev1.ProtocolTCP},
+		{Name: "wal", ContainerPort: 12000, Protocol: corev1.ProtocolTCP},
 	}
 	if server.Spec.Tier2 != nil {
 		containerPorts = append(containerPorts,
-			corev1.ContainerPort{Name: "tier2-base", ContainerPort: 51516, Protocol: corev1.ProtocolTCP},
-			corev1.ContainerPort{Name: "tier2-wal", ContainerPort: 52001, Protocol: corev1.ProtocolTCP},
+			corev1.ContainerPort{Name: "tier2-base", ContainerPort: 11516, Protocol: corev1.ProtocolTCP},
+			corev1.ContainerPort{Name: "tier2-wal", ContainerPort: 12001, Protocol: corev1.ProtocolTCP},
 		)
 	}
 
@@ -363,22 +363,22 @@ func (r *ServerReconciler) reconcileService(ctx context.Context, server *kliov1a
 		service.Spec.Ports = []corev1.ServicePort{
 			{
 				Name: "base",
-				Port: 51515,
+				Port: 11515,
 			},
 			{
 				Name: "wal",
-				Port: 52000,
+				Port: 12000,
 			},
 		}
 		if server.Spec.Tier2 != nil {
 			service.Spec.Ports = append(service.Spec.Ports,
 				corev1.ServicePort{
 					Name: "tier2-base",
-					Port: 51516,
+					Port: 11516,
 				},
 				corev1.ServicePort{
 					Name: "tier2-wal",
-					Port: 52001,
+					Port: 12001,
 				},
 			)
 		}

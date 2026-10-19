@@ -10,6 +10,24 @@ see the [Helm chart page](helm_chart.mdx#upgrades).
 
 ## 0.0.20 to 0.0.21
 
+### Klio server ports changed
+
+The Klio server now listens on ports outside the Linux ephemeral port
+range, so that an outgoing connection can no longer occupy one of them
+before the server binds it:
+
+| Port              | Before  | Now     |
+|-------------------|---------|---------|
+| Tier 1 base       | `51515` | `11515` |
+| Tier 1 WAL        | `52000` | `12000` |
+| Tier 2 base       | `51516` | `11516` |
+| Tier 2 WAL        | `52001` | `12001` |
+
+The operator updates the Server's StatefulSet and Service, and the client
+configuration of every `PluginConfiguration`, automatically. Update any
+NetworkPolicy, firewall rule or manually written client configuration (for
+example a WAL player Job) that references the old ports.
+
 ### Klio-managed retention policies
 
 Retention is now enforced by the Klio server, which periodically evaluates

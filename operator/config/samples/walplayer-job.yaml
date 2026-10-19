@@ -38,7 +38,7 @@ data:
   klio-config.yaml: |
     client:
       wal:
-        address: server-sample.default:52000
+        address: server-sample.default:12000
         cluster_name: walplayer
         server_cert_path: /certs/server/ca.crt
         client_cert_path: /certs/client/tls.crt

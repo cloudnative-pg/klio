@@ -104,6 +104,7 @@ ModeReadOnly
 ModeStandard
 NATS
 Namespaces
+NetworkPolicy
 NodeSelector
 OCI
 OLM

@@ -87,9 +87,9 @@ tier1:
   base:
     repository: /home/klio/klio_data/base
     cache: /home/klio/klio_data/base
-    listen_address: 0.0.0.0:52000
+    listen_address: 0.0.0.0:12000
   wal:
-    listen_address: 0.0.0.0:52001
+    listen_address: 0.0.0.0:12001
     path: /home/klio/klio_data/wals
 tls:
   client_ca_cert: /home/klio/ca-cert.pem
@@ -131,10 +131,10 @@ client:
     server_cert_path: /home/klio/server.crt
     client_cert_path: /home/klio/client-cert.pem
     client_key_path: /home/klio/client-key.pem
-    address: klio-server:52000
+    address: klio-server:12000
 
   base:
-    url: https://klio-server:52001
+    url: https://klio-server:12001
     server_cert_path: /home/klio/server.crt
     client_cert_path: /home/klio/client-cert.pem
     client_key_path: /home/klio/client-key.pem
