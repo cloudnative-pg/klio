@@ -1039,7 +1039,7 @@
       },
       "gridPos": {
         "h": 6,
-        "w": 8,
+        "w": 6,
         "x": 0,
         "y": 39
       },
@@ -1090,8 +1090,8 @@
       },
       "gridPos": {
         "h": 6,
-        "w": 8,
-        "x": 8,
+        "w": 6,
+        "x": 6,
         "y": 39
       },
       "repeatDirection": "h",
@@ -1141,8 +1141,59 @@
       },
       "gridPos": {
         "h": 6,
-        "w": 8,
-        "x": 16,
+        "w": 6,
+        "x": 12,
+        "y": 39
+      },
+      "repeatDirection": "h",
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true,
+          "calcs": []
+        },
+        "tooltip": {
+          "mode": "",
+          "sort": ""
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "custom": {
+            "gradientMode": "opacity",
+            "fillOpacity": 10
+          }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "type": "timeseries",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "expr": "sum by (cluster_name, k8s_pod_name) (rate(klio_plugin_wal_restore_duration_nanoseconds_sum{k8s_namespace_name=~\"$namespace\",cluster_name=~\"$cluster\"}[$__rate_interval])) / 1e9",
+          "instant": false,
+          "legendFormat": "{{k8s_pod_name}}",
+          "range": true
+        }
+      ],
+      "title": "WAL restore wait share",
+      "description": "Fraction of wall-clock time PostgreSQL spent waiting on the plugin for WAL files, per instance (pod). The rest of the time goes to replaying the restored WAL and to starting each restore_command, which the restore duration does not include, so the restore rate is set by replay, not by the restore duration. Near 0% recovery is limited by replay; a high share means PostgreSQL is waiting on downloads.",
+      "transparent": false,
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "gridPos": {
+        "h": 6,
+        "w": 6,
+        "x": 18,
         "y": 39
       },
       "repeatDirection": "h",

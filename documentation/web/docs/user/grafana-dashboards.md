@@ -30,8 +30,9 @@ The dashboard is a single dashboard split into row sections:
   through its own prefetch spool: the p50/p90/p99 restore duration (how long
   PostgreSQL waited for each WAL file, not the replay that follows) split by
   prefetch cache hit (as both a rolling-window and a since-restart
-  total variant), the restore rate and total by tier and outcome, and the
-  prefetch hit ratio.
+  total variant), the restore rate and total by tier and outcome, the
+  prefetch hit ratio, and the share of time PostgreSQL spent waiting on the
+  plugin (near 0% when recovery is limited by replay, not by Klio).
 
 ![Klio client and plugin metrics](images/klio_client_and_plugin_metrics.png)
 
