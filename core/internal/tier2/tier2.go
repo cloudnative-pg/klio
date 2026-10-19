@@ -51,7 +51,9 @@ func CreateAWSS3Client(ctx context.Context, cfg *config.Tier2Config) (*s3.Client
 		opts = append(opts, awsconfig.WithRegion(cfg.S3.Region))
 	}
 
-	// Set credentials if provided
+	// Set credentials if provided. When only the shared credentials file is
+	// set (by the operator), re-read it on rotation instead of letting the SDK
+	// cache its keys for the process lifetime.
 	if cfg.S3.AccessKeyID != "" || cfg.S3.SecretAccessKey != "" || cfg.S3.SessionToken != "" {
 		opts = append(opts, awsconfig.WithCredentialsProvider(
 			credentials.NewStaticCredentialsProvider(
@@ -59,6 +61,10 @@ func CreateAWSS3Client(ctx context.Context, cfg *config.Tier2Config) (*s3.Client
 				cfg.S3.SecretAccessKey,
 				cfg.S3.SessionToken,
 			),
+		))
+	} else if path := os.Getenv("AWS_SHARED_CREDENTIALS_FILE"); path != "" {
+		opts = append(opts, awsconfig.WithCredentialsProvider(
+			credentialsFileProvider{path: path, profile: os.Getenv("AWS_PROFILE")},
 		))
 	}
 

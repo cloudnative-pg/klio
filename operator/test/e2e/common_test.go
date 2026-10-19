@@ -76,10 +76,10 @@ func newPluginTestResources(namespace string) pluginTestResources {
 	}
 
 	issuer := certificates.GetSelfSignedIssuerObject("selfsigned-issuer", namespace)
-	certificate := certificates.GetCertificateObject("test", namespace, []string{klioServerName}, issuer)
 
 	caCertificate := certificates.GetCACertificateObject("test-ca", namespace, issuer)
 	caIssuer := certificates.GetCAIssuerObject("test-ca-issuer", namespace, caCertificate.Spec.SecretName)
+	certificate := certificates.GetCertificateObject("test", namespace, []string{klioServerName}, caIssuer)
 
 	userCertificate := certificates.GetUserCertificateObject(
 		"klio-user", namespace, "klio-user@test-cluster", caIssuer)
@@ -87,9 +87,10 @@ func newPluginTestResources(namespace string) pluginTestResources {
 		"klio-plugin-configuration",
 		namespace,
 		klio.PluginConfigurationTemplateOptions{
-			ServerCertificate: certificate,
-			ClientCertificate: userCertificate,
-			ClusterName:       "test-cluster",
+			ServerCertificate:   certificate,
+			ServerCACertificate: caCertificate,
+			ClientCertificate:   userCertificate,
+			ClusterName:         "test-cluster",
 		},
 	)
 

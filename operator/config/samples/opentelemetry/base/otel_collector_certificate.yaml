@@ -1,5 +1,5 @@
 # Signed by the root CA (see root_ca.yaml) so team-c/team-d can validate it
-# via the CA's public certificate (otel_collector_ca_bundle.yaml) instead
+# via the CA's public certificate (k8s_cluster_ca_bundle.yaml) instead
 # of mirroring this secret whole.
 apiVersion: cert-manager.io/v1
 kind: Certificate

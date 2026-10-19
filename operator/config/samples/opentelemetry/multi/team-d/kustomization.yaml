@@ -1,7 +1,7 @@
-# klio-a-ca (client-cert CA) is generated locally, signed by this
+# klio-a-client-ca (client-cert CA) is generated locally, signed by this
 # namespace's own selfsigned-issuer (issuer.yaml); klio-a's own TLS
 # identity comes straight from the cluster-wide root CA's ClusterIssuer.
-# Only the OTel collector's trust anchor ("otel-collector-ca") arrives
+# Only the cluster CA's public certificate ("k8s-cluster-ca") arrives
 # from "default", via trust-manager.
 #
 # Reuses ../../single's Server/Cluster (see ../team-a). The server keeps
@@ -27,17 +27,29 @@ patches:
         path: /metadata/name
         value: klio-a
       - op: replace
-        path: /spec/tlsSecretName
-        value: klio-a-tls
+        path: /spec/serverTlsIdentity
+        value:
+          volume:
+            secret:
+              secretName: klio-a-tls
+          certPath: tls.crt
+          keyPath: tls.key
       - op: replace
-        path: /spec/caSecretName
-        value: klio-a-ca
+        path: /spec/clientCa
+        value:
+          volume:
+            secret:
+              secretName: klio-a-client-ca
+              items:
+                - key: tls.crt
+                  path: tls.crt
+          path: tls.crt
       - op: replace
         path: /spec/template/spec/containers/0/env/2/value
         value: klio-server-a-team-d
       - op: replace
         path: /spec/template/spec/volumes/0/projected/sources/0/secret/name
-        value: otel-collector-ca
+        value: k8s-cluster-ca
   - target:
       kind: Certificate
       name: klio-server
@@ -56,27 +68,27 @@ patches:
         value: [klio-a, klio-a.team-d, klio-a.team-d.svc]
   - target:
       kind: Certificate
-      name: klio-server-ca
+      name: klio-client-ca
     patch: |-
       - op: replace
         path: /metadata/name
-        value: klio-a-ca
+        value: klio-a-client-ca
       - op: replace
         path: /spec/secretName
-        value: klio-a-ca
+        value: klio-a-client-ca
       - op: replace
         path: /spec/commonName
-        value: klio-a-ca
+        value: klio-a-client-ca
   - target:
       kind: Issuer
-      name: klio-server-ca
+      name: klio-client-ca
     patch: |-
       - op: replace
         path: /metadata/name
-        value: klio-a-ca
+        value: klio-a-client-ca
       - op: replace
         path: /spec/ca/secretName
-        value: klio-a-ca
+        value: klio-a-client-ca
   - target:
       kind: Cluster
       name: cluster-example
@@ -89,7 +101,7 @@ patches:
         value: client-config-cluster-d
       - op: replace
         path: /spec/projectedVolumeTemplate/sources/0/secret/name
-        value: otel-collector-ca
+        value: k8s-cluster-ca
   - target:
       kind: PluginConfiguration
       name: client-config-cluster-example
@@ -101,11 +113,23 @@ patches:
         path: /spec/serverAddress
         value: klio-a
       - op: replace
-        path: /spec/clientSecretName
-        value: cluster-d-klio-user
+        path: /spec/clientTlsIdentity
+        value:
+          volume:
+            secret:
+              secretName: cluster-d-klio-user
+          certPath: tls.crt
+          keyPath: tls.key
       - op: replace
-        path: /spec/serverSecretName
-        value: klio-a-tls
+        path: /spec/serverCa
+        value:
+          volume:
+            secret:
+              secretName: k8s-cluster-ca
+              items:
+              - key: ca.crt
+                path: ca.crt
+          path: ca.crt
       - op: replace
         path: /spec/clusterName
         value: cluster-d

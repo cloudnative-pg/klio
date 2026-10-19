@@ -22,7 +22,6 @@ package config
 import (
 	"fmt"
 	"io"
-	"io/fs"
 	"os"
 	"strings"
 
@@ -40,42 +39,13 @@ func (e *EmptyDecodedEncryptionKeyError) Error() string {
 	return fmt.Sprintf("decoded encryption key file %s is empty", e.filePath)
 }
 
-// InsecureIdentityFileError is raised when the identity file is
-// accessible to others (world-readable).
-type InsecureIdentityFileError struct {
-	filePath string
-	mode     fs.FileMode
-}
-
-func (e *InsecureIdentityFileError) Error() string {
-	return fmt.Sprintf("identity file %s must not be accessible by others, permission is %04o", e.filePath, e.mode)
-}
-
-// checkIdentityFilePermissions verifies that the identity file is not
-// world-readable. The check uses 0o007 (others) rather than 0o077
-// (group+others) because Kubernetes Secret volumes often set group-read
-// (e.g., 0440) due to fsGroup even when DefaultMode is 0400.
-func checkIdentityFilePermissions(path string) error {
-	info, err := os.Stat(path)
-	if err != nil {
-		return fmt.Errorf("checking identity file permissions: %w", err)
-	}
-
-	if info.Mode().Perm()&0o007 != 0 {
-		return &InsecureIdentityFileError{filePath: path, mode: info.Mode().Perm()}
-	}
-
-	return nil
-}
-
 // DecryptEncryptionKeyFile decrypts an Age-encrypted encryption key file
-// using the provided Age identity file. It refuses to proceed if the
-// identity file is world-readable.
+// using the provided Age identity file.
+//
+// The permissions of the identity file are not checked: a CSI driver decides
+// them and cannot yet apply the pod fsGroup to them
+// (https://github.com/kubernetes-sigs/secrets-store-csi-driver/pull/1841).
 func DecryptEncryptionKeyFile(encryptionKeyFile, identityFile string) (string, error) {
-	if err := checkIdentityFilePermissions(identityFile); err != nil {
-		return "", err
-	}
-
 	idFile, err := os.Open(identityFile) //nolint:gosec // path comes from validated config
 	if err != nil {
 		return "", fmt.Errorf("opening identity file: %w", err)

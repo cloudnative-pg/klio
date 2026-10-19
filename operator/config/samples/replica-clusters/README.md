@@ -8,6 +8,16 @@ clusters that can replicate data between each other using Klio servers.
 This setup is for demonstration and testing purposes only and is not intended
 for production use.
 
+## Certificates
+
+Each Klio server has its own server CA, which only signs the server
+certificate. The `ca.crt` key of the `klioserver-dc-*-tls` secrets is that
+CA, and it is what the `PluginConfiguration` `serverCa` fields trust. Renewing
+the server certificate therefore never changes what the clients trust. The
+client CA (`klioserver-dc-*-ca`) is separate and only signs client
+certificates. The secrets are pre-generated for convenience; the commented
+cert-manager resources in the server manifests show how to produce them.
+
 ## Components
 
 ### 1. Klio Servers

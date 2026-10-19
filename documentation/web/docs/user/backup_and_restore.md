@@ -255,8 +255,20 @@ metadata:
 spec:
   # Connection details
   serverAddress: klio-server.default
-  clientSecretName: cluster-example-klio-user
-  serverSecretName: klio-server-tls
+  clientTlsIdentity:
+    volume:
+      secret:
+        secretName: cluster-example-klio-user
+    certPath: tls.crt
+    keyPath: tls.key
+  serverCa:
+    volume:
+      secret:
+        secretName: klio-server-ca
+        items:
+        - key: ca.crt
+          path: ca.crt
+    path: ca.crt
 
   # Required: the name of the original cluster that was backed up
   clusterName: cluster-example
