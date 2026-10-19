@@ -299,13 +299,14 @@ to the server-side `klio.server.wal.latest_written_timeline` gauge
 
 The plugin sidecar times every WAL file it restores for PostgreSQL
 (`restore_command`), from the request to the file being in place. This
-is the restore latency PostgreSQL sees, including prefetch hits that
-never reach the Klio server and so are missing from
-`klio.server.wal.get_duration`.
+is how long PostgreSQL waits for each WAL file, including prefetch hits
+that never reach the Klio server and so are missing from
+`klio.server.wal.get_duration`. It does not include the replay that
+follows, nor prefetch downloads that finish in the background.
 
 | Metric Name | Type | Unit | Description |
 |---|---|---|---|
-| `klio.plugin.wal.restore_duration` | Histogram | ns | Per-file end-to-end duration of a WAL restore, split by `outcome` (`success`, `failure`, or `not_found` when PostgreSQL asks for a WAL file that was never archived, which is normal at the end of the archive). Carries `cache_hit`, `tier` and `cluster_name` |
+| `klio.plugin.wal.restore_duration` | Histogram | ns | Per-file time PostgreSQL waits on a WAL restore, split by `outcome` (`success`, `failure`, or `not_found` when PostgreSQL asks for a WAL file that was never archived, which is normal at the end of the archive). Carries `cache_hit`, `tier` and `cluster_name` |
 
 It uses the same buckets as the per-file server histograms. A
 prefetch hit is usually faster than the smallest bucket.

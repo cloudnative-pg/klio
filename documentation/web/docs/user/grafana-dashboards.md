@@ -27,8 +27,9 @@ The dashboard is a single dashboard split into row sections:
   timeline it is currently streaming and the p50/p90/p99 latency of sending
   a WAL block to the server. Finally the WAL restores the plugin serves back
   to PostgreSQL, per instance (pod), since each instance restores its own WAL
-  through its own prefetch spool: the p50/p90/p99 end-to-end restore duration
-  split by prefetch cache hit (as both a rolling-window and a since-restart
+  through its own prefetch spool: the p50/p90/p99 restore duration (how long
+  PostgreSQL waited for each WAL file, not the replay that follows) split by
+  prefetch cache hit (as both a rolling-window and a since-restart
   total variant), the restore rate and total by tier and outcome, and the
   prefetch hit ratio.
 

@@ -26,6 +26,14 @@ import (
 	"github.com/grafana/grafana-foundation-sdk/go/units"
 )
 
+// restoreDurationDescription is the shared description of the two WAL restore
+// duration percentile panels, which differ only in their time window.
+const restoreDurationDescription = "50th/90th/99th-percentile time PostgreSQL waited on the plugin for each " +
+	"successfully restored WAL file, per instance (pod). It covers the plugin serving the request, not the " +
+	"replay that follows nor prefetch downloads that finished in the background. cache_hit=true: the file " +
+	"was already complete in the prefetch spool, so this is a local rename. cache_hit=false: PostgreSQL " +
+	"waited on a download, either a full one or the rest of a prefetch still in flight."
+
 // clientPanels returns the "Client / Plugin" section panels. These metrics are
 // emitted by the Klio plugin sidecar that runs in each PostgreSQL pod: the
 // backup lifecycle (`klio.plugin.backup.*`, exported to Prometheus as
@@ -166,20 +174,15 @@ func clientPanels() []sizedPanel {
 			timeseriesPanel("WAL restore duration percentiles (rate)", units.Nanoseconds,
 				quantileTargets("klio_plugin_wal_restore_duration_nanoseconds_bucket", "le, cluster_name, k8s_pod_name, cache_hit",
 					"outcome=\"success\","+clientMatcher, "{{k8s_pod_name}} / cache_hit={{cache_hit}}")...,
-			).Description("50th/90th/99th-percentile end-to-end duration of successful WAL restores served by the "+
-				"plugin to PostgreSQL, per instance (pod), split by whether the WAL was already in the prefetch spool "+
-				"(cache_hit=true) or had to be downloaded (cache_hit=false). Reflects recent activity, over the "+
-				"rate interval window.")),
+			).Description(restoreDurationDescription+" Reflects recent activity, over the rate interval window.")),
 
 		sized(largestPanelWidth, largePanelHeight,
 			timeseriesPanel("WAL restore duration percentiles (total)", units.Nanoseconds,
 				quantileTargetsAbsolute("klio_plugin_wal_restore_duration_nanoseconds_bucket",
 					"le, cluster_name, k8s_pod_name, cache_hit", "outcome=\"success\","+clientMatcher,
 					"{{k8s_pod_name}} / cache_hit={{cache_hit}}")...,
-			).Description("50th/90th/99th-percentile end-to-end duration of successful WAL restores served by the "+
-				"plugin to PostgreSQL, per instance (pod), split by whether the WAL was already in the prefetch spool "+
-				"(cache_hit=true) or had to be downloaded (cache_hit=false). Reflects all activity since the "+
-				"plugin sidecar last restarted.")),
+			).Description(restoreDurationDescription+" Reflects all activity since the plugin sidecar last "+
+				"restarted.")),
 
 		sized(largePanelWidth, mediumPanelHeight, timeseriesPanel("WAL restores (rate)", units.OpsPerSecond,
 			query(fmt.Sprintf("sum by (cluster_name, k8s_pod_name, tier, outcome) "+

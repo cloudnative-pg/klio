@@ -234,9 +234,11 @@ type ClientWalMetrics struct {
 }
 
 // PluginWalMetrics holds OTel instruments the CNPG-I plugin records for WAL
-// restore. RestoreDuration is the end-to-end time the plugin takes to satisfy
-// one RESTORE_WAL request (config resolution, tier failover, prefetch lookup or
-// download, and the spool→destination rename). Each recording carries an
+// restore. RestoreDuration is the time the plugin takes to satisfy one
+// RESTORE_WAL request (config resolution, tier failover, prefetch lookup or
+// download, and the spool→destination rename): how long PostgreSQL waits on
+// restore_command for one WAL file. WAL replay and prefetch downloads that
+// finish in the background are not included. Each recording carries an
 // `outcome` (`success` / `failure` / `not_found`), a `cache_hit` (`true` when
 // the segment was already complete in the prefetch spool when PostgreSQL asked
 // for it), a `tier` (the tier that served it, or the one that failed), and a
@@ -520,16 +522,18 @@ func InitClientWalMetrics() {
 	)
 }
 
-// InitPluginWalMetrics creates the OTel instrument for the plugin end-to-end WAL
-// restore path. It is called once when this package is loaded; tests can call it
+// InitPluginWalMetrics creates the OTel instrument for the plugin WAL restore
+// path. It is called once when this package is loaded; tests can call it
 // again after swapping the meter provider to rebind the instrument.
 func InitPluginWalMetrics() {
 	meter := otel.Meter(Meter)
 
 	PluginWal.RestoreDuration, _ = meter.Int64Histogram(PluginWalRestoreDurationMetric,
-		metric.WithDescription("Distribution of end-to-end WAL restore durations measured by the "+
-			"CNPG-I plugin (the full RESTORE_WAL request: config resolution, tier failover, prefetch "+
-			"lookup or download, and spool→destination rename). The `outcome` attribute is `success`, "+
+		metric.WithDescription("Distribution of WAL restore durations measured by the CNPG-I "+
+			"plugin (the full RESTORE_WAL request: config resolution, tier failover, prefetch lookup or "+
+			"download, and spool→destination rename), i.e. how long PostgreSQL waits on restore_command "+
+			"for one WAL file. WAL replay and prefetch downloads that finish in the background are not "+
+			"included. The `outcome` attribute is `success`, "+
 			"`failure`, or `not_found` — the last being PostgreSQL asking for a segment or timeline "+
 			"history file that was never archived, which is the routine end-of-archive signal and not "+
 			"an error; `cache_hit` is `true` when the segment was already complete in the "+
