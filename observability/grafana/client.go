@@ -30,9 +30,9 @@ import (
 // duration percentile panels, which differ only in their time window.
 const restoreDurationDescription = "50th/90th/99th-percentile time PostgreSQL waited on the plugin for each " +
 	"successfully restored WAL file, per instance (pod). It covers the plugin serving the request, not the " +
-	"replay that follows nor prefetch downloads that finished in the background. cache_hit=true: the file " +
-	"was already complete in the prefetch spool, so this is a local rename. cache_hit=false: PostgreSQL " +
-	"waited on a download, either a full one or the rest of a prefetch still in flight."
+	"replay that follows nor prefetch downloads that finished in the background. Prefetch hits (a local " +
+	"rename) and misses (a wait on a download) are pooled, so with a high hit ratio the misses only show " +
+	"in the upper percentiles; see the prefetch hit ratio and wait share panels for their weight."
 
 // clientPanels returns the "Client / Plugin" section panels. These metrics are
 // emitted by the Klio plugin sidecar that runs in each PostgreSQL pod: the
@@ -165,22 +165,20 @@ func clientPanels() []sizedPanel {
 		// each pod's plugin sidecar restores its own WAL through its own
 		// prefetch spool, so these panels split by k8s_pod_name, which the
 		// sidecar always sets from POD_NAME, rather than pooling a cluster's
-		// replicas together. The percentiles keep only
-		// successful restores and split on cache_hit: a prefetch hit is a local
-		// rename and a miss waits on a download, so pooled together the
-		// percentiles would drift with the hit ratio instead of describing
-		// either case.
+		// replicas together. The percentiles keep only successful restores and
+		// pool prefetch hits and misses: how much each kind weighs is in the
+		// hit ratio and wait share panels, not in two unrelated latency lines.
 		sized(largestPanelWidth, largePanelHeight,
 			timeseriesPanel("WAL restore duration percentiles (rate)", units.Nanoseconds,
-				quantileTargets("klio_plugin_wal_restore_duration_nanoseconds_bucket", "le, cluster_name, k8s_pod_name, cache_hit",
-					"outcome=\"success\","+clientMatcher, "{{k8s_pod_name}} / cache_hit={{cache_hit}}")...,
+				quantileTargets("klio_plugin_wal_restore_duration_nanoseconds_bucket", "le, cluster_name, k8s_pod_name",
+					"outcome=\"success\","+clientMatcher, "{{k8s_pod_name}}")...,
 			).Description(restoreDurationDescription+" Reflects recent activity, over the rate interval window.")),
 
 		sized(largestPanelWidth, largePanelHeight,
 			timeseriesPanel("WAL restore duration percentiles (total)", units.Nanoseconds,
 				quantileTargetsAbsolute("klio_plugin_wal_restore_duration_nanoseconds_bucket",
-					"le, cluster_name, k8s_pod_name, cache_hit", "outcome=\"success\","+clientMatcher,
-					"{{k8s_pod_name}} / cache_hit={{cache_hit}}")...,
+					"le, cluster_name, k8s_pod_name", "outcome=\"success\","+clientMatcher,
+					"{{k8s_pod_name}}")...,
 			).Description(restoreDurationDescription+" Reflects all activity since the plugin sidecar last "+
 				"restarted.")),
 
