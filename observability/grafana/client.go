@@ -193,10 +193,16 @@ func clientPanels() []sizedPanel {
 			"restarted, per cluster, split by the tier that served them and by outcome.")),
 
 		sized(largePanelWidth, mediumPanelHeight, timeseriesPanel("WAL restore prefetch hit ratio", units.PercentUnit,
-			query(fmt.Sprintf("sum by (cluster_name) (rate(klio_plugin_wal_restore_duration_nanoseconds_count"+
-				"{outcome=\"success\",cache_hit=\"true\",%s}[$__rate_interval])) / "+
+			// Computed from misses, not hits: the cache_hit="true" series does
+			// not exist until the first hit, which would leave the panel empty
+			// instead of at 0%. The cache_hit="false" series always exists once
+			// a restore succeeded, because prefetch only starts after a
+			// successful restore, so the first one of every plugin sidecar is
+			// a miss.
+			query(fmt.Sprintf("1 - sum by (cluster_name) (rate(klio_plugin_wal_restore_duration_nanoseconds_count"+
+				"{outcome=\"success\",cache_hit=\"false\",%[1]s}[$__rate_interval])) / "+
 				"sum by (cluster_name) (rate(klio_plugin_wal_restore_duration_nanoseconds_count"+
-				"{outcome=\"success\",%s}[$__rate_interval]))", clientMatcher, clientMatcher),
+				"{outcome=\"success\",%[1]s}[$__rate_interval]))", clientMatcher),
 				"{{cluster_name}}"),
 		).Description("Fraction of successful WAL restores served straight from the prefetch spool instead of "+
 			"waiting on a download, per cluster. A falling ratio means prefetch is not keeping pace with "+

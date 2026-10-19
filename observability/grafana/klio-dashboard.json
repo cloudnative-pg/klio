@@ -1126,7 +1126,7 @@
             "type": "prometheus",
             "uid": "${datasource}"
           },
-          "expr": "sum by (cluster_name) (rate(klio_plugin_wal_restore_duration_nanoseconds_count{outcome=\"success\",cache_hit=\"true\",k8s_namespace_name=~\"$namespace\",cluster_name=~\"$cluster\"}[$__rate_interval])) / sum by (cluster_name) (rate(klio_plugin_wal_restore_duration_nanoseconds_count{outcome=\"success\",k8s_namespace_name=~\"$namespace\",cluster_name=~\"$cluster\"}[$__rate_interval]))",
+          "expr": "1 - sum by (cluster_name) (rate(klio_plugin_wal_restore_duration_nanoseconds_count{outcome=\"success\",cache_hit=\"false\",k8s_namespace_name=~\"$namespace\",cluster_name=~\"$cluster\"}[$__rate_interval])) / sum by (cluster_name) (rate(klio_plugin_wal_restore_duration_nanoseconds_count{outcome=\"success\",k8s_namespace_name=~\"$namespace\",cluster_name=~\"$cluster\"}[$__rate_interval]))",
           "instant": false,
           "legendFormat": "{{cluster_name}}",
           "range": true
