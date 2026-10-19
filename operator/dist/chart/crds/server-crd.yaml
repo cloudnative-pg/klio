@@ -287,6 +287,11 @@ spec:
                 required:
                 - pvcTemplate
                 type: object
+                x-kubernetes-validations:
+                - message: storage PVC size cannot be decreased
+                  rule: '!has(oldSelf.pvcTemplate.resources) || !has(oldSelf.pvcTemplate.resources.requests)
+                    || !(''storage'' in oldSelf.pvcTemplate.resources.requests) ||
+                    !(''storage'' in self.pvcTemplate.resources.requests) || !quantity(self.pvcTemplate.resources.requests[''storage'']).isLessThan(quantity(oldSelf.pvcTemplate.resources.requests[''storage'']))'
               template:
                 description: |-
                   Template to override the default StatefulSet of the Klio server.
@@ -17479,11 +17484,6 @@ spec:
               rule: '!(self.mode == ''read-only'' && has(self.tier1))'
             - message: tier2.compression cannot be set when mode is read-only
               rule: '!(self.mode == ''read-only'' && has(self.tier2) && has(self.tier2.compression))'
-            - message: storage PVC size cannot be decreased
-              rule: '!has(oldSelf.storage) || !has(oldSelf.storage.pvcTemplate.resources)
-                || !has(oldSelf.storage.pvcTemplate.resources.requests) || !(''storage''
-                in oldSelf.storage.pvcTemplate.resources.requests) || !(''storage''
-                in self.storage.pvcTemplate.resources.requests) || !quantity(self.storage.pvcTemplate.resources.requests[''storage'']).isLessThan(quantity(oldSelf.storage.pvcTemplate.resources.requests[''storage'']))'
           status:
             description: ServerStatus defines the observed state of Server.
             type: object

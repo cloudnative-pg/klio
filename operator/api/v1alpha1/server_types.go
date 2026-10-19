@@ -40,7 +40,6 @@ const (
 // +kubebuilder:validation:XValidation:rule="self.mode != 'read-only' || has(self.tier2)",message="tier2 is required when mode is read-only"
 // +kubebuilder:validation:XValidation:rule="!(self.mode == 'read-only' && has(self.tier1))",message="tier1 cannot be set when mode is read-only"
 // +kubebuilder:validation:XValidation:rule="!(self.mode == 'read-only' && has(self.tier2) && has(self.tier2.compression))",message="tier2.compression cannot be set when mode is read-only"
-// +kubebuilder:validation:XValidation:rule="!has(oldSelf.storage) || !has(oldSelf.storage.pvcTemplate.resources) || !has(oldSelf.storage.pvcTemplate.resources.requests) || !('storage' in oldSelf.storage.pvcTemplate.resources.requests) || !('storage' in self.storage.pvcTemplate.resources.requests) || !quantity(self.storage.pvcTemplate.resources.requests['storage']).isLessThan(quantity(oldSelf.storage.pvcTemplate.resources.requests['storage']))",message="storage PVC size cannot be decreased"
 type ServerSpec struct {
 	// ImageConfiguration tells how to download the Klio
 	// image.
@@ -66,6 +65,7 @@ type ServerSpec struct {
 	// mounted at /klio, hosting base backups, WAL, the work queue, and
 	// the Tier 1/Tier 2 caches as fixed subdirectories (data, queue,
 	// cache_tier1, cache_tier2).
+	// +kubebuilder:validation:XValidation:rule="!has(oldSelf.pvcTemplate.resources) || !has(oldSelf.pvcTemplate.resources.requests) || !('storage' in oldSelf.pvcTemplate.resources.requests) || !('storage' in self.pvcTemplate.resources.requests) || !quantity(self.pvcTemplate.resources.requests['storage']).isLessThan(quantity(oldSelf.pvcTemplate.resources.requests['storage']))",message="storage PVC size cannot be decreased"
 	Storage Storage `json:"storage"`
 
 	// Template to override the default StatefulSet of the Klio server.
