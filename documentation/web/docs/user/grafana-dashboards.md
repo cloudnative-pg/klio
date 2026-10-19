@@ -78,10 +78,10 @@ One more is a statistical caveat rather than an alerting signal:
   already sitting complete in the prefetch spool when PostgreSQL asked for it.
   A hit is a local rename and a miss waits on a download, so the two lines sit
   orders of magnitude apart and are deliberately not pooled: a single line
-  would drift with the hit rate rather than describe either case. Because a hit
-  is usually well under the histogram's smallest bucket, read that line as
-  "fast" rather than as a precise value; the miss line is the one that carries
-  detail. A **WAL restore prefetch hit ratio** falling over time means
+  would drift with the hit rate rather than describe either case. A hit takes
+  around a millisecond, which the histogram resolves with buckets starting at
+  100µs; the miss line is the one that carries the download detail. A **WAL
+  restore prefetch hit ratio** falling over time means
   prefetch is no longer keeping up with replay on that instance.
 
 ## Prerequisites

@@ -206,9 +206,12 @@ func TestPluginWalRestoreDuration(t *testing.T) {
 	require.True(t, ok, "data point must carry a cluster_name attribute")
 	assert.Equal(t, "cluster-a", cluster.AsString())
 
-	// The per-file ladder must be in force (not a single +Inf bucket).
-	assert.Greater(t, len(dps[0].Bounds), 1,
-		"explicit per-file bucket boundaries must be applied to the restore histogram")
+	// The restore ladder must be in force (not a single +Inf bucket), and
+	// reach below a millisecond so prefetch hits are not all in one bucket.
+	require.Greater(t, len(dps[0].Bounds), 1,
+		"explicit bucket boundaries must be applied to the restore histogram")
+	assert.InDelta(t, 100_000, dps[0].Bounds[0], 0,
+		"the restore histogram must start at 100µs to resolve prefetch hits")
 }
 
 // TestClientWalTimeline verifies the client timeline gauge reports the most

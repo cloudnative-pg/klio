@@ -48,6 +48,14 @@ func walFileDurationBuckets() []float64 {
 	}
 }
 
+// walRestoreDurationBuckets extends walFileDurationBuckets down to 100µs for the
+// plugin WAL restore histogram: a prefetch hit is a local rename that takes
+// about a millisecond, well under the 10ms floor of the per-file ladder.
+func walRestoreDurationBuckets() []float64 {
+	return append([]float64{100_000, 250_000, 500_000, 1_000_000, 2_500_000, 5_000_000},
+		walFileDurationBuckets()...)
+}
+
 // backupDurationBuckets spans 10s to two weeks (10s, 30s, 1m, 5m, 10m, 30m, 1h,
 // 2h, 4h, 6h, 12h, 24h, 48h, 1w, 2w), hand-picked at meaningful calendar
 // intervals.
@@ -79,7 +87,7 @@ func WalDurationViews() []metric.View {
 		explicitBucketView(ClientWalBlockDurationMetric, walBlockDurationBuckets()),
 		explicitBucketView(ServerWalGetDurationMetric, walFileDurationBuckets()),
 		explicitBucketView(ServerWalUploadDurationMetric, walFileDurationBuckets()),
-		explicitBucketView(PluginWalRestoreDurationMetric, walFileDurationBuckets()),
+		explicitBucketView(PluginWalRestoreDurationMetric, walRestoreDurationBuckets()),
 	}
 }
 

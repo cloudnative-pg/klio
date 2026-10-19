@@ -308,8 +308,9 @@ follows, nor prefetch downloads that finish in the background.
 |---|---|---|---|
 | `klio.plugin.wal.restore_duration` | Histogram | ns | Per-file time PostgreSQL waits on a WAL restore, split by `outcome` (`success`, `failure`, or `not_found` when PostgreSQL asks for a WAL file that was never archived, which is normal at the end of the archive). Carries `cache_hit`, `tier` and `cluster_name` |
 
-It uses the same buckets as the per-file server histograms. A
-prefetch hit is usually faster than the smallest bucket.
+Its buckets start at 100µs, below the 10ms floor of the per-file
+server histograms, so a prefetch hit (a local rename, about a
+millisecond) falls in a bucket of its own rather than in the lowest one.
 
 ### Backup verification metrics (server)
 
