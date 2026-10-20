@@ -39,6 +39,8 @@ type NatsService struct {
 // NewNatsService creates a new NATS server instance with JetStream enabled in the specified directory.
 func NewNatsService(directory string) (*NatsService, error) {
 	natsOptions := natsServer.Options{
+		// Only in-process clients connect, so never listen beyond loopback.
+		Host:      "127.0.0.1",
 		JetStream: true,
 		// always will make sure servers fsync after every message BEFORE it is acknowledged.
 		SyncAlways: true,
