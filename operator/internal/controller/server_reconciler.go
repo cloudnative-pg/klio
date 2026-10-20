@@ -41,7 +41,10 @@ import (
 	"github.com/cloudnative-pg/klio/operator/internal/podtemplate"
 )
 
-const klioServerLabel = "klio.cnpg.io/klio-server"
+const (
+	klioServerLabel     = "klio.cnpg.io/klio-server"
+	serverContainerName = "server"
+)
 
 var errNilFileReference = errors.New("fileReference is not set in FileSource")
 
@@ -163,7 +166,7 @@ func (r *ServerReconciler) reconcileStatefulSet(
 					SecurityContext:  r.serverPodSecurityContext(),
 					Containers: []corev1.Container{
 						{
-							Name: "server",
+							Name: serverContainerName,
 							Args: []string{
 								"server",
 								"start",
@@ -302,11 +305,13 @@ func injectVolumeClaimTemplate(expected *appsv1.StatefulSet, server *kliov1alpha
 	})
 }
 
+// enablePProf starts the pprof endpoint in the server container. The other
+// containers are user sidecars from the pod template, which don't know the flag.
 func enablePProf(containers []corev1.Container) {
 	for i := range containers {
-		containers[i].Args = append(
-			containers[i].Args,
-			"--pprof-server=:606"+strconv.Itoa(i))
+		if containers[i].Name == serverContainerName {
+			containers[i].Args = append(containers[i].Args, "--pprof-server=:6060")
+		}
 	}
 }
 

@@ -68,8 +68,8 @@ Then rollout the new binary in both server and cluster pods:
 
 ### How to get performance profiles with pprof
 
-1. Open a port forward connection to port 6061: `kubectl port-forward pod/server-sample-klio-0 6061`
-2. run pprof tool, e.g.: `go tool pprof -http=:9999 http://localhost:6061/debug/pprof/profile\?seconds=30`
+1. Open a port forward connection to port 6060: `kubectl port-forward pod/server-sample-klio-0 6060`
+2. run pprof tool, e.g.: `go tool pprof -http=:9999 http://localhost:6060/debug/pprof/profile\?seconds=30`
 
 ## How to recreate the GRPC stub and skeleton
 

@@ -136,6 +136,82 @@ func TestReconcileStatefulSetUnifiedPVC(t *testing.T) {
 	}
 }
 
+// TestReconcileStatefulSetPprof asserts that the pprof annotation reaches the
+// server container only, on a fixed port, whatever sidecars or Args overrides
+// the pod template brings.
+func TestReconcileStatefulSetPprof(t *testing.T) {
+	sidecar := corev1.Container{Name: "otel-collector", Image: "otel:test", Args: []string{"--config=/etc/otel.yaml"}}
+	withSidecar := &kliov1alpha1.PodTemplateSpec{Spec: corev1.PodSpec{Containers: []corev1.Container{sidecar}}}
+	defaultArgs := []string{"server", "start", "--tier1=true", "--tier2=false"}
+
+	testCases := []struct {
+		name     string
+		pprof    string
+		template *kliov1alpha1.PodTemplateSpec
+		wantArgs map[string][]string
+	}{
+		{
+			name:     "no template",
+			pprof:    "true",
+			wantArgs: map[string][]string{"server": append(defaultArgs, "--pprof-server=:6060")},
+		},
+		{
+			name:     "user sidecar",
+			pprof:    "true",
+			template: withSidecar,
+			wantArgs: map[string][]string{
+				"server":     append(defaultArgs, "--pprof-server=:6060"),
+				sidecar.Name: sidecar.Args,
+			},
+		},
+		{
+			name:  "template replaces the server Args",
+			pprof: "true",
+			template: &kliov1alpha1.PodTemplateSpec{Spec: corev1.PodSpec{
+				Containers: []corev1.Container{{Name: "server", Args: []string{"server", "start"}}},
+			}},
+			wantArgs: map[string][]string{"server": {"server", "start", "--pprof-server=:6060"}},
+		},
+		{
+			name:     "annotation disabled",
+			pprof:    "false",
+			template: withSidecar,
+			wantArgs: map[string][]string{"server": defaultArgs, sidecar.Name: sidecar.Args},
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			server := newTestServerForStatefulSet()
+			server.Annotations = map[string]string{"klio.cnpg.io/pprof": tc.pprof}
+			server.Spec.Template = tc.template
+
+			scheme := newTestScheme()
+			require.NoError(t, appsv1.AddToScheme(scheme))
+			fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(server).Build()
+			reconciler := &ServerReconciler{
+				Client:   fakeClient,
+				Scheme:   scheme,
+				Recorder: &events.FakeRecorder{Events: make(chan string, 10)},
+			}
+
+			_, err := reconciler.reconcileStatefulSet(context.Background(), server)
+			require.NoError(t, err)
+
+			var statefulSet appsv1.StatefulSet
+			require.NoError(t, fakeClient.Get(context.Background(), client.ObjectKey{
+				Name: "test-server-klio", Namespace: "default",
+			}, &statefulSet))
+
+			args := map[string][]string{}
+			for _, c := range statefulSet.Spec.Template.Spec.Containers {
+				args[c.Name] = c.Args
+			}
+			assert.Equal(t, tc.wantArgs, args)
+		})
+	}
+}
+
 func newInvalidStatefulSetError() error {
 	return apierrors.NewInvalid(
 		schema.GroupKind{Group: "apps", Kind: "StatefulSet"},
