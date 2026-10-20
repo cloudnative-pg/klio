@@ -53,6 +53,28 @@ The queue serves two purposes:
 - **Tier 2 replication**: When Tier 2 is enabled, manages asynchronous
   transfer to object storage
 
+## Network Ports
+
+Clients connect to the Klio server on the ports below. The operator
+manages the server Service and the generated client configuration of
+every `PluginConfiguration` together with them, so they never get out
+of sync:
+
+| Port    | Name         | Transport                | Purpose              |
+|---------|--------------|--------------------------|----------------------|
+| `11515` | `base`       | HTTPS (Kopia repository server) | Tier 1 base backups |
+| `12000` | `wal`        | gRPC over TLS            | Tier 1 WAL streaming |
+| `11516` | `tier2-base` | HTTPS (Kopia repository server) | Tier 2 base backups |
+| `12001` | `tier2-wal`  | gRPC over TLS            | Tier 2 WAL streaming |
+
+The two `tier2-*` ports exist only when Tier 2 is configured.
+
+The port numbers are fixed defaults set by the operator through the
+server pod's environment, not fields of the `Server` resource. You only
+need to reference them when writing a NetworkPolicy or firewall rule,
+or a manually written client configuration — see
+[the WAL player](walplayer.md) for an example.
+
 ## Storage Requirements
 
 The Klio Server uses a single PersistentVolumeClaim (PVC), mounted at
