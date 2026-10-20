@@ -304,11 +304,6 @@ func injectVolumeClaimTemplate(expected *appsv1.StatefulSet, server *kliov1alpha
 
 func enablePProf(containers []corev1.Container) {
 	for i := range containers {
-		// No pprof on NATS, there's no such option
-		if containers[i].Name == "nats" {
-			continue
-		}
-
 		containers[i].Args = append(
 			containers[i].Args,
 			"--pprof-server=:606"+strconv.Itoa(i))
