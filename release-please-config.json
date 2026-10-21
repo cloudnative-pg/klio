@@ -1,6 +1,7 @@
 {
   "changelog-path": "CHANGELOG.md",
   "release-type": "go",
+  "changelog-type": "github",
   "bump-minor-pre-major": true,
   "bump-patch-for-minor-pre-major": true,
   "draft": false,
@@ -22,8 +23,7 @@
     "documentation/web/docs/user/quickstart.md",
     "documentation/web/docs/user/api_service.md",
     "documentation/web/docs/user/helm_chart.mdx",
-    "documentation/web/docs/user/walplayer.md",
-    "documentation/web/docs/developer/release.md"
+    "documentation/web/docs/user/walplayer.md"
   ],
   "prerelease": false,
   "packages": {
