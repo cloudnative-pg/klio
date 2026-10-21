@@ -4,51 +4,44 @@ sidebar_position: 11
 
 # Grafana Dashboards
 
-Klio ships a Grafana dashboard template that visualizes the metrics it
-exposes. The dashboard is generated from code with the
+Klio ships two Grafana dashboard templates that visualize the metrics it
+exposes. The dashboards are generated from code with the
 [Grafana Foundation SDK](https://github.com/grafana/grafana-foundation-sdk)
-and committed to the repository at
-`observability/grafana/klio-dashboard.json`.
+and committed to the repository under `observability/grafana/dashboards/`:
 
-The dashboard queries the Prometheus export of Klio's OpenTelemetry metrics,
-so it complements the [OpenTelemetry](opentelemetry.md) setup rather than
+- **Klio Clusters** (`klio-clusters.json`), organized around the PostgreSQL
+  clusters that Klio backs up.
+- **Klio Servers** (`klio-servers.json`), organized around the Klio servers.
+
+Each dashboard has its own filters, and every filter applies to all of its
+panels. A link at the top of each dashboard opens the other one.
+
+The dashboards query the Prometheus export of Klio's OpenTelemetry metrics,
+so they complement the [OpenTelemetry](opentelemetry.md) setup rather than
 replacing it.
 
-## What the dashboard shows
+## What the dashboards show
 
-The dashboard is a single dashboard split into row sections:
+The **Klio Clusters** dashboard is split into row sections:
 
-- **Client / Plugin** — the backup lifecycle as seen by the plugin sidecar
+- **Backups** — the backup lifecycle as seen by the plugin sidecar
   running in each PostgreSQL pod: backups in progress, time since the last
   backup started, succeeded and failed, the latest backup duration, the
   p50/p90/p99 backup duration distribution, backup run and failure rates,
-  and the backup success ratio. Also the WAL
-  streaming client the sidecar supervises as a child process: the PostgreSQL
-  timeline it is currently streaming and the p50/p90/p99 latency of sending
-  a WAL block to the server. Finally the WAL restores the plugin serves back
-  to PostgreSQL, per instance (pod), since each instance restores its own WAL
-  through its own prefetch spool: the p50/p90/p99 restore duration (how long
-  PostgreSQL waited for each WAL file, not the replay that follows), as both
-  a rolling-window and a since-restart total variant, the restore rate and
-  total by tier and outcome, the prefetch hit ratio, and the share of time
-  PostgreSQL spent waiting on the plugin (near 0% when recovery is limited by
-  replay, not by Klio).
+  and the backup success ratio.
 
-![Klio client and plugin metrics](images/klio_client_and_plugin_metrics.png)
+- **Retained backups** — the retention window of the physical PostgreSQL
+  backups the Klio server keeps for each cluster: counts by tier,
+  latest/oldest backup age, start/end LSN and PostgreSQL timeline.
+- **Backup maintenance** — tier-2 relay, backup verification and
+  maintenance run totals per cluster.
+- **WAL archiving** — the WAL streaming client the sidecar supervises as a
+  child process (the PostgreSQL timeline it is currently streaming and the
+  p50/p90/p99 latency of sending a WAL block to the server), and the WAL the
+  server writes: throughput and freshness per tier, the latest written LSN
+  and the p50/p90/p99 tier-2 upload duration.
 
-- **Server** — the state of the Klio server StatefulSet: uptime, WAL ingest
-  throughput and freshness per tier, the latest written LSN, backup
-  verification totals per cluster, the base snapshot inventory (including
-  file and directory counts), p50/p90/p99 WAL block/get/upload duration by
-  path, stage and tier (each as both a rolling-window and a since-restart
-  total variant), tier-2 relay and maintenance run totals, the retention
-  window of the
-  physical PostgreSQL backups (counts by tier, latest/oldest backup age,
-  start/end LSN and PostgreSQL timeline per cluster), and the embedded NATS
-  JetStream queue.
-
-![Klio server metrics](images/klio_server_metrics.png)
-
+![Klio Clusters dashboard](images/clusters_dashboard.png)
 - **WAL replication lag** — how far behind Klio is in copying WAL:
   - **Tier-1 replication lag (bytes)** and **(seconds)**: how much WAL,
     and how much time, Klio is behind the PostgreSQL primary. The *write*
@@ -59,6 +52,29 @@ The dashboard is a single dashboard split into row sections:
     (tier 1) but not yet copied to remote storage (tier 2).
 
 ![Klio WAL replication lag metrics](images/klio_wal_replication_lag_metrics.png)
+
+- **WAL restore** — the WAL restores the plugin serves back to PostgreSQL,
+  per instance (pod), since each instance restores its own WAL through its
+  own prefetch spool: the p50/p90/p99 restore duration (how long PostgreSQL
+  waited for each WAL file, not the replay that follows), as both a
+  rolling-window and a since-restart total variant, the restore rate and
+  total by tier and outcome, the prefetch hit ratio, and the share of time
+  PostgreSQL spent waiting on the plugin (near 0% when recovery is limited
+  by replay, not by Klio).
+
+The **Klio Servers** dashboard is split into row sections:
+
+- **Server health** — the uptime of each Klio server and its embedded NATS
+  JetStream queue.
+- **Served clusters** — retained backups, latest backup age, time since the
+  last WAL written and WAL throughput of the clusters backed by the selected
+  servers.
+- **Kopia snapshots** — the base snapshot inventory, including file and
+  directory counts.
+- **WAL processing** — p50/p90/p99 WAL block and get duration by path, stage
+  and tier, each as both a rolling-window and a since-restart total variant.
+
+![Klio Servers dashboard](images/servers_dashboard.png)
 
 Some panels need extra context to interpret correctly. Two are derived
 from the alerting guidance in [OpenTelemetry](opentelemetry.md):
@@ -84,7 +100,7 @@ One more is a statistical caveat rather than an alerting signal:
 
 ## Prerequisites
 
-The dashboard reads the Prometheus names of Klio's metrics (for example
+The dashboards read the Prometheus names of Klio's metrics (for example
 `klio_plugin_backup_runs_total` and `klio_server_wal_written_total`). You
 therefore need Prometheus scraping those metrics. Any of the export paths
 described in [OpenTelemetry](opentelemetry.md) works:
@@ -94,10 +110,10 @@ described in [OpenTelemetry](opentelemetry.md) works:
 - The Klio Prometheus exporter (`OTEL_METRICS_EXPORTER=prometheus`),
   scraped directly.
 
-The **WAL replication lag** row additionally reads CloudNativePG's
-`cnpg_pg_stat_replication_*` metrics. To populate it, scrape the
-CloudNativePG cluster monitoring (its `PodMonitor`) into the same
-Prometheus. The rest of the dashboard works without it.
+The **WAL replication lag** row of the Klio Clusters dashboard additionally
+reads CloudNativePG's `cnpg_pg_stat_replication_*` metrics. To populate it,
+scrape the CloudNativePG cluster monitoring (its `PodMonitor`) into the same
+Prometheus. The rest of the dashboards work without it.
 
 The LSN table panels (**Latest backup LSN**, **Oldest backup LSN**,
 **Latest written LSN**) need Grafana 13 or later: they use SQL
@@ -113,30 +129,41 @@ The sample collector under
 this.
 :::
 
-## Importing the dashboard
+## Importing the dashboards
 
 1. In Grafana, go to **Dashboards → New → Import**.
-1. Upload `observability/grafana/klio-dashboard.json` or paste its contents.
+1. Upload `observability/grafana/dashboards/klio-clusters.json` or paste its
+   contents.
 1. When prompted, select your Prometheus data source for the `datasource`
    variable.
+1. Repeat for `observability/grafana/dashboards/klio-servers.json`.
 
-The dashboard declares a `datasource` template variable, so it is portable
+Each dashboard declares a `datasource` template variable, so it is portable
 across Grafana installations and is not tied to a specific data source UID.
-Three more template variables at the top filter the panels:
+The other template variables at the top filter the panels.
 
-- `namespace`: the Kubernetes namespace, matched against
-  `k8s.namespace.name`. It scopes the Client / Plugin and WAL Replication
-  Lag panels, whose metrics are emitted from the PostgreSQL pods and
-  therefore carry the *cluster's* namespace.
+On the Klio Clusters dashboard:
+
+- `namespace`: the namespace where the PostgreSQL cluster runs, matched
+  against `k8s.namespace.name`.
+- `cluster`: the PostgreSQL cluster, matched against `cluster_name`. It
+  lists every cluster that emits Klio plugin metrics, including clusters
+  that only restore from a Klio server.
+- `pod` (*Instance*): the PostgreSQL pod, matched against `k8s.pod.name`.
+  It scopes the panels built from the plugin metrics.
+
+The server-side metrics carry the server's own namespace, not the cluster's,
+so the per-cluster server panels are filtered by `cluster` only.
+
+On the Klio Servers dashboard:
+
+- `namespace` (*Server namespace*): the namespace where the Klio server
+  runs, which can differ from the namespace of the clusters it backs up.
 - `server`: the Klio server, matched against the OpenTelemetry
   `service.name` (not the pod host name, which two servers of the same name
-  in different namespaces would share). It scopes the Server panels.
-- `cluster`: the PostgreSQL cluster, matched against `cluster_name`. It
-  scopes every per-cluster panel across all sections. Because the
-  server-side metrics carry the server's own namespace, per-cluster Server
-  panels are filtered by `server` and `cluster` rather than `namespace`, so a
-  cluster backed up by a server in another namespace is still attributed
-  correctly.
+  in different namespaces would share).
+- `cluster` (*Served cluster*): the clusters backed up by the selected
+  servers, from any namespace.
 
 Every aggregation groups by the identifying label (cluster, server, tier),
 so multiple clusters or servers are never folded into a single misleading
@@ -144,10 +171,10 @@ value.
 
 :::note
 Give each Klio server a distinct `OTEL_SERVICE_NAME` (as the sample server
-manifests do). The `server` variable identifies servers by their OpenTelemetry
-`service.name`; if it is left unset, every server reports the SDK default
-(`unknown_service:klio`) and they collapse into a single, indistinguishable
-entry.
+manifests do). The `server` variable of the Klio Servers dashboard
+identifies servers by their OpenTelemetry `service.name`; if it is left
+unset, every server reports the SDK default (`unknown_service:klio`) and
+they collapse into a single, indistinguishable entry.
 :::
 
 ### Example: kube-prometheus-stack
@@ -180,20 +207,20 @@ Port-forward Grafana and log in with `admin` / `prom-operator`:
 kubectl port-forward svc/prometheus-community-grafana 3000:80
 ```
 
-Open `http://localhost:3000/` and import
-`observability/grafana/klio-dashboard.json` via **Dashboards → New → Import**,
+Open `http://localhost:3000/` and import the two JSON files under
+`observability/grafana/dashboards/` via **Dashboards → New → Import**,
 selecting your Prometheus data source.
 
-Alternatively, load it automatically through the Grafana dashboard sidecar
+Alternatively, load them automatically through the Grafana dashboard sidecar
 with a labeled `ConfigMap`:
 
 ```sh
-kubectl create configmap klio-grafana-dashboard \
-  --from-file=klio-dashboard.json=observability/grafana/klio-dashboard.json
-kubectl label configmap klio-grafana-dashboard grafana_dashboard=1
+kubectl create configmap klio-grafana-dashboards \
+  --from-file=observability/grafana/dashboards/
+kubectl label configmap klio-grafana-dashboards grafana_dashboard=1
 ```
 
-## Regenerating the dashboard
+## Regenerating the dashboards
 
 The committed JSON is generated from the Go program under
 `observability/grafana/`. To regenerate it after changing the generator (or
@@ -203,6 +230,6 @@ after a `grafana-foundation-sdk` bump), run from the repository root:
 task grafana:gen
 ```
 
-CI runs `task grafana:uncommitted`, which regenerates the dashboard and
+CI runs `task grafana:uncommitted`, which regenerates the dashboards and
 fails if the committed JSON has drifted from the generator output. Commit
 the regenerated file whenever it changes.
