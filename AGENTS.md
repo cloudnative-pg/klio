@@ -255,21 +255,22 @@ cached index, run tests, then revert.
 - Title format: conventional commit
 - The body should be informative of the content of the PR, without describing
   every single change
-- Commits must have a `Signed-off-by` footer as the **last line** of the commit message
-  - It should be signed off at least by the user doing the commit
-  - If using `Co-Authored-By`, it must come before `Signed-off-by`
-  - Example order:
+- Commits must include a `Signed-off-by` trailer, signed at least by the user
+  doing the commit
+  - Trailers may appear in any order, but must be contiguous: a blank line
+    between trailers splits them into separate paragraphs, and `trailer-exists`
+    (which parses with `git interpret-trailers`) only sees the last one
+  - Example:
     ```
     commit message body
 
-    Co-Authored-By: Name <email>
     Signed-off-by: Name <email>
+    Co-Authored-By: Name <email>
     ```
 - Per the [CNPG AI Policy](https://github.com/cloudnative-pg/governance/blob/main/AI_POLICY.md),
   commits with significant AI assistance must also carry an
-  `Assisted-by: <tool name>` trailer (e.g. `Assisted-by: Claude`), separated
-  from `Signed-off-by` by a blank line. `git commit -s` alone does not add
-  this (write both trailers out explicitly).
+  `Assisted-by: <tool name>` trailer (e.g. `Assisted-by: Claude`).
+  `git commit -s` alone does not add this (write both trailers out explicitly).
 - Before committing, run:
   - `golangci-lint run` in `core/`
   - `golangci-lint run` in `operator/`
