@@ -10,6 +10,7 @@
     ":automergeDigest"
   ],
   "enabled": true,
+  "automergeStrategy": "rebase",
   "prConcurrentLimit": 5,
   "ignorePaths": [
     "**/node_modules/**",
