@@ -1453,7 +1453,7 @@ tasks:
       - grafana:uncommitted
 
   grafana:gen:
-    desc: Generate the Grafana dashboard JSON
+    desc: Generate the Grafana dashboards JSON
     run: once
     vars:
       # renovate: datasource=docker depName=golang versioning=docker
@@ -1468,15 +1468,15 @@ tasks:
         with-directory --path /src --source observability/grafana/
         with-workdir --path /src
         with-env-variable --name CACHEBUST --value "$(date)"
-        with-exec --args sh --args '-c' --args "go run . -output klio-dashboard.json"
-        file --path klio-dashboard.json
-        export --path observability/grafana/klio-dashboard.json
+        with-exec --args sh --args '-c' --args "mkdir -p /out && go run . -output-dir /out"
+        directory --path /out
+        export --wipe --path observability/grafana/dashboards
     sources:
       - observability/grafana/**/*.go
       - observability/grafana/go.mod
       - observability/grafana/go.sum
     generates:
-      - observability/grafana/klio-dashboard.json
+      - observability/grafana/dashboards/*.json
 
   grafana:go-test:
     desc: Run go test on the Grafana dashboard generator
@@ -1509,16 +1509,16 @@ tasks:
       - observability/grafana/**/*.go
 
   grafana:lint-dashboard:
-    desc: Lint the generated Grafana dashboard JSON with gcx
+    desc: Lint the generated Grafana dashboards JSON with gcx
     vars:
       # renovate: datasource=github-releases depName=grafana/gcx versioning=semver
       GCX_VERSION: 1.7.1
       # renovate: datasource=docker depName=golang versioning=docker
       GOLANG_IMAGE_VERSION: 1.27.3-alpine@sha256:d530cf60723abf1ffae0cd16bb546b379ec0550d2f3815e5b16ed69dbc00fba4
       # gcx dev lint only accepts the resource-as-code envelope, so the classic
-      # importable dashboard JSON is wrapped on the fly. The uneditable-dashboard
-      # rule is disabled on purpose: the dashboard ships editable so users can
-      # tweak it after import.
+      # importable dashboards JSON is wrapped on the fly. The uneditable-dashboard
+      # rule is disabled on purpose: the dashboards ship editable so users can
+      # tweak them after import.
       GCX_LINT_SCRIPT: >-
         set -eu;
         apk add --no-cache curl jq >/dev/null;
@@ -1531,9 +1531,12 @@ tasks:
         actual=$(sha256sum "/tmp/${asset}" | cut -d" " -f1);
         test "${expected}" = "${actual}";
         tar -xzf "/tmp/${asset}" -C /usr/local/bin gcx;
-        jq "{apiVersion: \"dashboard.grafana.app/v1beta1\", kind: \"Dashboard\", metadata: {name: .uid}, spec: .}" klio-dashboard.json > /tmp/resource.json;
-        gcx dev lint run --disable uneditable-dashboard /tmp/resource.json -o compact;
-        n=$(gcx dev lint run --disable uneditable-dashboard /tmp/resource.json --jq ".summary.num_violations");
+        mkdir -p /tmp/resources;
+        for f in dashboards/*.json; do
+        jq "{apiVersion: \"dashboard.grafana.app/v1beta1\", kind: \"Dashboard\", metadata: {name: .uid}, spec: .}" "${f}" > "/tmp/resources/$(basename "${f}")";
+        done;
+        gcx dev lint run --disable uneditable-dashboard /tmp/resources -o compact;
+        n=$(gcx dev lint run --disable uneditable-dashboard /tmp/resources --jq ".summary.num_violations");
         echo "gcx dashboard lint violations: ${n}";
         test "${n}" = "0"
     cmds:
@@ -1546,7 +1549,7 @@ tasks:
         with-exec --args sh --args /lint-dashboard.sh
         stdout
     sources:
-      - observability/grafana/klio-dashboard.json
+      - observability/grafana/dashboards/*.json
 
   grafana:uncommitted:
     desc: Check for uncommitted changes after dashboard generation
