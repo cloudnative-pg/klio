@@ -24,25 +24,132 @@ import (
 	"github.com/grafana/grafana-foundation-sdk/go/dashboard"
 )
 
-const (
-	// dashboardUID is a stable identifier so re-imports update the same
-	// dashboard instead of creating duplicates.
-	dashboardUID = "klio"
-	// dashboardTitle is the title shown in Grafana.
-	dashboardTitle = "Klio"
-)
+// section is a dashboard row.
+type section struct {
+	title       string
+	description string
+	panels      []sizedPanel
+}
 
-// build assembles the full dashboard: the data source variable, then each
-// row section with its panels.
-func build() *dashboard.DashboardBuilder {
-	builder := dashboard.NewDashboardBuilder(dashboardTitle).
-		Uid(dashboardUID).
-		Description("Backup and WAL observability for Klio, built from the Prometheus "+
-			"export of Klio's OpenTelemetry metrics.").
+// dashboards returns every Klio dashboard.
+func dashboards() []*dashboard.DashboardBuilder {
+	return []*dashboard.DashboardBuilder{clusterDashboard(), serverDashboard()}
+}
+
+// clusterDashboard builds the dashboard organized by PostgreSQL cluster.
+func clusterDashboard() *dashboard.DashboardBuilder {
+	// Sourced from the plugin metrics, so restore-only clusters are listed.
+	builder := newDashboard("klio-clusters", "Klio Clusters",
+		"Backups, WAL archiving and WAL restore of the PostgreSQL clusters backed up by Klio.").
+		WithVariable(labelVariable("namespace", "Namespace",
+			`label_values({__name__=~"klio_(plugin|client)_.+"}, k8s_namespace_name)`)).
+		WithVariable(labelVariable("cluster", "Cluster",
+			`label_values({__name__=~"klio_(plugin|client)_.+",k8s_namespace_name=~"$namespace"}, cluster_name)`)).
+		WithVariable(labelVariable("pod", "Instance",
+			`label_values({__name__=~"klio_(plugin|client)_.+",k8s_namespace_name=~"$namespace",`+
+				`cluster_name=~"$cluster"}, k8s_pod_name)`))
+
+	layoutDashboard(builder,
+		"*Namespace* is where the PostgreSQL cluster runs. *Cluster* lists every cluster that emits Klio "+
+			"plugin metrics, restore-only clusters included. *Instance* narrows the plugin panels to "+
+			"individual PostgreSQL pods.",
+		section{
+			"Backups",
+			"Base backup lifecycle as seen by the plugin sidecar running in each PostgreSQL pod.",
+			backupPanels(),
+		},
+		section{
+			"Retained backups",
+			"Retention window of the physical PostgreSQL backups the Klio server keeps for each cluster.",
+			retainedBackupPanels(),
+		},
+		section{
+			"Backup maintenance",
+			"Asynchronous operations the Klio server runs on the backups: tier-2 relay, verification and " +
+				"maintenance.",
+			backupMaintenancePanels(),
+		},
+		section{
+			"WAL archiving",
+			"WAL streamed by the client in the PostgreSQL pod, and written by the Klio server to each tier.",
+			append(walStreamingPanels(), walIngestPanels()...),
+		},
+		section{
+			"WAL replication lag",
+			"How far the WAL stored in tier 1 and tier 2 trails behind the PostgreSQL primary.",
+			replicationPanels(),
+		},
+		section{
+			"WAL restore",
+			"WAL files the plugin serves to PostgreSQL during recovery or on a replica, per instance.",
+			walRestorePanels(),
+		},
+	)
+
+	return builder
+}
+
+// serverDashboard builds the dashboard organized by Klio server.
+func serverDashboard() *dashboard.DashboardBuilder {
+	// Servers are identified by service.name, which stays unique when two
+	// servers share a host_name. Served clusters are narrowed by server, not
+	// namespace, to keep clusters served cross-namespace.
+	builder := newDashboard("klio-servers", "Klio Servers",
+		"Health, served clusters, Kopia snapshots and WAL processing of the Klio servers.").
+		WithVariable(labelVariable("namespace", "Server namespace",
+			`label_values(klio_server_uptime_seconds, k8s_namespace_name)`)).
+		WithVariable(labelVariable("server", "Server",
+			`label_values(klio_server_uptime_seconds{k8s_namespace_name=~"$namespace"}, service_name)`)).
+		WithVariable(labelVariable("cluster", "Served cluster",
+			`label_values(klio_server_wal_written_total{service_name=~"$server"}, cluster_name)`))
+
+	layoutDashboard(builder,
+		"*Server namespace* is where the Klio server runs, not where the clusters it backs run. *Server* "+
+			"selects one or more Klio servers. *Served cluster* lists the clusters backed by the selected "+
+			"servers, from any namespace.",
+		section{
+			"Server health",
+			"Uptime of each Klio server and the messages waiting in its embedded queue.",
+			serverHealthPanels(),
+		},
+		section{
+			"Served clusters",
+			"Backups and WAL of the clusters backed by the selected servers.",
+			servedClusterPanels(),
+		},
+		section{
+			"Kopia snapshots",
+			"Base backup snapshots stored in the Kopia repository of each tier.",
+			snapshotPanels(),
+		},
+		section{
+			"WAL processing",
+			"Latency of the WAL operations on the server, aggregated across the selected served clusters.",
+			walProcessingPanels(),
+		},
+	)
+
+	return builder
+}
+
+// newDashboard returns a dashboard with the settings shared by every Klio
+// dashboard.
+func newDashboard(uid, title, description string) *dashboard.DashboardBuilder {
+	return dashboard.NewDashboardBuilder(title).
+		Uid(uid).
+		Description(description+" Built from the Prometheus export of Klio's OpenTelemetry metrics.").
 		Tags([]string{"klio", "postgresql", "backup"}).
 		Editable().
 		Refresh("30s").
 		Time("now-6h", "now").
+		// Variables are not carried over: their meaning differs per dashboard.
+		Link(dashboard.NewDashboardLinkBuilder("Klio dashboards").
+			Type(dashboard.DashboardLinkTypeDashboards).
+			Tags([]string{"klio"}).
+			AsDropdown(false).
+			KeepTime(true).
+			IncludeVars(false).
+			TargetBlank(false)).
 		WithVariable(
 			dashboard.NewDatasourceVariableBuilder(datasourceVar).
 				Label("Data source").
@@ -51,34 +158,19 @@ func build() *dashboard.DashboardBuilder {
 				// default Prometheus data source and resolves $datasource to its
 				// real UID.
 				Current(dashboard.VariableOption{}),
-		).
-		WithVariable(
-			labelVariable("namespace", "Namespace",
-				`label_values({__name__=~"klio_.+"}, k8s_namespace_name)`),
-		).
-		// Server identity is the OpenTelemetry service.name, not the pod
-		// host_name: two Servers with the same name in different namespaces
-		// share a host_name (e.g. both "klio-a-klio-0") and would collapse into
-		// one ambiguous entry, whereas their service.name stays distinct.
-		WithVariable(
-			labelVariable("server", "Server",
-				`label_values(klio_server_uptime_seconds, service_name)`),
-		).
-		// The cluster list is narrowed by the selected server (service.name),
-		// NOT by namespace: a server tags its series with its own namespace, so
-		// filtering clusters by $namespace would drop clusters served
-		// cross-namespace.
-		WithVariable(
-			labelVariable("cluster", "Cluster",
-				`label_values(klio_server_wal_written_total{service_name=~"$server"}, cluster_name)`),
 		)
+}
 
-	y := 0
-	layoutSection(builder, &y, "Client / Plugin", clientPanels())
-	layoutSection(builder, &y, "Server", serverPanels())
-	layoutSection(builder, &y, "WAL replication lag", replicationPanels())
-
-	return builder
+// layoutDashboard adds the filter note, then each section.
+func layoutDashboard(builder *dashboard.DashboardBuilder, note string, sections ...section) {
+	builder.WithPanel(descriptionPanel(note).
+		GridPos(dashboard.GridPos{X: 0, Y: 0, W: gridWidth, H: descriptionPanelHeight}))
+	y := descriptionPanelHeight
+	for _, s := range sections {
+		panels := append([]sizedPanel{sized(gridWidth, descriptionPanelHeight, descriptionPanel(s.description))},
+			s.panels...)
+		layoutSection(builder, &y, s.title, panels)
+	}
 }
 
 // layoutSection adds a row header at the current y offset, then packs the

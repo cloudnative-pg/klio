@@ -28,6 +28,17 @@ configuration of every `PluginConfiguration`, automatically. Update any
 NetworkPolicy, firewall rule or manually written client configuration (for
 example a WAL player Job) that references the old ports.
 
+### Grafana dashboard split in two
+
+The single Klio Grafana dashboard (`klio-dashboard.json`, UID `klio`) is
+replaced by two dashboards under `observability/grafana/dashboards/`:
+**Klio Clusters** (UID `klio-clusters`) and **Klio Servers** (UID
+`klio-servers`). See [Grafana Dashboards](grafana-dashboards.md).
+
+Import both dashboards, or update the `ConfigMap` loaded by the Grafana
+dashboard sidecar, then delete the old `Klio` dashboard: Grafana no longer
+updates it.
+
 ### Klio-managed retention policies
 
 Retention is now enforced by the Klio server, which periodically evaluates

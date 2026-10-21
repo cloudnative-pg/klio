@@ -17,18 +17,14 @@ limitations under the License.
 SPDX-License-Identifier: Apache-2.0
 */
 
-// Command grafana generates the Klio Grafana dashboard from code using the
-// grafana-foundation-sdk. The dashboard is built against the Prometheus names
-// of the OpenTelemetry metrics that Klio exports (see
-// documentation/web/docs/user/opentelemetry.md) and is split into row
-// sections: one for the client (plugin sidecar and the WAL streaming client
-// it supervises) metrics, one for the server metrics (including the retained
-// PostgreSQL backups), and one for WAL replication lag (sourced from
-// CloudNativePG's pg_stat_replication metrics).
+// Command grafana generates the Klio Grafana dashboards from code using the
+// grafana-foundation-sdk, against the Prometheus names of the OpenTelemetry
+// metrics that Klio exports (see documentation/web/docs/user/opentelemetry.md).
+// One dashboard is organized by PostgreSQL cluster, the other by Klio server.
 //
 // Running the command regenerates the committed JSON in place:
 //
-//	go run . -output klio-dashboard.json
+//	go run . -output-dir dashboards
 package main
 
 import (
@@ -36,6 +32,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/grafana/grafana-foundation-sdk/go/cog"
@@ -66,6 +63,8 @@ const (
 	// dashboard grid packs flush without vertical gaps.
 	mediumPanelHeight = 6
 	largePanelHeight  = 8
+	// tablePanelHeight fits a table with one row per cluster and tier.
+	tablePanelHeight = 10
 	// descriptionPanelHeight is the grid height (in rows) of the text panel
 	// that explains each row section.
 	descriptionPanelHeight = 2
@@ -77,49 +76,46 @@ const (
 	largePanelWidth    = 8
 	largestPanelWidth  = 12
 
-	// clientMatcher selects the plugin sidecar's per-cluster series
-	// (klio_plugin_backup_* and klio_client_wal_*). These carry the PostgreSQL
-	// pod's k8s.namespace.name and a cluster_name, so they are scoped by
-	// $namespace and $cluster. Because they identify their cluster directly,
-	// several clusters sharing one namespace never fold into a single series.
-	clientMatcher = `k8s_namespace_name=~"$namespace",cluster_name=~"$cluster"`
-	// serverMatcher selects the server-level klio_server_* series that carry no
-	// cluster_name (uptime, the embedded queue, verifications and the Kopia base
-	// snapshots) by the Klio server's OpenTelemetry service.name. service.name
-	// identifies a server uniquely even when two servers share a pod host name
-	// (host_name collides when two Servers have the same name in different
-	// namespaces); k8s.namespace.name is deliberately NOT used here because a
-	// server tags every series with its OWN namespace, which would hide the
-	// metrics of a cluster it serves cross-namespace.
+	// clientMatcher selects the plugin sidecar series (klio_plugin_* and
+	// klio_client_wal_*), which carry the PostgreSQL pod's namespace, cluster
+	// and pod name.
+	clientMatcher = `k8s_namespace_name=~"$namespace",cluster_name=~"$cluster",k8s_pod_name=~"$pod"`
+	// clusterMatcher selects the per-cluster server series by cluster_name
+	// alone: they carry the server's namespace, not the cluster's.
+	clusterMatcher = `cluster_name=~"$cluster"`
+	// serverMatcher selects the server-level series by service.name, which
+	// stays unique when two servers share a pod host name.
 	serverMatcher = `service_name=~"$server"`
-	// walMatcher additionally selects on cluster_name, which the per-cluster
-	// klio_server_wal_* and klio_server_backup_* (backups / latest_backup_* /
-	// oldest_backup_*) series carry, and combines it with the server selector.
+	// walMatcher selects the per-cluster server series by server and cluster.
 	walMatcher = `service_name=~"$server",cluster_name=~"$cluster"`
+	// snapshotMatcher selects the Kopia snapshots by server, and by cluster
+	// through snapshot_source (`userName@clusterName:path`).
+	snapshotMatcher = `service_name=~"$server",snapshot_source=~"[^@]*@$cluster:.*"`
 )
 
 func main() {
-	output := flag.String("output", "klio-dashboard.json", "path of the dashboard JSON file to write")
+	outputDir := flag.String("output-dir", "dashboards", "directory to write the dashboard JSON files to")
 	flag.Parse()
 
-	builder := build()
+	for _, builder := range dashboards() {
+		dash, err := builder.Build()
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "building dashboard: %v\n", err)
+			os.Exit(1)
+		}
 
-	dash, err := builder.Build()
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "building dashboard: %v\n", err)
-		os.Exit(1)
-	}
+		encoded, err := json.MarshalIndent(dash, "", "  ")
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "marshaling dashboard: %v\n", err)
+			os.Exit(1)
+		}
+		encoded = append(encoded, '\n')
 
-	encoded, err := json.MarshalIndent(dash, "", "  ")
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "marshaling dashboard: %v\n", err)
-		os.Exit(1)
-	}
-	encoded = append(encoded, '\n')
-
-	if err := os.WriteFile(*output, encoded, 0o644); err != nil { //nolint:gosec // world-readable dashboard JSON is fine
-		fmt.Fprintf(os.Stderr, "writing %s: %v\n", *output, err)
-		os.Exit(1)
+		path := filepath.Join(*outputDir, *dash.Uid+".json")
+		if err := os.WriteFile(path, encoded, 0o644); err != nil { //nolint:gosec // world-readable dashboard JSON is fine
+			fmt.Fprintf(os.Stderr, "writing %s: %v\n", path, err)
+			os.Exit(1)
+		}
 	}
 }
 
