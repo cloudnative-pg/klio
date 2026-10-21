@@ -162,7 +162,7 @@ jobs:
     # Also build when the OpenShift suite runs: openshift-e2e pulls the
     # freshly built operand image from ghcr regardless of which module changed.
     if: needs.change-triage.outputs.core-changed == 'true' || needs.change-triage.outputs.run-openshift == 'true'
-    runs-on: ${{ github.repository_owner == 'cloudnative-pg' && 'ubuntu-latest-16-cores' || 'ubuntu-latest' }}
+    runs-on: ${{ vars.CI_RUNNERS || 'ubuntu-latest' }}
     permissions:
       contents: read
       packages: write
@@ -175,6 +175,8 @@ jobs:
           ref: ${{ github.event.pull_request.head.sha }}
 
       - name: Cleanup disk
+        # Large runners have enough disk space already
+        if: vars.CI_RUNNERS == '' || vars.CI_RUNNERS == 'ubuntu-latest'
         uses: ./.github/actions/cleanup-disk
 
       - name: Setup dagger
@@ -209,7 +211,7 @@ jobs:
     # Also build when the OpenShift suite runs: the OLM catalog and tests pull
     # the freshly built operator image from ghcr regardless of what changed.
     if: needs.change-triage.outputs.operator-changed == 'true' || needs.change-triage.outputs.run-openshift == 'true'
-    runs-on: ${{ github.repository_owner == 'cloudnative-pg' && 'ubuntu-latest-16-cores' || 'ubuntu-latest' }}
+    runs-on: ${{ vars.CI_RUNNERS || 'ubuntu-latest' }}
     permissions:
       contents: read
       packages: write
@@ -221,6 +223,8 @@ jobs:
           ref: ${{ github.event.pull_request.head.sha }}
 
       - name: Cleanup disk
+        # Large runners have enough disk space already
+        if: vars.CI_RUNNERS == '' || vars.CI_RUNNERS == 'ubuntu-latest'
         uses: ./.github/actions/cleanup-disk
 
       - name: Setup dagger
@@ -256,7 +260,7 @@ jobs:
     needs:
       - change-triage
     if: needs.change-triage.outputs.core-changed == 'true' || needs.change-triage.outputs.operator-changed == 'true'
-    runs-on: ${{ github.repository_owner == 'cloudnative-pg' && 'ubuntu-latest-16-cores' || 'ubuntu-latest' }}
+    runs-on: ${{ vars.CI_RUNNERS || 'ubuntu-latest' }}
     permissions:
       contents: read
     steps:
@@ -275,6 +279,8 @@ jobs:
           fetch-depth: 0
 
       - name: Cleanup disk
+        # Large runners have enough disk space already
+        if: vars.CI_RUNNERS == '' || vars.CI_RUNNERS == 'ubuntu-latest'
         uses: ./klio/.github/actions/cleanup-disk
 
       - name: Setup dagger
@@ -401,7 +407,7 @@ jobs:
       && (needs.change-triage.outputs.core-changed == 'true' || needs.change-triage.outputs.operator-changed == 'true')
     needs:
       - change-triage
-    runs-on: ${{ github.repository_owner == 'cloudnative-pg' && 'ubuntu-latest-16-cores' || 'ubuntu-latest' }}
+    runs-on: ${{ vars.CI_RUNNERS || 'ubuntu-latest' }}
     permissions:
       contents: read
       packages: write
@@ -412,6 +418,8 @@ jobs:
           fetch-depth: 0
 
       - name: Cleanup disk
+        # Large runners have enough disk space already
+        if: vars.CI_RUNNERS == '' || vars.CI_RUNNERS == 'ubuntu-latest'
         uses: ./.github/actions/cleanup-disk
 
       - name: Setup dagger

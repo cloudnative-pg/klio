@@ -19,7 +19,7 @@ permissions:
 jobs:
   openshift-e2e:
     name: OpenShift E2E
-    runs-on: ${{ github.repository_owner == 'cloudnative-pg' && 'ubuntu-latest-16-cores' || 'ubuntu-latest' }}
+    runs-on: ${{ vars.CI_RUNNERS || 'ubuntu-latest' }}
     timeout-minutes: 120
     env:
       ENVIRONMENT: "testing"
@@ -30,6 +30,8 @@ jobs:
           fetch-depth: 0
 
       - name: Cleanup disk
+        # Large runners have enough disk space already
+        if: vars.CI_RUNNERS == '' || vars.CI_RUNNERS == 'ubuntu-latest'
         uses: ./.github/actions/cleanup-disk
 
       - name: Install Task
