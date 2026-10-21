@@ -1,9 +1,24 @@
 name: Cleanup runner's disk
-description: Free up disk space on the runner
+description: Free up disk space on the runner when it is low on disk
+inputs:
+  min-free-gb:
+    description: Run the cleanup only when the workspace has less than this many GiB free (0 always runs it)
+    default: "0"
 runs:
   using: composite
   steps:
+    - name: Check available disk space
+      id: disk
+      shell: bash
+      env:
+        MIN_FREE_GB: ${{ inputs.min-free-gb }}
+      run: |
+        available_gb=$(df -BG --output=avail "$GITHUB_WORKSPACE" | tail -n 1 | tr -dc '0-9')
+        echo "Available: ${available_gb} GiB, threshold: ${MIN_FREE_GB} GiB"
+        echo "needed=$(( MIN_FREE_GB == 0 || available_gb < MIN_FREE_GB ))" >> "$GITHUB_OUTPUT"
+
     - name: Cleanup Disk
+      if: steps.disk.outputs.needed == '1'
       uses: jlumbroso/free-disk-space@ceedf095f4ec1a097402bc6bd80831f2e1a6fde6 # v2.0.0
       with:
         android: true
@@ -14,6 +29,7 @@ runs:
         swap-storage: false
 
     - name: Cleanup docker cache
+      if: steps.disk.outputs.needed == '1'
       shell: bash
       run: |
         echo "-------------Disk info before cleanup----------------"

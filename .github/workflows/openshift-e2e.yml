@@ -30,9 +30,9 @@ jobs:
           fetch-depth: 0
 
       - name: Cleanup disk
-        # Large runners have enough disk space already
-        if: vars.CI_RUNNERS == '' || vars.CI_RUNNERS == 'ubuntu-latest'
         uses: ./.github/actions/cleanup-disk
+        with:
+          min-free-gb: "20"
 
       - name: Install Task
         shell: bash

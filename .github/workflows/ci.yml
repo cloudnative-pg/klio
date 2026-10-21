@@ -175,9 +175,9 @@ jobs:
           ref: ${{ github.event.pull_request.head.sha }}
 
       - name: Cleanup disk
-        # Large runners have enough disk space already
-        if: vars.CI_RUNNERS == '' || vars.CI_RUNNERS == 'ubuntu-latest'
         uses: ./.github/actions/cleanup-disk
+        with:
+          min-free-gb: "20"
 
       - name: Setup dagger
         uses: ./.github/actions/setup-dagger
@@ -223,9 +223,9 @@ jobs:
           ref: ${{ github.event.pull_request.head.sha }}
 
       - name: Cleanup disk
-        # Large runners have enough disk space already
-        if: vars.CI_RUNNERS == '' || vars.CI_RUNNERS == 'ubuntu-latest'
         uses: ./.github/actions/cleanup-disk
+        with:
+          min-free-gb: "20"
 
       - name: Setup dagger
         uses: ./.github/actions/setup-dagger
@@ -279,9 +279,9 @@ jobs:
           fetch-depth: 0
 
       - name: Cleanup disk
-        # Large runners have enough disk space already
-        if: vars.CI_RUNNERS == '' || vars.CI_RUNNERS == 'ubuntu-latest'
         uses: ./klio/.github/actions/cleanup-disk
+        with:
+          min-free-gb: "20"
 
       - name: Setup dagger
         uses: ./klio/.github/actions/setup-dagger
@@ -359,6 +359,8 @@ jobs:
 
       - name: Cleanup disk
         uses: ./.github/actions/cleanup-disk
+        with:
+          min-free-gb: "20"
 
       - name: Setup dagger
         uses: ./.github/actions/setup-dagger
@@ -418,9 +420,9 @@ jobs:
           fetch-depth: 0
 
       - name: Cleanup disk
-        # Large runners have enough disk space already
-        if: vars.CI_RUNNERS == '' || vars.CI_RUNNERS == 'ubuntu-latest'
         uses: ./.github/actions/cleanup-disk
+        with:
+          min-free-gb: "20"
 
       - name: Setup dagger
         uses: ./.github/actions/setup-dagger
