@@ -78,9 +78,6 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Cleanup disk
-        uses: ./.github/actions/cleanup-disk
-
       - name: Setup dagger
         uses: ./.github/actions/setup-dagger
 
