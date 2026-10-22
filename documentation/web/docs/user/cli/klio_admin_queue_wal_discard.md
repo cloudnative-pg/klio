@@ -12,6 +12,8 @@ Discard failed WAL tasks in the queue.
 
 A cluster name is required, and all failed WAL tasks for that cluster are discarded. If WAL files are also given, only those are discarded. Pass --all-clusters instead of a cluster name to discard all failed WAL tasks across every cluster.
 
+Discarding removes the failed task from the queue, not the WAL file itself. The task is permanent: the WAL file is never archived to Tier 2, which can leave a gap in the WAL archive and prevent point-in-time recovery past that point. Use "klio admin queue wal list-failed" to review the failed WAL tasks first.
+
 The number of discarded tasks is printed when the command completes.
 
 ```

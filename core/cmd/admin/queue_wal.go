@@ -141,6 +141,11 @@ var discardWALCmd = &cobra.Command{
 		"are discarded. If WAL files are also given, only those are discarded. Pass " +
 		"--all-clusters instead of a cluster name to discard all failed WAL tasks " +
 		"across every cluster.\n\n" +
+		"Discarding removes the failed task from the queue, not the WAL file " +
+		"itself. The task is permanent: the WAL file is never archived to " +
+		"Tier 2, which can leave a gap in the WAL archive and prevent " +
+		"point-in-time recovery past that point. Use \"klio admin queue wal " +
+		"list-failed\" to review the failed WAL tasks first.\n\n" +
 		"The number of discarded tasks is printed when the command completes.",
 	Args: failedTaskArgs(cobra.MinimumNArgs(1)),
 	RunE: func(cmd *cobra.Command, args []string) error {
