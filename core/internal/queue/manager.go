@@ -455,6 +455,10 @@ func (m *StreamManager) purgeBackupDLQEntries(ctx context.Context, clusterName s
 // purgeDLQEntries removes the given dead-letter queue entries from dlqName,
 // releases the original failed messages they reference from sourceName, and
 // returns how many entries were purged.
+//
+// When some of the purges fail, the returned error reports how many of the
+// requested entries were discarded: since some entries may be already gone,
+// the caller must not assume the operation removed nothing.
 func purgeDLQEntries[T clusterTask](
 	m *StreamManager,
 	dlqName, sourceName string,
@@ -487,7 +491,14 @@ func purgeDLQEntries[T clusterTask](
 		purged++
 	}
 
-	return purged, errors.Join(errs...)
+	if err := errors.Join(errs...); err != nil {
+		return purged, fmt.Errorf(
+			"discarded %d of %d dead-letter queue entries, the rest could not be removed: %w",
+			purged, uint64(len(failed)), err,
+		)
+	}
+
+	return purged, nil
 }
 
 // loadStreamOrNil loads a stream by name, caching the handle.
