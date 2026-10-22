@@ -53,6 +53,10 @@ The queue serves two purposes:
 - **Tier 2 replication**: When Tier 2 is enabled, manages asynchronous
   transfer to object storage
 
+Tasks that exhaust their attempts are moved to a dead-letter queue; see
+[Managing the Work Queue](managing_queue.md) for how to monitor and handle
+them.
+
 ## Network Ports
 
 Clients connect to the Klio server on the ports below. The operator
