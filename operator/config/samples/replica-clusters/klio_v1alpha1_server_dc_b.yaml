@@ -13,20 +13,12 @@ metadata:
     klio.cnpg.io/pprof: "true"
 spec:
   tier1:
-    encryptionKeyFile:
+    encryption:
       volume:
         secret:
           secretName: klioserver-dc-b-encryption
-          items:
-            - key: encryption-key
-              path: encryption-key
-      path: encryption-key
-
-    identityFile:
-      volume:
-        secret:
-          secretName: klioserver-dc-b-encryption
-      path: secret-key
+      keyPath: encryption-key
+      identityPath: secret-key
 
   storage:
     pvcTemplate:
@@ -36,20 +28,21 @@ spec:
       accessModes:
         - ReadWriteOnce
 
-  serverTlsIdentity:
-    volume:
-      secret:
-        secretName: klioserver-dc-b-tls
-    certPath: tls.crt
-    keyPath: tls.key
-  clientCa:
-    volume:
-      secret:
-        secretName: klioserver-dc-b-ca
-        items:
-          - key: ca.crt
-            path: ca.crt
-    path: ca.crt
+  tls:
+    serverIdentity:
+      volume:
+        secret:
+          secretName: klioserver-dc-b-tls
+      certPath: tls.crt
+      keyPath: tls.key
+    clientCa:
+      volume:
+        secret:
+          secretName: klioserver-dc-b-ca
+          items:
+            - key: ca.crt
+              path: ca.crt
+      path: ca.crt
   image: registry.dev:5000/klio-testing:dev
   imagePullPolicy: Always
 ---

@@ -681,20 +681,21 @@ metadata:
   name: client-config-cluster-example
 spec:
   serverAddress: klio.default
-  clientTlsIdentity:
-    volume:
-      secret:
-        secretName: cluster-example-klio-user
-    certPath: tls.crt
-    keyPath: tls.key
-  serverCa:
-    volume:
-      secret:
-        secretName: klio-server-tls
-        items:
-        - key: ca.crt
-          path: ca.crt
-    path: ca.crt
+  tls:
+    clientIdentity:
+      volume:
+        secret:
+          secretName: cluster-example-klio-user
+      certPath: tls.crt
+      keyPath: tls.key
+    serverCa:
+      volume:
+        secret:
+          secretName: klio-server-tls
+          items:
+          - key: ca.crt
+            path: ca.crt
+      path: ca.crt
   clusterName: cluster-example
   containers:
     - name: klio-plugin

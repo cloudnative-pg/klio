@@ -92,10 +92,10 @@ func GenerateConfig(
 	spec kliov1alpha1.PluginConfigurationSpec,
 	configKey string,
 ) *config.Data {
-	serverCertPath := path.Join(GetServerSecretVolumeMountPath(configKey), spec.ServerCA.Path)
+	serverCertPath := path.Join(GetServerSecretVolumeMountPath(configKey), spec.TLS.ServerCA.Path)
 	clientIdentityMount := GetClientSecretVolumeMountPath(configKey)
-	clientCertPath := path.Join(clientIdentityMount, spec.ClientTLSIdentity.CertPath)
-	clientKeyPath := path.Join(clientIdentityMount, spec.ClientTLSIdentity.KeyPath)
+	clientCertPath := path.Join(clientIdentityMount, spec.TLS.ClientIdentity.CertPath)
+	clientKeyPath := path.Join(clientIdentityMount, spec.TLS.ClientIdentity.KeyPath)
 
 	klioTier1RetentionPolicy := convertTier1RetentionPolicy(spec.Tier1)
 	klioTier2RetentionPolicy := convertTier2RetentionPolicy(spec.Tier2)

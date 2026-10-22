@@ -14,19 +14,12 @@ metadata:
 spec:
   mode: read-only
   tier2:
-    encryptionKeyFile:
+    encryption:
       volume:
         secret:
           secretName: server-ro-encryption
-          items:
-            - key: encryption-key
-              path: encryption-key
-      path: encryption-key
-    identityFile:
-      volume:
-        secret:
-          secretName: server-ro-encryption
-      path: secret-key
+      keyPath: encryption-key
+      identityPath: secret-key
     s3:
       prefix: klio
       bucketName: klio-bucket
@@ -52,20 +45,21 @@ spec:
       accessModes:
         - ReadWriteOnce
 
-  serverTlsIdentity:
-    volume:
-      secret:
-        secretName: server-ro-tls
-    certPath: tls.crt
-    keyPath: tls.key
-  clientCa:
-    volume:
-      secret:
-        secretName: server-ro-client-ca
-        items:
-          - key: ca.crt
-            path: ca.crt
-    path: ca.crt
+  tls:
+    serverIdentity:
+      volume:
+        secret:
+          secretName: server-ro-tls
+      certPath: tls.crt
+      keyPath: tls.key
+    clientCa:
+      volume:
+        secret:
+          secretName: server-ro-client-ca
+          items:
+            - key: ca.crt
+              path: ca.crt
+      path: ca.crt
   image: registry.dev:5000/klio-testing:dev
   imagePullPolicy: Always
 ---

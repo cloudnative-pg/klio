@@ -13,36 +13,20 @@ metadata:
     klio.cnpg.io/pprof: "true"
 spec:
   tier1:
-    encryptionKeyFile:
+    encryption:
       volume:
         secret:
           secretName: server-sample-encryption
-          items:
-            - key: encryption-key
-              path: encryption-key
-      path: encryption-key
-
-    identityFile:
-      volume:
-        secret:
-          secretName: server-sample-encryption
-      path: secret-key
+      keyPath: encryption-key
+      identityPath: secret-key
 
   tier2:
-    encryptionKeyFile:
+    encryption:
       volume:
         secret:
           secretName: server-sample-encryption
-          items:
-            - key: encryption-key
-              path: encryption-key
-      path: encryption-key
-
-    identityFile:
-      volume:
-        secret:
-          secretName: server-sample-encryption
-      path: secret-key
+      keyPath: encryption-key
+      identityPath: secret-key
     s3:
       prefix: klio
       bucketName: klio-bucket
@@ -69,20 +53,21 @@ spec:
       accessModes:
         - ReadWriteOnce
 
-  serverTlsIdentity:
-    volume:
-      secret:
-        secretName: server-sample-tls
-    certPath: tls.crt
-    keyPath: tls.key
-  clientCa:
-    volume:
-      secret:
-        secretName: server-sample-client-ca
-        items:
-          - key: ca.crt
-            path: ca.crt
-    path: ca.crt
+  tls:
+    serverIdentity:
+      volume:
+        secret:
+          secretName: server-sample-tls
+      certPath: tls.crt
+      keyPath: tls.key
+    clientCa:
+      volume:
+        secret:
+          secretName: server-sample-client-ca
+          items:
+            - key: ca.crt
+              path: ca.crt
+      path: ca.crt
   image: registry.dev:5000/klio-testing:dev
   imagePullPolicy: Always
 ---

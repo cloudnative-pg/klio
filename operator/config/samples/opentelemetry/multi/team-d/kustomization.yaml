@@ -27,7 +27,7 @@ patches:
         path: /metadata/name
         value: klio-a
       - op: replace
-        path: /spec/serverTlsIdentity
+        path: /spec/tls/serverIdentity
         value:
           volume:
             secret:
@@ -35,7 +35,7 @@ patches:
           certPath: tls.crt
           keyPath: tls.key
       - op: replace
-        path: /spec/clientCa
+        path: /spec/tls/clientCa
         value:
           volume:
             secret:
@@ -113,7 +113,7 @@ patches:
         path: /spec/serverAddress
         value: klio-a
       - op: replace
-        path: /spec/clientTlsIdentity
+        path: /spec/tls/clientIdentity
         value:
           volume:
             secret:
@@ -121,7 +121,7 @@ patches:
           certPath: tls.crt
           keyPath: tls.key
       - op: replace
-        path: /spec/serverCa
+        path: /spec/tls/serverCa
         value:
           volume:
             secret:

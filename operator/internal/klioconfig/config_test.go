@@ -158,17 +158,19 @@ func TestGenerateConfig(t *testing.T) {
 				ServerAddress: testServerAddress,
 				Mode:          kliov1alpha1.ModeStandard,
 				ClusterName:   testClusterName,
-				ServerCA: kliov1alpha1.VolumeFileReference{
-					Volume: kliov1alpha1.VolumeSource{
-						Projected: &corev1.ProjectedVolumeSource{
-							Sources: []corev1.VolumeProjection{{
-								ConfigMap: &corev1.ConfigMapProjection{
-									LocalObjectReference: corev1.LocalObjectReference{Name: "klio-server-ca-bundle"},
-								},
-							}},
+				TLS: kliov1alpha1.PluginTLSConfiguration{
+					ServerCA: kliov1alpha1.VolumeFileReference{
+						Volume: kliov1alpha1.VolumeSource{
+							Projected: &corev1.ProjectedVolumeSource{
+								Sources: []corev1.VolumeProjection{{
+									ConfigMap: &corev1.ConfigMapProjection{
+										LocalObjectReference: corev1.LocalObjectReference{Name: "klio-server-ca-bundle"},
+									},
+								}},
+							},
 						},
+						Path: "trust-bundle.pem",
 					},
-					Path: "trust-bundle.pem",
 				},
 			},
 			configKey: testCustomKey,
@@ -185,18 +187,20 @@ func TestGenerateConfig(t *testing.T) {
 				ServerAddress: testServerAddress,
 				Mode:          kliov1alpha1.ModeStandard,
 				ClusterName:   testClusterName,
-				ClientTLSIdentity: kliov1alpha1.TLSIdentity{
-					Volume: kliov1alpha1.VolumeSource{
-						Projected: &corev1.ProjectedVolumeSource{
-							Sources: []corev1.VolumeProjection{{
-								Secret: &corev1.SecretProjection{
-									LocalObjectReference: corev1.LocalObjectReference{Name: "client-identity"},
-								},
-							}},
+				TLS: kliov1alpha1.PluginTLSConfiguration{
+					ClientIdentity: kliov1alpha1.TLSIdentity{
+						Volume: kliov1alpha1.VolumeSource{
+							Projected: &corev1.ProjectedVolumeSource{
+								Sources: []corev1.VolumeProjection{{
+									Secret: &corev1.SecretProjection{
+										LocalObjectReference: corev1.LocalObjectReference{Name: "client-identity"},
+									},
+								}},
+							},
 						},
+						CertPath: "client.pem",
+						KeyPath:  "client-key.pem",
 					},
-					CertPath: "client.pem",
-					KeyPath:  "client-key.pem",
 				},
 			},
 			configKey: testCustomKey,

@@ -800,10 +800,12 @@ func TestReconcilePodPluginSelection(t *testing.T) {
 		Name:      sourcePCName,
 		Namespace: testClusterNamespace,
 		Spec: kliov1alpha1.PluginConfigurationSpec{
-			ClusterName:       sourceCluster,
-			ServerAddress:     "klio-server.example.com",
-			ClientTLSIdentity: makeTestClientIdentity(),
-			ServerCA:          makeTestServerCA(),
+			ClusterName:   sourceCluster,
+			ServerAddress: "klio-server.example.com",
+			TLS: kliov1alpha1.PluginTLSConfiguration{
+				ClientIdentity: makeTestClientIdentity(),
+				ServerCA:       makeTestServerCA(),
+			},
 			Containers: []corev1.Container{
 				{
 					Name:  KlioPluginContainerName,
@@ -906,10 +908,12 @@ func TestReconcilePodPluginSelection(t *testing.T) {
 			Name:      "archive-pc",
 			Namespace: testClusterNamespace,
 			Spec: kliov1alpha1.PluginConfigurationSpec{
-				ClusterName:       replicaCluster,
-				ServerAddress:     "klio-server.example.com",
-				ClientTLSIdentity: makeTestClientIdentity(),
-				ServerCA:          makeTestServerCA(),
+				ClusterName:   replicaCluster,
+				ServerAddress: "klio-server.example.com",
+				TLS: kliov1alpha1.PluginTLSConfiguration{
+					ClientIdentity: makeTestClientIdentity(),
+					ServerCA:       makeTestServerCA(),
+				},
 				Containers: []corev1.Container{
 					{
 						Name:  KlioPluginContainerName,
@@ -1189,10 +1193,12 @@ func TestBootstrapSidecar(t *testing.T) {
 		return &kliov1alpha1.PluginConfiguration{
 			Name: name, Namespace: testClusterNamespace,
 			Spec: kliov1alpha1.PluginConfigurationSpec{
-				ClusterName:       testClusterName,
-				ServerAddress:     "klio-server.example.com",
-				ClientTLSIdentity: makeTestClientIdentity(),
-				ServerCA:          makeTestServerCA(),
+				ClusterName:   testClusterName,
+				ServerAddress: "klio-server.example.com",
+				TLS: kliov1alpha1.PluginTLSConfiguration{
+					ClientIdentity: makeTestClientIdentity(),
+					ServerCA:       makeTestServerCA(),
+				},
 				Containers: []corev1.Container{
 					{Name: KlioPluginContainerName, Image: image},
 				},

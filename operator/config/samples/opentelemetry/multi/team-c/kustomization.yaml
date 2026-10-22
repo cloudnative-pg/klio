@@ -35,7 +35,7 @@ patches:
         path: /spec/serverAddress
         value: klio-b.default.svc.cluster.local
       - op: replace
-        path: /spec/clientTlsIdentity
+        path: /spec/tls/clientIdentity
         value:
           volume:
             secret:
@@ -43,7 +43,7 @@ patches:
           certPath: tls.crt
           keyPath: tls.key
       - op: replace
-        path: /spec/serverCa
+        path: /spec/tls/serverCa
         value:
           volume:
             secret:
