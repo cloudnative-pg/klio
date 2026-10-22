@@ -76,6 +76,9 @@ func (q *Conn) ConsumeWALReceivedMessages(ctx context.Context, handler WALTaskHa
 			return err
 		}
 
+		// The task's cluster name is never empty: the WAL server rejects
+		// empty cluster names before enqueuing the task, and
+		// purgeWALDLQEntries needs it to select the entries to discard.
 		if isRetried {
 			if err := q.purgeWALDLQEntries(ctx, t.ClusterName, t.WALName); err != nil {
 				logger.Error(

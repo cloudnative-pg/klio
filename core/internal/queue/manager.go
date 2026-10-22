@@ -425,29 +425,28 @@ func (m *StreamManager) configureStreams(ctx context.Context, js jetstream.JetSt
 	return nil
 }
 
-// purgeWALDLQEntries removes the WAL dead-letter queue entries for the given
+// purgeWALDLQEntries discards the WAL dead-letter queue entries for the given
 // cluster and WAL file, releasing the original failed messages they reference.
+// It is called by the WAL consumer after a retried WAL task succeeded.
+//
+// ListFailedWALTasks rejects WAL-name filtering without a cluster name, so the
+// consumer must pass the task's cluster: WAL names are only unique within a
+// cluster.
 func (m *StreamManager) purgeWALDLQEntries(ctx context.Context, clusterName, walName string) error {
-	failed, err := m.ListFailedWALTasks(ctx, WithCluster(clusterName), WithWALs(walName))
-	if err != nil {
-		return err
-	}
-
-	_, err = purgeDLQEntries(m, klioDLQWalStreamName, klioWalStreamName, failed)
+	_, err := m.DiscardFailedWALTasks(ctx, WithCluster(clusterName), WithWALs(walName))
 
 	return err
 }
 
-// purgeBackupDLQEntries removes every backup dead-letter queue entry belonging to the
-// given cluster. For each matching entry it deletes the DLQ advisory and releases the
-// original failed message it references from the backup work-queue stream.
+// purgeBackupDLQEntries discards every backup dead-letter queue entry belonging
+// to the given cluster, releasing the original failed messages they reference.
+// It is called by the backup consumer after a successful backup.
+//
+// Unlike the WAL listing, the backup listing accepts an empty cluster name and
+// then selects every cluster, so the consumer must pass the backed-up
+// cluster's name: nothing else guards against discarding unrelated entries.
 func (m *StreamManager) purgeBackupDLQEntries(ctx context.Context, clusterName string) error {
-	failed, err := m.ListFailedBackupTasks(ctx, WithCluster(clusterName))
-	if err != nil {
-		return err
-	}
-
-	_, err = purgeDLQEntries(m, klioDLQBackupStreamName, klioBackupStreamName, failed)
+	_, err := m.DiscardFailedBackupTasks(ctx, WithCluster(clusterName))
 
 	return err
 }
