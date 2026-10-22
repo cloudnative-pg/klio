@@ -9,7 +9,8 @@ Server administration commands
 ### Options
 
 ```
-  -h, --help   help for admin
+  -h, --help                 help for admin
+      --socket-path string   Unix socket used by the administration server (default "/tmp/.klio-admin")
 ```
 
 ### Options inherited from parent commands

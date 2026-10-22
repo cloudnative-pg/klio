@@ -22,7 +22,6 @@ package admin
 import (
 	"fmt"
 	"os"
-	"path"
 
 	"github.com/spf13/cobra"
 
@@ -37,20 +36,12 @@ var listBackupsCmd = &cobra.Command{
 	Short: "List the backups available in the Klio server",
 	Args:  cobra.NoArgs,
 	RunE: func(cmd *cobra.Command, _ []string) error {
-		socketPath, err := cmd.Flags().GetString("socket-path")
-		if err != nil {
-			return fmt.Errorf("while getting the socketPath flag: %w", err)
-		}
-
-		conn, err := connectToAdminServer(socketPath)
+		adminClient, closeConn, err := dialAdmin(cmd)
 		if err != nil {
 			return err
 		}
-		defer func() {
-			_ = conn.Close()
-		}()
+		defer closeConn()
 
-		adminClient := klioGRPC.NewAdminClient(conn)
 		backups, err := adminClient.ListBackups(cmd.Context(), &klioGRPC.ListBackupsRequest{})
 		if err != nil {
 			return fmt.Errorf("while calling list-backups entrypoint: %w", err)
@@ -67,7 +58,4 @@ var listBackupsCmd = &cobra.Command{
 //nolint:gochecknoinits
 func init() {
 	AdminCmd.AddCommand(listBackupsCmd)
-
-	socketPath := path.Join(os.TempDir(), ".klio-admin")
-	listBackupsCmd.Flags().String("socket-path", socketPath, "Unix socket used by the administration server")
 }

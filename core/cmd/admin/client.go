@@ -22,8 +22,11 @@ package admin
 import (
 	"fmt"
 
+	"github.com/spf13/cobra"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
+
+	klioGRPC "github.com/cloudnative-pg/klio/core/internal/grpc"
 )
 
 // connectToAdminServer establishes a gRPC connection to the Klio admin server
@@ -46,4 +49,23 @@ func connectToAdminServer(socketPath string) (*grpc.ClientConn, error) {
 	}
 
 	return conn, nil
+}
+
+// dialAdmin reads the socket path from the --socket-path flag of cmd, connects
+// to the administration server and returns an admin client. The caller must
+// invoke the returned close function when done.
+//
+//nolint:ireturn // the generated gRPC constructor only exposes the interface.
+func dialAdmin(cmd *cobra.Command) (klioGRPC.AdminClient, func(), error) {
+	socketPath, err := cmd.Flags().GetString("socket-path")
+	if err != nil {
+		return nil, nil, fmt.Errorf("while getting the socket-path flag: %w", err)
+	}
+
+	conn, err := connectToAdminServer(socketPath)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	return klioGRPC.NewAdminClient(conn), func() { _ = conn.Close() }, nil
 }

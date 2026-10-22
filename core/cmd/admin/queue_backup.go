@@ -45,11 +45,6 @@ var listFailedBackupCmd = &cobra.Command{
 	Short: "List failed backup tasks in the queue",
 	Args:  cobra.NoArgs,
 	RunE: func(cmd *cobra.Command, _ []string) error {
-		socketPath, err := cmd.Flags().GetString("socket-path")
-		if err != nil {
-			return fmt.Errorf("while getting the socketPath flag: %w", err)
-		}
-
 		jsonOutput, err := cmd.Flags().GetBool("json")
 		if err != nil {
 			return fmt.Errorf("while getting the json flag: %w", err)
@@ -60,15 +55,12 @@ var listFailedBackupCmd = &cobra.Command{
 			return fmt.Errorf("while getting the cluster-name flag: %w", err)
 		}
 
-		conn, err := connectToAdminServer(socketPath)
+		adminClient, closeConn, err := dialAdmin(cmd)
 		if err != nil {
 			return err
 		}
-		defer func() {
-			_ = conn.Close()
-		}()
+		defer closeConn()
 
-		adminClient := klioGRPC.NewAdminClient(conn)
 		response, err := adminClient.QueueListFailedBackups(cmd.Context(), &klioGRPC.QueueListFailedBackupsRequest{
 			ClusterName: &clusterName,
 		})

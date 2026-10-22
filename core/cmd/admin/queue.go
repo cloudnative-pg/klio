@@ -24,7 +24,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
-	"path"
 
 	"github.com/spf13/cobra"
 
@@ -47,25 +46,17 @@ var queueStatusCmd = &cobra.Command{
 	Short: "Show the status of the task queue (pending backups and pending WALs)",
 	Args:  cobra.NoArgs,
 	RunE: func(cmd *cobra.Command, _ []string) error {
-		socketPath, err := cmd.Flags().GetString("socket-path")
-		if err != nil {
-			return fmt.Errorf("while getting the socketPath flag: %w", err)
-		}
-
 		jsonOutput, err := cmd.Flags().GetBool("json")
 		if err != nil {
 			return fmt.Errorf("while getting the json flag: %w", err)
 		}
 
-		conn, err := connectToAdminServer(socketPath)
+		adminClient, closeConn, err := dialAdmin(cmd)
 		if err != nil {
 			return err
 		}
-		defer func() {
-			_ = conn.Close()
-		}()
+		defer closeConn()
 
-		adminClient := klioGRPC.NewAdminClient(conn)
 		status, err := adminClient.QueueStatus(cmd.Context(), &klioGRPC.QueueStatusRequest{})
 		if err != nil {
 			return fmt.Errorf("while calling queue-status entrypoint: %w", err)
@@ -122,11 +113,6 @@ func runFailedTaskAction(
 	args []string,
 	action func(ctx context.Context, client klioGRPC.AdminClient, target failedTaskTarget) error,
 ) error {
-	socketPath, err := cmd.Flags().GetString("socket-path")
-	if err != nil {
-		return fmt.Errorf("while getting the socketPath flag: %w", err)
-	}
-
 	allClusters, err := cmd.Flags().GetBool("all-clusters")
 	if err != nil {
 		return fmt.Errorf("while getting the all-clusters flag: %w", err)
@@ -141,15 +127,13 @@ func runFailedTaskAction(
 		}
 	}
 
-	conn, err := connectToAdminServer(socketPath)
+	adminClient, closeConn, err := dialAdmin(cmd)
 	if err != nil {
 		return err
 	}
-	defer func() {
-		_ = conn.Close()
-	}()
+	defer closeConn()
 
-	return action(cmd.Context(), klioGRPC.NewAdminClient(conn), target)
+	return action(cmd.Context(), adminClient, target)
 }
 
 // printDiscarded reports how many failed tasks a discard command removed,
@@ -180,7 +164,5 @@ func init() {
 	AdminCmd.AddCommand(queueCmd)
 	queueCmd.AddCommand(queueStatusCmd)
 
-	socketPath := path.Join(os.TempDir(), ".klio-admin")
-	queueCmd.PersistentFlags().String("socket-path", socketPath, "Unix socket used by the administration server")
 	queueCmd.PersistentFlags().Bool("json", false, "Output in JSON format")
 }

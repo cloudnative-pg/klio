@@ -20,6 +20,9 @@ SPDX-License-Identifier: Apache-2.0
 package admin
 
 import (
+	"os"
+	"path"
+
 	"github.com/spf13/cobra"
 )
 
@@ -32,4 +35,13 @@ var AdminCmd = &cobra.Command{
 	// Uncomment the following line if your bare application
 	// has an action associated with it:
 	// Run: func(cmd *cobra.Command, args []string) { },
+}
+
+//nolint:gochecknoinits
+func init() {
+	AdminCmd.PersistentFlags().String(
+		"socket-path",
+		path.Join(os.TempDir(), ".klio-admin"),
+		"Unix socket used by the administration server",
+	)
 }
