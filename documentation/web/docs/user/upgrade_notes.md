@@ -203,18 +203,23 @@ spec.volumeClaimTemplates[0].spec.accessModes: Required value`.
 ### Migrating from Secret-name credentials
 
 Credential fields changed shape: every credential is now a file
-reference (`volume` plus `path`), and the volume can be a `secret`,
+reference (`volume` plus paths), and the volume can be a `secret`,
 `configMap`, `projected` or `csi` source. The API is `v1alpha1`, so
 there is no automatic conversion — update existing manifests:
 
 | Before | After |
 |---|---|
-| `tlsSecretName` | `serverTlsIdentity` |
-| `caSecretName` | `clientCa` |
-| `clientSecretName` | `clientTlsIdentity` |
-| `serverSecretName` | `serverCa` |
+| `tlsSecretName` | `tls.serverIdentity` |
+| `caSecretName` | `tls.clientCa` |
+| `clientSecretName` (`PluginConfiguration`) | `tls.clientIdentity` |
+| `serverSecretName` (`PluginConfiguration`) | `tls.serverCa` |
+| tier encryption key and identity | `tier{1,2}.encryption` (single volume) |
 | `... {fileReference: {volume, path}}` | `... {volume, path}` |
 | `customCaBundle` secret name and key | `customCaBundle` volume and path |
+
+The mTLS settings sit under `tls`, and each tier reads its Age key and
+identity from a single volume, with paths `keyPath` and
+`identityPath` (one volume, two files).
 
 The identities carry the certificate and key as `certPath` and
 `keyPath` in one volume instead of the fixed `tls.crt`, `tls.key`

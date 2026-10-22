@@ -818,10 +818,12 @@ func TestReconcilePodPluginSelection(t *testing.T) {
 			Namespace: testClusterNamespace,
 		},
 		Spec: kliov1alpha1.PluginConfigurationSpec{
-			ClusterName:       sourceCluster,
-			ServerAddress:     "klio-server.example.com",
-			ClientTLSIdentity: makeTestClientIdentity(),
-			ServerCA:          makeTestServerCA(),
+			ClusterName:   sourceCluster,
+			ServerAddress: "klio-server.example.com",
+			TLS: kliov1alpha1.PluginTLSConfiguration{
+				ClientIdentity: makeTestClientIdentity(),
+				ServerCA:       makeTestServerCA(),
+			},
 			Containers: []corev1.Container{
 				{
 					Name:  KlioPluginContainerName,
@@ -932,10 +934,12 @@ func TestReconcilePodPluginSelection(t *testing.T) {
 				Namespace: testClusterNamespace,
 			},
 			Spec: kliov1alpha1.PluginConfigurationSpec{
-				ClusterName:       replicaCluster,
-				ServerAddress:     "klio-server.example.com",
-				ClientTLSIdentity: makeTestClientIdentity(),
-				ServerCA:          makeTestServerCA(),
+				ClusterName:   replicaCluster,
+				ServerAddress: "klio-server.example.com",
+				TLS: kliov1alpha1.PluginTLSConfiguration{
+					ClientIdentity: makeTestClientIdentity(),
+					ServerCA:       makeTestServerCA(),
+				},
 				Containers: []corev1.Container{
 					{
 						Name:  KlioPluginContainerName,
@@ -1229,10 +1233,12 @@ func TestBootstrapSidecar(t *testing.T) {
 		return &kliov1alpha1.PluginConfiguration{
 			ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: testClusterNamespace},
 			Spec: kliov1alpha1.PluginConfigurationSpec{
-				ClusterName:       testClusterName,
-				ServerAddress:     "klio-server.example.com",
-				ClientTLSIdentity: makeTestClientIdentity(),
-				ServerCA:          makeTestServerCA(),
+				ClusterName:   testClusterName,
+				ServerAddress: "klio-server.example.com",
+				TLS: kliov1alpha1.PluginTLSConfiguration{
+					ClientIdentity: makeTestClientIdentity(),
+					ServerCA:       makeTestServerCA(),
+				},
 				Containers: []corev1.Container{
 					{Name: KlioPluginContainerName, Image: image},
 				},

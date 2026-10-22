@@ -5,20 +5,21 @@ metadata:
 spec:
   serverAddress: server-sample.default
   clusterName: cluster-example
-  clientTlsIdentity:
-    volume:
-      secret:
-        secretName: cluster-example-klio-user
-    certPath: tls.crt
-    keyPath: tls.key
-  serverCa:
-    volume:
-      secret:
-        secretName: server-sample-server-ca
-        items:
-        - key: ca.crt
-          path: ca.crt
-    path: ca.crt
+  tls:
+    clientIdentity:
+      volume:
+        secret:
+          secretName: cluster-example-klio-user
+      certPath: tls.crt
+      keyPath: tls.key
+    serverCa:
+      volume:
+        secret:
+          secretName: server-sample-server-ca
+          items:
+          - key: ca.crt
+            path: ca.crt
+      path: ca.crt
   tier1:
     retention:
       latest: 10

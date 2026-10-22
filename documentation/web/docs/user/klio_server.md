@@ -249,22 +249,23 @@ spec:
   # TLS identity presented to clients. Both files come from a
   # single volume so the pair always belongs together — never
   # split across volumes.
-  serverTlsIdentity:
-    volume:
-      secret:
-        secretName: dr-server-tls
-    certPath: tls.crt
-    keyPath: tls.key
-  # CA bundle used to verify client certificates. Only the
-  # referenced key is mounted, never the whole secret.
-  clientCa:
-    volume:
-      secret:
-        secretName: klio-client-ca
-        items:
-          - key: ca.crt
-            path: ca.crt
-    path: ca.crt
+  tls:
+    serverIdentity:
+      volume:
+        secret:
+          secretName: dr-server-tls
+      certPath: tls.crt
+      keyPath: tls.key
+    # CA bundle used to verify client certificates. Only the
+    # referenced key is mounted, never the whole secret.
+    clientCa:
+      volume:
+        secret:
+          secretName: klio-client-ca
+          items:
+            - key: ca.crt
+              path: ca.crt
+      path: ca.crt
 
   # The single PVC, mounted at /klio. In read-only mode the
   # server only ever populates the cache_tier2 subdirectory, but the
@@ -280,21 +281,18 @@ spec:
 
   # Tier 2 configuration (required for read-only mode)
   tier2:
-    # Age-encrypted encryption key file
-    encryptionKeyFile:
+    # Age-encrypted encryption key file and Age identity file for
+    # decryption, read from a single volume
+    encryption:
       volume:
-        secret:
-          secretName: dr-server-encryption-key
-          items:
-            - key: encryption-key.age
-              path: encryption-key.age
-      path: encryption-key.age
-    # Age identity file for decryption
-    identityFile:
-      volume:
-        secret:
-          secretName: dr-server-age-identity
-      path: identity.txt
+        projected:
+          sources:
+            - secret:
+                name: dr-server-encryption-key
+            - secret:
+                name: dr-server-age-identity
+      keyPath: encryption-key.age
+      identityPath: identity.txt
 
     # S3 access configuration
     # See Object Store section for authentication options
@@ -624,7 +622,7 @@ with TLS:
 - **WAL Streaming**: PostgreSQL instances streaming WAL files to the Klio server
   use gRPC over TLS, ensuring WAL data is encrypted during transmission
 
-The server TLS identity is configured via the `.spec.serverTlsIdentity`
+The server TLS identity is configured via the `.spec.tls.serverIdentity`
 field in the Server resource: a single volume holding both the
 certificate and its matching private key, referenced by `certPath`
 and `keyPath`. This provides end-to-end encryption, ensuring that backup
@@ -639,7 +637,7 @@ lists which credentials need a restart instead.
 
 | Credential | Picked up | Restart needed |
 |---|---|---|
-| `serverTlsIdentity`, `clientCa` | on the next TLS handshake | no |
+| `tls.serverIdentity`, `tls.clientCa` | on the next TLS handshake | no |
 | `tier1`/`tier2` Age files | not read again (key already in memory) | no |
 | `credentialsFile` | on the next request (within a minute for the server's own client) | no |
 | `accessKeyId`, `secretAccessKey`, `sessionToken` | at pod start only | yes |
@@ -674,22 +672,23 @@ Once the Secrets exist, reference them in the Server spec:
 
 ```yaml
 tier1:
-  encryptionKeyFile:
+  encryption:
     volume:
-      secret:
-        secretName: klio-encryption-key-age
-        items:
-          - key: encryption-key.age
-            path: encryption-key.age
-    path: encryption-key.age
-  identityFile:
-    volume:
-      secret:
-        secretName: klio-age-identity
-    path: identity.txt
+      projected:
+        sources:
+          - secret:
+              name: klio-encryption-key-age
+          - secret:
+              name: klio-age-identity
+    keyPath: encryption-key.age
+    identityPath: identity.txt
 ```
 
-The same configuration applies to `tier2`.
+The key and the identity are read from a single volume, referenced by
+`keyPath` and `identityPath`. They can live in one Secret, or in two
+merged by a `projected` volume as above. The same configuration applies
+to `tier2`; both tiers can point at the same volume when they share the
+same key.
 
 :::note
 Only standard Age identities (X25519 keys) are supported.
@@ -700,30 +699,31 @@ plugin-based recipient and a standard X25519 recipient.
 
 #### Using External Secret Managers
 
-Every file reference, including `encryptionKeyFile` and
-`identityFile`, accepts exactly one of four volume sources:
+Every volume reference, including `tier1.encryption` and
+`tier2.encryption`, accepts exactly one of four volume sources:
 `secret`, `configMap`, `projected` or `csi`. A `csi` volume enables
 integration with external secret management systems:
 
 ```yaml
 tier1:
-  encryptionKeyFile:
+  encryption:
     volume:
       csi:
         driver: secrets-store.csi.k8s.io
         readOnly: true
         volumeAttributes:
           secretProviderClass: klio-secrets
-    path: encryption-key.age
+    keyPath: encryption-key.age
+    identityPath: identity.txt
 ```
 
 The `secretProviderClass` above is a `SecretProviderClass` resource
 of the Secrets Store CSI driver. Its `parameters` are specific to
 the provider: see the
 provider's documentation for the exact fields, and keep the object
-names in sync with the `volumeAttributes` of each file reference.
+names in sync with the `volumeAttributes` of each volume reference.
 The driver mounts one file per secret, and Klio reads the file named
-by `path` — no Kubernetes Secret is created.
+by `keyPath` and `identityPath` — no Kubernetes Secret is created.
 
 #### Rotating Age Credentials
 
@@ -773,7 +773,7 @@ the Klio server.
 A client certificate is accepted by the Klio server when it satisfies
 all of the following:
 
-- It is signed by the CA referenced by `.spec.clientCa` on the
+- It is signed by the CA referenced by `.spec.tls.clientCa` on the
   `Server`.
 - It carries the `client auth` usage.
 - Its Common Name has the form `userName@hostName`. The host part

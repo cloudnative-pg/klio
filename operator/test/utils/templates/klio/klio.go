@@ -71,6 +71,27 @@ func newFileRef(secretName, fileName string) kliov1alpha1.VolumeFileReference {
 	}
 }
 
+// newEncryptionFiles builds the encryption reference. The key and the identity
+// usually live in different secrets, so they are merged in a projected volume.
+func newEncryptionFiles(opts EncryptionOptions) kliov1alpha1.EncryptionFiles {
+	sources := []corev1.VolumeProjection{
+		{Secret: &corev1.SecretProjection{
+			LocalObjectReference: corev1.LocalObjectReference{Name: opts.EncryptionKeySecretName},
+		}},
+	}
+	if opts.IdentitySecretName != opts.EncryptionKeySecretName {
+		sources = append(sources, corev1.VolumeProjection{Secret: &corev1.SecretProjection{
+			LocalObjectReference: corev1.LocalObjectReference{Name: opts.IdentitySecretName},
+		}})
+	}
+
+	return kliov1alpha1.EncryptionFiles{
+		Volume:       kliov1alpha1.VolumeSource{Projected: &corev1.ProjectedVolumeSource{Sources: sources}},
+		KeyPath:      opts.EncryptionKeyFileName,
+		IdentityPath: opts.IdentityFileName,
+	}
+}
+
 // BuildTier2Configuration creates a Tier2Configuration from S3 options and
 // encryption options.
 func BuildTier2Configuration(
@@ -105,8 +126,7 @@ func BuildTier2Configuration(
 				Path: "ca.crt",
 			},
 		},
-		EncryptionKeyFile: newFileRef(encOpts.EncryptionKeySecretName, encOpts.EncryptionKeyFileName),
-		IdentityFile:      newFileRef(encOpts.IdentitySecretName, encOpts.IdentityFileName),
+		Encryption: newEncryptionFiles(encOpts),
 	}
 }
 
@@ -159,8 +179,8 @@ func newBaseServer(name, namespace string, opts ServerTemplateOptions) *kliov1al
 		},
 		Spec: kliov1alpha1.ServerSpec{
 			ImageConfiguration: imgCfg,
-			TLSConfiguration: kliov1alpha1.TLSConfiguration{
-				ServerTLSIdentity: kliov1alpha1.TLSIdentity{
+			TLS: kliov1alpha1.TLSConfiguration{
+				ServerIdentity: kliov1alpha1.TLSIdentity{
 					Volume: kliov1alpha1.VolumeSource{
 						Secret: &corev1.SecretVolumeSource{
 							SecretName: opts.TLSSecretName,
@@ -195,8 +215,7 @@ func GetServerObject(
 	server := newBaseServer(name, namespace, opts)
 	server.Spec.Mode = kliov1alpha1.ModeStandard
 	server.Spec.Tier1 = &kliov1alpha1.Tier1Configuration{
-		EncryptionKeyFile: newFileRef(opts.Encryption.EncryptionKeySecretName, opts.Encryption.EncryptionKeyFileName),
-		IdentityFile:      newFileRef(opts.Encryption.IdentitySecretName, opts.Encryption.IdentityFileName),
+		Encryption: newEncryptionFiles(opts.Encryption),
 	}
 
 	return server
@@ -239,23 +258,25 @@ func GetPluginConfigurationObject(
 	}
 	spec := kliov1alpha1.PluginConfigurationSpec{
 		ServerAddress: opts.ServerCertificate.Spec.DNSNames[0],
-		ClientTLSIdentity: kliov1alpha1.TLSIdentity{
-			Volume: kliov1alpha1.VolumeSource{
-				Secret: &corev1.SecretVolumeSource{
-					SecretName: opts.ClientCertificate.Spec.SecretName,
+		TLS: kliov1alpha1.PluginTLSConfiguration{
+			ClientIdentity: kliov1alpha1.TLSIdentity{
+				Volume: kliov1alpha1.VolumeSource{
+					Secret: &corev1.SecretVolumeSource{
+						SecretName: opts.ClientCertificate.Spec.SecretName,
+					},
 				},
+				CertPath: "tls.crt",
+				KeyPath:  "tls.key",
 			},
-			CertPath: "tls.crt",
-			KeyPath:  "tls.key",
-		},
-		ServerCA: kliov1alpha1.VolumeFileReference{
-			Volume: kliov1alpha1.VolumeSource{
-				Secret: &corev1.SecretVolumeSource{
-					SecretName: opts.ServerCACertificate.Spec.SecretName,
-					Items:      []corev1.KeyToPath{{Key: "ca.crt", Path: "ca.crt"}},
+			ServerCA: kliov1alpha1.VolumeFileReference{
+				Volume: kliov1alpha1.VolumeSource{
+					Secret: &corev1.SecretVolumeSource{
+						SecretName: opts.ServerCACertificate.Spec.SecretName,
+						Items:      []corev1.KeyToPath{{Key: "ca.crt", Path: "ca.crt"}},
+					},
 				},
+				Path: "ca.crt",
 			},
-			Path: "ca.crt",
 		},
 
 		ClusterName: opts.ClusterName,

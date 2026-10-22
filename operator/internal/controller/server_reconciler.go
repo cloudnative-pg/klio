@@ -52,11 +52,11 @@ var errEmptyPath = errors.New("path must not be empty")
 // returning an error before any path is used.
 func validateTLSIdentity(id kliov1alpha1.TLSIdentity) error {
 	if id.CertPath == "" {
-		return fmt.Errorf("serverTlsIdentity certPath: %w", errEmptyPath)
+		return fmt.Errorf("tls.serverIdentity certPath: %w", errEmptyPath)
 	}
 
 	if id.KeyPath == "" {
-		return fmt.Errorf("serverTlsIdentity keyPath: %w", errEmptyPath)
+		return fmt.Errorf("tls.serverIdentity keyPath: %w", errEmptyPath)
 	}
 
 	return nil
@@ -68,10 +68,8 @@ const (
 	klioMountPath = "/klio"
 
 	fileBasePath              = "/files"
-	tier1EncKeyFileVolName    = "tier1-enc-key-file"
-	tier1IdentityVolName      = "tier1-identity"
-	tier2EncKeyFileVolName    = "tier2-enc-key-file"
-	tier2IdentityVolName      = "tier2-identity"
+	tier1EncryptionVolName    = "tier1-encryption"
+	tier2EncryptionVolName    = "tier2-encryption"
 	tier2S3CredentialsVolName = "tier2-s3-credentials" //nolint:gosec // volume name, not a credential
 	tier2S3CABundleVolName    = "tier2-s3-ca-bundle"
 	serverIdentityVolName     = "server-identity"
@@ -106,7 +104,7 @@ func (r *ServerReconciler) reconcileStatefulSet(
 
 	pprof, _ := strconv.ParseBool(server.GetAnnotations()["klio.cnpg.io/pprof"])
 
-	if err := validateTLSIdentity(server.Spec.ServerTLSIdentity); err != nil {
+	if err := validateTLSIdentity(server.Spec.TLS.ServerIdentity); err != nil {
 		return ctrl.Result{}, fmt.Errorf("invalid server spec: %w", err)
 	}
 
@@ -447,10 +445,10 @@ func buildRestrictedVolMount(volName string, src kliov1alpha1.VolumeFileReferenc
 func (r *ServerReconciler) buildVolumes(server *kliov1alpha1.Server) []corev1.Volume {
 	identityVol := corev1.Volume{
 		Name:         serverIdentityVolName,
-		VolumeSource: server.Spec.ServerTLSIdentity.Volume.ToCoreV1(),
+		VolumeSource: server.Spec.TLS.ServerIdentity.Volume.ToCoreV1(),
 	}
 	applyRestrictedVolumeDefaultMode(&identityVol)
-	clientCAVol, _ := buildFileVolMount(clientCAVolName, server.Spec.ClientCA)
+	clientCAVol, _ := buildFileVolMount(clientCAVolName, server.Spec.TLS.ClientCA)
 
 	volumes := []corev1.Volume{
 		identityVol,
@@ -464,18 +462,20 @@ func (r *ServerReconciler) buildVolumes(server *kliov1alpha1.Server) []corev1.Vo
 	}
 
 	if server.Spec.Tier1 != nil {
-		vol, _ := buildFileVolMount(tier1EncKeyFileVolName, server.Spec.Tier1.EncryptionKeyFile)
-		volumes = append(volumes, vol)
-
-		vol, _ = buildRestrictedVolMount(tier1IdentityVolName, server.Spec.Tier1.IdentityFile)
+		vol := corev1.Volume{
+			Name:         tier1EncryptionVolName,
+			VolumeSource: server.Spec.Tier1.Encryption.Volume.ToCoreV1(),
+		}
+		applyRestrictedVolumeDefaultMode(&vol)
 		volumes = append(volumes, vol)
 	}
 
 	if server.Spec.Tier2 != nil {
-		vol, _ := buildFileVolMount(tier2EncKeyFileVolName, server.Spec.Tier2.EncryptionKeyFile)
-		volumes = append(volumes, vol)
-
-		vol, _ = buildRestrictedVolMount(tier2IdentityVolName, server.Spec.Tier2.IdentityFile)
+		vol := corev1.Volume{
+			Name:         tier2EncryptionVolName,
+			VolumeSource: server.Spec.Tier2.Encryption.Volume.ToCoreV1(),
+		}
+		applyRestrictedVolumeDefaultMode(&vol)
 		volumes = append(volumes, vol)
 
 		if s3 := server.Spec.Tier2.S3; s3 != nil && s3.CredentialsFile != nil {
@@ -498,7 +498,7 @@ func (r *ServerReconciler) buildVolumeMounts(server *kliov1alpha1.Server) []core
 		MountPath: path.Join(fileBasePath, serverIdentityVolName),
 		ReadOnly:  true,
 	}
-	_, clientCAMount := buildFileVolMount(clientCAVolName, server.Spec.ClientCA)
+	_, clientCAMount := buildFileVolMount(clientCAVolName, server.Spec.TLS.ClientCA)
 
 	volumeMounts := []corev1.VolumeMount{
 		identityMount,
@@ -514,27 +514,27 @@ func (r *ServerReconciler) buildVolumeMounts(server *kliov1alpha1.Server) []core
 	}
 
 	if server.Spec.Tier1 != nil {
-		_, mount := buildFileVolMount(tier1EncKeyFileVolName, server.Spec.Tier1.EncryptionKeyFile)
-		volumeMounts = append(volumeMounts, mount)
-
-		_, mount = buildFileVolMount(tier1IdentityVolName, server.Spec.Tier1.IdentityFile)
-		volumeMounts = append(volumeMounts, mount)
+		volumeMounts = append(volumeMounts, corev1.VolumeMount{
+			Name:      tier1EncryptionVolName,
+			MountPath: path.Join(fileBasePath, tier1EncryptionVolName),
+			ReadOnly:  true,
+		})
 	}
 
 	if server.Spec.Tier2 != nil {
-		_, mount := buildFileVolMount(tier2EncKeyFileVolName, server.Spec.Tier2.EncryptionKeyFile)
-		volumeMounts = append(volumeMounts, mount)
-
-		_, mount = buildFileVolMount(tier2IdentityVolName, server.Spec.Tier2.IdentityFile)
-		volumeMounts = append(volumeMounts, mount)
+		volumeMounts = append(volumeMounts, corev1.VolumeMount{
+			Name:      tier2EncryptionVolName,
+			MountPath: path.Join(fileBasePath, tier2EncryptionVolName),
+			ReadOnly:  true,
+		})
 
 		if s3 := server.Spec.Tier2.S3; s3 != nil && s3.CredentialsFile != nil {
-			_, mount = buildFileVolMount(tier2S3CredentialsVolName, *s3.CredentialsFile)
+			_, mount := buildFileVolMount(tier2S3CredentialsVolName, *s3.CredentialsFile)
 			volumeMounts = append(volumeMounts, mount)
 		}
 
 		if s3 := server.Spec.Tier2.S3; s3 != nil && s3.CustomCABundle != nil {
-			_, mount = buildFileVolMount(tier2S3CABundleVolName, *s3.CustomCABundle)
+			_, mount := buildFileVolMount(tier2S3CABundleVolName, *s3.CustomCABundle)
 			volumeMounts = append(volumeMounts, mount)
 		}
 	}
