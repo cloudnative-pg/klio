@@ -49,6 +49,7 @@ EKS
 EmbeddedObjectMeta
 EnableBackup
 EnableRecovery
+EncryptionFiles
 EncryptionKeyFile
 EndpointSlices
 Enum
@@ -73,6 +74,7 @@ IAM
 INI
 IRSA
 IdentityFile
+IdentityPath
 IfNotPresent
 ImageConfiguration
 ImagePullPolicy
@@ -142,6 +144,7 @@ PluginConfiguration's
 PluginConfigurationSpec
 PluginConfigurationStatus
 PluginConfigurations
+PluginTLSConfiguration
 PodSpec
 PodTemplateSpec
 PreReconcile
@@ -184,6 +187,7 @@ SecretKeySelector
 SecretVolumeSource
 ServerAddress
 ServerCA
+ServerIdentity
 ServerMode
 ServerSpec
 ServerStatus

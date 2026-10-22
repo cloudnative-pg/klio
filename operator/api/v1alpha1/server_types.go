@@ -46,9 +46,9 @@ type ServerSpec struct {
 	// image.
 	ImageConfiguration `json:",inline"`
 
-	// TLSConfiguration is used for the server-side
-	// certificate.
-	TLSConfiguration `json:",inline"`
+	// TLS configures the PKI of the Klio server: the identity it presents
+	// and the CA used to verify clients.
+	TLS TLSConfiguration `json:"tls"`
 
 	// Mode selects the operation mode of the server.
 	// +kubebuilder:validation:Enum=standard;read-only
@@ -129,10 +129,10 @@ type ImageConfiguration struct {
 // TLSConfiguration contains the information needed to configure
 // the PKI infrastructure of the Klio server.
 type TLSConfiguration struct {
-	// ServerTLSIdentity is the TLS identity presented to clients: the
+	// ServerIdentity is the TLS identity presented to clients: the
 	// server certificate and its matching private key.
 	// +kubebuilder:validation:Required
-	ServerTLSIdentity TLSIdentity `json:"serverTlsIdentity"`
+	ServerIdentity TLSIdentity `json:"serverIdentity"`
 
 	// ClientCA is the CA bundle used to verify client certificates.
 	// It must contain the PEM-encoded CA certificate(s).
@@ -223,14 +223,35 @@ type TLSIdentity struct {
 	KeyPath string `json:"keyPath"`
 }
 
+// EncryptionFiles is the Age-encrypted encryption key and the Age identity
+// used to decrypt it, read from a single volume.
+type EncryptionFiles struct {
+	// Volume is the volume source that holds the encryption key file and
+	// the identity file.
+	Volume VolumeSource `json:"volume"`
+
+	// KeyPath is the path of the Age-encrypted encryption key file within
+	// the volume.
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:MaxLength=1024
+	// +kubebuilder:validation:XValidation:rule="!self.startsWith('/') && !self.split('/').exists(s, s == '..')",message="must be a relative path without '..' segments"
+	KeyPath string `json:"keyPath"`
+
+	// IdentityPath is the path of the Age identity (private key) file
+	// within the volume, used to decrypt the encryption key.
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:MaxLength=1024
+	// +kubebuilder:validation:XValidation:rule="!self.startsWith('/') && !self.split('/').exists(s, s == '..')",message="must be a relative path without '..' segments"
+	IdentityPath string `json:"identityPath"`
+}
+
 // Tier1Configuration is the tier 1 configuration.
 type Tier1Configuration struct {
-	// EncryptionKeyFile specifies the Age-encrypted encryption key file.
-	EncryptionKeyFile VolumeFileReference `json:"encryptionKeyFile"`
-
-	// IdentityFile specifies the Age identity (private key) file used to
-	// decrypt the encryption key.
-	IdentityFile VolumeFileReference `json:"identityFile"`
+	// Encryption specifies the Age-encrypted encryption key file and the
+	// Age identity (private key) file used to decrypt it.
+	Encryption EncryptionFiles `json:"encryption"`
 
 	// Compression defines the repository-wide (global) compression policy
 	// applied to base backups stored on tier1. Individual clusters can
@@ -244,12 +265,9 @@ type Tier2Configuration struct {
 	// S3 contains the configuration parameters for an S3-based tier 2.
 	S3 *S3Configuration `json:"s3"`
 
-	// EncryptionKeyFile specifies the Age-encrypted encryption key file.
-	EncryptionKeyFile VolumeFileReference `json:"encryptionKeyFile"`
-
-	// IdentityFile specifies the Age identity (private key) file used to
-	// decrypt the encryption key.
-	IdentityFile VolumeFileReference `json:"identityFile"`
+	// Encryption specifies the Age-encrypted encryption key file and the
+	// Age identity (private key) file used to decrypt it.
+	Encryption EncryptionFiles `json:"encryption"`
 
 	// Compression defines the repository-wide (global) compression policy
 	// applied to base backups stored on tier2. Individual clusters can

@@ -41,7 +41,7 @@ type envBuilder struct {
 
 func newServerEnvBuilder(server *kliov1alpha1.Server) *envBuilder {
 	return &envBuilder{
-		tls:   server.Spec.TLSConfiguration,
+		tls:   server.Spec.TLS,
 		tier1: server.Spec.Tier1,
 		tier2: server.Spec.Tier2,
 	}
@@ -100,11 +100,11 @@ func (e *envBuilder) getCoreEnvVars() []corev1.EnvVar {
 	result := []corev1.EnvVar{
 		{
 			Name:  "TLS_CERT",
-			Value: path.Join(fileBasePath, serverIdentityVolName, e.tls.ServerTLSIdentity.CertPath),
+			Value: path.Join(fileBasePath, serverIdentityVolName, e.tls.ServerIdentity.CertPath),
 		},
 		{
 			Name:  "TLS_KEY",
-			Value: path.Join(fileBasePath, serverIdentityVolName, e.tls.ServerTLSIdentity.KeyPath),
+			Value: path.Join(fileBasePath, serverIdentityVolName, e.tls.ServerIdentity.KeyPath),
 		},
 		{
 			Name:  "TLS_CLIENT_CA_CERT",
@@ -140,11 +140,11 @@ func (e *envBuilder) getCoreEnvVars() []corev1.EnvVar {
 		tier1Envs = append(tier1Envs,
 			corev1.EnvVar{
 				Name:  "TIER1_ENCRYPTION_KEY_FILE",
-				Value: fileRefPath(tier1EncKeyFileVolName, e.tier1.EncryptionKeyFile),
+				Value: path.Join(fileBasePath, tier1EncryptionVolName, e.tier1.Encryption.KeyPath),
 			},
 			corev1.EnvVar{
 				Name:  "TIER1_IDENTITY_FILE",
-				Value: fileRefPath(tier1IdentityVolName, e.tier1.IdentityFile),
+				Value: path.Join(fileBasePath, tier1EncryptionVolName, e.tier1.Encryption.IdentityPath),
 			},
 		)
 
@@ -197,11 +197,11 @@ func (e *envBuilder) getTier2EnvVars() []corev1.EnvVar {
 	result = append(result,
 		corev1.EnvVar{
 			Name:  "TIER2_ENCRYPTION_KEY_FILE",
-			Value: fileRefPath(tier2EncKeyFileVolName, e.tier2.EncryptionKeyFile),
+			Value: path.Join(fileBasePath, tier2EncryptionVolName, e.tier2.Encryption.KeyPath),
 		},
 		corev1.EnvVar{
 			Name:  "TIER2_IDENTITY_FILE",
-			Value: fileRefPath(tier2IdentityVolName, e.tier2.IdentityFile),
+			Value: path.Join(fileBasePath, tier2EncryptionVolName, e.tier2.Encryption.IdentityPath),
 		},
 	)
 

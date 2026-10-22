@@ -108,9 +108,8 @@ openssl rand -hex 32 | age -e \
 Store both files as Kubernetes secrets:
 
 ```sh
-kubectl create secret generic klio-encryption-key-age \
-    --from-file=encryption-key.age
-kubectl create secret generic klio-age-identity \
+kubectl create secret generic klio-age \
+    --from-file=encryption-key.age \
     --from-file=identity.txt
 ```
 
@@ -286,22 +285,23 @@ spec:
   # TLS identity presented to clients. Both files come from a
   # single volume so the pair always belongs together — never
   # split across volumes.
-  serverTlsIdentity:
-    volume:
-      secret:
-        secretName: klio-server-tls
-    certPath: tls.crt
-    keyPath: tls.key
-  # CA bundle used to verify client certificates. Only the
-  # referenced key is mounted, never the whole secret.
-  clientCa:
-    volume:
-      secret:
-        secretName: klio-client-ca
-        items:
-          - key: ca.crt
-            path: ca.crt
-    path: ca.crt
+  tls:
+    serverIdentity:
+      volume:
+        secret:
+          secretName: klio-server-tls
+      certPath: tls.crt
+      keyPath: tls.key
+    # CA bundle used to verify client certificates. Only the
+    # referenced key is mounted, never the whole secret.
+    clientCa:
+      volume:
+        secret:
+          secretName: klio-client-ca
+          items:
+            - key: ca.crt
+              path: ca.crt
+      path: ca.crt
 
   # Single PVC backing base backups, WAL, the work queue, and the
   # Kopia cache. The default Kopia cache is 5 GB of content plus 5 GB
@@ -315,19 +315,12 @@ spec:
           storage: 30Gi
 
   tier1:
-    encryptionKeyFile:
+    encryption:
       volume:
         secret:
-          secretName: klio-encryption-key-age
-          items:
-            - key: encryption-key.age
-              path: encryption-key.age
-      path: encryption-key.age
-    identityFile:
-      volume:
-        secret:
-          secretName: klio-age-identity
-      path: identity.txt
+          secretName: klio-age
+      keyPath: encryption-key.age
+      identityPath: identity.txt
 ```
 <!-- x-release-please-end -->
 
@@ -375,20 +368,21 @@ spec:
   serverAddress: klio-server.default
   # TLS identity the instances present to the server. Both files
   # come from a single volume so the pair always belongs together.
-  clientTlsIdentity:
-    volume:
-      secret:
-        secretName: cluster-example-klio-user
-    certPath: tls.crt
-    keyPath: tls.key
-  serverCa:
-    volume:
-      secret:
-        secretName: klio-server-ca
-        items:
-        - key: ca.crt
-          path: ca.crt
-    path: ca.crt
+  tls:
+    clientIdentity:
+      volume:
+        secret:
+          secretName: cluster-example-klio-user
+      certPath: tls.crt
+      keyPath: tls.key
+    serverCa:
+      volume:
+        secret:
+          secretName: klio-server-ca
+          items:
+          - key: ca.crt
+            path: ca.crt
+      path: ca.crt
   # Must match the host part of the client certificate Common Name
   clusterName: cluster-example
 ---

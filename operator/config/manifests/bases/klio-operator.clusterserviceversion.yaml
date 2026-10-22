@@ -72,10 +72,10 @@ spec:
         - urn:alm:descriptor:com.tectonic.ui:select:read-only
       - description: TLS identity presented to clients (certificate and key).
         displayName: Server Identity
-        path: serverTlsIdentity
+        path: tls.serverIdentity
       - description: CA bundle used to verify client certificates.
         displayName: Client CA Bundle
-        path: clientCa
+        path: tls.clientCa
       - description: Configuration for the PersistentVolumeClaim backing
           the server's base backups, WAL archive, Kopia caches, and task queue.
         displayName: Storage
@@ -86,13 +86,10 @@ spec:
       - description: Configuration for the local (Tier 1) storage layer.
         displayName: Tier 1 Configuration
         path: tier1
-      - description: Age-encrypted encryption key used to encrypt backups at rest.
-        displayName: Tier 1 Encryption Key File
-        path: tier1.encryptionKeyFile
-      - description: Age identity (private key) file used to decrypt the Tier 1
-          encryption key.
-        displayName: Tier 1 Identity File
-        path: tier1.identityFile
+      - description: Age-encrypted encryption key and Age identity (private key)
+          used to encrypt backups at rest, read from a single volume.
+        displayName: Tier 1 Encryption
+        path: tier1.encryption
       - description: Configuration for the remote (Tier 2) object storage layer.
         displayName: Tier 2 Configuration
         path: tier2
@@ -152,12 +149,10 @@ spec:
         path: tier2.s3.customCaBundle
         x-descriptors:
         - urn:alm:descriptor:com.tectonic.ui:advanced
-      - description: Age-encrypted encryption key used to encrypt Tier 2 data at rest.
-        displayName: Tier 2 Encryption Key File
-        path: tier2.encryptionKeyFile
-      - description: Age identity file used to decrypt the Tier 2 encryption key.
-        displayName: Tier 2 Identity File
-        path: tier2.identityFile
+      - description: Age-encrypted encryption key and Age identity used to
+          encrypt Tier 2 data at rest, read from a single volume.
+        displayName: Tier 2 Encryption
+        path: tier2.encryption
       - description: Advanced pod/StatefulSet template override. Modifying this
           field can break server functionality; use at your own risk.
         displayName: Pod Template Override
@@ -197,10 +192,10 @@ spec:
         - urn:alm:descriptor:com.tectonic.ui:select:read-only
       - description: TLS identity presented to the Klio server (certificate and key).
         displayName: Client Identity
-        path: clientTlsIdentity
+        path: tls.clientIdentity
       - description: CA bundle used to verify the Klio server.
         displayName: Server CA Bundle
-        path: serverCa
+        path: tls.serverCa
       - description: Configuration for Tier 1 backup and recovery settings.
         displayName: Tier 1 Configuration
         path: tier1
@@ -373,8 +368,8 @@ spec:
       identity that decrypts it).
 
     Those names are only the example's defaults: any names work, as long
-    as `serverTlsIdentity`, `clientCa`, and the
-    `encryptionKeyFile`/`identityFile` references agree with them.
+    as `tls.serverIdentity`, `tls.clientCa`, and the
+    `tier1.encryption` and `tier2.encryption` references agree with them.
 
     ## Getting started
 

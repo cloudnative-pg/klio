@@ -691,7 +691,7 @@ func getTLSVolumesAndMounts(
 		volumesAndMounts = append(volumesAndMounts, volumeAndMount{
 			Volume: corev1.Volume{
 				Name:         getServerSecretVolumeName(pcName),
-				VolumeSource: pc.Spec.ServerCA.Volume.ToCoreV1(),
+				VolumeSource: pc.Spec.TLS.ServerCA.Volume.ToCoreV1(),
 			},
 			VolumeMount: corev1.VolumeMount{
 				Name:      getServerSecretVolumeName(pcName),
@@ -700,7 +700,7 @@ func getTLSVolumesAndMounts(
 			},
 		})
 
-		clientIdentity := pc.Spec.ClientTLSIdentity
+		clientIdentity := pc.Spec.TLS.ClientIdentity
 		volume := corev1.Volume{
 			Name:         getClientSecretVolumeName(pcName),
 			VolumeSource: clientIdentity.Volume.ToCoreV1(),
