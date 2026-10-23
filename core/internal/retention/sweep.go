@@ -41,7 +41,20 @@ var ErrInvalidRetentionLatest = errors.New("invalid retention policy: latest mus
 
 // backupDeleter is the subset of klioclient.Client that sweepCluster needs.
 type backupDeleter interface {
+	// ListBackups lists only the backups whose snapshots are all present.
 	ListBackups(ctx context.Context, hostname string) (klioclient.BackupList, error)
+
+	// ListBackupsIncludingIncomplete also lists the backups that have a
+	// metadata snapshot but miss some other snapshot, e.g. while relayed.
+	ListBackupsIncludingIncomplete(ctx context.Context, hostname string) (klioclient.BackupList, error)
+
+	// ListBackupsByCompleteness lists the same backups as
+	// ListBackupsIncludingIncomplete, split into complete and incomplete.
+	ListBackupsByCompleteness(
+		ctx context.Context, hostname string,
+	) (klioclient.BackupList, klioclient.BackupList, error)
+
+	// DeleteBackup deletes every snapshot of the named backup.
 	DeleteBackup(ctx context.Context, hostname string, name string) error
 }
 
@@ -203,22 +216,32 @@ func (s *Sweeper) sweepCluster(
 		return 0, err
 	}
 
-	backups, err := tc.backupClient.ListBackups(ctx, clusterName)
-	if err != nil {
-		return 0, fmt.Errorf("while listing backups: %w", err)
-	}
-	if len(backups) == 0 {
+	// latest: 0 disables retention: no backup is deleted, not even an
+	// incomplete one.
+	if tierPolicy.GetLatest() == 0 {
+		contextLogger.Debug("Retention disabled for cluster, skipping",
+			"tier", tc.name, "cluster", clusterName)
+
 		return 0, nil
 	}
 
-	toDelete, err := deletionCandidates(ctx, clusterName, tc, retentionPolicy, evaluator, backups)
+	complete, incomplete, err := tc.backupClient.ListBackupsByCompleteness(ctx, clusterName)
+	if err != nil {
+		return 0, fmt.Errorf("while listing backups: %w", err)
+	}
+	backups := len(complete) + len(incomplete)
+	if backups == 0 {
+		return 0, nil
+	}
+
+	toDelete, err := deletionCandidates(ctx, clusterName, tc, retentionPolicy, evaluator, complete, incomplete)
 	if err != nil {
 		return 0, err
 	}
 
 	if len(toDelete) == 0 {
 		contextLogger.Debug("No backup is out of retention",
-			"tier", tc.name, "cluster", clusterName, "latest", tierPolicy.GetLatest(), "backups", len(backups))
+			"tier", tc.name, "cluster", clusterName, "latest", tierPolicy.GetLatest(), "backups", backups)
 
 		return 0, nil
 	}
@@ -230,7 +253,7 @@ func (s *Sweeper) sweepCluster(
 
 	contextLogger.Info("Deleting out-of-retention backups",
 		"tier", tc.name, "cluster", clusterName, "latest", tierPolicy.GetLatest(),
-		"backups", len(backups), "toDelete", backupNames(targets))
+		"backups", backups, "toDelete", backupNames(targets))
 
 	deleted, err := deleteBackups(ctx, tc.backupClient, targets)
 	contextLogger.Info("Out-of-retention backups deleted",
@@ -272,25 +295,30 @@ func backupNames(targets []hostBackupName) []string {
 	return names
 }
 
-// deletionCandidates computes which of backups are out of retention
-// (evaluator decides what to keep) and, when tc guards tier1 against
-// unsynced tier2 backups, filters that set down to only the ones already
-// present on tier2.
+// deletionCandidates computes which backups are out of retention. Only the
+// complete backups are evaluated (evaluator decides what to keep), so the
+// kept ones can all be restored. An incomplete backup is a candidate once it
+// is older than every kept backup: even if completed, it would be out of
+// retention. When tc guards tier1 against unsynced tier2 backups, the
+// complete candidates are filtered down to only the ones already complete
+// on tier2. The incomplete ones are not: they can never be relayed whole.
 func deletionCandidates(
 	ctx context.Context,
 	clusterName string,
 	tc tierConfig,
 	retentionPolicy *grpc.RetentionPolicy,
 	evaluator policy.Policy,
-	backups klioclient.BackupList,
+	complete klioclient.BackupList,
+	incomplete klioclient.BackupList,
 ) (klioclient.BackupList, error) {
 	// Evaluate sorts and slices in place; operate on a copy so the caller's
 	// slice (and its original order) is left untouched.
-	keep := evaluator.Evaluate(append(klioclient.BackupList{}, backups...))
-	toDelete := diffByName(backups, keep)
+	keep := evaluator.Evaluate(append(klioclient.BackupList{}, complete...))
+	toDelete := diffByName(complete, keep)
+	abandoned := olderThanAll(incomplete, keep)
 
 	if tc.syncGuardClient == nil || retentionPolicy.GetTier2Policy() == nil {
-		return toDelete, nil
+		return append(toDelete, abandoned...), nil
 	}
 
 	guarded, err := protectUnsyncedToTier2(ctx, clusterName, toDelete, tc.syncGuardClient)
@@ -306,13 +334,36 @@ func deletionCandidates(
 		)
 	}
 
-	return guarded, nil
+	return append(guarded, abandoned...), nil
+}
+
+// olderThanAll returns the entries of backups that started before every
+// entry of reference, or none if reference is empty.
+func olderThanAll(backups, reference klioclient.BackupList) klioclient.BackupList {
+	if len(reference) == 0 {
+		return nil
+	}
+
+	oldest := reference[0].StartedAt
+	for _, b := range reference[1:] {
+		oldest = min(oldest, b.StartedAt)
+	}
+
+	var older klioclient.BackupList
+	for _, b := range backups {
+		if b.StartedAt < oldest {
+			older = append(older, b)
+		}
+	}
+
+	return older
 }
 
 // protectUnsyncedToTier2 filters candidates down to only the backups
-// already present on tier2 (via tier2Client), so tier1 retention never
-// deletes a backup tier2 hasn't received yet. On a tier2-listing error, the
-// caller treats this as "delete nothing this tick" rather than guessing.
+// already fully present on tier2 (via tier2Client), so tier1 retention
+// never deletes a backup tier2 hasn't completely received yet. On a
+// tier2-listing error, the caller treats this as "delete nothing this tick"
+// rather than guessing.
 func protectUnsyncedToTier2(
 	ctx context.Context,
 	clusterName string,

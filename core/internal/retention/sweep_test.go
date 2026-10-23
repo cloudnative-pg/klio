@@ -27,17 +27,30 @@ import (
 
 	"github.com/cloudnative-pg/klio/core/internal/client/klioclient"
 	"github.com/cloudnative-pg/klio/core/internal/grpc"
+	"github.com/cloudnative-pg/klio/core/internal/policy"
 )
 
 // stubTier2Client is a minimal backupDeleter stub for testing
-// protectUnsyncedToTier2 without a real Kopia client.
+// protectUnsyncedToTier2 without a real Kopia client. backups are its
+// complete backups and incomplete the ones missing some snapshot.
 type stubTier2Client struct {
-	backups klioclient.BackupList
-	listErr error
+	backups    klioclient.BackupList
+	incomplete klioclient.BackupList
+	listErr    error
 }
 
 func (s *stubTier2Client) ListBackups(_ context.Context, _ string) (klioclient.BackupList, error) {
 	return s.backups, s.listErr
+}
+
+func (s *stubTier2Client) ListBackupsIncludingIncomplete(_ context.Context, _ string) (klioclient.BackupList, error) {
+	return append(slices.Clone(s.backups), s.incomplete...), s.listErr
+}
+
+func (s *stubTier2Client) ListBackupsByCompleteness(
+	_ context.Context, _ string,
+) (klioclient.BackupList, klioclient.BackupList, error) {
+	return s.backups, s.incomplete, s.listErr
 }
 
 func (s *stubTier2Client) DeleteBackup(_ context.Context, _ string, _ string) error {
@@ -53,6 +66,16 @@ type stubDeleter struct {
 
 func (s *stubDeleter) ListBackups(_ context.Context, _ string) (klioclient.BackupList, error) {
 	return nil, nil
+}
+
+func (s *stubDeleter) ListBackupsIncludingIncomplete(_ context.Context, _ string) (klioclient.BackupList, error) {
+	return nil, nil
+}
+
+func (s *stubDeleter) ListBackupsByCompleteness(
+	_ context.Context, _ string,
+) (klioclient.BackupList, klioclient.BackupList, error) {
+	return nil, nil, nil
 }
 
 func (s *stubDeleter) DeleteBackup(_ context.Context, host string, name string) error {
@@ -119,6 +142,97 @@ func TestProtectUnsyncedToTier2(t *testing.T) {
 			sameName := func(a, b klioclient.BackupMetadata) bool { return a.Name == b.Name }
 			if !slices.EqualFunc(got, tt.want, sameName) {
 				t.Fatalf("protectUnsyncedToTier2() = %#v, want %#v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestDeletionCandidates(t *testing.T) {
+	backup := func(name string, startedAt int64) klioclient.BackupMetadata {
+		return klioclient.BackupMetadata{Name: name, StartedAt: startedAt}
+	}
+
+	tests := []struct {
+		name       string
+		latest     int
+		complete   klioclient.BackupList
+		incomplete klioclient.BackupList
+		// tier2 is the complete tier2 backup list. When nil, there is no
+		// sync guard.
+		tier2 klioclient.BackupList
+		want  []string
+	}{
+		{
+			name:     "out-of-policy complete backup is deleted",
+			latest:   1,
+			complete: klioclient.BackupList{backup("b1", 1), backup("b2", 2)},
+			want:     []string{"b1"},
+		},
+		{
+			name:       "incomplete backups do not count towards the kept ones",
+			latest:     1,
+			complete:   klioclient.BackupList{backup("b1", 1)},
+			incomplete: klioclient.BackupList{backup("b2", 2)},
+			want:       nil,
+		},
+		{
+			name:       "incomplete backup older than every kept one is deleted",
+			latest:     2,
+			complete:   klioclient.BackupList{backup("b2", 2), backup("b3", 3)},
+			incomplete: klioclient.BackupList{backup("b1", 1)},
+			want:       []string{"b1"},
+		},
+		{
+			name:       "incomplete backup newer than a kept one is kept",
+			latest:     2,
+			complete:   klioclient.BackupList{backup("b1", 1), backup("b3", 3)},
+			incomplete: klioclient.BackupList{backup("b2", 2)},
+			want:       nil,
+		},
+		{
+			name:       "incomplete backups are kept when no complete backup exists",
+			latest:     1,
+			incomplete: klioclient.BackupList{backup("b1", 1), backup("b2", 2)},
+			want:       nil,
+		},
+		{
+			name:     "sync guard keeps a complete backup not complete on tier2",
+			latest:   1,
+			complete: klioclient.BackupList{backup("b1", 1), backup("b2", 2)},
+			tier2:    klioclient.BackupList{backup("b2", 2)},
+			want:     nil,
+		},
+		{
+			name:       "sync guard does not keep a backup incomplete on tier1",
+			latest:     1,
+			complete:   klioclient.BackupList{backup("b2", 2)},
+			incomplete: klioclient.BackupList{backup("b1", 1)},
+			tier2:      klioclient.BackupList{backup("b2", 2)},
+			want:       []string{"b1"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tc := tierConfig{name: "tier1"}
+			retentionPolicy := &grpc.RetentionPolicy{}
+			if tt.tier2 != nil {
+				tc.syncGuardClient = &stubTier2Client{backups: tt.tier2}
+				retentionPolicy.Tier2Policy = &grpc.TierRetentionPolicy{Latest: 1}
+			}
+
+			got, err := deletionCandidates(context.Background(), "cluster-a", tc, retentionPolicy,
+				&policy.LatestPolicy{Count: tt.latest}, tt.complete, tt.incomplete)
+			if err != nil {
+				t.Fatalf("deletionCandidates() error = %v", err)
+			}
+
+			var names []string
+			for _, b := range got {
+				names = append(names, b.Name)
+			}
+			if !slices.Equal(names, tt.want) {
+				t.Fatalf("deletionCandidates() = %v, want %v", names, tt.want)
 			}
 		})
 	}

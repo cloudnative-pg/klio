@@ -21,6 +21,8 @@ package kopiaserver
 
 import (
 	"context"
+	"encoding/json"
+	"errors"
 	"testing"
 
 	"github.com/cloudnative-pg/machinery/pkg/log"
@@ -265,5 +267,94 @@ func TestBuildBackupGroupsSelectsLatestOldestAndCount(t *testing.T) {
 	// With a single backup, latest and oldest coincide.
 	if b.latestID != "b-only" || b.oldestID != "b-only" {
 		t.Fatalf("expected clusterB latest==oldest==b-only, got latest=%s oldest=%s", b.latestID, b.oldestID)
+	}
+}
+
+var errUnknownSnapshot = errors.New("unknown snapshot")
+
+// fakeSnapshotSource serves the metadata of the metadata snapshots by ID.
+type fakeSnapshotSource struct {
+	metadata map[string]klioclient.BackupMetadata
+}
+
+func (f *fakeSnapshotSource) ListSnapshots(
+	_ context.Context, _ map[string]string, _ kopia.LogFunc,
+) ([]kopia.Manifest, error) {
+	return nil, nil
+}
+
+func (f *fakeSnapshotSource) RestoreSingleFile(
+	_ context.Context, snapshotID string, _ string, _ kopia.LogFunc,
+) ([]byte, error) {
+	metadata, ok := f.metadata[snapshotID]
+	if !ok {
+		return nil, errUnknownSnapshot
+	}
+
+	return json.Marshal(metadata)
+}
+
+// backupSnapshot returns a snapshot of one part of a backup of cluster-a.
+func backupSnapshot(name, content, tablespace string, endTime kopia.UTCTimestamp) kopia.Manifest {
+	tags := map[string]string{
+		"tag:" + klioclient.BackupNameTagName:    name,
+		"tag:" + klioclient.BackupContentTagName: content,
+	}
+	if tablespace != "" {
+		tags["tag:"+klioclient.TablespaceNameTagName] = tablespace
+	}
+
+	return kopia.Manifest{
+		ID:      name + "-" + content,
+		Source:  kopia.SourceInfo{Host: "cluster-a", Path: "/" + content},
+		EndTime: endTime,
+		Tags:    tags,
+	}
+}
+
+func TestCollectBackupMetricsCountsOnlyCompleteBackups(t *testing.T) {
+	withTablespace := []klioclient.TablespaceLayout{{Name: "tbs1"}}
+
+	var snapshots []kopia.Manifest
+	// b1 is complete, b2 misses its pgdata, b3 misses its tablespace, b4 is
+	// complete, and b5 misses its tablespace.
+	for i, name := range []string{"b1", "b2", "b3", "b4", "b5"} {
+		endTime := kopia.UTCTimestamp(10 * (i + 1))
+		snapshots = append(snapshots, backupSnapshot(name, "metadata", "", endTime))
+		snapshots = append(snapshots, backupSnapshot(name, "controldata", "", endTime))
+		if name != "b2" {
+			snapshots = append(snapshots, backupSnapshot(name, "pgdata", "", endTime))
+		}
+		if name != "b3" && name != "b5" {
+			snapshots = append(snapshots, backupSnapshot(name, "tablespace", "tbs1", endTime))
+		}
+	}
+
+	metadata := make(map[string]klioclient.BackupMetadata)
+	for _, name := range []string{"b1", "b2", "b3", "b4", "b5"} {
+		metadata[name+"-metadata"] = klioclient.BackupMetadata{
+			Name: name, ClusterName: "cluster-a", Tablespaces: withTablespace,
+		}
+	}
+
+	c := newTestCollector(opentelemetry.Tier1)
+	c.kopia = &fakeSnapshotSource{metadata: metadata}
+
+	entries := c.collectBackupMetrics(context.Background(), snapshots)
+	if len(entries) != 1 {
+		t.Fatalf("expected 1 entry, got %d", len(entries))
+	}
+
+	e := entries[0]
+	// b2 is not counted, having no pgdata. b3 and b5 are, as only the
+	// latest and oldest backups are checked for their tablespaces.
+	if e.count != 4 {
+		t.Fatalf("expected count=4, got %d", e.count)
+	}
+	if e.latest.Name != "b4" {
+		t.Fatalf("expected latest=b4, the newest complete backup, got %s", e.latest.Name)
+	}
+	if e.oldest.Name != "b1" {
+		t.Fatalf("expected oldest=b1, got %s", e.oldest.Name)
 	}
 }
