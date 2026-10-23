@@ -245,6 +245,11 @@ A Tier 1 backup that has not yet been copied to Tier 2 is never deleted by
 Tier 1 retention, even if it is otherwise out of retention: it is kept until
 Tier 2 has it.
 
+A backup that is missing part of its data on a tier, for example after an
+interrupted deletion, is not listed and cannot be restored from that tier.
+Retention does not count it among the N backups it keeps, and deletes it
+once it is older than all of them.
+
 The Klio server automatically deletes WAL files that are no longer needed
 for recovery by any retained backup on that tier.
 

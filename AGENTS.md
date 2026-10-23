@@ -140,6 +140,15 @@ Klio-only assertions) must live outside `machinery` — e.g. under
   - `operator/pkg/config/client.go` ↔ `core/pkg/config/client.go`
   - `operator/pkg/config/compression.go` ↔ `core/pkg/config/compression.go`
 
+- The e2e tests in `operator/test/` copy some values from core, because the
+  operator module cannot import core's `internal` packages. When you change
+  one of these in core, update its copies:
+  - Kopia tag names (`core/internal/client/klioclient/consts.go`) ↔
+    `operator/test/klio/features/incomplete_backup.go`
+  - Tier annotations (`core/internal/client/klioclient/kopia/multiconnect.go`)
+    ↔ `operator/test/klio/features/retention.go`,
+    `operator/test/klio/conditions/conditions.go`
+
 - When you change a metric in `core/internal/opentelemetry/catalog.go`
   (rename, add, remove, or change a metric's unit, type, or attributes),
   update the Grafana dashboard builder in `observability/grafana/` to match
