@@ -55,7 +55,9 @@ func BackupCountEquals(
 	namespace, podName, containerName string,
 	expectedCount int,
 ) wait.ConditionWithContextFunc {
-	return backupCountMatches(r, namespace, podName, containerName, []string{"klio", "admin", "list-backups"}, expectedCount,
+	cmd := []string{"klio", "admin", "list-backups"}
+
+	return backupCountMatches(r, namespace, podName, containerName, cmd, expectedCount,
 		func(backupMetadata) bool {
 			return true
 		})
@@ -69,8 +71,9 @@ func Tier2BackupCountEquals(
 	namespace, podName, containerName string,
 	expectedCount int,
 ) wait.ConditionWithContextFunc {
-	return backupCountMatches(r, namespace, podName, containerName, []string{"klio", "admin", "list-backups"}, expectedCount,
-		isOnTier2)
+	cmd := []string{"klio", "admin", "list-backups"}
+
+	return backupCountMatches(r, namespace, podName, containerName, cmd, expectedCount, isOnTier2)
 }
 
 // ClientTier2BackupCountEquals checks if `klio backup list`, run in the
