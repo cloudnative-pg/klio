@@ -577,7 +577,7 @@ func (f *CompressionFeature) Run() types.StepFunc {
 		createAndVerifyRecovery(ctx, t, r, "tier1", s.tier1Recovery, compressionRound2RowCount)
 
 		t.Log("Recovering the latest backup from tier2...")
-		require.NoError(t, deployTier2RecoveryServer(ctx, r, s.namespace.Name, s.klioServer.Name, 2,
+		require.NoError(t, deployTier2RecoveryServer(ctx, r, s.namespace.Name, s.klioServer.Name, s.sourcePrimaryPod.Name, 2,
 			&tier2RecoveryServerResources{
 				RecoveryServerCertificate:   s.tier2RecoveryServerCertificate,
 				RecoveryServerCACertificate: s.tier2RecoveryServerCACertificate,
