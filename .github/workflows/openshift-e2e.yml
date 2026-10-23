@@ -19,7 +19,7 @@ permissions:
 jobs:
   openshift-e2e:
     name: OpenShift E2E
-    runs-on: ${{ github.repository_owner == 'cloudnative-pg' && 'ubuntu-latest-16-cores' || 'ubuntu-latest' }}
+    runs-on: ${{ vars.CI_RUNNERS || 'ubuntu-latest' }}
     timeout-minutes: 120
     env:
       ENVIRONMENT: "testing"
@@ -31,6 +31,8 @@ jobs:
 
       - name: Cleanup disk
         uses: ./.github/actions/cleanup-disk
+        with:
+          min-free-gb: "20"
 
       - name: Install Task
         shell: bash

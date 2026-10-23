@@ -162,7 +162,7 @@ jobs:
     # Also build when the OpenShift suite runs: openshift-e2e pulls the
     # freshly built operand image from ghcr regardless of which module changed.
     if: needs.change-triage.outputs.core-changed == 'true' || needs.change-triage.outputs.run-openshift == 'true'
-    runs-on: ${{ github.repository_owner == 'cloudnative-pg' && 'ubuntu-latest-16-cores' || 'ubuntu-latest' }}
+    runs-on: ${{ vars.CI_RUNNERS || 'ubuntu-latest' }}
     permissions:
       contents: read
       packages: write
@@ -176,6 +176,8 @@ jobs:
 
       - name: Cleanup disk
         uses: ./.github/actions/cleanup-disk
+        with:
+          min-free-gb: "20"
 
       - name: Setup dagger
         uses: ./.github/actions/setup-dagger
@@ -209,7 +211,7 @@ jobs:
     # Also build when the OpenShift suite runs: the OLM catalog and tests pull
     # the freshly built operator image from ghcr regardless of what changed.
     if: needs.change-triage.outputs.operator-changed == 'true' || needs.change-triage.outputs.run-openshift == 'true'
-    runs-on: ${{ github.repository_owner == 'cloudnative-pg' && 'ubuntu-latest-16-cores' || 'ubuntu-latest' }}
+    runs-on: ${{ vars.CI_RUNNERS || 'ubuntu-latest' }}
     permissions:
       contents: read
       packages: write
@@ -222,6 +224,8 @@ jobs:
 
       - name: Cleanup disk
         uses: ./.github/actions/cleanup-disk
+        with:
+          min-free-gb: "20"
 
       - name: Setup dagger
         uses: ./.github/actions/setup-dagger
@@ -256,7 +260,7 @@ jobs:
     needs:
       - change-triage
     if: needs.change-triage.outputs.core-changed == 'true' || needs.change-triage.outputs.operator-changed == 'true'
-    runs-on: ${{ github.repository_owner == 'cloudnative-pg' && 'ubuntu-latest-16-cores' || 'ubuntu-latest' }}
+    runs-on: ${{ vars.CI_RUNNERS || 'ubuntu-latest' }}
     permissions:
       contents: read
     steps:
@@ -276,6 +280,8 @@ jobs:
 
       - name: Cleanup disk
         uses: ./klio/.github/actions/cleanup-disk
+        with:
+          min-free-gb: "20"
 
       - name: Setup dagger
         uses: ./klio/.github/actions/setup-dagger
@@ -353,6 +359,8 @@ jobs:
 
       - name: Cleanup disk
         uses: ./.github/actions/cleanup-disk
+        with:
+          min-free-gb: "20"
 
       - name: Setup dagger
         uses: ./.github/actions/setup-dagger
@@ -401,7 +409,7 @@ jobs:
       && (needs.change-triage.outputs.core-changed == 'true' || needs.change-triage.outputs.operator-changed == 'true')
     needs:
       - change-triage
-    runs-on: ${{ github.repository_owner == 'cloudnative-pg' && 'ubuntu-latest-16-cores' || 'ubuntu-latest' }}
+    runs-on: ${{ vars.CI_RUNNERS || 'ubuntu-latest' }}
     permissions:
       contents: read
       packages: write
@@ -413,6 +421,8 @@ jobs:
 
       - name: Cleanup disk
         uses: ./.github/actions/cleanup-disk
+        with:
+          min-free-gb: "20"
 
       - name: Setup dagger
         uses: ./.github/actions/setup-dagger
