@@ -41,14 +41,16 @@ func snapshotCluster(selector string) string {
 // The server panels show the metrics of the Klio server (`klio_server_*`).
 // Panels shown on both dashboards take their series matcher.
 
-// retainedBackupsPanel counts the retained backups.
+// retainedBackupsPanel counts the retained backups, naming the server that
+// retains them.
 func retainedBackupsPanel(matcher string) *stat.PanelBuilder {
 	return statPanel("Retained backups", units.Number,
-		query(fmt.Sprintf("sum by (cluster_name, tier) (klio_server_backup_backups{%s})", matcher),
-			"{{cluster_name}} {{tier}}"),
+		query(fmt.Sprintf("sum by (cluster_name, tier, service_name) (klio_server_backup_backups{%s})", matcher),
+			"{{cluster_name}} {{tier}} ({{service_name}})"),
 	).Decimals(0).
 		Orientation(common.VizOrientationHorizontal).
-		Description("Number of PostgreSQL backups currently retained per cluster and tier.")
+		Description("Number of PostgreSQL backups currently retained per cluster and tier, with the Klio server " +
+			"that retains them.")
 }
 
 // latestBackupAgePanel shows the age of the latest retained backup.
