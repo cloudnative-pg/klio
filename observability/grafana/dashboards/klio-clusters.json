@@ -2943,7 +2943,6 @@
         "refresh": 1,
         "sort": 1,
         "includeAll": true,
-        "allValue": ".+",
         "auto": false,
         "auto_min": "10s",
         "auto_count": 30

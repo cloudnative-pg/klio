@@ -42,12 +42,17 @@ func clusterDashboard() *dashboard.DashboardBuilder {
 	builder := newDashboard("klio-clusters", "Klio Clusters",
 		"Backups, WAL archiving and WAL restore of the PostgreSQL clusters backed up by Klio.").
 		WithVariable(labelVariable("namespace", "Namespace",
-			`label_values({__name__=~"klio_(plugin|client)_.+"}, k8s_namespace_name)`)).
+			`label_values({__name__=~"klio_(plugin|client)_.+"}, k8s_namespace_name)`).
+			AllValue(matchAny)).
+		// "All" expands to the clusters of the selected namespaces. Matching any
+		// value would also select clusters from other namespaces on the panels
+		// that are not filtered by namespace.
 		WithVariable(labelVariable("cluster", "Cluster",
 			`label_values({__name__=~"klio_(plugin|client)_.+",k8s_namespace_name=~"$namespace"}, cluster_name)`)).
 		WithVariable(labelVariable("pod", "Instance",
 			`label_values({__name__=~"klio_(plugin|client)_.+",k8s_namespace_name=~"$namespace",`+
-				`cluster_name=~"$cluster"}, k8s_pod_name)`))
+				`cluster_name=~"$cluster"}, k8s_pod_name)`).
+			AllValue(matchAny))
 
 	layoutDashboard(builder,
 		"*Namespace* is where the PostgreSQL cluster runs. *Cluster* lists every cluster that emits Klio "+
@@ -97,11 +102,17 @@ func serverDashboard() *dashboard.DashboardBuilder {
 	builder := newDashboard("klio-servers", "Klio Servers",
 		"Health, served clusters, Kopia snapshots and WAL processing of the Klio servers.").
 		WithVariable(labelVariable("namespace", "Server namespace",
-			`label_values(klio_server_uptime_seconds, k8s_namespace_name)`)).
+			`label_values(klio_server_uptime_seconds, k8s_namespace_name)`).
+			AllValue(matchAny)).
+		// "All" expands to the servers of the selected namespaces, for the same
+		// reason as the cluster variable of the Klio Clusters dashboard.
 		WithVariable(labelVariable("server", "Server",
 			`label_values(klio_server_uptime_seconds{k8s_namespace_name=~"$namespace"}, service_name)`)).
+		// Not sourced from klio_server_wal_written_total: a server that receives
+		// no WAL, such as a read-only one, would list no clusters.
 		WithVariable(labelVariable("cluster", "Served cluster",
-			`label_values(klio_server_wal_written_total{service_name=~"$server"}, cluster_name)`))
+			`label_values({__name__=~"klio_server_.+",service_name=~"$server"}, cluster_name)`).
+			AllValue(matchAny))
 
 	layoutDashboard(builder,
 		"*Server namespace* is where the Klio server runs, not where the clusters it backs run. *Server* "+
@@ -219,8 +230,14 @@ func layoutSection(builder *dashboard.DashboardBuilder, y *int, title string, pa
 	}
 }
 
+// matchAny is the "All" value of the variables whose "All" must match any
+// series, whatever the values listed by the variable.
+const matchAny = ".+"
+
 // labelVariable builds a multi-value Prometheus label_values template variable
 // that defaults to "All" so the dashboard shows every series until filtered.
+// Unless the caller sets AllValue, "All" expands to the values the variable
+// lists.
 func labelVariable(name, label, query string) *dashboard.QueryVariableBuilder {
 	return dashboard.NewQueryVariableBuilder(name).
 		Label(label).
@@ -230,7 +247,6 @@ func labelVariable(name, label, query string) *dashboard.QueryVariableBuilder {
 		Sort(dashboard.VariableSortAlphabeticalAsc).
 		Multi(true).
 		IncludeAll(true).
-		AllValue(".+").
 		Current(dashboard.VariableOption{
 			Selected: cog.ToPtr(true),
 			Text:     dashboard.StringOrArrayOfString{String: cog.ToPtr("All")},
