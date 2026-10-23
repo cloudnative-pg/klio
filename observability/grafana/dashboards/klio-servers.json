@@ -256,14 +256,14 @@
             "type": "prometheus",
             "uid": "${datasource}"
           },
-          "expr": "sum by (cluster_name, tier) (klio_server_backup_backups{service_name=~\"$server\",cluster_name=~\"$cluster\"})",
+          "expr": "sum by (cluster_name, tier, service_name) (klio_server_backup_backups{service_name=~\"$server\",cluster_name=~\"$cluster\"})",
           "instant": false,
-          "legendFormat": "{{cluster_name}} {{tier}}",
+          "legendFormat": "{{cluster_name}} {{tier}} ({{service_name}})",
           "range": true
         }
       ],
       "title": "Retained backups",
-      "description": "Number of PostgreSQL backups currently retained per cluster and tier.",
+      "description": "Number of PostgreSQL backups currently retained per cluster and tier, with the Klio server that retains them.",
       "transparent": false,
       "datasource": {
         "type": "prometheus",

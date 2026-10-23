@@ -31,7 +31,7 @@ The **Klio Clusters** dashboard is split into row sections:
   and the backup success ratio.
 
 - **Retained backups** — the retention window of the physical PostgreSQL
-  backups the Klio server keeps for each cluster: counts by tier,
+  backups the Klio server keeps for each cluster: counts by tier and server,
   latest/oldest backup age, start/end LSN and PostgreSQL timeline.
 - **Backup maintenance** — tier-2 relay, backup verification and
   maintenance run totals per cluster.
