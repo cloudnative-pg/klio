@@ -51,8 +51,10 @@ dashboard attribution bugs. `cluster-d` is backed by a *second*, independent
 Klio server that happens to also be named "klio-a" (see `multi/team-d`):
 since a Server's StatefulSet pod name is derived from the Server's own name
 alone, both servers' pods are named "klio-a-klio-0", giving them an
-identical host_name label — a case the dashboard's `$server` variable
-cannot disambiguate on its own.
+identical host_name label. The dashboard's `$server` variable matches the
+OpenTelemetry `service.name` instead, which each server sets through its own
+`OTEL_SERVICE_NAME` (`klio-server-a` and `klio-server-a-team-d`), so the two
+servers stay distinguishable.
 
 Every Klio server has its own certificate authority, signing only that
 server's own **client** certificates — no CA is ever shared between
@@ -163,7 +165,7 @@ This deploys `default` (klio-a/cluster-a, klio-b/cluster-b), `team-c`
 (cluster-c) and `team-d` (a second, independent klio-a, and cluster-d) in
 one shot.
 
-## Validating the Grafana dashboard with the "multi" sample
+## Validating the Grafana dashboards with the "multi" sample
 
 Trigger one base backup per cluster (needed before any backup/snapshot panel
 has data to show):
@@ -173,20 +175,33 @@ kubectl apply -f operator/config/samples/opentelemetry/multi/backups-example.yam
 ```
 
 Once all backups complete and Prometheus has scraped a metrics-collection
-cycle, open the Klio Grafana dashboard and confirm:
+cycle, open the Klio Grafana dashboards.
+
+On the **Klio Clusters** dashboard, confirm:
 
 - The `$namespace` variable offers `default`, `team-c` and `team-d`.
-- The `$server` variable offers only `klio-a-klio-0` and `klio-b-klio-0`
-  (the value is each server's pod hostname): Grafana's variable query
-  dedupes identical label values, so the two independent `klio-a` servers
-  (`default` and `team-d`) collapse into a single, ambiguous entry — this
-  is the disambiguation gap described above, not a deployment error.
 - The `$cluster` variable offers `cluster-a`, `cluster-b`, `cluster-c` and
-  `cluster-d`, and narrows correctly when `$namespace`/`$server` are
-  filtered (e.g. selecting `$namespace=team-c` should only ever offer
-  `cluster-c`).
-- Per-cluster and per-server panels correctly attribute data instead of
-  aggregating everything together, and in particular that the two
+  `cluster-d`, and narrows when `$namespace` is filtered (e.g. selecting
+  `$namespace=team-c` should only ever offer `cluster-c`).
+- With `$namespace=team-c` and `$cluster=All`, every panel, including the ones
+  built from the Klio server metrics, only shows `cluster-c`.
+- Per-cluster panels correctly attribute data instead of aggregating
+  everything together.
+
+On the **Klio Servers** dashboard, confirm:
+
+- The `$namespace` variable offers the namespaces where the Klio servers run,
+  `default` and `team-d`, not `team-c`.
+- The `$server` variable offers `klio-server-a`, `klio-server-a-team-d` and
+  `klio-server-b`: one entry per server, matched against the OpenTelemetry
+  `service.name` that each server's `OTEL_SERVICE_NAME` sets. The two
+  independent `klio-a` servers (`default` and `team-d`) are separate entries.
+- With `$namespace=team-d` and `$server=All`, every panel only shows the
+  server running in `team-d`.
+- The `$cluster` variable (*Served cluster*) offers the clusters backed by the
+  selected servers, including `cluster-c`, which runs in a different namespace
+  than `klio-b`.
+- Per-server panels correctly attribute data, and in particular the two
   same-named `klio-a` servers (in `default` and in `team-d`) are not
   conflated.
 
