@@ -23,41 +23,112 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"path"
 
 	"github.com/cloudnative-pg/machinery/pkg/log"
 
 	"github.com/cloudnative-pg/klio/core/internal/client/klioclient"
+	"github.com/cloudnative-pg/klio/core/internal/kopia"
 )
 
-// GetMetadata implements the BackupRestoreSupport interface.
+// tagKeyPrefix is the prefix Kopia adds to the keys of user-defined tags
+// in the snapshot manifests.
+const tagKeyPrefix = "tag:"
+
+// metadataStore is the subset of the Kopia client that the backup listing
+// needs.
+type metadataStore interface {
+	ListSnapshots(ctx context.Context, tags map[string]string, logFn kopia.LogFunc) ([]kopia.Manifest, error)
+	RestoreSingleFile(ctx context.Context, snapshotID string, fileName string, logFn kopia.LogFunc) ([]byte, error)
+}
+
+// GetMetadata implements the BackupRestoreSupport interface. A backup
+// whose snapshots are not all present on this tier is reported as not
+// found, with the missing parts in the error.
 func (s *Connection) GetMetadata(
 	ctx context.Context,
 	hostname string,
 	name string,
 ) (*klioclient.BackupMetadata, error) {
+	return getMetadata(ctx, s.kopia, hostname, name)
+}
+
+// getMetadata returns the metadata of the named backup of hostname.
+func getMetadata(
+	ctx context.Context,
+	store metadataStore,
+	hostname string,
+	name string,
+) (*klioclient.BackupMetadata, error) {
 	contextLogger := log.FromContext(ctx)
-	entries, err := s.kopia.ListSnapshots(ctx, map[string]string{
-		klioclient.BackupNameTagName:    name,
-		klioclient.BackupContentTagName: "metadata",
+	entries, err := store.ListSnapshots(ctx, map[string]string{
+		klioclient.BackupNameTagName: name,
 	}, contextLogger.Debug)
 	if err != nil {
 		return nil, fmt.Errorf("while executing Kopia command: %w", err)
 	}
 
+	parts := NewBackupParts(entries)
+
 	for _, entry := range entries {
-		if entry.Source.Host == hostname {
-			return s.restoreMetadata(ctx, entry.ID)
+		if entry.Source.Host != hostname || TagValue(entry, klioclient.BackupContentTagName) != "metadata" {
+			continue
 		}
+
+		metadata, err := restoreMetadata(ctx, store, entry.ID)
+		if err != nil {
+			return nil, err
+		}
+
+		if missing := parts.Missing(hostname, name, metadata); len(missing) > 0 {
+			return nil, newIncompleteBackupError(hostname, name, missing)
+		}
+
+		return metadata, nil
 	}
 
 	return nil, newNoBackupFoundError(hostname, name)
 }
 
-// ListBackups list all the backups in the repository.
+// ListBackups lists the backups in the repository whose snapshots are all
+// present on this tier. A backup still being relayed, or left partially
+// deleted, is not listed.
 func (s *Connection) ListBackups(ctx context.Context, hostname string) (klioclient.BackupList, error) {
+	complete, _, err := listBackups(ctx, s.kopia, hostname, false)
+
+	return complete, err
+}
+
+// ListBackupsByCompleteness lists every backup in the repository that has a
+// metadata snapshot, split into the ones whose snapshots are all present on
+// this tier and the ones missing some of them.
+func (s *Connection) ListBackupsByCompleteness(
+	ctx context.Context,
+	hostname string,
+) (klioclient.BackupList, klioclient.BackupList, error) {
+	return listBackups(ctx, s.kopia, hostname, true)
+}
+
+// ListBackupsIncludingIncomplete lists every backup in the repository that
+// has a metadata snapshot, even if some of its other snapshots are missing
+// on this tier.
+func (s *Connection) ListBackupsIncludingIncomplete(
+	ctx context.Context,
+	hostname string,
+) (klioclient.BackupList, error) {
+	return listBackupsIncludingIncomplete(ctx, s.kopia, hostname)
+}
+
+// listBackupsIncludingIncomplete lists the backups of hostname (of every
+// host when empty) that have a metadata snapshot.
+func listBackupsIncludingIncomplete(
+	ctx context.Context,
+	store metadataStore,
+	hostname string,
+) (klioclient.BackupList, error) {
 	contextLogger := log.FromContext(ctx)
 
-	entries, err := s.kopia.ListSnapshots(ctx, map[string]string{
+	entries, err := store.ListSnapshots(ctx, map[string]string{
 		klioclient.BackupContentTagName: "metadata",
 	}, contextLogger.Info)
 	if err != nil {
@@ -70,25 +141,172 @@ func (s *Connection) ListBackups(ctx context.Context, hostname string) (klioclie
 			continue
 		}
 
-		metadata, err := s.restoreMetadata(ctx, entry.ID)
+		metadata, err := restoreMetadata(ctx, store, entry.ID)
 		if err != nil {
 			contextLogger.Error(err, "Error while decoding backup metadata, skipping", "id", entry.ID)
-		} else {
-			result = append(result, *metadata)
+
+			continue
 		}
+
+		result = append(result, *metadata)
 	}
 
 	return result, nil
 }
 
+// listBackups returns the complete backups of hostname (of every host when
+// empty) and, when withIncomplete is set, the incomplete ones. Without it,
+// a backup missing its pgdata or control data is skipped before its
+// metadata is read.
+func listBackups(
+	ctx context.Context,
+	store metadataStore,
+	hostname string,
+	withIncomplete bool,
+) (klioclient.BackupList, klioclient.BackupList, error) {
+	contextLogger := log.FromContext(ctx)
+
+	// Unfiltered: the completeness check needs every content type, not
+	// just the metadata snapshots.
+	entries, err := store.ListSnapshots(ctx, nil, contextLogger.Info)
+	if err != nil {
+		return nil, nil, fmt.Errorf("while executing Kopia command: %w", err)
+	}
+
+	parts := NewBackupParts(entries)
+
+	var complete, incomplete klioclient.BackupList
+	for _, entry := range entries {
+		if !isMetadataOf(entry, hostname) {
+			continue
+		}
+
+		host := entry.Source.Host
+		name := TagValue(entry, klioclient.BackupNameTagName)
+		if !withIncomplete && !parts.HasDataParts(host, name) {
+			contextLogger.Debug("Backup is incomplete on this tier, skipping",
+				"hostname", host, "backupName", name)
+
+			continue
+		}
+
+		metadata, err := restoreMetadata(ctx, store, entry.ID)
+		if err != nil {
+			contextLogger.Error(err, "Error while decoding backup metadata, skipping", "id", entry.ID)
+
+			continue
+		}
+
+		if missing := parts.Missing(host, name, metadata); len(missing) > 0 {
+			contextLogger.Debug("Backup is incomplete on this tier",
+				"hostname", host, "backupName", name, "missing", missing)
+			if withIncomplete {
+				incomplete = append(incomplete, *metadata)
+			}
+
+			continue
+		}
+
+		complete = append(complete, *metadata)
+	}
+
+	return complete, incomplete, nil
+}
+
+// isMetadataOf reports whether entry is a metadata snapshot of hostname, or
+// of any host when hostname is empty.
+func isMetadataOf(entry kopia.Manifest, hostname string) bool {
+	if hostname != "" && entry.Source.Host != hostname {
+		return false
+	}
+
+	return TagValue(entry, klioclient.BackupContentTagName) == "metadata"
+}
+
+// TagValue returns the value of the user-defined tag name of a manifest.
+func TagValue(entry kopia.Manifest, name string) string {
+	return entry.Tags[tagKeyPrefix+name]
+}
+
+// hostBackupName identifies one backup on one cluster.
+type hostBackupName struct {
+	host string
+	name string
+}
+
+// BackupParts records, for each backup of each cluster, the parts that have
+// a complete snapshot. A part is named after its content type, followed by
+// the tablespace name for tablespaces.
+type BackupParts map[hostBackupName]map[string]struct{}
+
+// NewBackupParts builds the BackupParts of the backups in entries.
+func NewBackupParts(entries []kopia.Manifest) BackupParts {
+	result := make(BackupParts)
+
+	for _, entry := range entries {
+		name := TagValue(entry, klioclient.BackupNameTagName)
+		if name == "" || entry.IncompleteReason != "" {
+			continue
+		}
+
+		key := hostBackupName{host: entry.Source.Host, name: name}
+		if result[key] == nil {
+			result[key] = make(map[string]struct{})
+		}
+
+		part := TagValue(entry, klioclient.BackupContentTagName)
+		if part == "tablespace" {
+			part += "/" + TagValue(entry, klioclient.TablespaceNameTagName)
+		}
+		result[key][part] = struct{}{}
+	}
+
+	return result
+}
+
+// HasDataParts reports whether a backup has its pgdata and control data
+// snapshots. Every backup has them, so they can be checked before reading
+// the metadata, which lists the tablespaces.
+func (p BackupParts) HasDataParts(hostname, name string) bool {
+	present := p[hostBackupName{host: hostname, name: name}]
+	_, hasPgData := present["pgdata"]
+	_, hasControlData := present["controldata"]
+
+	return hasPgData && hasControlData
+}
+
+// Missing returns the parts that the backup described by metadata expects
+// but has no snapshot of. The metadata snapshot itself is assumed present.
+func (p BackupParts) Missing(hostname, name string, metadata *klioclient.BackupMetadata) []string {
+	present := p[hostBackupName{host: hostname, name: name}]
+
+	expected := make([]string, 0, 2+len(metadata.Tablespaces))
+	expected = append(expected, "pgdata", "controldata")
+
+	for _, tbl := range metadata.Tablespaces {
+		// The upload tags tablespaces with the base name.
+		expected = append(expected, "tablespace/"+path.Base(tbl.Name))
+	}
+
+	var missing []string
+	for _, part := range expected {
+		if _, ok := present[part]; !ok {
+			missing = append(missing, part)
+		}
+	}
+
+	return missing
+}
+
 // restoreMetadata restores the metadata stored in a snapshot with the
 // given ID.
-func (s *Connection) restoreMetadata(
+func restoreMetadata(
 	ctx context.Context,
+	store metadataStore,
 	snapshotID string,
 ) (*klioclient.BackupMetadata, error) {
 	contextLogger := log.FromContext(ctx)
-	manifestContent, err := s.kopia.RestoreSingleFile(ctx, snapshotID, "metadata.json", contextLogger.Info)
+	manifestContent, err := store.RestoreSingleFile(ctx, snapshotID, "metadata.json", contextLogger.Info)
 	if err != nil {
 		return nil, fmt.Errorf("restoring backup metadata: %w", err)
 	}

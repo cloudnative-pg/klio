@@ -22,10 +22,13 @@ package kopia
 import "fmt"
 
 // NoBackupFoundError is raised when the requested backup has not been found
-// in the Kopia manifests store.
+// in the Kopia manifests store. It is also raised for a backup that is
+// incomplete on this tier, with the parts that have no snapshot in
+// missingParts.
 type NoBackupFoundError struct {
-	hostName   string
-	backupName string
+	hostName     string
+	backupName   string
+	missingParts []string
 }
 
 func newNoBackupFoundError(hostName string, backupName string) NoBackupFoundError {
@@ -35,7 +38,20 @@ func newNoBackupFoundError(hostName string, backupName string) NoBackupFoundErro
 	}
 }
 
+func newIncompleteBackupError(hostName string, backupName string, missingParts []string) NoBackupFoundError {
+	return NoBackupFoundError{
+		hostName:     hostName,
+		backupName:   backupName,
+		missingParts: missingParts,
+	}
+}
+
 func (err NoBackupFoundError) Error() string {
+	if len(err.missingParts) > 0 {
+		return fmt.Sprintf("backup %q for host %q is incomplete, missing %v",
+			err.backupName, err.hostName, err.missingParts)
+	}
+
 	return fmt.Sprintf("backup %q for host %q not found", err.backupName, err.hostName)
 }
 

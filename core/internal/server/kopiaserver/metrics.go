@@ -20,9 +20,12 @@ SPDX-License-Identifier: Apache-2.0
 package kopiaserver
 
 import (
+	"cmp"
 	"context"
 	"encoding/json"
 	"fmt"
+	"iter"
+	"slices"
 	"sync"
 	"time"
 
@@ -31,6 +34,7 @@ import (
 	"go.opentelemetry.io/otel/metric"
 
 	"github.com/cloudnative-pg/klio/core/internal/client/klioclient"
+	klioclientkopia "github.com/cloudnative-pg/klio/core/internal/client/klioclient/kopia"
 	"github.com/cloudnative-pg/klio/core/internal/kopia"
 	"github.com/cloudnative-pg/klio/core/internal/opentelemetry"
 )
@@ -40,7 +44,7 @@ type SnapshotMetricsCollector struct {
 	interval time.Duration
 	logger   log.Logger
 	stopCh   chan struct{}
-	kopia    *kopia.Client
+	kopia    snapshotSource
 	tier     opentelemetry.Tier
 
 	// mu guards cache, which is refreshed by the collection ticker and read by
@@ -80,6 +84,12 @@ type snapshotStats struct {
 	snapshotSize             int64
 	latestSnapshotFilesCount int64
 	latestSnapshotDirCount   int64
+}
+
+// snapshotSource is the subset of the Kopia client the collector needs.
+type snapshotSource interface {
+	ListSnapshots(ctx context.Context, tags map[string]string, logFn kopia.LogFunc) ([]kopia.Manifest, error)
+	RestoreSingleFile(ctx context.Context, snapshotID string, fileName string, logFn kopia.LogFunc) ([]byte, error)
 }
 
 // newSnapshotMetricsCollector creates a new snapshot metrics collector for
@@ -222,16 +232,12 @@ func (c *SnapshotMetricsCollector) collectMetrics(ctx context.Context) {
 	}
 
 	snapshotEntries := c.collectSnapshotMetrics(ctx, snapshots)
-	backupEntries, ok := c.collectBackupMetrics(ctx)
+	backupEntries := c.collectBackupMetrics(ctx, snapshots)
 
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	c.cache.snapshots = snapshotEntries
-	// Preserve the previous backup entries if the metadata listing failed, so a
-	// transient failure does not flap every backup series to absent.
-	if ok {
-		c.cache.backups = backupEntries
-	}
+	c.cache.backups = backupEntries
 }
 
 // collectSnapshotMetrics aggregates snapshot data per source into cache entries.
@@ -296,30 +302,39 @@ func (s *snapshotStats) update(timestamp int64, ds *kopia.DirectorySummary) {
 // collectBackupMetrics reads the snapshotted PostgreSQL backup metadata and
 // builds per-cluster cache entries describing the retention window on this
 // tier: the latest and oldest retained backup and the number of backups
-// retained. Only the latest and oldest metadata snapshots are restored per
-// cluster, not every backup. It returns false if the metadata listing itself
-// failed, so the caller can keep the previously cached entries.
-func (c *SnapshotMetricsCollector) collectBackupMetrics(ctx context.Context) ([]backupCacheEntry, bool) {
+// retained. Only complete backups are counted, as ListBackups does, so the
+// metrics agree with the backup list. The count only checks the pgdata and
+// control data of each backup: the tablespaces are known from the metadata,
+// and only the latest and oldest metadata snapshots of each cluster are
+// restored, not every backup.
+func (c *SnapshotMetricsCollector) collectBackupMetrics(
+	ctx context.Context, snapshots []kopia.Manifest,
+) []backupCacheEntry {
 	c.logger.Debug("Collecting PostgreSQL backup metrics")
-	snapshots, err := c.kopia.ListSnapshots(ctx, map[string]string{
-		klioclient.BackupContentTagName: "metadata",
-	}, c.logger.Debug)
-	if err != nil {
-		c.logger.Warning("Failed to list backup metadata snapshots", "error", err)
-		return nil, false
+
+	parts := klioclientkopia.NewBackupParts(snapshots)
+	metadata := make([]kopia.Manifest, 0, len(snapshots))
+	for _, s := range snapshots {
+		if klioclientkopia.TagValue(s, klioclient.BackupContentTagName) != "metadata" {
+			continue
+		}
+		if !parts.HasDataParts(s.Source.Host, klioclientkopia.TagValue(s, klioclient.BackupNameTagName)) {
+			continue
+		}
+		metadata = append(metadata, s)
 	}
 
-	groups := buildBackupGroups(snapshots)
+	groups := buildBackupGroups(metadata)
 	entries := make([]backupCacheEntry, 0, len(groups))
 	for _, g := range groups {
-		entry, ok := c.buildBackupEntry(ctx, g)
+		entry, ok := c.buildBackupEntry(ctx, g, parts)
 		if !ok {
 			continue
 		}
 		entries = append(entries, entry)
 	}
 
-	return entries, true
+	return entries
 }
 
 // buildBackupGroups groups metadata snapshots by source, tracking the latest
@@ -330,17 +345,19 @@ func buildBackupGroups(snapshots []kopia.Manifest) map[kopia.SourceInfo]*backupG
 		g := groups[s.Source]
 		if g == nil {
 			groups[s.Source] = &backupGroup{
-				count:    1,
-				latestID: s.ID,
-				latest:   s.EndTime,
-				oldestID: s.ID,
-				oldest:   s.EndTime,
+				count:     1,
+				latestID:  s.ID,
+				latest:    s.EndTime,
+				oldestID:  s.ID,
+				oldest:    s.EndTime,
+				snapshots: []kopia.Manifest{s},
 			}
 
 			continue
 		}
 
 		g.count++
+		g.snapshots = append(g.snapshots, s)
 		if s.EndTime.After(g.latest) {
 			g.latest = s.EndTime
 			g.latestID = s.ID
@@ -354,25 +371,27 @@ func buildBackupGroups(snapshots []kopia.Manifest) map[kopia.SourceInfo]*backupG
 	return groups
 }
 
-// buildBackupEntry restores the latest and oldest backup metadata of a group
-// and assembles the corresponding cache entry. It returns false if the metadata
-// cannot be read, so the caller can skip that cluster without dropping others.
+// buildBackupEntry restores the latest and oldest complete backup metadata
+// of a group and assembles the corresponding cache entry. A backup missing a
+// tablespace is passed over for the next one. It returns false if the
+// metadata cannot be read or no backup of the group is complete, so the
+// caller can skip that cluster without dropping others.
 func (c *SnapshotMetricsCollector) buildBackupEntry(
-	ctx context.Context, g *backupGroup,
+	ctx context.Context, g *backupGroup, parts klioclientkopia.BackupParts,
 ) (backupCacheEntry, bool) {
-	latest, err := c.readBackupMetadata(ctx, g.latestID)
-	if err != nil {
-		c.logger.Warning("Failed to read latest backup metadata", "snapshotID", g.latestID, "error", err)
+	byEndTime := slices.Clone(g.snapshots)
+	slices.SortFunc(byEndTime, func(a, b kopia.Manifest) int {
+		return cmp.Compare(a.EndTime, b.EndTime)
+	})
+
+	latest, ok := c.firstCompleteBackup(ctx, slices.Backward(byEndTime), parts)
+	if !ok {
 		return backupCacheEntry{}, false
 	}
 
-	oldest := latest
-	if g.oldestID != g.latestID {
-		oldest, err = c.readBackupMetadata(ctx, g.oldestID)
-		if err != nil {
-			c.logger.Warning("Failed to read oldest backup metadata", "snapshotID", g.oldestID, "error", err)
-			return backupCacheEntry{}, false
-		}
+	oldest, ok := c.firstCompleteBackup(ctx, slices.All(byEndTime), parts)
+	if !ok {
+		return backupCacheEntry{}, false
 	}
 
 	return backupCacheEntry{
@@ -383,14 +402,40 @@ func (c *SnapshotMetricsCollector) buildBackupEntry(
 	}, true
 }
 
+// firstCompleteBackup restores, in the order of snapshots, the metadata of
+// each backup until one has all its parts. It returns false if a metadata
+// snapshot cannot be read or no backup is complete.
+func (c *SnapshotMetricsCollector) firstCompleteBackup(
+	ctx context.Context, snapshots iter.Seq2[int, kopia.Manifest], parts klioclientkopia.BackupParts,
+) (*klioclient.BackupMetadata, bool) {
+	for _, s := range snapshots {
+		meta, err := c.readBackupMetadata(ctx, s.ID)
+		if err != nil {
+			c.logger.Warning("Failed to read backup metadata", "snapshotID", s.ID, "error", err)
+			return nil, false
+		}
+
+		name := klioclientkopia.TagValue(s, klioclient.BackupNameTagName)
+		if missing := parts.Missing(s.Source.Host, name, meta); len(missing) > 0 {
+			c.logger.Debug("Skipping incomplete backup", "snapshotID", s.ID, "missing", missing)
+			continue
+		}
+
+		return meta, true
+	}
+
+	return nil, false
+}
+
 // backupGroup tracks the latest and oldest metadata snapshot for a single
 // source, together with the total number of retained backups.
 type backupGroup struct {
-	count    int64
-	latestID string
-	latest   kopia.UTCTimestamp
-	oldestID string
-	oldest   kopia.UTCTimestamp
+	count     int64
+	latestID  string
+	latest    kopia.UTCTimestamp
+	oldestID  string
+	oldest    kopia.UTCTimestamp
+	snapshots []kopia.Manifest
 }
 
 // readBackupMetadata reads the backup metadata stored in the

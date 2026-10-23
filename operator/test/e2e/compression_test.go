@@ -25,7 +25,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"strconv"
-	"strings"
 	"testing"
 	"time"
 
@@ -44,6 +43,7 @@ import (
 	"github.com/cloudnative-pg/klio/operator/internal/klioconfig"
 	klioConditions "github.com/cloudnative-pg/klio/operator/test/klio/conditions"
 	"github.com/cloudnative-pg/klio/operator/test/klio/infra"
+	"github.com/cloudnative-pg/klio/operator/test/klio/kopiaexec"
 	"github.com/cloudnative-pg/klio/operator/test/klio/testconfig"
 	machineryConditions "github.com/cloudnative-pg/klio/operator/test/machinery/pkg/conditions"
 	"github.com/cloudnative-pg/klio/operator/test/machinery/pkg/namespaces"
@@ -90,13 +90,6 @@ const (
 	// recovered row count proves which round it was taken in.
 	compressionRound1RowCount = 1000
 	compressionRound2RowCount = 2000
-
-	// tier1KopiaConfigPattern and tier2RWKopiaConfigPattern glob the Kopia
-	// config files the server creates at startup, via their companion password
-	// files. tier1 is the local filesystem repository; tier2 is the read-write
-	// S3 repository.
-	tier1KopiaConfigPattern   = "/tmp/kopiaconfig_tier1_*.kopia-password"
-	tier2RWKopiaConfigPattern = "/tmp/kopiaconfig_tier2_rw_*.kopia-password"
 
 	compressionServerContainerName = "server"
 	compressionKlioPodSuffix       = "-klio-0"
@@ -204,31 +197,6 @@ func (s *compressionScenario) Teardown(
 	return ctx
 }
 
-// kopiaConfigFile discovers an ephemeral Kopia config file the server created
-// at startup, by globbing its companion password file with the passed pattern.
-func (s *compressionScenario) kopiaConfigFile(
-	ctx context.Context,
-	r *resources.Resources,
-	pattern string,
-) (string, error) {
-	podName := s.klioServer.Name + compressionKlioPodSuffix
-
-	var stdout, stderr bytes.Buffer
-	findCmd := []string{"sh", "-c", "ls " + pattern + " 2>/dev/null"}
-	if err := r.ExecInPod(
-		ctx, s.namespace.Name, podName, compressionServerContainerName, findCmd, &stdout, &stderr,
-	); err != nil {
-		return "", fmt.Errorf("failed to locate kopia config %q: %w; stderr: %s", pattern, err, stderr.String())
-	}
-
-	passwordFile := strings.TrimSpace(stdout.String())
-	if passwordFile == "" {
-		return "", fmt.Errorf("no kopia config file found matching %q", pattern)
-	}
-
-	return strings.TrimSuffix(passwordFile, ".kopia-password"), nil
-}
-
 // compressionOfPolicy runs `kopia policy show <target> --json` against the
 // passed config and returns the effective compression settings.
 func (s *compressionScenario) compressionOfPolicy(
@@ -325,7 +293,8 @@ func (s *compressionScenario) verifyTierCompression(
 ) {
 	t.Helper()
 
-	configFile, err := s.kopiaConfigFile(ctx, r, configPattern)
+	configFile, err := kopiaexec.ConfigFile(ctx, r, s.namespace.Name,
+		s.klioServer.Name+compressionKlioPodSuffix, compressionServerContainerName, configPattern)
 	require.NoError(t, err, "[%s] failed to discover kopia config file", tier)
 
 	// The global policy is applied when the server starts, so it is already
@@ -480,8 +449,8 @@ func (f *CompressionFeature) Run() types.StepFunc {
 		)
 		require.NoError(t, err, "backup 1 not completed")
 
-		s.verifyTierCompression(ctx, t, r, "tier1", tier1KopiaConfigPattern, clusterTier1CompressionAlgorithmRound1)
-		s.verifyTierCompression(ctx, t, r, "tier2", tier2RWKopiaConfigPattern, clusterTier2CompressionAlgorithmRound1)
+		s.verifyTierCompression(ctx, t, r, "tier1", kopiaexec.Tier1ConfigPattern, clusterTier1CompressionAlgorithmRound1)
+		s.verifyTierCompression(ctx, t, r, "tier2", kopiaexec.Tier2RWConfigPattern, clusterTier2CompressionAlgorithmRound1)
 
 		// Switch the source cluster's compression algorithms and wait for the
 		// change to actually take effect (the klio-plugin sidecar restarts
@@ -553,8 +522,8 @@ func (f *CompressionFeature) Run() types.StepFunc {
 		)
 		require.NoError(t, err, "backup 2 not completed")
 
-		s.verifyTierCompression(ctx, t, r, "tier1", tier1KopiaConfigPattern, clusterTier1CompressionAlgorithmRound2)
-		s.verifyTierCompression(ctx, t, r, "tier2", tier2RWKopiaConfigPattern, clusterTier2CompressionAlgorithmRound2)
+		s.verifyTierCompression(ctx, t, r, "tier1", kopiaexec.Tier1ConfigPattern, clusterTier1CompressionAlgorithmRound2)
+		s.verifyTierCompression(ctx, t, r, "tier2", kopiaexec.Tier2RWConfigPattern, clusterTier2CompressionAlgorithmRound2)
 
 		// Both tiers now hold two backups compressed under different
 		// algorithms. Confirm both are registered before recovering: recovery
