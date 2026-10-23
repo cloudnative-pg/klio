@@ -164,6 +164,10 @@ The E2E tests are located in `operator/test/e2e/` and include:
   patches the operator deployment with OTEL env vars and verifies
   that controller-runtime metrics are bridged to an OTLP collector
   (`OperatorOTELMetrics`, serial)
+- **`missing_pluginconfiguration_test.go`** - Cluster created before its
+  PluginConfiguration: verifies the cluster does not become unrecoverable
+  while the PluginConfiguration is missing, and becomes healthy once it is
+  created (`MissingPluginConfiguration`)
 
 ## Test Configuration
 
