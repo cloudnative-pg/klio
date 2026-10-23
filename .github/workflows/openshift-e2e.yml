@@ -77,7 +77,7 @@ jobs:
         # limit across all GitHub Actions runners and can be throttled during a
         # burst. GITHUB_TOKEN is auto-provisioned (forks included), so this needs
         # no gating; it only grants the read access the pulls below require.
-        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4
+        uses: docker/login-action@81c6f93d4bc991e510b342a00b419b3bb4efc5c6 # v4
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
