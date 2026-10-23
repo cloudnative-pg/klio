@@ -52,7 +52,7 @@ const (
 
 	// klioClientConfigPath is the Klio configuration file mounted in the
 	// klio-plugin sidecar of the cluster instances.
-	klioClientConfigPath = "/var/lib/postgresql/klio/klio-archive"
+	klioClientConfigPath = klioconfig.KlioConfigDir + "/" + klioconfig.ArchiveConfigKey
 
 	// Tier2 test cluster names.
 	tier2SourceClusterName   = "pg-source"
