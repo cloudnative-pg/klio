@@ -200,7 +200,7 @@ func (d *Backup) relayToTier2IfRequested(ctx context.Context, task *queue.Backup
 	// The relay writes the new snapshots directly to the tier2 repository,
 	// so the tier2 Kopia server doesn't list them until its cache is
 	// refreshed. This is best-effort: the backup is already safely on tier2,
-	// and the server picks it up on its next refresh anyway.
+	// and the Kopia server also refreshes periodically.
 	if err := d.steps.refreshTier2(ctx); err != nil {
 		contextLogger.Error(err, "Error while refreshing the tier2 Kopia server after relay, continuing",
 			"cluster", task.ClusterName)
@@ -212,9 +212,6 @@ func (d *Backup) relayToTier2IfRequested(ctx context.Context, task *queue.Backup
 // refreshTier2 makes the tier2 Kopia server reload the manifests from the
 // repository, so the relayed snapshots are listed by the clients.
 func (d *Backup) refreshTier2(ctx context.Context) error {
-	contextLogger := log.FromContext(ctx)
-	contextLogger.Info("Refreshing tier2 Kopia server cache after relay")
-
 	return d.tier2Kopia.RefreshServer(ctx, kopia.RefreshServerOptions{
 		ServerControlUser:     d.opts.RunID,
 		ServerControlPassword: d.opts.RunSecret,

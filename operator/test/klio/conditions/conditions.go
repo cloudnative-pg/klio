@@ -55,7 +55,7 @@ func BackupCountEquals(
 	namespace, podName, containerName string,
 	expectedCount int,
 ) wait.ConditionWithContextFunc {
-	return backupCountMatches(r, namespace, podName, containerName, adminListBackupsCmd, expectedCount,
+	return backupCountMatches(r, namespace, podName, containerName, []string{"klio", "admin", "list-backups"}, expectedCount,
 		func(backupMetadata) bool {
 			return true
 		})
@@ -69,7 +69,7 @@ func Tier2BackupCountEquals(
 	namespace, podName, containerName string,
 	expectedCount int,
 ) wait.ConditionWithContextFunc {
-	return backupCountMatches(r, namespace, podName, containerName, adminListBackupsCmd, expectedCount,
+	return backupCountMatches(r, namespace, podName, containerName, []string{"klio", "admin", "list-backups"}, expectedCount,
 		isOnTier2)
 }
 
@@ -90,12 +90,6 @@ func ClientTier2BackupCountEquals(
 
 	return backupCountMatches(r, namespace, podName, containerName, cmd, expectedCount, isOnTier2)
 }
-
-// adminListBackupsCmd lists the backups of every cluster, reading the
-// repositories directly from the Klio server pod.
-//
-//nolint:gochecknoglobals
-var adminListBackupsCmd = []string{"klio", "admin", "list-backups"}
 
 // isOnTier2 reports whether the backup is marked as present in tier2.
 func isOnTier2(b backupMetadata) bool {
