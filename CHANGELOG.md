@@ -1,5 +1,347 @@
 # Changelog
 
+## 0.0.21 (2026-10-24)
+
+## What's Changed
+* chore(deps): update dependency helm/helm to v4.2.4 by @renovate[bot] in https://github.com/cloudnative-pg/klio/pull/109
+* chore(deps): update amazon/aws-cli docker tag to v2.36.23 by @renovate[bot] in https://github.com/cloudnative-pg/klio/pull/111
+* chore(deps): update golang docker tag to v1.26.6 by @renovate[bot] in https://github.com/cloudnative-pg/klio/pull/113
+* chore(deps): update quay.io/opdev/preflight docker tag to v1.20.0 by @renovate[bot] in https://github.com/cloudnative-pg/klio/pull/115
+* chore(deps): update preflight docker tag to v1.20.0 by @renovate[bot] in https://github.com/cloudnative-pg/klio/pull/114
+* chore(deps): update dependency grafana/gcx to v1.1.0 by @renovate[bot] in https://github.com/cloudnative-pg/klio/pull/117
+* chore(deps): update amazon/aws-cli docker tag to v2.36.24 by @renovate[bot] in https://github.com/cloudnative-pg/klio/pull/118
+* chore(deps): update renovate/renovate docker tag to v44.30.3 by @renovate[bot] in https://github.com/cloudnative-pg/klio/pull/112
+* chore(deps): update renovate/renovate docker tag to v44.30.4 by @renovate[bot] in https://github.com/cloudnative-pg/klio/pull/119
+* chore(deps): update golang:1.26.6 docker digest to 0d1d3a7 by @renovate[bot] in https://github.com/cloudnative-pg/klio/pull/120
+* chore(deps): update golang:1.26.6-alpine docker digest to 3889b42 by @renovate[bot] in https://github.com/cloudnative-pg/klio/pull/121
+* chore(deps): update renovate/renovate docker tag to v44.31.0 by @renovate[bot] in https://github.com/cloudnative-pg/klio/pull/122
+* chore(deps): lock file maintenance by @renovate[bot] in https://github.com/cloudnative-pg/klio/pull/123
+* chore(deps): update amazon/aws-cli docker tag to v2.36.25 by @renovate[bot] in https://github.com/cloudnative-pg/klio/pull/127
+* chore(deps): update otel/opentelemetry-collector-contrib docker tag to v0.159.0 by @renovate[bot] in https://github.com/cloudnative-pg/klio/pull/129
+* chore(deps): update renovate/renovate docker tag to v44.33.2 by @renovate[bot] in https://github.com/cloudnative-pg/klio/pull/125
+* chore(deps): update skopeo:v1.22.2 docker digest to 8870d39 by @renovate[bot] in https://github.com/cloudnative-pg/klio/pull/133
+* chore(deps): update dependency go-task/task to v3.53.1 by @renovate[bot] in https://github.com/cloudnative-pg/klio/pull/134
+* fix(deps): update all non-major go dependencies by @renovate[bot] in https://github.com/cloudnative-pg/klio/pull/116
+* docs: add a quickstart, group the concepts pages and explain deduplication by @fcanovai in https://github.com/cloudnative-pg/klio/pull/128
+* fix(core): add release-please marker to core plugin version by @jlong49 in https://github.com/cloudnative-pg/klio/pull/131
+* chore(deps): update all cloudnative-pg daggerverse dependencies to 26cd57f by @renovate[bot] in https://github.com/cloudnative-pg/klio/pull/132
+* chore(deps): update golangci/golangci-lint docker tag to v2.13.0 by @renovate[bot] in https://github.com/cloudnative-pg/klio/pull/146
+* docs(samples): add multi-server/multi-cluster OpenTelemetry sample by @gabriele-wolfox in https://github.com/cloudnative-pg/klio/pull/27
+* chore: set next version to 0.0.21 by @gabriele-wolfox in https://github.com/cloudnative-pg/klio/pull/140
+* chore(deps): update skopeo:v1.22.2 docker digest to 02053f3 by @renovate[bot] in https://github.com/cloudnative-pg/klio/pull/147
+* chore(AGENTS.md): note CNCF/CloudNativePG umbrella and AI disclosure trailer by @gbartolini in https://github.com/cloudnative-pg/klio/pull/138
+* fix(deps): update all non-major go dependencies by @renovate[bot] in https://github.com/cloudnative-pg/klio/pull/142
+* chore(deps): update golang docker tag to v1.27.0 by @renovate[bot] in https://github.com/cloudnative-pg/klio/pull/145
+* chore(deps): update amazon/aws-cli docker tag to v2.36.27 by @renovate[bot] in https://github.com/cloudnative-pg/klio/pull/144
+* chore(deps): update golangci/golangci-lint docker tag to v2.13.1 by @renovate[bot] in https://github.com/cloudnative-pg/klio/pull/152
+* chore(deps): update amazon/aws-cli docker tag to v2.36.28 by @renovate[bot] in https://github.com/cloudnative-pg/klio/pull/155
+* fix(deps): update kubernetes monorepo to v0.36.4 by @renovate[bot] in https://github.com/cloudnative-pg/klio/pull/156
+* chore(deps): update skopeo:v1.22.2 docker digest to 64ac45c by @renovate[bot] in https://github.com/cloudnative-pg/klio/pull/159
+* chore(deps): update preflight docker tag to v1.21.0 by @renovate[bot] in https://github.com/cloudnative-pg/klio/pull/157
+* fix(deps): update all non-major go dependencies by @renovate[bot] in https://github.com/cloudnative-pg/klio/pull/153
+* chore(deps): update gcr.io/distroless/static-debian13:nonroot docker digest to 1c2c046 by @renovate[bot] in https://github.com/cloudnative-pg/klio/pull/160
+* chore(deps): update amazon/aws-cli docker tag to v2.36.29 by @renovate[bot] in https://github.com/cloudnative-pg/klio/pull/162
+* chore(deps): update static-debian13:nonroot docker digest to 1c2c046 by @renovate[bot] in https://github.com/cloudnative-pg/klio/pull/161
+* chore(deps): update quay.io/opdev/preflight docker tag to v1.21.0 by @renovate[bot] in https://github.com/cloudnative-pg/klio/pull/158
+* chore(deps): update renovate/renovate docker tag to v44.39.2 by @renovate[bot] in https://github.com/cloudnative-pg/klio/pull/143
+* chore(deps): update skopeo:v1.22.2 docker digest to 17da3ac by @renovate[bot] in https://github.com/cloudnative-pg/klio/pull/164
+* feat(operator): build a UBI variant of the operator image by @jlong49 in https://github.com/cloudnative-pg/klio/pull/150
+* chore(deps): update debian:13.6-slim docker digest to d7e1218 by @renovate[bot] in https://github.com/cloudnative-pg/klio/pull/170
+* chore(deps): update golang:1.27.0 docker digest to 0ecdc2a by @renovate[bot] in https://github.com/cloudnative-pg/klio/pull/171
+* chore(deps): update amazon/aws-cli docker tag to v2.36.31 by @renovate[bot] in https://github.com/cloudnative-pg/klio/pull/173
+* chore(deps): update skopeo:v1.22.2 docker digest to be235f6 by @renovate[bot] in https://github.com/cloudnative-pg/klio/pull/172
+* fix(deps): update all non-major go dependencies by @renovate[bot] in https://github.com/cloudnative-pg/klio/pull/175
+* chore(deps): update dependency goreleaser/goreleaser to v2.18.0 by @renovate[bot] in https://github.com/cloudnative-pg/klio/pull/165
+* chore(deps): update dependency grafana/gcx to v1.2.0 by @renovate[bot] in https://github.com/cloudnative-pg/klio/pull/176
+* chore(deps): update dependency dagger/dagger to v0.21.9 by @renovate[bot] in https://github.com/cloudnative-pg/klio/pull/174
+* chore(deps): update registry.access.redhat.com/ubi9/ubi-micro docker tag to v9.8-1787778798 by @renovate[bot] in https://github.com/cloudnative-pg/klio/pull/184
+* chore(deps): update dependency kubernetes/kubernetes to v1.37 by @renovate[bot] in https://github.com/cloudnative-pg/klio/pull/185
+* chore(deps): update skopeo:v1.22.2 docker digest to 4fcfc74 by @renovate[bot] in https://github.com/cloudnative-pg/klio/pull/186
+* fix(operator): serve recovery restore hooks from the instance pod by @gabriele-wolfox in https://github.com/cloudnative-pg/klio/pull/196
+* fix(deps): update kubernetes monorepo to v0.37.0 by @renovate[bot] in https://github.com/cloudnative-pg/klio/pull/187
+* chore(deps): update amazon/aws-cli docker tag to v2.36.36 by @renovate[bot] in https://github.com/cloudnative-pg/klio/pull/183
+* chore(deps): update skopeo:v1.22.2 docker digest to b7659e5 by @renovate[bot] in https://github.com/cloudnative-pg/klio/pull/202
+* chore(deps): update actions/deploy-pages digest to 368f825 by @renovate[bot] in https://github.com/cloudnative-pg/klio/pull/203
+* chore(deps): update golang:1.27.0 docker digest to 4013ae0 by @renovate[bot] in https://github.com/cloudnative-pg/klio/pull/200
+* fix(deps): update all non-major go dependencies by @renovate[bot] in https://github.com/cloudnative-pg/klio/pull/181
+* chore(deps): update renovate/renovate docker tag to v44.56.3 by @renovate[bot] in https://github.com/cloudnative-pg/klio/pull/163
+* chore(deps): update skopeo:v1.22.2 docker digest to 2a0046b by @renovate[bot] in https://github.com/cloudnative-pg/klio/pull/205
+* chore(deps): update golangci/golangci-lint docker tag to v2.13.2 by @renovate[bot] in https://github.com/cloudnative-pg/klio/pull/208
+* chore(deps): update golang docker tag to v1.27.1 by @renovate[bot] in https://github.com/cloudnative-pg/klio/pull/207
+* chore(deps): update amazon/aws-cli docker tag to v2.36.38 by @renovate[bot] in https://github.com/cloudnative-pg/klio/pull/204
+* chore(deps): update k3s docker tag to v1.36.4 by @renovate[bot] in https://github.com/cloudnative-pg/klio/pull/190
+* chore(deps): update dependency kubernetes to v1.37.0 by @renovate[bot] in https://github.com/cloudnative-pg/klio/pull/211
+* chore(deps): update skopeo:v1.22.2 docker digest to 9fb5c29 by @renovate[bot] in https://github.com/cloudnative-pg/klio/pull/215
+* chore(deps): update alpine/k8s docker tag to v1.37.0 by @renovate[bot] in https://github.com/cloudnative-pg/klio/pull/209
+* chore(deps): update otel/opentelemetry-collector-contrib docker tag to v0.160.0 by @renovate[bot] in https://github.com/cloudnative-pg/klio/pull/213
+* feat(olm): add the bundle and catalog images to the artifacts repository by @jlong49 in https://github.com/cloudnative-pg/klio/pull/191
+* chore(deps): update amazon/aws-cli docker tag to v2.36.39 by @renovate[bot] in https://github.com/cloudnative-pg/klio/pull/218
+* chore(deps): update skopeo:v1.22.2 docker digest to 8d25aab by @renovate[bot] in https://github.com/cloudnative-pg/klio/pull/222
+* chore(deps): update dependency controller-runtime to v0.25.0 by @renovate[bot] in https://github.com/cloudnative-pg/klio/pull/219
+* fix(deps): update all non-major go dependencies by @renovate[bot] in https://github.com/cloudnative-pg/klio/pull/210
+* chore(deps): update quay.io/operator-framework/opm docker tag to v1.74.0 by @renovate[bot] in https://github.com/cloudnative-pg/klio/pull/214
+* fix(deps): update github.com/cloudnative-pg/cloudnative-pg/tests digest to a4bb263 by @renovate[bot] in https://github.com/cloudnative-pg/klio/pull/225
+* chore(deps): bump fast-uri from 3.1.5 to 3.1.7 in /documentation/web by @dependabot[bot] in https://github.com/cloudnative-pg/klio/pull/212
+* chore(deps): update renovate/renovate docker tag to v44.64.0 by @renovate[bot] in https://github.com/cloudnative-pg/klio/pull/216
+* fix(core): identify Kopia snapshots by a stable identity in verify and delete by @gabriele-wolfox in https://github.com/cloudnative-pg/klio/pull/74
+* chore(deps): drop stale leonardoce/afero-s3 renovate ignore rule by @gabriele-wolfox in https://github.com/cloudnative-pg/klio/pull/179
+* chore(deps): update dependency kubernetes-csi/external-attacher to v4.13.0 by @renovate[bot] in https://github.com/cloudnative-pg/klio/pull/224
+* fix(deps): update module sigs.k8s.io/controller-runtime to v0.25.0 by @renovate[bot] in https://github.com/cloudnative-pg/klio/pull/223
+* chore(deps): update amazon/aws-cli docker tag to v2.36.40 by @renovate[bot] in https://github.com/cloudnative-pg/klio/pull/228
+* fix(deps): update all non-major go dependencies by @renovate[bot] in https://github.com/cloudnative-pg/klio/pull/226
+* chore(deps): update renovate/renovate docker tag to v44.65.2 by @renovate[bot] in https://github.com/cloudnative-pg/klio/pull/227
+* chore(deps): update renovate/renovate docker tag to v44.65.5 by @renovate[bot] in https://github.com/cloudnative-pg/klio/pull/229
+* chore(deps): update dependency goreleaser/goreleaser to v2.18.1 by @renovate[bot] in https://github.com/cloudnative-pg/klio/pull/230
+* chore(deps): lock file maintenance by @renovate[bot] in https://github.com/cloudnative-pg/klio/pull/231
+* chore(deps): update skopeo:v1.22.2 docker digest to e5d9c4a by @renovate[bot] in https://github.com/cloudnative-pg/klio/pull/232
+* chore(deps): update renovate/renovate docker tag to v44.66.1 by @renovate[bot] in https://github.com/cloudnative-pg/klio/pull/236
+* docs: add CODEOWNERS by @gbartolini in https://github.com/cloudnative-pg/klio/pull/239
+* chore(deps): update renovate/renovate docker tag to v44.69.2 by @renovate[bot] in https://github.com/cloudnative-pg/klio/pull/240
+* chore(deps): update renovate/renovate docker tag to v44.69.7 by @renovate[bot] in https://github.com/cloudnative-pg/klio/pull/241
+* chore(deps): update skopeo:v1.22.2 docker digest to db41084 by @renovate[bot] in https://github.com/cloudnative-pg/klio/pull/243
+* chore(deps): update amazon/aws-cli docker tag to v2.36.41 by @renovate[bot] in https://github.com/cloudnative-pg/klio/pull/246
+* chore(deps): update skopeo:v1.22.2 docker digest to b9ca6a5 by @renovate[bot] in https://github.com/cloudnative-pg/klio/pull/247
+* ci: derive ghcr.io push target from GITHUB_REPOSITORY_OWNER by @hh24k in https://github.com/cloudnative-pg/klio/pull/235
+* chore(deps): update amazon/aws-cli docker tag to v2.36.42 by @renovate[bot] in https://github.com/cloudnative-pg/klio/pull/249
+* chore(deps): update dependency helm/helm to v4.3.0 by @renovate[bot] in https://github.com/cloudnative-pg/klio/pull/250
+* feat(compression): allow configuring the Kopia compression policy by @gabriele-wolfox in https://github.com/cloudnative-pg/klio/pull/189
+* chore(deps): update skopeo:v1.22.2 docker digest to 3af38d0 by @renovate[bot] in https://github.com/cloudnative-pg/klio/pull/252
+* feat(operator)!: replace per-purpose PVCs with a single unified /klio PVC by @fcanovai in https://github.com/cloudnative-pg/klio/pull/245
+* fix(core): support immediate backup from a replica cluster by @gabriele-wolfox in https://github.com/cloudnative-pg/klio/pull/201
+* chore(deps): update golang:1.27.1 docker digest to f44f6e8 by @renovate[bot] in https://github.com/cloudnative-pg/klio/pull/251
+* chore(deps): update amazon/aws-cli docker tag to v2.36.43 by @renovate[bot] in https://github.com/cloudnative-pg/klio/pull/254
+* fix(deps): update all non-major go dependencies by @renovate[bot] in https://github.com/cloudnative-pg/klio/pull/242
+* chore(deps): update renovate/renovate docker tag to v44.82.0 by @renovate[bot] in https://github.com/cloudnative-pg/klio/pull/244
+* chore(deps): update skopeo:v1.22.2 docker digest to 545723e by @renovate[bot] in https://github.com/cloudnative-pg/klio/pull/255
+* chore(deps): update helm release cert-manager to v1.21.2 by @renovate[bot] in https://github.com/cloudnative-pg/klio/pull/257
+* chore(deps): update amazon/aws-cli docker tag to v2.36.44 by @renovate[bot] in https://github.com/cloudnative-pg/klio/pull/258
+* fix(deps): update module github.com/aws/aws-sdk-go-v2/service/s3 to v1.113.1 by @renovate[bot] in https://github.com/cloudnative-pg/klio/pull/259
+* chore(deps): update renovate/renovate docker tag to v44.82.4 by @renovate[bot] in https://github.com/cloudnative-pg/klio/pull/260
+* chore(deps): update documentation dependencies to v19.3.0 by @renovate[bot] in https://github.com/cloudnative-pg/klio/pull/261
+* chore(deps): update renovate/renovate docker tag to v44.82.5 by @renovate[bot] in https://github.com/cloudnative-pg/klio/pull/262
+* chore(deps): update renovate/renovate docker tag to v44.83.0 by @renovate[bot] in https://github.com/cloudnative-pg/klio/pull/263
+* chore(deps): update gcr.io/distroless/static-debian13:nonroot docker digest to e2e927e by @renovate[bot] in https://github.com/cloudnative-pg/klio/pull/264
+* chore(deps): update skopeo:v1.22.2 docker digest to 0b7500a by @renovate[bot] in https://github.com/cloudnative-pg/klio/pull/266
+* chore(deps): update static-debian13:nonroot docker digest to e2e927e by @renovate[bot] in https://github.com/cloudnative-pg/klio/pull/265
+* ci: remove go version workaround by @fcanovai in https://github.com/cloudnative-pg/klio/pull/237
+* feat(dlq): retry failed tasks from the dead-letter queue by @GabriFedi97 in https://github.com/cloudnative-pg/klio/pull/167
+* fix(deps): update github.com/cloudnative-pg/cloudnative-pg/tests digest to 497c067 by @renovate[bot] in https://github.com/cloudnative-pg/klio/pull/272
+* chore(deps): update renovate/renovate docker tag to v44.89.1 by @renovate[bot] in https://github.com/cloudnative-pg/klio/pull/270
+* chore(deps): update amazon/aws-cli docker tag to v2.36.45 by @renovate[bot] in https://github.com/cloudnative-pg/klio/pull/275
+* chore(deps): update dependency controller-runtime to v0.25.1 by @renovate[bot] in https://github.com/cloudnative-pg/klio/pull/267
+* chore(deps): update registry.access.redhat.com/ubi9/ubi-micro docker tag to v9.8-1789345812 by @renovate[bot] in https://github.com/cloudnative-pg/klio/pull/269
+* chore: sync generated files with cnpg-infra policy by @gbartolini in https://github.com/cloudnative-pg/klio/pull/273
+* fix(deps): update all non-major go dependencies by @renovate[bot] in https://github.com/cloudnative-pg/klio/pull/276
+* chore(deps): move Kopia fork from leonardoce/kopia to cloudnative-pg/kopia by @gabriele-wolfox in https://github.com/cloudnative-pg/klio/pull/178
+* chore: require a strict majority to pass a gitvote vote by @gbartolini in https://github.com/cloudnative-pg/klio/pull/279
+* fix(deps): update module sigs.k8s.io/controller-runtime to v0.25.1 by @renovate[bot] in https://github.com/cloudnative-pg/klio/pull/271
+* chore(deps): update all cloudnative-pg daggerverse dependencies to 31cdc4e by @renovate[bot] in https://github.com/cloudnative-pg/klio/pull/280
+* chore(deps): update cr.jaegertracing.io/jaegertracing/jaeger docker tag to v2.21.0 by @renovate[bot] in https://github.com/cloudnative-pg/klio/pull/277
+* chore(deps): update skopeo:v1.22.2 docker digest to 3dba657 by @renovate[bot] in https://github.com/cloudnative-pg/klio/pull/284
+* fix(deps): update all non-major go dependencies by @renovate[bot] in https://github.com/cloudnative-pg/klio/pull/282
+* chore(deps): update dependency grafana/gcx to v1.3.0 by @renovate[bot] in https://github.com/cloudnative-pg/klio/pull/274
+* chore(deps): update amazon/aws-cli docker tag to v2.36.47 by @renovate[bot] in https://github.com/cloudnative-pg/klio/pull/283
+* chore(deps): update dependency kubernetes-csi/external-health-monitor to v0.19.0 by @renovate[bot] in https://github.com/cloudnative-pg/klio/pull/285
+* feat(wal): stream real per-block server acks for faster PostgreSQL feedback by @fcanovai in https://github.com/cloudnative-pg/klio/pull/217
+* chore(deps): update skopeo:v1.22.2 docker digest to 0d85390 by @renovate[bot] in https://github.com/cloudnative-pg/klio/pull/289
+* chore(deps): update dependency goreleaser/goreleaser to v2.18.2 by @renovate[bot] in https://github.com/cloudnative-pg/klio/pull/290
+* fix(deps): update all non-major go dependencies by @renovate[bot] in https://github.com/cloudnative-pg/klio/pull/291
+* chore(deps): update golang:1.27.1-alpine docker digest to 4cb7ac9 by @renovate[bot] in https://github.com/cloudnative-pg/klio/pull/292
+* chore(deps): update registry:3.1 docker digest to fd374ba by @renovate[bot] in https://github.com/cloudnative-pg/klio/pull/293
+* chore(deps): update skopeo:v1.22.2 docker digest to 2b7d76d by @renovate[bot] in https://github.com/cloudnative-pg/klio/pull/295
+* chore(deps): update registry:3.1.1 docker digest to fd374ba by @renovate[bot] in https://github.com/cloudnative-pg/klio/pull/294
+* fix(deps): update all non-major go dependencies by @renovate[bot] in https://github.com/cloudnative-pg/klio/pull/297
+* chore(deps): update golang:1.27.1 docker digest to 3680233 by @renovate[bot] in https://github.com/cloudnative-pg/klio/pull/296
+* chore(deps): update amazon/aws-cli docker tag to v2.36.49 by @renovate[bot] in https://github.com/cloudnative-pg/klio/pull/298
+* chore(deps): update jlumbroso/free-disk-space action to v1.3.2 by @renovate[bot] in https://github.com/cloudnative-pg/klio/pull/299
+* chore(deps): update debian docker tag to v13.7 by @renovate[bot] in https://github.com/cloudnative-pg/klio/pull/300
+* chore(deps): update k3s docker tag to v1.37.0 by @renovate[bot] in https://github.com/cloudnative-pg/klio/pull/278
+* chore(deps): update otel/opentelemetry-collector-contrib docker tag to v0.161.0 by @renovate[bot] in https://github.com/cloudnative-pg/klio/pull/287
+* chore(deps): update renovate/renovate docker tag to v44.104.0 by @renovate[bot] in https://github.com/cloudnative-pg/klio/pull/288
+* chore(deps): lock file maintenance by @renovate[bot] in https://github.com/cloudnative-pg/klio/pull/303
+* chore(deps): update skopeo docker tag to v1.22.3 by @renovate[bot] in https://github.com/cloudnative-pg/klio/pull/305
+* chore(deps): update golang:1.27.1-alpine docker digest to 8a5910f by @renovate[bot] in https://github.com/cloudnative-pg/klio/pull/306
+* chore(deps): update registry:3.1 docker digest to 325b4b2 by @renovate[bot] in https://github.com/cloudnative-pg/klio/pull/307
+* chore(deps): update jlumbroso/free-disk-space action to v2 by @renovate[bot] in https://github.com/cloudnative-pg/klio/pull/302
+* chore(deps): update dependency ubuntu to v26 by @renovate[bot] in https://github.com/cloudnative-pg/klio/pull/301
+* chore(deps): update skopeo:v1.22.3 docker digest to ffc4a6b by @renovate[bot] in https://github.com/cloudnative-pg/klio/pull/309
+* chore(deps): update amazon/aws-cli docker tag to v2.36.50 by @renovate[bot] in https://github.com/cloudnative-pg/klio/pull/310
+* chore(deps): update registry:3.1.1 docker digest to 325b4b2 by @renovate[bot] in https://github.com/cloudnative-pg/klio/pull/308
+* chore(deps): update dependency grafana/gcx to v1.3.1 by @renovate[bot] in https://github.com/cloudnative-pg/klio/pull/313
+* chore(deps): update amazon/aws-cli docker tag to v2.37.0 by @renovate[bot] in https://github.com/cloudnative-pg/klio/pull/314
+* chore(deps): update busybox:1.38.0 docker digest to fd7dc98 by @renovate[bot] in https://github.com/cloudnative-pg/klio/pull/315
+* chore(deps): update busybox:1.38.0-musl docker digest to ea2b991 by @renovate[bot] in https://github.com/cloudnative-pg/klio/pull/316
+* chore(deps): update renovate/renovate docker tag to v44.110.0 by @renovate[bot] in https://github.com/cloudnative-pg/klio/pull/304
+* fix(deps): update all non-major go dependencies by @renovate[bot] in https://github.com/cloudnative-pg/klio/pull/312
+* chore(deps): update amazon/aws-cli docker tag to v2.37.1 by @renovate[bot] in https://github.com/cloudnative-pg/klio/pull/320
+* test(e2e): verify recovery of mixed-compression backups across tiers by @gabriele-wolfox in https://github.com/cloudnative-pg/klio/pull/256
+* fix(deps): update kubernetes monorepo to v0.37.1 by @renovate[bot] in https://github.com/cloudnative-pg/klio/pull/321
+* chore(deps): update registry:3.1 docker digest to 852b3e4 by @renovate[bot] in https://github.com/cloudnative-pg/klio/pull/324
+* fix(deps): update all non-major go dependencies by @renovate[bot] in https://github.com/cloudnative-pg/klio/pull/322
+* chore(deps): update amazon/aws-cli docker tag to v2.37.4 by @renovate[bot] in https://github.com/cloudnative-pg/klio/pull/325
+* chore(deps): update registry docker tag to v3.1.2 by @renovate[bot] in https://github.com/cloudnative-pg/klio/pull/326
+* chore(deps): update dependency kubernetes-csi/external-resizer to v2.3.0 by @renovate[bot] in https://github.com/cloudnative-pg/klio/pull/327
+* chore(deps): update golangci/golangci-lint docker tag to v2.14.0 by @renovate[bot] in https://github.com/cloudnative-pg/klio/pull/323
+* chore(deps): update renovate/renovate docker tag to v44.115.10 by @renovate[bot] in https://github.com/cloudnative-pg/klio/pull/318
+* chore(deps): update alpine/k8s docker tag to v1.37.1 by @renovate[bot] in https://github.com/cloudnative-pg/klio/pull/328
+* chore(deps): update renovate/renovate docker tag to v44.115.12 by @renovate[bot] in https://github.com/cloudnative-pg/klio/pull/329
+* chore(deps): update renovate/renovate docker tag to v44.115.13 by @renovate[bot] in https://github.com/cloudnative-pg/klio/pull/331
+* chore(deps): lock file maintenance by @renovate[bot] in https://github.com/cloudnative-pg/klio/pull/332
+* fix(deps): update all non-major go dependencies by @renovate[bot] in https://github.com/cloudnative-pg/klio/pull/333
+* chore(deps): update amazon/aws-cli docker tag to v2.37.5 by @renovate[bot] in https://github.com/cloudnative-pg/klio/pull/334
+* fix(sidecar): serve backups while the cluster bootstraps by @armru in https://github.com/cloudnative-pg/klio/pull/286
+* fix: always wait for backups to archive WALs by @fcanovai in https://github.com/cloudnative-pg/klio/pull/317
+* chore(deps): update registry:3.1 docker digest to ddf7543 by @renovate[bot] in https://github.com/cloudnative-pg/klio/pull/337
+* chore(deps): update registry:3.1.2 docker digest to ddf7543 by @renovate[bot] in https://github.com/cloudnative-pg/klio/pull/338
+* chore(deps): update preflight docker tag to v1.21.1 by @renovate[bot] in https://github.com/cloudnative-pg/klio/pull/335
+* fix(deps): update github.com/cloudnative-pg/cloudnative-pg/tests digest to f11b5e1 by @renovate[bot] in https://github.com/cloudnative-pg/klio/pull/339
+* chore(deps): update amazon/aws-cli docker tag to v2.37.6 by @renovate[bot] in https://github.com/cloudnative-pg/klio/pull/341
+* chore(deps): update quay.io/opdev/preflight docker tag to v1.21.1 by @renovate[bot] in https://github.com/cloudnative-pg/klio/pull/336
+* chore(deps): update renovate/renovate docker tag to v44.121.4 by @renovate[bot] in https://github.com/cloudnative-pg/klio/pull/340
+* chore(deps): update docker/dockerfile:1 docker digest to 4edf897 by @renovate[bot] in https://github.com/cloudnative-pg/klio/pull/344
+* chore(deps): update amazon/aws-cli docker tag to v2.37.7 by @renovate[bot] in https://github.com/cloudnative-pg/klio/pull/346
+* chore(deps): update golang:1.27.1 docker digest to e0174e5 by @renovate[bot] in https://github.com/cloudnative-pg/klio/pull/345
+* chore(deps): update amazon/aws-cli docker tag to v2.37.8 by @renovate[bot] in https://github.com/cloudnative-pg/klio/pull/348
+* chore(deps): update dependency controller-runtime to v0.25.2 by @renovate[bot] in https://github.com/cloudnative-pg/klio/pull/347
+* chore(deps): update dependency dagger/dagger to v0.21.10 by @renovate[bot] in https://github.com/cloudnative-pg/klio/pull/349
+* chore(deps): update k3s docker tag to v1.37.1 by @renovate[bot] in https://github.com/cloudnative-pg/klio/pull/351
+* fix(deps): update module sigs.k8s.io/controller-runtime to v0.25.2 by @renovate[bot] in https://github.com/cloudnative-pg/klio/pull/352
+* chore(deps): update dependency go-task/task to v3.54.0 by @renovate[bot] in https://github.com/cloudnative-pg/klio/pull/354
+* chore(deps): update dependency grafana/gcx to v1.4.0 by @renovate[bot] in https://github.com/cloudnative-pg/klio/pull/356
+* chore(deps): update renovate/renovate docker tag to v44.132.2 by @renovate[bot] in https://github.com/cloudnative-pg/klio/pull/342
+* chore(deps): update amazon/aws-cli docker tag to v2.37.9 by @renovate[bot] in https://github.com/cloudnative-pg/klio/pull/358
+* fix(deps): update all non-major go dependencies by @renovate[bot] in https://github.com/cloudnative-pg/klio/pull/357
+* fix(deps): update github.com/jackc/pglogrepl digest to 662581b by @renovate[bot] in https://github.com/cloudnative-pg/klio/pull/359
+* chore(deps): update renovate/renovate docker tag to v44.132.5 by @renovate[bot] in https://github.com/cloudnative-pg/klio/pull/360
+* chore(deps): update renovate/renovate docker tag to v44.133.0 by @renovate[bot] in https://github.com/cloudnative-pg/klio/pull/361
+* chore(deps): lock file maintenance by @renovate[bot] in https://github.com/cloudnative-pg/klio/pull/362
+* chore(deps): update skopeo:v1.22.3 docker digest to 6cc6b50 by @renovate[bot] in https://github.com/cloudnative-pg/klio/pull/319
+* chore(deps): update skopeo:v1.22.3 docker digest to dcb4735 by @renovate[bot] in https://github.com/cloudnative-pg/klio/pull/363
+* chore(deps): update all cloudnative-pg daggerverse dependencies to ca4c52b by @renovate[bot] in https://github.com/cloudnative-pg/klio/pull/343
+* feat(observability): attribute dashboard panels per cluster and server by @gabriele-wolfox in https://github.com/cloudnative-pg/klio/pull/151
+* chore(deps): update debian:13.7-slim docker digest to a29215f by @renovate[bot] in https://github.com/cloudnative-pg/klio/pull/368
+* chore(deps): update dependency grafana/gcx to v1.5.0 by @renovate[bot] in https://github.com/cloudnative-pg/klio/pull/366
+* chore(deps): update all cloudnative-pg daggerverse dependencies to ca4c52b by @renovate[bot] in https://github.com/cloudnative-pg/klio/pull/364
+* chore(deps): update golang:1.27.1 docker digest to 1e93e00 by @renovate[bot] in https://github.com/cloudnative-pg/klio/pull/369
+* chore(deps): update renovate/renovate docker tag to v44.139.0 by @renovate[bot] in https://github.com/cloudnative-pg/klio/pull/365
+* chore(deps): update skopeo:v1.22.3 docker digest to 966b7d7 by @renovate[bot] in https://github.com/cloudnative-pg/klio/pull/370
+* chore(deps): update all cloudnative-pg daggerverse dependencies to 7d9d8f4 by @renovate[bot] in https://github.com/cloudnative-pg/klio/pull/371
+* chore(deps): update golang:1.27.1 docker digest to 162be52 by @renovate[bot] in https://github.com/cloudnative-pg/klio/pull/375
+* chore(deps): update skopeo:v1.22.3 docker digest to 35f65ee by @renovate[bot] in https://github.com/cloudnative-pg/klio/pull/376
+* fix(deps): update all non-major go dependencies by @renovate[bot] in https://github.com/cloudnative-pg/klio/pull/372
+* chore(deps): update actions/download-artifact digest to 9000827 by @renovate[bot] in https://github.com/cloudnative-pg/klio/pull/379
+* chore(deps): update actions/upload-artifact digest to cf430e0 by @renovate[bot] in https://github.com/cloudnative-pg/klio/pull/380
+* chore: sync generated files with cnpg-infra policy by @gbartolini in https://github.com/cloudnative-pg/klio/pull/378
+* chore(deps): update cr.jaegertracing.io/jaegertracing/jaeger docker tag to v2.22.0 by @renovate[bot] in https://github.com/cloudnative-pg/klio/pull/373
+* chore(deps): update amazon/aws-cli docker tag to v2.37.10 by @renovate[bot] in https://github.com/cloudnative-pg/klio/pull/377
+* fix(deps): update github.com/cloudnative-pg/cloudnative-pg/tests digest to 9ed54f3 by @renovate[bot] in https://github.com/cloudnative-pg/klio/pull/384
+* chore(deps): update otel/opentelemetry-collector-contrib docker tag to v0.162.0 by @renovate[bot] in https://github.com/cloudnative-pg/klio/pull/367
+* chore(deps): update renovate/renovate docker tag to v44.145.1 by @renovate[bot] in https://github.com/cloudnative-pg/klio/pull/374
+* chore(deps): update actions/setup-node digest to 949feb2 by @renovate[bot] in https://github.com/cloudnative-pg/klio/pull/385
+* chore(deps): update skopeo:v1.22.3 docker digest to 92e2b4f by @renovate[bot] in https://github.com/cloudnative-pg/klio/pull/386
+* feat(retention)!: drop Kopia retention policy usage by @fcanovai in https://github.com/cloudnative-pg/klio/pull/311
+* chore(deps): update renovate/renovate docker tag to v44.147.0 by @renovate[bot] in https://github.com/cloudnative-pg/klio/pull/388
+* chore(deps): update all cloudnative-pg daggerverse dependencies to dc19c14 by @renovate[bot] in https://github.com/cloudnative-pg/klio/pull/389
+* chore(deps): update amazon/aws-cli docker tag to v2.37.11 by @renovate[bot] in https://github.com/cloudnative-pg/klio/pull/390
+* chore(deps): update skopeo:v1.22.3 docker digest to e5d5d28 by @renovate[bot] in https://github.com/cloudnative-pg/klio/pull/393
+* chore(deps): update dependency goreleaser/goreleaser to v2.18.3 by @renovate[bot] in https://github.com/cloudnative-pg/klio/pull/394
+* chore(deps): update registry.k8s.io/kustomize/kustomize docker tag to v5.8.3 by @renovate[bot] in https://github.com/cloudnative-pg/klio/pull/392
+* chore(deps): update dependency kubernetes-csi/external-provisioner to v6.4.0 by @renovate[bot] in https://github.com/cloudnative-pg/klio/pull/397
+* chore(deps): update amazon/aws-cli docker tag to v2.37.12 by @renovate[bot] in https://github.com/cloudnative-pg/klio/pull/398
+* chore(deps): update golang docker tag to v1.27.2 by @renovate[bot] in https://github.com/cloudnative-pg/klio/pull/391
+* fix(deps): update all non-major go dependencies by @renovate[bot] in https://github.com/cloudnative-pg/klio/pull/395
+* chore(deps): update golang:1.27.2-alpine docker digest to f92b6ef by @renovate[bot] in https://github.com/cloudnative-pg/klio/pull/399
+* fix(deps): update module github.com/prometheus/common to v0.72.1 by @renovate[bot] in https://github.com/cloudnative-pg/klio/pull/400
+* chore(deps): lock file maintenance by @renovate[bot] in https://github.com/cloudnative-pg/klio/pull/401
+* chore(deps): update skopeo:v1.22.3 docker digest to 9ba3be8 by @renovate[bot] in https://github.com/cloudnative-pg/klio/pull/402
+* chore(deps): update renovate/renovate docker tag to v44.151.2 by @renovate[bot] in https://github.com/cloudnative-pg/klio/pull/396
+* chore(deps): update registry.access.redhat.com/ubi9/ubi-micro docker tag to v9.8-1791895366 by @renovate[bot] in https://github.com/cloudnative-pg/klio/pull/403
+* chore(deps): update skopeo:v1.22.3 docker digest to 22ea3c3 by @renovate[bot] in https://github.com/cloudnative-pg/klio/pull/406
+* chore(deps): update golang:1.27.2 docker digest to 8201530 by @renovate[bot] in https://github.com/cloudnative-pg/klio/pull/405
+* fix(deps): update all non-major go dependencies by @renovate[bot] in https://github.com/cloudnative-pg/klio/pull/404
+* chore(deps): update quay.io/opdev/preflight docker tag to v1.21.2 by @renovate[bot] in https://github.com/cloudnative-pg/klio/pull/408
+* chore(deps): update preflight docker tag to v1.21.2 by @renovate[bot] in https://github.com/cloudnative-pg/klio/pull/407
+* fix(queue): guard against empty jsm message reads by @gabriele-wolfox in https://github.com/cloudnative-pg/klio/pull/382
+* chore(deps): update skopeo:v1.22.3 docker digest to edad588 by @renovate[bot] in https://github.com/cloudnative-pg/klio/pull/415
+* chore(deps): update dependency helm/helm to v4.3.1 by @renovate[bot] in https://github.com/cloudnative-pg/klio/pull/416
+* chore(deps): update amazon/aws-cli docker tag to v2.38.1 by @renovate[bot] in https://github.com/cloudnative-pg/klio/pull/409
+* chore(deps): update dependency grafana/gcx to v1.6.0 by @renovate[bot] in https://github.com/cloudnative-pg/klio/pull/410
+* fix(deps): update github.com/cloudnative-pg/cloudnative-pg/tests digest to 89e5adb by @renovate[bot] in https://github.com/cloudnative-pg/klio/pull/419
+* chore(deps): update renovate/renovate docker tag to v44.164.2 by @renovate[bot] in https://github.com/cloudnative-pg/klio/pull/414
+* chore(deps): update dependency kubernetes-csi/external-snapshotter to v8.7.0 by @renovate[bot] in https://github.com/cloudnative-pg/klio/pull/413
+* chore(deps): update renovate/renovate docker tag to v44.164.6 by @renovate[bot] in https://github.com/cloudnative-pg/klio/pull/423
+* chore(deps): update renovate/renovate docker tag to v44.164.7 by @renovate[bot] in https://github.com/cloudnative-pg/klio/pull/424
+* chore(deps): update skopeo:v1.22.3 docker digest to 7e73552 by @renovate[bot] in https://github.com/cloudnative-pg/klio/pull/426
+* fix(deps): update github.com/cloudnative-pg/cloudnative-pg/tests digest to e8420dd by @renovate[bot] in https://github.com/cloudnative-pg/klio/pull/428
+* chore(deps): update renovate/renovate docker tag to v44.164.10 by @renovate[bot] in https://github.com/cloudnative-pg/klio/pull/429
+* fix(deps): update module github.com/grafana/grafana-foundation-sdk/go to v0.0.21 by @renovate[bot] in https://github.com/cloudnative-pg/klio/pull/432
+* chore(deps): update golangci/golangci-lint docker tag to v2.15.0 by @renovate[bot] in https://github.com/cloudnative-pg/klio/pull/430
+* chore(deps): update otel/opentelemetry-collector-contrib docker tag to v0.163.1 by @renovate[bot] in https://github.com/cloudnative-pg/klio/pull/433
+* fix(deps): update github.com/cloudnative-pg/cloudnative-pg/tests digest to eff1a21 by @renovate[bot] in https://github.com/cloudnative-pg/klio/pull/436
+* chore(deps): update documentation dependencies to v19.3.1 by @renovate[bot] in https://github.com/cloudnative-pg/klio/pull/437
+* chore(deps): update renovate/renovate docker tag to v44.167.5 by @renovate[bot] in https://github.com/cloudnative-pg/klio/pull/434
+* chore(deps): lock file maintenance by @renovate[bot] in https://github.com/cloudnative-pg/klio/pull/438
+* chore(deps): update all cloudnative-pg daggerverse dependencies to 8a8708a by @renovate[bot] in https://github.com/cloudnative-pg/klio/pull/431
+* feat: add klio.plugin.wal.restore_duration end-to-end metric by @hh24k in https://github.com/cloudnative-pg/klio/pull/206
+* fix(operator): scope the storage-shrink CEL rule to spec.storage by @fcanovai in https://github.com/cloudnative-pg/klio/pull/444
+* chore(deps): update skopeo:v1.22.3 docker digest to 6ca79dc by @renovate[bot] in https://github.com/cloudnative-pg/klio/pull/439
+* fix(operator)!: move server ports out of the ephemeral range by @gabriele-wolfox in https://github.com/cloudnative-pg/klio/pull/441
+* chore(deps): update skopeo:v1.22.3 docker digest to 3cee4b4 by @renovate[bot] in https://github.com/cloudnative-pg/klio/pull/449
+* chore(deps): update gcr.io/distroless/static-debian13:nonroot docker digest to 5167571 by @renovate[bot] in https://github.com/cloudnative-pg/klio/pull/448
+* fix(server): bind embedded NATS to loopback by @fcanovai in https://github.com/cloudnative-pg/klio/pull/446
+* chore(deps): update static-debian13:nonroot docker digest to 5167571 by @renovate[bot] in https://github.com/cloudnative-pg/klio/pull/450
+* refactor(operator): drop dead NATS skip in enablePProf by @fcanovai in https://github.com/cloudnative-pg/klio/pull/447
+* chore(deps): update debian:13.7-slim docker digest to 62bd423 by @renovate[bot] in https://github.com/cloudnative-pg/klio/pull/453
+* chore(deps): update skopeo:v1.22.3 docker digest to b4d0cd2 by @renovate[bot] in https://github.com/cloudnative-pg/klio/pull/455
+* chore(deps): update amazon/aws-cli docker tag to v2.38.3 by @renovate[bot] in https://github.com/cloudnative-pg/klio/pull/451
+* fix(deps): update github.com/cloudnative-pg/cloudnative-pg/tests digest to 10381f6 by @renovate[bot] in https://github.com/cloudnative-pg/klio/pull/442
+* ci: use configurable runner for documentation job by @fcanovai in https://github.com/cloudnative-pg/klio/pull/456
+* chore(deps): update dependency grafana/gcx to v1.7.1 by @renovate[bot] in https://github.com/cloudnative-pg/klio/pull/457
+* chore(deps): update golang docker tag to v1.27.3 by @renovate[bot] in https://github.com/cloudnative-pg/klio/pull/452
+* chore(deps): update gcr.io/distroless/static-debian13:nonroot docker digest to d620678 by @renovate[bot] in https://github.com/cloudnative-pg/klio/pull/464
+* chore(deps): update golang:1.27.3 docker digest to f20d83a by @renovate[bot] in https://github.com/cloudnative-pg/klio/pull/467
+* chore(deps): update static-debian13:nonroot docker digest to d620678 by @renovate[bot] in https://github.com/cloudnative-pg/klio/pull/465
+* chore(deps): update amazon/aws-cli docker tag to v2.38.4 by @renovate[bot] in https://github.com/cloudnative-pg/klio/pull/468
+* chore(deps): update registry:3.1 docker digest to be9a706 by @renovate[bot] in https://github.com/cloudnative-pg/klio/pull/472
+* chore(deps): update golang:1.27.3-alpine docker digest to d530cf6 by @renovate[bot] in https://github.com/cloudnative-pg/klio/pull/471
+* chore(deps): update skopeo:v1.22.3 docker digest to fb39338 by @renovate[bot] in https://github.com/cloudnative-pg/klio/pull/474
+* chore(deps): update registry:3.1.2 docker digest to be9a706 by @renovate[bot] in https://github.com/cloudnative-pg/klio/pull/473
+* chore(deps): update renovate/renovate docker tag to v44.176.2 by @renovate[bot] in https://github.com/cloudnative-pg/klio/pull/440
+* chore(deps): update dependency dagger/dagger to v0.21.11 by @renovate[bot] in https://github.com/cloudnative-pg/klio/pull/469
+* chore(deps): update otel/opentelemetry-collector-contrib docker tag to v0.163.2 by @renovate[bot] in https://github.com/cloudnative-pg/klio/pull/470
+* chore(deps): update renovate/renovate docker tag to v44.176.3 by @renovate[bot] in https://github.com/cloudnative-pg/klio/pull/479
+* ci: show contributors in the release notes by @fcanovai in https://github.com/cloudnative-pg/klio/pull/466
+* fix(deps): update all non-major go dependencies by @renovate[bot] in https://github.com/cloudnative-pg/klio/pull/476
+* ci: rebase-merge renovate automerges by @fcanovai in https://github.com/cloudnative-pg/klio/pull/463
+* chore(deps): update dependency kubernetes-csi/csi-driver-host-path to v1.19.0 by @renovate[bot] in https://github.com/cloudnative-pg/klio/pull/477
+* fix(retention): sweep stale .partial WAL files behind firstWAL by @kksingh000 in https://github.com/cloudnative-pg/klio/pull/435
+* ci: switch commitlint rule from signed-off-by to trailer-exists by @fcanovai in https://github.com/cloudnative-pg/klio/pull/462
+* chore(deps): update registry:3.1 docker digest to 01cd312 by @renovate[bot] in https://github.com/cloudnative-pg/klio/pull/482
+* chore(deps): update golang:1.27.3-alpine docker digest to b8c9b82 by @renovate[bot] in https://github.com/cloudnative-pg/klio/pull/481
+* chore(deps): update skopeo:v1.22.3 docker digest to 2494063 by @renovate[bot] in https://github.com/cloudnative-pg/klio/pull/484
+* chore(deps): update registry:3.1.2 docker digest to 01cd312 by @renovate[bot] in https://github.com/cloudnative-pg/klio/pull/483
+* feat(admin): add queue discard commands for failed tasks by @GabriFedi97 in https://github.com/cloudnative-pg/klio/pull/387
+* chore(deps): update amazon/aws-cli docker tag to v2.38.5 by @renovate[bot] in https://github.com/cloudnative-pg/klio/pull/487
+* fix(deps): update all non-major go dependencies by @renovate[bot] in https://github.com/cloudnative-pg/klio/pull/488
+* chore(deps): update dependency goreleaser/goreleaser to v2.19.0 by @renovate[bot] in https://github.com/cloudnative-pg/klio/pull/491
+* chore(deps): update renovate/renovate docker tag to v44.180.0 by @renovate[bot] in https://github.com/cloudnative-pg/klio/pull/480
+* ci: skip cleanup-disk on large runners by @gabriele-wolfox in https://github.com/cloudnative-pg/klio/pull/454
+* fix(consumer): refresh the tier2 Kopia server after a relay by @gabriele-wolfox in https://github.com/cloudnative-pg/klio/pull/427
+* docs(e2e): list the missing PluginConfiguration test by @gabriele-wolfox in https://github.com/cloudnative-pg/klio/pull/490
+* chore(deps): update renovate/renovate docker tag to v44.181.0 by @renovate[bot] in https://github.com/cloudnative-pg/klio/pull/498
+* chore(deps): update docker/login-action digest to 81c6f93 by @renovate[bot] in https://github.com/cloudnative-pg/klio/pull/499
+* chore(deps): update gcr.io/distroless/static-debian13:nonroot docker digest to 18f4cc2 by @renovate[bot] in https://github.com/cloudnative-pg/klio/pull/500
+* chore(deps): update static-debian13:nonroot docker digest to 18f4cc2 by @renovate[bot] in https://github.com/cloudnative-pg/klio/pull/501
+
+## New Contributors
+* @gbartolini made their first contribution in https://github.com/cloudnative-pg/klio/pull/138
+* @dependabot[bot] made their first contribution in https://github.com/cloudnative-pg/klio/pull/212
+* @hh24k made their first contribution in https://github.com/cloudnative-pg/klio/pull/235
+* @GabriFedi97 made their first contribution in https://github.com/cloudnative-pg/klio/pull/167
+* @kksingh000 made their first contribution in https://github.com/cloudnative-pg/klio/pull/435
+
+**Full Changelog**: https://github.com/cloudnative-pg/klio/compare/v0.0.20...v0.0.21
+
 ## [0.0.20](https://github.com/cloudnative-pg/klio/compare/v0.0.19...v0.0.20) (2026-08-13)
 
 
