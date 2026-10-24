@@ -133,6 +133,10 @@ The E2E tests are located in `operator/test/e2e/` and include:
   retention: verifies both tiers converge to their configured backup
   count and that each tier's oldest remaining WAL segment matches what
   its surviving backups require (`Retention`)
+- **`incomplete_backup_test.go`** - Backups missing one of their
+  snapshots: verifies such a backup is not listed, and that retention
+  deletes it from both tiers, along with the WALs it needed, once a newer
+  complete backup is kept (`IncompleteBackup`)
 - **`compression_test.go`** - Kopia compression policies: verifies the
   repository-wide policy set on the Server applies globally and that the
   per-cluster policy set on the PluginConfiguration overrides it, on both
