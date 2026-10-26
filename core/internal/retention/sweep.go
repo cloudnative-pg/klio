@@ -213,8 +213,7 @@ func (s *Sweeper) sweepCluster(
 		return 0, err
 	}
 
-	// latest: 0 disables retention: no backup is deleted, not even an
-	// incomplete one.
+	// latest: 0 disables retention: no backup is deleted.
 	if tierPolicy.GetLatest() == 0 {
 		contextLogger.Debug("Retention disabled for cluster, skipping",
 			"tier", tc.name, "cluster", clusterName)
