@@ -207,17 +207,6 @@ func NewBackupParts(entries []kopia.Manifest) BackupParts {
 	return result
 }
 
-// HasDataParts reports whether a backup has its pgdata and control data
-// snapshots. Every backup has them, so they can be checked before reading
-// the metadata, which lists the tablespaces.
-func (p BackupParts) HasDataParts(hostname, name string) bool {
-	present := p[hostBackupName{host: hostname, name: name}]
-	_, hasPgData := present["pgdata"]
-	_, hasControlData := present["controldata"]
-
-	return hasPgData && hasControlData
-}
-
 // Missing returns the parts that the backup described by metadata expects
 // but has no snapshot of. The metadata snapshot itself is assumed present.
 func (p BackupParts) Missing(hostname, name string, metadata *klioclient.BackupMetadata) []string {
