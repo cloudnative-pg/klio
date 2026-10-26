@@ -33,6 +33,12 @@ import (
 	"github.com/cloudnative-pg/klio/core/internal/kopia"
 )
 
+// tablespaceTagValue returns the value of the tablespace name tag of the
+// snapshot of tbl.
+func tablespaceTagValue(tbl klioclient.TablespaceLayout) string {
+	return path.Base(tbl.Name)
+}
+
 // UploadTablespace implements common.BackupUploader.
 func (s *Connection) UploadTablespace(
 	ctx context.Context,
@@ -41,7 +47,7 @@ func (s *Connection) UploadTablespace(
 ) error {
 	tags := map[string]string{
 		klioclient.BackupContentTagName:  "tablespace",
-		klioclient.TablespaceNameTagName: path.Base(tbl.Name),
+		klioclient.TablespaceNameTagName: tablespaceTagValue(tbl),
 		klioclient.BackupNameTagName:     backupName,
 	}
 

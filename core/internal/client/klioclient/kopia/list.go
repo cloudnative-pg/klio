@@ -23,7 +23,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"path"
 
 	"github.com/cloudnative-pg/machinery/pkg/log"
 
@@ -216,8 +215,7 @@ func (p BackupParts) Missing(hostname, name string, metadata *klioclient.BackupM
 	expected = append(expected, "pgdata", "controldata")
 
 	for _, tbl := range metadata.Tablespaces {
-		// The upload tags tablespaces with the base name.
-		expected = append(expected, "tablespace/"+path.Base(tbl.Name))
+		expected = append(expected, "tablespace/"+tablespaceTagValue(tbl))
 	}
 
 	var missing []string
