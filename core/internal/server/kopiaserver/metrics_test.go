@@ -263,9 +263,11 @@ func TestBuildBackupGroupsSortsBySourceAndEndTime(t *testing.T) {
 
 var errUnknownSnapshot = errors.New("unknown snapshot")
 
-// fakeSnapshotSource serves the metadata of the metadata snapshots by ID.
+// fakeSnapshotSource serves the metadata of the metadata snapshots by ID,
+// counting the restores.
 type fakeSnapshotSource struct {
 	metadata map[string]klioclient.BackupMetadata
+	restores int
 }
 
 func (f *fakeSnapshotSource) ListSnapshots(
@@ -281,6 +283,7 @@ func (f *fakeSnapshotSource) RestoreSingleFile(
 	if !ok {
 		return nil, errUnknownSnapshot
 	}
+	f.restores++
 
 	return json.Marshal(metadata)
 }
@@ -303,12 +306,14 @@ func backupSnapshot(name, content, tablespace string, endTime kopia.UTCTimestamp
 	}
 }
 
-func TestCollectBackupMetricsCountsOnlyCompleteBackups(t *testing.T) {
+// newBackupFixture returns the snapshots of five backups of cluster-a, with
+// a source serving their metadata: b1 is complete, b2 misses its pgdata, b3
+// misses its tablespace, b4 is complete, and b5 misses its tablespace.
+func newBackupFixture() ([]kopia.Manifest, *fakeSnapshotSource) {
 	withTablespace := []klioclient.TablespaceLayout{{Name: "tbs1"}}
 
 	var snapshots []kopia.Manifest
-	// b1 is complete, b2 misses its pgdata, b3 misses its tablespace, b4 is
-	// complete, and b5 misses its tablespace.
+	metadata := make(map[string]klioclient.BackupMetadata)
 	for i, name := range []string{"b1", "b2", "b3", "b4", "b5"} {
 		endTime := kopia.UTCTimestamp(10 * (i + 1))
 		snapshots = append(snapshots, backupSnapshot(name, "metadata", "", endTime))
@@ -319,17 +324,18 @@ func TestCollectBackupMetricsCountsOnlyCompleteBackups(t *testing.T) {
 		if name != "b3" && name != "b5" {
 			snapshots = append(snapshots, backupSnapshot(name, "tablespace", "tbs1", endTime))
 		}
-	}
-
-	metadata := make(map[string]klioclient.BackupMetadata)
-	for _, name := range []string{"b1", "b2", "b3", "b4", "b5"} {
 		metadata[name+"-metadata"] = klioclient.BackupMetadata{
 			Name: name, ClusterName: "cluster-a", Tablespaces: withTablespace,
 		}
 	}
 
+	return snapshots, &fakeSnapshotSource{metadata: metadata}
+}
+
+func TestCollectBackupMetricsCountsOnlyCompleteBackups(t *testing.T) {
+	snapshots, source := newBackupFixture()
 	c := newTestCollector(opentelemetry.Tier1)
-	c.kopia = &fakeSnapshotSource{metadata: metadata}
+	c.kopia = source
 
 	entries := c.collectBackupMetrics(context.Background(), snapshots)
 	if len(entries) != 1 {
@@ -337,15 +343,32 @@ func TestCollectBackupMetricsCountsOnlyCompleteBackups(t *testing.T) {
 	}
 
 	e := entries[0]
-	// b2 is not counted, having no pgdata. b3 and b5 are, as only the
-	// latest and oldest backups are checked for their tablespaces.
-	if e.count != 4 {
-		t.Fatalf("expected count=4, got %d", e.count)
+	// Only b1 and b4 have all their parts.
+	if e.count != 2 {
+		t.Fatalf("expected count=2, got %d", e.count)
 	}
 	if e.latest.Name != "b4" {
 		t.Fatalf("expected latest=b4, the newest complete backup, got %s", e.latest.Name)
 	}
 	if e.oldest.Name != "b1" {
 		t.Fatalf("expected oldest=b1, got %s", e.oldest.Name)
+	}
+}
+
+func TestCollectBackupMetricsRestoresMetadataOnce(t *testing.T) {
+	snapshots, source := newBackupFixture()
+	c := newTestCollector(opentelemetry.Tier1)
+	c.kopia = source
+
+	c.collectBackupMetrics(context.Background(), snapshots)
+	c.collectBackupMetrics(context.Background(), snapshots)
+	if source.restores != 5 {
+		t.Fatalf("expected 5 metadata restores, got %d", source.restores)
+	}
+
+	// The metadata of a deleted snapshot is dropped from the cache.
+	c.collectBackupMetrics(context.Background(), snapshots[3:])
+	if _, ok := c.metadata["b1-metadata"]; ok {
+		t.Fatal("expected the metadata of b1 to be dropped")
 	}
 }
