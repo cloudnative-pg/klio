@@ -168,6 +168,12 @@ func (f *IncompleteBackupFeature) Run() types.StepFunc {
 			require.NoError(t, err, "failed to delete the pgdata snapshot of backup %q", backupName)
 			require.NotEmpty(t, deleted, "no pgdata snapshot of backup %q found with %s", backupName, pattern)
 			t.Logf("Deleted pgdata snapshots %v of backup %q with %s", deleted, backupName, pattern)
+
+			// The backup must be incomplete, not gone: this also makes the
+			// final check that its metadata is deleted meaningful.
+			metadata, err := listBackupParts(ctx, r, f.namespace, podName, pattern, backupName, "metadata")
+			require.NoError(t, err, "failed to list the metadata snapshot of backup %q", backupName)
+			require.NotEmpty(t, metadata, "no metadata snapshot of backup %q found with %s", backupName, pattern)
 		}
 
 		t.Log("Waiting for the incomplete backup to disappear from the backup list")
