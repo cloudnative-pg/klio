@@ -52,15 +52,26 @@ func newTestServerForStatefulSet() *kliov1alpha1.Server {
 			ImageConfiguration: kliov1alpha1.ImageConfiguration{
 				Image: "klio:test",
 			},
-			TLSConfiguration: kliov1alpha1.TLSConfiguration{
-				TLSSecretName:      "tls-secret",
-				ClientCASecretName: "ca-secret",
+			TLS: kliov1alpha1.TLSConfiguration{
+				ServerIdentity: kliov1alpha1.TLSIdentity{
+					Volume: kliov1alpha1.VolumeSource{
+						Projected: &corev1.ProjectedVolumeSource{
+							Sources: []corev1.VolumeProjection{{
+								Secret: &corev1.SecretProjection{
+									LocalObjectReference: corev1.LocalObjectReference{Name: "tls-secret"},
+								},
+							}},
+						},
+					},
+					CertPath: "tls.crt",
+					KeyPath:  "tls.key",
+				},
+				ClientCA: newTestFileRef("ca-secret", "tls.crt"),
 			},
 			Mode:    kliov1alpha1.ModeStandard,
 			Storage: kliov1alpha1.Storage{PersistentVolumeClaimTemplate: newPVCSpec("10Gi")},
 			Tier1: &kliov1alpha1.Tier1Configuration{
-				EncryptionKeyFile: newTestFileSource("enc-secret", "encryption-key.age"),
-				IdentityFile:      newTestFileSource("id-secret", "identity.txt"),
+				Encryption: newTestEncryption("enc-secret", "id-secret"),
 			},
 		},
 	}
@@ -68,9 +79,8 @@ func newTestServerForStatefulSet() *kliov1alpha1.Server {
 
 func newTestTier2Configuration() *kliov1alpha1.Tier2Configuration {
 	return &kliov1alpha1.Tier2Configuration{
-		S3:                &kliov1alpha1.S3Configuration{BucketName: "test-bucket"},
-		EncryptionKeyFile: newTestFileSource("tier2-enc-secret", "encryption-key.age"),
-		IdentityFile:      newTestFileSource("tier2-id-secret", "identity.txt"),
+		S3:         &kliov1alpha1.S3Configuration{BucketName: "test-bucket"},
+		Encryption: newTestEncryption("tier2-enc-secret", "tier2-id-secret"),
 	}
 }
 

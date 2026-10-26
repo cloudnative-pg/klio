@@ -231,17 +231,22 @@ func TestDecryptEncryptionKeyFile(t *testing.T) {
 	}
 }
 
-func TestDecryptRejectsOtherReadableIdentity(t *testing.T) {
+// A CSI driver decides the mode of the identity file and may not be able to
+// make it private yet, so the permissions are not checked.
+func TestDecryptAcceptsOtherReadableIdentity(t *testing.T) {
 	dir := t.TempDir()
 	encPath, idPath := ageEncrypt(t, dir, "key")
 
-	if err := os.Chmod(idPath, 0o644); err != nil { //nolint:gosec // intentionally insecure for test
+	if err := os.Chmod(idPath, 0o644); err != nil { //nolint:gosec // intentionally world-readable for test
 		t.Fatal(err)
 	}
 
-	_, err := DecryptEncryptionKeyFile(encPath, idPath)
-	if err == nil {
-		t.Error("expected error for other-readable identity, got nil")
+	key, err := DecryptEncryptionKeyFile(encPath, idPath)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if key != "key" {
+		t.Errorf("got %q, want %q", key, "key")
 	}
 }
 

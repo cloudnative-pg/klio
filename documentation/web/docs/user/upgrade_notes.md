@@ -199,3 +199,32 @@ spec.volumeClaimTemplates[0].spec.accessModes: Required value`.
 1. **Confirm the Server is healthy** against the migrated data before removing
     the old PVCs. The old PVCs can be deleted after the new Server is
     running and healthy.
+
+### Migrating from Secret-name credentials
+
+Credential fields changed shape: every credential is now a file
+reference (`volume` plus paths), and the volume can be a `secret`,
+`configMap`, `projected` or `csi` source. The API is `v1alpha1`, so
+there is no automatic conversion — update existing manifests:
+
+| Before | After |
+|---|---|
+| `tlsSecretName` | `tls.serverIdentity` |
+| `caSecretName` | `tls.clientCa` |
+| `clientSecretName` (`PluginConfiguration`) | `tls.clientIdentity` |
+| `serverSecretName` (`PluginConfiguration`) | `tls.serverCa` |
+| tier encryption key and identity | `tier{1,2}.encryption` (single volume) |
+| `... {fileReference: {volume, path}}` | `... {volume, path}` |
+| `customCaBundle` secret name and key | `customCaBundle` volume and path |
+
+The mTLS settings sit under `tls`, and each tier reads its Age key and
+identity from a single volume, with paths `keyPath` and
+`identityPath` (one volume, two files).
+
+The identities carry the certificate and key as `certPath` and
+`keyPath` in one volume instead of the fixed `tls.crt`, `tls.key`
+and `ca.crt` names — except those are still the right paths when
+the source stays a plain Secret. To mount only the CA out of a
+secret that also holds a private key, add `items` mapping the CA
+key. The S3 static keys are unchanged, with `credentialsFile` and
+`profile` as a mutually exclusive alternative.

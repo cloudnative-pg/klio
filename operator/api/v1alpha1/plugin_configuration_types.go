@@ -37,6 +37,24 @@ const (
 	ReasonSecretUpdated = "SecretUpdated"
 )
 
+// PluginTLSConfiguration contains the information needed to configure
+// the PKI of the plugin.
+type PluginTLSConfiguration struct {
+	// ClientIdentity is the TLS identity the PostgreSQL instances
+	// present to the Klio server: the client certificate and its
+	// matching private key.
+	// +kubebuilder:validation:Required
+	ClientIdentity TLSIdentity `json:"clientIdentity"`
+
+	// ServerCA is the CA bundle used to verify the Klio server.
+	// It is mounted into PostgreSQL instance pods and used for both
+	// base backups (Kopia, via --server-cert-ca-file) and WAL streaming
+	// (gRPC).
+	// The referenced file must contain the PEM-encoded CA certificate(s).
+	// +kubebuilder:validation:Required
+	ServerCA VolumeFileReference `json:"serverCa"`
+}
+
 // PluginConfigurationSpec defines the desired state of client configuration.
 // +kubebuilder:validation:XValidation:rule="self.mode != 'read-only' || (has(self.tier2) && (!has(self.tier2.enableBackup) || !self.tier2.enableBackup) && self.tier2.enableRecovery && !has(self.tier1))",message="when mode is read-only, tier2.enableRecovery must be true, tier2.enableBackup must be false, and tier1 must not exist"
 // +kubebuilder:validation:XValidation:rule="!(self.mode == 'read-only' && has(self.tier2) && has(self.tier2.compression))",message="tier2.compression cannot be set when mode is read-only"
@@ -58,15 +76,10 @@ type PluginConfigurationSpec struct {
 	// +optional
 	WALPrefetch *WALPrefetchConfiguration `json:"walPrefetch,omitempty"`
 
-	// ClientSecretName is the name of the secret containing the client credentials
+	// TLS configures the PKI of the plugin: the identity the PostgreSQL
+	// instances present to the Klio server and the CA used to verify it.
 	// +kubebuilder:validation:Required
-	// +kubebuilder:validation:MinLength=1
-	ClientSecretName string `json:"clientSecretName"`
-
-	// ServerSecretName is the name of the secret containing the server TLS certificate
-	// +kubebuilder:validation:Required
-	// +kubebuilder:validation:MinLength=1
-	ServerSecretName string `json:"serverSecretName"`
+	TLS PluginTLSConfiguration `json:"tls"`
 
 	// ClusterName is the name of the PostgreSQL cluster we are connecting to
 	// +kubebuilder:validation:Required
