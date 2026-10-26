@@ -284,9 +284,16 @@ func TestGetMetadata(t *testing.T) {
 
 			// Both cases must be a NoBackupFoundError, so MultiConnection
 			// falls back to tier2.
-			notFound, ok := errors.AsType[NoBackupFoundError](err)
+			_, ok := errors.AsType[NoBackupFoundError](err)
 			require.True(t, ok, "unexpected error %v", err)
-			assert.Equal(t, tt.wantMissing, notFound.missingParts)
+
+			incomplete, ok := errors.AsType[IncompleteBackupError](err)
+			if tt.wantMissing == nil {
+				assert.False(t, ok, "unexpected incomplete backup error %v", err)
+			} else {
+				require.True(t, ok, "unexpected error %v", err)
+				assert.Equal(t, tt.wantMissing, incomplete.missingParts)
+			}
 			if tt.wantErr != "" {
 				assert.EqualError(t, err, tt.wantErr)
 			}
