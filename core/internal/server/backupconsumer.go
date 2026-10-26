@@ -78,7 +78,7 @@ func (s *BackupConsumer) Serve(ctx context.Context) error {
 	// verifies tier1 backups.
 	if s.Tier2KopiaConfigFile != "" {
 		// Tier1 and tier2 share the same server certificate.
-		certificateFingerprint, err := kopia.ExtractSHA256CertificateFingerprint(s.Config.TLS.TLSCert)
+		certificateFingerprint, err := kopia.LeafFingerprint(s.Config.TLS.TLSCert)
 		if err != nil {
 			return fmt.Errorf("error while extracting fingerprint of the kopia server certificate: %w", err)
 		}
