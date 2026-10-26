@@ -17,7 +17,7 @@ limitations under the License.
 SPDX-License-Identifier: Apache-2.0
 */
 
-package tier2
+package awscreds
 
 import (
 	"context"
@@ -42,6 +42,14 @@ var ErrCredentialsFileNoKeys = errors.New("no access keys in the shared credenti
 type credentialsFileProvider struct {
 	path    string
 	profile string
+}
+
+// NewSharedCredentialsFileProvider returns an aws.CredentialsProvider that
+// reads credentials from the AWS shared credentials file at the given path
+// every time the SDK requests them, so a rotated file is picked up without a
+// restart. An empty profile selects the default profile of the file.
+func NewSharedCredentialsFileProvider(path, profile string) aws.CredentialsProvider {
+	return credentialsFileProvider{path: path, profile: profile}
 }
 
 // Retrieve implements aws.CredentialsProvider.

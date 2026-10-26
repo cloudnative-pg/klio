@@ -32,9 +32,10 @@ linters:
         - afero.Fs
         - blob.Storage
         - error
-        - stdlib
+        - github.com/aws/aws-sdk-go-v2/aws.CredentialsProvider
         - github.com/cloudnative-pg/klio/core/internal/client/klioclient.Client
         - k8s.io/apimachinery/pkg/runtime.Object
+        - stdlib
     varnamelen:
       ignore-decls:
         - g Gomega
