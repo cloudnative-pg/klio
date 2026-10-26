@@ -22,13 +22,10 @@ package kopia
 import "fmt"
 
 // NoBackupFoundError is raised when the requested backup has not been found
-// in the Kopia manifests store. It is also raised for a backup that is
-// incomplete on this tier, with the parts that have no snapshot in
-// missingParts.
+// in the Kopia manifests store.
 type NoBackupFoundError struct {
-	hostName     string
-	backupName   string
-	missingParts []string
+	hostName   string
+	backupName string
 }
 
 func newNoBackupFoundError(hostName string, backupName string) NoBackupFoundError {
@@ -38,21 +35,33 @@ func newNoBackupFoundError(hostName string, backupName string) NoBackupFoundErro
 	}
 }
 
-func newIncompleteBackupError(hostName string, backupName string, missingParts []string) NoBackupFoundError {
-	return NoBackupFoundError{
-		hostName:     hostName,
-		backupName:   backupName,
-		missingParts: missingParts,
+func (err NoBackupFoundError) Error() string {
+	return fmt.Sprintf("backup %q for host %q not found", err.backupName, err.hostName)
+}
+
+// IncompleteBackupError is raised when a backup has a metadata snapshot but
+// misses some of its other snapshots on this tier. It unwraps to
+// NoBackupFoundError, so callers treat it as not found on this tier.
+type IncompleteBackupError struct {
+	NoBackupFoundError
+
+	missingParts []string
+}
+
+func newIncompleteBackupError(hostName string, backupName string, missingParts []string) IncompleteBackupError {
+	return IncompleteBackupError{
+		NoBackupFoundError: newNoBackupFoundError(hostName, backupName),
+		missingParts:       missingParts,
 	}
 }
 
-func (err NoBackupFoundError) Error() string {
-	if len(err.missingParts) > 0 {
-		return fmt.Sprintf("backup %q for host %q is incomplete, missing %v",
-			err.backupName, err.hostName, err.missingParts)
-	}
+func (err IncompleteBackupError) Error() string {
+	return fmt.Sprintf("backup %q for host %q is incomplete, missing %v",
+		err.backupName, err.hostName, err.missingParts)
+}
 
-	return fmt.Sprintf("backup %q for host %q not found", err.backupName, err.hostName)
+func (err IncompleteBackupError) Unwrap() error {
+	return err.NoBackupFoundError
 }
 
 // NoSnapshotFoundError is raised when the requested snapshot has not been found
