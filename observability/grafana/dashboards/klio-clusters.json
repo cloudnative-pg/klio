@@ -2940,7 +2940,7 @@
         },
         "multi": true,
         "allowCustomValue": true,
-        "refresh": 1,
+        "refresh": 2,
         "sort": 1,
         "includeAll": true,
         "auto": false,
