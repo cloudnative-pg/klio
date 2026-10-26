@@ -46,9 +46,11 @@ func clusterDashboard() *dashboard.DashboardBuilder {
 			AllValue(matchAny)).
 		// "All" expands to the clusters of the selected namespaces. Matching any
 		// value would also select clusters from other namespaces on the panels
-		// that are not filtered by namespace.
+		// that are not filtered by namespace. Refreshed with the time range, so
+		// "All" picks up clusters that appear after the dashboard loads.
 		WithVariable(labelVariable("cluster", "Cluster",
-			`label_values({__name__=~"klio_(plugin|client)_.+",k8s_namespace_name=~"$namespace"}, cluster_name)`)).
+			`label_values({__name__=~"klio_(plugin|client)_.+",k8s_namespace_name=~"$namespace"}, cluster_name)`).
+			Refresh(dashboard.VariableRefreshOnTimeRangeChanged)).
 		WithVariable(labelVariable("pod", "Instance",
 			`label_values({__name__=~"klio_(plugin|client)_.+",k8s_namespace_name=~"$namespace",`+
 				`cluster_name=~"$cluster"}, k8s_pod_name)`).
@@ -105,9 +107,11 @@ func serverDashboard() *dashboard.DashboardBuilder {
 			`label_values(klio_server_uptime_seconds, k8s_namespace_name)`).
 			AllValue(matchAny)).
 		// "All" expands to the servers of the selected namespaces, for the same
-		// reason as the cluster variable of the Klio Clusters dashboard.
+		// reason, and refreshed, as the cluster variable of the Klio Clusters
+		// dashboard.
 		WithVariable(labelVariable("server", "Server",
-			`label_values(klio_server_uptime_seconds{k8s_namespace_name=~"$namespace"}, service_name)`)).
+			`label_values(klio_server_uptime_seconds{k8s_namespace_name=~"$namespace"}, service_name)`).
+			Refresh(dashboard.VariableRefreshOnTimeRangeChanged)).
 		// Not sourced from klio_server_wal_written_total: a server that receives
 		// no WAL, such as a read-only one, would list no clusters.
 		WithVariable(labelVariable("cluster", "Served cluster",
