@@ -43,10 +43,6 @@ func (s *stubTier2Client) ListBackups(_ context.Context, _ string) (klioclient.B
 	return s.backups, s.listErr
 }
 
-func (s *stubTier2Client) ListBackupsIncludingIncomplete(_ context.Context, _ string) (klioclient.BackupList, error) {
-	return append(slices.Clone(s.backups), s.incomplete...), s.listErr
-}
-
 func (s *stubTier2Client) ListBackupsByCompleteness(
 	_ context.Context, _ string,
 ) (klioclient.BackupList, klioclient.BackupList, error) {
@@ -65,10 +61,6 @@ type stubDeleter struct {
 }
 
 func (s *stubDeleter) ListBackups(_ context.Context, _ string) (klioclient.BackupList, error) {
-	return nil, nil
-}
-
-func (s *stubDeleter) ListBackupsIncludingIncomplete(_ context.Context, _ string) (klioclient.BackupList, error) {
 	return nil, nil
 }
 

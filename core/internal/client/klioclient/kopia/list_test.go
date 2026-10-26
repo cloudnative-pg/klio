@@ -251,13 +251,6 @@ func TestListBackupsOtherHost(t *testing.T) {
 	assert.Empty(t, incomplete)
 }
 
-func TestListBackupsIncludingIncomplete(t *testing.T) {
-	backups, err := listBackupsIncludingIncomplete(context.Background(), newFakeStore(), "c1")
-	require.NoError(t, err)
-
-	assert.ElementsMatch(t, []string{"b1", "b2", "b3"}, backupNamesOf(backups))
-}
-
 func TestGetMetadata(t *testing.T) {
 	tests := []struct {
 		name        string

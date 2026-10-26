@@ -109,51 +109,6 @@ func (s *Connection) ListBackupsByCompleteness(
 	return listBackups(ctx, s.kopia, hostname, true)
 }
 
-// ListBackupsIncludingIncomplete lists every backup in the repository that
-// has a metadata snapshot, even if some of its other snapshots are missing
-// on this tier.
-func (s *Connection) ListBackupsIncludingIncomplete(
-	ctx context.Context,
-	hostname string,
-) (klioclient.BackupList, error) {
-	return listBackupsIncludingIncomplete(ctx, s.kopia, hostname)
-}
-
-// listBackupsIncludingIncomplete lists the backups of hostname (of every
-// host when empty) that have a metadata snapshot.
-func listBackupsIncludingIncomplete(
-	ctx context.Context,
-	store metadataStore,
-	hostname string,
-) (klioclient.BackupList, error) {
-	contextLogger := log.FromContext(ctx)
-
-	entries, err := store.ListSnapshots(ctx, map[string]string{
-		klioclient.BackupContentTagName: "metadata",
-	}, contextLogger.Info)
-	if err != nil {
-		return nil, fmt.Errorf("while executing Kopia command: %w", err)
-	}
-
-	result := make([]klioclient.BackupMetadata, 0, len(entries))
-	for _, entry := range entries {
-		if hostname != "" && entry.Source.Host != hostname {
-			continue
-		}
-
-		metadata, err := restoreMetadata(ctx, store, entry.ID)
-		if err != nil {
-			contextLogger.Error(err, "Error while decoding backup metadata, skipping", "id", entry.ID)
-
-			continue
-		}
-
-		result = append(result, *metadata)
-	}
-
-	return result, nil
-}
-
 // listBackups returns the complete backups of hostname (of every host when
 // empty) and, when withIncomplete is set, the incomplete ones. Without it,
 // a backup missing its pgdata or control data is skipped before its
