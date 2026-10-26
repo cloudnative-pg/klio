@@ -94,7 +94,7 @@ func getMetadata(
 // present on this tier. A backup still being relayed, or left partially
 // deleted, is not listed.
 func (s *Connection) ListBackups(ctx context.Context, hostname string) (klioclient.BackupList, error) {
-	complete, _, err := listBackups(ctx, s.kopia, hostname, false)
+	complete, _, err := listBackups(ctx, s.kopia, hostname)
 
 	return complete, err
 }
@@ -106,18 +106,15 @@ func (s *Connection) ListBackupsByCompleteness(
 	ctx context.Context,
 	hostname string,
 ) (klioclient.BackupList, klioclient.BackupList, error) {
-	return listBackups(ctx, s.kopia, hostname, true)
+	return listBackups(ctx, s.kopia, hostname)
 }
 
-// listBackups returns the complete backups of hostname (of every host when
-// empty) and, when withIncomplete is set, the incomplete ones. Without it,
-// a backup missing its pgdata or control data is skipped before its
-// metadata is read.
+// listBackups returns the complete and the incomplete backups of hostname
+// (of every host when empty).
 func listBackups(
 	ctx context.Context,
 	store metadataStore,
 	hostname string,
-	withIncomplete bool,
 ) (klioclient.BackupList, klioclient.BackupList, error) {
 	contextLogger := log.FromContext(ctx)
 
@@ -138,13 +135,6 @@ func listBackups(
 
 		host := entry.Source.Host
 		name := TagValue(entry, klioclient.BackupNameTagName)
-		if !withIncomplete && !parts.HasDataParts(host, name) {
-			contextLogger.Debug("Backup is incomplete on this tier, skipping",
-				"hostname", host, "backupName", name)
-
-			continue
-		}
-
 		metadata, err := restoreMetadata(ctx, store, entry.ID)
 		if err != nil {
 			contextLogger.Error(err, "Error while decoding backup metadata, skipping", "id", entry.ID)
@@ -155,9 +145,7 @@ func listBackups(
 		if missing := parts.Missing(host, name, metadata); len(missing) > 0 {
 			contextLogger.Debug("Backup is incomplete on this tier",
 				"hostname", host, "backupName", name, "missing", missing)
-			if withIncomplete {
-				incomplete = append(incomplete, *metadata)
-			}
+			incomplete = append(incomplete, *metadata)
 
 			continue
 		}
