@@ -44,12 +44,9 @@ type backupDeleter interface {
 	// ListBackups lists only the backups whose snapshots are all present.
 	ListBackups(ctx context.Context, hostname string) (klioclient.BackupList, error)
 
-	// ListBackupsIncludingIncomplete also lists the backups that have a
-	// metadata snapshot but miss some other snapshot, e.g. while relayed.
-	ListBackupsIncludingIncomplete(ctx context.Context, hostname string) (klioclient.BackupList, error)
-
-	// ListBackupsByCompleteness lists the same backups as
-	// ListBackupsIncludingIncomplete, split into complete and incomplete.
+	// ListBackupsByCompleteness lists every backup with a metadata snapshot,
+	// split into complete ones and ones missing some other snapshot, e.g.
+	// while relayed.
 	ListBackupsByCompleteness(
 		ctx context.Context, hostname string,
 	) (klioclient.BackupList, klioclient.BackupList, error)
