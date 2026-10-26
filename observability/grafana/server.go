@@ -272,22 +272,28 @@ func serverHealthPanels() []sizedPanel {
 
 // snapshotPanels returns the Kopia base snapshot panels.
 func snapshotPanels() []sizedPanel {
+	// Three tiles per row: the per-server legend of Retained snapshots does not
+	// fit a narrower tile.
 	return []sizedPanel{
-		sized(smallPanelWidth, largePanelHeight, statPanel("Retained snapshots", units.Number,
-			query(fmt.Sprintf("sum by (cluster, tier) (%s)",
-				snapshotCluster(fmt.Sprintf("klio_server_backup_snapshots{%s}", snapshotMatcher))), "{{cluster}} {{tier}}"),
+		sized(largePanelWidth, largePanelHeight, statPanel("Retained snapshots", units.Number,
+			// Grouped by server too: two servers reading the same repository, such
+			// as a read-only one, would otherwise count its snapshots twice.
+			query(fmt.Sprintf("sum by (cluster, tier, service_name) (%s)",
+				snapshotCluster(fmt.Sprintf("klio_server_backup_snapshots{%s}", snapshotMatcher))),
+				"{{cluster}} {{tier}} ({{service_name}})"),
 		).Decimals(0).
 			Orientation(common.VizOrientationHorizontal).
-			Description("Total kopia snapshots currently retained per cluster and tier.")),
+			Description("Total kopia snapshots currently retained per cluster and tier, with the Klio server "+
+				"that retains them.")),
 
-		sized(smallPanelWidth, largePanelHeight, statPanel("Latest snapshot size", units.BytesIEC,
+		sized(largePanelWidth, largePanelHeight, statPanel("Latest snapshot size", units.BytesIEC,
 			query(fmt.Sprintf("max by (cluster, tier) (%s)",
 				snapshotCluster(fmt.Sprintf("klio_server_backup_latest_snapshot_size_bytes{%s}", snapshotMatcher))),
 				"{{cluster}} {{tier}}"),
 		).Orientation(common.VizOrientationHorizontal).
 			Description("Size of the most recent base backup snapshot on Kopia, not accounting for deduplication.")),
 
-		sized(smallPanelWidth, largePanelHeight, statPanel("Latest snapshot files", units.Number,
+		sized(largePanelWidth, largePanelHeight, statPanel("Latest snapshot files", units.Number,
 			query(fmt.Sprintf("max by (cluster, tier) (%s)",
 				snapshotCluster(fmt.Sprintf("klio_server_backup_latest_snapshot_files{%s}", snapshotMatcher))),
 				"{{cluster}} {{tier}}"),
@@ -295,7 +301,7 @@ func snapshotPanels() []sizedPanel {
 			Orientation(common.VizOrientationHorizontal).
 			Description("Number of files in the most recent base backup snapshot on Kopia.")),
 
-		sized(smallPanelWidth, largePanelHeight, statPanel("Latest snapshot dirs", units.Number,
+		sized(largePanelWidth, largePanelHeight, statPanel("Latest snapshot dirs", units.Number,
 			query(fmt.Sprintf("max by (cluster, tier) (%s)",
 				snapshotCluster(fmt.Sprintf("klio_server_backup_latest_snapshot_dirs{%s}", snapshotMatcher))),
 				"{{cluster}} {{tier}}"),
@@ -303,14 +309,14 @@ func snapshotPanels() []sizedPanel {
 			Orientation(common.VizOrientationHorizontal).
 			Description("Number of directories in the most recent base backup snapshot on Kopia.")),
 
-		sized(smallPanelWidth, largePanelHeight, statPanel("Latest snapshot age", units.DurationInDaysHoursMinutesSeconds,
+		sized(largePanelWidth, largePanelHeight, statPanel("Latest snapshot age", units.DurationInDaysHoursMinutesSeconds,
 			query(fmt.Sprintf("time() - max by (cluster, tier) (%s)",
 				snapshotCluster(fmt.Sprintf("klio_server_backup_latest_snapshot_timestamp_seconds{%s}", snapshotMatcher))),
 				"{{cluster}} {{tier}}"),
 		).Orientation(common.VizOrientationHorizontal).
 			Description("Age of the most recent base backup snapshot on Kopia, per cluster and tier.")),
 
-		sized(smallPanelWidth, largePanelHeight, statPanel("Oldest snapshot age", units.DurationInDaysHoursMinutesSeconds,
+		sized(largePanelWidth, largePanelHeight, statPanel("Oldest snapshot age", units.DurationInDaysHoursMinutesSeconds,
 			query(fmt.Sprintf("time() - min by (cluster, tier) (%s)",
 				snapshotCluster(fmt.Sprintf("klio_server_backup_oldest_snapshot_timestamp_seconds{%s}", snapshotMatcher))),
 				"{{cluster}} {{tier}}"),
