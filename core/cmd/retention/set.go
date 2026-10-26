@@ -49,10 +49,6 @@ var setCmd = &cobra.Command{
 		// Sets the defaults values, to be overridden by the user configuration
 		configuration.SetDefaults()
 
-		if configuration.Source == (config.SourceConfig{}) {
-			return cli.ErrSourceSectionIsRequired
-		}
-
 		if configuration.Client == (config.ClientConfig{}) {
 			return cli.ErrClientSectionIsRequired
 		}
