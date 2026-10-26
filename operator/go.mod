@@ -1,13 +1,13 @@
 module github.com/cloudnative-pg/klio/operator
 
-go 1.26.6
+go 1.27.2
 
 require (
 	filippo.io/age v1.3.2
 	github.com/cert-manager/cert-manager v1.21.3
 	github.com/cloudnative-pg/api v1.30.0
 	github.com/cloudnative-pg/cloudnative-pg v1.30.1
-	github.com/cloudnative-pg/cloudnative-pg/tests v0.0.0-20261023144007-21e24f6ac148
+	github.com/cloudnative-pg/cloudnative-pg/tests v0.0.0-20261026110620-f52207ef2184
 	github.com/cloudnative-pg/cnpg-i v0.6.0
 	github.com/cloudnative-pg/cnpg-i-machinery v0.4.2
 	github.com/cloudnative-pg/machinery v0.6.1
@@ -114,7 +114,7 @@ require (
 	github.com/lib/pq v1.12.3 // indirect
 	github.com/lufia/plan9stats v0.0.0-20260802145828-341c2f0c90b5 // indirect
 	github.com/mattn/go-colorable v0.1.14 // indirect
-	github.com/mattn/go-isatty v0.0.22 // indirect
+	github.com/mattn/go-isatty v0.0.24 // indirect
 	github.com/moby/docker-image-spec v1.3.1 // indirect
 	github.com/moby/moby/api v1.56.1 // indirect
 	github.com/moby/moby/client v0.6.1 // indirect
@@ -141,7 +141,7 @@ require (
 	github.com/spf13/cast v1.10.0 // indirect
 	github.com/spf13/cobra v1.10.2 // indirect
 	github.com/spf13/pflag v1.0.10 // indirect
-	github.com/stern/stern v1.34.0 // indirect
+	github.com/stern/stern v1.35.0 // indirect
 	github.com/subosito/gotenv v1.6.0 // indirect
 	github.com/thoas/go-funk v0.9.3 // indirect
 	github.com/tklauser/go-sysconf v0.4.0 // indirect
