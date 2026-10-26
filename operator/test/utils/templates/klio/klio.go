@@ -22,10 +22,8 @@ package klio
 import (
 	certmanagerv1 "github.com/cert-manager/cert-manager/pkg/apis/certmanager/v1"
 	cnpgv1 "github.com/cloudnative-pg/api/pkg/api/v1"
-	"github.com/cloudnative-pg/machinery/pkg/api"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	kliov1alpha1 "github.com/cloudnative-pg/klio/operator/api/v1alpha1"
 )
@@ -86,22 +84,16 @@ func BuildTier2Configuration(
 			Endpoint:   s3Opts.S3Endpoint,
 			Region:     s3Opts.S3Region,
 			AccessKeyID: &cnpgv1.SecretKeySelector{
-				LocalObjectReference: api.LocalObjectReference{
-					Name: s3Opts.S3AccessKeySecretName,
-				},
-				Key: "RUSTFS_ACCESS_KEY",
+				Name: s3Opts.S3AccessKeySecretName,
+				Key:  "RUSTFS_ACCESS_KEY",
 			},
 			SecretAccessKey: &cnpgv1.SecretKeySelector{
-				LocalObjectReference: api.LocalObjectReference{
-					Name: s3Opts.S3SecretKeySecretName,
-				},
-				Key: "RUSTFS_SECRET_KEY",
+				Name: s3Opts.S3SecretKeySecretName,
+				Key:  "RUSTFS_SECRET_KEY",
 			},
 			CustomCABundle: &cnpgv1.SecretKeySelector{
-				LocalObjectReference: api.LocalObjectReference{
-					Name: s3Opts.S3CABundleSecretName,
-				},
-				Key: "ca.crt",
+				Name: s3Opts.S3CABundleSecretName,
+				Key:  "ca.crt",
 			},
 		},
 		EncryptionKeyFile: newFileSource(encOpts.EncryptionKeySecretName, encOpts.EncryptionKeyFileName),
@@ -144,10 +136,8 @@ func newBaseServer(name, namespace string, opts ServerTemplateOptions) *kliov1al
 	}
 
 	return &kliov1alpha1.Server{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      name,
-			Namespace: namespace,
-		},
+		Name:      name,
+		Namespace: namespace,
 		Spec: kliov1alpha1.ServerSpec{
 			ImageConfiguration: imgCfg,
 			TLSConfiguration: kliov1alpha1.TLSConfiguration{
@@ -231,11 +221,9 @@ func GetPluginConfigurationObject(
 	}
 
 	return &kliov1alpha1.PluginConfiguration{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      name,
-			Namespace: namespace,
-		},
-		Spec: spec,
+		Name:      name,
+		Namespace: namespace,
+		Spec:      spec,
 	}
 }
 

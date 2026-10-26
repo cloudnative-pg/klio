@@ -101,11 +101,9 @@ func (p *PodTemplateSpec) ToCoreV1() *corev1.PodTemplateSpec {
 	}
 
 	return &corev1.PodTemplateSpec{
-		ObjectMeta: metav1.ObjectMeta{
-			Labels:      p.Metadata.Labels,
-			Annotations: p.Metadata.Annotations,
-		},
-		Spec: p.Spec,
+		Labels:      p.Metadata.Labels,
+		Annotations: p.Metadata.Annotations,
+		Spec:        p.Spec,
 	}
 }
 

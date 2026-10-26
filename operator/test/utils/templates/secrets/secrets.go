@@ -26,7 +26,6 @@ import (
 
 	"filippo.io/age"
 	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 // AgeEncryptionSecrets holds both secrets needed for Age-based encryption.
@@ -70,19 +69,15 @@ func GetKlioAgeEncryptionSecrets(
 
 	return &AgeEncryptionSecrets{
 		EncryptionKeySecret: &corev1.Secret{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      name,
-				Namespace: namespace,
-			},
+			Name:      name,
+			Namespace: namespace,
 			Data: map[string][]byte{
 				"encryption-key.age": encrypted.Bytes(),
 			},
 		},
 		IdentitySecret: &corev1.Secret{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      name + "-identity",
-				Namespace: namespace,
-			},
+			Name:      name + "-identity",
+			Namespace: namespace,
 			Data: map[string][]byte{
 				"identity.txt": []byte(identityContent),
 			},
@@ -96,10 +91,8 @@ func GetS3CredentialsSecret(
 	accessKey, secretKey string,
 ) *corev1.Secret {
 	return &corev1.Secret{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      name,
-			Namespace: namespace,
-		},
+		Name:      name,
+		Namespace: namespace,
 		Data: map[string][]byte{
 			"RUSTFS_ACCESS_KEY": []byte(accessKey),
 			"RUSTFS_SECRET_KEY": []byte(secretKey),

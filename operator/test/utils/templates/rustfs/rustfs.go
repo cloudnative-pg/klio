@@ -71,10 +71,8 @@ const (
 // GetRustFSSecret returns a Secret with RustFS credentials.
 func GetRustFSSecret(name, namespace string) *corev1.Secret {
 	return &corev1.Secret{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      name,
-			Namespace: namespace,
-		},
+		Name:      name,
+		Namespace: namespace,
 		Data: map[string][]byte{
 			"RUSTFS_ACCESS_KEY": []byte(RustFSAccessKey),
 			"RUSTFS_SECRET_KEY": []byte(RustFSSecretKey),
@@ -85,10 +83,8 @@ func GetRustFSSecret(name, namespace string) *corev1.Secret {
 // GetRustFSConfigMap returns a ConfigMap with RustFS environment configuration.
 func GetRustFSConfigMap(name, namespace string) *corev1.ConfigMap {
 	return &corev1.ConfigMap{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      name,
-			Namespace: namespace,
-		},
+		Name:      name,
+		Namespace: namespace,
 		Data: map[string]string{
 			"RUSTFS_ADDRESS":           ":9000",
 			"RUSTFS_CONSOLE_ADDRESS":   ":9001",
@@ -106,10 +102,8 @@ func GetRustFSConfigMap(name, namespace string) *corev1.ConfigMap {
 // GetRustFSCertificate returns a Certificate for RustFS TLS.
 func GetRustFSCertificate(name, namespace string, issuer *certmanagerv1.Issuer) *certmanagerv1.Certificate {
 	return &certmanagerv1.Certificate{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      name,
-			Namespace: namespace,
-		},
+		Name:      name,
+		Namespace: namespace,
 		Spec: certmanagerv1.CertificateSpec{
 			CommonName: "rustfs",
 			DNSNames: []string{
@@ -134,10 +128,8 @@ func GetRustFSCertificate(name, namespace string, issuer *certmanagerv1.Issuer) 
 // GetRustFSService returns a Service exposing RustFS.
 func GetRustFSService(name, namespace string) *corev1.Service {
 	return &corev1.Service{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      name,
-			Namespace: namespace,
-		},
+		Name:      name,
+		Namespace: namespace,
 		Spec: corev1.ServiceSpec{
 			Selector: map[string]string{
 				labelName:     name,
@@ -164,13 +156,11 @@ func GetRustFSService(name, namespace string) *corev1.Service {
 // GetRustFSDeployment returns a Deployment for RustFS.
 func GetRustFSDeployment(name, namespace string) *appsv1.Deployment {
 	return &appsv1.Deployment{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      name,
-			Namespace: namespace,
-			Labels: map[string]string{
-				labelName:     name,
-				labelInstance: name,
-			},
+		Name:      name,
+		Namespace: namespace,
+		Labels: map[string]string{
+			labelName:     name,
+			labelInstance: name,
 		},
 		Spec: appsv1.DeploymentSpec{
 			Replicas: new(int32(1)),
@@ -238,26 +228,20 @@ func GetRustFSDeployment(name, namespace string) *appsv1.Deployment {
 							EnvFrom: []corev1.EnvFromSource{
 								{
 									ConfigMapRef: &corev1.ConfigMapEnvSource{
-										LocalObjectReference: corev1.LocalObjectReference{
-											Name: name + "-config",
-										},
+										Name: name + "-config",
 									},
 								},
 								{
 									SecretRef: &corev1.SecretEnvSource{
-										LocalObjectReference: corev1.LocalObjectReference{
-											Name: rustfsSecretName,
-										},
+										Name: rustfsSecretName,
 									},
 								},
 							},
 							LivenessProbe: &corev1.Probe{
-								ProbeHandler: corev1.ProbeHandler{
-									HTTPGet: &corev1.HTTPGetAction{
-										Path:   "/health",
-										Port:   intstr.FromInt32(9000),
-										Scheme: corev1.URISchemeHTTPS,
-									},
+								HTTPGet: &corev1.HTTPGetAction{
+									Path:   "/health",
+									Port:   intstr.FromInt32(9000),
+									Scheme: corev1.URISchemeHTTPS,
 								},
 								InitialDelaySeconds: 10,
 								PeriodSeconds:       10,
@@ -266,12 +250,10 @@ func GetRustFSDeployment(name, namespace string) *appsv1.Deployment {
 								FailureThreshold:    3,
 							},
 							ReadinessProbe: &corev1.Probe{
-								ProbeHandler: corev1.ProbeHandler{
-									HTTPGet: &corev1.HTTPGetAction{
-										Path:   "/health",
-										Port:   intstr.FromInt32(9000),
-										Scheme: corev1.URISchemeHTTPS,
-									},
+								HTTPGet: &corev1.HTTPGetAction{
+									Path:   "/health",
+									Port:   intstr.FromInt32(9000),
+									Scheme: corev1.URISchemeHTTPS,
 								},
 								InitialDelaySeconds: 5,
 								PeriodSeconds:       5,
@@ -308,37 +290,29 @@ func GetRustFSDeployment(name, namespace string) *appsv1.Deployment {
 					},
 					Volumes: []corev1.Volume{
 						{
-							Name: "data",
-							VolumeSource: corev1.VolumeSource{
-								EmptyDir: &corev1.EmptyDirVolumeSource{},
-							},
+							Name:     "data",
+							EmptyDir: &corev1.EmptyDirVolumeSource{},
 						},
 						{
-							Name: "logs",
-							VolumeSource: corev1.VolumeSource{
-								EmptyDir: &corev1.EmptyDirVolumeSource{},
-							},
+							Name:     "logs",
+							EmptyDir: &corev1.EmptyDirVolumeSource{},
 						},
 						{
-							Name: "tmp",
-							VolumeSource: corev1.VolumeSource{
-								EmptyDir: &corev1.EmptyDirVolumeSource{},
-							},
+							Name:     "tmp",
+							EmptyDir: &corev1.EmptyDirVolumeSource{},
 						},
 						{
 							Name: "certs",
-							VolumeSource: corev1.VolumeSource{
-								Secret: &corev1.SecretVolumeSource{
-									SecretName: rustfsTLSSecret,
-									Items: []corev1.KeyToPath{
-										{
-											Key:  "tls.crt",
-											Path: "rustfs_cert.pem",
-										},
-										{
-											Key:  "tls.key",
-											Path: "rustfs_key.pem",
-										},
+							Secret: &corev1.SecretVolumeSource{
+								SecretName: rustfsTLSSecret,
+								Items: []corev1.KeyToPath{
+									{
+										Key:  "tls.crt",
+										Path: "rustfs_cert.pem",
+									},
+									{
+										Key:  "tls.key",
+										Path: "rustfs_key.pem",
 									},
 								},
 							},
@@ -353,10 +327,8 @@ func GetRustFSDeployment(name, namespace string) *appsv1.Deployment {
 // GetRustFSCreateBucketJob returns a Job to create an S3 bucket in RustFS.
 func GetRustFSCreateBucketJob(name, namespace, bucketName string) *batchv1.Job {
 	return &batchv1.Job{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      name,
-			Namespace: namespace,
-		},
+		Name:      name,
+		Namespace: namespace,
 		Spec: batchv1.JobSpec{
 			Template: corev1.PodTemplateSpec{
 				Spec: corev1.PodSpec{
@@ -380,10 +352,8 @@ func GetRustFSCreateBucketJob(name, namespace, bucketName string) *batchv1.Job {
 									Name: "AWS_ACCESS_KEY_ID",
 									ValueFrom: &corev1.EnvVarSource{
 										SecretKeyRef: &corev1.SecretKeySelector{
-											LocalObjectReference: corev1.LocalObjectReference{
-												Name: rustfsSecretName,
-											},
-											Key: "RUSTFS_ACCESS_KEY",
+											Name: rustfsSecretName,
+											Key:  "RUSTFS_ACCESS_KEY",
 										},
 									},
 								},
@@ -391,10 +361,8 @@ func GetRustFSCreateBucketJob(name, namespace, bucketName string) *batchv1.Job {
 									Name: "AWS_SECRET_ACCESS_KEY",
 									ValueFrom: &corev1.EnvVarSource{
 										SecretKeyRef: &corev1.SecretKeySelector{
-											LocalObjectReference: corev1.LocalObjectReference{
-												Name: rustfsSecretName,
-											},
-											Key: "RUSTFS_SECRET_KEY",
+											Name: rustfsSecretName,
+											Key:  "RUSTFS_SECRET_KEY",
 										},
 									},
 								},
@@ -416,14 +384,12 @@ func GetRustFSCreateBucketJob(name, namespace, bucketName string) *batchv1.Job {
 					Volumes: []corev1.Volume{
 						{
 							Name: "certs",
-							VolumeSource: corev1.VolumeSource{
-								Secret: &corev1.SecretVolumeSource{
-									SecretName: rustfsTLSSecret,
-									Items: []corev1.KeyToPath{
-										{
-											Key:  "tls.crt",
-											Path: "ca.crt",
-										},
+							Secret: &corev1.SecretVolumeSource{
+								SecretName: rustfsTLSSecret,
+								Items: []corev1.KeyToPath{
+									{
+										Key:  "tls.crt",
+										Path: "ca.crt",
 									},
 								},
 							},

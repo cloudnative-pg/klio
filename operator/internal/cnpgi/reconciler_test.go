@@ -29,7 +29,6 @@ import (
 	"github.com/cloudnative-pg/cnpg-i/pkg/reconciler"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
@@ -63,14 +62,10 @@ func TestReconcilerPre(t *testing.T) {
 
 	t.Run("returns BEHAVIOR_REQUEUE when PluginConfiguration does not exist", func(t *testing.T) {
 		cluster := &cnpgv1.Cluster{
-			TypeMeta: metav1.TypeMeta{
-				APIVersion: "postgresql.cnpg.io/v1",
-				Kind:       "Cluster",
-			},
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "test-cluster",
-				Namespace: "test-ns",
-			},
+			APIVersion: "postgresql.cnpg.io/v1",
+			Kind:       "Cluster",
+			Name:       "test-cluster",
+			Namespace:  "test-ns",
 			Spec: cnpgv1.ClusterSpec{
 				Plugins: []cnpgv1.PluginConfiguration{
 					{
@@ -100,24 +95,18 @@ func TestReconcilerPre(t *testing.T) {
 
 	t.Run("returns BEHAVIOR_CONTINUE when PluginConfiguration exists", func(t *testing.T) {
 		pluginConfig := &kliov1alpha1.PluginConfiguration{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "existing-plugin-config",
-				Namespace: "test-ns",
-			},
+			Name:      "existing-plugin-config",
+			Namespace: "test-ns",
 			Spec: kliov1alpha1.PluginConfigurationSpec{
 				ClusterName:   "test-cluster",
 				ServerAddress: "klio.example",
 			},
 		}
 		cluster := &cnpgv1.Cluster{
-			TypeMeta: metav1.TypeMeta{
-				APIVersion: "postgresql.cnpg.io/v1",
-				Kind:       "Cluster",
-			},
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "test-cluster",
-				Namespace: "test-ns",
-			},
+			APIVersion: "postgresql.cnpg.io/v1",
+			Kind:       "Cluster",
+			Name:       "test-cluster",
+			Namespace:  "test-ns",
 			Spec: cnpgv1.ClusterSpec{
 				Plugins: []cnpgv1.PluginConfiguration{
 					{
@@ -147,15 +136,11 @@ func TestReconcilerPre(t *testing.T) {
 
 	t.Run("returns BEHAVIOR_CONTINUE for cluster without Klio plugin", func(t *testing.T) {
 		cluster := &cnpgv1.Cluster{
-			TypeMeta: metav1.TypeMeta{
-				APIVersion: "postgresql.cnpg.io/v1",
-				Kind:       "Cluster",
-			},
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "no-plugin-cluster",
-				Namespace: "test-ns",
-			},
-			Spec: cnpgv1.ClusterSpec{},
+			APIVersion: "postgresql.cnpg.io/v1",
+			Kind:       "Cluster",
+			Name:       "no-plugin-cluster",
+			Namespace:  "test-ns",
+			Spec:       cnpgv1.ClusterSpec{},
 		}
 		fakeClient := fake.NewClientBuilder().WithScheme(scheme).Build()
 
@@ -186,24 +171,18 @@ func TestReconcilerPre(t *testing.T) {
 
 	t.Run("returns BEHAVIOR_REQUEUE when external cluster PluginConfiguration is missing", func(t *testing.T) {
 		archivePC := &kliov1alpha1.PluginConfiguration{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "archive-plugin-config",
-				Namespace: "test-ns",
-			},
+			Name:      "archive-plugin-config",
+			Namespace: "test-ns",
 			Spec: kliov1alpha1.PluginConfigurationSpec{
 				ClusterName:   "test-cluster",
 				ServerAddress: "klio.example",
 			},
 		}
 		cluster := &cnpgv1.Cluster{
-			TypeMeta: metav1.TypeMeta{
-				APIVersion: "postgresql.cnpg.io/v1",
-				Kind:       "Cluster",
-			},
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "test-cluster",
-				Namespace: "test-ns",
-			},
+			APIVersion: "postgresql.cnpg.io/v1",
+			Kind:       "Cluster",
+			Name:       "test-cluster",
+			Namespace:  "test-ns",
 			Spec: cnpgv1.ClusterSpec{
 				Plugins: []cnpgv1.PluginConfiguration{
 					{
@@ -246,14 +225,10 @@ func TestReconcilerPre(t *testing.T) {
 
 	t.Run("propagates non-NotFound errors", func(t *testing.T) {
 		cluster := &cnpgv1.Cluster{
-			TypeMeta: metav1.TypeMeta{
-				APIVersion: "postgresql.cnpg.io/v1",
-				Kind:       "Cluster",
-			},
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "test-cluster",
-				Namespace: "test-ns",
-			},
+			APIVersion: "postgresql.cnpg.io/v1",
+			Kind:       "Cluster",
+			Name:       "test-cluster",
+			Namespace:  "test-ns",
 			Spec: cnpgv1.ClusterSpec{
 				Plugins: []cnpgv1.PluginConfiguration{
 					{

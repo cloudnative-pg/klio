@@ -35,7 +35,6 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/e2e-framework/klient/k8s/resources"
 	"sigs.k8s.io/e2e-framework/klient/wait"
 	"sigs.k8s.io/e2e-framework/pkg/envconf"
@@ -554,7 +553,7 @@ func newWALRetentionScenario(name string, namespace string) *walRetentionScenari
 
 	// Namespace
 	namespaceObj := &corev1.Namespace{
-		ObjectMeta: metav1.ObjectMeta{Name: namespace},
+		Name: namespace,
 	}
 
 	// Issuer for all certificates
@@ -585,17 +584,15 @@ func newWALRetentionScenario(name string, namespace string) *walRetentionScenari
 		klioServerName,
 		namespace,
 		klio.ServerWithTier2TemplateOptions{
-			ServerTemplateOptions: klio.ServerTemplateOptions{
-				Image:              testCfg.ServerImage,
-				StorageClass:       testCfg.StorageClass,
-				TLSSecretName:      serverCertificate.Spec.SecretName,
-				ClientCASecretName: caCertificate.Spec.SecretName,
-				Encryption: klio.EncryptionOptions{
-					EncryptionKeySecretName: ageSecrets.EncryptionKeySecret.Name,
-					EncryptionKeyFileName:   "encryption-key.age",
-					IdentitySecretName:      ageSecrets.IdentitySecret.Name,
-					IdentityFileName:        "identity.txt",
-				},
+			Image:              testCfg.ServerImage,
+			StorageClass:       testCfg.StorageClass,
+			TLSSecretName:      serverCertificate.Spec.SecretName,
+			ClientCASecretName: caCertificate.Spec.SecretName,
+			Encryption: klio.EncryptionOptions{
+				EncryptionKeySecretName: ageSecrets.EncryptionKeySecret.Name,
+				EncryptionKeyFileName:   "encryption-key.age",
+				IdentitySecretName:      ageSecrets.IdentitySecret.Name,
+				IdentityFileName:        "identity.txt",
 			},
 			Tier2Encryption: klio.EncryptionOptions{
 				EncryptionKeySecretName: ageSecrets.EncryptionKeySecret.Name,

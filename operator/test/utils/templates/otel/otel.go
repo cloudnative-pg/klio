@@ -45,19 +45,15 @@ const (
 // GetCollectorServiceAccount returns a ServiceAccount for the OTEL collector.
 func GetCollectorServiceAccount(namespace string) *corev1.ServiceAccount {
 	return &corev1.ServiceAccount{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      CollectorName,
-			Namespace: namespace,
-		},
+		Name:      CollectorName,
+		Namespace: namespace,
 	}
 }
 
 // GetCollectorClusterRole returns a ClusterRole for the OTEL collector.
 func GetCollectorClusterRole(namespace string) *rbacv1.ClusterRole {
 	return &rbacv1.ClusterRole{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: CollectorName + "-" + namespace,
-		},
+		Name: CollectorName + "-" + namespace,
 		Rules: []rbacv1.PolicyRule{
 			{
 				APIGroups: []string{""},
@@ -71,9 +67,7 @@ func GetCollectorClusterRole(namespace string) *rbacv1.ClusterRole {
 // GetCollectorClusterRoleBinding returns a ClusterRoleBinding for the OTEL collector.
 func GetCollectorClusterRoleBinding(namespace string) *rbacv1.ClusterRoleBinding {
 	return &rbacv1.ClusterRoleBinding{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: CollectorName + "-" + namespace,
-		},
+		Name: CollectorName + "-" + namespace,
 		Subjects: []rbacv1.Subject{
 			{
 				Kind:      "ServiceAccount",
@@ -92,10 +86,8 @@ func GetCollectorClusterRoleBinding(namespace string) *rbacv1.ClusterRoleBinding
 // GetCollectorCertificate returns a Certificate for the OTEL collector.
 func GetCollectorCertificate(namespace string, issuer *certmanagerv1.Issuer) *certmanagerv1.Certificate {
 	return &certmanagerv1.Certificate{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      CollectorName,
-			Namespace: namespace,
-		},
+		Name:      CollectorName,
+		Namespace: namespace,
 		Spec: certmanagerv1.CertificateSpec{
 			SecretName: CollectorName + "-tls",
 			IssuerRef: cmmeta.IssuerReference{
@@ -148,10 +140,8 @@ service:
 `
 
 	return &corev1.ConfigMap{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      CollectorName + "-config",
-			Namespace: namespace,
-		},
+		Name:      CollectorName + "-config",
+		Namespace: namespace,
 		Data: map[string]string{
 			"config.yaml": config,
 		},
@@ -165,10 +155,8 @@ func GetCollectorDeployment(namespace string) *appsv1.Deployment {
 	}
 
 	return &appsv1.Deployment{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      CollectorName,
-			Namespace: namespace,
-		},
+		Name:      CollectorName,
+		Namespace: namespace,
 		Spec: appsv1.DeploymentSpec{
 			Replicas: new(int32(1)),
 			Selector: &metav1.LabelSelector{
@@ -215,20 +203,14 @@ func GetCollectorDeployment(namespace string) *appsv1.Deployment {
 					Volumes: []corev1.Volume{
 						{
 							Name: "config",
-							VolumeSource: corev1.VolumeSource{
-								ConfigMap: &corev1.ConfigMapVolumeSource{
-									LocalObjectReference: corev1.LocalObjectReference{
-										Name: CollectorName + "-config",
-									},
-								},
+							ConfigMap: &corev1.ConfigMapVolumeSource{
+								Name: CollectorName + "-config",
 							},
 						},
 						{
 							Name: "certs",
-							VolumeSource: corev1.VolumeSource{
-								Secret: &corev1.SecretVolumeSource{
-									SecretName: CollectorName + "-tls",
-								},
+							Secret: &corev1.SecretVolumeSource{
+								SecretName: CollectorName + "-tls",
 							},
 						},
 					},
@@ -241,10 +223,8 @@ func GetCollectorDeployment(namespace string) *appsv1.Deployment {
 // GetCollectorService returns a Service for the OTEL collector.
 func GetCollectorService(namespace string) *corev1.Service {
 	return &corev1.Service{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      CollectorName,
-			Namespace: namespace,
-		},
+		Name:      CollectorName,
+		Namespace: namespace,
 		Spec: corev1.ServiceSpec{
 			Selector: map[string]string{
 				"app": CollectorName,
@@ -270,10 +250,8 @@ func GetCollectorService(namespace string) *corev1.Service {
 // GetKlioServerOTELConfigMap returns a ConfigMap with OTEL configuration for the Klio server.
 func GetKlioServerOTELConfigMap(namespace string) *corev1.ConfigMap {
 	return &corev1.ConfigMap{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "klio-server-otel-config",
-			Namespace: namespace,
-		},
+		Name:      "klio-server-otel-config",
+		Namespace: namespace,
 		Data: map[string]string{
 			"OTEL_SERVICE_NAME":                     "klio-server",
 			"OTEL_TRACES_EXPORTER":                  "otlp",
@@ -321,10 +299,8 @@ func GetOTELClientCertificate(
 	issuer *certmanagerv1.Issuer,
 ) *certmanagerv1.Certificate {
 	return &certmanagerv1.Certificate{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      name,
-			Namespace: namespace,
-		},
+		Name:      name,
+		Namespace: namespace,
 		Spec: certmanagerv1.CertificateSpec{
 			SecretName: name,
 			IssuerRef: cmmeta.IssuerReference{

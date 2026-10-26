@@ -21,7 +21,6 @@ package cnpg
 
 import (
 	cnpgv1 "github.com/cloudnative-pg/api/pkg/api/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/cloudnative-pg/klio/operator/internal/klioconfig"
 )
@@ -42,10 +41,8 @@ func GetCnpgClusterObject(
 	opts ClusterTemplateOptions,
 ) *cnpgv1.Cluster {
 	cluster := &cnpgv1.Cluster{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      name,
-			Namespace: namespace,
-		},
+		Name:      name,
+		Namespace: namespace,
 		Spec: cnpgv1.ClusterSpec{
 			Instances: instances,
 			StorageConfiguration: cnpgv1.StorageConfiguration{
@@ -108,10 +105,8 @@ func GetCnpgBackupObject(
 	cluster *cnpgv1.Cluster,
 ) *cnpgv1.Backup {
 	return &cnpgv1.Backup{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      name,
-			Namespace: namespace,
-		},
+		Name:      name,
+		Namespace: namespace,
 		Spec: cnpgv1.BackupSpec{
 			Cluster: cnpgv1.LocalObjectReference{
 				Name: cluster.Name,

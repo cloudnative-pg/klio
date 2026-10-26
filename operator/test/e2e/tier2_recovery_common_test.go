@@ -29,7 +29,6 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8swait "k8s.io/apimachinery/pkg/util/wait"
 	"sigs.k8s.io/e2e-framework/klient/k8s/resources"
 	"sigs.k8s.io/e2e-framework/klient/wait"
@@ -332,7 +331,7 @@ type tier2ScenarioResources struct {
 func buildTier2ScenarioResources(namespace string, instances int) *tier2ScenarioResources {
 	// Namespace
 	namespaceObj := &corev1.Namespace{
-		ObjectMeta: metav1.ObjectMeta{Name: namespace},
+		Name: namespace,
 	}
 
 	// Issuer for all certificates
@@ -370,14 +369,12 @@ func buildTier2ScenarioResources(namespace string, instances int) *tier2Scenario
 		tier2KlioServerName,
 		namespace,
 		klio.ServerWithTier2TemplateOptions{
-			ServerTemplateOptions: klio.ServerTemplateOptions{
-				Image:              testCfg.ServerImage,
-				StorageClass:       testCfg.StorageClass,
-				TLSSecretName:      serverCertificate.Spec.SecretName,
-				ClientCASecretName: caCertificate.Spec.SecretName,
-				Encryption:         encOpts,
-			},
-			Tier2Encryption: encOpts, // Same encryption key for tier1 and tier2
+			Image:              testCfg.ServerImage,
+			StorageClass:       testCfg.StorageClass,
+			TLSSecretName:      serverCertificate.Spec.SecretName,
+			ClientCASecretName: caCertificate.Spec.SecretName,
+			Encryption:         encOpts,
+			Tier2Encryption:    encOpts, // Same encryption key for tier1 and tier2
 			S3: klio.Tier2S3Options{
 				S3BucketName:          rustfs.RustFSBucketName,
 				S3Prefix:              tier2S3Prefix,

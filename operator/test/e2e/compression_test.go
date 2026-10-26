@@ -701,15 +701,13 @@ func newCompressionTier2RecoveryServerResources(
 		serverName,
 		namespace,
 		klio.ServerWithTier2TemplateOptions{
-			ServerTemplateOptions: klio.ServerTemplateOptions{
-				Image:              testCfg.ServerImage,
-				StorageClass:       testCfg.StorageClass,
-				TLSSecretName:      serverCertificate.Spec.SecretName,
-				ClientCASecretName: caCertificate.Spec.SecretName,
-				Encryption:         encOpts,
-			},
-			Tier2Encryption: encOpts,
-			S3:              s3Opts,
+			Image:              testCfg.ServerImage,
+			StorageClass:       testCfg.StorageClass,
+			TLSSecretName:      serverCertificate.Spec.SecretName,
+			ClientCASecretName: caCertificate.Spec.SecretName,
+			Encryption:         encOpts,
+			Tier2Encryption:    encOpts,
+			S3:                 s3Opts,
 		},
 	)
 
@@ -760,7 +758,7 @@ func newCompressionScenario(name string, namespace string) *compressionScenario 
 	)
 
 	namespaceObj := &corev1.Namespace{
-		ObjectMeta: metav1.ObjectMeta{Name: namespace},
+		Name: namespace,
 	}
 
 	issuer := certificates.GetSelfSignedIssuerObject(selfSignedIssuerName, namespace)
@@ -801,15 +799,13 @@ func newCompressionScenario(name string, namespace string) *compressionScenario 
 		klioServerName,
 		namespace,
 		klio.ServerWithTier2TemplateOptions{
-			ServerTemplateOptions: klio.ServerTemplateOptions{
-				Image:              testCfg.ServerImage,
-				StorageClass:       testCfg.StorageClass,
-				TLSSecretName:      serverCertificate.Spec.SecretName,
-				ClientCASecretName: caCertificate.Spec.SecretName,
-				Encryption:         encOpts,
-			},
-			Tier2Encryption: encOpts,
-			S3:              s3Opts,
+			Image:              testCfg.ServerImage,
+			StorageClass:       testCfg.StorageClass,
+			TLSSecretName:      serverCertificate.Spec.SecretName,
+			ClientCASecretName: caCertificate.Spec.SecretName,
+			Encryption:         encOpts,
+			Tier2Encryption:    encOpts,
+			S3:                 s3Opts,
 		},
 	)
 	// Repository-wide (global) compression policy on the Server: every cluster

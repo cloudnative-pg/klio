@@ -43,11 +43,9 @@ import (
 
 func newTestServerForStatefulSet() *kliov1alpha1.Server {
 	return &kliov1alpha1.Server{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "test-server",
-			Namespace: "default",
-			UID:       "test-uid",
-		},
+		Name:      "test-server",
+		Namespace: "default",
+		UID:       "test-uid",
 		Spec: kliov1alpha1.ServerSpec{
 			ImageConfiguration: kliov1alpha1.ImageConfiguration{
 				Image: "klio:test",
@@ -265,22 +263,20 @@ func TestReconcileStatefulSetInvalidSpecExistingStatefulSet(t *testing.T) {
 
 	// Create an existing StatefulSet with a non-zero CreationTimestamp
 	existingStatefulSet := &appsv1.StatefulSet{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:              "test-server-klio",
-			Namespace:         "default",
-			CreationTimestamp: metav1.Time{Time: time.Now()},
-			OwnerReferences: []metav1.OwnerReference{
-				{
-					APIVersion: kliov1alpha1.GroupVersion.String(),
-					Kind:       "Server",
-					Name:       server.Name,
-					UID:        server.UID,
-					Controller: new(true),
-				},
+		Name:              "test-server-klio",
+		Namespace:         "default",
+		CreationTimestamp: metav1.Time{Time: time.Now()},
+		OwnerReferences: []metav1.OwnerReference{
+			{
+				APIVersion: kliov1alpha1.GroupVersion.String(),
+				Kind:       "Server",
+				Name:       server.Name,
+				UID:        server.UID,
+				Controller: new(true),
 			},
-			Annotations: map[string]string{
-				"klio.cnpg.io/klio-server-hash": "old-hash",
-			},
+		},
+		Annotations: map[string]string{
+			"klio.cnpg.io/klio-server-hash": "old-hash",
 		},
 		Spec: appsv1.StatefulSetSpec{
 			ServiceName: server.Name + "-klio",

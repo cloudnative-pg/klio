@@ -49,10 +49,8 @@ var _ = Describe("PluginConfiguration Controller", func() {
 
 		BeforeEach(func() {
 			pc = &kliov1alpha1.PluginConfiguration{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      pcName,
-					Namespace: namespace,
-				},
+				Name:      pcName,
+				Namespace: namespace,
 				Spec: kliov1alpha1.PluginConfigurationSpec{
 					ServerAddress:    "klio-server.default",
 					ClientSecretName: "client-tls",
@@ -71,10 +69,8 @@ var _ = Describe("PluginConfiguration Controller", func() {
 		AfterEach(func() {
 			_ = k8sClient.Delete(ctx, pc)
 			_ = k8sClient.Delete(ctx, &corev1.Secret{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      pcName,
-					Namespace: namespace,
-				},
+				Name:      pcName,
+				Namespace: namespace,
 			})
 		})
 
@@ -85,10 +81,8 @@ var _ = Describe("PluginConfiguration Controller", func() {
 			}
 
 			result, err := reconciler.Reconcile(ctx, reconcile.Request{
-				NamespacedName: types.NamespacedName{
-					Name:      pcName,
-					Namespace: namespace,
-				},
+				Name:      pcName,
+				Namespace: namespace,
 			})
 			Expect(err).NotTo(HaveOccurred())
 			Expect(result).To(Equal(reconcile.Result{}))
@@ -118,10 +112,8 @@ var _ = Describe("PluginConfiguration Controller", func() {
 
 			// First reconcile creates the secret
 			_, err := reconciler.Reconcile(ctx, reconcile.Request{
-				NamespacedName: types.NamespacedName{
-					Name:      pcName,
-					Namespace: namespace,
-				},
+				Name:      pcName,
+				Namespace: namespace,
 			})
 			Expect(err).NotTo(HaveOccurred())
 
@@ -136,10 +128,8 @@ var _ = Describe("PluginConfiguration Controller", func() {
 
 			// Second reconcile updates the secret
 			_, err = reconciler.Reconcile(ctx, reconcile.Request{
-				NamespacedName: types.NamespacedName{
-					Name:      pcName,
-					Namespace: namespace,
-				},
+				Name:      pcName,
+				Namespace: namespace,
 			})
 			Expect(err).NotTo(HaveOccurred())
 
@@ -161,10 +151,8 @@ var _ = Describe("PluginConfiguration Controller", func() {
 			}
 
 			_, err := reconciler.Reconcile(ctx, reconcile.Request{
-				NamespacedName: types.NamespacedName{
-					Name:      pcName,
-					Namespace: namespace,
-				},
+				Name:      pcName,
+				Namespace: namespace,
 			})
 			Expect(err).NotTo(HaveOccurred())
 
@@ -190,10 +178,8 @@ var _ = Describe("PluginConfiguration Controller", func() {
 			}
 
 			_, err := reconciler.Reconcile(ctx, reconcile.Request{
-				NamespacedName: types.NamespacedName{
-					Name:      pcName,
-					Namespace: namespace,
-				},
+				Name:      pcName,
+				Namespace: namespace,
 			})
 			Expect(err).NotTo(HaveOccurred())
 
@@ -218,10 +204,8 @@ var _ = Describe("PluginConfiguration Controller", func() {
 
 			// First reconcile creates the secret
 			_, err := reconciler.Reconcile(ctx, reconcile.Request{
-				NamespacedName: types.NamespacedName{
-					Name:      pcName,
-					Namespace: namespace,
-				},
+				Name:      pcName,
+				Namespace: namespace,
 			})
 			Expect(err).NotTo(HaveOccurred())
 
@@ -235,10 +219,8 @@ var _ = Describe("PluginConfiguration Controller", func() {
 
 			// Second reconcile without any changes
 			_, err = reconciler.Reconcile(ctx, reconcile.Request{
-				NamespacedName: types.NamespacedName{
-					Name:      pcName,
-					Namespace: namespace,
-				},
+				Name:      pcName,
+				Namespace: namespace,
 			})
 			Expect(err).NotTo(HaveOccurred())
 
@@ -262,10 +244,8 @@ var _ = Describe("PluginConfiguration Controller", func() {
 
 			// First reconcile
 			_, err := reconciler.Reconcile(ctx, reconcile.Request{
-				NamespacedName: types.NamespacedName{
-					Name:      pcName,
-					Namespace: namespace,
-				},
+				Name:      pcName,
+				Namespace: namespace,
 			})
 			Expect(err).NotTo(HaveOccurred())
 
@@ -283,10 +263,8 @@ var _ = Describe("PluginConfiguration Controller", func() {
 
 			// Reconcile again
 			_, err = reconciler.Reconcile(ctx, reconcile.Request{
-				NamespacedName: types.NamespacedName{
-					Name:      pcName,
-					Namespace: namespace,
-				},
+				Name:      pcName,
+				Namespace: namespace,
 			})
 			Expect(err).NotTo(HaveOccurred())
 
@@ -310,10 +288,8 @@ var _ = Describe("PluginConfiguration Controller", func() {
 			}
 
 			result, err := reconciler.Reconcile(ctx, reconcile.Request{
-				NamespacedName: types.NamespacedName{
-					Name:      "deleted-pc",
-					Namespace: "default",
-				},
+				Name:      "deleted-pc",
+				Namespace: "default",
 			})
 			Expect(err).NotTo(HaveOccurred())
 			Expect(result).To(Equal(reconcile.Result{}))
