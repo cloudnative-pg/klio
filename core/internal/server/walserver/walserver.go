@@ -43,37 +43,6 @@ import (
 	"github.com/cloudnative-pg/klio/core/pkg/config"
 )
 
-// loadTLSConfig builds a TLS configuration from the files referenced by
-// tlsConfiguration, reading them fresh on every call. It backs the
-// GetConfigForClient callback, so rotated certificates and CA bundles
-// are picked up by new handshakes without restarting the server.
-func loadTLSConfig(tlsConfiguration *config.TLSConfig) (*tls.Config, error) {
-	cert, err := tls.LoadX509KeyPair(
-		tlsConfiguration.TLSCert,
-		tlsConfiguration.TLSKey,
-	)
-	if err != nil {
-		return nil, fmt.Errorf("failed to load server key pair: %w", err)
-	}
-
-	clientCAPem, err := os.ReadFile(tlsConfiguration.ClientCACertFile)
-	if err != nil {
-		return nil, fmt.Errorf("while reading Client CA certificate file: %w", err)
-	}
-
-	clientCAPool := x509.NewCertPool()
-	if !clientCAPool.AppendCertsFromPEM(clientCAPem) {
-		return nil, ErrParsingClientCACertificate
-	}
-
-	return &tls.Config{
-		Certificates: []tls.Certificate{cert},
-		MinVersion:   tls.VersionTLS12,
-		ClientAuth:   tls.RequireAndVerifyClientCert,
-		ClientCAs:    clientCAPool,
-	}, nil
-}
-
 // Start starts a WAL server.
 func Start(
 	ctx context.Context,
@@ -175,4 +144,35 @@ func Start(
 	}
 
 	return nil
+}
+
+// loadTLSConfig builds a TLS configuration from the files referenced by
+// tlsConfiguration, reading them fresh on every call. It backs the
+// GetConfigForClient callback, so rotated certificates and CA bundles
+// are picked up by new handshakes without restarting the server.
+func loadTLSConfig(tlsConfiguration *config.TLSConfig) (*tls.Config, error) {
+	cert, err := tls.LoadX509KeyPair(
+		tlsConfiguration.TLSCert,
+		tlsConfiguration.TLSKey,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to load server key pair: %w", err)
+	}
+
+	clientCAPem, err := os.ReadFile(tlsConfiguration.ClientCACertFile)
+	if err != nil {
+		return nil, fmt.Errorf("while reading Client CA certificate file: %w", err)
+	}
+
+	clientCAPool := x509.NewCertPool()
+	if !clientCAPool.AppendCertsFromPEM(clientCAPem) {
+		return nil, ErrParsingClientCACertificate
+	}
+
+	return &tls.Config{
+		Certificates: []tls.Certificate{cert},
+		MinVersion:   tls.VersionTLS12,
+		ClientAuth:   tls.RequireAndVerifyClientCert,
+		ClientCAs:    clientCAPool,
+	}, nil
 }

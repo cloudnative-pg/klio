@@ -17,7 +17,7 @@ limitations under the License.
 SPDX-License-Identifier: Apache-2.0
 */
 
-package tier2
+package awscreds_test
 
 import (
 	"os"
@@ -26,6 +26,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/cloudnative-pg/klio/core/internal/tier2/awscreds"
 )
 
 func TestCredentialsFileProviderReadsRotatedFile(t *testing.T) {
@@ -36,14 +38,14 @@ func TestCredentialsFileProviderReadsRotatedFile(t *testing.T) {
 	write("[default]\naws_access_key_id = old\naws_secret_access_key = oldsecret\n" +
 		"[klio]\naws_access_key_id = k1\naws_secret_access_key = s1\naws_session_token = t1\n")
 
-	def := credentialsFileProvider{path: path}
-	creds, err := def.Retrieve(t.Context())
+	provider := awscreds.NewSharedCredentialsFileProvider(path, "")
+	creds, err := provider.Retrieve(t.Context())
 	require.NoError(t, err)
 	assert.Equal(t, "old", creds.AccessKeyID)
 	assert.True(t, creds.CanExpire)
 	assert.False(t, creds.Expires.IsZero())
 
-	named := credentialsFileProvider{path: path, profile: "klio"}
+	named := awscreds.NewSharedCredentialsFileProvider(path, "klio")
 	creds, err = named.Retrieve(t.Context())
 	require.NoError(t, err)
 	assert.Equal(t, "k1", creds.AccessKeyID)
@@ -60,9 +62,10 @@ func TestCredentialsFileProviderErrors(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "credentials")
 	require.NoError(t, os.WriteFile(path, []byte("[default]\nregion = x\n"), 0o600))
 
-	_, err := credentialsFileProvider{path: path}.Retrieve(t.Context())
-	require.ErrorIs(t, err, ErrCredentialsFileNoKeys)
+	_, err := awscreds.NewSharedCredentialsFileProvider(path, "").Retrieve(t.Context())
+	require.ErrorIs(t, err, awscreds.ErrCredentialsFileNoKeys)
 
-	_, err = credentialsFileProvider{path: filepath.Join(t.TempDir(), "missing")}.Retrieve(t.Context())
+	_, err = awscreds.NewSharedCredentialsFileProvider(filepath.Join(t.TempDir(), "missing"), "").
+		Retrieve(t.Context())
 	require.Error(t, err)
 }

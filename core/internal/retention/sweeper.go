@@ -41,7 +41,10 @@ type Options struct {
 
 	// Tier2KopiaConfig is a Kopia config file connected directly to the
 	// tier2 repository. Empty when tier2 is not configured.
-	Tier2KopiaConfig   string
+	Tier2KopiaConfig string
+
+	// Tier2ServerAddress is used to refresh the tier2 Kopia server's cache
+	// after a sweep pass deletes a backup.
 	Tier2ServerAddress string
 
 	// ServerTLSCertFile is the PEM file with the serving certificate shared
