@@ -70,6 +70,9 @@ spec:
         x-descriptors:
         - urn:alm:descriptor:com.tectonic.ui:select:standard
         - urn:alm:descriptor:com.tectonic.ui:select:read-only
+      - description: TLS configuration for client connections to the server.
+        displayName: TLS
+        path: tls
       - description: TLS identity presented to clients (certificate and key).
         displayName: Server Identity
         path: tls.serverIdentity
@@ -190,6 +193,9 @@ spec:
         x-descriptors:
         - urn:alm:descriptor:com.tectonic.ui:select:standard
         - urn:alm:descriptor:com.tectonic.ui:select:read-only
+      - description: TLS configuration for the connection to the Klio server.
+        displayName: TLS
+        path: tls
       - description: TLS identity presented to the Klio server (certificate and key).
         displayName: Client Identity
         path: tls.clientIdentity
