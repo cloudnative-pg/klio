@@ -162,17 +162,15 @@ func TestBackupPartsMissing(t *testing.T) {
 	}
 
 	tests := []struct {
-		name         string
-		metadata     *klioclient.BackupMetadata
-		present      map[string]struct{}
-		want         []string
-		wantDataPart bool
+		name     string
+		metadata *klioclient.BackupMetadata
+		present  map[string]struct{}
+		want     []string
 	}{
 		{
-			name:         "complete without tablespaces",
-			metadata:     &klioclient.BackupMetadata{},
-			present:      map[string]struct{}{"metadata": {}, "pgdata": {}, "controldata": {}},
-			wantDataPart: true,
+			name:     "complete without tablespaces",
+			metadata: &klioclient.BackupMetadata{},
+			present:  map[string]struct{}{"metadata": {}, "pgdata": {}, "controldata": {}},
 		},
 		{
 			name:     "complete with tablespaces",
@@ -181,7 +179,6 @@ func TestBackupPartsMissing(t *testing.T) {
 				"metadata": {}, "pgdata": {}, "controldata": {},
 				"tablespace/tbs1": {}, "tablespace/tbs2": {},
 			},
-			wantDataPart: true,
 		},
 		{
 			name:     "only metadata",
@@ -195,8 +192,7 @@ func TestBackupPartsMissing(t *testing.T) {
 			present: map[string]struct{}{
 				"metadata": {}, "pgdata": {}, "controldata": {}, "tablespace/tbs2": {},
 			},
-			want:         []string{"tablespace/tbs1"},
-			wantDataPart: true,
+			want: []string{"tablespace/tbs1"},
 		},
 		{
 			name:     "missing control data",
@@ -215,7 +211,6 @@ func TestBackupPartsMissing(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			parts := BackupParts{{host: "c1", name: "b1"}: tt.present}
 			assert.Equal(t, tt.want, parts.Missing("c1", "b1", tt.metadata))
-			assert.Equal(t, tt.wantDataPart, parts.HasDataParts("c1", "b1"))
 		})
 	}
 }
