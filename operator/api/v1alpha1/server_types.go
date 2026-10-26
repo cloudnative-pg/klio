@@ -235,7 +235,7 @@ type S3Configuration struct {
 // ServerStatus defines the observed state of Server.
 type ServerStatus struct {
 	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
-	// Important: Run "make" to regenerate code after modifying this file
+	// Important: Run "task operator:controller-gen" to regenerate code after modifying this file
 }
 
 // +kubebuilder:object:root=true

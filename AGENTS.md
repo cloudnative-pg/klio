@@ -40,7 +40,6 @@ task documentation:ci       # Run documentation CI
 task documentation:spellcheck  # Run spellcheck
 
 # Integration testing
-task integration:devenv     # Create ephemeral development environment
 task integration:e2e        # Run e2e tests (requires KIND_CLUSTER_NAME)
 
 # Cleanup

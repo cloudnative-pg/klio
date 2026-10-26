@@ -8,32 +8,6 @@ sidebar_position: 1
 
 * A [dagger](https://dagger.io/) installation
 
-## How to get an ephemeral development environment
-
-For a quick and convenient development experience, you can create an ephemeral
-development environment using the `integration:devenv` task from the Taskfile:
-
-```sh
-task integration:devenv
-```
-
-This command creates and connects you to an ephemeral development environment
-with all the necessary components pre-configured, making it easier to test and
-develop Klio features without affecting your local setup.
-
-Here are the instructions to deploy the Klio server and the CNPG cluster with
-the Klio plugin, using manifests under `operator/config/samples`.
-The following commands are executed inside the dagger container created from
-the previous step:
-
-```sh
-# Deploy the Klio server with the related resources
-dagger /apps $ kubectl apply -f ../operator/config/samples/klio_v1alpha1_server.yaml
-
-# Deploy the CNPG Cluster with a patch for the plugin and the related PluginConfiguration CR
-dagger /apps $ kubectl apply -f ../operator/config/samples/cluster-example-plugin.yaml
-```
-
 ## How to test Klio in a kind cluster during development
 
 During the development phase, it is recommended to test any changes in a test
