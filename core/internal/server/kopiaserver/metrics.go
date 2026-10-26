@@ -326,8 +326,8 @@ func (c *SnapshotMetricsCollector) collectBackupMetrics(
 
 	groups := buildBackupGroups(metadata)
 	entries := make([]backupCacheEntry, 0, len(groups))
-	for _, g := range groups {
-		entry, ok := c.buildBackupEntry(ctx, g, parts)
+	for _, group := range groups {
+		entry, ok := c.buildBackupEntry(ctx, group, parts)
 		if !ok {
 			continue
 		}
@@ -337,53 +337,32 @@ func (c *SnapshotMetricsCollector) collectBackupMetrics(
 	return entries
 }
 
-// buildBackupGroups groups metadata snapshots by source, tracking the latest
-// and oldest snapshot of each group and the number of snapshots it contains.
-func buildBackupGroups(snapshots []kopia.Manifest) map[kopia.SourceInfo]*backupGroup {
-	groups := make(map[kopia.SourceInfo]*backupGroup)
+// buildBackupGroups groups metadata snapshots by source, each group sorted
+// by ascending end time.
+func buildBackupGroups(snapshots []kopia.Manifest) map[kopia.SourceInfo][]kopia.Manifest {
+	groups := make(map[kopia.SourceInfo][]kopia.Manifest)
 	for _, s := range snapshots {
-		g := groups[s.Source]
-		if g == nil {
-			groups[s.Source] = &backupGroup{
-				count:     1,
-				latestID:  s.ID,
-				latest:    s.EndTime,
-				oldestID:  s.ID,
-				oldest:    s.EndTime,
-				snapshots: []kopia.Manifest{s},
-			}
+		groups[s.Source] = append(groups[s.Source], s)
+	}
 
-			continue
-		}
-
-		g.count++
-		g.snapshots = append(g.snapshots, s)
-		if s.EndTime.After(g.latest) {
-			g.latest = s.EndTime
-			g.latestID = s.ID
-		}
-		if s.EndTime.Before(g.oldest) {
-			g.oldest = s.EndTime
-			g.oldestID = s.ID
-		}
+	for _, group := range groups {
+		slices.SortFunc(group, func(a, b kopia.Manifest) int {
+			return cmp.Compare(a.EndTime, b.EndTime)
+		})
 	}
 
 	return groups
 }
 
 // buildBackupEntry restores the latest and oldest complete backup metadata
-// of a group and assembles the corresponding cache entry. A backup missing a
-// tablespace is passed over for the next one. It returns false if the
-// metadata cannot be read or no backup of the group is complete, so the
-// caller can skip that cluster without dropping others.
+// of a group, sorted by ascending end time, and assembles the corresponding
+// cache entry. A backup missing a tablespace is passed over for the next
+// one. It returns false if the metadata cannot be read or no backup of the
+// group is complete, so the caller can skip that cluster without dropping
+// others.
 func (c *SnapshotMetricsCollector) buildBackupEntry(
-	ctx context.Context, g *backupGroup, parts klioclientkopia.BackupParts,
+	ctx context.Context, byEndTime []kopia.Manifest, parts klioclientkopia.BackupParts,
 ) (backupCacheEntry, bool) {
-	byEndTime := slices.Clone(g.snapshots)
-	slices.SortFunc(byEndTime, func(a, b kopia.Manifest) int {
-		return cmp.Compare(a.EndTime, b.EndTime)
-	})
-
 	latest, ok := c.firstCompleteBackup(ctx, slices.Backward(byEndTime), parts)
 	if !ok {
 		return backupCacheEntry{}, false
@@ -396,7 +375,7 @@ func (c *SnapshotMetricsCollector) buildBackupEntry(
 
 	return backupCacheEntry{
 		clusterName: latest.ClusterName,
-		count:       g.count,
+		count:       int64(len(byEndTime)),
 		latest:      *latest,
 		oldest:      *oldest,
 	}, true
@@ -425,17 +404,6 @@ func (c *SnapshotMetricsCollector) firstCompleteBackup(
 	}
 
 	return nil, false
-}
-
-// backupGroup tracks the latest and oldest metadata snapshot for a single
-// source, together with the total number of retained backups.
-type backupGroup struct {
-	count     int64
-	latestID  string
-	latest    kopia.UTCTimestamp
-	oldestID  string
-	oldest    kopia.UTCTimestamp
-	snapshots []kopia.Manifest
 }
 
 // readBackupMetadata reads the backup metadata stored in the
