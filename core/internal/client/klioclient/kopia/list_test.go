@@ -35,12 +35,10 @@ import (
 var errUnknownSnapshot = errors.New("unknown snapshot")
 
 // fakeMetadataStore serves a fixed set of manifests, filtered by tag as
-// Kopia does, and the metadata of the metadata snapshots. It records the
-// IDs of the restored snapshots.
+// Kopia does, and the metadata of the metadata snapshots.
 type fakeMetadataStore struct {
 	entries  []kopia.Manifest
 	metadata map[string]klioclient.BackupMetadata
-	restored []string
 }
 
 func (f *fakeMetadataStore) ListSnapshots(
@@ -74,7 +72,6 @@ func (f *fakeMetadataStore) RestoreSingleFile(
 	if !ok {
 		return nil, errUnknownSnapshot
 	}
-	f.restored = append(f.restored, snapshotID)
 
 	return json.Marshal(metadata)
 }
@@ -223,20 +220,8 @@ func TestBackupPartsMissing(t *testing.T) {
 	}
 }
 
-func TestListBackupsCompleteOnly(t *testing.T) {
-	store := newFakeStore()
-
-	complete, incomplete, err := listBackups(context.Background(), store, "c1", false)
-	require.NoError(t, err)
-
-	assert.Equal(t, []string{"b1"}, backupNamesOf(complete))
-	assert.Empty(t, incomplete)
-	// b3 has no pgdata or control data, so its metadata is never read.
-	assert.ElementsMatch(t, []string{"c1/b1/metadata", "c1/b2/metadata"}, store.restored)
-}
-
 func TestListBackupsByCompleteness(t *testing.T) {
-	complete, incomplete, err := listBackups(context.Background(), newFakeStore(), "c1", true)
+	complete, incomplete, err := listBackups(context.Background(), newFakeStore(), "c1")
 	require.NoError(t, err)
 
 	assert.Equal(t, []string{"b1"}, backupNamesOf(complete))
@@ -244,7 +229,7 @@ func TestListBackupsByCompleteness(t *testing.T) {
 }
 
 func TestListBackupsOtherHost(t *testing.T) {
-	complete, incomplete, err := listBackups(context.Background(), newFakeStore(), "c2", true)
+	complete, incomplete, err := listBackups(context.Background(), newFakeStore(), "c2")
 	require.NoError(t, err)
 
 	assert.Empty(t, complete)
