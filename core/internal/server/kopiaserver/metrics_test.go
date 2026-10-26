@@ -23,6 +23,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"slices"
 	"testing"
 
 	"github.com/cloudnative-pg/machinery/pkg/log"
@@ -226,7 +227,7 @@ func TestSnapshotStatsTracksLatestAndOldestTimestamps(t *testing.T) {
 	}
 }
 
-func TestBuildBackupGroupsSelectsLatestOldestAndCount(t *testing.T) {
+func TestBuildBackupGroupsSortsBySourceAndEndTime(t *testing.T) {
 	clusterA := kopia.SourceInfo{Host: "node-a", UserName: "postgres", Path: "/data_meta"}
 	clusterB := kopia.SourceInfo{Host: "node-b", UserName: "postgres", Path: "/data_meta"}
 
@@ -243,30 +244,20 @@ func TestBuildBackupGroupsSelectsLatestOldestAndCount(t *testing.T) {
 		t.Fatalf("expected 2 groups, got %d", len(groups))
 	}
 
-	a := groups[clusterA]
-	if a == nil {
-		t.Fatal("expected a group for clusterA")
-	}
-	if a.count != 3 {
-		t.Fatalf("expected clusterA count=3, got %d", a.count)
-	}
-	if a.latestID != "a-new" {
-		t.Fatalf("expected clusterA latestID=a-new, got %s", a.latestID)
-	}
-	if a.oldestID != "a-old" {
-		t.Fatalf("expected clusterA oldestID=a-old, got %s", a.oldestID)
+	ids := func(group []kopia.Manifest) []string {
+		result := make([]string, 0, len(group))
+		for _, s := range group {
+			result = append(result, s.ID)
+		}
+
+		return result
 	}
 
-	b := groups[clusterB]
-	if b == nil {
-		t.Fatal("expected a group for clusterB")
+	if got := ids(groups[clusterA]); !slices.Equal(got, []string{"a-old", "a-mid", "a-new"}) {
+		t.Fatalf("expected clusterA sorted oldest to newest, got %v", got)
 	}
-	if b.count != 1 {
-		t.Fatalf("expected clusterB count=1, got %d", b.count)
-	}
-	// With a single backup, latest and oldest coincide.
-	if b.latestID != "b-only" || b.oldestID != "b-only" {
-		t.Fatalf("expected clusterB latest==oldest==b-only, got latest=%s oldest=%s", b.latestID, b.oldestID)
+	if got := ids(groups[clusterB]); !slices.Equal(got, []string{"b-only"}) {
+		t.Fatalf("expected clusterB to hold only b-only, got %v", got)
 	}
 }
 
