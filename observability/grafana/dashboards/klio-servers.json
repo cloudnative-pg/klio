@@ -501,14 +501,14 @@
             "type": "prometheus",
             "uid": "${datasource}"
           },
-          "expr": "sum by (cluster, tier) (label_replace(klio_server_backup_snapshots{service_name=~\"$server\",snapshot_source=~\"[^@]*@$cluster:.*\"}, \"cluster\", \"$1\", \"snapshot_source\", \"[^@]*@([^:]+):.*\"))",
+          "expr": "sum by (cluster, tier, service_name) (label_replace(klio_server_backup_snapshots{service_name=~\"$server\",snapshot_source=~\"[^@]*@$cluster:.*\"}, \"cluster\", \"$1\", \"snapshot_source\", \"[^@]*@([^:]+):.*\"))",
           "instant": false,
-          "legendFormat": "{{cluster}} {{tier}}",
+          "legendFormat": "{{cluster}} {{tier}} ({{service_name}})",
           "range": true
         }
       ],
       "title": "Retained snapshots",
-      "description": "Total kopia snapshots currently retained per cluster and tier.",
+      "description": "Total kopia snapshots currently retained per cluster and tier, with the Klio server that retains them.",
       "transparent": false,
       "datasource": {
         "type": "prometheus",
@@ -516,7 +516,7 @@
       },
       "gridPos": {
         "h": 8,
-        "w": 4,
+        "w": 8,
         "x": 0,
         "y": 25
       },
@@ -574,8 +574,8 @@
       },
       "gridPos": {
         "h": 8,
-        "w": 4,
-        "x": 4,
+        "w": 8,
+        "x": 8,
         "y": 25
       },
       "repeatDirection": "h",
@@ -631,8 +631,8 @@
       },
       "gridPos": {
         "h": 8,
-        "w": 4,
-        "x": 8,
+        "w": 8,
+        "x": 16,
         "y": 25
       },
       "repeatDirection": "h",
@@ -689,9 +689,9 @@
       },
       "gridPos": {
         "h": 8,
-        "w": 4,
-        "x": 12,
-        "y": 25
+        "w": 8,
+        "x": 0,
+        "y": 33
       },
       "repeatDirection": "h",
       "options": {
@@ -747,9 +747,9 @@
       },
       "gridPos": {
         "h": 8,
-        "w": 4,
-        "x": 16,
-        "y": 25
+        "w": 8,
+        "x": 8,
+        "y": 33
       },
       "repeatDirection": "h",
       "options": {
@@ -804,9 +804,9 @@
       },
       "gridPos": {
         "h": 8,
-        "w": 4,
-        "x": 20,
-        "y": 25
+        "w": 8,
+        "x": 16,
+        "y": 33
       },
       "repeatDirection": "h",
       "options": {
@@ -846,7 +846,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 33
+        "y": 41
       },
       "id": 0,
       "panels": []
@@ -858,7 +858,7 @@
         "h": 2,
         "w": 24,
         "x": 0,
-        "y": 34
+        "y": 42
       },
       "repeatDirection": "h",
       "options": {
@@ -911,7 +911,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 36
+        "y": 44
       },
       "repeatDirection": "h",
       "options": {
@@ -982,7 +982,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 36
+        "y": 44
       },
       "repeatDirection": "h",
       "options": {
@@ -1053,7 +1053,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 44
+        "y": 52
       },
       "repeatDirection": "h",
       "options": {
@@ -1124,7 +1124,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 44
+        "y": 52
       },
       "repeatDirection": "h",
       "options": {
