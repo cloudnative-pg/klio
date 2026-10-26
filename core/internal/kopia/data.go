@@ -61,20 +61,8 @@ type Manifest struct {
 }
 
 // Tag returns the value of the user-defined tag with the given plain name.
-// The receiver must be addressable (both accessors share a pointer receiver).
-func (m *Manifest) Tag(name string) string {
+func (m Manifest) Tag(name string) string {
 	return m.Tags[userTagPrefix+name]
-}
-
-// SetTag stores a user-defined tag under the key Kopia's CLI would have set
-// from the plain name (prefixed by userTagPrefix), symmetrical to Tag. The
-// receiver must be addressable.
-func (m *Manifest) SetTag(name, value string) {
-	if m.Tags == nil {
-		m.Tags = map[string]string{}
-	}
-
-	m.Tags[userTagPrefix+name] = value
 }
 
 // DirEntry represents a directory entry as stored in JSON stream.

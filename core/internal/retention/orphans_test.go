@@ -28,22 +28,22 @@ import (
 	"github.com/cloudnative-pg/klio/core/internal/kopia"
 )
 
-// manifest mirrors "kopia snapshot list --json" output: SetTag stores the
-// plain names under the prefixed keys Kopia's CLI uses.
+// manifest mirrors "kopia snapshot list --json" output, where Kopia's CLI
+// stores the tags passed to --tags under keys prefixed by "tag:".
 func manifest(host, name, content, startTime string) kopia.Manifest {
 	parsedStartTime, err := time.Parse(time.RFC3339Nano, startTime)
 	if err != nil {
 		panic(err)
 	}
 
-	m := kopia.Manifest{
+	return kopia.Manifest{
 		Source:    kopia.SourceInfo{Host: host},
 		StartTime: kopia.UTCTimestamp(parsedStartTime.UnixNano()),
+		Tags: map[string]string{
+			"tag:" + klioclient.BackupNameTagName:    name,
+			"tag:" + klioclient.BackupContentTagName: content,
+		},
 	}
-	m.SetTag(klioclient.BackupNameTagName, name)
-	m.SetTag(klioclient.BackupContentTagName, content)
-
-	return m
 }
 
 func TestOrphanBackupNames(t *testing.T) {
