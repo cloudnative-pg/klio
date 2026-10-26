@@ -130,19 +130,23 @@ func (s *MultiConnection) GetMetadata(
 	hostname string,
 	name string,
 ) (*klioclient.BackupMetadata, error) {
+	var tier1Err error = newNoBackupFoundError(hostname, name)
 	if s.Tier1 != nil {
 		meta, err := s.Tier1.GetMetadata(ctx, hostname, name)
 		if err == nil {
 			return markTier1(meta), nil
 		}
 
-		if err, ok := errors.AsType[NoBackupFoundError](err); !ok {
+		// IncompleteBackupError unwraps to NoBackupFoundError: an
+		// incomplete tier1 backup falls back to tier2 too.
+		if _, ok := errors.AsType[NoBackupFoundError](err); !ok {
 			return nil, fmt.Errorf("while getting metadata from tier1: %w", err)
 		}
+		tier1Err = err
 	}
 
 	if s.Tier2 == nil {
-		return nil, newNoBackupFoundError(hostname, name)
+		return nil, tier1Err
 	}
 
 	meta, err := s.Tier2.GetMetadata(ctx, hostname, name)
