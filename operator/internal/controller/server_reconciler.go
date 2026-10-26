@@ -132,14 +132,12 @@ func (r *ServerReconciler) reconcileStatefulSet(
 	}
 
 	expected := &appsv1.StatefulSet{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      klioName,
-			Namespace: server.Namespace,
-			Labels: map[string]string{
-				klioServerLabel: server.Name,
-			},
-			Annotations: map[string]string{},
+		Name:      klioName,
+		Namespace: server.Namespace,
+		Labels: map[string]string{
+			klioServerLabel: server.Name,
 		},
+		Annotations: map[string]string{},
 		Spec: appsv1.StatefulSetSpec{
 			ServiceName: server.GetServiceName(),
 			Replicas:    new(int32(1)),
@@ -225,10 +223,8 @@ func (r *ServerReconciler) reconcileStatefulSet(
 	}
 
 	statefulset := &appsv1.StatefulSet{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      klioName,
-			Namespace: server.Namespace,
-		},
+		Name:      klioName,
+		Namespace: server.Namespace,
 	}
 	op, err := ctrl.CreateOrUpdate(ctx, r.Client, statefulset, func() error {
 		if !statefulset.CreationTimestamp.IsZero() && !metav1.IsControlledBy(statefulset, server) {
@@ -295,11 +291,9 @@ func (r *ServerReconciler) reconcileStatefulSet(
 // the core creates only the subdirectories the active tiers need.
 func injectVolumeClaimTemplate(expected *appsv1.StatefulSet, server *kliov1alpha1.Server) {
 	expected.Spec.VolumeClaimTemplates = append(expected.Spec.VolumeClaimTemplates, corev1.PersistentVolumeClaim{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: pvcTypeKlio,
-			Labels: map[string]string{
-				klioServerLabel: server.Name,
-			},
+		Name: pvcTypeKlio,
+		Labels: map[string]string{
+			klioServerLabel: server.Name,
 		},
 		Spec: server.Spec.Storage.PersistentVolumeClaimTemplate,
 	})
@@ -336,10 +330,8 @@ func (r *ServerReconciler) serverPodSecurityContext() *corev1.PodSecurityContext
 
 func (r *ServerReconciler) reconcileService(ctx context.Context, server *kliov1alpha1.Server) error {
 	service := &corev1.Service{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      server.GetServiceName(),
-			Namespace: server.Namespace,
-		},
+		Name:      server.GetServiceName(),
+		Namespace: server.Namespace,
 	}
 
 	op, err := controllerutil.CreateOrUpdate(ctx, r.Client, service, func() error {
@@ -440,25 +432,19 @@ func (r *ServerReconciler) buildVolumes(server *kliov1alpha1.Server) []corev1.Vo
 	volumes := []corev1.Volume{
 		{
 			Name: "tls",
-			VolumeSource: corev1.VolumeSource{
-				Secret: &corev1.SecretVolumeSource{
-					SecretName: server.Spec.TLSSecretName,
-				},
+			Secret: &corev1.SecretVolumeSource{
+				SecretName: server.Spec.TLSSecretName,
 			},
 		},
 		{
 			Name: "client-ca",
-			VolumeSource: corev1.VolumeSource{
-				Secret: &corev1.SecretVolumeSource{
-					SecretName: server.Spec.ClientCASecretName,
-				},
+			Secret: &corev1.SecretVolumeSource{
+				SecretName: server.Spec.ClientCASecretName,
 			},
 		},
 		{
-			Name: "tmp",
-			VolumeSource: corev1.VolumeSource{
-				EmptyDir: &corev1.EmptyDirVolumeSource{},
-			},
+			Name:     "tmp",
+			EmptyDir: &corev1.EmptyDirVolumeSource{},
 		},
 	}
 
@@ -482,9 +468,7 @@ func (r *ServerReconciler) buildVolumes(server *kliov1alpha1.Server) []corev1.Vo
 		if server.Spec.Tier2.S3 != nil && server.Spec.Tier2.S3.CustomCABundle != nil {
 			sources = append(sources, corev1.VolumeProjection{
 				Secret: &corev1.SecretProjection{
-					LocalObjectReference: corev1.LocalObjectReference{
-						Name: server.Spec.Tier2.S3.CustomCABundle.Name,
-					},
+					Name: server.Spec.Tier2.S3.CustomCABundle.Name,
 					Items: []corev1.KeyToPath{
 						{
 							Path: "custom_ca_bundle.pem",
@@ -499,10 +483,8 @@ func (r *ServerReconciler) buildVolumes(server *kliov1alpha1.Server) []corev1.Vo
 			volumes,
 			corev1.Volume{
 				Name: "tier2",
-				VolumeSource: corev1.VolumeSource{
-					Projected: &corev1.ProjectedVolumeSource{
-						Sources: sources,
-					},
+				Projected: &corev1.ProjectedVolumeSource{
+					Sources: sources,
 				},
 			})
 	}

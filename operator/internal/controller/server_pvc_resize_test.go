@@ -63,12 +63,10 @@ func newPVCSpec(size string) corev1.PersistentVolumeClaimSpec {
 // "test-server" Server: "<volumeClaimTemplate>-test-server-klio-0".
 func newTestPVC(pvcType, size string) *corev1.PersistentVolumeClaim {
 	return &corev1.PersistentVolumeClaim{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      pvcType + "-test-server-klio-0",
-			Namespace: "default",
-			Labels: map[string]string{
-				klioServerLabel: "test-server",
-			},
+		Name:      pvcType + "-test-server-klio-0",
+		Namespace: "default",
+		Labels: map[string]string{
+			klioServerLabel: "test-server",
 		},
 		Spec: newPVCSpec(size),
 	}
@@ -91,7 +89,7 @@ func newTestReconciler(objs ...client.Object) (*ServerReconciler, client.Client)
 
 func newTestServerTier1(storageSize string) *kliov1alpha1.Server {
 	return &kliov1alpha1.Server{
-		ObjectMeta: metav1.ObjectMeta{Name: "test-server", Namespace: "default"},
+		Name: "test-server", Namespace: "default",
 		Spec: kliov1alpha1.ServerSpec{
 			Storage: kliov1alpha1.Storage{PersistentVolumeClaimTemplate: newPVCSpec(storageSize)},
 			Tier1:   &kliov1alpha1.Tier1Configuration{},
@@ -218,11 +216,9 @@ func TestFindServerForPVC(t *testing.T) {
 		{
 			name: "returns request for PVC with klio-server label",
 			obj: &corev1.PersistentVolumeClaim{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "data-my-server-klio-0",
-					Namespace: "test-ns",
-					Labels:    map[string]string{klioServerLabel: "my-server"},
-				},
+				Name:      "data-my-server-klio-0",
+				Namespace: "test-ns",
+				Labels:    map[string]string{klioServerLabel: "my-server"},
 			},
 			expectedLen:    1,
 			expectedServer: "my-server",
@@ -230,21 +226,17 @@ func TestFindServerForPVC(t *testing.T) {
 		{
 			name: "returns empty for PVC without klio-server label",
 			obj: &corev1.PersistentVolumeClaim{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "some-pvc",
-					Namespace: "test-ns",
-					Labels:    map[string]string{},
-				},
+				Name:      "some-pvc",
+				Namespace: "test-ns",
+				Labels:    map[string]string{},
 			},
 			expectedLen: 0,
 		},
 		{
 			name: "returns empty for non-PVC object",
 			obj: &corev1.ConfigMap{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "some-configmap",
-					Namespace: "test-ns",
-				},
+				Name:      "some-configmap",
+				Namespace: "test-ns",
 			},
 			expectedLen: 0,
 		},
@@ -335,8 +327,8 @@ func newInvalidErrorWithMessage(message string) *apierrors.StatusError {
 
 func TestExpandPVC(t *testing.T) {
 	pvc := &corev1.PersistentVolumeClaim{
-		ObjectMeta: metav1.ObjectMeta{Name: "test-pvc", Namespace: "default"},
-		Spec:       newPVCSpec("10Gi"),
+		Name: "test-pvc", Namespace: "default",
+		Spec: newPVCSpec("10Gi"),
 	}
 	reconciler, fakeClient := newTestReconciler(pvc)
 

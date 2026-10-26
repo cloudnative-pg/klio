@@ -28,7 +28,6 @@ import (
 	cnpgv1 "github.com/cloudnative-pg/api/pkg/api/v1"
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/e2e-framework/klient/k8s/resources"
 	"sigs.k8s.io/e2e-framework/klient/wait"
 	"sigs.k8s.io/e2e-framework/pkg/envconf"
@@ -82,7 +81,7 @@ func BackupFromReplicaCluster(namespace string) *ReplicaClusterBackupFeature {
 	)
 
 	namespaceObj := &corev1.Namespace{
-		ObjectMeta: metav1.ObjectMeta{Name: namespace},
+		Name: namespace,
 	}
 
 	issuer := certificates.GetSelfSignedIssuerObject("selfsigned-issuer", namespace)

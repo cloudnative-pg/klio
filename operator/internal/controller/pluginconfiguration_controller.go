@@ -82,10 +82,8 @@ func (r *PluginConfigurationReconciler) Reconcile(
 
 	// Create or update the secret named after the PC
 	secret := corev1.Secret{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      pc.Name,
-			Namespace: pc.Namespace,
-		},
+		Name:      pc.Name,
+		Namespace: pc.Namespace,
 	}
 
 	operationResult, err := controllerutil.CreateOrUpdate(ctx, r.Client, &secret, func() error {

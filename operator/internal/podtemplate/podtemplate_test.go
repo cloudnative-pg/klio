@@ -25,7 +25,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 func TestMergeDoNotDeleteContainers(t *testing.T) {
@@ -63,10 +62,8 @@ func TestOverrideImageMergeVolume(t *testing.T) {
 			},
 			Volumes: []corev1.Volume{
 				{
-					VolumeSource: corev1.VolumeSource{
-						EmptyDir: &corev1.EmptyDirVolumeSource{},
-					},
-					Name: "empty",
+					EmptyDir: &corev1.EmptyDirVolumeSource{},
+					Name:     "empty",
 				},
 			},
 		},
@@ -82,10 +79,8 @@ func TestOverrideImageMergeVolume(t *testing.T) {
 			},
 			Volumes: []corev1.Volume{
 				{
-					VolumeSource: corev1.VolumeSource{
-						EmptyDir: &corev1.EmptyDirVolumeSource{},
-					},
-					Name: "tempdir",
+					EmptyDir: &corev1.EmptyDirVolumeSource{},
+					Name:     "tempdir",
 				},
 			},
 		},
@@ -175,10 +170,8 @@ func TestMergeEnv(t *testing.T) {
 
 func TestMergeLabels(t *testing.T) {
 	base := corev1.PodTemplateSpec{
-		ObjectMeta: metav1.ObjectMeta{
-			Labels: map[string]string{
-				"base-label": "base-value",
-			},
+		Labels: map[string]string{
+			"base-label": "base-value",
 		},
 		Spec: corev1.PodSpec{
 			Containers: []corev1.Container{{Name: "test", Image: "test"}},
@@ -186,10 +179,8 @@ func TestMergeLabels(t *testing.T) {
 	}
 
 	overlay := corev1.PodTemplateSpec{
-		ObjectMeta: metav1.ObjectMeta{
-			Labels: map[string]string{
-				"overlay-label": "overlay-value",
-			},
+		Labels: map[string]string{
+			"overlay-label": "overlay-value",
 		},
 	}
 
@@ -203,10 +194,8 @@ func TestMergeLabels(t *testing.T) {
 
 func TestMergeAnnotations(t *testing.T) {
 	base := corev1.PodTemplateSpec{
-		ObjectMeta: metav1.ObjectMeta{
-			Annotations: map[string]string{
-				"base-annotation": "base-value",
-			},
+		Annotations: map[string]string{
+			"base-annotation": "base-value",
 		},
 		Spec: corev1.PodSpec{
 			Containers: []corev1.Container{{Name: "test", Image: "test"}},
@@ -214,10 +203,8 @@ func TestMergeAnnotations(t *testing.T) {
 	}
 
 	overlay := corev1.PodTemplateSpec{
-		ObjectMeta: metav1.ObjectMeta{
-			Annotations: map[string]string{
-				"overlay-annotation": "overlay-value",
-			},
+		Annotations: map[string]string{
+			"overlay-annotation": "overlay-value",
 		},
 	}
 

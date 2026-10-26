@@ -449,9 +449,7 @@ func reconcilePodSpec( // NOSONAR
 		pc := cfg.plugins[configKey]
 		sources = append(sources, corev1.VolumeProjection{
 			Secret: &corev1.SecretProjection{
-				LocalObjectReference: corev1.LocalObjectReference{
-					Name: pc.Name,
-				},
+				Name: pc.Name,
 				Items: []corev1.KeyToPath{
 					{Key: klioconfig.ConfigDataKey, Path: configKey},
 				},
@@ -460,10 +458,8 @@ func reconcilePodSpec( // NOSONAR
 	}
 	spec.Volumes = ensureVolume(spec.Volumes, corev1.Volume{
 		Name: "klio-config",
-		VolumeSource: corev1.VolumeSource{
-			Projected: &corev1.ProjectedVolumeSource{
-				Sources: sources,
-			},
+		Projected: &corev1.ProjectedVolumeSource{
+			Sources: sources,
 		},
 	})
 	volumeMounts = ensureVolumeMount(volumeMounts, corev1.VolumeMount{
@@ -692,10 +688,8 @@ func getTLSVolumesAndMounts(
 		if serverSecretName != "" {
 			volume := corev1.Volume{
 				Name: getServerSecretVolumeName(pcName),
-				VolumeSource: corev1.VolumeSource{
-					Secret: &corev1.SecretVolumeSource{
-						SecretName: serverSecretName,
-					},
+				Secret: &corev1.SecretVolumeSource{
+					SecretName: serverSecretName,
 				},
 			}
 
@@ -714,10 +708,8 @@ func getTLSVolumesAndMounts(
 		if clientSecretName != "" {
 			volume := corev1.Volume{
 				Name: getClientSecretVolumeName(pcName),
-				VolumeSource: corev1.VolumeSource{
-					Secret: &corev1.SecretVolumeSource{
-						SecretName: clientSecretName,
-					},
+				Secret: &corev1.SecretVolumeSource{
+					SecretName: clientSecretName,
 				},
 			}
 
@@ -765,10 +757,8 @@ func InjectPluginVolumePodSpec(spec *corev1.PodSpec, mainContainerName string) {
 	}
 
 	spec.Volumes = ensureVolume(spec.Volumes, corev1.Volume{
-		Name: pluginVolumeName,
-		VolumeSource: corev1.VolumeSource{
-			EmptyDir: &corev1.EmptyDirVolumeSource{},
-		},
+		Name:     pluginVolumeName,
+		EmptyDir: &corev1.EmptyDirVolumeSource{},
 	})
 
 	for i := range spec.Containers {

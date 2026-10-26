@@ -112,7 +112,7 @@ func newOTELMetricsScenario(namespace string) *otelMetricsScenario {
 	)
 
 	ns := &corev1.Namespace{
-		ObjectMeta: metav1.ObjectMeta{Name: namespace},
+		Name: namespace,
 	}
 
 	// Common issuer
@@ -161,14 +161,12 @@ func newOTELMetricsScenario(namespace string) *otelMetricsScenario {
 		klioServerName,
 		namespace,
 		klio.ServerWithTier2TemplateOptions{
-			ServerTemplateOptions: klio.ServerTemplateOptions{
-				Image:              testCfg.ServerImage,
-				StorageClass:       testCfg.StorageClass,
-				TLSSecretName:      serverCertificate.Spec.SecretName,
-				ClientCASecretName: caCertificate.Spec.SecretName,
-				Encryption:         encOpts,
-			},
-			Tier2Encryption: encOpts,
+			Image:              testCfg.ServerImage,
+			StorageClass:       testCfg.StorageClass,
+			TLSSecretName:      serverCertificate.Spec.SecretName,
+			ClientCASecretName: caCertificate.Spec.SecretName,
+			Encryption:         encOpts,
+			Tier2Encryption:    encOpts,
 			S3: klio.Tier2S3Options{
 				S3BucketName:          rustfs.RustFSBucketName,
 				S3Prefix:              s3Prefix,
@@ -189,7 +187,7 @@ func newOTELMetricsScenario(namespace string) *otelMetricsScenario {
 					Name: "server",
 					EnvFrom: []corev1.EnvFromSource{
 						{ConfigMapRef: &corev1.ConfigMapEnvSource{
-							LocalObjectReference: corev1.LocalObjectReference{Name: klioServerOTELConfig.Name},
+							Name: klioServerOTELConfig.Name,
 						}},
 					},
 					VolumeMounts: []corev1.VolumeMount{
@@ -200,28 +198,22 @@ func newOTELMetricsScenario(namespace string) *otelMetricsScenario {
 			Volumes: []corev1.Volume{
 				{
 					Name: "otel-certs",
-					VolumeSource: corev1.VolumeSource{
-						Projected: &corev1.ProjectedVolumeSource{
-							Sources: []corev1.VolumeProjection{
-								{
-									Secret: &corev1.SecretProjection{
-										LocalObjectReference: corev1.LocalObjectReference{
-											Name: otelCollectorCert.Spec.SecretName,
-										},
-										Items: []corev1.KeyToPath{
-											{Key: "ca.crt", Path: "ca.crt"},
-										},
+					Projected: &corev1.ProjectedVolumeSource{
+						Sources: []corev1.VolumeProjection{
+							{
+								Secret: &corev1.SecretProjection{
+									Name: otelCollectorCert.Spec.SecretName,
+									Items: []corev1.KeyToPath{
+										{Key: "ca.crt", Path: "ca.crt"},
 									},
 								},
-								{
-									Secret: &corev1.SecretProjection{
-										LocalObjectReference: corev1.LocalObjectReference{
-											Name: otelServerClientCert.Spec.SecretName,
-										},
-										Items: []corev1.KeyToPath{
-											{Key: "tls.crt", Path: "tls.crt"},
-											{Key: "tls.key", Path: "tls.key"},
-										},
+							},
+							{
+								Secret: &corev1.SecretProjection{
+									Name: otelServerClientCert.Spec.SecretName,
+									Items: []corev1.KeyToPath{
+										{Key: "tls.crt", Path: "tls.crt"},
+										{Key: "tls.key", Path: "tls.key"},
 									},
 								},
 							},
@@ -255,9 +247,7 @@ func newOTELMetricsScenario(namespace string) *otelMetricsScenario {
 		Sources: []corev1.VolumeProjection{
 			{
 				Secret: &corev1.SecretProjection{
-					LocalObjectReference: corev1.LocalObjectReference{
-						Name: otelCollectorCert.Spec.SecretName,
-					},
+					Name: otelCollectorCert.Spec.SecretName,
 					Items: []corev1.KeyToPath{
 						{Key: "ca.crt", Path: "otel-ca.crt"},
 					},
@@ -265,9 +255,7 @@ func newOTELMetricsScenario(namespace string) *otelMetricsScenario {
 			},
 			{
 				Secret: &corev1.SecretProjection{
-					LocalObjectReference: corev1.LocalObjectReference{
-						Name: otelClusterClientCert.Spec.SecretName,
-					},
+					Name: otelClusterClientCert.Spec.SecretName,
 					Items: []corev1.KeyToPath{
 						{Key: "tls.crt", Path: "otel-tls.crt"},
 						{Key: "tls.key", Path: "otel-tls.key"},

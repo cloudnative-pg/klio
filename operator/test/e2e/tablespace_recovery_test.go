@@ -22,7 +22,6 @@ package e2e
 import (
 	cnpgv1 "github.com/cloudnative-pg/api/pkg/api/v1"
 	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/cloudnative-pg/klio/operator/internal/klioconfig"
 	machineryFeatures "github.com/cloudnative-pg/klio/operator/test/machinery/pkg/features"
@@ -41,7 +40,7 @@ func NewTablespaceRecoveryFeatureConfig(
 		cnpgRestoredClusterName = "test-cluster-restore"
 	)
 	namespaceObj := &corev1.Namespace{
-		ObjectMeta: metav1.ObjectMeta{Name: namespace},
+		Name: namespace,
 	}
 
 	tablespaceConfig := []cnpgv1.TablespaceConfiguration{

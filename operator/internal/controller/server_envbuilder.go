@@ -284,10 +284,8 @@ func secretKeySelectorToEnvVarSource(src *machineryapi.SecretKeySelector) *corev
 
 	return &corev1.EnvVarSource{
 		SecretKeyRef: &corev1.SecretKeySelector{
-			LocalObjectReference: corev1.LocalObjectReference{
-				Name: src.Name,
-			},
-			Key: src.Key,
+			Name: src.Name,
+			Key:  src.Key,
 		},
 	}
 }

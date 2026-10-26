@@ -24,16 +24,13 @@ import (
 
 	certmanagerv1 "github.com/cert-manager/cert-manager/pkg/apis/certmanager/v1"
 	cmmeta "github.com/cert-manager/cert-manager/pkg/apis/meta/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 // GetSelfSignedIssuerObject returns a self-signed issuer object.
 func GetSelfSignedIssuerObject(name, namespace string) *certmanagerv1.Issuer {
 	return &certmanagerv1.Issuer{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      name,
-			Namespace: namespace,
-		},
+		Name:      name,
+		Namespace: namespace,
 		Spec: certmanagerv1.IssuerSpec{
 			IssuerConfig: certmanagerv1.IssuerConfig{
 				SelfSigned: &certmanagerv1.SelfSignedIssuer{},
@@ -48,10 +45,8 @@ func GetCACertificateObject(
 	issuer *certmanagerv1.Issuer,
 ) *certmanagerv1.Certificate {
 	return &certmanagerv1.Certificate{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      name,
-			Namespace: namespace,
-		},
+		Name:      name,
+		Namespace: namespace,
 		Spec: certmanagerv1.CertificateSpec{
 			CommonName: name,
 			SecretName: name,
@@ -76,10 +71,8 @@ func GetUserCertificateObject(
 	issuer *certmanagerv1.Issuer,
 ) *certmanagerv1.Certificate {
 	return &certmanagerv1.Certificate{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      name,
-			Namespace: namespace,
-		},
+		Name:      name,
+		Namespace: namespace,
 		Spec: certmanagerv1.CertificateSpec{
 			CommonName: username,
 			SecretName: name + "-auth",
@@ -100,10 +93,8 @@ func GetUserCertificateObject(
 // using the passed secret name.
 func GetCAIssuerObject(name, namespace, secretName string) *certmanagerv1.Issuer {
 	return &certmanagerv1.Issuer{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      name,
-			Namespace: namespace,
-		},
+		Name:      name,
+		Namespace: namespace,
 		Spec: certmanagerv1.IssuerSpec{
 			IssuerConfig: certmanagerv1.IssuerConfig{
 				CA: &certmanagerv1.CAIssuer{
@@ -126,10 +117,8 @@ func GetCertificateObject(
 	}
 
 	return &certmanagerv1.Certificate{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      name,
-			Namespace: namespace,
-		},
+		Name:      name,
+		Namespace: namespace,
 		Spec: certmanagerv1.CertificateSpec{
 			CommonName: name,
 			DNSNames:   requestedDNS,

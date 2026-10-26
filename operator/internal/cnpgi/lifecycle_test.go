@@ -69,10 +69,8 @@ func TestCnpgGroupVersion(t *testing.T) {
 		{
 			name: "both set in TypeMeta",
 			cluster: &cnpgv1.Cluster{
-				TypeMeta: metav1.TypeMeta{
-					APIVersion: "custom.example.io/v2",
-					Kind:       "Cluster",
-				},
+				APIVersion: "custom.example.io/v2",
+				Kind:       "Cluster",
 			},
 			expectedGroup:   "custom.example.io",
 			expectedVersion: "v2",
@@ -86,10 +84,8 @@ func TestCnpgGroupVersion(t *testing.T) {
 		{
 			name: "only group empty falls back to default group",
 			cluster: &cnpgv1.Cluster{
-				TypeMeta: metav1.TypeMeta{
-					APIVersion: "v3",
-					Kind:       "Cluster",
-				},
+				APIVersion: "v3",
+				Kind:       "Cluster",
 			},
 			expectedGroup:   defaultGroup,
 			expectedVersion: "v3",
@@ -97,10 +93,8 @@ func TestCnpgGroupVersion(t *testing.T) {
 		{
 			name: "only version empty falls back to default version",
 			cluster: &cnpgv1.Cluster{
-				TypeMeta: metav1.TypeMeta{
-					APIVersion: "custom.example.io/",
-					Kind:       "Cluster",
-				},
+				APIVersion: "custom.example.io/",
+				Kind:       "Cluster",
 			},
 			expectedGroup:   "custom.example.io",
 			expectedVersion: defaultVersion,
@@ -108,10 +102,8 @@ func TestCnpgGroupVersion(t *testing.T) {
 		{
 			name: "standard CNPG APIVersion",
 			cluster: &cnpgv1.Cluster{
-				TypeMeta: metav1.TypeMeta{
-					APIVersion: cnpgv1.SchemeGroupVersion.String(),
-					Kind:       "Cluster",
-				},
+				APIVersion: cnpgv1.SchemeGroupVersion.String(),
+				Kind:       "Cluster",
 			},
 			expectedGroup:   defaultGroup,
 			expectedVersion: defaultVersion,
@@ -694,14 +686,10 @@ func buildLifecycleRequest(
 func clusterWithKlioPlugin() *cnpgv1.Cluster {
 	const testPluginConfigName = "missing-plugin-config"
 	return &cnpgv1.Cluster{
-		TypeMeta: metav1.TypeMeta{
-			APIVersion: cnpgv1.SchemeGroupVersion.String(),
-			Kind:       "Cluster",
-		},
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      testClusterName,
-			Namespace: testClusterNamespace,
-		},
+		APIVersion: cnpgv1.SchemeGroupVersion.String(),
+		Kind:       "Cluster",
+		Name:       testClusterName,
+		Namespace:  testClusterNamespace,
 		Spec: cnpgv1.ClusterSpec{
 			Plugins: []cnpgv1.PluginConfiguration{
 				{
@@ -728,14 +716,10 @@ func TestReconcilePodPluginSelection(t *testing.T) {
 
 	makeReplicaCluster := func(withArchive bool) *cnpgv1.Cluster {
 		cluster := &cnpgv1.Cluster{
-			TypeMeta: metav1.TypeMeta{
-				APIVersion: cnpgv1.SchemeGroupVersion.String(),
-				Kind:       "Cluster",
-			},
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      replicaCluster,
-				Namespace: testClusterNamespace,
-			},
+			APIVersion: cnpgv1.SchemeGroupVersion.String(),
+			Kind:       "Cluster",
+			Name:       replicaCluster,
+			Namespace:  testClusterNamespace,
 			Spec: cnpgv1.ClusterSpec{
 				ReplicaCluster: &cnpgv1.ReplicaClusterConfiguration{
 					Enabled: new(true),
@@ -775,10 +759,8 @@ func TestReconcilePodPluginSelection(t *testing.T) {
 	}
 
 	sourcePC := &kliov1alpha1.PluginConfiguration{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      sourcePCName,
-			Namespace: testClusterNamespace,
-		},
+		Name:      sourcePCName,
+		Namespace: testClusterNamespace,
 		Spec: kliov1alpha1.PluginConfigurationSpec{
 			ClusterName:      sourceCluster,
 			ServerAddress:    "klio-server.example.com",
@@ -795,11 +777,9 @@ func TestReconcilePodPluginSelection(t *testing.T) {
 
 	makePod := func(name string) *corev1.Pod {
 		return &corev1.Pod{
-			TypeMeta: metav1.TypeMeta{Kind: "Pod", APIVersion: "v1"},
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      name,
-				Namespace: testClusterNamespace,
-			},
+			Kind: "Pod", APIVersion: "v1",
+			Name:      name,
+			Namespace: testClusterNamespace,
 			Spec: corev1.PodSpec{
 				Containers: []corev1.Container{
 					{Name: "postgres"},
@@ -810,15 +790,11 @@ func TestReconcilePodPluginSelection(t *testing.T) {
 
 	t.Run("no archive plugin and not a replica cluster returns nil", func(t *testing.T) {
 		cluster := &cnpgv1.Cluster{
-			TypeMeta: metav1.TypeMeta{
-				APIVersion: cnpgv1.SchemeGroupVersion.String(),
-				Kind:       "Cluster",
-			},
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      testClusterName,
-				Namespace: testClusterNamespace,
-			},
-			Spec: cnpgv1.ClusterSpec{},
+			APIVersion: cnpgv1.SchemeGroupVersion.String(),
+			Kind:       "Cluster",
+			Name:       testClusterName,
+			Namespace:  testClusterNamespace,
+			Spec:       cnpgv1.ClusterSpec{},
 		}
 		fakeClient := fake.NewClientBuilder().WithScheme(scheme).Build()
 		impl := LifecycleImplementation{Client: fakeClient}
@@ -889,10 +865,8 @@ func TestReconcilePodPluginSelection(t *testing.T) {
 		cluster := makeReplicaCluster(true)
 		pod := makePod(targetPodName)
 		archivePC := &kliov1alpha1.PluginConfiguration{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "archive-pc",
-				Namespace: testClusterNamespace,
-			},
+			Name:      "archive-pc",
+			Namespace: testClusterNamespace,
 			Spec: kliov1alpha1.PluginConfigurationSpec{
 				ClusterName:      replicaCluster,
 				ServerAddress:    "klio-server.example.com",
@@ -939,11 +913,9 @@ func TestReconcilePodRequeue(t *testing.T) {
 
 		impl := LifecycleImplementation{Client: fakeClient}
 		pod := &corev1.Pod{
-			TypeMeta: metav1.TypeMeta{Kind: "Pod", APIVersion: "v1"},
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "my-cluster-1",
-				Namespace: testClusterNamespace,
-			},
+			Kind: "Pod", APIVersion: "v1",
+			Name:      "my-cluster-1",
+			Namespace: testClusterNamespace,
 		}
 		req := buildLifecycleRequest(t, cluster, pod)
 
@@ -976,11 +948,9 @@ func TestReconcilePodRequeue(t *testing.T) {
 
 		impl := LifecycleImplementation{Client: fakeClient}
 		pod := &corev1.Pod{
-			TypeMeta: metav1.TypeMeta{Kind: "Pod", APIVersion: "v1"},
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "my-cluster-1",
-				Namespace: testClusterNamespace,
-			},
+			Kind: "Pod", APIVersion: "v1",
+			Name:      "my-cluster-1",
+			Namespace: testClusterNamespace,
 		}
 		req := buildLifecycleRequest(t, cluster, pod)
 
@@ -993,25 +963,19 @@ func TestReconcilePodRequeue(t *testing.T) {
 
 	t.Run("cluster without Klio plugin returns nil (no requeue)", func(t *testing.T) {
 		cluster := &cnpgv1.Cluster{
-			TypeMeta: metav1.TypeMeta{
-				APIVersion: cnpgv1.SchemeGroupVersion.String(),
-				Kind:       "Cluster",
-			},
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "no-plugin-cluster",
-				Namespace: testClusterNamespace,
-			},
-			Spec: cnpgv1.ClusterSpec{},
+			APIVersion: cnpgv1.SchemeGroupVersion.String(),
+			Kind:       "Cluster",
+			Name:       "no-plugin-cluster",
+			Namespace:  testClusterNamespace,
+			Spec:       cnpgv1.ClusterSpec{},
 		}
 		fakeClient := fake.NewClientBuilder().WithScheme(scheme).Build()
 
 		impl := LifecycleImplementation{Client: fakeClient}
 		pod := &corev1.Pod{
-			TypeMeta: metav1.TypeMeta{Kind: "Pod", APIVersion: "v1"},
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "no-plugin-cluster-1",
-				Namespace: testClusterNamespace,
-			},
+			Kind: "Pod", APIVersion: "v1",
+			Name:      "no-plugin-cluster-1",
+			Namespace: testClusterNamespace,
 		}
 		req := buildLifecycleRequest(t, cluster, pod)
 
@@ -1033,8 +997,8 @@ func TestReconcileJobRequeue(t *testing.T) {
 
 		impl := LifecycleImplementation{Client: fakeClient}
 		req := buildLifecycleRequest(t, cluster, &corev1.Pod{
-			TypeMeta:   metav1.TypeMeta{Kind: "Pod", APIVersion: "v1"},
-			ObjectMeta: metav1.ObjectMeta{Name: "dummy", Namespace: testClusterNamespace},
+			Kind: "Pod", APIVersion: "v1",
+			Name: "dummy", Namespace: testClusterNamespace,
 		})
 
 		resp, err := impl.reconcileJob(context.Background(), cluster, req)
@@ -1066,8 +1030,8 @@ func TestReconcileJobRequeue(t *testing.T) {
 
 		impl := LifecycleImplementation{Client: fakeClient}
 		req := buildLifecycleRequest(t, cluster, &corev1.Pod{
-			TypeMeta:   metav1.TypeMeta{Kind: "Pod", APIVersion: "v1"},
-			ObjectMeta: metav1.ObjectMeta{Name: "dummy", Namespace: testClusterNamespace},
+			Kind: "Pod", APIVersion: "v1",
+			Name: "dummy", Namespace: testClusterNamespace,
 		})
 
 		resp, err := impl.reconcileJob(context.Background(), cluster, req)
@@ -1147,14 +1111,10 @@ func TestBootstrapSidecar(t *testing.T) {
 	)
 	makeCluster := func(withArchive bool) *cnpgv1.Cluster {
 		cluster := &cnpgv1.Cluster{
-			TypeMeta: metav1.TypeMeta{
-				APIVersion: cnpgv1.SchemeGroupVersion.String(),
-				Kind:       "Cluster",
-			},
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      testClusterName,
-				Namespace: testClusterNamespace,
-			},
+			APIVersion: cnpgv1.SchemeGroupVersion.String(),
+			Kind:       "Cluster",
+			Name:       testClusterName,
+			Namespace:  testClusterNamespace,
 			Spec: cnpgv1.ClusterSpec{
 				Bootstrap: &cnpgv1.BootstrapConfiguration{
 					Recovery: &cnpgv1.BootstrapRecovery{Source: sourceName},
@@ -1189,7 +1149,7 @@ func TestBootstrapSidecar(t *testing.T) {
 	}
 	makePC := func(name, image string) *kliov1alpha1.PluginConfiguration {
 		return &kliov1alpha1.PluginConfiguration{
-			ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: testClusterNamespace},
+			Name: name, Namespace: testClusterNamespace,
 			Spec: kliov1alpha1.PluginConfigurationSpec{
 				ClusterName:      testClusterName,
 				ServerAddress:    "klio-server.example.com",
@@ -1203,11 +1163,9 @@ func TestBootstrapSidecar(t *testing.T) {
 	}
 	makePod := func() *corev1.Pod {
 		return &corev1.Pod{
-			TypeMeta: metav1.TypeMeta{Kind: "Pod", APIVersion: "v1"},
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      testPodName,
-				Namespace: testClusterNamespace,
-			},
+			Kind: "Pod", APIVersion: "v1",
+			Name:      testPodName,
+			Namespace: testClusterNamespace,
 			Spec: corev1.PodSpec{
 				Containers: []corev1.Container{{Name: "postgres"}},
 			},
@@ -1215,11 +1173,9 @@ func TestBootstrapSidecar(t *testing.T) {
 	}
 	makeJob := func() *batchv1.Job {
 		return &batchv1.Job{
-			TypeMeta: metav1.TypeMeta{Kind: "Job", APIVersion: "batch/v1"},
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      testClusterName + "-1-full-recovery",
-				Namespace: testClusterNamespace,
-			},
+			Kind: "Job", APIVersion: "batch/v1",
+			Name:      testClusterName + "-1-full-recovery",
+			Namespace: testClusterNamespace,
 			Spec: batchv1.JobSpec{
 				Template: corev1.PodTemplateSpec{
 					ObjectMeta: metav1.ObjectMeta{

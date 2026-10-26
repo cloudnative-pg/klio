@@ -151,10 +151,8 @@ func (r *ServerReconciler) findServerForPVC(_ context.Context, obj client.Object
 
 	return []ctrl.Request{
 		{
-			NamespacedName: client.ObjectKey{
-				Namespace: pvc.Namespace,
-				Name:      serverName,
-			},
+			Namespace: pvc.Namespace,
+			Name:      serverName,
 		},
 	}
 }

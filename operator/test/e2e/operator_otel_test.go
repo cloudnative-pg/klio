@@ -98,7 +98,7 @@ func (f *operatorOTELFeature) Setup() types.StepFunc {
 		require.NoError(t, err)
 
 		// Create the test namespace.
-		ns := &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: f.namespace}}
+		ns := &corev1.Namespace{Name: f.namespace}
 		_, err = clientset.CoreV1().Namespaces().Create(ctx, ns, metav1.CreateOptions{})
 		require.NoError(t, err, "failed to create test namespace")
 
@@ -451,11 +451,9 @@ service:
 `
 
 	cm := &corev1.ConfigMap{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      operatorOTELCollector + "-config",
-			Namespace: namespace,
-		},
-		Data: map[string]string{"config.yaml": config},
+		Name:      operatorOTELCollector + "-config",
+		Namespace: namespace,
+		Data:      map[string]string{"config.yaml": config},
 	}
 	if _, err := clientset.CoreV1().ConfigMaps(namespace).Create(ctx, cm, metav1.CreateOptions{}); err != nil {
 		return fmt.Errorf("failed to create collector configmap: %w", err)
@@ -463,10 +461,8 @@ service:
 
 	replicas := int32(1)
 	dep := &appsv1.Deployment{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      operatorOTELCollector,
-			Namespace: namespace,
-		},
+		Name:      operatorOTELCollector,
+		Namespace: namespace,
 		Spec: appsv1.DeploymentSpec{
 			Replicas: &replicas,
 			Selector: &metav1.LabelSelector{MatchLabels: labels},
@@ -488,12 +484,8 @@ service:
 					}},
 					Volumes: []corev1.Volume{{
 						Name: "config",
-						VolumeSource: corev1.VolumeSource{
-							ConfigMap: &corev1.ConfigMapVolumeSource{
-								LocalObjectReference: corev1.LocalObjectReference{
-									Name: operatorOTELCollector + "-config",
-								},
-							},
+						ConfigMap: &corev1.ConfigMapVolumeSource{
+							Name: operatorOTELCollector + "-config",
 						},
 					}},
 				},
@@ -505,10 +497,8 @@ service:
 	}
 
 	svc := &corev1.Service{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      operatorOTELCollector,
-			Namespace: namespace,
-		},
+		Name:      operatorOTELCollector,
+		Namespace: namespace,
 		Spec: corev1.ServiceSpec{
 			Selector: labels,
 			Ports: []corev1.ServicePort{

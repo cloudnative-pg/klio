@@ -422,7 +422,7 @@ func TestBuildIdentityVolMountConfigMap(t *testing.T) {
 		FileReference: &kliov1alpha1.FileReference{
 			Volume: corev1.VolumeSource{
 				ConfigMap: &corev1.ConfigMapVolumeSource{
-					LocalObjectReference: corev1.LocalObjectReference{Name: "cm"},
+					Name: "cm",
 				},
 			},
 			Path: "identity.txt",
