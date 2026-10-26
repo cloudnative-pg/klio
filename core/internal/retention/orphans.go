@@ -74,7 +74,7 @@ func (s *Sweeper) sweepOrphans(ctx context.Context, tc tierConfig, hostnames []s
 // snapshot was seen and the earliest StartTime among its snapshots.
 type backupGroup struct {
 	hasMetadata bool
-	startTime   string
+	startTime   kopia.UTCTimestamp
 }
 
 // orphanBackupNames groups entries by (host, backup-name tag), restricted
@@ -148,7 +148,7 @@ func groupBackupsByHostName(entries []kopia.Manifest, allowedHosts []string) map
 			g.hasMetadata = true
 		}
 
-		if g.startTime == "" || entry.StartTime < g.startTime {
+		if g.startTime == 0 || entry.StartTime < g.startTime {
 			g.startTime = entry.StartTime
 		}
 	}
@@ -158,8 +158,8 @@ func groupBackupsByHostName(entries []kopia.Manifest, allowedHosts []string) map
 
 // latestCompletedStartTimePerHost returns, per host, the StartTime of its
 // latest completed (has-metadata) backup group.
-func latestCompletedStartTimePerHost(groups map[hostBackupName]*backupGroup) map[string]string {
-	latestCompleted := make(map[string]string)
+func latestCompletedStartTimePerHost(groups map[hostBackupName]*backupGroup) map[string]kopia.UTCTimestamp {
+	latestCompleted := make(map[string]kopia.UTCTimestamp)
 
 	for key, g := range groups {
 		if !g.hasMetadata {
