@@ -132,7 +132,7 @@ func groupBackupsByHostName(entries []kopia.Manifest, allowedHosts []string) map
 			continue
 		}
 
-		name := entry.Tags[klioclient.BackupNameTagName]
+		name := entry.Tag(klioclient.BackupNameTagName)
 		if name == "" {
 			continue
 		}
@@ -144,7 +144,7 @@ func groupBackupsByHostName(entries []kopia.Manifest, allowedHosts []string) map
 			groups[key] = g
 		}
 
-		if entry.Tags[klioclient.BackupContentTagName] == "metadata" {
+		if entry.Tag(klioclient.BackupContentTagName) == "metadata" {
 			g.hasMetadata = true
 		}
 

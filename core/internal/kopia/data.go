@@ -21,6 +21,10 @@ package kopia
 
 import "fmt"
 
+// userTagPrefix is the prefix Kopia's CLI adds to every user-defined tag key
+// before storing it in a snapshot manifest.
+const userTagPrefix = "tag:"
+
 // Manifest represents information about a single point-in-time filesystem snapshot.
 type Manifest struct {
 	// ID is the unique identifier of the snapshot.
@@ -47,11 +51,30 @@ type Manifest struct {
 	// RetentionReasons lists the reasons why this snapshot is being retained.
 	RetentionReasons []string `json:"-"`
 
-	// Tags contains user-defined key-value pairs associated with the snapshot.
+	// Tags contains user-defined key-value pairs associated with the snapshot,
+	// with keys as Kopia stores them (prefixed by userTagPrefix). Use Tag to
+	// look one up by the plain name passed to --tags.
 	Tags map[string]string `json:"tags,omitempty"`
 
 	// Pins is a list of manually-defined pins which prevent the snapshot from being deleted.
 	Pins []string `json:"pins,omitempty"`
+}
+
+// Tag returns the value of the user-defined tag with the given plain name.
+// The receiver must be addressable (both accessors share a pointer receiver).
+func (m *Manifest) Tag(name string) string {
+	return m.Tags[userTagPrefix+name]
+}
+
+// SetTag stores a user-defined tag under the key Kopia's CLI would have set
+// from the plain name (prefixed by userTagPrefix), symmetrical to Tag. The
+// receiver must be addressable.
+func (m *Manifest) SetTag(name, value string) {
+	if m.Tags == nil {
+		m.Tags = map[string]string{}
+	}
+
+	m.Tags[userTagPrefix+name] = value
 }
 
 // DirEntry represents a directory entry as stored in JSON stream.

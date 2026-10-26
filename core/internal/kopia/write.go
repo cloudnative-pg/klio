@@ -105,7 +105,7 @@ func (s *Client) MigrateSnapshots(
 	}
 
 	for _, tagName := range opts.Tags {
-		args = append(args, "--tags=tag:"+tagName)
+		args = append(args, "--tags="+userTagPrefix+tagName)
 	}
 
 	kopiaMigrate := exec.CommandContext(ctx, s.KopiaBinary, args...) //nolint:gosec
