@@ -22,18 +22,26 @@ package retention
 import (
 	"slices"
 	"testing"
+	"time"
 
 	"github.com/cloudnative-pg/klio/core/internal/client/klioclient"
 	"github.com/cloudnative-pg/klio/core/internal/kopia"
 )
 
+// manifest mirrors "kopia snapshot list --json" output, where Kopia's CLI
+// stores the tags passed to --tags under keys prefixed by "tag:".
 func manifest(host, name, content, startTime string) kopia.Manifest {
+	parsedStartTime, err := time.Parse(time.RFC3339Nano, startTime)
+	if err != nil {
+		panic(err)
+	}
+
 	return kopia.Manifest{
 		Source:    kopia.SourceInfo{Host: host},
-		StartTime: startTime,
+		StartTime: kopia.UTCTimestamp(parsedStartTime.UnixNano()),
 		Tags: map[string]string{
-			klioclient.BackupNameTagName:    name,
-			klioclient.BackupContentTagName: content,
+			"tag:" + klioclient.BackupNameTagName:    name,
+			"tag:" + klioclient.BackupContentTagName: content,
 		},
 	}
 }
@@ -82,6 +90,18 @@ func TestOrphanBackupNames(t *testing.T) {
 				manifest("cluster-a", "backup-1", "pgdata", "2026-01-01T00:00:00Z"),
 				manifest("cluster-a", "backup-1", "metadata", "2026-01-01T00:05:00Z"),
 				manifest("cluster-a", "backup-2", "pgdata", "2026-01-02T00:00:00Z"),
+			},
+			allowedHosts: []string{"cluster-a"},
+			wantOrphans:  nil,
+		},
+		{
+			// Kopia drops trailing zeros from the fractional seconds, so
+			// "05.1Z" sorts after "05.15Z" as a string while being earlier.
+			name: "start times are compared as times, not as strings",
+			entries: []kopia.Manifest{
+				manifest("cluster-a", "backup-1", "pgdata", "2026-01-01T00:00:05.1Z"),
+				manifest("cluster-a", "backup-1", "metadata", "2026-01-01T00:00:05.1Z"),
+				manifest("cluster-a", "backup-2", "pgdata", "2026-01-01T00:00:05.15Z"),
 			},
 			allowedHosts: []string{"cluster-a"},
 			wantOrphans:  nil,

@@ -47,9 +47,8 @@ var getCmd = &cobra.Command{
 			return fmt.Errorf("could not unmarshal configuration: %w", err)
 		}
 
-		if configuration.Source == (config.SourceConfig{}) {
-			return cli.ErrSourceSectionIsRequired
-		}
+		// Sets the defaults values, to be overridden by the user configuration
+		configuration.SetDefaults()
 
 		if configuration.Client == (config.ClientConfig{}) {
 			return cli.ErrClientSectionIsRequired
