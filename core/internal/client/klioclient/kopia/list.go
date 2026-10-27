@@ -70,7 +70,7 @@ func getMetadata(
 	parts := NewBackupParts(entries)
 
 	for _, entry := range entries {
-		if entry.Source.Host != hostname || TagValue(entry, klioclient.BackupContentTagName) != "metadata" {
+		if !isMetadataOf(entry, hostname) {
 			continue
 		}
 
