@@ -17,14 +17,16 @@ limitations under the License.
 SPDX-License-Identifier: Apache-2.0
 */
 
-// Command grafana generates the Klio Grafana dashboards from code using the
+// Command grafana generates the Klio Grafana dashboard from code using the
 // grafana-foundation-sdk, against the Prometheus names of the OpenTelemetry
 // metrics that Klio exports (see documentation/web/docs/user/opentelemetry.md).
-// One dashboard is organized by PostgreSQL cluster, the other by Klio server.
+// The dashboard uses the schema v2 (Grafana 13.1 or later): one top-level
+// row is organized by PostgreSQL cluster, the other by Klio server, each with
+// its own variables.
 //
 // Running the command regenerates the committed JSON in place:
 //
-//	go run . -output-dir dashboards
+//	go run . -output dashboards/klio.json
 package main
 
 import (
@@ -32,7 +34,6 @@ import (
 	"flag"
 	"fmt"
 	"os"
-	"path/filepath"
 	"strings"
 
 	"github.com/grafana/grafana-foundation-sdk/go/cog"
@@ -83,51 +84,100 @@ const (
 	// clusterMatcher selects the per-cluster server series by cluster_name
 	// alone: they carry the server's namespace, not the cluster's.
 	clusterMatcher = `cluster_name=~"$cluster"`
-	// serverMatcher selects the server-level series by service.name, which
-	// stays unique when two servers share a pod host name.
-	serverMatcher = `service_name=~"$server"`
-	// walMatcher selects the per-cluster server series by server and cluster.
-	walMatcher = `service_name=~"$server",cluster_name=~"$cluster"`
-	// snapshotMatcher selects the Kopia snapshots by server, and by cluster
-	// through snapshot_source (`userName@clusterName:path`).
-	snapshotMatcher = `service_name=~"$server",snapshot_source=~"[^@]*@$cluster:.*"`
+	// serverMatcher selects the server-level series by the Klio server's
+	// namespace and name: a Server's pod is named `<server>-klio-<ordinal>`.
+	serverMatcher = `k8s_namespace_name=~"$server_namespace",k8s_pod_name=~"($server)-klio-[0-9]+"`
+	// walMatcher selects the per-cluster server series by server and served
+	// cluster.
+	walMatcher = serverMatcher + `,cluster_name=~"$served_cluster"`
+	// snapshotMatcher selects the Kopia snapshots by server, and by served
+	// cluster through snapshot_source (`userName@clusterName:path`).
+	snapshotMatcher = serverMatcher + `,snapshot_source=~"[^@]*@$served_cluster:.*"`
+
+	// clusterJoin narrows server series, which carry neither the cluster's
+	// namespace nor its instances, to the clusters whose plugin series match
+	// every variable of the Clusters group.
+	clusterJoin = `and on (cluster_name) group by (cluster_name) (klio_plugin_backup_in_progress{` +
+		clientMatcher + `})`
+	// servedClusterJoin narrows server-level series, which carry no
+	// cluster_name, to the servers with series of the selected served
+	// clusters. Its "All" matches series without cluster_name too, so no
+	// server is hidden until served clusters are selected.
+	servedClusterJoin = `and on (k8s_namespace_name, k8s_pod_name) group by (k8s_namespace_name, k8s_pod_name) ` +
+		`({__name__=~"klio_server_.+",` + walMatcher + `})`
 )
 
+// scope selects the series of a metric: the label matchers of its
+// selector, and an optional join that narrows the result on labels the
+// series do not carry.
+type scope struct {
+	matcher string
+	join    string
+}
+
+//nolint:gochecknoglobals
+var (
+	// clusterScope selects the server series on the Clusters group.
+	clusterScope = scope{matcher: clusterMatcher, join: clusterJoin}
+	// servedScope selects the per-cluster server series on the Servers group.
+	servedScope = scope{matcher: walMatcher}
+	// serverScope selects the server-level series on the Servers group.
+	serverScope = scope{matcher: serverMatcher, join: servedClusterJoin}
+)
+
+// narrow applies the join of the scope to an instant vector expression.
+func (s scope) narrow(expr string) string {
+	if s.join == "" {
+		return expr
+	}
+
+	return "(" + expr + " " + s.join + ")"
+}
+
+// series selects the series of a metric in the scope.
+func (s scope) series(metric string) string {
+	return s.narrow(metric + "{" + s.matcher + "}")
+}
+
+// over applies a range function (rate, increase) over window to the series
+// of a metric in the scope. The join applies after it, since it only takes
+// instant vectors.
+func (s scope) over(fn, metric, window string) string {
+	return s.narrow(fmt.Sprintf("%s(%s{%s}[%s])", fn, metric, s.matcher, window))
+}
+
 func main() {
-	outputDir := flag.String("output-dir", "dashboards", "directory to write the dashboard JSON files to")
+	output := flag.String("output", "dashboards/klio.json", "path of the dashboard JSON file to write")
 	flag.Parse()
 
-	for _, builder := range dashboards() {
-		dash, err := builder.Build()
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "building dashboard: %v\n", err)
-			os.Exit(1)
-		}
+	dash, err := build().Build()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "building dashboard: %v\n", err)
+		os.Exit(1)
+	}
 
-		encoded, err := json.MarshalIndent(dash, "", "  ")
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "marshaling dashboard: %v\n", err)
-			os.Exit(1)
-		}
-		encoded = append(encoded, '\n')
+	encoded, err := json.MarshalIndent(dash, "", "  ")
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "marshaling dashboard: %v\n", err)
+		os.Exit(1)
+	}
+	encoded = append(encoded, '\n')
 
-		path := filepath.Join(*outputDir, *dash.Uid+".json")
-		if err := os.WriteFile(path, encoded, 0o644); err != nil { //nolint:gosec // world-readable dashboard JSON is fine
-			fmt.Fprintf(os.Stderr, "writing %s: %v\n", path, err)
-			os.Exit(1)
-		}
+	if err := os.WriteFile(*output, encoded, 0o644); err != nil { //nolint:gosec // world-readable dashboard JSON is fine
+		fmt.Fprintf(os.Stderr, "writing %s: %v\n", *output, err)
+		os.Exit(1)
 	}
 }
 
 // sizedPanel is a panel with its grid footprint, ready to be positioned by
-// layoutSection.
+// pack.
 type sizedPanel struct {
 	w, h  int
 	place func(dashboard.GridPos) cog.Builder[dashboard.Panel]
 }
 
 // sized pairs a panel builder (stat, timeseries, ...) with its grid
-// width and height so layoutSection can assign it an explicit position.
+// width and height so pack can assign it an explicit position.
 func sized[B interface {
 	GridPos(gridPos dashboard.GridPos) B
 	cog.Builder[dashboard.Panel]
@@ -141,8 +191,13 @@ func sized[B interface {
 // variable, used by every panel and query.
 func datasourceRef() common.DataSourceRef {
 	dsType := "prometheus"
-	uid := fmt.Sprintf("${%s}", datasourceVar)
+	uid := datasourceRefUID()
 	return common.DataSourceRef{Type: &dsType, Uid: &uid}
+}
+
+// datasourceRefUID is the data source variable as a data source UID.
+func datasourceRefUID() string {
+	return fmt.Sprintf("${%s}", datasourceVar)
 }
 
 // query builds a ranged Prometheus query target with a legend.
@@ -250,11 +305,19 @@ var quantiles = []quantileSpec{
 func quantileTargetsWindow(
 	bucketMetric, groupBy, matcher, legend, counterFn, window string,
 ) []cog.Builder[variants.Dataquery] {
+	return quantileTargetsWindowIn(bucketMetric, groupBy, scope{matcher: matcher}, legend, counterFn, window)
+}
+
+// quantileTargetsWindowIn is quantileTargetsWindow for the series of a
+// scope.
+func quantileTargetsWindowIn(
+	bucketMetric, groupBy string, sc scope, legend, counterFn, window string,
+) []cog.Builder[variants.Dataquery] {
 	targets := make([]cog.Builder[variants.Dataquery], 0, len(quantiles))
 	for _, p := range quantiles {
 		targets = append(targets, query(
-			fmt.Sprintf("histogram_quantile(%.2f, sum by (%s) (%s(%s{%s}[%s])))",
-				p.q, groupBy, counterFn, bucketMetric, matcher, window),
+			fmt.Sprintf("histogram_quantile(%.2f, sum by (%s) (%s))",
+				p.q, groupBy, sc.over(counterFn, bucketMetric, window)),
 			strings.TrimSpace(legend+" "+p.label)))
 	}
 
@@ -275,10 +338,18 @@ func quantileTargets(bucketMetric, groupBy, matcher, legend string) []cog.Builde
 // resets on a server restart, rather than one scoped to the dashboard's
 // selected range or zoom.
 func quantileTargetsAbsolute(bucketMetric, groupBy, matcher, legend string) []cog.Builder[variants.Dataquery] {
+	return quantileTargetsAbsoluteIn(bucketMetric, groupBy, scope{matcher: matcher}, legend)
+}
+
+// quantileTargetsAbsoluteIn is quantileTargetsAbsolute for the series of a
+// scope.
+func quantileTargetsAbsoluteIn(
+	bucketMetric, groupBy string, sc scope, legend string,
+) []cog.Builder[variants.Dataquery] {
 	targets := make([]cog.Builder[variants.Dataquery], 0, len(quantiles))
 	for _, p := range quantiles {
 		targets = append(targets, query(
-			fmt.Sprintf("histogram_quantile(%.2f, sum by (%s) (%s{%s}))", p.q, groupBy, bucketMetric, matcher),
+			fmt.Sprintf("histogram_quantile(%.2f, sum by (%s) (%s))", p.q, groupBy, sc.series(bucketMetric)),
 			strings.TrimSpace(legend+" "+p.label)))
 	}
 
