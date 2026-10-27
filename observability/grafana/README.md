@@ -1,16 +1,17 @@
 # Klio Grafana dashboard generator
 
-This module generates the Klio Grafana dashboards from code, using the
-[grafana-foundation-sdk](https://github.com/grafana/grafana-foundation-sdk):
+This module generates the Klio Grafana dashboard
+([`klio.json`](dashboards/klio.json)) from code, using the
+[grafana-foundation-sdk](https://github.com/grafana/grafana-foundation-sdk).
+It uses the dashboard schema v2 (Grafana 13.1 or later) and has two
+sections, top-level rows that each have their own variables:
 
-- [`klio-clusters.json`](dashboards/klio-clusters.json), organized by
-  PostgreSQL cluster: backups, retained backups, backup maintenance, WAL
-  archiving, WAL replication lag and WAL restore.
-- [`klio-servers.json`](dashboards/klio-servers.json), organized by Klio
-  server: server health, served clusters, Kopia snapshots and WAL
-  processing.
+- **Clusters**, organized by PostgreSQL cluster: backups, retained backups,
+  backup maintenance, WAL archiving, WAL replication lag and WAL restore.
+- **Servers**, organized by Klio server: server health, served clusters,
+  Kopia snapshots and WAL processing.
 
-The dashboards visualize the Prometheus export of Klio's OpenTelemetry
+The dashboard visualizes the Prometheus export of Klio's OpenTelemetry
 metrics. The panels are built in [`client.go`](client.go) (plugin sidecar
 and WAL streaming client, `klio_plugin_*` and `klio_client_wal_*`),
 [`server.go`](server.go) (Klio server, `klio_server_*`) and
@@ -18,10 +19,11 @@ and WAL streaming client, `klio_plugin_*` and `klio_client_wal_*`),
 `cnpg_pg_stat_replication_*` metrics, which require CloudNativePG
 monitoring scraped into the same Prometheus).
 
-[`build.go`](build.go) assembles the dashboards: each declares a
-`datasource` template variable (so it is portable across Grafana
-installations) and its own filters, and adds the row sections with their
-panels.
+[`build.go`](build.go) assembles the dashboard: it declares a `datasource`
+variable (so it is portable across Grafana installations), and each section
+its own variables and rows. The panels are built with the schema v1
+panel builders and converted to schema v2 elements in
+[`convert.go`](convert.go).
 [`main.go`](main.go) is just the CLI entrypoint (flag parsing, writing the
 JSON) plus the shared panel and query helpers every row section builds on.
 
@@ -33,8 +35,8 @@ From the repository root:
 task grafana:gen
 ```
 
-This runs the generator in a container and writes the JSON files under
-`observability/grafana/dashboards/` back into the repository. The
+This runs the generator in a container and writes
+`observability/grafana/dashboards/klio.json` back into the repository. The
 committed JSON must always match the generator output: `task
 grafana:uncommitted` (part of `task grafana:ci`) regenerates it and fails if
 it has drifted, so commit the regenerated file whenever you change the
@@ -43,7 +45,7 @@ generator or bump the SDK.
 You can also run it directly:
 
 ```sh
-go run . -output-dir dashboards
+go run . -output dashboards/klio.json
 ```
 
 ## Linting
@@ -53,20 +55,23 @@ go run . -output-dir dashboards
 - `grafana:go-test` — `go test` on the generator: catches PromQL mistakes gcx
   can't (a `histogram_quantile` query dropping the `le` label, a `rate()`
   call with a hardcoded window instead of `$__rate_interval`, a query
-  referencing an undeclared dashboard variable) and duplicate panel titles
-  within a row.
+  referencing a variable that is not declared in its section), duplicate panel
+  titles within a row, panels without a title or a description, and panel
+  queries that leave out a variable of their section.
 - `grafana:lint-builder` — `golangci-lint` on the generator Go code.
-- `grafana:lint-dashboard` — lints the generated dashboards JSON with
+- `grafana:lint-dashboard` — lints the generated dashboard JSON with
   [`gcx`](https://github.com/grafana/gcx), which validates the PromQL of every
   panel target and checks panel units. The `uneditable-dashboard` rule is
-  disabled because the dashboards ship editable on purpose.
+  disabled because the dashboard ships editable on purpose, and the
+  `panel-title-description` rule because the text panels that explain each
+  section and row have no title (`go test` checks the other panels).
 - `grafana:uncommitted` — fails if the committed JSON has drifted from the
   generator output.
 
-## Using the dashboards
+## Using the dashboard
 
-Import the JSON files under `dashboards/` into Grafana and select your Prometheus data
-source for the `datasource` variable. See
+Import `dashboards/klio.json` into Grafana 13.1 or later and select your
+Prometheus data source for the `datasource` variable. See
 [the documentation](../../documentation/web/docs/user/grafana-dashboards.md)
 for the Prometheus prerequisites.
 
@@ -98,14 +103,15 @@ Port-forward Grafana (log in with `admin` / `prom-operator`):
 kubectl port-forward svc/prometheus-community-grafana 3000:80
 ```
 
-Open <http://localhost:3000/> and import the JSON files under `dashboards/`
-via **Dashboards → New → Import**, selecting your Prometheus data source. Or
-load them automatically with Grafana's dashboard sidecar:
+Open <http://localhost:3000/> and paste `dashboards/klio.json` via
+**Dashboards → New → Import**, selecting your Prometheus data source. Or
+load it automatically with Grafana's dashboard sidecar (`kubectl create`,
+not `kubectl apply`, whose annotation would exceed the size limit):
 
 ```sh
-kubectl create configmap klio-grafana-dashboards \
-  --from-file=observability/grafana/dashboards/
-kubectl label configmap klio-grafana-dashboards grafana_dashboard=1
+kubectl create configmap klio-grafana-dashboard \
+  --from-file=observability/grafana/dashboards/klio.json
+kubectl label configmap klio-grafana-dashboard grafana_dashboard=1
 ```
 
-The template variables at the top of each dashboard filter its panels.
+The variables at the top of each section filter its panels.

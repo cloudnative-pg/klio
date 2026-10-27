@@ -4,25 +4,25 @@ sidebar_position: 11
 
 # Grafana Dashboards
 
-Klio ships two Grafana dashboard templates that visualize the metrics it
-exposes. The dashboards are generated from code with the
+Klio ships a Grafana dashboard template that visualizes the metrics it
+exposes. The dashboard is generated from code with the
 [Grafana Foundation SDK](https://github.com/grafana/grafana-foundation-sdk)
-and committed to the repository under `observability/grafana/dashboards/`:
+and committed to the repository at
+`observability/grafana/dashboards/klio.json`.
 
-- **Klio Clusters** (`klio-clusters.json`), organized around the PostgreSQL
-  clusters that Klio backs up.
-- **Klio Servers** (`klio-servers.json`), organized around the Klio servers.
+The dashboard has two sections, each with its own filters that apply to all
+of its panels:
 
-Each dashboard has its own filters, and every filter applies to all of its
-panels. A link at the top of each dashboard opens the other one.
+- **Clusters**, organized around the PostgreSQL clusters that Klio backs up.
+- **Servers**, organized around the Klio servers.
 
-The dashboards query the Prometheus export of Klio's OpenTelemetry metrics,
-so they complement the [OpenTelemetry](opentelemetry.md) setup rather than
+The dashboard queries the Prometheus export of Klio's OpenTelemetry metrics,
+so it complements the [OpenTelemetry](opentelemetry.md) setup rather than
 replacing it.
 
-## What the dashboards show
+## What the dashboard shows
 
-The **Klio Clusters** dashboard is split into row sections:
+The **Clusters** section is split into rows:
 
 - **Backups** — the backup lifecycle as seen by the plugin sidecar
   running in each PostgreSQL pod: backups in progress, time since the last
@@ -62,7 +62,7 @@ The **Klio Clusters** dashboard is split into row sections:
   PostgreSQL spent waiting on the plugin (near 0% when recovery is limited
   by replay, not by Klio).
 
-The **Klio Servers** dashboard is split into row sections:
+The **Servers** section is split into rows:
 
 - **Server health** — the uptime of each Klio server and its embedded NATS
   JetStream queue.
@@ -100,7 +100,19 @@ One more is a statistical caveat rather than an alerting signal:
 
 ## Prerequisites
 
-The dashboards read the Prometheus names of Klio's metrics (for example
+The dashboard needs Grafana 13.1 or later. It uses the dashboard schema v2
+(dynamic dashboards), where each section declares its own variables. Any of
+these provides it:
+
+- The [kube-prometheus-stack](https://github.com/prometheus-community/helm-charts/tree/main/charts/kube-prometheus-stack)
+  chart, whose current releases install Grafana 13.2 (see the example
+  below).
+- The [Grafana Helm chart](https://github.com/grafana/helm-charts/tree/main/charts/grafana),
+  setting `image.tag` to 13.1 or later if the chart default is older.
+- The `grafana/grafana` container image, tag 13.1 or later.
+- Grafana Cloud.
+
+The dashboard reads the Prometheus names of Klio's metrics (for example
 `klio_plugin_backup_runs_total` and `klio_server_wal_written_total`). You
 therefore need Prometheus scraping those metrics. Any of the export paths
 described in [OpenTelemetry](opentelemetry.md) works:
@@ -110,15 +122,10 @@ described in [OpenTelemetry](opentelemetry.md) works:
 - The Klio Prometheus exporter (`OTEL_METRICS_EXPORTER=prometheus`),
   scraped directly.
 
-The **WAL replication lag** row of the Klio Clusters dashboard additionally
-reads CloudNativePG's `cnpg_pg_stat_replication_*` metrics. To populate it,
+The **WAL replication lag** row of the Clusters section additionally reads
+CloudNativePG's `cnpg_pg_stat_replication_*` metrics. To populate it,
 scrape the CloudNativePG cluster monitoring (its `PodMonitor`) into the same
-Prometheus. The rest of the dashboards work without it.
-
-The LSN table panels (**Latest backup LSN**, **Oldest backup LSN**,
-**Latest written LSN**) need Grafana 13 or later: they use SQL
-Expressions, available starting in that version. Without it, these
-three panels show an error instead of a table.
+Prometheus. The rest of the dashboard works without it.
 
 :::note
 When you route metrics through an OpenTelemetry Collector, enable
@@ -129,20 +136,21 @@ The sample collector under
 this.
 :::
 
-## Importing the dashboards
+## Importing the dashboard
+
+The dashboard file is a Grafana resource (`dashboard.grafana.app/v2`, named
+`klio`), the format Grafana uses for schema v2 dashboards.
 
 1. In Grafana, go to **Dashboards → New → Import**.
-1. Upload `observability/grafana/dashboards/klio-clusters.json` or paste its
-   contents.
-1. When prompted, select your Prometheus data source for the `datasource`
-   variable.
-1. Repeat for `observability/grafana/dashboards/klio-servers.json`.
+1. Paste the contents of `observability/grafana/dashboards/klio.json` and
+   select **Load**.
+1. Select your Prometheus data source for the `datasource` variable.
 
-Each dashboard declares a `datasource` template variable, so it is portable
-across Grafana installations and is not tied to a specific data source UID.
-The other template variables at the top filter the panels.
+The dashboard declares a `datasource` variable, so it is portable across
+Grafana installations and is not tied to a specific data source UID. The
+variables of each section filter its panels.
 
-On the Klio Clusters dashboard:
+On the Clusters section:
 
 - `namespace`: the namespace where the PostgreSQL cluster runs, matched
   against `k8s.namespace.name`.
@@ -150,32 +158,33 @@ On the Klio Clusters dashboard:
   lists every cluster that emits Klio plugin metrics, including clusters
   that only restore from a Klio server.
 - `pod` (*Instance*): the PostgreSQL pod, matched against `k8s.pod.name`.
-  It scopes the panels built from the plugin metrics.
+  It scopes the panels built from the plugin metrics and the WAL
+  replication lag panels, which CloudNativePG reports from the primary.
 
-The server-side metrics carry the server's own namespace, not the cluster's,
-so the per-cluster server panels are filtered by `cluster` only.
+The server-side metrics carry the server's own namespace and pod, not the
+cluster's, so the server panels apply `namespace` and `pod` through the
+plugin metrics: they show the clusters whose plugin reports metrics for the
+selected namespaces and instances. A cluster that no longer reports plugin
+metrics, for example because it was deleted, does not appear in them.
 
-On the Klio Servers dashboard:
+On the Servers section:
 
-- `namespace` (*Server namespace*): the namespace where the Klio server
-  runs, which can differ from the namespace of the clusters it backs up.
-- `server`: the Klio server, matched against the OpenTelemetry
-  `service.name` (not the pod host name, which two servers of the same name
-  in different namespaces would share).
-- `cluster` (*Served cluster*): the clusters backed up by the selected
-  servers, from any namespace.
+- `server_namespace` (*Server namespace*): the namespace where the Klio
+  server runs, which can differ from the namespace of the clusters it backs
+  up.
+- `server`: the name of the Klio `Server`, taken from its pod name
+  (`<server>-klio-<ordinal>`). A server is identified by its namespace and
+  name: with *Server namespace* set to all, two servers with the same name in
+  different namespaces share one entry, so select the namespace to tell them
+  apart.
+- `served_cluster` (*Served cluster*): the clusters backed up by the
+  selected servers, from any namespace. On the server health panels, which
+  have no cluster label, it keeps the servers that back the selected
+  clusters.
 
 Every aggregation groups by the identifying label (cluster, server, tier),
 so multiple clusters or servers are never folded into a single misleading
 value.
-
-:::note
-Give each Klio server a distinct `OTEL_SERVICE_NAME` (as the sample server
-manifests do). The `server` variable of the Klio Servers dashboard
-identifies servers by their OpenTelemetry `service.name`; if it is left
-unset, every server reports the SDK default (`unknown_service:klio`) and
-they collapse into a single, indistinguishable entry.
-:::
 
 ### Example: kube-prometheus-stack
 
@@ -207,20 +216,24 @@ Port-forward Grafana and log in with `admin` / `prom-operator`:
 kubectl port-forward svc/prometheus-community-grafana 3000:80
 ```
 
-Open `http://localhost:3000/` and import the two JSON files under
-`observability/grafana/dashboards/` via **Dashboards → New → Import**,
-selecting your Prometheus data source.
+Open `http://localhost:3000/` and import
+`observability/grafana/dashboards/klio.json` via **Dashboards → New →
+Import**, selecting your Prometheus data source.
 
-Alternatively, load them automatically through the Grafana dashboard sidecar
+Alternatively, load it automatically through the Grafana dashboard sidecar
 with a labeled `ConfigMap`:
 
 ```sh
-kubectl create configmap klio-grafana-dashboards \
-  --from-file=observability/grafana/dashboards/
-kubectl label configmap klio-grafana-dashboards grafana_dashboard=1
+kubectl create configmap klio-grafana-dashboard \
+  --from-file=observability/grafana/dashboards/klio.json
+kubectl label configmap klio-grafana-dashboard grafana_dashboard=1
 ```
 
-## Regenerating the dashboards
+Create the `ConfigMap` with `kubectl create`, as above: `kubectl apply`
+stores a copy of the dashboard in an annotation, which exceeds the
+Kubernetes size limit for annotations.
+
+## Regenerating the dashboard
 
 The committed JSON is generated from the Go program under
 `observability/grafana/`. To regenerate it after changing the generator (or
@@ -230,6 +243,6 @@ after a `grafana-foundation-sdk` bump), run from the repository root:
 task grafana:gen
 ```
 
-CI runs `task grafana:uncommitted`, which regenerates the dashboards and
+CI runs `task grafana:uncommitted`, which regenerates the dashboard and
 fails if the committed JSON has drifted from the generator output. Commit
 the regenerated file whenever it changes.
