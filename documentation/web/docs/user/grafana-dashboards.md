@@ -36,7 +36,7 @@ The **Clusters** section is split into rows:
   server writes: the PostgreSQL timeline and latest written LSN per tier,
   the WAL files written and the p50/p90/p99 tier-2 upload duration.
 
-![Klio Clusters dashboard](images/clusters_dashboard.png)
+![Clusters section of the Klio dashboard](images/clusters_dashboard.png)
 - **WAL replication lag** — how far behind Klio is in copying WAL:
   - **Tier-1 replication lag (bytes)** and **(seconds)**: how much WAL,
     and how much time, Klio is behind the PostgreSQL primary. The *write*
@@ -73,7 +73,7 @@ The **Servers** section is split into rows:
 - **WAL processing** — p50/p90/p99 WAL block and get duration by path, stage
   and tier, each as both a rolling-window and a since-restart total variant.
 
-![Klio Servers dashboard](images/servers_dashboard.png)
+![Servers section of the Klio dashboard](images/servers_dashboard.png)
 
 Some panels need extra context to interpret correctly. Two are derived
 from the alerting guidance in [OpenTelemetry](opentelemetry.md):
