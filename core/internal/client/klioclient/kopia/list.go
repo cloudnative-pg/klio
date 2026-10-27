@@ -34,9 +34,9 @@ import (
 // in the snapshot manifests.
 const tagKeyPrefix = "tag:"
 
-// metadataStore is the subset of the Kopia client that the backup listing
-// needs.
-type metadataStore interface {
+// MetadataStore is the subset of the Kopia client that reading the backup
+// metadata needs.
+type MetadataStore interface {
 	ListSnapshots(ctx context.Context, tags map[string]string, logFn kopia.LogFunc) ([]kopia.Manifest, error)
 	RestoreSingleFile(ctx context.Context, snapshotID string, fileName string, logFn kopia.LogFunc) ([]byte, error)
 }
@@ -55,7 +55,7 @@ func (s *Connection) GetMetadata(
 // getMetadata returns the metadata of the named backup of hostname.
 func getMetadata(
 	ctx context.Context,
-	store metadataStore,
+	store MetadataStore,
 	hostname string,
 	name string,
 ) (*klioclient.BackupMetadata, error) {
@@ -74,7 +74,7 @@ func getMetadata(
 			continue
 		}
 
-		metadata, err := restoreMetadata(ctx, store, entry.ID)
+		metadata, err := RestoreMetadata(ctx, store, entry.ID)
 		if err != nil {
 			return nil, err
 		}
@@ -112,7 +112,7 @@ func (s *Connection) ListBackupsByCompleteness(
 // (of every host when empty).
 func listBackups(
 	ctx context.Context,
-	store metadataStore,
+	store MetadataStore,
 	hostname string,
 ) (klioclient.BackupList, klioclient.BackupList, error) {
 	contextLogger := log.FromContext(ctx)
@@ -134,7 +134,7 @@ func listBackups(
 
 		host := entry.Source.Host
 		name := TagValue(entry, klioclient.BackupNameTagName)
-		metadata, err := restoreMetadata(ctx, store, entry.ID)
+		metadata, err := RestoreMetadata(ctx, store, entry.ID)
 		if err != nil {
 			contextLogger.Error(err, "Error while decoding backup metadata, skipping", "id", entry.ID)
 
@@ -228,11 +228,11 @@ func (p BackupParts) Missing(hostname, name string, metadata *klioclient.BackupM
 	return missing
 }
 
-// restoreMetadata restores the metadata stored in a snapshot with the
+// RestoreMetadata restores the metadata stored in a snapshot with the
 // given ID.
-func restoreMetadata(
+func RestoreMetadata(
 	ctx context.Context,
-	store metadataStore,
+	store MetadataStore,
 	snapshotID string,
 ) (*klioclient.BackupMetadata, error) {
 	contextLogger := log.FromContext(ctx)

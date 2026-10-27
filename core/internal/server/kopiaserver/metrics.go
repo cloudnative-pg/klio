@@ -22,8 +22,6 @@ package kopiaserver
 import (
 	"cmp"
 	"context"
-	"encoding/json"
-	"fmt"
 	"slices"
 	"sync"
 	"time"
@@ -43,7 +41,7 @@ type SnapshotMetricsCollector struct {
 	interval time.Duration
 	logger   log.Logger
 	stopCh   chan struct{}
-	kopia    snapshotSource
+	kopia    klioclientkopia.MetadataStore
 	tier     opentelemetry.Tier
 
 	// mu guards cache, which is refreshed by the collection ticker and read by
@@ -88,12 +86,6 @@ type snapshotStats struct {
 	snapshotSize             int64
 	latestSnapshotFilesCount int64
 	latestSnapshotDirCount   int64
-}
-
-// snapshotSource is the subset of the Kopia client the collector needs.
-type snapshotSource interface {
-	ListSnapshots(ctx context.Context, tags map[string]string, logFn kopia.LogFunc) ([]kopia.Manifest, error)
-	RestoreSingleFile(ctx context.Context, snapshotID string, fileName string, logFn kopia.LogFunc) ([]byte, error)
 }
 
 // newSnapshotMetricsCollector creates a new snapshot metrics collector for
@@ -325,7 +317,7 @@ func (c *SnapshotMetricsCollector) collectBackupMetrics(
 		meta, ok := c.metadata[s.ID]
 		if !ok {
 			var err error
-			if meta, err = c.readBackupMetadata(ctx, s.ID); err != nil {
+			if meta, err = klioclientkopia.RestoreMetadata(ctx, c.kopia, s.ID); err != nil {
 				c.logger.Warning("Failed to read backup metadata", "snapshotID", s.ID, "error", err)
 				continue
 			}
@@ -372,22 +364,4 @@ func buildBackupGroups(snapshots []kopia.Manifest) map[kopia.SourceInfo][]kopia.
 	}
 
 	return groups
-}
-
-// readBackupMetadata reads the backup metadata stored in the
-// snapshot with the given ID.
-func (c *SnapshotMetricsCollector) readBackupMetadata(
-	ctx context.Context, snapshotID string,
-) (*klioclient.BackupMetadata, error) {
-	content, err := c.kopia.RestoreSingleFile(ctx, snapshotID, "metadata.json", c.logger.Debug)
-	if err != nil {
-		return nil, fmt.Errorf("restoring backup metadata: %w", err)
-	}
-
-	var meta klioclient.BackupMetadata
-	if err := json.Unmarshal(content, &meta); err != nil {
-		return nil, fmt.Errorf("decoding backup metadata: %w", err)
-	}
-
-	return &meta, nil
 }
