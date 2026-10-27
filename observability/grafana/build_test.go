@@ -304,20 +304,19 @@ func TestVariableQueriesAreChained(t *testing.T) {
 	}
 }
 
-// TestNoDuplicatePanelTitlesPerRow catches a copy-paste mistake: two panels
-// with the same title in the same row section, which is confusing in the UI
-// and usually means a panel was duplicated without renaming it.
-func TestNoDuplicatePanelTitlesPerRow(t *testing.T) {
-	seen := map[string]bool{}
+// TestNoDuplicatePanelTitles catches the same panel shown twice on the
+// dashboard, in the same row or in another section, and a copy-paste mistake
+// such as a panel duplicated without renaming it.
+func TestNoDuplicatePanelTitles(t *testing.T) {
+	seen := map[string]testPanel{}
 	for _, p := range buildTestDashboard(t).panels(t) {
 		if p.title == "" { // the description text panels
 			continue
 		}
-		key := p.group + "\x00" + p.row + "\x00" + p.title
-		if seen[key] {
-			t.Errorf("%s: row %q: duplicate panel title %q", p.group, p.row, p.title)
+		if first, ok := seen[p.title]; ok {
+			t.Errorf("panel %q is both in %s/%s and in %s/%s", p.title, first.group, first.row, p.group, p.row)
 		}
-		seen[key] = true
+		seen[p.title] = p
 	}
 }
 

@@ -30,16 +30,11 @@ The **Clusters** section is split into rows:
   p50/p90/p99 backup duration distribution, backup run and failure rates,
   and the backup success ratio.
 
-- **Retained backups** — the retention window of the physical PostgreSQL
-  backups the Klio server keeps for each cluster: counts by tier and server,
-  latest/oldest backup age, start/end LSN and PostgreSQL timeline.
-- **Backup maintenance** — tier-2 relay, backup verification and
-  maintenance run totals per cluster.
 - **WAL archiving** — the WAL streaming client the sidecar supervises as a
   child process (the PostgreSQL timeline it is currently streaming and the
   p50/p90/p99 latency of sending a WAL block to the server), and the WAL the
-  server writes: throughput and freshness per tier, the latest written LSN
-  and the p50/p90/p99 tier-2 upload duration.
+  server writes: the PostgreSQL timeline and latest written LSN per tier,
+  the WAL files written and the p50/p90/p99 tier-2 upload duration.
 
 ![Klio Clusters dashboard](images/clusters_dashboard.png)
 - **WAL replication lag** — how far behind Klio is in copying WAL:
@@ -66,9 +61,13 @@ The **Servers** section is split into rows:
 
 - **Server health** — the uptime of each Klio server and its embedded NATS
   JetStream queue.
-- **Served clusters** — retained backups, latest backup age, time since the
-  last WAL written and WAL throughput of the clusters backed by the selected
-  servers.
+- **Retained backups** — the retention window of the physical PostgreSQL
+  backups the Klio server keeps for each cluster: counts by tier and server,
+  latest/oldest backup age, start/end LSN and PostgreSQL timeline.
+- **Backup maintenance** — tier-2 relay, backup verification and
+  maintenance run totals per cluster.
+- **Served clusters** — time since the last WAL written and WAL bytes
+  written per tier, for the clusters backed by the selected servers.
 - **Kopia snapshots** — the base snapshot inventory, including file and
   directory counts.
 - **WAL processing** — p50/p90/p99 WAL block and get duration by path, stage
