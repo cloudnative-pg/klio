@@ -6,10 +6,10 @@ This module generates the Klio Grafana dashboard
 It uses the dashboard schema v2 (Grafana 13.1 or later) and has two
 sections, top-level rows that each have their own variables:
 
-- **Clusters**, organized by PostgreSQL cluster: backups, retained backups,
-  backup maintenance, WAL archiving, WAL replication lag and WAL restore.
-- **Servers**, organized by Klio server: server health, served clusters,
-  Kopia snapshots and WAL processing.
+- **Clusters**, organized by PostgreSQL cluster: backups, WAL archiving, WAL
+  replication lag and WAL restore.
+- **Servers**, organized by Klio server: server health, retained backups,
+  backup maintenance, served clusters, Kopia snapshots and WAL processing.
 
 The dashboard visualizes the Prometheus export of Klio's OpenTelemetry
 metrics. The panels are built in [`client.go`](client.go) (plugin sidecar

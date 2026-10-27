@@ -128,17 +128,6 @@ func clustersGroup() group {
 				backupPanels(),
 			},
 			{
-				"Retained backups",
-				"Retention window of the physical PostgreSQL backups the Klio server keeps for each cluster.",
-				retainedBackupPanels(),
-			},
-			{
-				"Backup maintenance",
-				"Asynchronous operations the Klio server runs on the backups: tier-2 relay, verification and " +
-					"maintenance.",
-				backupMaintenancePanels(),
-			},
-			{
 				"WAL archiving",
 				"WAL streamed by the client in the PostgreSQL pod, and written by the Klio server to each tier.",
 				append(walStreamingPanels(), walIngestPanels()...),
@@ -194,8 +183,19 @@ func serversGroup() group {
 				serverHealthPanels(),
 			},
 			{
+				"Retained backups",
+				"Retention window of the physical PostgreSQL backups the Klio server keeps for each cluster.",
+				retainedBackupPanels(),
+			},
+			{
+				"Backup maintenance",
+				"Asynchronous operations the Klio server runs on the backups: tier-2 relay, verification and " +
+					"maintenance.",
+				backupMaintenancePanels(),
+			},
+			{
 				"Served clusters",
-				"Backups and WAL of the clusters backed by the selected servers.",
+				"WAL the selected servers write for each of the clusters they back up.",
 				servedClusterPanels(),
 			},
 			{
