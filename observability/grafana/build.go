@@ -23,7 +23,6 @@ import (
 	"fmt"
 
 	"github.com/grafana/grafana-foundation-sdk/go/cog"
-	"github.com/grafana/grafana-foundation-sdk/go/dashboard"
 	"github.com/grafana/grafana-foundation-sdk/go/dashboardv2"
 	"github.com/grafana/grafana-foundation-sdk/go/resource"
 )
@@ -251,14 +250,8 @@ func (t group) build(builder *dashboardv2.DashboardBuilder, ids *int) (*dashboar
 func gridOf(builder *dashboardv2.DashboardBuilder, ids *int, panels []sizedPanel) (*dashboardv2.GridBuilder, error) {
 	grid := dashboardv2.NewGridBuilder()
 	for _, p := range pack(panels) {
-		v1, err := p.panel.place(dashboard.GridPos{
-			X: uint32(p.pos.X), Y: uint32(p.pos.Y), W: uint32(p.pos.W), H: uint32(p.pos.H), //nolint:gosec // small positive ints
-		}).Build()
-		if err != nil {
-			return nil, err
-		}
 		*ids++
-		panel, err := convertPanel(v1, *ids)
+		panel, err := p.panel.panel.build(*ids)
 		if err != nil {
 			return nil, err
 		}

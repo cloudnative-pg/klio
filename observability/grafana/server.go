@@ -23,8 +23,6 @@ import (
 	"fmt"
 
 	"github.com/grafana/grafana-foundation-sdk/go/common"
-	"github.com/grafana/grafana-foundation-sdk/go/stat"
-	"github.com/grafana/grafana-foundation-sdk/go/timeseries"
 	"github.com/grafana/grafana-foundation-sdk/go/units"
 )
 
@@ -50,7 +48,7 @@ func serverLabel(selector string) string {
 
 // retainedBackupsPanel counts the retained backups, naming the server that
 // retains them.
-func retainedBackupsPanel(sc scope) *stat.PanelBuilder {
+func retainedBackupsPanel(sc scope) *statPanelBuilder {
 	return statPanel("Retained backups", units.Number,
 		query(fmt.Sprintf("sum by (cluster_name, tier, k8s_namespace_name, server) (%s)",
 			serverLabel(sc.series("klio_server_backup_backups"))),
@@ -62,7 +60,7 @@ func retainedBackupsPanel(sc scope) *stat.PanelBuilder {
 }
 
 // latestBackupAgePanel shows the age of the latest retained backup.
-func latestBackupAgePanel(sc scope) *stat.PanelBuilder {
+func latestBackupAgePanel(sc scope) *statPanelBuilder {
 	return statPanel("Latest backup age (completion)", units.DurationInDaysHoursMinutesSeconds,
 		query(
 			fmt.Sprintf("time() - max by (cluster_name, tier) (%s)",
@@ -74,7 +72,7 @@ func latestBackupAgePanel(sc scope) *stat.PanelBuilder {
 }
 
 // timeSinceLastWALPanel shows the time since the last WAL write.
-func timeSinceLastWALPanel(sc scope) *timeseries.PanelBuilder {
+func timeSinceLastWALPanel(sc scope) *timeseriesPanelBuilder {
 	return timeseriesPanel("Time since last WAL written", units.DurationSeconds,
 		query(fmt.Sprintf("time() - max by (cluster_name, tier) (%s)",
 			sc.series("klio_server_wal_latest_written_time_seconds")), "{{cluster_name}} {{tier}}"),
@@ -82,7 +80,7 @@ func timeSinceLastWALPanel(sc scope) *timeseries.PanelBuilder {
 }
 
 // walBytesRatePanel plots the WAL write throughput.
-func walBytesRatePanel(sc scope) *timeseries.PanelBuilder {
+func walBytesRatePanel(sc scope) *timeseriesPanelBuilder {
 	return timeseriesPanel("WAL bytes written (rate)", units.BytesPerSecondIEC,
 		query(
 			fmt.Sprintf("sum by (cluster_name, tier) (%s)",
@@ -92,7 +90,7 @@ func walBytesRatePanel(sc scope) *timeseries.PanelBuilder {
 }
 
 // walBytesTotalPanel plots the WAL bytes written since the server restarted.
-func walBytesTotalPanel(sc scope) *timeseries.PanelBuilder {
+func walBytesTotalPanel(sc scope) *timeseriesPanelBuilder {
 	return timeseriesPanel("WAL bytes written (total)", units.BytesIEC,
 		query(fmt.Sprintf("sum by (cluster_name, tier) (%s)", sc.series("klio_server_wal_written_size_bytes_total")),
 			"{{cluster_name}} {{tier}}"),
