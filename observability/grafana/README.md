@@ -21,9 +21,9 @@ monitoring scraped into the same Prometheus).
 
 [`build.go`](build.go) assembles the dashboard: it declares a `datasource`
 variable (so it is portable across Grafana installations), and each section
-its own variables and rows. The panels are built with the schema v1
-panel builders and converted to schema v2 elements in
-[`convert.go`](convert.go).
+its own variables and rows. The panels are built with the SDK's schema v2
+builders; [`convert.go`](convert.go) only adapts the visualization builders,
+which still build the `v2beta1` visualization type.
 [`main.go`](main.go) is just the CLI entrypoint (flag parsing, writing the
 JSON) plus the shared panel and query helpers every row section builds on.
 
