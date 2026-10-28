@@ -4,10 +4,10 @@ go 1.26.6
 
 require (
 	filippo.io/age v1.3.2
-	github.com/aws/aws-sdk-go-v2 v1.47.4
-	github.com/aws/aws-sdk-go-v2/config v1.33.10
-	github.com/aws/aws-sdk-go-v2/credentials v1.20.10
-	github.com/aws/aws-sdk-go-v2/service/s3 v1.114.5
+	github.com/aws/aws-sdk-go-v2 v1.47.5
+	github.com/aws/aws-sdk-go-v2/config v1.33.12
+	github.com/aws/aws-sdk-go-v2/credentials v1.20.12
+	github.com/aws/aws-sdk-go-v2/service/s3 v1.114.6
 	github.com/ccoveille/go-safecast/v2 v2.0.1
 	github.com/cloudnative-pg/api v1.30.0
 	github.com/cloudnative-pg/cloudnative-pg v1.30.1
@@ -22,7 +22,7 @@ require (
 	github.com/klauspost/compress v1.20.3
 	github.com/minio/sio v0.5.1
 	github.com/nats-io/jsm.go v0.4.2-0.20260709123851-d83d1a19c05f // pinned to main for StreamPager cross-delivery fix; switch to a released tag once available
-	github.com/nats-io/nats-server/v2 v2.15.1
+	github.com/nats-io/nats-server/v2 v2.15.2
 	github.com/nats-io/nats.go v1.55.0
 	github.com/onsi/ginkgo/v2 v2.33.1
 	github.com/onsi/gomega v1.44.0
@@ -47,7 +47,7 @@ require (
 	go.opentelemetry.io/otel/trace v1.47.0
 	go.yaml.in/yaml/v3 v3.0.5
 	golang.org/x/crypto v0.58.0
-	google.golang.org/grpc v1.84.0
+	google.golang.org/grpc v1.85.0
 	google.golang.org/protobuf v1.36.12
 	k8s.io/api v0.37.1
 	k8s.io/apimachinery v0.37.1
@@ -63,21 +63,21 @@ require (
 	github.com/Microsoft/go-winio v0.6.2 // indirect
 	github.com/antithesishq/antithesis-sdk-go v0.8.0-default-no-op // indirect
 	github.com/avast/retry-go/v5 v5.0.0 // indirect
-	github.com/aws/aws-sdk-go-v2/aws/protocol/eventstream v1.7.24 // indirect
-	github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.20.4 // indirect
+	github.com/aws/aws-sdk-go-v2/aws/protocol/eventstream v1.7.25 // indirect
+	github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.20.5 // indirect
 	github.com/aws/aws-sdk-go-v2/feature/s3/manager v1.22.30 // indirect
-	github.com/aws/aws-sdk-go-v2/internal/configsources v1.5.7 // indirect
-	github.com/aws/aws-sdk-go-v2/internal/endpoints/v2 v2.8.7 // indirect
-	github.com/aws/aws-sdk-go-v2/internal/v4a v1.5.7 // indirect
-	github.com/aws/aws-sdk-go-v2/service/internal/accept-encoding v1.13.22 // indirect
-	github.com/aws/aws-sdk-go-v2/service/internal/checksum v1.11.8 // indirect
-	github.com/aws/aws-sdk-go-v2/service/internal/presigned-url v1.14.7 // indirect
-	github.com/aws/aws-sdk-go-v2/service/internal/s3shared v1.20.7 // indirect
-	github.com/aws/aws-sdk-go-v2/service/signin v1.10.5 // indirect
-	github.com/aws/aws-sdk-go-v2/service/sso v1.38.5 // indirect
-	github.com/aws/aws-sdk-go-v2/service/ssooidc v1.43.5 // indirect
-	github.com/aws/aws-sdk-go-v2/service/sts v1.51.5 // indirect
-	github.com/aws/smithy-go v1.28.6 // indirect
+	github.com/aws/aws-sdk-go-v2/internal/configsources v1.5.8 // indirect
+	github.com/aws/aws-sdk-go-v2/internal/endpoints/v2 v2.8.8 // indirect
+	github.com/aws/aws-sdk-go-v2/internal/v4a v1.5.8 // indirect
+	github.com/aws/aws-sdk-go-v2/service/internal/accept-encoding v1.13.23 // indirect
+	github.com/aws/aws-sdk-go-v2/service/internal/checksum v1.11.9 // indirect
+	github.com/aws/aws-sdk-go-v2/service/internal/presigned-url v1.14.8 // indirect
+	github.com/aws/aws-sdk-go-v2/service/internal/s3shared v1.20.8 // indirect
+	github.com/aws/aws-sdk-go-v2/service/signin v1.12.0 // indirect
+	github.com/aws/aws-sdk-go-v2/service/sso v1.39.0 // indirect
+	github.com/aws/aws-sdk-go-v2/service/ssooidc v1.44.0 // indirect
+	github.com/aws/aws-sdk-go-v2/service/sts v1.51.6 // indirect
+	github.com/aws/smithy-go v1.28.7 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/brunoscheufler/aws-ecs-metadata-go v0.0.0-20221221133751-67e37ae746cd // indirect
 	github.com/cenkalti/backoff/v5 v5.0.3 // indirect
