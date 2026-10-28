@@ -7,7 +7,7 @@ require (
 	github.com/cert-manager/cert-manager v1.21.3
 	github.com/cloudnative-pg/api v1.30.0
 	github.com/cloudnative-pg/cloudnative-pg v1.30.1
-	github.com/cloudnative-pg/cloudnative-pg/tests v0.0.0-20261026110620-f52207ef2184
+	github.com/cloudnative-pg/cloudnative-pg/tests v0.0.0-20261027165122-036d11633403
 	github.com/cloudnative-pg/cnpg-i v0.6.0
 	github.com/cloudnative-pg/cnpg-i-machinery v0.4.2
 	github.com/cloudnative-pg/machinery v0.6.1
@@ -30,7 +30,7 @@ require (
 	go.opentelemetry.io/otel/sdk v1.47.0
 	go.opentelemetry.io/otel/sdk/metric v1.47.0
 	golang.org/x/sync v0.24.0
-	google.golang.org/grpc v1.84.0
+	google.golang.org/grpc v1.85.0
 	k8s.io/api v0.37.1
 	k8s.io/apiextensions-apiserver v0.37.1
 	k8s.io/apimachinery v0.37.1
@@ -41,7 +41,7 @@ require (
 )
 
 require (
-	cel.dev/expr v0.25.2 // indirect
+	cel.dev/expr v0.25.3 // indirect
 	cloud.google.com/go/compute/metadata v0.10.0 // indirect
 	filippo.io/hpke v0.4.0 // indirect
 	github.com/Masterminds/semver/v3 v3.5.0 // indirect
@@ -128,7 +128,7 @@ require (
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2 // indirect
 	github.com/power-devops/perfstat v0.0.0-20260916203055-22a1a467d9f0 // indirect
-	github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring v0.94.1 // indirect
+	github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring v0.94.2 // indirect
 	github.com/prometheus/client_golang v1.25.0 // indirect
 	github.com/prometheus/client_model v0.6.3 // indirect
 	github.com/prometheus/otlptranslator v1.0.0 // indirect
@@ -203,7 +203,7 @@ require (
 	k8s.io/klog/v2 v2.140.0 // indirect
 	k8s.io/kube-openapi v0.0.0-20260821135717-be32def86098 // indirect
 	k8s.io/streaming v0.37.1 // indirect
-	k8s.io/utils v0.0.0-20260707023825-cf1189d6abe3 // indirect
+	k8s.io/utils v0.0.0-20261023123148-ca04ba58ecab // indirect
 	sigs.k8s.io/apiserver-network-proxy/konnectivity-client v0.36.0 // indirect
 	sigs.k8s.io/gateway-api v1.6.0 // indirect
 	sigs.k8s.io/json v0.0.0-20260909141634-11ed52e25bc5 // indirect
