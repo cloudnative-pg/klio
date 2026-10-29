@@ -289,7 +289,7 @@ cached index, run tests, then revert.
 Documentation site is in `documentation/web/` (Docusaurus):
 ```bash
 cd documentation/web
-docker run -ti --rm -v $(pwd):/website -w /website --net host node:24 bash -c "yarn && yarn start" # Development server on localhost:3000
+docker run -ti --rm -v $(pwd):/website -w /website --net host node:lts-alpine sh -c "npm install && npm start" # Development server on localhost:3000
 ```
 
 `md` and `mdx` files in the documentation should have a maximum line length of

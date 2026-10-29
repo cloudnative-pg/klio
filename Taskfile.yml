@@ -1379,8 +1379,11 @@ tasks:
       # renovate: datasource=git-refs depName=docusaurus lookupName=https://github.com/levlaz/daggerverse currentValue=main
       DAGGER_DOCUSAURUS_SHA: 93f57fccbd5afd22fa917107ab7697f3e7db0e5a
     cmds:
+      # The module mounts a cache volume at ./node_modules/.cache, but `npm ci`
+      # wipes node_modules and cannot remove the mount point (EBUSY), so caching
+      # has to be disabled.
       - GITHUB_REF= dagger -s call -m github.com/levlaz/daggerverse/docusaurus@${DAGGER_DOCUSAURUS_SHA}
-        --src web --yarn build
+        --src web --disable-cache build
     sources:
       - ./web/**/*
 
@@ -1415,9 +1418,11 @@ tasks:
       DAGGER_DOCUSAURUS_SHA: 93f57fccbd5afd22fa917107ab7697f3e7db0e5a
     cmds:
       # Ctrl-C to terminate the
+      # Caching is disabled here for the same reason as in
+      # documentation:docusaurus-build-test.
       - >
         dagger call -m github.com/levlaz/daggerverse/docusaurus@${DAGGER_DOCUSAURUS_SHA}
-        --src web --yarn serve-dev up
+        --src web --disable-cache serve-dev up
 
   documentation:uncommitted:
     desc: Check for uncommitted changes after documentation generation
