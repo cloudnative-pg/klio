@@ -39,6 +39,10 @@ type stubTier2Client struct {
 	listErr    error
 }
 
+func (s *stubTier2Client) ListIncompleteBackups(_ context.Context, _ string) ([]klioclient.IncompleteBackup, error) {
+	return nil, s.listErr
+}
+
 func (s *stubTier2Client) ListBackups(_ context.Context, _ string) (klioclient.BackupList, error) {
 	return s.backups, s.listErr
 }
@@ -56,12 +60,18 @@ func (s *stubTier2Client) DeleteBackup(_ context.Context, _ string, _ string) er
 // stubDeleter is a backupDeleter that records the deletions and fails the ones
 // named in failing.
 type stubDeleter struct {
-	failing map[string]error
-	deleted []string
+	failing    map[string]error
+	complete   klioclient.BackupList
+	incomplete []klioclient.IncompleteBackup
+	deleted    []string
+}
+
+func (s *stubDeleter) ListIncompleteBackups(_ context.Context, _ string) ([]klioclient.IncompleteBackup, error) {
+	return s.incomplete, nil
 }
 
 func (s *stubDeleter) ListBackups(_ context.Context, _ string) (klioclient.BackupList, error) {
-	return nil, nil
+	return s.complete, nil
 }
 
 func (s *stubDeleter) ListBackupsByCompleteness(
@@ -145,10 +155,9 @@ func TestDeletionCandidates(t *testing.T) {
 	}
 
 	tests := []struct {
-		name       string
-		latest     int
-		complete   klioclient.BackupList
-		incomplete klioclient.BackupList
+		name     string
+		latest   int
+		complete klioclient.BackupList
 		// tier2 is the complete tier2 backup list. When nil, there is no
 		// sync guard.
 		tier2 klioclient.BackupList
@@ -161,46 +170,11 @@ func TestDeletionCandidates(t *testing.T) {
 			want:     []string{"b1"},
 		},
 		{
-			name:       "incomplete backups do not count towards the kept ones",
-			latest:     1,
-			complete:   klioclient.BackupList{backup("b1", 1)},
-			incomplete: klioclient.BackupList{backup("b2", 2)},
-			want:       nil,
-		},
-		{
-			name:       "incomplete backup older than every kept one is deleted",
-			latest:     2,
-			complete:   klioclient.BackupList{backup("b2", 2), backup("b3", 3)},
-			incomplete: klioclient.BackupList{backup("b1", 1)},
-			want:       []string{"b1"},
-		},
-		{
-			name:       "incomplete backup newer than a kept one is kept",
-			latest:     2,
-			complete:   klioclient.BackupList{backup("b1", 1), backup("b3", 3)},
-			incomplete: klioclient.BackupList{backup("b2", 2)},
-			want:       nil,
-		},
-		{
-			name:       "incomplete backups are kept when no complete backup exists",
-			latest:     1,
-			incomplete: klioclient.BackupList{backup("b1", 1), backup("b2", 2)},
-			want:       nil,
-		},
-		{
 			name:     "sync guard keeps a complete backup not complete on tier2",
 			latest:   1,
 			complete: klioclient.BackupList{backup("b1", 1), backup("b2", 2)},
 			tier2:    klioclient.BackupList{backup("b2", 2)},
 			want:     nil,
-		},
-		{
-			name:       "sync guard does not keep a backup incomplete on tier1",
-			latest:     1,
-			complete:   klioclient.BackupList{backup("b2", 2)},
-			incomplete: klioclient.BackupList{backup("b1", 1)},
-			tier2:      klioclient.BackupList{backup("b2", 2)},
-			want:       []string{"b1"},
 		},
 	}
 
@@ -214,7 +188,7 @@ func TestDeletionCandidates(t *testing.T) {
 			}
 
 			got, err := deletionCandidates(context.Background(), "cluster-a", tc, retentionPolicy,
-				&policy.LatestPolicy{Count: tt.latest}, tt.complete, tt.incomplete)
+				&policy.LatestPolicy{Count: tt.latest}, tt.complete)
 			if err != nil {
 				t.Fatalf("deletionCandidates() error = %v", err)
 			}

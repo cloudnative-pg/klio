@@ -123,6 +123,7 @@ const (
 	ServerBackupMaintenanceMetric = "klio.server.backup.maintenance"
 
 	ServerBackupBackupsMetric               = "klio.server.backup.backups"
+	ServerBackupIncompleteBackupsMetric     = "klio.server.backup.incomplete_backups"
 	ServerBackupLatestBackupStartTimeMetric = "klio.server.backup.latest_backup_start_time"
 	ServerBackupLatestBackupEndTimeMetric   = "klio.server.backup.latest_backup_completion_time"
 	ServerBackupLatestBackupStartLSNMetric  = "klio.server.backup.latest_backup_start_lsn"
@@ -196,6 +197,7 @@ type ServerBackupMetrics struct {
 	OldestSnapshotTimestamp metric.Int64ObservableGauge
 
 	Backups               metric.Int64ObservableGauge
+	IncompleteBackups     metric.Int64ObservableGauge
 	LatestBackupStartTime metric.Int64ObservableGauge
 	LatestBackupEndTime   metric.Int64ObservableGauge
 	LatestBackupStartLSN  metric.Int64ObservableGauge
@@ -393,6 +395,13 @@ func InitServerBackupMetrics() {
 
 	ServerBackup.Backups, _ = meter.Int64ObservableGauge(ServerBackupBackupsMetric,
 		metric.WithDescription("Number of PostgreSQL backups retained, broken down by `tier` and `cluster_name`."),
+		metric.WithUnit("{backups}"),
+	)
+	ServerBackup.IncompleteBackups, _ = meter.Int64ObservableGauge(ServerBackupIncompleteBackupsMetric,
+		metric.WithDescription("Number of backups not fully present on a tier as of the last retention sweep, "+
+			"broken down by `tier`, `cluster_name` and `status` (`PENDING`: the latest attempt of the cluster "+
+			"on tier1, possibly still uploading; `RECOVERABLE`: complete on tier1, rebuilt by the next relay; "+
+			"`UNRECOVERABLE`: can never complete, to be deleted by hand)."),
 		metric.WithUnit("{backups}"),
 	)
 	ServerBackup.LatestBackupStartTime, _ = meter.Int64ObservableGauge(ServerBackupLatestBackupStartTimeMetric,

@@ -23,7 +23,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"slices"
+	"fmt"
 	"testing"
 
 	"github.com/cloudnative-pg/machinery/pkg/log"
@@ -227,40 +227,6 @@ func TestSnapshotStatsTracksLatestAndOldestTimestamps(t *testing.T) {
 	}
 }
 
-func TestBuildBackupGroupsSortsBySourceAndEndTime(t *testing.T) {
-	clusterA := kopia.SourceInfo{Host: "node-a", UserName: "postgres", Path: "/data_meta"}
-	clusterB := kopia.SourceInfo{Host: "node-b", UserName: "postgres", Path: "/data_meta"}
-
-	snapshots := []kopia.Manifest{
-		{ID: "a-mid", Source: clusterA, EndTime: 200},
-		{ID: "a-new", Source: clusterA, EndTime: 500},
-		{ID: "a-old", Source: clusterA, EndTime: 10},
-		{ID: "b-only", Source: clusterB, EndTime: 42},
-	}
-
-	groups := buildBackupGroups(snapshots)
-
-	if len(groups) != 2 {
-		t.Fatalf("expected 2 groups, got %d", len(groups))
-	}
-
-	ids := func(group []kopia.Manifest) []string {
-		result := make([]string, 0, len(group))
-		for _, s := range group {
-			result = append(result, s.ID)
-		}
-
-		return result
-	}
-
-	if got := ids(groups[clusterA]); !slices.Equal(got, []string{"a-old", "a-mid", "a-new"}) {
-		t.Fatalf("expected clusterA sorted oldest to newest, got %v", got)
-	}
-	if got := ids(groups[clusterB]); !slices.Equal(got, []string{"b-only"}) {
-		t.Fatalf("expected clusterB to hold only b-only, got %v", got)
-	}
-}
-
 var errUnknownSnapshot = errors.New("unknown snapshot")
 
 // fakeSnapshotSource serves the metadata of the metadata snapshots by ID,
@@ -288,8 +254,9 @@ func (f *fakeSnapshotSource) RestoreSingleFile(
 	return json.Marshal(metadata)
 }
 
-// backupSnapshot returns a snapshot of one part of a backup of cluster-a.
-func backupSnapshot(name, content, tablespace string, endTime kopia.UTCTimestamp) kopia.Manifest {
+// backupSnapshot returns a snapshot of one part of a backup of cluster-a,
+// started at the given minute.
+func backupSnapshot(name, content, tablespace string, minute int) kopia.Manifest {
 	tags := map[string]string{
 		"tag:" + klioclient.BackupNameTagName:    name,
 		"tag:" + klioclient.BackupContentTagName: content,
@@ -299,10 +266,10 @@ func backupSnapshot(name, content, tablespace string, endTime kopia.UTCTimestamp
 	}
 
 	return kopia.Manifest{
-		ID:      name + "-" + content,
-		Source:  kopia.SourceInfo{Host: "cluster-a", Path: "/" + content},
-		EndTime: endTime,
-		Tags:    tags,
+		ID:        name + "-" + content,
+		Source:    kopia.SourceInfo{Host: "cluster-a", Path: "/" + content},
+		StartTime: fmt.Sprintf("2026-01-01T00:%02d:00Z", minute),
+		Tags:      tags,
 	}
 }
 
@@ -315,14 +282,13 @@ func newBackupFixture() ([]kopia.Manifest, *fakeSnapshotSource) {
 	var snapshots []kopia.Manifest
 	metadata := make(map[string]klioclient.BackupMetadata)
 	for i, name := range []string{"b1", "b2", "b3", "b4", "b5"} {
-		endTime := kopia.UTCTimestamp(10 * (i + 1))
-		snapshots = append(snapshots, backupSnapshot(name, "metadata", "", endTime))
-		snapshots = append(snapshots, backupSnapshot(name, "controldata", "", endTime))
+		snapshots = append(snapshots, backupSnapshot(name, "metadata", "", i))
+		snapshots = append(snapshots, backupSnapshot(name, "controldata", "", i))
 		if name != "b2" {
-			snapshots = append(snapshots, backupSnapshot(name, "pgdata", "", endTime))
+			snapshots = append(snapshots, backupSnapshot(name, "pgdata", "", i))
 		}
 		if name != "b3" && name != "b5" {
-			snapshots = append(snapshots, backupSnapshot(name, "tablespace", "tbs1", endTime))
+			snapshots = append(snapshots, backupSnapshot(name, "tablespace", "tbs1", i))
 		}
 		metadata[name+"-metadata"] = klioclient.BackupMetadata{
 			Name: name, ClusterName: "cluster-a", Tablespaces: withTablespace,

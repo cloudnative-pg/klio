@@ -40,28 +40,24 @@ func (err NoBackupFoundError) Error() string {
 }
 
 // IncompleteBackupError is raised when a backup has a metadata snapshot but
-// misses some of its other snapshots on this tier. It unwraps to
-// NoBackupFoundError, so callers treat it as not found on this tier.
+// misses some of its other snapshots on this tier.
 type IncompleteBackupError struct {
-	NoBackupFoundError
-
+	hostName     string
+	backupName   string
 	missingParts []string
 }
 
 func newIncompleteBackupError(hostName string, backupName string, missingParts []string) IncompleteBackupError {
 	return IncompleteBackupError{
-		NoBackupFoundError: newNoBackupFoundError(hostName, backupName),
-		missingParts:       missingParts,
+		hostName:     hostName,
+		backupName:   backupName,
+		missingParts: missingParts,
 	}
 }
 
 func (err IncompleteBackupError) Error() string {
 	return fmt.Sprintf("backup %q for host %q is incomplete, missing %v",
 		err.backupName, err.hostName, err.missingParts)
-}
-
-func (err IncompleteBackupError) Unwrap() error {
-	return err.NoBackupFoundError
 }
 
 // NoSnapshotFoundError is raised when the requested snapshot has not been found

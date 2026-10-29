@@ -113,6 +113,17 @@ func retainedBackupPanels() []sizedPanel {
 					"tier. It is the earliest point in time a restore can target, as long as all the WAL files "+
 					"since the backup started are still retained.")),
 
+		sized(largePanelWidth, largePanelHeight, timeseriesPanel("Incomplete backups", units.Number,
+			query(fmt.Sprintf("sum by (cluster_name, tier, status) (%s)",
+				servedScope.series("klio_server_backup_incomplete_backups")),
+				"{{cluster_name}} {{tier}} {{status}}"),
+		).Decimals(0).
+			Description("Backups not fully present on a tier as of the last retention sweep, per cluster, tier "+
+				"and status. PENDING is the latest attempt of the cluster on tier1 and clears within one backup "+
+				"when healthy: alert on it only once it outlives the backup interval. RECOVERABLE clears at the "+
+				"next relay of the cluster. UNRECOVERABLE never clears on its own: delete the backup with "+
+				"klio admin delete-backup.")),
+
 		// Latest retained backup.
 		sized(largePanelWidth, largePanelHeight, latestBackupAgePanel(servedScope)),
 		sized(largePanelWidth, largePanelHeight,
