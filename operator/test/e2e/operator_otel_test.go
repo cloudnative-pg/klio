@@ -52,7 +52,7 @@ const (
 	// collectorImage must match the image used in otel.go.
 	//nolint:godot,lll
 	// renovate image: datasource=docker depName=otel/opentelemetry-collector-contrib versioning=docker
-	collectorImage       = "otel/opentelemetry-collector-contrib:0.163.2@sha256:7f22d2a6748110ffb6a59bc0df448bccbf501cdb667d610ede4c61d3863d5849"
+	collectorImage       = "otel/opentelemetry-collector-contrib:0.164.0@sha256:340c9ca6a36617084c6661bdc4f0fe92b7cda5a805d61673ec8db375fddc522b"
 	collectorHTTPPort    = 4318
 	collectorMetricsPort = 9464
 )
