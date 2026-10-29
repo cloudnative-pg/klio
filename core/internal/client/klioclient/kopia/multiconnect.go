@@ -137,9 +137,10 @@ func (s *MultiConnection) GetMetadata(
 			return markTier1(meta), nil
 		}
 
-		// IncompleteBackupError unwraps to NoBackupFoundError: an
-		// incomplete tier1 backup falls back to tier2 too.
-		if _, ok := errors.AsType[NoBackupFoundError](err); !ok {
+		// A backup missing or incomplete on tier1 may be complete on tier2.
+		_, notFound := errors.AsType[NoBackupFoundError](err)
+		_, incomplete := errors.AsType[IncompleteBackupError](err)
+		if !notFound && !incomplete {
 			return nil, fmt.Errorf("while getting metadata from tier1: %w", err)
 		}
 		tier1Err = err

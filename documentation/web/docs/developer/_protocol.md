@@ -131,6 +131,11 @@ DeleteBackupResponse is the response to a backup deletion request.
 
 
 
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| incomplete | [bool](#bool) |  | When true, list the incomplete backups instead of the complete ones: the backups not fully present on a tier, with their status. |
+
+
 
 
 
@@ -143,7 +148,7 @@ DeleteBackupResponse is the response to a backup deletion request.
 
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
-| backup_manifests | [bytes](#bytes) |  | JSON-serialized array of backup manifests. Each manifest contains fields like: - id: string - cluster_name: string - timestamp: RFC3339 string - size_bytes: number See klioclient.BackupManifest for the canonical structure. We use JSON bytes here to avoid duplicating the internal type definition and conversion logic, as this is a local admin API. |
+| backup_manifests | [bytes](#bytes) |  | JSON-serialized array of backup manifests. Each manifest contains fields like: - id: string - cluster_name: string - timestamp: RFC3339 string - size_bytes: number See klioclient.BackupManifest for the canonical structure. We use JSON bytes here to avoid duplicating the internal type definition and conversion logic, as this is a local admin API. When the request asked for the incomplete backups, this is instead the JSON-serialized array of klioclient.IncompleteBackup. |
 
 
 

@@ -57,21 +57,21 @@ func serverPanels() []sizedPanel {
 		// panel height. Server-level values are grouped by service_name so two servers
 		// (even two with the same pod host name in different namespaces) never
 		// collapse into one number.
-		sized(largePanelWidth, mediumPanelHeight, statPanel("Server uptime", units.DurationInDaysHoursMinutesSeconds,
+		sized(largestPanelWidth, mediumPanelHeight, statPanel("Server uptime", units.DurationInDaysHoursMinutesSeconds,
 			query(fmt.Sprintf("max by (service_name) (klio_server_uptime_seconds{%s})", serverMatcher),
 				"{{service_name}}"),
 		).Orientation(common.VizOrientationHorizontal).
 			Description("Time since the Klio server process started, per server. A sudden drop means that "+
 				"server's StatefulSet restarted.")),
 
-		sized(largePanelWidth, mediumPanelHeight, statPanel("Retained backups", units.Number,
+		sized(largestPanelWidth, mediumPanelHeight, statPanel("Retained backups", units.Number,
 			query(fmt.Sprintf("sum by (cluster_name, tier) (klio_server_backup_backups{%s})", walMatcher),
 				"{{cluster_name}} {{tier}}"),
 		).Decimals(0).
 			Orientation(common.VizOrientationHorizontal).
 			Description("Number of PostgreSQL backups currently retained per cluster and tier.")),
 
-		sized(largePanelWidth, mediumPanelHeight,
+		sized(largestPanelWidth, mediumPanelHeight,
 			statPanel("Oldest restorable point", units.DatetimeISO,
 				query(
 					fmt.Sprintf("min by (cluster_name, tier) "+
@@ -81,6 +81,17 @@ func serverPanels() []sizedPanel {
 				Description("Timestamp at which the oldest retained PostgreSQL backup completed, per cluster and "+
 					"tier. It is the earliest point in time a restore can target, as long as all the WAL files "+
 					"since the backup started are still retained.")),
+
+		sized(largestPanelWidth, mediumPanelHeight, timeseriesPanel("Incomplete backups", units.Number,
+			query(fmt.Sprintf("sum by (cluster_name, tier, status) (klio_server_backup_incomplete_backups{%s})",
+				walMatcher),
+				"{{cluster_name}} {{tier}} {{status}}"),
+		).Decimals(0).
+			Description("Backups not fully present on a tier as of the last retention sweep, per cluster, tier "+
+				"and status. PENDING is the latest attempt of the cluster on tier1 and clears within one backup "+
+				"when healthy: alert on it only once it outlives the backup interval. RECOVERABLE clears at the "+
+				"next relay of the cluster. UNRECOVERABLE never clears on its own: delete the backup with "+
+				"klio admin delete-backup.")),
 
 		// Latest retained backup.
 		sized(largePanelWidth, mediumPanelHeight,

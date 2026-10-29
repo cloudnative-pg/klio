@@ -24,11 +24,11 @@ import (
 )
 
 // IncompleteBackup returns an IncompleteBackupFeature verifying that a
-// backup missing one of its snapshots is not listed, and that retention
-// deletes it once a newer complete backup is kept. It reuses the retention
-// scenario with tier1 keeping its latest backup and tier2 keeping more
-// backups than the test takes, so tier2 deletes the incomplete backup only
-// for being incomplete.
+// backup missing one of its snapshots is not listed, is reported with the
+// right status, survives the retention sweep, and is either deleted by
+// hand or rebuilt by a relay. It reuses the retention scenario with tier1
+// keeping its latest backup and tier2 keeping more backups than the test
+// takes, so tier2 retention never deletes anything.
 func IncompleteBackup(namespace string) *klioFeatures.IncompleteBackupFeature {
 	cfg := newRetentionFeatureConfig("IncompleteBackup", namespace, 1, 3)
 
@@ -36,7 +36,7 @@ func IncompleteBackup(namespace string) *klioFeatures.IncompleteBackupFeature {
 		Name:        cfg.Name,
 		Setup:       cfg.Setup,
 		Teardown:    cfg.Teardown,
-		Backups:     cfg.Backups[:2],
+		Backups:     cfg.Backups[:3],
 		KlioServer:  cfg.KlioServer,
 		Namespace:   cfg.Namespace,
 		ClusterName: cfg.ClusterName,

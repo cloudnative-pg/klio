@@ -20,9 +20,11 @@ SPDX-License-Identifier: Apache-2.0
 package kopia
 
 import (
+	"cmp"
 	"context"
 	"encoding/json"
 	"fmt"
+	"slices"
 
 	"github.com/cloudnative-pg/machinery/pkg/log"
 
@@ -52,7 +54,9 @@ func (s *Connection) GetMetadata(
 	return getMetadata(ctx, s.kopia, hostname, name)
 }
 
-// getMetadata returns the metadata of the named backup of hostname.
+// getMetadata returns the metadata of the named backup of hostname, with
+// the same completeness rule as listBackups: a backup is found only when
+// every snapshot it needs is on this tier.
 func getMetadata(
 	ctx context.Context,
 	store MetadataStore,
@@ -60,6 +64,8 @@ func getMetadata(
 	name string,
 ) (*klioclient.BackupMetadata, error) {
 	contextLogger := log.FromContext(ctx)
+	// Every snapshot of the backup, whatever its content: the completeness
+	// check below needs them all, not just the metadata one.
 	entries, err := store.ListSnapshots(ctx, map[string]string{
 		klioclient.BackupNameTagName: name,
 	}, contextLogger.Debug)
@@ -79,6 +85,7 @@ func getMetadata(
 			return nil, err
 		}
 
+		// Found but not restorable: the error names what is missing.
 		if missing := parts.Missing(hostname, name, metadata); len(missing) > 0 {
 			return nil, newIncompleteBackupError(hostname, name, missing)
 		}
@@ -86,6 +93,7 @@ func getMetadata(
 		return metadata, nil
 	}
 
+	// No metadata snapshot: never finished uploading, or never existed.
 	return nil, newNoBackupFoundError(hostname, name)
 }
 
@@ -109,7 +117,7 @@ func (s *Connection) ListBackupsByCompleteness(
 }
 
 // listBackups returns the complete and the incomplete backups of hostname
-// (of every host when empty).
+// (of every host when empty), among the ones with a metadata snapshot.
 func listBackups(
 	ctx context.Context,
 	store MetadataStore,
@@ -117,39 +125,22 @@ func listBackups(
 ) (klioclient.BackupList, klioclient.BackupList, error) {
 	contextLogger := log.FromContext(ctx)
 
-	// Unfiltered: the completeness check needs every content type, not
-	// just the metadata snapshots.
-	entries, err := store.ListSnapshots(ctx, nil, contextLogger.Info)
+	scanned, err := scanBackups(ctx, store, hostname)
 	if err != nil {
-		return nil, nil, fmt.Errorf("while executing Kopia command: %w", err)
+		return nil, nil, err
 	}
 
-	parts := NewBackupParts(entries)
-
 	var complete, incomplete klioclient.BackupList
-	for _, entry := range entries {
-		if !isMetadataOf(entry, hostname) {
-			continue
-		}
-
-		host := entry.Source.Host
-		name := TagValue(entry, klioclient.BackupNameTagName)
-		metadata, err := RestoreMetadata(ctx, store, entry.ID)
-		if err != nil {
-			contextLogger.Error(err, "Error while decoding backup metadata, skipping", "id", entry.ID)
-
-			continue
-		}
-
-		if missing := parts.Missing(host, name, metadata); len(missing) > 0 {
+	for _, b := range scanned {
+		switch {
+		case b.Metadata == nil:
+		case len(b.Missing) > 0:
 			contextLogger.Debug("Backup is incomplete on this tier",
-				"hostname", host, "backupName", name, "missing", missing)
-			incomplete = append(incomplete, *metadata)
-
-			continue
+				"hostname", b.Host, "backupName", b.Name, "missing", b.Missing)
+			incomplete = append(incomplete, *b.Metadata)
+		default:
+			complete = append(complete, *b.Metadata)
 		}
-
-		complete = append(complete, *metadata)
 	}
 
 	return complete, incomplete, nil
@@ -247,4 +238,178 @@ func RestoreMetadata(
 	}
 
 	return &result, nil
+}
+
+// ListIncompleteBackups lists the backups of hostname (of every host when
+// empty) that are not fully present on this tier.
+func (s *Connection) ListIncompleteBackups(
+	ctx context.Context,
+	hostname string,
+) ([]klioclient.IncompleteBackup, error) {
+	return listIncompleteBackups(ctx, s.kopia, hostname)
+}
+
+// listIncompleteBackups returns the backups of hostname (of every host when
+// empty) that have no metadata snapshot or miss a part the metadata
+// expects.
+func listIncompleteBackups(
+	ctx context.Context,
+	store MetadataStore,
+	hostname string,
+) ([]klioclient.IncompleteBackup, error) {
+	scanned, err := scanBackups(ctx, store, hostname)
+	if err != nil {
+		return nil, err
+	}
+
+	var result []klioclient.IncompleteBackup
+	for _, b := range scanned {
+		if b.Metadata != nil && len(b.Missing) == 0 {
+			continue
+		}
+
+		missing := b.Missing
+		if b.Metadata == nil {
+			// Nothing is known of what the backup expected.
+			missing = []string{}
+		}
+
+		result = append(result, klioclient.IncompleteBackup{
+			ClusterName:     b.Host,
+			BackupName:      b.Name,
+			StartedAt:       b.StartedAt,
+			MetadataPresent: b.Metadata != nil,
+			MissingParts:    missing,
+			Latest:          b.Latest,
+		})
+	}
+
+	return result, nil
+}
+
+// ScannedBackup is one backup of one host, as found in the repository.
+type ScannedBackup struct {
+	Host string
+	Name string
+
+	// StartedAt is the earliest start time of the backup's snapshots, Kopia
+	// checkpoints included.
+	StartedAt string
+
+	// Latest reports whether this is the latest started backup of its host.
+	Latest bool
+
+	// MetadataID is the ID of the metadata snapshot, empty when missing.
+	MetadataID string
+
+	// Metadata is the backup metadata, nil when its snapshot is missing.
+	Metadata *klioclient.BackupMetadata
+
+	// Missing lists the parts Metadata expects that have no snapshot.
+	Missing []string
+}
+
+// MetadataLoader reads the backup metadata stored in a metadata snapshot.
+type MetadataLoader func(ctx context.Context, snapshotID string) (*klioclient.BackupMetadata, error)
+
+// backupGroup tracks the snapshots seen for one backup of one host.
+type backupGroup struct {
+	startedAt  string
+	metadataID string
+}
+
+// scanBackups lists every snapshot of the repository and scans the backups
+// of hostname (of every host when empty).
+func scanBackups(ctx context.Context, store MetadataStore, hostname string) ([]ScannedBackup, error) {
+	// Unfiltered: the completeness check needs every content type, not
+	// just the metadata snapshots.
+	entries, err := store.ListSnapshots(ctx, nil, log.FromContext(ctx).Info)
+	if err != nil {
+		return nil, fmt.Errorf("while executing Kopia command: %w", err)
+	}
+
+	load := func(ctx context.Context, snapshotID string) (*klioclient.BackupMetadata, error) {
+		return RestoreMetadata(ctx, store, snapshotID)
+	}
+
+	return ScanBackups(ctx, entries, hostname, load), nil
+}
+
+// ScanBackups returns every backup of hostname (of every host when empty)
+// found among entries, complete or not, sorted by host and start time. The
+// metadata of each backup that has one is read with load; a backup whose
+// metadata cannot be read is logged and skipped.
+func ScanBackups(
+	ctx context.Context,
+	entries []kopia.Manifest,
+	hostname string,
+	load MetadataLoader,
+) []ScannedBackup {
+	contextLogger := log.FromContext(ctx)
+
+	parts := NewBackupParts(entries)
+	groups := groupBackups(entries, hostname)
+
+	latestPerHost := make(map[string]string)
+	for key, g := range groups {
+		latestPerHost[key.host] = max(latestPerHost[key.host], g.startedAt)
+	}
+
+	result := make([]ScannedBackup, 0, len(groups))
+	for key, g := range groups {
+		b := ScannedBackup{
+			Host:       key.host,
+			Name:       key.name,
+			StartedAt:  g.startedAt,
+			Latest:     g.startedAt == latestPerHost[key.host],
+			MetadataID: g.metadataID,
+		}
+
+		if g.metadataID != "" {
+			metadata, err := load(ctx, g.metadataID)
+			if err != nil {
+				contextLogger.Error(err, "Error while decoding backup metadata, skipping", "id", g.metadataID)
+
+				continue
+			}
+
+			b.Metadata = metadata
+			b.Missing = parts.Missing(key.host, key.name, metadata)
+		}
+
+		result = append(result, b)
+	}
+
+	slices.SortFunc(result, func(a, b ScannedBackup) int {
+		return cmp.Or(cmp.Compare(a.Host, b.Host), cmp.Compare(a.StartedAt, b.StartedAt))
+	})
+
+	return result
+}
+
+// groupBackups groups the entries of hostname (of every host when empty)
+// by backup, tracking each backup's earliest start time and the ID of its
+// metadata snapshot, if any.
+func groupBackups(entries []kopia.Manifest, hostname string) map[hostBackupName]*backupGroup {
+	groups := make(map[hostBackupName]*backupGroup)
+
+	for _, entry := range entries {
+		name := TagValue(entry, klioclient.BackupNameTagName)
+		if name == "" || (hostname != "" && entry.Source.Host != hostname) {
+			continue
+		}
+
+		key := hostBackupName{host: entry.Source.Host, name: name}
+		g, ok := groups[key]
+		if !ok {
+			g = &backupGroup{startedAt: entry.StartTime}
+			groups[key] = g
+		}
+		g.startedAt = min(g.startedAt, entry.StartTime)
+		if entry.IncompleteReason == "" && TagValue(entry, klioclient.BackupContentTagName) == "metadata" {
+			g.metadataID = entry.ID
+		}
+	}
+
+	return groups
 }

@@ -63,6 +63,9 @@ message RefreshResult{
 }
 
 message ListBackupsRequest {
+  // When true, list the incomplete backups instead of the complete ones:
+  // the backups not fully present on a tier, with their status.
+  bool incomplete = 1;
 }
 
 message ListBackupsResult {
@@ -75,6 +78,8 @@ message ListBackupsResult {
   // See klioclient.BackupManifest for the canonical structure.
   // We use JSON bytes here to avoid duplicating the internal type definition
   // and conversion logic, as this is a local admin API.
+  // When the request asked for the incomplete backups, this is instead the
+  // JSON-serialized array of klioclient.IncompleteBackup.
   bytes backup_manifests = 1;
 }
 

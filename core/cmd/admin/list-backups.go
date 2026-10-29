@@ -36,13 +36,18 @@ var listBackupsCmd = &cobra.Command{
 	Short: "List the backups available in the Klio server",
 	Args:  cobra.NoArgs,
 	RunE: func(cmd *cobra.Command, _ []string) error {
+		incomplete, err := cmd.Flags().GetBool("incomplete")
+		if err != nil {
+			return err
+		}
+
 		adminClient, closeConn, err := dialAdmin(cmd)
 		if err != nil {
 			return err
 		}
 		defer closeConn()
 
-		backups, err := adminClient.ListBackups(cmd.Context(), &klioGRPC.ListBackupsRequest{})
+		backups, err := adminClient.ListBackups(cmd.Context(), &klioGRPC.ListBackupsRequest{Incomplete: incomplete})
 		if err != nil {
 			return fmt.Errorf("while calling list-backups entrypoint: %w", err)
 		}
@@ -57,5 +62,8 @@ var listBackupsCmd = &cobra.Command{
 
 //nolint:gochecknoinits
 func init() {
+	listBackupsCmd.Flags().Bool("incomplete", false,
+		"List the incomplete backups (not fully present on a tier) instead of the complete ones. "+
+			"Needs tier1: a read-only server refuses it")
 	AdminCmd.AddCommand(listBackupsCmd)
 }

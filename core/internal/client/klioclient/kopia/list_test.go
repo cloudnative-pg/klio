@@ -255,14 +255,11 @@ func TestGetMetadata(t *testing.T) {
 				return
 			}
 
-			// Both cases must be a NoBackupFoundError, so MultiConnection
-			// falls back to tier2.
-			_, ok := errors.AsType[NoBackupFoundError](err)
-			require.True(t, ok, "unexpected error %v", err)
-
 			incomplete, ok := errors.AsType[IncompleteBackupError](err)
 			if tt.wantMissing == nil {
 				assert.False(t, ok, "unexpected incomplete backup error %v", err)
+				_, ok = errors.AsType[NoBackupFoundError](err)
+				require.True(t, ok, "unexpected error %v", err)
 			} else {
 				require.True(t, ok, "unexpected error %v", err)
 				assert.Equal(t, tt.wantMissing, incomplete.missingParts)
@@ -272,4 +269,131 @@ func TestGetMetadata(t *testing.T) {
 			}
 		})
 	}
+}
+
+// at returns m started at t.
+func at(m kopia.Manifest, t string) kopia.Manifest {
+	m.StartTime = t
+
+	return m
+}
+
+// newIncompleteFakeStore returns a store holding, on host c1: b1 complete,
+// b2 missing its tablespace, b3 with only its metadata, and b4 with only
+// its pgdata and a checkpoint of its controldata; on host c2: b1 with only
+// its pgdata.
+func newIncompleteFakeStore() *fakeMetadataStore {
+	withTablespace := []klioclient.TablespaceLayout{{Name: "tbs1"}}
+
+	checkpoint := at(part("c1", "b4", "controldata", ""), "2026-01-04T00:00:05Z")
+	checkpoint.IncompleteReason = "checkpoint"
+
+	return &fakeMetadataStore{
+		entries: []kopia.Manifest{
+			at(part("c1", "b1", "metadata", ""), "2026-01-01T00:00:10Z"),
+			at(part("c1", "b1", "pgdata", ""), "2026-01-01T00:00:00Z"),
+			at(part("c1", "b1", "controldata", ""), "2026-01-01T00:00:05Z"),
+			at(part("c1", "b2", "metadata", ""), "2026-01-02T00:00:10Z"),
+			at(part("c1", "b2", "pgdata", ""), "2026-01-02T00:00:00Z"),
+			at(part("c1", "b2", "controldata", ""), "2026-01-02T00:00:05Z"),
+			at(part("c1", "b3", "metadata", ""), "2026-01-03T00:00:10Z"),
+			at(part("c1", "b4", "pgdata", ""), "2026-01-04T00:00:00Z"),
+			checkpoint,
+			at(part("c2", "b1", "pgdata", ""), "2026-01-01T00:00:00Z"),
+		},
+		metadata: map[string]klioclient.BackupMetadata{
+			"c1/b1/metadata": {Name: "b1", ClusterName: "c1"},
+			"c1/b2/metadata": {Name: "b2", ClusterName: "c1", Tablespaces: withTablespace},
+			"c1/b3/metadata": {Name: "b3", ClusterName: "c1"},
+		},
+	}
+}
+
+func TestListIncompleteBackups(t *testing.T) {
+	got, err := listIncompleteBackups(context.Background(), newIncompleteFakeStore(), "")
+	require.NoError(t, err)
+
+	assert.Equal(t, []klioclient.IncompleteBackup{
+		{
+			ClusterName:     "c1",
+			BackupName:      "b2",
+			StartedAt:       "2026-01-02T00:00:00Z",
+			MetadataPresent: true,
+			MissingParts:    []string{"tablespace/tbs1"},
+		},
+		{
+			ClusterName:     "c1",
+			BackupName:      "b3",
+			StartedAt:       "2026-01-03T00:00:10Z",
+			MetadataPresent: true,
+			MissingParts:    []string{"pgdata", "controldata"},
+		},
+		{
+			ClusterName:  "c1",
+			BackupName:   "b4",
+			StartedAt:    "2026-01-04T00:00:00Z",
+			MissingParts: []string{},
+			Latest:       true,
+		},
+		{
+			ClusterName:  "c2",
+			BackupName:   "b1",
+			StartedAt:    "2026-01-01T00:00:00Z",
+			MissingParts: []string{},
+			Latest:       true,
+		},
+	}, got)
+}
+
+func TestListIncompleteBackupsFiltersByHostname(t *testing.T) {
+	got, err := listIncompleteBackups(context.Background(), newIncompleteFakeStore(), "c2")
+	require.NoError(t, err)
+
+	require.Len(t, got, 1)
+	assert.Equal(t, "c2", got[0].ClusterName)
+	assert.Equal(t, "b1", got[0].BackupName)
+}
+
+func TestListIncompleteBackupsLatestIsCompleteBackup(t *testing.T) {
+	// c1: b1 with only its pgdata, then b2 complete: b1 is not the latest
+	// attempt, so it can never be a live upload.
+	store := &fakeMetadataStore{
+		entries: []kopia.Manifest{
+			at(part("c1", "b1", "pgdata", ""), "2026-01-01T00:00:00Z"),
+			at(part("c1", "b2", "metadata", ""), "2026-01-02T00:00:10Z"),
+			at(part("c1", "b2", "pgdata", ""), "2026-01-02T00:00:00Z"),
+			at(part("c1", "b2", "controldata", ""), "2026-01-02T00:00:05Z"),
+		},
+		metadata: map[string]klioclient.BackupMetadata{
+			"c1/b2/metadata": {Name: "b2", ClusterName: "c1"},
+		},
+	}
+
+	got, err := listIncompleteBackups(context.Background(), store, "")
+	require.NoError(t, err)
+
+	require.Len(t, got, 1)
+	assert.Equal(t, "b1", got[0].BackupName)
+	assert.False(t, got[0].Latest)
+}
+
+func TestListIncompleteBackupsLatestIgnoresEntryOrder(t *testing.T) {
+	// b2's checkpoint is listed before its pgdata: the later entry lowers
+	// the group's start time, which must still be the latest of the host.
+	checkpoint := at(part("c1", "b2", "controldata", ""), "2026-01-02T00:00:05Z")
+	checkpoint.IncompleteReason = "checkpoint"
+	store := &fakeMetadataStore{
+		entries: []kopia.Manifest{
+			checkpoint,
+			at(part("c1", "b1", "pgdata", ""), "2026-01-01T00:00:00Z"),
+			at(part("c1", "b2", "pgdata", ""), "2026-01-02T00:00:00Z"),
+		},
+	}
+
+	got, err := listIncompleteBackups(context.Background(), store, "")
+	require.NoError(t, err)
+
+	require.Len(t, got, 2)
+	assert.False(t, got[0].Latest, "b1")
+	assert.True(t, got[1].Latest, "b2")
 }

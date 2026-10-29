@@ -13,7 +13,8 @@ klio admin list-backups [flags]
 ### Options
 
 ```
-  -h, --help   help for list-backups
+  -h, --help         help for list-backups
+      --incomplete   List the incomplete backups (not fully present on a tier) instead of the complete ones. Needs tier1: a read-only server refuses it
 ```
 
 ### Options inherited from parent commands
