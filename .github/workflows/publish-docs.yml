@@ -35,19 +35,19 @@ jobs:
           # Use the latest LTS version of Node.js already installed on the runner.
           node-version: latest
           check-latest: 'false'
-          cache: yarn
-          cache-dependency-path: documentation/web/yarn.lock
+          cache: npm
+          cache-dependency-path: documentation/web/package-lock.json
 
       - name: Setup Pages
         uses: actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d # v6
 
       - name: Install dependencies
         working-directory: documentation/web
-        run: yarn install --frozen-lockfile --non-interactive
+        run: npm ci
 
       - name: Build website
         working-directory: documentation/web
-        run: yarn build
+        run: npm run build
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5

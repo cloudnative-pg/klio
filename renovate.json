@@ -149,7 +149,7 @@
     {
       "matchFileNames": [
         "documentation/web/package.json",
-        "documentation/web/yarn.lock"
+        "documentation/web/package-lock.json"
       ],
       "groupName": "documentation dependencies"
     },
