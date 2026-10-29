@@ -20,9 +20,7 @@ SPDX-License-Identifier: Apache-2.0
 package kopiaserver
 
 import (
-	"cmp"
 	"context"
-	"slices"
 	"sync"
 	"time"
 
@@ -306,62 +304,46 @@ func (c *SnapshotMetricsCollector) collectBackupMetrics(
 ) []backupCacheEntry {
 	c.logger.Debug("Collecting PostgreSQL backup metrics")
 
-	parts := klioclientkopia.NewBackupParts(snapshots)
 	metadata := make(map[string]*klioclient.BackupMetadata, len(c.metadata))
-	var complete []kopia.Manifest
-	for _, s := range snapshots {
-		if klioclientkopia.TagValue(s, klioclient.BackupContentTagName) != "metadata" {
+	load := func(ctx context.Context, snapshotID string) (*klioclient.BackupMetadata, error) {
+		if meta, ok := c.metadata[snapshotID]; ok {
+			return meta, nil
+		}
+
+		return klioclientkopia.RestoreMetadata(ctx, c.kopia, snapshotID)
+	}
+
+	// The scan is sorted by host, then start time, so the complete backups
+	// of one cluster are contiguous: the first is the oldest, the last the
+	// latest.
+	var entries []backupCacheEntry
+	for _, b := range klioclientkopia.ScanBackups(ctx, snapshots, "", load) {
+		if b.Metadata == nil {
+			continue
+		}
+		metadata[b.MetadataID] = b.Metadata
+
+		if len(b.Missing) > 0 {
+			c.logger.Debug("Skipping incomplete backup", "snapshotID", b.MetadataID, "missing", b.Missing)
+
 			continue
 		}
 
-		meta, ok := c.metadata[s.ID]
-		if !ok {
-			var err error
-			if meta, err = klioclientkopia.RestoreMetadata(ctx, c.kopia, s.ID); err != nil {
-				c.logger.Warning("Failed to read backup metadata", "snapshotID", s.ID, "error", err)
-				continue
-			}
-		}
-		metadata[s.ID] = meta
+		if n := len(entries); n > 0 && entries[n-1].clusterName == b.Metadata.ClusterName {
+			entries[n-1].count++
+			entries[n-1].latest = *b.Metadata
 
-		name := klioclientkopia.TagValue(s, klioclient.BackupNameTagName)
-		if missing := parts.Missing(s.Source.Host, name, meta); len(missing) > 0 {
-			c.logger.Debug("Skipping incomplete backup", "snapshotID", s.ID, "missing", missing)
 			continue
 		}
-		complete = append(complete, s)
+		entries = append(entries, backupCacheEntry{
+			clusterName: b.Metadata.ClusterName,
+			count:       1,
+			latest:      *b.Metadata,
+			oldest:      *b.Metadata,
+		})
 	}
 	// Replacing the cache drops the metadata of deleted snapshots.
 	c.metadata = metadata
 
-	groups := buildBackupGroups(complete)
-	entries := make([]backupCacheEntry, 0, len(groups))
-	for _, group := range groups {
-		latest, oldest := metadata[group[len(group)-1].ID], metadata[group[0].ID]
-		entries = append(entries, backupCacheEntry{
-			clusterName: latest.ClusterName,
-			count:       int64(len(group)),
-			latest:      *latest,
-			oldest:      *oldest,
-		})
-	}
-
 	return entries
-}
-
-// buildBackupGroups groups metadata snapshots by source, each group sorted
-// by ascending end time.
-func buildBackupGroups(snapshots []kopia.Manifest) map[kopia.SourceInfo][]kopia.Manifest {
-	groups := make(map[kopia.SourceInfo][]kopia.Manifest)
-	for _, s := range snapshots {
-		groups[s.Source] = append(groups[s.Source], s)
-	}
-
-	for _, group := range groups {
-		slices.SortFunc(group, func(a, b kopia.Manifest) int {
-			return cmp.Compare(a.EndTime, b.EndTime)
-		})
-	}
-
-	return groups
 }

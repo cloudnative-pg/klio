@@ -154,13 +154,118 @@ kubectl apply -f scheduled-backup.yaml
 
 Klio automatically manages backup retention based on the
 [retention policies](plugin_configuration.md#retention-policies) defined in the
-`PluginConfiguration` referred by the `Cluster`.
+`PluginConfiguration` referred by the `Cluster`. A backup that was
+interrupted, or lost one of its snapshots, is not listed and cannot be
+restored: see [Incomplete Backups](#incomplete-backups) below.
 
 :::warning
 Deleting a `Backup` resource through `kubectl` only removes the Kubernetes
 object. The actual backup data in the Klio server will be retained according to
 the retention policy.
 :::
+
+## Incomplete Backups
+
+On each tier, a backup is a set of Kopia snapshots: one for `PGDATA`, one
+for the control file, one per tablespace and, uploaded last, one for the
+backup metadata. A backup that is not fully present on a tier is
+*incomplete* there. `klio admin list-backups` and `klio backup list` only
+show complete backups, and only complete backups can be restored.
+
+A backup is incomplete on a tier when:
+
+- it has no metadata snapshot. The metadata is uploaded last, so this is
+  the shape of an upload still in progress, or of an upload that was
+  interrupted;
+- it has the metadata snapshot, but one of the parts the metadata expects
+  is missing, for example because a snapshot was deleted by hand, or a
+  relay to tier2 was interrupted.
+
+### Status
+
+Every backup attempt has its own name, so an interrupted attempt never
+resumes under that name. Whether an incomplete backup can still complete
+depends on the tier it is on:
+
+- `PENDING`: on tier1, the latest attempt of its cluster, without
+  metadata. It may still be uploading. Wait for it. If it is older than
+  the backup interval of the cluster, the attempt died: delete it.
+- `RECOVERABLE`: on tier2, complete on tier1. The relay copies to tier2
+  whatever tier1 has, so the next backup of the cluster relayed to tier2
+  copies the missing parts. A relay in progress looks like this too.
+  Wait for the next relayed backup, or delete it: the relay copies it
+  again.
+- `UNRECOVERABLE`: it can never complete. It is an older tier1 attempt
+  (a newer one started), a tier1 backup that lost a part, or a tier2
+  backup with no complete copy on tier1. Delete it.
+
+Klio never deletes an incomplete backup on its own, whatever the
+retention policy: an unexpected one may be worth a look before it goes.
+Its snapshots take space on the tier until deleted, though deduplication
+keeps the cost low when a complete backup shares their content.
+
+### Listing Incomplete Backups
+
+```bash
+kubectl exec -it klio-server-klio-0 -- \
+  klio admin list-backups --incomplete
+```
+
+Run it on the server that owns tier1: the status of a tier2 backup
+depends on what tier1 holds, so a server in
+[read-only mode](concepts/architectures.md#read-only-server-mode)
+refuses the command.
+
+The output is a JSON array, empty when nothing is incomplete:
+
+```json
+[
+  {
+    "clusterName": "cluster-example",
+    "backupName": "backup-20261027T140000Z",
+    "tier": "tier2",
+    "status": "RECOVERABLE",
+    "startedAt": "2026-10-27T14:00:00.123456Z",
+    "metadataPresent": true,
+    "missingParts": ["pgdata"]
+  }
+]
+```
+
+`missingParts` lists the parts the metadata expects and are missing:
+`pgdata`, `controldata` or `tablespace/<name>`. It is empty when the
+metadata itself is missing, as nothing is known about the backup then.
+
+The retention sweep, which runs every minute, also logs the incomplete
+backups it finds, and the Klio server exports them in the
+`klio.server.backup.incomplete_backups` gauge, broken down by
+`cluster_name`, `tier` and `status` (see
+[OpenTelemetry](opentelemetry.md)). A `PENDING` value is normal while a
+backup runs: alert on it only once it has lasted longer than the backup
+interval. An `UNRECOVERABLE` value never clears on its own.
+
+### Deleting an Incomplete Backup
+
+An incomplete backup is deleted like a complete one:
+
+```bash
+kubectl exec -it klio-server-klio-0 -- \
+  klio admin delete-backup backup-20261027T140000Z \
+    --cluster cluster-example --tier1 --tier2
+```
+
+When deleting a backup by hand from both tiers, delete the tier1 copy
+first, or together with the tier2 one as above. The relay copies to tier2
+whatever tier1 still has, so a tier2 copy deleted alone comes back at the
+next relay of the cluster.
+
+### Incomplete Backups and WAL Retention
+
+A tier keeps the WAL files of every backup whose metadata it holds,
+complete or not: dropping them cannot be undone, and a `RECOVERABLE`
+backup needs them once the relay completes it. Delete an incomplete
+backup to let WAL retention move past it. A backup without metadata
+holds no WAL files, as its starting WAL is not known.
 
 ## Finding Your backupID for Recovery
 

@@ -21,6 +21,7 @@ package kopia
 
 import (
 	"context"
+	"errors"
 	"testing"
 	"time"
 
@@ -258,6 +259,45 @@ func TestGetClientFromMetadataNilTier2(t *testing.T) {
 	client := conn.getClientFromMetadata(meta)
 
 	assert.Nil(t, client, "If Tier2 is annotated but the connection is nil, it should return nil")
+}
+
+func TestGetMetadataTier2Fallback(t *testing.T) {
+	tests := []struct {
+		name         string
+		tier1Err     error
+		wantFallback bool
+	}{
+		{name: "not found on tier1", tier1Err: newNoBackupFoundError("c1", "b1"), wantFallback: true},
+		{name: "incomplete on tier1", tier1Err: newIncompleteBackupError("c1", "b1", []string{"pgdata"}), wantFallback: true},
+		{name: "tier1 failure", tier1Err: errors.New("boom")},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			conn := &MultiConnection{
+				Tier1: &MockKlioClient{
+					GetMetadataFunc: func(context.Context, string, string) (*klioclient.BackupMetadata, error) {
+						return nil, tt.tier1Err
+					},
+				},
+				Tier2: &MockKlioClient{
+					GetMetadataFunc: func(context.Context, string, string) (*klioclient.BackupMetadata, error) {
+						return newEmptyBackupMetadata(), nil
+					},
+				},
+			}
+
+			meta, err := conn.GetMetadata(context.Background(), "c1", "b1")
+			if !tt.wantFallback {
+				require.ErrorIs(t, err, tt.tier1Err)
+
+				return
+			}
+
+			require.NoError(t, err)
+			assert.Equal(t, presentAnnotationValue, meta.Annotations[tier2AnnotationName])
+		})
+	}
 }
 
 func TestListBackups(t *testing.T) {

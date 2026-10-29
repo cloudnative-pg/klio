@@ -226,6 +226,12 @@ func (b *statPanelBuilder) Orientation(orientation common.VizOrientation) *statP
 	return b
 }
 
+// Decimals sets the number of decimals of the values.
+func (b *timeseriesPanelBuilder) Decimals(decimals float64) *timeseriesPanelBuilder {
+	b.vis.Decimals(decimals)
+	return b
+}
+
 // Description sets the panel description, shown in its info tooltip.
 func (b *timeseriesPanelBuilder) Description(description string) *timeseriesPanelBuilder {
 	b.description = description
