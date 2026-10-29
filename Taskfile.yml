@@ -1376,11 +1376,12 @@ tasks:
       - documentation:helm-chart
       - documentation:cli
     env:
-      # renovate: datasource=git-refs depName=docusaurus lookupName=https://github.com/levlaz/daggerverse currentValue=main
-      DAGGER_DOCUSAURUS_SHA: 93f57fccbd5afd22fa917107ab7697f3e7db0e5a
+      # renovate: datasource=git-refs depName=docusaurus lookupName=https://github.com/cloudnative-pg/daggerverse currentValue=main
+      DAGGER_DOCUSAURUS_SHA: 6eb7568d0d32167a0b571856b3f190051240744a
     cmds:
-      - GITHUB_REF= dagger -s call -m github.com/levlaz/daggerverse/docusaurus@${DAGGER_DOCUSAURUS_SHA}
-        --src web --yarn build
+      - >
+        GITHUB_REF= dagger -s call -m github.com/cloudnative-pg/daggerverse/docusaurus@${DAGGER_DOCUSAURUS_SHA}
+        build --src web sync
     sources:
       - ./web/**/*
 
@@ -1411,13 +1412,13 @@ tasks:
     deps:
       - documentation:protoc-gen-doc
     env:
-      # renovate: datasource=git-refs depName=docusaurus lookupName=https://github.com/levlaz/daggerverse currentValue=main
-      DAGGER_DOCUSAURUS_SHA: 93f57fccbd5afd22fa917107ab7697f3e7db0e5a
+      # renovate: datasource=git-refs depName=docusaurus lookupName=https://github.com/cloudnative-pg/daggerverse currentValue=main
+      DAGGER_DOCUSAURUS_SHA: 6eb7568d0d32167a0b571856b3f190051240744a
     cmds:
-      # Ctrl-C to terminate the
+      # Ctrl-C to terminate
       - >
-        dagger call -m github.com/levlaz/daggerverse/docusaurus@${DAGGER_DOCUSAURUS_SHA}
-        --src web --yarn serve-dev up
+        dagger call -m github.com/cloudnative-pg/daggerverse/docusaurus@${DAGGER_DOCUSAURUS_SHA}
+        dev --src web up
 
   documentation:uncommitted:
     desc: Check for uncommitted changes after documentation generation
