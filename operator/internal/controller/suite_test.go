@@ -99,10 +99,8 @@ var _ = AfterSuite(func() {
 // the Taskfile, the 'BinaryAssetsDirectory' must be explicitly configured.
 //
 // This function streamlines the process by finding the required binaries, similar to
-// setting the 'KUBEBUILDER_ASSETS' environment variable. To ensure the binaries are
-// properly set up, install the tool with
-// 'go install sigs.k8s.io/controller-runtime/tools/setup-envtest@latest' and run
-// 'setup-envtest use --bin-dir bin' from the operator directory beforehand.
+// setting the 'KUBEBUILDER_ASSETS' environment variable. envtest is required to run
+// these tests.
 func getFirstFoundEnvTestBinaryDir() string {
 	basePath := filepath.Join("..", "..", "bin", "k8s")
 	entries, err := os.ReadDir(basePath)

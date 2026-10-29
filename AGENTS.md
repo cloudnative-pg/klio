@@ -65,16 +65,8 @@ The CI uses Dagger for containerized builds. Key tasks in `Taskfile.yml`:
 # Core tests (uses envtest for Kubernetes)
 task core:go-test
 
-# Operator tests
-cd operator && go test ./... -v
-```
-
-The operator controller tests use envtest. Running them directly (outside
-`task operator:go-test`) requires the envtest binaries in `operator/bin/k8s`:
-
-```bash
-go install sigs.k8s.io/controller-runtime/tools/setup-envtest@latest
-cd operator && setup-envtest use --bin-dir bin
+# Operator tests (uses envtest for Kubernetes)
+task operator:go-test
 ```
 
 #### Running a Single Test
