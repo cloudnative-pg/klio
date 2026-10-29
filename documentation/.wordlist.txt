@@ -278,6 +278,7 @@ imagePullPolicy
 imagePullSecrets
 init
 io
+js
 keychain
 klio
 klioclient
@@ -303,6 +304,7 @@ namespace's
 namespaces
 natively
 nodeSelector
+npm
 ns
 observability
 opentelemetry
