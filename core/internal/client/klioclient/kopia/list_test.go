@@ -272,6 +272,41 @@ func TestGetMetadata(t *testing.T) {
 	}
 }
 
+// checkpointOf returns m as a Kopia checkpoint of an interrupted upload.
+func checkpointOf(m kopia.Manifest) kopia.Manifest {
+	m.ID += "/checkpoint"
+	m.IncompleteReason = "checkpoint"
+
+	return m
+}
+
+func TestGetMetadataIgnoresMetadataCheckpoint(t *testing.T) {
+	// The checkpoint has no metadata to restore: reading it would fail
+	// with errUnknownSnapshot instead of reporting the backup as not found.
+	store := &fakeMetadataStore{
+		entries: []kopia.Manifest{
+			checkpointOf(part("c1", "b1", "metadata", "")),
+			part("c1", "b1", "pgdata", ""),
+			part("c1", "b1", "controldata", ""),
+		},
+	}
+
+	_, err := getMetadata(context.Background(), store, "c1", "b1")
+
+	_, ok := errors.AsType[NoBackupFoundError](err)
+	assert.True(t, ok, "unexpected error %v", err)
+}
+
+func TestGetMetadataPrefersFinishedMetadata(t *testing.T) {
+	store := newFakeStore()
+	store.entries = append([]kopia.Manifest{checkpointOf(part("c1", "b1", "metadata", ""))}, store.entries...)
+
+	metadata, err := getMetadata(context.Background(), store, "c1", "b1")
+
+	require.NoError(t, err)
+	assert.Equal(t, "b1", metadata.Name)
+}
+
 // at returns m started at t.
 func at(m kopia.Manifest, t string) kopia.Manifest {
 	ts, err := time.Parse(time.RFC3339, t)
