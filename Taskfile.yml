@@ -1473,15 +1473,15 @@ tasks:
         with-directory --path /src --source observability/grafana/
         with-workdir --path /src
         with-env-variable --name CACHEBUST --value "$(date)"
-        with-exec --args sh --args '-c' --args "go run . -output klio-dashboard.json"
-        file --path klio-dashboard.json
-        export --path observability/grafana/klio-dashboard.json
+        with-exec --args sh --args '-c' --args "mkdir -p /out && go run . -output /out/klio.json"
+        directory --path /out
+        export --wipe --path observability/grafana/dashboards
     sources:
       - observability/grafana/**/*.go
       - observability/grafana/go.mod
       - observability/grafana/go.sum
     generates:
-      - observability/grafana/klio-dashboard.json
+      - observability/grafana/dashboards/*.json
 
   grafana:go-test:
     desc: Run go test on the Grafana dashboard generator
@@ -1520,13 +1520,12 @@ tasks:
       GCX_VERSION: 1.7.1
       # renovate: datasource=docker depName=golang versioning=docker
       GOLANG_IMAGE_VERSION: 1.27.3-alpine@sha256:d200d2dd76b03a99b52651fd1325aff7dcd35422c35c01bac56571b0507f3deb
-      # gcx dev lint only accepts the resource-as-code envelope, so the classic
-      # importable dashboard JSON is wrapped on the fly. The uneditable-dashboard
-      # rule is disabled on purpose: the dashboard ships editable so users can
-      # tweak it after import.
+      # uneditable-dashboard is disabled: the dashboard ships editable.
+      # panel-title-description is disabled: the note text panels have no
+      # title; go test checks it for every other panel.
       GCX_LINT_SCRIPT: >-
         set -eu;
-        apk add --no-cache curl jq >/dev/null;
+        apk add --no-cache curl >/dev/null;
         ver={{ .GCX_VERSION }};
         base="https://github.com/grafana/gcx/releases/download/v${ver}";
         asset="gcx_${ver}_linux_amd64.tar.gz";
@@ -1536,9 +1535,8 @@ tasks:
         actual=$(sha256sum "/tmp/${asset}" | cut -d" " -f1);
         test "${expected}" = "${actual}";
         tar -xzf "/tmp/${asset}" -C /usr/local/bin gcx;
-        jq "{apiVersion: \"dashboard.grafana.app/v1beta1\", kind: \"Dashboard\", metadata: {name: .uid}, spec: .}" klio-dashboard.json > /tmp/resource.json;
-        gcx dev lint run --disable uneditable-dashboard /tmp/resource.json -o compact;
-        n=$(gcx dev lint run --disable uneditable-dashboard /tmp/resource.json --jq ".summary.num_violations");
+        gcx dev lint run --disable uneditable-dashboard --disable panel-title-description dashboards -o compact;
+        n=$(gcx dev lint run --disable uneditable-dashboard --disable panel-title-description dashboards --jq ".summary.num_violations");
         echo "gcx dashboard lint violations: ${n}";
         test "${n}" = "0"
     cmds:
@@ -1551,7 +1549,7 @@ tasks:
         with-exec --args sh --args /lint-dashboard.sh
         stdout
     sources:
-      - observability/grafana/klio-dashboard.json
+      - observability/grafana/dashboards/*.json
 
   grafana:uncommitted:
     desc: Check for uncommitted changes after dashboard generation

@@ -74,7 +74,7 @@ jobs:
               - 'observability/grafana/**/*.go'
               - 'observability/grafana/go.mod'
               - 'observability/grafana/go.sum'
-              - 'observability/grafana/klio-dashboard.json'
+              - 'observability/grafana/dashboards/**'
               - 'observability/grafana/.golangci.yml'
               - 'Taskfile.yml'
               - '.github/actions/**'

@@ -29,18 +29,18 @@ import (
 // streaming client. Unlike the klio_* metrics (which carry the OpenTelemetry
 // k8s_namespace_name resource attribute), the cnpg_* metrics come from
 // CloudNativePG's own exporter and use the `namespace` label; application_name
-// is the replication application name Klio connects with.
-const cnpgMatcher = `namespace=~"$namespace",application_name="klio"`
+// is the replication application name Klio connects with. pod is the
+// primary, named `<cluster>-<serial>`, narrowed further by the selected
+// instances.
+const cnpgMatcher = `namespace=~"$namespace",application_name="klio",pod=~"$cluster-[0-9]+",pod=~"$pod"`
 
-// replicationPanels returns the "WAL Replication Lag" section panels. They
+// replicationPanels returns the WAL replication lag panels. They
 // measure how far Klio's WAL streaming client trails the PostgreSQL primary,
 // using CloudNativePG's pg_stat_replication metrics (exported to Prometheus as
 // cnpg_pg_stat_replication_*). They require CloudNativePG monitoring to be
 // scraped into the same Prometheus as Klio's metrics.
 func replicationPanels() []sizedPanel {
 	return []sizedPanel{
-		sized(gridWidth, descriptionPanelHeight, descriptionPanel(
-			"How far the WAL stored in tier 1 and tier 2 trails behind the PostgreSQL primary.")),
 		sized(largePanelWidth, mediumPanelHeight, timeseriesPanel("Tier-1 replication lag (bytes)", units.BytesIEC,
 			query(
 				fmt.Sprintf("cnpg_pg_stat_replication_write_diff_bytes{%s}", cnpgMatcher),
@@ -63,10 +63,10 @@ func replicationPanels() []sizedPanel {
 
 		sized(largePanelWidth, mediumPanelHeight, timeseriesPanel("Tier-2 archival lag (bytes)", units.BytesIEC,
 			query(
-				fmt.Sprintf(
-					"(max by (cluster_name) (klio_server_wal_latest_written_lsn_bytes{tier=\"tier1\",%s}) - "+
-						"max by (cluster_name) (klio_server_wal_latest_written_lsn_bytes{tier=\"tier2\",%s})) ",
-					walMatcher, walMatcher),
+				clusterScope.narrow(fmt.Sprintf(
+					"max by (cluster_name) (klio_server_wal_latest_written_lsn_bytes{tier=\"tier1\",%s}) - "+
+						"max by (cluster_name) (klio_server_wal_latest_written_lsn_bytes{tier=\"tier2\",%s})",
+					clusterMatcher, clusterMatcher)),
 				"{{cluster_name}}",
 			),
 		).Description("Bytes difference between the WALs in tier 1 and tier 2 per cluster. ")),

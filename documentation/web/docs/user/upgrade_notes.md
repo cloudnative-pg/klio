@@ -28,6 +28,18 @@ configuration of every `PluginConfiguration`, automatically. Update any
 NetworkPolicy, firewall rule or manually written client configuration (for
 example a WAL player Job) that references the old ports.
 
+### Grafana dashboard requires Grafana 13.1
+
+The Klio Grafana dashboard moved from
+`observability/grafana/klio-dashboard.json` to
+`observability/grafana/dashboards/klio.json`. It uses the dashboard schema
+v2, with a Clusters and a Servers section that each have their own filters,
+and needs Grafana 13.1 or later. See
+[Grafana Dashboards](grafana-dashboards.md).
+
+Import the new file in place of the previous dashboard, or recreate the
+`ConfigMap` loaded by the Grafana dashboard sidecar.
+
 ### Klio-managed retention policies
 
 Retention is now enforced by the Klio server, which periodically evaluates
