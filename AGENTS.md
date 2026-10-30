@@ -40,7 +40,6 @@ task documentation:ci       # Run documentation CI
 task documentation:spellcheck  # Run spellcheck
 
 # Integration testing
-task integration:devenv     # Create ephemeral development environment
 task integration:e2e        # Run e2e tests (requires KIND_CLUSTER_NAME)
 
 # Cleanup
@@ -66,8 +65,8 @@ The CI uses Dagger for containerized builds. Key tasks in `Taskfile.yml`:
 # Core tests (uses envtest for Kubernetes)
 task core:go-test
 
-# Operator tests
-cd operator && go test ./... -v
+# Operator tests (uses envtest for Kubernetes)
+task operator:go-test
 ```
 
 #### Running a Single Test
