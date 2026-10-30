@@ -57,6 +57,15 @@ type Options struct {
 	QueueURL string
 }
 
+// tierClient is what the admin server needs from the client of one tier.
+type tierClient interface {
+	klioclient.Client
+
+	// ListIncompleteBackups lists the backups not fully present on the
+	// tier.
+	ListIncompleteBackups(ctx context.Context, hostname string) ([]klioclient.IncompleteBackup, error)
+}
+
 // Server is the gRPC admin server implementation.
 type Server struct {
 	klioGRPC.UnimplementedAdminServer
@@ -65,8 +74,8 @@ type Server struct {
 
 	tier1KopiaClient *kopiaWrapper.Client
 	tier2KopiaClient *kopiaWrapper.Client
-	tier1            klioclient.Client
-	tier2            klioclient.Client
+	tier1            tierClient
+	tier2            tierClient
 	klio             klioclient.Client
 	natsConn         *nats.Conn
 	streamMgr        *queue.StreamManager
@@ -162,7 +171,8 @@ func (s *Server) Start(ctx context.Context) error {
 	return nil
 }
 
-func clientFromConfigFile(configFile string) (klioclient.Client, error) {
+//nolint:ireturn // nil must stay a nil interface: the server tests each tier for nil.
+func clientFromConfigFile(configFile string) (tierClient, error) {
 	if configFile == "" {
 		return nil, nil
 	}
@@ -173,8 +183,12 @@ func clientFromConfigFile(configFile string) (klioclient.Client, error) {
 // ListBackups implements [grpc.AdminServer].
 func (s *Server) ListBackups(
 	ctx context.Context,
-	_ *klioGRPC.ListBackupsRequest,
+	req *klioGRPC.ListBackupsRequest,
 ) (*klioGRPC.ListBackupsResult, error) {
+	if req.GetIncomplete() {
+		return s.listIncompleteBackups(ctx)
+	}
+
 	backupList, err := s.klio.ListBackups(ctx, "")
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "while listing backups: %s", err.Error())
@@ -428,6 +442,46 @@ func (s *Server) deleteBackupFromTier(
 	}
 
 	return nil
+}
+
+// listIncompleteBackups lists the backups not fully present on each tier,
+// with their status. The status of a tier2 backup depends on whether it is
+// complete on tier1, so tier1 must be configured.
+func (s *Server) listIncompleteBackups(ctx context.Context) (*klioGRPC.ListBackupsResult, error) {
+	if s.tier1 == nil {
+		return nil, status.Errorf(codes.FailedPrecondition, "listing incomplete backups needs tier1 configured")
+	}
+
+	tier1Incomplete, err := s.tier1.ListIncompleteBackups(ctx, "")
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "while listing tier1 incomplete backups: %s", err.Error())
+	}
+	result := klioclient.ClassifyTier1IncompleteBackups(tier1Incomplete)
+
+	if s.tier2 != nil {
+		tier2Incomplete, err := s.tier2.ListIncompleteBackups(ctx, "")
+		if err != nil {
+			return nil, status.Errorf(codes.Internal, "while listing tier2 incomplete backups: %s", err.Error())
+		}
+
+		tier1Complete, err := s.tier1.ListBackups(ctx, "")
+		if err != nil {
+			return nil, status.Errorf(codes.Internal, "while listing tier1 backups: %s", err.Error())
+		}
+
+		result = append(result, klioclient.ClassifyTier2IncompleteBackups(tier2Incomplete, tier1Complete)...)
+	}
+
+	if result == nil {
+		result = []klioclient.IncompleteBackup{}
+	}
+
+	data, err := json.Marshal(result)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "while marshalling incomplete backups: %s", err.Error())
+	}
+
+	return &klioGRPC.ListBackupsResult{BackupManifests: data}, nil
 }
 
 // createListener creates the Unix socket the admin server listens on, with

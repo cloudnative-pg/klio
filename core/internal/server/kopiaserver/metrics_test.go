@@ -21,7 +21,10 @@ package kopiaserver
 
 import (
 	"context"
+	"encoding/json"
+	"errors"
 	"testing"
+	"time"
 
 	"github.com/cloudnative-pg/machinery/pkg/log"
 	"go.opentelemetry.io/otel"
@@ -224,46 +227,114 @@ func TestSnapshotStatsTracksLatestAndOldestTimestamps(t *testing.T) {
 	}
 }
 
-func TestBuildBackupGroupsSelectsLatestOldestAndCount(t *testing.T) {
-	clusterA := kopia.SourceInfo{Host: "node-a", UserName: "postgres", Path: "/data_meta"}
-	clusterB := kopia.SourceInfo{Host: "node-b", UserName: "postgres", Path: "/data_meta"}
+var errUnknownSnapshot = errors.New("unknown snapshot")
 
-	snapshots := []kopia.Manifest{
-		{ID: "a-mid", Source: clusterA, EndTime: 200},
-		{ID: "a-new", Source: clusterA, EndTime: 500},
-		{ID: "a-old", Source: clusterA, EndTime: 10},
-		{ID: "b-only", Source: clusterB, EndTime: 42},
+// fakeSnapshotSource serves the metadata of the metadata snapshots by ID,
+// counting the restores.
+type fakeSnapshotSource struct {
+	metadata map[string]klioclient.BackupMetadata
+	restores int
+}
+
+func (f *fakeSnapshotSource) ListSnapshots(
+	_ context.Context, _ map[string]string, _ kopia.LogFunc,
+) ([]kopia.Manifest, error) {
+	return nil, nil
+}
+
+func (f *fakeSnapshotSource) RestoreSingleFile(
+	_ context.Context, snapshotID string, _ string, _ kopia.LogFunc,
+) ([]byte, error) {
+	metadata, ok := f.metadata[snapshotID]
+	if !ok {
+		return nil, errUnknownSnapshot
+	}
+	f.restores++
+
+	return json.Marshal(metadata)
+}
+
+// backupSnapshot returns a snapshot of one part of a backup of cluster-a,
+// started at the given minute.
+func backupSnapshot(name, content, tablespace string, minute int) kopia.Manifest {
+	tags := map[string]string{
+		"tag:" + klioclient.BackupNameTagName:    name,
+		"tag:" + klioclient.BackupContentTagName: content,
+	}
+	if tablespace != "" {
+		tags["tag:"+klioclient.TablespaceNameTagName] = tablespace
 	}
 
-	groups := buildBackupGroups(snapshots)
+	return kopia.Manifest{
+		ID:        name + "-" + content,
+		Source:    kopia.SourceInfo{Host: "cluster-a", Path: "/" + content},
+		StartTime: kopia.UTCTimestamp(time.Date(2026, 1, 1, 0, minute, 0, 0, time.UTC).UnixNano()),
+		Tags:      tags,
+	}
+}
 
-	if len(groups) != 2 {
-		t.Fatalf("expected 2 groups, got %d", len(groups))
+// newBackupFixture returns the snapshots of five backups of cluster-a, with
+// a source serving their metadata: b1 is complete, b2 misses its pgdata, b3
+// misses its tablespace, b4 is complete, and b5 misses its tablespace.
+func newBackupFixture() ([]kopia.Manifest, *fakeSnapshotSource) {
+	withTablespace := []klioclient.TablespaceLayout{{Name: "tbs1"}}
+
+	var snapshots []kopia.Manifest
+	metadata := make(map[string]klioclient.BackupMetadata)
+	for i, name := range []string{"b1", "b2", "b3", "b4", "b5"} {
+		snapshots = append(snapshots, backupSnapshot(name, "metadata", "", i))
+		snapshots = append(snapshots, backupSnapshot(name, "controldata", "", i))
+		if name != "b2" {
+			snapshots = append(snapshots, backupSnapshot(name, "pgdata", "", i))
+		}
+		if name != "b3" && name != "b5" {
+			snapshots = append(snapshots, backupSnapshot(name, "tablespace", "tbs1", i))
+		}
+		metadata[name+"-metadata"] = klioclient.BackupMetadata{
+			Name: name, ClusterName: "cluster-a", Tablespaces: withTablespace,
+		}
 	}
 
-	a := groups[clusterA]
-	if a == nil {
-		t.Fatal("expected a group for clusterA")
-	}
-	if a.count != 3 {
-		t.Fatalf("expected clusterA count=3, got %d", a.count)
-	}
-	if a.latestID != "a-new" {
-		t.Fatalf("expected clusterA latestID=a-new, got %s", a.latestID)
-	}
-	if a.oldestID != "a-old" {
-		t.Fatalf("expected clusterA oldestID=a-old, got %s", a.oldestID)
+	return snapshots, &fakeSnapshotSource{metadata: metadata}
+}
+
+func TestCollectBackupMetricsCountsOnlyCompleteBackups(t *testing.T) {
+	snapshots, source := newBackupFixture()
+	c := newTestCollector(opentelemetry.Tier1)
+	c.kopia = source
+
+	entries := c.collectBackupMetrics(context.Background(), snapshots)
+	if len(entries) != 1 {
+		t.Fatalf("expected 1 entry, got %d", len(entries))
 	}
 
-	b := groups[clusterB]
-	if b == nil {
-		t.Fatal("expected a group for clusterB")
+	e := entries[0]
+	// Only b1 and b4 have all their parts.
+	if e.count != 2 {
+		t.Fatalf("expected count=2, got %d", e.count)
 	}
-	if b.count != 1 {
-		t.Fatalf("expected clusterB count=1, got %d", b.count)
+	if e.latest.Name != "b4" {
+		t.Fatalf("expected latest=b4, the newest complete backup, got %s", e.latest.Name)
 	}
-	// With a single backup, latest and oldest coincide.
-	if b.latestID != "b-only" || b.oldestID != "b-only" {
-		t.Fatalf("expected clusterB latest==oldest==b-only, got latest=%s oldest=%s", b.latestID, b.oldestID)
+	if e.oldest.Name != "b1" {
+		t.Fatalf("expected oldest=b1, got %s", e.oldest.Name)
+	}
+}
+
+func TestCollectBackupMetricsRestoresMetadataOnce(t *testing.T) {
+	snapshots, source := newBackupFixture()
+	c := newTestCollector(opentelemetry.Tier1)
+	c.kopia = source
+
+	c.collectBackupMetrics(context.Background(), snapshots)
+	c.collectBackupMetrics(context.Background(), snapshots)
+	if source.restores != 5 {
+		t.Fatalf("expected 5 metadata restores, got %d", source.restores)
+	}
+
+	// The metadata of a deleted snapshot is dropped from the cache.
+	c.collectBackupMetrics(context.Background(), snapshots[3:])
+	if _, ok := c.metadata["b1-metadata"]; ok {
+		t.Fatal("expected the metadata of b1 to be dropped")
 	}
 }

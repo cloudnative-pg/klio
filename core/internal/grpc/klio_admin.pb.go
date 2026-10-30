@@ -167,7 +167,10 @@ func (*RefreshResult) Descriptor() ([]byte, []int) {
 }
 
 type ListBackupsRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// When true, list the incomplete backups instead of the complete ones:
+	// the backups not fully present on a tier, with their status.
+	Incomplete    bool `protobuf:"varint,1,opt,name=incomplete,proto3" json:"incomplete,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -202,6 +205,13 @@ func (*ListBackupsRequest) Descriptor() ([]byte, []int) {
 	return file_proto_klio_admin_proto_rawDescGZIP(), []int{2}
 }
 
+func (x *ListBackupsRequest) GetIncomplete() bool {
+	if x != nil {
+		return x.Incomplete
+	}
+	return false
+}
+
 type ListBackupsResult struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// JSON-serialized array of backup manifests.
@@ -213,6 +223,8 @@ type ListBackupsResult struct {
 	// See klioclient.BackupManifest for the canonical structure.
 	// We use JSON bytes here to avoid duplicating the internal type definition
 	// and conversion logic, as this is a local admin API.
+	// When the request asked for the incomplete backups, this is instead the
+	// JSON-serialized array of klioclient.IncompleteBackup.
 	BackupManifests []byte `protobuf:"bytes,1,opt,name=backup_manifests,json=backupManifests,proto3" json:"backup_manifests,omitempty"`
 	unknownFields   protoimpl.UnknownFields
 	sizeCache       protoimpl.SizeCache
@@ -1028,8 +1040,11 @@ const file_proto_klio_admin_proto_rawDesc = "" +
 	"\n" +
 	"\x16proto/klio_admin.proto\x12\vklio.wal.v1\x1a\x1fgoogle/protobuf/timestamp.proto\"\x10\n" +
 	"\x0eRefreshRequest\"\x0f\n" +
-	"\rRefreshResult\"\x14\n" +
-	"\x12ListBackupsRequest\">\n" +
+	"\rRefreshResult\"4\n" +
+	"\x12ListBackupsRequest\x12\x1e\n" +
+	"\n" +
+	"incomplete\x18\x01 \x01(\bR\n" +
+	"incomplete\">\n" +
 	"\x11ListBackupsResult\x12)\n" +
 	"\x10backup_manifests\x18\x01 \x01(\fR\x0fbackupManifests\"X\n" +
 	"\x1dQueueListFailedBackupsRequest\x12&\n" +
