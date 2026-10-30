@@ -147,9 +147,14 @@ func listBackups(
 	return complete, incomplete, nil
 }
 
-// isMetadataOf reports whether entry is a metadata snapshot of hostname, or
-// of any host when hostname is empty.
+// isMetadataOf reports whether entry is a finished metadata snapshot of
+// hostname, or of any host when hostname is empty. A Kopia checkpoint of an
+// interrupted upload is not one: its content may be partial.
 func isMetadataOf(entry kopia.Manifest, hostname string) bool {
+	if entry.IncompleteReason != "" {
+		return false
+	}
+
 	if hostname != "" && entry.Source.Host != hostname {
 		return false
 	}
@@ -407,7 +412,7 @@ func groupBackups(entries []kopia.Manifest, hostname string) map[hostBackupName]
 			groups[key] = g
 		}
 		g.startedAt = min(g.startedAt, entry.StartTime)
-		if entry.IncompleteReason == "" && TagValue(entry, klioclient.BackupContentTagName) == "metadata" {
+		if isMetadataOf(entry, "") {
 			g.metadataID = entry.ID
 		}
 	}
