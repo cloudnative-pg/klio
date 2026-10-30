@@ -34,7 +34,6 @@ jobs:
         with:
           # Use the latest LTS version of Node.js already installed on the runner.
           node-version: lts/*
-          check-latest: 'false'
           cache: npm
           cache-dependency-path: documentation/web/package-lock.json
 
