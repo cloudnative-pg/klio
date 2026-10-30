@@ -247,8 +247,8 @@ Tier 2 has it.
 
 A backup that is missing part of its data on a tier, for example after an
 interrupted deletion, is not listed and cannot be restored from that tier.
-Retention does not count it among the N backups it keeps, and deletes it
-once it is older than all of them.
+Retention does not count it among the N backups it keeps, and never deletes
+it: see [Incomplete Backups](backup_and_restore.md#incomplete-backups).
 
 The Klio server automatically deletes WAL files that are no longer needed
 for recovery by any retained backup on that tier.

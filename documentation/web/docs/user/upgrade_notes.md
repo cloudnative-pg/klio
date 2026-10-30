@@ -47,6 +47,19 @@ outside it, instead of delegating the decision to Kopia.
 - `klio retention set` no longer accepts the `--keep-*` flags. The policy
   is read from the configuration and sent to the server.
 
+### Incomplete backups are no longer deleted automatically
+
+Retention used to delete the backups that were not fully present on a tier,
+such as interrupted uploads, along with their leftover snapshots. It now only
+evaluates complete backups and never deletes an incomplete one: they are
+reported instead, and removed by hand. Incomplete backups already on the
+Klio server are no longer cleaned up, so their snapshots take space on the
+PVC until deleted.
+
+List them with `klio admin list-backups --incomplete` and delete the ones
+that can never complete with `klio admin delete-backup`. See
+[Incomplete Backups](backup_and_restore.md#incomplete-backups).
+
 ### The `klio-restore` container is gone
 
 The `klio-plugin` sidecar now also serves the restore while a cluster
