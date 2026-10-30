@@ -23,8 +23,8 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"testing"
+	"time"
 
 	"github.com/cloudnative-pg/machinery/pkg/log"
 	"go.opentelemetry.io/otel"
@@ -268,7 +268,7 @@ func backupSnapshot(name, content, tablespace string, minute int) kopia.Manifest
 	return kopia.Manifest{
 		ID:        name + "-" + content,
 		Source:    kopia.SourceInfo{Host: "cluster-a", Path: "/" + content},
-		StartTime: fmt.Sprintf("2026-01-01T00:%02d:00Z", minute),
+		StartTime: kopia.UTCTimestamp(time.Date(2026, 1, 1, 0, minute, 0, 0, time.UTC).UnixNano()),
 		Tags:      tags,
 	}
 }

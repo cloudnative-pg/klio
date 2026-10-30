@@ -24,6 +24,7 @@ import (
 	"encoding/json"
 	"errors"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -273,7 +274,11 @@ func TestGetMetadata(t *testing.T) {
 
 // at returns m started at t.
 func at(m kopia.Manifest, t string) kopia.Manifest {
-	m.StartTime = t
+	ts, err := time.Parse(time.RFC3339, t)
+	if err != nil {
+		panic(err)
+	}
+	m.StartTime = kopia.UTCTimestamp(ts.UnixNano())
 
 	return m
 }

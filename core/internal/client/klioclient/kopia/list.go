@@ -25,6 +25,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"slices"
+	"time"
 
 	"github.com/cloudnative-pg/machinery/pkg/log"
 
@@ -314,7 +315,7 @@ type MetadataLoader func(ctx context.Context, snapshotID string) (*klioclient.Ba
 
 // backupGroup tracks the snapshots seen for one backup of one host.
 type backupGroup struct {
-	startedAt  string
+	startedAt  kopia.UTCTimestamp
 	metadataID string
 }
 
@@ -350,7 +351,7 @@ func ScanBackups(
 	parts := NewBackupParts(entries)
 	groups := groupBackups(entries, hostname)
 
-	latestPerHost := make(map[string]string)
+	latestPerHost := make(map[string]kopia.UTCTimestamp)
 	for key, g := range groups {
 		latestPerHost[key.host] = max(latestPerHost[key.host], g.startedAt)
 	}
@@ -360,7 +361,7 @@ func ScanBackups(
 		b := ScannedBackup{
 			Host:       key.host,
 			Name:       key.name,
-			StartedAt:  g.startedAt,
+			StartedAt:  g.startedAt.Format(time.RFC3339),
 			Latest:     g.startedAt == latestPerHost[key.host],
 			MetadataID: g.metadataID,
 		}
