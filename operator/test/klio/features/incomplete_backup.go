@@ -294,7 +294,9 @@ func (f *IncompleteBackupFeature) incompleteBackupsAre(
 			return false, nil //nolint:nilerr // keep retrying on transient failures
 		}
 
-		return len(backups) == len(expected) && reflect.DeepEqual(backups, expected), nil
+		// DeepEqual tells an empty list from a nil one, and the server
+		// returns an empty one.
+		return len(backups) == len(expected) && (len(expected) == 0 || reflect.DeepEqual(backups, expected)), nil
 	}
 }
 
