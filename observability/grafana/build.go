@@ -46,7 +46,6 @@ type section struct {
 // variables that filter their panels.
 type group struct {
 	title     string
-	note      string
 	variables []*dashboardv2.QueryVariableBuilder
 	sections  []section
 }
@@ -99,13 +98,11 @@ func build() *resource.ManifestBuilder {
 func clustersGroup() group {
 	return group{
 		title: "Clusters",
-		note: "*Namespace* is where the PostgreSQL cluster runs. *Cluster* lists every cluster that emits Klio " +
-			"plugin metrics, restore-only clusters included. *Instance* narrows the plugin panels to " +
-			"individual PostgreSQL pods.",
 		variables: []*dashboardv2.QueryVariableBuilder{
 			// Sourced from the plugin metrics, so restore-only clusters are listed.
 			labelVariable("namespace", "Namespace",
 				`label_values({__name__=~"klio_(plugin|client)_.+"}, k8s_namespace_name)`).
+				Description("Namespace where the PostgreSQL cluster runs.").
 				AllValue(matchAny),
 			// "All" expands to the clusters of the selected namespaces. Matching
 			// any value would also select clusters from other namespaces on the
@@ -114,10 +111,12 @@ func clustersGroup() group {
 			// loads.
 			labelVariable("cluster", "Cluster",
 				`label_values({__name__=~"klio_(plugin|client)_.+",k8s_namespace_name=~"$namespace"}, cluster_name)`).
+				Description("Every cluster that emits Klio plugin metrics, restore-only clusters included.").
 				Refresh(dashboardv2.VariableRefreshOnTimeRangeChanged),
 			labelVariable("pod", "Instance",
 				`label_values({__name__=~"klio_(plugin|client)_.+",k8s_namespace_name=~"$namespace",`+
 					`cluster_name=~"$cluster"}, k8s_pod_name)`).
+				Description("Narrows the plugin panels to individual PostgreSQL pods.").
 				AllValue(matchAny),
 		},
 		sections: []section{
@@ -151,12 +150,10 @@ func clustersGroup() group {
 func serversGroup() group {
 	return group{
 		title: "Servers",
-		note: "*Server namespace* is where the Klio server runs, not where the clusters it backs run. *Server* " +
-			"selects one or more Klio servers. *Served cluster* lists the clusters backed by the selected " +
-			"servers, from any namespace.",
 		variables: []*dashboardv2.QueryVariableBuilder{
 			labelVariable("server_namespace", "Server namespace",
 				`label_values(klio_server_uptime_seconds, k8s_namespace_name)`).
+				Description("Namespace where the Klio server runs, not where the clusters it backs run.").
 				AllValue(matchAny),
 			// The Server name, taken from its pod name `<server>-klio-<ordinal>`.
 			// Together with the namespace it identifies a server. "All" expands
@@ -165,6 +162,7 @@ func serversGroup() group {
 			labelVariable("server", "Server",
 				`label_values(klio_server_uptime_seconds{k8s_namespace_name=~"$server_namespace"}, k8s_pod_name)`).
 				Regex(`/^(.+)-klio-[0-9]+$/`).
+				Description("One or more Klio servers.").
 				Refresh(dashboardv2.VariableRefreshOnTimeRangeChanged),
 			// Narrowed by server, not namespace, to keep clusters served
 			// cross-namespace. Not sourced from klio_server_wal_written_total: a
@@ -173,6 +171,7 @@ func serversGroup() group {
 			// cluster_name, so it hides no server (see servedClusterJoin).
 			labelVariable("served_cluster", "Served cluster",
 				`label_values({__name__=~"klio_server_.+",`+serverMatcher+`}, cluster_name)`).
+				Description("Clusters backed by the selected servers, from any namespace.").
 				AllValue(".*"),
 		},
 		sections: []section{
@@ -212,7 +211,7 @@ func serversGroup() group {
 }
 
 // build adds the panels of the group to the dashboard elements and returns
-// its row: a header-less row with the filter note, then one row per section.
+// its row: one row per section.
 func (t group) build(builder *dashboardv2.DashboardBuilder, ids *int) (*dashboardv2.RowBuilder, error) {
 	variables := make([]dashboardv2.VariableKind, 0, len(t.variables))
 	for _, v := range t.variables {
@@ -223,12 +222,7 @@ func (t group) build(builder *dashboardv2.DashboardBuilder, ids *int) (*dashboar
 		variables = append(variables, dashboardv2.VariableKind{QueryVariableKind: &built})
 	}
 
-	note, err := gridOf(builder, ids, []sizedPanel{sized(gridWidth, descriptionPanelHeight, descriptionPanel(t.note))})
-	if err != nil {
-		return nil, err
-	}
-	rows := dashboardv2.NewRowsBuilder().
-		Row(dashboardv2.NewRowBuilder().Title("").HideHeader(true).GridLayout(note))
+	rows := dashboardv2.NewRowsBuilder()
 	for _, s := range t.sections {
 		panels := append([]sizedPanel{sized(gridWidth, descriptionPanelHeight, descriptionPanel(s.description))},
 			s.panels...)
