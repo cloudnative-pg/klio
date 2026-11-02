@@ -68,29 +68,9 @@ func Start(
 		return fmt.Errorf("cannot listen on TCP socket: %w", err)
 	}
 
-	// Configure TLS. The configuration is rebuilt on every handshake
-	// so that certificate and CA rotations take effect without
-	// restarting the server: GetConfigForClient re-reads the
-	// identity and trust-bundle files for each new connection.
-	// A rebuild failure fails that handshake closed; the error is
-	// logged server-side so a broken rotation is visible here as
-	// well as in the client's logs.
-	tlsConfig := &tls.Config{
-		MinVersion: tls.VersionTLS12,
-		GetConfigForClient: func(*tls.ClientHelloInfo) (*tls.Config, error) {
-			reloaded, err := loadTLSConfig(tlsConfiguration)
-			if err != nil {
-				logger.Error(err, "Failed to reload TLS configuration, rejecting handshake")
-				return nil, err
-			}
-
-			return reloaded, nil
-		},
-	}
-
 	// Starts the WAL server
 	opts := []grpc.ServerOption{
-		grpc.Creds(credentials.NewTLS(tlsConfig)),
+		grpc.Creds(credentials.NewTLS(newReloadingTLSConfig(ctx, tlsConfiguration))),
 		grpc.InitialConnWindowSize(wal.GRPCInitialConnWindowSizeBytes),
 		grpc.InitialWindowSize(wal.GRPCInitialWindowSizeBytes),
 		grpc.ReadBufferSize(wal.GRPCSocketBufferSizeBytes),
@@ -144,6 +124,29 @@ func Start(
 	}
 
 	return nil
+}
+
+// newReloadingTLSConfig returns the WAL server TLS configuration. It is
+// rebuilt on every handshake so that certificate and CA rotations take
+// effect without restarting the server: GetConfigForClient re-reads the
+// identity and trust-bundle files for each new connection. A rebuild
+// failure fails that handshake closed; the error is logged server-side so
+// a broken rotation is visible here as well as in the client's logs.
+func newReloadingTLSConfig(ctx context.Context, tlsConfiguration *config.TLSConfig) *tls.Config {
+	logger := log.FromContext(ctx)
+
+	return &tls.Config{
+		MinVersion: tls.VersionTLS12,
+		GetConfigForClient: func(*tls.ClientHelloInfo) (*tls.Config, error) {
+			reloaded, err := loadTLSConfig(tlsConfiguration)
+			if err != nil {
+				logger.Error(err, "Failed to reload TLS configuration, rejecting handshake")
+				return nil, err
+			}
+
+			return reloaded, nil
+		},
+	}
 }
 
 // loadTLSConfig builds a TLS configuration from the files referenced by
