@@ -127,6 +127,7 @@ OpenBao
 OpenEBS
 OpenShift
 OpenTelemetry
+OperatorHub
 PBKDF
 PEM
 PGDATA
