@@ -383,7 +383,7 @@ jobs:
           name: klio-olm
           path: |
             operator/klio-operator-catalog-source.yaml
-            operator/klio-operator-template.yaml
+            operator/olm-catalog
             operator/olm-bundle/bundle
 
   olm-fruit-tests:
