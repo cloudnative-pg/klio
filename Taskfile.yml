@@ -782,11 +782,15 @@ tasks:
         - name: ENVIRONMENT
           enum:
             ref: .ALLOWED_ENVS
-    deps:
-      - olm:catalog
-      - olm:catalog-source
-      - olm:validate
-      - olm:scorecard
+    # Sequential: olm:containerize must come first, see its comments.
+    cmds:
+      - task: olm:containerize
+        if: '{{ if .GITHUB_ACTIONS }}false{{ else }}true{{ end }}'
+      - task: olm:catalog
+      - task: olm:catalog-source
+      - task: olm:validate
+      - task: olm:scorecard
+      - task: olm:test-catalog
 
   olm:setup-infra:
     desc: Set up the Dagger engine, builder and local registry for the OLM tasks
@@ -803,6 +807,31 @@ tasks:
           REGISTRY_HOST_PORT: '{{ .OLM_REGISTRY_HOST_PORT }}'
       - task: ci-machinery-olm:infra:setup-dagger-engine
       - task: ci-machinery-olm:infra:setup-docker-builder
+
+  olm:containerize:
+    desc: Build and push the operator and operand images to OLM_REGISTRY
+    summary: |
+      The bundle references the operator and operand images in OLM_REGISTRY
+      with the same tag, so they must be there for the operator to be
+      installed. In GitHub Actions the core and operator jobs push them to
+      ghcr.io; otherwise this builds the testing images with the ci-machinery
+      builder and pushes them to OLM_REGISTRY.
+    run: once
+    env:
+      environment: testing
+      registry: '{{ .OLM_REGISTRY }}'
+      insecure: '{{ .OLM_LOCAL_REGISTRY }}'
+      version: '{{ .TAG | default .IMAGE_TAG }}'
+      latest: 'false'
+    cmds:
+      # These run Dagger on its default engine, whose start removes the
+      # ci-machinery one, so they go before olm:setup-infra, which starts it
+      # again when missing.
+      - task: core:goreleaser-snapshot
+      - task: operator:controller-gen
+      - task: olm:setup-infra
+      - for: [core, operator]
+        cmd: cd {{ .ITEM }} && docker buildx bake --builder {{ .DOCKER_BUILDER }} --push --metadata-file metadata.json
 
   olm:setup-kind:
     desc: Set up the Kind cluster for the OLM tests and export its kubeconfig
@@ -1309,6 +1338,59 @@ tasks:
           # The default 30s is often shorter than pulling the test image on a
           # fresh cluster.
           EXTRA_ARGS: '--wait-time=300s'
+          PRIVATE_REGISTRY_HOST: '{{ .PRIVATE_REGISTRY_HOST }}'
+          PRIVATE_REGISTRY_USERNAME: '{{ .PRIVATE_REGISTRY_USERNAME }}'
+
+  olm:olm-install:
+    desc: Install OLM on the Kind cluster of the OLM tests
+    run: once
+    deps:
+      - olm:setup-kind
+    cmds:
+      - task: ci-machinery-olm:olm-operator:setup
+        vars:
+          WORKDIR: '{{ .ROOT_DIR }}'
+          KUBECONFIG_PATH: '{{ .OLM_KUBECONFIG_PATH }}'
+
+  olm:olm-teardown:
+    desc: Uninstall OLM from the Kind cluster of the OLM tests
+    cmds:
+      # Export the kubeconfig instead of depending on olm:setup-kind, so that
+      # a teardown never creates the cluster it is meant to clean up.
+      - task: ci-machinery-olm:infra:export-kubeconfig
+        vars:
+          CLUSTER_NAME: '{{ .OLM_KIND_CLUSTER_NAME }}'
+          INTERNAL: 'true'
+          WORKDIR: '{{ .ROOT_DIR }}'
+          KUBECONFIG_PATH: '{{ .OLM_KUBECONFIG_PATH }}'
+      - task: ci-machinery-olm:olm-operator:teardown
+        vars:
+          WORKDIR: '{{ .ROOT_DIR }}'
+          KUBECONFIG_PATH: '{{ .OLM_KUBECONFIG_PATH }}'
+
+  olm:test-catalog:
+    desc: Install the operator through OLM from the bundle and check it succeeds
+    summary: |
+      Builds an ephemeral catalog holding only the bundle, subscribes to it on
+      the Kind cluster of olm:setup-kind, with OLM installed, waits for the
+      CSV to succeed, and uninstalls the operator. The operator and operand
+      images must be in OLM_REGISTRY, see olm:containerize.
+    run: once
+    requires:
+      vars:
+        - name: ENVIRONMENT
+          enum:
+            ref: .ALLOWED_ENVS
+    deps:
+      - olm:build
+      - olm:olm-install
+    cmds:
+      - task: ci-machinery-olm:bundle:test-install
+        vars:
+          BUNDLE_IMAGE: '{{ .OLM_REGISTRY }}/klio-operator{{ if ( ne .ENVIRONMENT "production" ) }}-testing{{end}}:{{ .TAG | default .IMAGE_TAG }}-bundle'
+          PACKAGE_NAME: klio-operator
+          WORKDIR: '{{ .ROOT_DIR }}'
+          KUBECONFIG_PATH: '{{ .OLM_KUBECONFIG_PATH }}'
           PRIVATE_REGISTRY_HOST: '{{ .PRIVATE_REGISTRY_HOST }}'
           PRIVATE_REGISTRY_USERNAME: '{{ .PRIVATE_REGISTRY_USERNAME }}'
 
