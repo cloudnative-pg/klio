@@ -82,9 +82,6 @@ const (
 	// klio_client_wal_*), which carry the PostgreSQL pod's namespace, cluster
 	// and pod name.
 	clientMatcher = `k8s_namespace_name=~"$namespace",cluster_name=~"$cluster",k8s_pod_name=~"$pod"`
-	// clusterMatcher selects the per-cluster server series by cluster_name
-	// alone: they carry the server's namespace, not the cluster's.
-	clusterMatcher = `cluster_name=~"$cluster"`
 	// serverMatcher selects the server-level series by the Klio server's
 	// namespace and name: a Server's pod is named `<server>-klio-<ordinal>`.
 	serverMatcher = `k8s_namespace_name=~"$server_namespace",k8s_pod_name=~"($server)-klio-[0-9]+"`
@@ -95,11 +92,6 @@ const (
 	// cluster through snapshot_source (`userName@clusterName:path`).
 	snapshotMatcher = serverMatcher + `,snapshot_source=~"[^@]*@$served_cluster:.*"`
 
-	// clusterJoin narrows server series, which carry neither the cluster's
-	// namespace nor its instances, to the clusters whose plugin series match
-	// every variable of the Clusters group.
-	clusterJoin = `and on (cluster_name) group by (cluster_name) (klio_plugin_backup_in_progress{` +
-		clientMatcher + `})`
 	// servedClusterJoin narrows server-level series, which carry no
 	// cluster_name, to the servers with series of the selected served
 	// clusters. Its "All" matches series without cluster_name too, so no
@@ -118,8 +110,6 @@ type scope struct {
 
 //nolint:gochecknoglobals
 var (
-	// clusterScope selects the server series on the Clusters group.
-	clusterScope = scope{matcher: clusterMatcher, join: clusterJoin}
 	// servedScope selects the per-cluster server series on the Servers group.
 	servedScope = scope{matcher: walMatcher}
 	// serverScope selects the server-level series on the Servers group.

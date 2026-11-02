@@ -32,17 +32,14 @@ The **Clusters** section is split into rows:
 
 - **WAL streaming** — the WAL streaming client the sidecar supervises as a
   child process: the PostgreSQL timeline it is currently streaming and the
-  p50/p90/p99 latency of sending a WAL block to the server.
+  p50/p90/p99 latency of sending a WAL block to the server. Then the
+  **Tier-1 replication lag (bytes)** and **(seconds)**: how much WAL, and
+  how much time, Klio is behind the PostgreSQL primary. The *write* line is
+  WAL Klio has received; the *flush* line is WAL Klio has safely saved to
+  disk. These two panels need CloudNativePG monitoring (see the
+  prerequisites below).
 
 ![Clusters section of the Klio dashboard](images/clusters_dashboard.png)
-- **WAL replication lag** — how far behind Klio is in copying WAL:
-  - **Tier-1 replication lag (bytes)** and **(seconds)**: how much WAL,
-    and how much time, Klio is behind the PostgreSQL primary. The *write*
-    line is WAL Klio has received; the *flush* line is WAL Klio has
-    safely saved to disk. These two panels need CloudNativePG monitoring
-    (see the prerequisites below).
-  - **Tier-2 archival lag (bytes)**: how much WAL is on Klio's local disk
-    (tier 1) but not yet copied to remote storage (tier 2).
 
 ![Klio WAL replication lag metrics](images/klio_wal_replication_lag_metrics.png)
 
@@ -66,8 +63,10 @@ The **Servers** section is split into rows:
   maintenance run totals per cluster.
 - **WAL** — the WAL the selected servers write for the clusters they back
   up, per tier: time since the last WAL written, WAL bytes and files
-  written, the PostgreSQL timeline and latest written LSN, and the
-  p50/p90/p99 tier-2 upload duration. Then the p50/p90/p99 WAL block and get
+  written, the **Tier-2 archival lag (bytes)** (how much WAL is on Klio's
+  local disk, tier 1, but not yet copied to remote storage, tier 2), the
+  PostgreSQL timeline and latest written LSN, and the p50/p90/p99 tier-2
+  upload duration. Then the p50/p90/p99 WAL block and get
   duration by path, stage and tier. Every percentile panel comes as both a
   rolling-window and a since-restart total variant.
 - **Kopia snapshots** — the base snapshot inventory, including file and
@@ -121,8 +120,8 @@ described in [OpenTelemetry](opentelemetry.md) works:
 - The Klio Prometheus exporter (`OTEL_METRICS_EXPORTER=prometheus`),
   scraped directly.
 
-The **WAL replication lag** row of the Clusters section additionally reads
-CloudNativePG's `cnpg_pg_stat_replication_*` metrics. To populate it,
+The tier-1 replication lag panels of the Clusters section additionally read
+CloudNativePG's `cnpg_pg_stat_replication_*` metrics. To populate them,
 scrape the CloudNativePG cluster monitoring (its `PodMonitor`) into the same
 Prometheus. The rest of the dashboard works without it.
 
@@ -157,14 +156,12 @@ On the Clusters section:
   lists every cluster that emits Klio plugin metrics, including clusters
   that only restore from a Klio server.
 - `pod` (*Instance*): the PostgreSQL pod, matched against `k8s.pod.name`.
-  It scopes the panels built from the plugin metrics and the WAL
+  It scopes the panels built from the plugin metrics and the tier-1
   replication lag panels, which CloudNativePG reports from the primary.
 
-The server-side metrics carry the server's own namespace and pod, not the
-cluster's, so the server panels apply `namespace` and `pod` through the
-plugin metrics: they show the clusters whose plugin reports metrics for the
-selected namespaces and instances. A cluster that no longer reports plugin
-metrics, for example because it was deleted, does not appear in them.
+The Clusters section shows only client-side metrics. The server-side ones,
+which carry the server's own namespace and pod rather than the cluster's,
+are in the Servers section.
 
 On the Servers section:
 

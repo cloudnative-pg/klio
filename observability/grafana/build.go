@@ -127,13 +127,9 @@ func clustersGroup() group {
 			},
 			{
 				"WAL streaming",
-				"WAL streamed by the client in the PostgreSQL pod to the Klio server.",
+				"WAL streamed by the client in the PostgreSQL pod to the Klio server, and how far the WAL it " +
+					"has written and flushed to tier 1 trails behind the PostgreSQL primary.",
 				walStreamingPanels(),
-			},
-			{
-				"WAL replication lag",
-				"How far the WAL stored in tier 1 and tier 2 trails behind the PostgreSQL primary.",
-				replicationPanels(),
 			},
 			{
 				"WAL restore",

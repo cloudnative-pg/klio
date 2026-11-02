@@ -261,6 +261,15 @@ func servedClusterPanels() []sizedPanel {
 		sized(largePanelWidth, largePanelHeight, timeSinceLastWALPanel(servedScope)),
 		sized(largePanelWidth, largePanelHeight, walBytesRatePanel(servedScope)),
 		sized(largePanelWidth, largePanelHeight, walBytesTotalPanel(servedScope)),
+
+		sized(largePanelWidth, mediumPanelHeight, timeseriesPanel("Tier-2 archival lag (bytes)", units.BytesIEC,
+			query(fmt.Sprintf(
+				"max by (cluster_name) (klio_server_wal_latest_written_lsn_bytes{tier=\"tier1\",%s}) - "+
+					"max by (cluster_name) (klio_server_wal_latest_written_lsn_bytes{tier=\"tier2\",%s})",
+				walMatcher, walMatcher),
+				"{{cluster_name}}",
+			),
+		).Description("Bytes difference between the WALs in tier 1 and tier 2 per cluster.")),
 	}
 }
 
