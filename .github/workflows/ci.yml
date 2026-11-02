@@ -365,32 +365,15 @@ jobs:
       - name: Setup dagger
         uses: ./.github/actions/setup-dagger
 
-      - name: Start dagger engine with a host cgroup namespace
-        shell: bash
-        run: |
-          # olm:scorecard runs k3s in a container. On cgroup v2 hosts, Docker
-          # defaults new containers to a private cgroup namespace, which does
-          # not always delegate the cpu controller, making k3s crash with
-          # "failed to find cpu cgroup (v2)" (intermittently, depending on the
-          # runner). Start the dagger engine with --cgroupns=host instead, so
-          # containers nested inside it (like k3s) see the real host cgroup
-          # hierarchy, where cpu is always present.
-          image=$(dagger version | grep -oP 'image://\K[^)\s]+')
-          docker run -d --restart always --privileged --cgroupns=host \
-            -v /var/lib/dagger \
-            --name dagger-engine-host-cgroupns \
-            "${image}"
-          echo "_EXPERIMENTAL_DAGGER_RUNNER_HOST=docker-container://dagger-engine-host-cgroupns" >> "${GITHUB_ENV}"
-
-      - name: Login to ghcr.io using Podman
-        uses: redhat-actions/podman-login@50c2d9a331bb67c8fdab99b86455fad05e2e3252 # v2
+      - name: Login to ghcr.io
+        uses: docker/login-action@81c6f93d4bc991e510b342a00b419b3bb4efc5c6 # v4
         with:
           registry: "ghcr.io"
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Run OLM task
-        timeout-minutes: 10
+        timeout-minutes: 20
         run: |
           task olm:all
 
@@ -401,7 +384,7 @@ jobs:
           path: |
             operator/klio-operator-catalog-source.yaml
             operator/klio-operator-template.yaml
-            operator/bundle
+            operator/olm-bundle/bundle
 
   containerize-main:
     name: Containerize Main
