@@ -1,6 +1,7 @@
 .idea
 .task
 kubeconfig-integration
+*-kubeconfig
 
 # Test registry certificates
 certs/
