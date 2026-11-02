@@ -1009,70 +1009,6 @@ tasks:
           IMAGE_NAME: 'klio-operator{{ if ( ne .ENVIRONMENT "production" ) }}-testing{{end}}'
           IMAGE_TAG: '{{ .TAG | default .IMAGE_TAG }}-bundle'
 
-  olm:catalog-file:
-    internal: false
-    run: once
-    deps:
-        - olm:build
-    requires:
-      vars:
-        - name: ENVIRONMENT
-          enum:
-            ref: .ALLOWED_ENVS
-    env:
-      registry: '{{ .OLM_REGISTRY }}'
-      insecure: '{{ .OLM_LOCAL_REGISTRY }}'
-      suffix: '{{ if ( ne .ENVIRONMENT "production" ) }}-testing{{end}}'
-      tag: '{{ .TAG | default .IMAGE_TAG }}'
-      # renovate: datasource=docker depName=quay.io/operator-framework/opm versioning=docker
-      OPM_IMAGE_VERSION: v1.74.0@sha256:b32d3891616662620da08d7f0ec42c2e69fa2de43427dc975d35b12f7a969a0f
-      CONTAINER_AUTH_FILE: '{{ .REGISTRY_AUTH_FILE | default (printf "%s/.docker/config.json" (env "HOME")) }}'
-    cmds:
-      - >
-        mkdir -p operator/catalog/klio-operator
-      - >
-        echo '{"default":[{"type":"insecureAcceptAnything"}]}' > /tmp/policy.json
-      - >
-        docker
-        run --rm
-        -u $(id -u)
-        -v $(pwd)/operator/:/operator/
-        -w /operator/
-        quay.io/operator-framework/opm:${OPM_IMAGE_VERSION}
-        generate dockerfile catalog
-      - |
-        cat << EOF > operator/klio-operator-template.yaml
-        Schema: olm.semver
-        GenerateMajorChannels: true
-        GenerateMinorChannels: false
-        Stable:
-          Bundles:
-          - Image: ${registry}/klio-operator${suffix}:${tag}-bundle
-        EOF
-      - >
-        docker
-        run --rm
-        --network {{ .REGISTRY_NETWORK }}
-        -v /tmp/policy.json:/etc/containers/policy.json
-        -v ${CONTAINER_AUTH_FILE}:/.config/containers/auth.json
-        -u $(id -u)
-        -v $(pwd)/operator/:/operator/
-        -w /operator/
-        quay.io/operator-framework/opm:${OPM_IMAGE_VERSION}
-        alpha render-template semver --skip-tls-verify -o yaml klio-operator-template.yaml > operator/catalog/klio-olm-template.yaml
-      - >
-        docker
-        run --rm
-        -u $(id -u)
-        -v $(pwd)/operator/:/operator/
-        -w /operator/
-        quay.io/operator-framework/opm:${OPM_IMAGE_VERSION}
-        validate catalog/
-    generates:
-      - operator/catalog.Dockerfile
-      - operator/catalog
-      - operator/klio-olm-template.yaml
-
   olm:catalog:
     desc: Build the OLM catalog image after the bundle image is built
     requires:
@@ -1080,23 +1016,21 @@ tasks:
         - name: ENVIRONMENT
           enum:
             ref: .ALLOWED_ENVS
-    env:
-      registry: '{{ .OLM_REGISTRY }}'
-      insecure: '{{ .OLM_LOCAL_REGISTRY }}'
-      suffix: '{{ if ( ne .ENVIRONMENT "production" ) }}-testing{{end}}'
-      tag: '{{ .TAG | default .IMAGE_TAG }}'
     deps:
-      - olm:catalog-file
+      - olm:build
     cmds:
-      - >
-        docker buildx build
-        --builder {{ .DOCKER_BUILDER }}
-        --push
-        --platform linux/amd64,linux/arm64
-        -t ${registry}/klio-operator${suffix}:${tag}-catalog
-        -f operator/catalog.Dockerfile
-        --output="type=image,registry.insecure=${insecure}"
-        operator/
+      - task: ci-machinery-olm:catalog:generate
+        vars:
+          WORKDIR: '{{ .ROOT_DIR }}/operator'
+          BUNDLE_IMAGE: '{{ .OLM_REGISTRY }}/klio-operator{{ if ( ne .ENVIRONMENT "production" ) }}-testing{{end}}:{{ .TAG | default .IMAGE_TAG }}-bundle'
+          OUTPUT_DIR: olm-catalog
+          PRIVATE_REGISTRY_HOST: '{{ .PRIVATE_REGISTRY_HOST }}'
+          PRIVATE_REGISTRY_USERNAME: '{{ .PRIVATE_REGISTRY_USERNAME }}'
+      - task: ci-machinery-olm:catalog:image
+        vars:
+          WORKDIR: '{{ .ROOT_DIR }}/operator'
+          CATALOG_IMAGE: '{{ .OLM_REGISTRY }}/klio-operator{{ if ( ne .ENVIRONMENT "production" ) }}-testing{{end}}:{{ .TAG | default .IMAGE_TAG }}-catalog'
+          CATALOG_DIR: olm-catalog
 
   olm:catalog-source:
     desc: Build the OLM CatalogSource YAML file
@@ -1393,6 +1327,9 @@ tasks:
       - task: ci-machinery-olm:bundle:test-install
         vars:
           BUNDLE_IMAGE: '{{ .OLM_REGISTRY }}/klio-operator{{ if ( ne .ENVIRONMENT "production" ) }}-testing{{end}}:{{ .TAG | default .IMAGE_TAG }}-bundle'
+          # Same image as olm:catalog builds, rather than the shared default
+          # tag, so that concurrent runs don't overwrite each other.
+          CATALOG_IMAGE: '{{ .OLM_REGISTRY }}/klio-operator{{ if ( ne .ENVIRONMENT "production" ) }}-testing{{end}}:{{ .TAG | default .IMAGE_TAG }}-catalog'
           PACKAGE_NAME: klio-operator
           WORKDIR: '{{ .ROOT_DIR }}'
           KUBECONFIG_PATH: '{{ .OLM_KUBECONFIG_PATH }}'
@@ -1431,7 +1368,7 @@ tasks:
       - rm -fr operator/olm-manifests
       - rm -fr operator/olm-bundle
       - rm -fr operator/config/manifest-build/
-      - rm -fr operator/catalog*
+      - rm -fr operator/olm-catalog
       - rm -fr operator/preflight-artifacts
 
   olm:prune:
