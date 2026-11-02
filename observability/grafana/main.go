@@ -91,50 +91,32 @@ const (
 	// snapshotMatcher selects the Kopia snapshots by server, and by served
 	// cluster through snapshot_source (`userName@clusterName:path`).
 	snapshotMatcher = serverMatcher + `,snapshot_source=~"[^@]*@$served_cluster:.*"`
-
-	// servedClusterJoin narrows server-level series, which carry no
-	// cluster_name, to the servers with series of the selected served
-	// clusters. Its "All" matches series without cluster_name too, so no
-	// server is hidden until served clusters are selected.
-	servedClusterJoin = `and on (k8s_namespace_name, k8s_pod_name) group by (k8s_namespace_name, k8s_pod_name) ` +
-		`({__name__=~"klio_server_.+",` + walMatcher + `})`
 )
 
-// scope selects the series of a metric: the label matchers of its
-// selector, and an optional join that narrows the result on labels the
-// series do not carry.
+// scope selects the series of a metric by the label matchers of its
+// selector.
 type scope struct {
 	matcher string
-	join    string
 }
 
 //nolint:gochecknoglobals
 var (
 	// servedScope selects the per-cluster server series on the Servers group.
 	servedScope = scope{matcher: walMatcher}
-	// serverScope selects the server-level series on the Servers group.
-	serverScope = scope{matcher: serverMatcher, join: servedClusterJoin}
+	// serverScope selects the server-level series on the Servers group. They
+	// carry no cluster_name, so the served cluster does not filter them.
+	serverScope = scope{matcher: serverMatcher}
 )
-
-// narrow applies the join of the scope to an instant vector expression.
-func (s scope) narrow(expr string) string {
-	if s.join == "" {
-		return expr
-	}
-
-	return "(" + expr + " " + s.join + ")"
-}
 
 // series selects the series of a metric in the scope.
 func (s scope) series(metric string) string {
-	return s.narrow(metric + "{" + s.matcher + "}")
+	return metric + "{" + s.matcher + "}"
 }
 
 // over applies a range function (rate, increase) over window to the series
-// of a metric in the scope. The join applies after it, since it only takes
-// instant vectors.
+// of a metric in the scope.
 func (s scope) over(fn, metric, window string) string {
-	return s.narrow(fmt.Sprintf("%s(%s{%s}[%s])", fn, metric, s.matcher, window))
+	return fmt.Sprintf("%s(%s{%s}[%s])", fn, metric, s.matcher, window)
 }
 
 func main() {

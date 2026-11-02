@@ -1415,7 +1415,7 @@
                         "name": "${datasource}"
                       },
                       "spec": {
-                        "expr": "max by (k8s_namespace_name, server) (label_replace((klio_server_uptime_seconds{k8s_namespace_name=~\"$server_namespace\",k8s_pod_name=~\"($server)-klio-[0-9]+\"} and on (k8s_namespace_name, k8s_pod_name) group by (k8s_namespace_name, k8s_pod_name) ({__name__=~\"klio_server_.+\",k8s_namespace_name=~\"$server_namespace\",k8s_pod_name=~\"($server)-klio-[0-9]+\",cluster_name=~\"$served_cluster\"})), \"server\", \"$1\", \"k8s_pod_name\", \"(.+)-klio-[0-9]+\"))",
+                        "expr": "max by (k8s_namespace_name, server) (label_replace(klio_server_uptime_seconds{k8s_namespace_name=~\"$server_namespace\",k8s_pod_name=~\"($server)-klio-[0-9]+\"}, \"server\", \"$1\", \"k8s_pod_name\", \"(.+)-klio-[0-9]+\"))",
                         "legendFormat": "{{k8s_namespace_name}}/{{server}}",
                         "range": true
                       }
@@ -1488,7 +1488,7 @@
                         "name": "${datasource}"
                       },
                       "spec": {
-                        "expr": "sum by (k8s_namespace_name, server, stream) (label_replace((klio_server_queue_messages{k8s_namespace_name=~\"$server_namespace\",k8s_pod_name=~\"($server)-klio-[0-9]+\"} and on (k8s_namespace_name, k8s_pod_name) group by (k8s_namespace_name, k8s_pod_name) ({__name__=~\"klio_server_.+\",k8s_namespace_name=~\"$server_namespace\",k8s_pod_name=~\"($server)-klio-[0-9]+\",cluster_name=~\"$served_cluster\"})), \"server\", \"$1\", \"k8s_pod_name\", \"(.+)-klio-[0-9]+\"))",
+                        "expr": "sum by (k8s_namespace_name, server, stream) (label_replace(klio_server_queue_messages{k8s_namespace_name=~\"$server_namespace\",k8s_pod_name=~\"($server)-klio-[0-9]+\"}, \"server\", \"$1\", \"k8s_pod_name\", \"(.+)-klio-[0-9]+\"))",
                         "legendFormat": "{{k8s_namespace_name}}/{{server}} / {{stream}}",
                         "range": true
                       }
@@ -1555,7 +1555,7 @@
                         "name": "${datasource}"
                       },
                       "spec": {
-                        "expr": "sum by (k8s_namespace_name, server, stream) (label_replace((klio_server_queue_bytes{k8s_namespace_name=~\"$server_namespace\",k8s_pod_name=~\"($server)-klio-[0-9]+\"} and on (k8s_namespace_name, k8s_pod_name) group by (k8s_namespace_name, k8s_pod_name) ({__name__=~\"klio_server_.+\",k8s_namespace_name=~\"$server_namespace\",k8s_pod_name=~\"($server)-klio-[0-9]+\",cluster_name=~\"$served_cluster\"})), \"server\", \"$1\", \"k8s_pod_name\", \"(.+)-klio-[0-9]+\"))",
+                        "expr": "sum by (k8s_namespace_name, server, stream) (label_replace(klio_server_queue_bytes{k8s_namespace_name=~\"$server_namespace\",k8s_pod_name=~\"($server)-klio-[0-9]+\"}, \"server\", \"$1\", \"k8s_pod_name\", \"(.+)-klio-[0-9]+\"))",
                         "legendFormat": "{{k8s_namespace_name}}/{{server}} / {{stream}}",
                         "range": true
                       }
@@ -5484,7 +5484,7 @@
                     {
                       "kind": "RowsLayoutRow",
                       "spec": {
-                        "title": "Server health",
+                        "title": "Health",
                         "layout": {
                           "kind": "GridLayout",
                           "spec": {
@@ -6091,7 +6091,7 @@
                       "text": "All",
                       "value": "$__all"
                     },
-                    "label": "Server namespace",
+                    "label": "Namespace",
                     "hide": "dontHide",
                     "refresh": "onDashboardLoad",
                     "skipUrlSync": false,

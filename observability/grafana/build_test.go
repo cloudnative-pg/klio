@@ -340,10 +340,18 @@ func TestPanelsHaveTitleAndDescription(t *testing.T) {
 
 var metricPattern = regexp.MustCompile(`\b(klio_[a-z0-9_]+|cnpg_[a-z0-9_]+)`)
 
+// unfilteredBy lists the variables a metric cannot be filtered by, because
+// its series lack the label the variable selects on.
+//
+//nolint:gochecknoglobals
+var unfilteredBy = map[string]string{
+	"klio_server_uptime_seconds": "served_cluster",
+	"klio_server_queue_messages": "served_cluster",
+	"klio_server_queue_bytes":    "served_cluster",
+}
+
 // TestPanelsUseGroupFilters catches a group variable that a panel query leaves
-// out, so that selecting it silently has no effect on that panel. Series
-// that lack the label a variable selects on apply it through a join (see
-// scope).
+// out, so that selecting it silently has no effect on that panel.
 func TestPanelsUseGroupFilters(t *testing.T) {
 	dash := buildTestDashboard(t)
 
@@ -361,6 +369,9 @@ func TestPanelsUseGroupFilters(t *testing.T) {
 				continue
 			}
 			for _, v := range variables[p.group] {
+				if unfilteredBy[metric] == v {
+					continue
+				}
 				if !regexp.MustCompile(`\$` + v + `\b`).MatchString(expr) {
 					t.Errorf("%s: panel %q: query does not filter by $%s: %s", p.group, p.title, v, expr)
 				}

@@ -147,7 +147,7 @@ func serversGroup() group {
 	return group{
 		title: "Servers",
 		variables: []*dashboardv2.QueryVariableBuilder{
-			labelVariable("server_namespace", "Server namespace",
+			labelVariable("server_namespace", "Namespace",
 				`label_values(klio_server_uptime_seconds, k8s_namespace_name)`).
 				Description("Namespace where the Klio server runs, not where the clusters it backs run.").
 				AllValue(matchAny),
@@ -163,8 +163,7 @@ func serversGroup() group {
 			// Narrowed by server, not namespace, to keep clusters served
 			// cross-namespace. Not sourced from klio_server_wal_written_total: a
 			// server that receives no WAL, such as a read-only one, would list
-			// no clusters. Its "All" also matches the series without
-			// cluster_name, so it hides no server (see servedClusterJoin).
+			// no clusters.
 			labelVariable("served_cluster", "Served cluster",
 				`label_values({__name__=~"klio_server_.+",`+serverMatcher+`}, cluster_name)`).
 				Description("Clusters backed by the selected servers, from any namespace.").
@@ -172,7 +171,7 @@ func serversGroup() group {
 		},
 		sections: []section{
 			{
-				"Server health",
+				"Health",
 				"Uptime of each Klio server and the messages waiting in its embedded queue.",
 				serverHealthPanels(),
 			},
