@@ -5,12 +5,18 @@ version: 3.54.0
 # what task is writing.
 output: prefixed
 
+includes:
+  ci-machinery-olm: https://raw.githubusercontent.com/cloudnative-pg/ci-machinery/refs/heads/main/taskfiles/taskfile.olm.yaml
+
 vars:
   BUILDER_NAME: klio-builder
   REGISTRY_CERT_VOLUME: certs-klio
-  REGISTRY_NETWORK: klio
-  REGISTRY_NAME: '{{ .REGISTRY_NAME | default "registry.dev" }}'
-  REGISTRY_PORT: '{{ .REGISTRY_PORT | default 5000 }}'
+  # The registry vars are prefixed with KLIO_ because the vars of the included
+  # ci-machinery taskfiles override the root ones with the same name, and
+  # ci-machinery defines its own REGISTRY_NAME and REGISTRY_NETWORK.
+  KLIO_REGISTRY_NETWORK: klio
+  KLIO_REGISTRY_NAME: '{{ .KLIO_REGISTRY_NAME | default "registry.dev" }}'
+  KLIO_REGISTRY_PORT: '{{ .KLIO_REGISTRY_PORT | default 5000 }}'
   # GitHub org/user that owns the ghcr.io namespace CI pushes images to.
   # GITHUB_REPOSITORY_OWNER is set by GitHub Actions to whichever repo the
   # workflow is actually running in, so a fork's own CI pushes to the fork's
@@ -259,7 +265,7 @@ tasks:
         vars:
           ENVIRONMENT: "testing"
           INSECURE: '{{ if .GITHUB_ACTIONS }}false{{ else }}true{{ end }}'
-          REGISTRY: '{{ if .GITHUB_ACTIONS }}ghcr.io/{{ .REGISTRY_OWNER }}{{ else }}{{ .REGISTRY_NAME }}:{{ .REGISTRY_PORT }}{{ end }}'
+          REGISTRY: '{{ if .GITHUB_ACTIONS }}ghcr.io/{{ .REGISTRY_OWNER }}{{ else }}{{ .KLIO_REGISTRY_NAME }}:{{ .KLIO_REGISTRY_PORT }}{{ end }}'
           VERSION: "{{ .TAG }}"
           LATEST: "false"
           PUSH: "{{ .PUSH }}"
@@ -351,8 +357,8 @@ tasks:
         openssl req -new -x509 -days 365 -key ca-key.pem -sha256 -out ca.pem \
             -subj "/O=CloudNativePG/OU=Barman Cloud Plugin Testing" &&
         openssl genrsa -out server-key.pem 4096 &&
-        openssl req -subj "/CN={{ .REGISTRY_NAME }}" -sha256 -new -key server-key.pem -out server.csr &&
-        echo subjectAltName = DNS:{{ .REGISTRY_NAME }},IP:127.0.0.1 >> extfile.cnf &&
+        openssl req -subj "/CN={{ .KLIO_REGISTRY_NAME }}" -sha256 -new -key server-key.pem -out server.csr &&
+        echo subjectAltName = DNS:{{ .KLIO_REGISTRY_NAME }},IP:127.0.0.1 >> extfile.cnf &&
         echo extendedKeyUsage = serverAuth >> extfile.cnf &&
         openssl x509 -req -days 365 -sha256 -in server.csr -CA ca.pem -CAkey ca-key.pem \
             -CAcreateserial -out server-cert.pem -extfile extfile.cnf'
@@ -367,9 +373,9 @@ tasks:
     internal: true
     run: once
     cmds:
-      - docker network create {{ .REGISTRY_NETWORK}}
+      - docker network create {{ .KLIO_REGISTRY_NETWORK}}
     status:
-      - docker network inspect {{ .REGISTRY_NETWORK }}
+      - docker network inspect {{ .KLIO_REGISTRY_NETWORK }}
 
   internal:start-registry:
     desc: Start a container registry
@@ -383,13 +389,13 @@ tasks:
       REGISTRY_VERSION: 3.1.2@sha256:38907510915c3f1604c7e83d6ab602ab3020d092f73bdaed8696773693ff768c
     cmds:
       - >
-        docker run -d --name {{ .REGISTRY_NAME }}
-        --network {{ .REGISTRY_NETWORK }}
+        docker run -d --name {{ .KLIO_REGISTRY_NAME }}
+        --network {{ .KLIO_REGISTRY_NETWORK }}
         -v {{ .REGISTRY_CERT_VOLUME }}:/certs
         -e REGISTRY_HTTP_TLS_CERTIFICATE=/certs/server-cert.pem -e REGISTRY_HTTP_TLS_KEY=/certs/server-key.pem
         registry:${REGISTRY_VERSION}
     status:
-      - \[ "$(docker inspect -f {{`'{{.State.Running}}'`}} "{{ .REGISTRY_NAME }}" 2> /dev/null)" == 'true' \]
+      - \[ "$(docker inspect -f {{`'{{.State.Running}}'`}} "{{ .KLIO_REGISTRY_NAME }}" 2> /dev/null)" == 'true' \]
 
   internal:registry-network-connect:
     desc: Make sure the registry is connected to the registry network
@@ -400,9 +406,9 @@ tasks:
       - internal:start-registry
     run: once
     cmds:
-      - docker network connect {{ .REGISTRY_NETWORK }} {{ .REGISTRY_NAME }} || true
+      - docker network connect {{ .KLIO_REGISTRY_NETWORK }} {{ .KLIO_REGISTRY_NAME }} || true
     status:
-      - docker network inspect {{ .REGISTRY_NETWORK }} -f '{{ range .Containers }}{{ .Name }} {{ end }}' | grep "{{ .REGISTRY_NAME }}"
+      - docker network inspect {{ .KLIO_REGISTRY_NETWORK }} -f '{{ range .Containers }}{{ .Name }} {{ end }}' | grep "{{ .KLIO_REGISTRY_NAME }}"
 
   internal:create-builder:
     desc: Create a buildx builder
@@ -411,7 +417,7 @@ tasks:
     deps:
       - internal:start-build-network
     cmds:
-      - dagger run docker buildx create --name {{ .BUILDER_NAME }} --driver-opt "network={{ .REGISTRY_NETWORK }}"
+      - dagger run docker buildx create --name {{ .BUILDER_NAME }} --driver-opt "network={{ .KLIO_REGISTRY_NETWORK }}"
     status:
       - docker buildx inspect {{ .BUILDER_NAME }}
 
@@ -558,7 +564,7 @@ tasks:
         vars:
           ENVIRONMENT: "testing"
           INSECURE: '{{ if .GITHUB_ACTIONS }}false{{ else }}true{{ end }}'
-          REGISTRY: '{{ if .GITHUB_ACTIONS }}ghcr.io/{{ .REGISTRY_OWNER }}{{ else }}{{ .REGISTRY_NAME }}:{{ .REGISTRY_PORT }}{{ end }}'
+          REGISTRY: '{{ if .GITHUB_ACTIONS }}ghcr.io/{{ .REGISTRY_OWNER }}{{ else }}{{ .KLIO_REGISTRY_NAME }}:{{ .KLIO_REGISTRY_PORT }}{{ end }}'
           VERSION: "{{ .TAG }}"
           LATEST: "false"
           PUSH: "{{ .PUSH }}"
@@ -774,7 +780,7 @@ tasks:
           enum:
             ref: .ALLOWED_ENVS
     env:
-      registry: '{{ if .GITHUB_ACTIONS }}ghcr.io/{{ .REGISTRY_OWNER }}{{ else }}{{ .REGISTRY_NAME }}:{{ .REGISTRY_PORT }}{{ end }}'
+      registry: '{{ if .GITHUB_ACTIONS }}ghcr.io/{{ .REGISTRY_OWNER }}{{ else }}{{ .KLIO_REGISTRY_NAME }}:{{ .KLIO_REGISTRY_PORT }}{{ end }}'
       insecure: '{{ if .GITHUB_ACTIONS }}false{{ else }}true{{ end }}'
       suffix: '{{ if ( ne .ENVIRONMENT "production" ) }}-testing{{end}}'
       tag: '{{ .TAG | default .IMAGE_TAG }}'
@@ -903,7 +909,7 @@ tasks:
       - internal:registry-network-connect
       - olm:bundle
     env:
-      registry: '{{ if .GITHUB_ACTIONS }}ghcr.io/{{ .REGISTRY_OWNER }}{{ else }}{{ .REGISTRY_NAME }}:{{ .REGISTRY_PORT }}{{ end }}'
+      registry: '{{ if .GITHUB_ACTIONS }}ghcr.io/{{ .REGISTRY_OWNER }}{{ else }}{{ .KLIO_REGISTRY_NAME }}:{{ .KLIO_REGISTRY_PORT }}{{ end }}'
       insecure: '{{ if .GITHUB_ACTIONS }}false{{ else }}true{{ end }}'
       suffix: '{{ if ( ne .ENVIRONMENT "production" ) }}-testing{{end}}'
       tag: '{{ .TAG | default .IMAGE_TAG }}'
@@ -929,7 +935,7 @@ tasks:
           enum:
             ref: .ALLOWED_ENVS
     env:
-      registry: '{{ if .GITHUB_ACTIONS }}ghcr.io/{{ .REGISTRY_OWNER }}{{ else }}{{ .REGISTRY_NAME }}:{{ .REGISTRY_PORT }}{{ end }}'
+      registry: '{{ if .GITHUB_ACTIONS }}ghcr.io/{{ .REGISTRY_OWNER }}{{ else }}{{ .KLIO_REGISTRY_NAME }}:{{ .KLIO_REGISTRY_PORT }}{{ end }}'
       insecure: '{{ if .GITHUB_ACTIONS }}false{{ else }}true{{ end }}'
       suffix: '{{ if ( ne .ENVIRONMENT "production" ) }}-testing{{end}}'
       tag: '{{ .TAG | default .IMAGE_TAG }}'
@@ -961,7 +967,7 @@ tasks:
       - >
         docker
         run --rm
-        --network {{ .REGISTRY_NETWORK }}
+        --network {{ .KLIO_REGISTRY_NETWORK }}
         -v /tmp/policy.json:/etc/containers/policy.json
         -v ${CONTAINER_AUTH_FILE}:/.config/containers/auth.json
         -u $(id -u)
@@ -990,7 +996,7 @@ tasks:
           enum:
             ref: .ALLOWED_ENVS
     env:
-      registry: '{{ if .GITHUB_ACTIONS }}ghcr.io/{{ .REGISTRY_OWNER }}{{ else }}{{ .REGISTRY_NAME }}:{{ .REGISTRY_PORT }}{{ end }}'
+      registry: '{{ if .GITHUB_ACTIONS }}ghcr.io/{{ .REGISTRY_OWNER }}{{ else }}{{ .KLIO_REGISTRY_NAME }}:{{ .KLIO_REGISTRY_PORT }}{{ end }}'
       insecure: '{{ if .GITHUB_ACTIONS }}false{{ else }}true{{ end }}'
       suffix: '{{ if ( ne .ENVIRONMENT "production" ) }}-testing{{end}}'
       tag: '{{ .TAG | default .IMAGE_TAG }}'
@@ -1015,7 +1021,7 @@ tasks:
           enum:
             ref: .ALLOWED_ENVS
     env:
-      registry: '{{ if .GITHUB_ACTIONS }}ghcr.io/{{ .REGISTRY_OWNER }}{{ else }}{{ .REGISTRY_NAME }}:{{ .REGISTRY_PORT }}{{ end }}'
+      registry: '{{ if .GITHUB_ACTIONS }}ghcr.io/{{ .REGISTRY_OWNER }}{{ else }}{{ .KLIO_REGISTRY_NAME }}:{{ .KLIO_REGISTRY_PORT }}{{ end }}'
       insecure: '{{ if .GITHUB_ACTIONS }}false{{ else }}true{{ end }}'
       suffix: '{{ if ( ne .ENVIRONMENT "production" ) }}-testing{{end}}'
       tag: '{{ .TAG | default .IMAGE_TAG }}'
@@ -1135,7 +1141,7 @@ tasks:
           enum:
             ref: .ALLOWED_ENVS
     env:
-      registry: '{{ if .GITHUB_ACTIONS }}ghcr.io/{{ .REGISTRY_OWNER }}{{ else }}{{ .REGISTRY_NAME }}:{{ .REGISTRY_PORT }}{{ end }}'
+      registry: '{{ if .GITHUB_ACTIONS }}ghcr.io/{{ .REGISTRY_OWNER }}{{ else }}{{ .KLIO_REGISTRY_NAME }}:{{ .KLIO_REGISTRY_PORT }}{{ end }}'
       suffix: '{{ if ( ne .ENVIRONMENT "production" ) }}-testing{{end}}'
       tag: '{{ .TAG | default .IMAGE_TAG }}'
       # REGISTRY_AUTH_FILE is the registry credentials file preflight uses for
@@ -1564,9 +1570,9 @@ tasks:
   clean:build-env:
     desc: Cleanup of the build environment
     cmds:
-      - docker rm -f {{ .REGISTRY_NAME }} 2> /dev/null || true
+      - docker rm -f {{ .KLIO_REGISTRY_NAME }} 2> /dev/null || true
       - docker buildx rm {{ .BUILDER_NAME }} 2> /dev/null || true
-      - docker network rm {{ .REGISTRY_NETWORK }} 2> /dev/null || true
+      - docker network rm {{ .KLIO_REGISTRY_NETWORK }} 2> /dev/null || true
       - docker volume rm {{ .REGISTRY_CERT_VOLUME }} 2> /dev/null || true
       - rm -rf certs/
 
@@ -1622,9 +1628,9 @@ tasks:
         # This command extracts the host port for the control plane of the Kind cluster.
         # Redundant curly braces are used to escape the template syntax in Taskfile.
         sh: docker inspect --format '{{"{{"}} (index (index .HostConfig.PortBindings "6443/tcp") 0).HostPort {{"}}"}}' {{ .KIND_CLUSTER_NAME }}-control-plane
-      OPERATOR_IMAGE_REPOSITORY: '{{ .OPERATOR_IMAGE_REPOSITORY | default (printf "%s:%s/klio-operator-testing" .REGISTRY_NAME .REGISTRY_PORT) }}'
+      OPERATOR_IMAGE_REPOSITORY: '{{ .OPERATOR_IMAGE_REPOSITORY | default (printf "%s:%s/klio-operator-testing" .KLIO_REGISTRY_NAME .KLIO_REGISTRY_PORT) }}'
       OPERATOR_IMAGE_TAG: '{{ .OPERATOR_IMAGE_TAG | default "dev" }}'
-      OPERAND_IMAGE_REPOSITORY: '{{ .OPERAND_IMAGE_REPOSITORY | default (printf "%s:%s/klio-testing" .REGISTRY_NAME .REGISTRY_PORT) }}'
+      OPERAND_IMAGE_REPOSITORY: '{{ .OPERAND_IMAGE_REPOSITORY | default (printf "%s:%s/klio-testing" .KLIO_REGISTRY_NAME .KLIO_REGISTRY_PORT) }}'
       OPERAND_IMAGE_TAG: '{{ .OPERAND_IMAGE_TAG | default "dev" }}'
       # renovate: datasource=docker depName=alpine/k8s versioning=docker
       ALPINE_K8S_VERSION: 1.37.2@sha256:dcb7185e112a453aa72f426754849a97357727ef8f40168fb208c8cf59952042
