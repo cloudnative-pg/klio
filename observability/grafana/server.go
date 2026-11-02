@@ -174,42 +174,50 @@ func retainedBackupPanels() []sizedPanel {
 	}
 }
 
+// walPanels returns the WAL panels of the servers: the WAL written for the
+// served clusters, then the latency of the WAL operations.
+func walPanels() []sizedPanel {
+	panels := append(servedClusterPanels(), walIngestPanels()...)
+
+	return append(panels, walProcessingPanels()...)
+}
+
 // walIngestPanels returns the WAL written by the server.
 func walIngestPanels() []sizedPanel {
 	return []sizedPanel{
 		sized(largePanelWidth, mediumPanelHeight, timelinePanel("WAL timeline",
 			query(fmt.Sprintf("max by (cluster_name, tier) (%s)",
-				clusterScope.series("klio_server_wal_latest_written_timeline")),
+				servedScope.series("klio_server_wal_latest_written_timeline")),
 				"{{cluster_name}} {{tier}}"),
 		).Description("PostgreSQL timeline of the latest WAL written per cluster and tier")),
 
 		sized(gridWidth, tablePanelHeight, lsnTablePanel("Latest written LSN",
 			lsnColumn{"written", fmt.Sprintf(
-				"max by (cluster_name, tier) (%s)", clusterScope.series("klio_server_wal_latest_written_lsn_bytes"))},
+				"max by (cluster_name, tier) (%s)", servedScope.series("klio_server_wal_latest_written_lsn_bytes"))},
 		).Description("Most recent WAL LSN the server has written for each cluster and tier")),
 
 		sized(largestPanelWidth, mediumPanelHeight, timeseriesPanel("WAL files written (rate)", units.OpsPerSecond,
 			query(fmt.Sprintf("sum by (cluster_name, tier) (%s)",
-				clusterScope.over("rate", "klio_server_wal_written_total", "$__rate_interval")), "{{cluster_name}} {{tier}}"),
+				servedScope.over("rate", "klio_server_wal_written_total", "$__rate_interval")), "{{cluster_name}} {{tier}}"),
 		).Description("Rate of WAL files written by the server, split by cluster and storage tier.")),
 
 		sized(largestPanelWidth, mediumPanelHeight, timeseriesPanel("WAL files written (total)", units.Number,
 			query(fmt.Sprintf("sum by (cluster_name, tier) (%s)",
-				clusterScope.series("klio_server_wal_written_total")), "{{cluster_name}} {{tier}}"),
+				servedScope.series("klio_server_wal_written_total")), "{{cluster_name}} {{tier}}"),
 		).Description("Total WAL files written by the server since it last restarted, split by cluster and "+
 			"storage tier.")),
 
 		sized(largestPanelWidth, largePanelHeight,
 			timeseriesPanel("WAL tier-2 upload duration percentiles (rate)", units.Nanoseconds,
 				quantileTargetsWindowIn("klio_server_wal_upload_duration_nanoseconds_bucket", "le, cluster_name",
-					clusterScope, "{{cluster_name}}", "rate", "$__rate_interval")...,
+					servedScope, "{{cluster_name}}", "rate", "$__rate_interval")...,
 			).Description("Percentile duration of the tier-2 archival upload to remote storage, per cluster. "+
 				"Reflects recent activity, over the rate interval window.")),
 
 		sized(largestPanelWidth, largePanelHeight,
 			timeseriesPanel("WAL tier-2 upload duration percentiles (total)", units.Nanoseconds,
 				quantileTargetsAbsoluteIn("klio_server_wal_upload_duration_nanoseconds_bucket", "le, cluster_name",
-					clusterScope, "{{cluster_name}}")...,
+					servedScope, "{{cluster_name}}")...,
 			).Description("Percentile duration of the tier-2 archival upload to remote storage, per cluster. "+
 				"Reflects all activity since the server last restarted.")),
 	}

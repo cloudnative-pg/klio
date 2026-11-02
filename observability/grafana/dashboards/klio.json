@@ -303,7 +303,7 @@
             "version": "",
             "spec": {
               "options": {
-                "content": "WAL streamed by the client in the PostgreSQL pod, and written by the Klio server to each tier.",
+                "content": "WAL streamed by the client in the PostgreSQL pod to the Klio server.",
                 "mode": "markdown"
               },
               "fieldConfig": {
@@ -603,8 +603,40 @@
         "kind": "Panel",
         "spec": {
           "id": 17,
-          "title": "WAL timeline",
-          "description": "PostgreSQL timeline of the latest WAL written per cluster and tier",
+          "title": "",
+          "links": [],
+          "data": {
+            "kind": "QueryGroup",
+            "spec": {
+              "queries": [],
+              "transformations": [],
+              "queryOptions": {}
+            }
+          },
+          "vizConfig": {
+            "kind": "VizConfig",
+            "group": "text",
+            "version": "",
+            "spec": {
+              "options": {
+                "content": "How far the WAL stored in tier 1 and tier 2 trails behind the PostgreSQL primary.",
+                "mode": "markdown"
+              },
+              "fieldConfig": {
+                "defaults": {},
+                "overrides": []
+              }
+            }
+          },
+          "transparent": true
+        }
+      },
+      "panel-18": {
+        "kind": "Panel",
+        "spec": {
+          "id": 18,
+          "title": "Tier-1 replication lag (bytes)",
+          "description": "Byte distance between the primary's current WAL LSN and the LSN Klio's streaming client has written to disk and flushed.",
           "links": [],
           "data": {
             "kind": "QueryGroup",
@@ -621,12 +653,32 @@
                         "name": "${datasource}"
                       },
                       "spec": {
-                        "expr": "max by (cluster_name, tier) ((klio_server_wal_latest_written_timeline{cluster_name=~\"$cluster\"} and on (cluster_name) group by (cluster_name) (klio_plugin_backup_in_progress{k8s_namespace_name=~\"$namespace\",cluster_name=~\"$cluster\",k8s_pod_name=~\"$pod\"})))",
-                        "legendFormat": "{{cluster_name}} {{tier}}",
+                        "expr": "cnpg_pg_stat_replication_write_diff_bytes{namespace=~\"$namespace\",application_name=\"klio\",pod=~\"$cluster-[0-9]+\",pod=~\"$pod\"}",
+                        "legendFormat": "{{pod}} write",
                         "range": true
                       }
                     },
                     "refId": "A",
+                    "hidden": false
+                  }
+                },
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "query": {
+                      "kind": "DataQuery",
+                      "group": "prometheus",
+                      "version": "v0",
+                      "datasource": {
+                        "name": "${datasource}"
+                      },
+                      "spec": {
+                        "expr": "cnpg_pg_stat_replication_flush_diff_bytes{namespace=~\"$namespace\",application_name=\"klio\",pod=~\"$cluster-[0-9]+\",pod=~\"$pod\"}",
+                        "legendFormat": "{{pod}} flush",
+                        "range": true
+                      }
+                    },
+                    "refId": "B",
                     "hidden": false
                   }
                 }
@@ -654,118 +706,10 @@
               },
               "fieldConfig": {
                 "defaults": {
-                  "unit": "none",
-                  "decimals": 0,
+                  "unit": "bytes",
                   "custom": {
-                    "fillOpacity": 0,
-                    "gradientMode": "opacity",
-                    "lineInterpolation": "stepAfter",
-                    "lineWidth": 2
-                  }
-                },
-                "overrides": []
-              }
-            }
-          }
-        }
-      },
-      "panel-18": {
-        "kind": "Panel",
-        "spec": {
-          "id": 18,
-          "title": "Latest written LSN",
-          "description": "Most recent WAL LSN the server has written for each cluster and tier",
-          "links": [],
-          "data": {
-            "kind": "QueryGroup",
-            "spec": {
-              "queries": [
-                {
-                  "kind": "PanelQuery",
-                  "spec": {
-                    "query": {
-                      "kind": "DataQuery",
-                      "group": "prometheus",
-                      "version": "v0",
-                      "datasource": {
-                        "name": "${datasource}"
-                      },
-                      "spec": {
-                        "expr": "floor(max by (cluster_name, tier) ((klio_server_wal_latest_written_lsn_bytes{cluster_name=~\"$cluster\"} and on (cluster_name) group by (cluster_name) (klio_plugin_backup_in_progress{k8s_namespace_name=~\"$namespace\",cluster_name=~\"$cluster\",k8s_pod_name=~\"$pod\"}))) / 4294967296)",
-                        "format": "table",
-                        "instant": true
-                      }
-                    },
-                    "refId": "h0",
-                    "hidden": true
-                  }
-                },
-                {
-                  "kind": "PanelQuery",
-                  "spec": {
-                    "query": {
-                      "kind": "DataQuery",
-                      "group": "prometheus",
-                      "version": "v0",
-                      "datasource": {
-                        "name": "${datasource}"
-                      },
-                      "spec": {
-                        "expr": "max by (cluster_name, tier) ((klio_server_wal_latest_written_lsn_bytes{cluster_name=~\"$cluster\"} and on (cluster_name) group by (cluster_name) (klio_plugin_backup_in_progress{k8s_namespace_name=~\"$namespace\",cluster_name=~\"$cluster\",k8s_pod_name=~\"$pod\"}))) % 4294967296",
-                        "format": "table",
-                        "instant": true
-                      }
-                    },
-                    "refId": "l0",
-                    "hidden": true
-                  }
-                },
-                {
-                  "kind": "PanelQuery",
-                  "spec": {
-                    "query": {
-                      "kind": "DataQuery",
-                      "group": "__expr__",
-                      "version": "v0",
-                      "datasource": {
-                        "name": "__expr__"
-                      },
-                      "spec": {
-                        "expression": "SELECT\n  h0.cluster_name AS \"Cluster Name\",\n  h0.tier AS \"Tier\",\n  concat(CONV(h0.__value__, 10, 16), \"/\", CONV(l0.__value__, 10, 16)) as \"written LSN\"\nFROM h0\nJOIN l0 ON l0.cluster_name = h0.cluster_name AND l0.tier = h0.tier",
-                        "format": "",
-                        "type": "sql"
-                      }
-                    },
-                    "refId": "sql",
-                    "hidden": false
-                  }
-                }
-              ],
-              "transformations": [],
-              "queryOptions": {}
-            }
-          },
-          "vizConfig": {
-            "kind": "VizConfig",
-            "group": "table",
-            "version": "",
-            "spec": {
-              "options": {
-                "cellHeight": "sm",
-                "footer": {
-                  "countRows": false,
-                  "reducer": null,
-                  "show": false
-                },
-                "frameIndex": 0,
-                "showHeader": true,
-                "showTypeIcons": false
-              },
-              "fieldConfig": {
-                "defaults": {
-                  "custom": {
-                    "align": "auto",
-                    "inspect": false
+                    "fillOpacity": 10,
+                    "gradientMode": "opacity"
                   }
                 },
                 "overrides": []
@@ -778,8 +722,8 @@
         "kind": "Panel",
         "spec": {
           "id": 19,
-          "title": "WAL files written (rate)",
-          "description": "Rate of WAL files written by the server, split by cluster and storage tier.",
+          "title": "Tier-1 replication lag (seconds)",
+          "description": "Time between a commit on the primary and Klio's streaming client writing to disk and flushing the corresponding WAL.",
           "links": [],
           "data": {
             "kind": "QueryGroup",
@@ -796,12 +740,32 @@
                         "name": "${datasource}"
                       },
                       "spec": {
-                        "expr": "sum by (cluster_name, tier) ((rate(klio_server_wal_written_total{cluster_name=~\"$cluster\"}[$__rate_interval]) and on (cluster_name) group by (cluster_name) (klio_plugin_backup_in_progress{k8s_namespace_name=~\"$namespace\",cluster_name=~\"$cluster\",k8s_pod_name=~\"$pod\"})))",
-                        "legendFormat": "{{cluster_name}} {{tier}}",
+                        "expr": "cnpg_pg_stat_replication_write_lag_seconds{namespace=~\"$namespace\",application_name=\"klio\",pod=~\"$cluster-[0-9]+\",pod=~\"$pod\"}",
+                        "legendFormat": "{{pod}} write",
                         "range": true
                       }
                     },
                     "refId": "A",
+                    "hidden": false
+                  }
+                },
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "query": {
+                      "kind": "DataQuery",
+                      "group": "prometheus",
+                      "version": "v0",
+                      "datasource": {
+                        "name": "${datasource}"
+                      },
+                      "spec": {
+                        "expr": "cnpg_pg_stat_replication_flush_lag_seconds{namespace=~\"$namespace\",application_name=\"klio\",pod=~\"$cluster-[0-9]+\",pod=~\"$pod\"}",
+                        "legendFormat": "{{pod}} flush",
+                        "range": true
+                      }
+                    },
+                    "refId": "B",
                     "hidden": false
                   }
                 }
@@ -829,7 +793,7 @@
               },
               "fieldConfig": {
                 "defaults": {
-                  "unit": "ops",
+                  "unit": "s",
                   "custom": {
                     "fillOpacity": 10,
                     "gradientMode": "opacity"
@@ -919,493 +883,6 @@
         "kind": "Panel",
         "spec": {
           "id": 20,
-          "title": "WAL files written (total)",
-          "description": "Total WAL files written by the server since it last restarted, split by cluster and storage tier.",
-          "links": [],
-          "data": {
-            "kind": "QueryGroup",
-            "spec": {
-              "queries": [
-                {
-                  "kind": "PanelQuery",
-                  "spec": {
-                    "query": {
-                      "kind": "DataQuery",
-                      "group": "prometheus",
-                      "version": "v0",
-                      "datasource": {
-                        "name": "${datasource}"
-                      },
-                      "spec": {
-                        "expr": "sum by (cluster_name, tier) ((klio_server_wal_written_total{cluster_name=~\"$cluster\"} and on (cluster_name) group by (cluster_name) (klio_plugin_backup_in_progress{k8s_namespace_name=~\"$namespace\",cluster_name=~\"$cluster\",k8s_pod_name=~\"$pod\"})))",
-                        "legendFormat": "{{cluster_name}} {{tier}}",
-                        "range": true
-                      }
-                    },
-                    "refId": "A",
-                    "hidden": false
-                  }
-                }
-              ],
-              "transformations": [],
-              "queryOptions": {}
-            }
-          },
-          "vizConfig": {
-            "kind": "VizConfig",
-            "group": "timeseries",
-            "version": "",
-            "spec": {
-              "options": {
-                "legend": {
-                  "calcs": [],
-                  "displayMode": "list",
-                  "placement": "bottom",
-                  "showLegend": true
-                },
-                "tooltip": {
-                  "mode": "",
-                  "sort": ""
-                }
-              },
-              "fieldConfig": {
-                "defaults": {
-                  "unit": "none",
-                  "custom": {
-                    "fillOpacity": 10,
-                    "gradientMode": "opacity"
-                  }
-                },
-                "overrides": []
-              }
-            }
-          }
-        }
-      },
-      "panel-21": {
-        "kind": "Panel",
-        "spec": {
-          "id": 21,
-          "title": "WAL tier-2 upload duration percentiles (rate)",
-          "description": "Percentile duration of the tier-2 archival upload to remote storage, per cluster. Reflects recent activity, over the rate interval window.",
-          "links": [],
-          "data": {
-            "kind": "QueryGroup",
-            "spec": {
-              "queries": [
-                {
-                  "kind": "PanelQuery",
-                  "spec": {
-                    "query": {
-                      "kind": "DataQuery",
-                      "group": "prometheus",
-                      "version": "v0",
-                      "datasource": {
-                        "name": "${datasource}"
-                      },
-                      "spec": {
-                        "expr": "histogram_quantile(0.50, sum by (le, cluster_name) ((rate(klio_server_wal_upload_duration_nanoseconds_bucket{cluster_name=~\"$cluster\"}[$__rate_interval]) and on (cluster_name) group by (cluster_name) (klio_plugin_backup_in_progress{k8s_namespace_name=~\"$namespace\",cluster_name=~\"$cluster\",k8s_pod_name=~\"$pod\"}))))",
-                        "legendFormat": "{{cluster_name}} p50",
-                        "range": true
-                      }
-                    },
-                    "refId": "A",
-                    "hidden": false
-                  }
-                },
-                {
-                  "kind": "PanelQuery",
-                  "spec": {
-                    "query": {
-                      "kind": "DataQuery",
-                      "group": "prometheus",
-                      "version": "v0",
-                      "datasource": {
-                        "name": "${datasource}"
-                      },
-                      "spec": {
-                        "expr": "histogram_quantile(0.90, sum by (le, cluster_name) ((rate(klio_server_wal_upload_duration_nanoseconds_bucket{cluster_name=~\"$cluster\"}[$__rate_interval]) and on (cluster_name) group by (cluster_name) (klio_plugin_backup_in_progress{k8s_namespace_name=~\"$namespace\",cluster_name=~\"$cluster\",k8s_pod_name=~\"$pod\"}))))",
-                        "legendFormat": "{{cluster_name}} p90",
-                        "range": true
-                      }
-                    },
-                    "refId": "B",
-                    "hidden": false
-                  }
-                },
-                {
-                  "kind": "PanelQuery",
-                  "spec": {
-                    "query": {
-                      "kind": "DataQuery",
-                      "group": "prometheus",
-                      "version": "v0",
-                      "datasource": {
-                        "name": "${datasource}"
-                      },
-                      "spec": {
-                        "expr": "histogram_quantile(0.99, sum by (le, cluster_name) ((rate(klio_server_wal_upload_duration_nanoseconds_bucket{cluster_name=~\"$cluster\"}[$__rate_interval]) and on (cluster_name) group by (cluster_name) (klio_plugin_backup_in_progress{k8s_namespace_name=~\"$namespace\",cluster_name=~\"$cluster\",k8s_pod_name=~\"$pod\"}))))",
-                        "legendFormat": "{{cluster_name}} p99",
-                        "range": true
-                      }
-                    },
-                    "refId": "C",
-                    "hidden": false
-                  }
-                }
-              ],
-              "transformations": [],
-              "queryOptions": {}
-            }
-          },
-          "vizConfig": {
-            "kind": "VizConfig",
-            "group": "timeseries",
-            "version": "",
-            "spec": {
-              "options": {
-                "legend": {
-                  "calcs": [],
-                  "displayMode": "list",
-                  "placement": "bottom",
-                  "showLegend": true
-                },
-                "tooltip": {
-                  "mode": "",
-                  "sort": ""
-                }
-              },
-              "fieldConfig": {
-                "defaults": {
-                  "unit": "ns",
-                  "custom": {
-                    "fillOpacity": 10,
-                    "gradientMode": "opacity"
-                  }
-                },
-                "overrides": []
-              }
-            }
-          }
-        }
-      },
-      "panel-22": {
-        "kind": "Panel",
-        "spec": {
-          "id": 22,
-          "title": "WAL tier-2 upload duration percentiles (total)",
-          "description": "Percentile duration of the tier-2 archival upload to remote storage, per cluster. Reflects all activity since the server last restarted.",
-          "links": [],
-          "data": {
-            "kind": "QueryGroup",
-            "spec": {
-              "queries": [
-                {
-                  "kind": "PanelQuery",
-                  "spec": {
-                    "query": {
-                      "kind": "DataQuery",
-                      "group": "prometheus",
-                      "version": "v0",
-                      "datasource": {
-                        "name": "${datasource}"
-                      },
-                      "spec": {
-                        "expr": "histogram_quantile(0.50, sum by (le, cluster_name) ((klio_server_wal_upload_duration_nanoseconds_bucket{cluster_name=~\"$cluster\"} and on (cluster_name) group by (cluster_name) (klio_plugin_backup_in_progress{k8s_namespace_name=~\"$namespace\",cluster_name=~\"$cluster\",k8s_pod_name=~\"$pod\"}))))",
-                        "legendFormat": "{{cluster_name}} p50",
-                        "range": true
-                      }
-                    },
-                    "refId": "A",
-                    "hidden": false
-                  }
-                },
-                {
-                  "kind": "PanelQuery",
-                  "spec": {
-                    "query": {
-                      "kind": "DataQuery",
-                      "group": "prometheus",
-                      "version": "v0",
-                      "datasource": {
-                        "name": "${datasource}"
-                      },
-                      "spec": {
-                        "expr": "histogram_quantile(0.90, sum by (le, cluster_name) ((klio_server_wal_upload_duration_nanoseconds_bucket{cluster_name=~\"$cluster\"} and on (cluster_name) group by (cluster_name) (klio_plugin_backup_in_progress{k8s_namespace_name=~\"$namespace\",cluster_name=~\"$cluster\",k8s_pod_name=~\"$pod\"}))))",
-                        "legendFormat": "{{cluster_name}} p90",
-                        "range": true
-                      }
-                    },
-                    "refId": "B",
-                    "hidden": false
-                  }
-                },
-                {
-                  "kind": "PanelQuery",
-                  "spec": {
-                    "query": {
-                      "kind": "DataQuery",
-                      "group": "prometheus",
-                      "version": "v0",
-                      "datasource": {
-                        "name": "${datasource}"
-                      },
-                      "spec": {
-                        "expr": "histogram_quantile(0.99, sum by (le, cluster_name) ((klio_server_wal_upload_duration_nanoseconds_bucket{cluster_name=~\"$cluster\"} and on (cluster_name) group by (cluster_name) (klio_plugin_backup_in_progress{k8s_namespace_name=~\"$namespace\",cluster_name=~\"$cluster\",k8s_pod_name=~\"$pod\"}))))",
-                        "legendFormat": "{{cluster_name}} p99",
-                        "range": true
-                      }
-                    },
-                    "refId": "C",
-                    "hidden": false
-                  }
-                }
-              ],
-              "transformations": [],
-              "queryOptions": {}
-            }
-          },
-          "vizConfig": {
-            "kind": "VizConfig",
-            "group": "timeseries",
-            "version": "",
-            "spec": {
-              "options": {
-                "legend": {
-                  "calcs": [],
-                  "displayMode": "list",
-                  "placement": "bottom",
-                  "showLegend": true
-                },
-                "tooltip": {
-                  "mode": "",
-                  "sort": ""
-                }
-              },
-              "fieldConfig": {
-                "defaults": {
-                  "unit": "ns",
-                  "custom": {
-                    "fillOpacity": 10,
-                    "gradientMode": "opacity"
-                  }
-                },
-                "overrides": []
-              }
-            }
-          }
-        }
-      },
-      "panel-23": {
-        "kind": "Panel",
-        "spec": {
-          "id": 23,
-          "title": "",
-          "links": [],
-          "data": {
-            "kind": "QueryGroup",
-            "spec": {
-              "queries": [],
-              "transformations": [],
-              "queryOptions": {}
-            }
-          },
-          "vizConfig": {
-            "kind": "VizConfig",
-            "group": "text",
-            "version": "",
-            "spec": {
-              "options": {
-                "content": "How far the WAL stored in tier 1 and tier 2 trails behind the PostgreSQL primary.",
-                "mode": "markdown"
-              },
-              "fieldConfig": {
-                "defaults": {},
-                "overrides": []
-              }
-            }
-          },
-          "transparent": true
-        }
-      },
-      "panel-24": {
-        "kind": "Panel",
-        "spec": {
-          "id": 24,
-          "title": "Tier-1 replication lag (bytes)",
-          "description": "Byte distance between the primary's current WAL LSN and the LSN Klio's streaming client has written to disk and flushed.",
-          "links": [],
-          "data": {
-            "kind": "QueryGroup",
-            "spec": {
-              "queries": [
-                {
-                  "kind": "PanelQuery",
-                  "spec": {
-                    "query": {
-                      "kind": "DataQuery",
-                      "group": "prometheus",
-                      "version": "v0",
-                      "datasource": {
-                        "name": "${datasource}"
-                      },
-                      "spec": {
-                        "expr": "cnpg_pg_stat_replication_write_diff_bytes{namespace=~\"$namespace\",application_name=\"klio\",pod=~\"$cluster-[0-9]+\",pod=~\"$pod\"}",
-                        "legendFormat": "{{pod}} write",
-                        "range": true
-                      }
-                    },
-                    "refId": "A",
-                    "hidden": false
-                  }
-                },
-                {
-                  "kind": "PanelQuery",
-                  "spec": {
-                    "query": {
-                      "kind": "DataQuery",
-                      "group": "prometheus",
-                      "version": "v0",
-                      "datasource": {
-                        "name": "${datasource}"
-                      },
-                      "spec": {
-                        "expr": "cnpg_pg_stat_replication_flush_diff_bytes{namespace=~\"$namespace\",application_name=\"klio\",pod=~\"$cluster-[0-9]+\",pod=~\"$pod\"}",
-                        "legendFormat": "{{pod}} flush",
-                        "range": true
-                      }
-                    },
-                    "refId": "B",
-                    "hidden": false
-                  }
-                }
-              ],
-              "transformations": [],
-              "queryOptions": {}
-            }
-          },
-          "vizConfig": {
-            "kind": "VizConfig",
-            "group": "timeseries",
-            "version": "",
-            "spec": {
-              "options": {
-                "legend": {
-                  "calcs": [],
-                  "displayMode": "list",
-                  "placement": "bottom",
-                  "showLegend": true
-                },
-                "tooltip": {
-                  "mode": "",
-                  "sort": ""
-                }
-              },
-              "fieldConfig": {
-                "defaults": {
-                  "unit": "bytes",
-                  "custom": {
-                    "fillOpacity": 10,
-                    "gradientMode": "opacity"
-                  }
-                },
-                "overrides": []
-              }
-            }
-          }
-        }
-      },
-      "panel-25": {
-        "kind": "Panel",
-        "spec": {
-          "id": 25,
-          "title": "Tier-1 replication lag (seconds)",
-          "description": "Time between a commit on the primary and Klio's streaming client writing to disk and flushing the corresponding WAL.",
-          "links": [],
-          "data": {
-            "kind": "QueryGroup",
-            "spec": {
-              "queries": [
-                {
-                  "kind": "PanelQuery",
-                  "spec": {
-                    "query": {
-                      "kind": "DataQuery",
-                      "group": "prometheus",
-                      "version": "v0",
-                      "datasource": {
-                        "name": "${datasource}"
-                      },
-                      "spec": {
-                        "expr": "cnpg_pg_stat_replication_write_lag_seconds{namespace=~\"$namespace\",application_name=\"klio\",pod=~\"$cluster-[0-9]+\",pod=~\"$pod\"}",
-                        "legendFormat": "{{pod}} write",
-                        "range": true
-                      }
-                    },
-                    "refId": "A",
-                    "hidden": false
-                  }
-                },
-                {
-                  "kind": "PanelQuery",
-                  "spec": {
-                    "query": {
-                      "kind": "DataQuery",
-                      "group": "prometheus",
-                      "version": "v0",
-                      "datasource": {
-                        "name": "${datasource}"
-                      },
-                      "spec": {
-                        "expr": "cnpg_pg_stat_replication_flush_lag_seconds{namespace=~\"$namespace\",application_name=\"klio\",pod=~\"$cluster-[0-9]+\",pod=~\"$pod\"}",
-                        "legendFormat": "{{pod}} flush",
-                        "range": true
-                      }
-                    },
-                    "refId": "B",
-                    "hidden": false
-                  }
-                }
-              ],
-              "transformations": [],
-              "queryOptions": {}
-            }
-          },
-          "vizConfig": {
-            "kind": "VizConfig",
-            "group": "timeseries",
-            "version": "",
-            "spec": {
-              "options": {
-                "legend": {
-                  "calcs": [],
-                  "displayMode": "list",
-                  "placement": "bottom",
-                  "showLegend": true
-                },
-                "tooltip": {
-                  "mode": "",
-                  "sort": ""
-                }
-              },
-              "fieldConfig": {
-                "defaults": {
-                  "unit": "s",
-                  "custom": {
-                    "fillOpacity": 10,
-                    "gradientMode": "opacity"
-                  }
-                },
-                "overrides": []
-              }
-            }
-          }
-        }
-      },
-      "panel-26": {
-        "kind": "Panel",
-        "spec": {
-          "id": 26,
           "title": "Tier-2 archival lag (bytes)",
           "description": "Bytes difference between the WALs in tier 1 and tier 2 per cluster. ",
           "links": [],
@@ -1469,10 +946,10 @@
           }
         }
       },
-      "panel-27": {
+      "panel-21": {
         "kind": "Panel",
         "spec": {
-          "id": 27,
+          "id": 21,
           "title": "",
           "links": [],
           "data": {
@@ -1501,10 +978,10 @@
           "transparent": true
         }
       },
-      "panel-28": {
+      "panel-22": {
         "kind": "Panel",
         "spec": {
-          "id": 28,
+          "id": 22,
           "title": "WAL restore duration percentiles (rate)",
           "description": "50th/90th/99th-percentile time PostgreSQL waited on the plugin for each successfully restored WAL file, per instance (pod). It covers the plugin serving the request, not the replay that follows nor prefetch downloads that finished in the background. Prefetch hits (a local rename) and misses (a wait on a download) are pooled, so with a high hit ratio the misses only show in the upper percentiles; see the prefetch hit ratio and wait share panels for their weight. Reflects recent activity, over the rate interval window.",
           "links": [],
@@ -1608,10 +1085,10 @@
           }
         }
       },
-      "panel-29": {
+      "panel-23": {
         "kind": "Panel",
         "spec": {
-          "id": 29,
+          "id": 23,
           "title": "WAL restore duration percentiles (total)",
           "description": "50th/90th/99th-percentile time PostgreSQL waited on the plugin for each successfully restored WAL file, per instance (pod). It covers the plugin serving the request, not the replay that follows nor prefetch downloads that finished in the background. Prefetch hits (a local rename) and misses (a wait on a download) are pooled, so with a high hit ratio the misses only show in the upper percentiles; see the prefetch hit ratio and wait share panels for their weight. Reflects all activity since the plugin sidecar last restarted.",
           "links": [],
@@ -1715,6 +1192,379 @@
           }
         }
       },
+      "panel-24": {
+        "kind": "Panel",
+        "spec": {
+          "id": 24,
+          "title": "WAL restores (rate)",
+          "description": "Rate of WAL restores served by the plugin to PostgreSQL, per instance (pod), split by the tier that served them and by outcome. not_found is PostgreSQL asking for a WAL that was never archived, the routine end-of-archive signal rather than an error.",
+          "links": [],
+          "data": {
+            "kind": "QueryGroup",
+            "spec": {
+              "queries": [
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "query": {
+                      "kind": "DataQuery",
+                      "group": "prometheus",
+                      "version": "v0",
+                      "datasource": {
+                        "name": "${datasource}"
+                      },
+                      "spec": {
+                        "expr": "sum by (cluster_name, k8s_pod_name, tier, outcome) (rate(klio_plugin_wal_restore_duration_nanoseconds_count{k8s_namespace_name=~\"$namespace\",cluster_name=~\"$cluster\",k8s_pod_name=~\"$pod\"}[$__rate_interval]))",
+                        "legendFormat": "{{k8s_pod_name}} {{tier}} / {{outcome}}",
+                        "range": true
+                      }
+                    },
+                    "refId": "A",
+                    "hidden": false
+                  }
+                }
+              ],
+              "transformations": [],
+              "queryOptions": {}
+            }
+          },
+          "vizConfig": {
+            "kind": "VizConfig",
+            "group": "timeseries",
+            "version": "",
+            "spec": {
+              "options": {
+                "legend": {
+                  "calcs": [],
+                  "displayMode": "list",
+                  "placement": "bottom",
+                  "showLegend": true
+                },
+                "tooltip": {
+                  "mode": "",
+                  "sort": ""
+                }
+              },
+              "fieldConfig": {
+                "defaults": {
+                  "unit": "ops",
+                  "custom": {
+                    "fillOpacity": 10,
+                    "gradientMode": "opacity"
+                  }
+                },
+                "overrides": []
+              }
+            }
+          }
+        }
+      },
+      "panel-25": {
+        "kind": "Panel",
+        "spec": {
+          "id": 25,
+          "title": "WAL restores (total)",
+          "description": "Total WAL restores served by the plugin to PostgreSQL since the plugin sidecar last restarted, per instance (pod), split by the tier that served them and by outcome.",
+          "links": [],
+          "data": {
+            "kind": "QueryGroup",
+            "spec": {
+              "queries": [
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "query": {
+                      "kind": "DataQuery",
+                      "group": "prometheus",
+                      "version": "v0",
+                      "datasource": {
+                        "name": "${datasource}"
+                      },
+                      "spec": {
+                        "expr": "sum by (cluster_name, k8s_pod_name, tier, outcome) (klio_plugin_wal_restore_duration_nanoseconds_count{k8s_namespace_name=~\"$namespace\",cluster_name=~\"$cluster\",k8s_pod_name=~\"$pod\"})",
+                        "legendFormat": "{{k8s_pod_name}} {{tier}} / {{outcome}}",
+                        "range": true
+                      }
+                    },
+                    "refId": "A",
+                    "hidden": false
+                  }
+                }
+              ],
+              "transformations": [],
+              "queryOptions": {}
+            }
+          },
+          "vizConfig": {
+            "kind": "VizConfig",
+            "group": "timeseries",
+            "version": "",
+            "spec": {
+              "options": {
+                "legend": {
+                  "calcs": [],
+                  "displayMode": "list",
+                  "placement": "bottom",
+                  "showLegend": true
+                },
+                "tooltip": {
+                  "mode": "",
+                  "sort": ""
+                }
+              },
+              "fieldConfig": {
+                "defaults": {
+                  "unit": "none",
+                  "custom": {
+                    "fillOpacity": 10,
+                    "gradientMode": "opacity"
+                  }
+                },
+                "overrides": []
+              }
+            }
+          }
+        }
+      },
+      "panel-26": {
+        "kind": "Panel",
+        "spec": {
+          "id": 26,
+          "title": "WAL restore prefetch hit ratio",
+          "description": "Fraction of successful WAL restores served straight from the prefetch spool instead of waiting on a download, per instance (pod). A falling ratio means prefetch is not keeping pace with PostgreSQL replay.",
+          "links": [],
+          "data": {
+            "kind": "QueryGroup",
+            "spec": {
+              "queries": [
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "query": {
+                      "kind": "DataQuery",
+                      "group": "prometheus",
+                      "version": "v0",
+                      "datasource": {
+                        "name": "${datasource}"
+                      },
+                      "spec": {
+                        "expr": "1 - sum by (cluster_name, k8s_pod_name) (rate(klio_plugin_wal_restore_duration_nanoseconds_count{outcome=\"success\",cache_hit=\"false\",k8s_namespace_name=~\"$namespace\",cluster_name=~\"$cluster\",k8s_pod_name=~\"$pod\"}[$__rate_interval])) / sum by (cluster_name, k8s_pod_name) (rate(klio_plugin_wal_restore_duration_nanoseconds_count{outcome=\"success\",k8s_namespace_name=~\"$namespace\",cluster_name=~\"$cluster\",k8s_pod_name=~\"$pod\"}[$__rate_interval]))",
+                        "legendFormat": "{{k8s_pod_name}}",
+                        "range": true
+                      }
+                    },
+                    "refId": "A",
+                    "hidden": false
+                  }
+                }
+              ],
+              "transformations": [],
+              "queryOptions": {}
+            }
+          },
+          "vizConfig": {
+            "kind": "VizConfig",
+            "group": "timeseries",
+            "version": "",
+            "spec": {
+              "options": {
+                "legend": {
+                  "calcs": [],
+                  "displayMode": "list",
+                  "placement": "bottom",
+                  "showLegend": true
+                },
+                "tooltip": {
+                  "mode": "",
+                  "sort": ""
+                }
+              },
+              "fieldConfig": {
+                "defaults": {
+                  "unit": "percentunit",
+                  "custom": {
+                    "fillOpacity": 10,
+                    "gradientMode": "opacity"
+                  }
+                },
+                "overrides": []
+              }
+            }
+          }
+        }
+      },
+      "panel-27": {
+        "kind": "Panel",
+        "spec": {
+          "id": 27,
+          "title": "WAL restore wait share",
+          "description": "Fraction of wall-clock time PostgreSQL spent waiting on the plugin for WAL files, per instance (pod). The rest of the time goes to replaying the restored WAL and to starting each restore_command, which the restore duration does not include, so the restore rate is set by replay, not by the restore duration. Near 0% recovery is limited by replay; a high share means PostgreSQL is waiting on downloads.",
+          "links": [],
+          "data": {
+            "kind": "QueryGroup",
+            "spec": {
+              "queries": [
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "query": {
+                      "kind": "DataQuery",
+                      "group": "prometheus",
+                      "version": "v0",
+                      "datasource": {
+                        "name": "${datasource}"
+                      },
+                      "spec": {
+                        "expr": "sum by (cluster_name, k8s_pod_name) (rate(klio_plugin_wal_restore_duration_nanoseconds_sum{k8s_namespace_name=~\"$namespace\",cluster_name=~\"$cluster\",k8s_pod_name=~\"$pod\"}[$__rate_interval])) / 1e9",
+                        "legendFormat": "{{k8s_pod_name}}",
+                        "range": true
+                      }
+                    },
+                    "refId": "A",
+                    "hidden": false
+                  }
+                }
+              ],
+              "transformations": [],
+              "queryOptions": {}
+            }
+          },
+          "vizConfig": {
+            "kind": "VizConfig",
+            "group": "timeseries",
+            "version": "",
+            "spec": {
+              "options": {
+                "legend": {
+                  "calcs": [],
+                  "displayMode": "list",
+                  "placement": "bottom",
+                  "showLegend": true
+                },
+                "tooltip": {
+                  "mode": "",
+                  "sort": ""
+                }
+              },
+              "fieldConfig": {
+                "defaults": {
+                  "unit": "percentunit",
+                  "custom": {
+                    "fillOpacity": 10,
+                    "gradientMode": "opacity"
+                  }
+                },
+                "overrides": []
+              }
+            }
+          }
+        }
+      },
+      "panel-28": {
+        "kind": "Panel",
+        "spec": {
+          "id": 28,
+          "title": "",
+          "links": [],
+          "data": {
+            "kind": "QueryGroup",
+            "spec": {
+              "queries": [],
+              "transformations": [],
+              "queryOptions": {}
+            }
+          },
+          "vizConfig": {
+            "kind": "VizConfig",
+            "group": "text",
+            "version": "",
+            "spec": {
+              "options": {
+                "content": "Uptime of each Klio server and the messages waiting in its embedded queue.",
+                "mode": "markdown"
+              },
+              "fieldConfig": {
+                "defaults": {},
+                "overrides": []
+              }
+            }
+          },
+          "transparent": true
+        }
+      },
+      "panel-29": {
+        "kind": "Panel",
+        "spec": {
+          "id": 29,
+          "title": "Server uptime",
+          "description": "Time since the Klio server process started, per server. A sudden drop means that server's StatefulSet restarted.",
+          "links": [],
+          "data": {
+            "kind": "QueryGroup",
+            "spec": {
+              "queries": [
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "query": {
+                      "kind": "DataQuery",
+                      "group": "prometheus",
+                      "version": "v0",
+                      "datasource": {
+                        "name": "${datasource}"
+                      },
+                      "spec": {
+                        "expr": "max by (k8s_namespace_name, server) (label_replace((klio_server_uptime_seconds{k8s_namespace_name=~\"$server_namespace\",k8s_pod_name=~\"($server)-klio-[0-9]+\"} and on (k8s_namespace_name, k8s_pod_name) group by (k8s_namespace_name, k8s_pod_name) ({__name__=~\"klio_server_.+\",k8s_namespace_name=~\"$server_namespace\",k8s_pod_name=~\"($server)-klio-[0-9]+\",cluster_name=~\"$served_cluster\"})), \"server\", \"$1\", \"k8s_pod_name\", \"(.+)-klio-[0-9]+\"))",
+                        "legendFormat": "{{k8s_namespace_name}}/{{server}}",
+                        "range": true
+                      }
+                    },
+                    "refId": "A",
+                    "hidden": false
+                  }
+                }
+              ],
+              "transformations": [],
+              "queryOptions": {}
+            }
+          },
+          "vizConfig": {
+            "kind": "VizConfig",
+            "group": "stat",
+            "version": "",
+            "spec": {
+              "options": {
+                "colorMode": "value",
+                "graphMode": "none",
+                "justifyMode": "auto",
+                "orientation": "horizontal",
+                "percentChangeColorMode": "standard",
+                "reduceOptions": {
+                  "calcs": [
+                    "lastNotNull"
+                  ]
+                },
+                "showPercentChange": false,
+                "text": {
+                  "titleSize": 14,
+                  "valueSize": 28
+                },
+                "textMode": "auto",
+                "wideLayout": true
+              },
+              "fieldConfig": {
+                "defaults": {
+                  "unit": "dtdhms",
+                  "color": {
+                    "mode": "palette-classic"
+                  }
+                },
+                "overrides": []
+              }
+            }
+          }
+        }
+      },
       "panel-3": {
         "kind": "Panel",
         "spec": {
@@ -1793,379 +1643,6 @@
         "kind": "Panel",
         "spec": {
           "id": 30,
-          "title": "WAL restores (rate)",
-          "description": "Rate of WAL restores served by the plugin to PostgreSQL, per instance (pod), split by the tier that served them and by outcome. not_found is PostgreSQL asking for a WAL that was never archived, the routine end-of-archive signal rather than an error.",
-          "links": [],
-          "data": {
-            "kind": "QueryGroup",
-            "spec": {
-              "queries": [
-                {
-                  "kind": "PanelQuery",
-                  "spec": {
-                    "query": {
-                      "kind": "DataQuery",
-                      "group": "prometheus",
-                      "version": "v0",
-                      "datasource": {
-                        "name": "${datasource}"
-                      },
-                      "spec": {
-                        "expr": "sum by (cluster_name, k8s_pod_name, tier, outcome) (rate(klio_plugin_wal_restore_duration_nanoseconds_count{k8s_namespace_name=~\"$namespace\",cluster_name=~\"$cluster\",k8s_pod_name=~\"$pod\"}[$__rate_interval]))",
-                        "legendFormat": "{{k8s_pod_name}} {{tier}} / {{outcome}}",
-                        "range": true
-                      }
-                    },
-                    "refId": "A",
-                    "hidden": false
-                  }
-                }
-              ],
-              "transformations": [],
-              "queryOptions": {}
-            }
-          },
-          "vizConfig": {
-            "kind": "VizConfig",
-            "group": "timeseries",
-            "version": "",
-            "spec": {
-              "options": {
-                "legend": {
-                  "calcs": [],
-                  "displayMode": "list",
-                  "placement": "bottom",
-                  "showLegend": true
-                },
-                "tooltip": {
-                  "mode": "",
-                  "sort": ""
-                }
-              },
-              "fieldConfig": {
-                "defaults": {
-                  "unit": "ops",
-                  "custom": {
-                    "fillOpacity": 10,
-                    "gradientMode": "opacity"
-                  }
-                },
-                "overrides": []
-              }
-            }
-          }
-        }
-      },
-      "panel-31": {
-        "kind": "Panel",
-        "spec": {
-          "id": 31,
-          "title": "WAL restores (total)",
-          "description": "Total WAL restores served by the plugin to PostgreSQL since the plugin sidecar last restarted, per instance (pod), split by the tier that served them and by outcome.",
-          "links": [],
-          "data": {
-            "kind": "QueryGroup",
-            "spec": {
-              "queries": [
-                {
-                  "kind": "PanelQuery",
-                  "spec": {
-                    "query": {
-                      "kind": "DataQuery",
-                      "group": "prometheus",
-                      "version": "v0",
-                      "datasource": {
-                        "name": "${datasource}"
-                      },
-                      "spec": {
-                        "expr": "sum by (cluster_name, k8s_pod_name, tier, outcome) (klio_plugin_wal_restore_duration_nanoseconds_count{k8s_namespace_name=~\"$namespace\",cluster_name=~\"$cluster\",k8s_pod_name=~\"$pod\"})",
-                        "legendFormat": "{{k8s_pod_name}} {{tier}} / {{outcome}}",
-                        "range": true
-                      }
-                    },
-                    "refId": "A",
-                    "hidden": false
-                  }
-                }
-              ],
-              "transformations": [],
-              "queryOptions": {}
-            }
-          },
-          "vizConfig": {
-            "kind": "VizConfig",
-            "group": "timeseries",
-            "version": "",
-            "spec": {
-              "options": {
-                "legend": {
-                  "calcs": [],
-                  "displayMode": "list",
-                  "placement": "bottom",
-                  "showLegend": true
-                },
-                "tooltip": {
-                  "mode": "",
-                  "sort": ""
-                }
-              },
-              "fieldConfig": {
-                "defaults": {
-                  "unit": "none",
-                  "custom": {
-                    "fillOpacity": 10,
-                    "gradientMode": "opacity"
-                  }
-                },
-                "overrides": []
-              }
-            }
-          }
-        }
-      },
-      "panel-32": {
-        "kind": "Panel",
-        "spec": {
-          "id": 32,
-          "title": "WAL restore prefetch hit ratio",
-          "description": "Fraction of successful WAL restores served straight from the prefetch spool instead of waiting on a download, per instance (pod). A falling ratio means prefetch is not keeping pace with PostgreSQL replay.",
-          "links": [],
-          "data": {
-            "kind": "QueryGroup",
-            "spec": {
-              "queries": [
-                {
-                  "kind": "PanelQuery",
-                  "spec": {
-                    "query": {
-                      "kind": "DataQuery",
-                      "group": "prometheus",
-                      "version": "v0",
-                      "datasource": {
-                        "name": "${datasource}"
-                      },
-                      "spec": {
-                        "expr": "1 - sum by (cluster_name, k8s_pod_name) (rate(klio_plugin_wal_restore_duration_nanoseconds_count{outcome=\"success\",cache_hit=\"false\",k8s_namespace_name=~\"$namespace\",cluster_name=~\"$cluster\",k8s_pod_name=~\"$pod\"}[$__rate_interval])) / sum by (cluster_name, k8s_pod_name) (rate(klio_plugin_wal_restore_duration_nanoseconds_count{outcome=\"success\",k8s_namespace_name=~\"$namespace\",cluster_name=~\"$cluster\",k8s_pod_name=~\"$pod\"}[$__rate_interval]))",
-                        "legendFormat": "{{k8s_pod_name}}",
-                        "range": true
-                      }
-                    },
-                    "refId": "A",
-                    "hidden": false
-                  }
-                }
-              ],
-              "transformations": [],
-              "queryOptions": {}
-            }
-          },
-          "vizConfig": {
-            "kind": "VizConfig",
-            "group": "timeseries",
-            "version": "",
-            "spec": {
-              "options": {
-                "legend": {
-                  "calcs": [],
-                  "displayMode": "list",
-                  "placement": "bottom",
-                  "showLegend": true
-                },
-                "tooltip": {
-                  "mode": "",
-                  "sort": ""
-                }
-              },
-              "fieldConfig": {
-                "defaults": {
-                  "unit": "percentunit",
-                  "custom": {
-                    "fillOpacity": 10,
-                    "gradientMode": "opacity"
-                  }
-                },
-                "overrides": []
-              }
-            }
-          }
-        }
-      },
-      "panel-33": {
-        "kind": "Panel",
-        "spec": {
-          "id": 33,
-          "title": "WAL restore wait share",
-          "description": "Fraction of wall-clock time PostgreSQL spent waiting on the plugin for WAL files, per instance (pod). The rest of the time goes to replaying the restored WAL and to starting each restore_command, which the restore duration does not include, so the restore rate is set by replay, not by the restore duration. Near 0% recovery is limited by replay; a high share means PostgreSQL is waiting on downloads.",
-          "links": [],
-          "data": {
-            "kind": "QueryGroup",
-            "spec": {
-              "queries": [
-                {
-                  "kind": "PanelQuery",
-                  "spec": {
-                    "query": {
-                      "kind": "DataQuery",
-                      "group": "prometheus",
-                      "version": "v0",
-                      "datasource": {
-                        "name": "${datasource}"
-                      },
-                      "spec": {
-                        "expr": "sum by (cluster_name, k8s_pod_name) (rate(klio_plugin_wal_restore_duration_nanoseconds_sum{k8s_namespace_name=~\"$namespace\",cluster_name=~\"$cluster\",k8s_pod_name=~\"$pod\"}[$__rate_interval])) / 1e9",
-                        "legendFormat": "{{k8s_pod_name}}",
-                        "range": true
-                      }
-                    },
-                    "refId": "A",
-                    "hidden": false
-                  }
-                }
-              ],
-              "transformations": [],
-              "queryOptions": {}
-            }
-          },
-          "vizConfig": {
-            "kind": "VizConfig",
-            "group": "timeseries",
-            "version": "",
-            "spec": {
-              "options": {
-                "legend": {
-                  "calcs": [],
-                  "displayMode": "list",
-                  "placement": "bottom",
-                  "showLegend": true
-                },
-                "tooltip": {
-                  "mode": "",
-                  "sort": ""
-                }
-              },
-              "fieldConfig": {
-                "defaults": {
-                  "unit": "percentunit",
-                  "custom": {
-                    "fillOpacity": 10,
-                    "gradientMode": "opacity"
-                  }
-                },
-                "overrides": []
-              }
-            }
-          }
-        }
-      },
-      "panel-34": {
-        "kind": "Panel",
-        "spec": {
-          "id": 34,
-          "title": "",
-          "links": [],
-          "data": {
-            "kind": "QueryGroup",
-            "spec": {
-              "queries": [],
-              "transformations": [],
-              "queryOptions": {}
-            }
-          },
-          "vizConfig": {
-            "kind": "VizConfig",
-            "group": "text",
-            "version": "",
-            "spec": {
-              "options": {
-                "content": "Uptime of each Klio server and the messages waiting in its embedded queue.",
-                "mode": "markdown"
-              },
-              "fieldConfig": {
-                "defaults": {},
-                "overrides": []
-              }
-            }
-          },
-          "transparent": true
-        }
-      },
-      "panel-35": {
-        "kind": "Panel",
-        "spec": {
-          "id": 35,
-          "title": "Server uptime",
-          "description": "Time since the Klio server process started, per server. A sudden drop means that server's StatefulSet restarted.",
-          "links": [],
-          "data": {
-            "kind": "QueryGroup",
-            "spec": {
-              "queries": [
-                {
-                  "kind": "PanelQuery",
-                  "spec": {
-                    "query": {
-                      "kind": "DataQuery",
-                      "group": "prometheus",
-                      "version": "v0",
-                      "datasource": {
-                        "name": "${datasource}"
-                      },
-                      "spec": {
-                        "expr": "max by (k8s_namespace_name, server) (label_replace((klio_server_uptime_seconds{k8s_namespace_name=~\"$server_namespace\",k8s_pod_name=~\"($server)-klio-[0-9]+\"} and on (k8s_namespace_name, k8s_pod_name) group by (k8s_namespace_name, k8s_pod_name) ({__name__=~\"klio_server_.+\",k8s_namespace_name=~\"$server_namespace\",k8s_pod_name=~\"($server)-klio-[0-9]+\",cluster_name=~\"$served_cluster\"})), \"server\", \"$1\", \"k8s_pod_name\", \"(.+)-klio-[0-9]+\"))",
-                        "legendFormat": "{{k8s_namespace_name}}/{{server}}",
-                        "range": true
-                      }
-                    },
-                    "refId": "A",
-                    "hidden": false
-                  }
-                }
-              ],
-              "transformations": [],
-              "queryOptions": {}
-            }
-          },
-          "vizConfig": {
-            "kind": "VizConfig",
-            "group": "stat",
-            "version": "",
-            "spec": {
-              "options": {
-                "colorMode": "value",
-                "graphMode": "none",
-                "justifyMode": "auto",
-                "orientation": "horizontal",
-                "percentChangeColorMode": "standard",
-                "reduceOptions": {
-                  "calcs": [
-                    "lastNotNull"
-                  ]
-                },
-                "showPercentChange": false,
-                "text": {
-                  "titleSize": 14,
-                  "valueSize": 28
-                },
-                "textMode": "auto",
-                "wideLayout": true
-              },
-              "fieldConfig": {
-                "defaults": {
-                  "unit": "dtdhms",
-                  "color": {
-                    "mode": "palette-classic"
-                  }
-                },
-                "overrides": []
-              }
-            }
-          }
-        }
-      },
-      "panel-36": {
-        "kind": "Panel",
-        "spec": {
-          "id": 36,
           "title": "Queue size (messages)",
           "description": "Messages currently held in each NATS JetStream stream of the embedded queue, per server.",
           "links": [],
@@ -2229,10 +1706,10 @@
           }
         }
       },
-      "panel-37": {
+      "panel-31": {
         "kind": "Panel",
         "spec": {
-          "id": 37,
+          "id": 31,
           "title": "Queue size (bytes)",
           "description": "Bytes currently held in each NATS JetStream stream of the embedded queue, per server.",
           "links": [],
@@ -2296,10 +1773,10 @@
           }
         }
       },
-      "panel-38": {
+      "panel-32": {
         "kind": "Panel",
         "spec": {
-          "id": 38,
+          "id": 32,
           "title": "",
           "links": [],
           "data": {
@@ -2328,10 +1805,10 @@
           "transparent": true
         }
       },
-      "panel-39": {
+      "panel-33": {
         "kind": "Panel",
         "spec": {
-          "id": 39,
+          "id": 33,
           "title": "Retained backups",
           "description": "Number of PostgreSQL backups currently retained per cluster and tier, with the Klio server that retains them.",
           "links": [],
@@ -2402,84 +1879,10 @@
           }
         }
       },
-      "panel-4": {
+      "panel-34": {
         "kind": "Panel",
         "spec": {
-          "id": 4,
-          "title": "Failed backup runs",
-          "description": "Base backups that failed on the running clients sidecars, per cluster, over the selected time range.",
-          "links": [],
-          "data": {
-            "kind": "QueryGroup",
-            "spec": {
-              "queries": [
-                {
-                  "kind": "PanelQuery",
-                  "spec": {
-                    "query": {
-                      "kind": "DataQuery",
-                      "group": "prometheus",
-                      "version": "v0",
-                      "datasource": {
-                        "name": "${datasource}"
-                      },
-                      "spec": {
-                        "expr": "sum by (cluster_name) (increase(klio_plugin_backup_runs_total{outcome=\"failure\",k8s_namespace_name=~\"$namespace\",cluster_name=~\"$cluster\",k8s_pod_name=~\"$pod\"}[$__range]))",
-                        "legendFormat": "{{cluster_name}}",
-                        "range": true
-                      }
-                    },
-                    "refId": "A",
-                    "hidden": false
-                  }
-                }
-              ],
-              "transformations": [],
-              "queryOptions": {}
-            }
-          },
-          "vizConfig": {
-            "kind": "VizConfig",
-            "group": "stat",
-            "version": "",
-            "spec": {
-              "options": {
-                "colorMode": "value",
-                "graphMode": "none",
-                "justifyMode": "auto",
-                "orientation": "horizontal",
-                "percentChangeColorMode": "standard",
-                "reduceOptions": {
-                  "calcs": [
-                    "lastNotNull"
-                  ]
-                },
-                "showPercentChange": false,
-                "text": {
-                  "titleSize": 14,
-                  "valueSize": 28
-                },
-                "textMode": "auto",
-                "wideLayout": true
-              },
-              "fieldConfig": {
-                "defaults": {
-                  "unit": "none",
-                  "decimals": 0,
-                  "color": {
-                    "mode": "palette-classic"
-                  }
-                },
-                "overrides": []
-              }
-            }
-          }
-        }
-      },
-      "panel-40": {
-        "kind": "Panel",
-        "spec": {
-          "id": 40,
+          "id": 34,
           "title": "Oldest restorable point",
           "description": "Timestamp at which the oldest retained PostgreSQL backup completed, per cluster and tier. It is the earliest point in time a restore can target, as long as all the WAL files since the backup started are still retained.",
           "links": [],
@@ -2549,10 +1952,10 @@
           }
         }
       },
-      "panel-41": {
+      "panel-35": {
         "kind": "Panel",
         "spec": {
-          "id": 41,
+          "id": 35,
           "title": "Latest backup age (completion)",
           "description": "Elapsed time since the most recently retained PostgreSQL backup completed, per cluster and tier.",
           "links": [],
@@ -2622,10 +2025,10 @@
           }
         }
       },
-      "panel-42": {
+      "panel-36": {
         "kind": "Panel",
         "spec": {
-          "id": 42,
+          "id": 36,
           "title": "Latest backup age (start)",
           "description": "Elapsed time since the most recently retained PostgreSQL backup started, per cluster and tier.",
           "links": [],
@@ -2695,10 +2098,10 @@
           }
         }
       },
-      "panel-43": {
+      "panel-37": {
         "kind": "Panel",
         "spec": {
-          "id": 43,
+          "id": 37,
           "title": "Latest backup timeline",
           "description": "PostgreSQL timeline of the latest retained backup, per cluster and tier. Differing from the oldest timeline means the retention window spans a promotion or failover.",
           "links": [],
@@ -2769,10 +2172,10 @@
           }
         }
       },
-      "panel-44": {
+      "panel-38": {
         "kind": "Panel",
         "spec": {
-          "id": 44,
+          "id": 38,
           "title": "Latest backup LSN",
           "description": "Start and end LSN of the latest retained PostgreSQL backup, per cluster and tier.",
           "links": [],
@@ -2914,10 +2317,10 @@
           }
         }
       },
-      "panel-45": {
+      "panel-39": {
         "kind": "Panel",
         "spec": {
-          "id": 45,
+          "id": 39,
           "title": "Oldest backup age (completion)",
           "description": "Elapsed time since the oldest retained PostgreSQL backup completed, per cluster and tier, reflecting each tier's effective retention horizon.",
           "links": [],
@@ -2987,10 +2390,84 @@
           }
         }
       },
-      "panel-46": {
+      "panel-4": {
         "kind": "Panel",
         "spec": {
-          "id": 46,
+          "id": 4,
+          "title": "Failed backup runs",
+          "description": "Base backups that failed on the running clients sidecars, per cluster, over the selected time range.",
+          "links": [],
+          "data": {
+            "kind": "QueryGroup",
+            "spec": {
+              "queries": [
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "query": {
+                      "kind": "DataQuery",
+                      "group": "prometheus",
+                      "version": "v0",
+                      "datasource": {
+                        "name": "${datasource}"
+                      },
+                      "spec": {
+                        "expr": "sum by (cluster_name) (increase(klio_plugin_backup_runs_total{outcome=\"failure\",k8s_namespace_name=~\"$namespace\",cluster_name=~\"$cluster\",k8s_pod_name=~\"$pod\"}[$__range]))",
+                        "legendFormat": "{{cluster_name}}",
+                        "range": true
+                      }
+                    },
+                    "refId": "A",
+                    "hidden": false
+                  }
+                }
+              ],
+              "transformations": [],
+              "queryOptions": {}
+            }
+          },
+          "vizConfig": {
+            "kind": "VizConfig",
+            "group": "stat",
+            "version": "",
+            "spec": {
+              "options": {
+                "colorMode": "value",
+                "graphMode": "none",
+                "justifyMode": "auto",
+                "orientation": "horizontal",
+                "percentChangeColorMode": "standard",
+                "reduceOptions": {
+                  "calcs": [
+                    "lastNotNull"
+                  ]
+                },
+                "showPercentChange": false,
+                "text": {
+                  "titleSize": 14,
+                  "valueSize": 28
+                },
+                "textMode": "auto",
+                "wideLayout": true
+              },
+              "fieldConfig": {
+                "defaults": {
+                  "unit": "none",
+                  "decimals": 0,
+                  "color": {
+                    "mode": "palette-classic"
+                  }
+                },
+                "overrides": []
+              }
+            }
+          }
+        }
+      },
+      "panel-40": {
+        "kind": "Panel",
+        "spec": {
+          "id": 40,
           "title": "Oldest backup age (start)",
           "description": "Elapsed time since the oldest retained PostgreSQL backup started, per cluster and tier, reflecting each tier's effective retention horizon.",
           "links": [],
@@ -3060,10 +2537,10 @@
           }
         }
       },
-      "panel-47": {
+      "panel-41": {
         "kind": "Panel",
         "spec": {
-          "id": 47,
+          "id": 41,
           "title": "Oldest backup timeline",
           "description": "PostgreSQL timeline of the oldest retained backup, per cluster and tier. Differing from the latest timeline means the retention window spans a promotion or failover.",
           "links": [],
@@ -3134,10 +2611,10 @@
           }
         }
       },
-      "panel-48": {
+      "panel-42": {
         "kind": "Panel",
         "spec": {
-          "id": 48,
+          "id": 42,
           "title": "Oldest backup LSN",
           "description": "Start and end LSN of the oldest retained PostgreSQL backup, per cluster and tier.",
           "links": [],
@@ -3279,10 +2756,10 @@
           }
         }
       },
-      "panel-49": {
+      "panel-43": {
         "kind": "Panel",
         "spec": {
-          "id": 49,
+          "id": 43,
           "title": "",
           "links": [],
           "data": {
@@ -3309,6 +2786,373 @@
             }
           },
           "transparent": true
+        }
+      },
+      "panel-44": {
+        "kind": "Panel",
+        "spec": {
+          "id": 44,
+          "title": "Tier-2 backup relay attempts",
+          "description": "Total tier-2 relay attempts since the server last restarted, per cluster and outcome.",
+          "links": [],
+          "data": {
+            "kind": "QueryGroup",
+            "spec": {
+              "queries": [
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "query": {
+                      "kind": "DataQuery",
+                      "group": "prometheus",
+                      "version": "v0",
+                      "datasource": {
+                        "name": "${datasource}"
+                      },
+                      "spec": {
+                        "expr": "sum by (cluster_name, outcome) (klio_server_backup_relay_total{k8s_namespace_name=~\"$server_namespace\",k8s_pod_name=~\"($server)-klio-[0-9]+\",cluster_name=~\"$served_cluster\"})",
+                        "legendFormat": "{{cluster_name}} / {{outcome}}",
+                        "range": true
+                      }
+                    },
+                    "refId": "A",
+                    "hidden": false
+                  }
+                }
+              ],
+              "transformations": [],
+              "queryOptions": {}
+            }
+          },
+          "vizConfig": {
+            "kind": "VizConfig",
+            "group": "timeseries",
+            "version": "",
+            "spec": {
+              "options": {
+                "legend": {
+                  "calcs": [],
+                  "displayMode": "list",
+                  "placement": "bottom",
+                  "showLegend": true
+                },
+                "tooltip": {
+                  "mode": "",
+                  "sort": ""
+                }
+              },
+              "fieldConfig": {
+                "defaults": {
+                  "unit": "none",
+                  "custom": {
+                    "fillOpacity": 10,
+                    "gradientMode": "opacity"
+                  }
+                },
+                "overrides": []
+              }
+            }
+          }
+        }
+      },
+      "panel-45": {
+        "kind": "Panel",
+        "spec": {
+          "id": 45,
+          "title": "Backup verification runs",
+          "description": "Total base backup verification checks since the server last restarted, per cluster, broken down by outcome and tier.",
+          "links": [],
+          "data": {
+            "kind": "QueryGroup",
+            "spec": {
+              "queries": [
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "query": {
+                      "kind": "DataQuery",
+                      "group": "prometheus",
+                      "version": "v0",
+                      "datasource": {
+                        "name": "${datasource}"
+                      },
+                      "spec": {
+                        "expr": "sum by (cluster_name, outcome, tier) (klio_server_backup_verifications_total{k8s_namespace_name=~\"$server_namespace\",k8s_pod_name=~\"($server)-klio-[0-9]+\",cluster_name=~\"$served_cluster\"})",
+                        "legendFormat": "{{cluster_name}} {{tier}} / {{outcome}}",
+                        "range": true
+                      }
+                    },
+                    "refId": "A",
+                    "hidden": false
+                  }
+                }
+              ],
+              "transformations": [],
+              "queryOptions": {}
+            }
+          },
+          "vizConfig": {
+            "kind": "VizConfig",
+            "group": "timeseries",
+            "version": "",
+            "spec": {
+              "options": {
+                "legend": {
+                  "calcs": [],
+                  "displayMode": "list",
+                  "placement": "bottom",
+                  "showLegend": true
+                },
+                "tooltip": {
+                  "mode": "",
+                  "sort": ""
+                }
+              },
+              "fieldConfig": {
+                "defaults": {
+                  "unit": "none",
+                  "custom": {
+                    "fillOpacity": 10,
+                    "gradientMode": "opacity"
+                  }
+                },
+                "overrides": []
+              }
+            }
+          }
+        }
+      },
+      "panel-46": {
+        "kind": "Panel",
+        "spec": {
+          "id": 46,
+          "title": "Maintenance runs",
+          "description": "Total post-backup maintenance runs since the server last restarted, per cluster, tier and outcome.",
+          "links": [],
+          "data": {
+            "kind": "QueryGroup",
+            "spec": {
+              "queries": [
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "query": {
+                      "kind": "DataQuery",
+                      "group": "prometheus",
+                      "version": "v0",
+                      "datasource": {
+                        "name": "${datasource}"
+                      },
+                      "spec": {
+                        "expr": "sum by (cluster_name, tier, outcome) (klio_server_backup_maintenance_total{k8s_namespace_name=~\"$server_namespace\",k8s_pod_name=~\"($server)-klio-[0-9]+\",cluster_name=~\"$served_cluster\"})",
+                        "legendFormat": "{{cluster_name}} {{tier}}/{{outcome}}",
+                        "range": true
+                      }
+                    },
+                    "refId": "A",
+                    "hidden": false
+                  }
+                }
+              ],
+              "transformations": [],
+              "queryOptions": {}
+            }
+          },
+          "vizConfig": {
+            "kind": "VizConfig",
+            "group": "timeseries",
+            "version": "",
+            "spec": {
+              "options": {
+                "legend": {
+                  "calcs": [],
+                  "displayMode": "list",
+                  "placement": "bottom",
+                  "showLegend": true
+                },
+                "tooltip": {
+                  "mode": "",
+                  "sort": ""
+                }
+              },
+              "fieldConfig": {
+                "defaults": {
+                  "unit": "none",
+                  "custom": {
+                    "fillOpacity": 10,
+                    "gradientMode": "opacity"
+                  }
+                },
+                "overrides": []
+              }
+            }
+          }
+        }
+      },
+      "panel-47": {
+        "kind": "Panel",
+        "spec": {
+          "id": 47,
+          "title": "",
+          "links": [],
+          "data": {
+            "kind": "QueryGroup",
+            "spec": {
+              "queries": [],
+              "transformations": [],
+              "queryOptions": {}
+            }
+          },
+          "vizConfig": {
+            "kind": "VizConfig",
+            "group": "text",
+            "version": "",
+            "spec": {
+              "options": {
+                "content": "WAL the selected servers write for each of the clusters they back up, per tier, and the latency of the WAL operations, aggregated across the selected served clusters.",
+                "mode": "markdown"
+              },
+              "fieldConfig": {
+                "defaults": {},
+                "overrides": []
+              }
+            }
+          },
+          "transparent": true
+        }
+      },
+      "panel-48": {
+        "kind": "Panel",
+        "spec": {
+          "id": 48,
+          "title": "Time since last WAL written",
+          "description": "Elapsed time since the server last wrote a WAL file for each cluster and tier.",
+          "links": [],
+          "data": {
+            "kind": "QueryGroup",
+            "spec": {
+              "queries": [
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "query": {
+                      "kind": "DataQuery",
+                      "group": "prometheus",
+                      "version": "v0",
+                      "datasource": {
+                        "name": "${datasource}"
+                      },
+                      "spec": {
+                        "expr": "time() - max by (cluster_name, tier) (klio_server_wal_latest_written_time_seconds{k8s_namespace_name=~\"$server_namespace\",k8s_pod_name=~\"($server)-klio-[0-9]+\",cluster_name=~\"$served_cluster\"})",
+                        "legendFormat": "{{cluster_name}} {{tier}}",
+                        "range": true
+                      }
+                    },
+                    "refId": "A",
+                    "hidden": false
+                  }
+                }
+              ],
+              "transformations": [],
+              "queryOptions": {}
+            }
+          },
+          "vizConfig": {
+            "kind": "VizConfig",
+            "group": "timeseries",
+            "version": "",
+            "spec": {
+              "options": {
+                "legend": {
+                  "calcs": [],
+                  "displayMode": "list",
+                  "placement": "bottom",
+                  "showLegend": true
+                },
+                "tooltip": {
+                  "mode": "",
+                  "sort": ""
+                }
+              },
+              "fieldConfig": {
+                "defaults": {
+                  "unit": "dtdurations",
+                  "custom": {
+                    "fillOpacity": 10,
+                    "gradientMode": "opacity"
+                  }
+                },
+                "overrides": []
+              }
+            }
+          }
+        }
+      },
+      "panel-49": {
+        "kind": "Panel",
+        "spec": {
+          "id": 49,
+          "title": "WAL bytes written (rate)",
+          "description": "Rate of WAL bytes written by the server, split by cluster and storage tier.",
+          "links": [],
+          "data": {
+            "kind": "QueryGroup",
+            "spec": {
+              "queries": [
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "query": {
+                      "kind": "DataQuery",
+                      "group": "prometheus",
+                      "version": "v0",
+                      "datasource": {
+                        "name": "${datasource}"
+                      },
+                      "spec": {
+                        "expr": "sum by (cluster_name, tier) (rate(klio_server_wal_written_size_bytes_total{k8s_namespace_name=~\"$server_namespace\",k8s_pod_name=~\"($server)-klio-[0-9]+\",cluster_name=~\"$served_cluster\"}[$__rate_interval]))",
+                        "legendFormat": "{{cluster_name}} {{tier}}",
+                        "range": true
+                      }
+                    },
+                    "refId": "A",
+                    "hidden": false
+                  }
+                }
+              ],
+              "transformations": [],
+              "queryOptions": {}
+            }
+          },
+          "vizConfig": {
+            "kind": "VizConfig",
+            "group": "timeseries",
+            "version": "",
+            "spec": {
+              "options": {
+                "legend": {
+                  "calcs": [],
+                  "displayMode": "list",
+                  "placement": "bottom",
+                  "showLegend": true
+                },
+                "tooltip": {
+                  "mode": "",
+                  "sort": ""
+                }
+              },
+              "fieldConfig": {
+                "defaults": {
+                  "unit": "binBps",
+                  "custom": {
+                    "fillOpacity": 10,
+                    "gradientMode": "opacity"
+                  }
+                },
+                "overrides": []
+              }
+            }
+          }
         }
       },
       "panel-5": {
@@ -3388,373 +3232,6 @@
         "kind": "Panel",
         "spec": {
           "id": 50,
-          "title": "Tier-2 backup relay attempts",
-          "description": "Total tier-2 relay attempts since the server last restarted, per cluster and outcome.",
-          "links": [],
-          "data": {
-            "kind": "QueryGroup",
-            "spec": {
-              "queries": [
-                {
-                  "kind": "PanelQuery",
-                  "spec": {
-                    "query": {
-                      "kind": "DataQuery",
-                      "group": "prometheus",
-                      "version": "v0",
-                      "datasource": {
-                        "name": "${datasource}"
-                      },
-                      "spec": {
-                        "expr": "sum by (cluster_name, outcome) (klio_server_backup_relay_total{k8s_namespace_name=~\"$server_namespace\",k8s_pod_name=~\"($server)-klio-[0-9]+\",cluster_name=~\"$served_cluster\"})",
-                        "legendFormat": "{{cluster_name}} / {{outcome}}",
-                        "range": true
-                      }
-                    },
-                    "refId": "A",
-                    "hidden": false
-                  }
-                }
-              ],
-              "transformations": [],
-              "queryOptions": {}
-            }
-          },
-          "vizConfig": {
-            "kind": "VizConfig",
-            "group": "timeseries",
-            "version": "",
-            "spec": {
-              "options": {
-                "legend": {
-                  "calcs": [],
-                  "displayMode": "list",
-                  "placement": "bottom",
-                  "showLegend": true
-                },
-                "tooltip": {
-                  "mode": "",
-                  "sort": ""
-                }
-              },
-              "fieldConfig": {
-                "defaults": {
-                  "unit": "none",
-                  "custom": {
-                    "fillOpacity": 10,
-                    "gradientMode": "opacity"
-                  }
-                },
-                "overrides": []
-              }
-            }
-          }
-        }
-      },
-      "panel-51": {
-        "kind": "Panel",
-        "spec": {
-          "id": 51,
-          "title": "Backup verification runs",
-          "description": "Total base backup verification checks since the server last restarted, per cluster, broken down by outcome and tier.",
-          "links": [],
-          "data": {
-            "kind": "QueryGroup",
-            "spec": {
-              "queries": [
-                {
-                  "kind": "PanelQuery",
-                  "spec": {
-                    "query": {
-                      "kind": "DataQuery",
-                      "group": "prometheus",
-                      "version": "v0",
-                      "datasource": {
-                        "name": "${datasource}"
-                      },
-                      "spec": {
-                        "expr": "sum by (cluster_name, outcome, tier) (klio_server_backup_verifications_total{k8s_namespace_name=~\"$server_namespace\",k8s_pod_name=~\"($server)-klio-[0-9]+\",cluster_name=~\"$served_cluster\"})",
-                        "legendFormat": "{{cluster_name}} {{tier}} / {{outcome}}",
-                        "range": true
-                      }
-                    },
-                    "refId": "A",
-                    "hidden": false
-                  }
-                }
-              ],
-              "transformations": [],
-              "queryOptions": {}
-            }
-          },
-          "vizConfig": {
-            "kind": "VizConfig",
-            "group": "timeseries",
-            "version": "",
-            "spec": {
-              "options": {
-                "legend": {
-                  "calcs": [],
-                  "displayMode": "list",
-                  "placement": "bottom",
-                  "showLegend": true
-                },
-                "tooltip": {
-                  "mode": "",
-                  "sort": ""
-                }
-              },
-              "fieldConfig": {
-                "defaults": {
-                  "unit": "none",
-                  "custom": {
-                    "fillOpacity": 10,
-                    "gradientMode": "opacity"
-                  }
-                },
-                "overrides": []
-              }
-            }
-          }
-        }
-      },
-      "panel-52": {
-        "kind": "Panel",
-        "spec": {
-          "id": 52,
-          "title": "Maintenance runs",
-          "description": "Total post-backup maintenance runs since the server last restarted, per cluster, tier and outcome.",
-          "links": [],
-          "data": {
-            "kind": "QueryGroup",
-            "spec": {
-              "queries": [
-                {
-                  "kind": "PanelQuery",
-                  "spec": {
-                    "query": {
-                      "kind": "DataQuery",
-                      "group": "prometheus",
-                      "version": "v0",
-                      "datasource": {
-                        "name": "${datasource}"
-                      },
-                      "spec": {
-                        "expr": "sum by (cluster_name, tier, outcome) (klio_server_backup_maintenance_total{k8s_namespace_name=~\"$server_namespace\",k8s_pod_name=~\"($server)-klio-[0-9]+\",cluster_name=~\"$served_cluster\"})",
-                        "legendFormat": "{{cluster_name}} {{tier}}/{{outcome}}",
-                        "range": true
-                      }
-                    },
-                    "refId": "A",
-                    "hidden": false
-                  }
-                }
-              ],
-              "transformations": [],
-              "queryOptions": {}
-            }
-          },
-          "vizConfig": {
-            "kind": "VizConfig",
-            "group": "timeseries",
-            "version": "",
-            "spec": {
-              "options": {
-                "legend": {
-                  "calcs": [],
-                  "displayMode": "list",
-                  "placement": "bottom",
-                  "showLegend": true
-                },
-                "tooltip": {
-                  "mode": "",
-                  "sort": ""
-                }
-              },
-              "fieldConfig": {
-                "defaults": {
-                  "unit": "none",
-                  "custom": {
-                    "fillOpacity": 10,
-                    "gradientMode": "opacity"
-                  }
-                },
-                "overrides": []
-              }
-            }
-          }
-        }
-      },
-      "panel-53": {
-        "kind": "Panel",
-        "spec": {
-          "id": 53,
-          "title": "",
-          "links": [],
-          "data": {
-            "kind": "QueryGroup",
-            "spec": {
-              "queries": [],
-              "transformations": [],
-              "queryOptions": {}
-            }
-          },
-          "vizConfig": {
-            "kind": "VizConfig",
-            "group": "text",
-            "version": "",
-            "spec": {
-              "options": {
-                "content": "WAL the selected servers write for each of the clusters they back up.",
-                "mode": "markdown"
-              },
-              "fieldConfig": {
-                "defaults": {},
-                "overrides": []
-              }
-            }
-          },
-          "transparent": true
-        }
-      },
-      "panel-54": {
-        "kind": "Panel",
-        "spec": {
-          "id": 54,
-          "title": "Time since last WAL written",
-          "description": "Elapsed time since the server last wrote a WAL file for each cluster and tier.",
-          "links": [],
-          "data": {
-            "kind": "QueryGroup",
-            "spec": {
-              "queries": [
-                {
-                  "kind": "PanelQuery",
-                  "spec": {
-                    "query": {
-                      "kind": "DataQuery",
-                      "group": "prometheus",
-                      "version": "v0",
-                      "datasource": {
-                        "name": "${datasource}"
-                      },
-                      "spec": {
-                        "expr": "time() - max by (cluster_name, tier) (klio_server_wal_latest_written_time_seconds{k8s_namespace_name=~\"$server_namespace\",k8s_pod_name=~\"($server)-klio-[0-9]+\",cluster_name=~\"$served_cluster\"})",
-                        "legendFormat": "{{cluster_name}} {{tier}}",
-                        "range": true
-                      }
-                    },
-                    "refId": "A",
-                    "hidden": false
-                  }
-                }
-              ],
-              "transformations": [],
-              "queryOptions": {}
-            }
-          },
-          "vizConfig": {
-            "kind": "VizConfig",
-            "group": "timeseries",
-            "version": "",
-            "spec": {
-              "options": {
-                "legend": {
-                  "calcs": [],
-                  "displayMode": "list",
-                  "placement": "bottom",
-                  "showLegend": true
-                },
-                "tooltip": {
-                  "mode": "",
-                  "sort": ""
-                }
-              },
-              "fieldConfig": {
-                "defaults": {
-                  "unit": "dtdurations",
-                  "custom": {
-                    "fillOpacity": 10,
-                    "gradientMode": "opacity"
-                  }
-                },
-                "overrides": []
-              }
-            }
-          }
-        }
-      },
-      "panel-55": {
-        "kind": "Panel",
-        "spec": {
-          "id": 55,
-          "title": "WAL bytes written (rate)",
-          "description": "Rate of WAL bytes written by the server, split by cluster and storage tier.",
-          "links": [],
-          "data": {
-            "kind": "QueryGroup",
-            "spec": {
-              "queries": [
-                {
-                  "kind": "PanelQuery",
-                  "spec": {
-                    "query": {
-                      "kind": "DataQuery",
-                      "group": "prometheus",
-                      "version": "v0",
-                      "datasource": {
-                        "name": "${datasource}"
-                      },
-                      "spec": {
-                        "expr": "sum by (cluster_name, tier) (rate(klio_server_wal_written_size_bytes_total{k8s_namespace_name=~\"$server_namespace\",k8s_pod_name=~\"($server)-klio-[0-9]+\",cluster_name=~\"$served_cluster\"}[$__rate_interval]))",
-                        "legendFormat": "{{cluster_name}} {{tier}}",
-                        "range": true
-                      }
-                    },
-                    "refId": "A",
-                    "hidden": false
-                  }
-                }
-              ],
-              "transformations": [],
-              "queryOptions": {}
-            }
-          },
-          "vizConfig": {
-            "kind": "VizConfig",
-            "group": "timeseries",
-            "version": "",
-            "spec": {
-              "options": {
-                "legend": {
-                  "calcs": [],
-                  "displayMode": "list",
-                  "placement": "bottom",
-                  "showLegend": true
-                },
-                "tooltip": {
-                  "mode": "",
-                  "sort": ""
-                }
-              },
-              "fieldConfig": {
-                "defaults": {
-                  "unit": "binBps",
-                  "custom": {
-                    "fillOpacity": 10,
-                    "gradientMode": "opacity"
-                  }
-                },
-                "overrides": []
-              }
-            }
-          }
-        }
-      },
-      "panel-56": {
-        "kind": "Panel",
-        "spec": {
-          "id": 56,
           "title": "WAL bytes written (total)",
           "description": "Total WAL bytes written by the server since it last restarted, split by cluster and storage tier.",
           "links": [],
@@ -3818,588 +3295,533 @@
           }
         }
       },
+      "panel-51": {
+        "kind": "Panel",
+        "spec": {
+          "id": 51,
+          "title": "WAL timeline",
+          "description": "PostgreSQL timeline of the latest WAL written per cluster and tier",
+          "links": [],
+          "data": {
+            "kind": "QueryGroup",
+            "spec": {
+              "queries": [
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "query": {
+                      "kind": "DataQuery",
+                      "group": "prometheus",
+                      "version": "v0",
+                      "datasource": {
+                        "name": "${datasource}"
+                      },
+                      "spec": {
+                        "expr": "max by (cluster_name, tier) (klio_server_wal_latest_written_timeline{k8s_namespace_name=~\"$server_namespace\",k8s_pod_name=~\"($server)-klio-[0-9]+\",cluster_name=~\"$served_cluster\"})",
+                        "legendFormat": "{{cluster_name}} {{tier}}",
+                        "range": true
+                      }
+                    },
+                    "refId": "A",
+                    "hidden": false
+                  }
+                }
+              ],
+              "transformations": [],
+              "queryOptions": {}
+            }
+          },
+          "vizConfig": {
+            "kind": "VizConfig",
+            "group": "timeseries",
+            "version": "",
+            "spec": {
+              "options": {
+                "legend": {
+                  "calcs": [],
+                  "displayMode": "list",
+                  "placement": "bottom",
+                  "showLegend": true
+                },
+                "tooltip": {
+                  "mode": "",
+                  "sort": ""
+                }
+              },
+              "fieldConfig": {
+                "defaults": {
+                  "unit": "none",
+                  "decimals": 0,
+                  "custom": {
+                    "fillOpacity": 0,
+                    "gradientMode": "opacity",
+                    "lineInterpolation": "stepAfter",
+                    "lineWidth": 2
+                  }
+                },
+                "overrides": []
+              }
+            }
+          }
+        }
+      },
+      "panel-52": {
+        "kind": "Panel",
+        "spec": {
+          "id": 52,
+          "title": "Latest written LSN",
+          "description": "Most recent WAL LSN the server has written for each cluster and tier",
+          "links": [],
+          "data": {
+            "kind": "QueryGroup",
+            "spec": {
+              "queries": [
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "query": {
+                      "kind": "DataQuery",
+                      "group": "prometheus",
+                      "version": "v0",
+                      "datasource": {
+                        "name": "${datasource}"
+                      },
+                      "spec": {
+                        "expr": "floor(max by (cluster_name, tier) (klio_server_wal_latest_written_lsn_bytes{k8s_namespace_name=~\"$server_namespace\",k8s_pod_name=~\"($server)-klio-[0-9]+\",cluster_name=~\"$served_cluster\"}) / 4294967296)",
+                        "format": "table",
+                        "instant": true
+                      }
+                    },
+                    "refId": "h0",
+                    "hidden": true
+                  }
+                },
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "query": {
+                      "kind": "DataQuery",
+                      "group": "prometheus",
+                      "version": "v0",
+                      "datasource": {
+                        "name": "${datasource}"
+                      },
+                      "spec": {
+                        "expr": "max by (cluster_name, tier) (klio_server_wal_latest_written_lsn_bytes{k8s_namespace_name=~\"$server_namespace\",k8s_pod_name=~\"($server)-klio-[0-9]+\",cluster_name=~\"$served_cluster\"}) % 4294967296",
+                        "format": "table",
+                        "instant": true
+                      }
+                    },
+                    "refId": "l0",
+                    "hidden": true
+                  }
+                },
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "query": {
+                      "kind": "DataQuery",
+                      "group": "__expr__",
+                      "version": "v0",
+                      "datasource": {
+                        "name": "__expr__"
+                      },
+                      "spec": {
+                        "expression": "SELECT\n  h0.cluster_name AS \"Cluster Name\",\n  h0.tier AS \"Tier\",\n  concat(CONV(h0.__value__, 10, 16), \"/\", CONV(l0.__value__, 10, 16)) as \"written LSN\"\nFROM h0\nJOIN l0 ON l0.cluster_name = h0.cluster_name AND l0.tier = h0.tier",
+                        "format": "",
+                        "type": "sql"
+                      }
+                    },
+                    "refId": "sql",
+                    "hidden": false
+                  }
+                }
+              ],
+              "transformations": [],
+              "queryOptions": {}
+            }
+          },
+          "vizConfig": {
+            "kind": "VizConfig",
+            "group": "table",
+            "version": "",
+            "spec": {
+              "options": {
+                "cellHeight": "sm",
+                "footer": {
+                  "countRows": false,
+                  "reducer": null,
+                  "show": false
+                },
+                "frameIndex": 0,
+                "showHeader": true,
+                "showTypeIcons": false
+              },
+              "fieldConfig": {
+                "defaults": {
+                  "custom": {
+                    "align": "auto",
+                    "inspect": false
+                  }
+                },
+                "overrides": []
+              }
+            }
+          }
+        }
+      },
+      "panel-53": {
+        "kind": "Panel",
+        "spec": {
+          "id": 53,
+          "title": "WAL files written (rate)",
+          "description": "Rate of WAL files written by the server, split by cluster and storage tier.",
+          "links": [],
+          "data": {
+            "kind": "QueryGroup",
+            "spec": {
+              "queries": [
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "query": {
+                      "kind": "DataQuery",
+                      "group": "prometheus",
+                      "version": "v0",
+                      "datasource": {
+                        "name": "${datasource}"
+                      },
+                      "spec": {
+                        "expr": "sum by (cluster_name, tier) (rate(klio_server_wal_written_total{k8s_namespace_name=~\"$server_namespace\",k8s_pod_name=~\"($server)-klio-[0-9]+\",cluster_name=~\"$served_cluster\"}[$__rate_interval]))",
+                        "legendFormat": "{{cluster_name}} {{tier}}",
+                        "range": true
+                      }
+                    },
+                    "refId": "A",
+                    "hidden": false
+                  }
+                }
+              ],
+              "transformations": [],
+              "queryOptions": {}
+            }
+          },
+          "vizConfig": {
+            "kind": "VizConfig",
+            "group": "timeseries",
+            "version": "",
+            "spec": {
+              "options": {
+                "legend": {
+                  "calcs": [],
+                  "displayMode": "list",
+                  "placement": "bottom",
+                  "showLegend": true
+                },
+                "tooltip": {
+                  "mode": "",
+                  "sort": ""
+                }
+              },
+              "fieldConfig": {
+                "defaults": {
+                  "unit": "ops",
+                  "custom": {
+                    "fillOpacity": 10,
+                    "gradientMode": "opacity"
+                  }
+                },
+                "overrides": []
+              }
+            }
+          }
+        }
+      },
+      "panel-54": {
+        "kind": "Panel",
+        "spec": {
+          "id": 54,
+          "title": "WAL files written (total)",
+          "description": "Total WAL files written by the server since it last restarted, split by cluster and storage tier.",
+          "links": [],
+          "data": {
+            "kind": "QueryGroup",
+            "spec": {
+              "queries": [
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "query": {
+                      "kind": "DataQuery",
+                      "group": "prometheus",
+                      "version": "v0",
+                      "datasource": {
+                        "name": "${datasource}"
+                      },
+                      "spec": {
+                        "expr": "sum by (cluster_name, tier) (klio_server_wal_written_total{k8s_namespace_name=~\"$server_namespace\",k8s_pod_name=~\"($server)-klio-[0-9]+\",cluster_name=~\"$served_cluster\"})",
+                        "legendFormat": "{{cluster_name}} {{tier}}",
+                        "range": true
+                      }
+                    },
+                    "refId": "A",
+                    "hidden": false
+                  }
+                }
+              ],
+              "transformations": [],
+              "queryOptions": {}
+            }
+          },
+          "vizConfig": {
+            "kind": "VizConfig",
+            "group": "timeseries",
+            "version": "",
+            "spec": {
+              "options": {
+                "legend": {
+                  "calcs": [],
+                  "displayMode": "list",
+                  "placement": "bottom",
+                  "showLegend": true
+                },
+                "tooltip": {
+                  "mode": "",
+                  "sort": ""
+                }
+              },
+              "fieldConfig": {
+                "defaults": {
+                  "unit": "none",
+                  "custom": {
+                    "fillOpacity": 10,
+                    "gradientMode": "opacity"
+                  }
+                },
+                "overrides": []
+              }
+            }
+          }
+        }
+      },
+      "panel-55": {
+        "kind": "Panel",
+        "spec": {
+          "id": 55,
+          "title": "WAL tier-2 upload duration percentiles (rate)",
+          "description": "Percentile duration of the tier-2 archival upload to remote storage, per cluster. Reflects recent activity, over the rate interval window.",
+          "links": [],
+          "data": {
+            "kind": "QueryGroup",
+            "spec": {
+              "queries": [
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "query": {
+                      "kind": "DataQuery",
+                      "group": "prometheus",
+                      "version": "v0",
+                      "datasource": {
+                        "name": "${datasource}"
+                      },
+                      "spec": {
+                        "expr": "histogram_quantile(0.50, sum by (le, cluster_name) (rate(klio_server_wal_upload_duration_nanoseconds_bucket{k8s_namespace_name=~\"$server_namespace\",k8s_pod_name=~\"($server)-klio-[0-9]+\",cluster_name=~\"$served_cluster\"}[$__rate_interval])))",
+                        "legendFormat": "{{cluster_name}} p50",
+                        "range": true
+                      }
+                    },
+                    "refId": "A",
+                    "hidden": false
+                  }
+                },
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "query": {
+                      "kind": "DataQuery",
+                      "group": "prometheus",
+                      "version": "v0",
+                      "datasource": {
+                        "name": "${datasource}"
+                      },
+                      "spec": {
+                        "expr": "histogram_quantile(0.90, sum by (le, cluster_name) (rate(klio_server_wal_upload_duration_nanoseconds_bucket{k8s_namespace_name=~\"$server_namespace\",k8s_pod_name=~\"($server)-klio-[0-9]+\",cluster_name=~\"$served_cluster\"}[$__rate_interval])))",
+                        "legendFormat": "{{cluster_name}} p90",
+                        "range": true
+                      }
+                    },
+                    "refId": "B",
+                    "hidden": false
+                  }
+                },
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "query": {
+                      "kind": "DataQuery",
+                      "group": "prometheus",
+                      "version": "v0",
+                      "datasource": {
+                        "name": "${datasource}"
+                      },
+                      "spec": {
+                        "expr": "histogram_quantile(0.99, sum by (le, cluster_name) (rate(klio_server_wal_upload_duration_nanoseconds_bucket{k8s_namespace_name=~\"$server_namespace\",k8s_pod_name=~\"($server)-klio-[0-9]+\",cluster_name=~\"$served_cluster\"}[$__rate_interval])))",
+                        "legendFormat": "{{cluster_name}} p99",
+                        "range": true
+                      }
+                    },
+                    "refId": "C",
+                    "hidden": false
+                  }
+                }
+              ],
+              "transformations": [],
+              "queryOptions": {}
+            }
+          },
+          "vizConfig": {
+            "kind": "VizConfig",
+            "group": "timeseries",
+            "version": "",
+            "spec": {
+              "options": {
+                "legend": {
+                  "calcs": [],
+                  "displayMode": "list",
+                  "placement": "bottom",
+                  "showLegend": true
+                },
+                "tooltip": {
+                  "mode": "",
+                  "sort": ""
+                }
+              },
+              "fieldConfig": {
+                "defaults": {
+                  "unit": "ns",
+                  "custom": {
+                    "fillOpacity": 10,
+                    "gradientMode": "opacity"
+                  }
+                },
+                "overrides": []
+              }
+            }
+          }
+        }
+      },
+      "panel-56": {
+        "kind": "Panel",
+        "spec": {
+          "id": 56,
+          "title": "WAL tier-2 upload duration percentiles (total)",
+          "description": "Percentile duration of the tier-2 archival upload to remote storage, per cluster. Reflects all activity since the server last restarted.",
+          "links": [],
+          "data": {
+            "kind": "QueryGroup",
+            "spec": {
+              "queries": [
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "query": {
+                      "kind": "DataQuery",
+                      "group": "prometheus",
+                      "version": "v0",
+                      "datasource": {
+                        "name": "${datasource}"
+                      },
+                      "spec": {
+                        "expr": "histogram_quantile(0.50, sum by (le, cluster_name) (klio_server_wal_upload_duration_nanoseconds_bucket{k8s_namespace_name=~\"$server_namespace\",k8s_pod_name=~\"($server)-klio-[0-9]+\",cluster_name=~\"$served_cluster\"}))",
+                        "legendFormat": "{{cluster_name}} p50",
+                        "range": true
+                      }
+                    },
+                    "refId": "A",
+                    "hidden": false
+                  }
+                },
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "query": {
+                      "kind": "DataQuery",
+                      "group": "prometheus",
+                      "version": "v0",
+                      "datasource": {
+                        "name": "${datasource}"
+                      },
+                      "spec": {
+                        "expr": "histogram_quantile(0.90, sum by (le, cluster_name) (klio_server_wal_upload_duration_nanoseconds_bucket{k8s_namespace_name=~\"$server_namespace\",k8s_pod_name=~\"($server)-klio-[0-9]+\",cluster_name=~\"$served_cluster\"}))",
+                        "legendFormat": "{{cluster_name}} p90",
+                        "range": true
+                      }
+                    },
+                    "refId": "B",
+                    "hidden": false
+                  }
+                },
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "query": {
+                      "kind": "DataQuery",
+                      "group": "prometheus",
+                      "version": "v0",
+                      "datasource": {
+                        "name": "${datasource}"
+                      },
+                      "spec": {
+                        "expr": "histogram_quantile(0.99, sum by (le, cluster_name) (klio_server_wal_upload_duration_nanoseconds_bucket{k8s_namespace_name=~\"$server_namespace\",k8s_pod_name=~\"($server)-klio-[0-9]+\",cluster_name=~\"$served_cluster\"}))",
+                        "legendFormat": "{{cluster_name}} p99",
+                        "range": true
+                      }
+                    },
+                    "refId": "C",
+                    "hidden": false
+                  }
+                }
+              ],
+              "transformations": [],
+              "queryOptions": {}
+            }
+          },
+          "vizConfig": {
+            "kind": "VizConfig",
+            "group": "timeseries",
+            "version": "",
+            "spec": {
+              "options": {
+                "legend": {
+                  "calcs": [],
+                  "displayMode": "list",
+                  "placement": "bottom",
+                  "showLegend": true
+                },
+                "tooltip": {
+                  "mode": "",
+                  "sort": ""
+                }
+              },
+              "fieldConfig": {
+                "defaults": {
+                  "unit": "ns",
+                  "custom": {
+                    "fillOpacity": 10,
+                    "gradientMode": "opacity"
+                  }
+                },
+                "overrides": []
+              }
+            }
+          }
+        }
+      },
       "panel-57": {
         "kind": "Panel",
         "spec": {
           "id": 57,
-          "title": "",
-          "links": [],
-          "data": {
-            "kind": "QueryGroup",
-            "spec": {
-              "queries": [],
-              "transformations": [],
-              "queryOptions": {}
-            }
-          },
-          "vizConfig": {
-            "kind": "VizConfig",
-            "group": "text",
-            "version": "",
-            "spec": {
-              "options": {
-                "content": "Base backup snapshots stored in the Kopia repository of each tier.",
-                "mode": "markdown"
-              },
-              "fieldConfig": {
-                "defaults": {},
-                "overrides": []
-              }
-            }
-          },
-          "transparent": true
-        }
-      },
-      "panel-58": {
-        "kind": "Panel",
-        "spec": {
-          "id": 58,
-          "title": "Retained snapshots",
-          "description": "Total kopia snapshots currently retained per cluster and tier, with the Klio server that retains them.",
-          "links": [],
-          "data": {
-            "kind": "QueryGroup",
-            "spec": {
-              "queries": [
-                {
-                  "kind": "PanelQuery",
-                  "spec": {
-                    "query": {
-                      "kind": "DataQuery",
-                      "group": "prometheus",
-                      "version": "v0",
-                      "datasource": {
-                        "name": "${datasource}"
-                      },
-                      "spec": {
-                        "expr": "sum by (cluster, tier, k8s_namespace_name, server) (label_replace(label_replace(klio_server_backup_snapshots{k8s_namespace_name=~\"$server_namespace\",k8s_pod_name=~\"($server)-klio-[0-9]+\",snapshot_source=~\"[^@]*@$served_cluster:.*\"}, \"cluster\", \"$1\", \"snapshot_source\", \"[^@]*@([^:]+):.*\"), \"server\", \"$1\", \"k8s_pod_name\", \"(.+)-klio-[0-9]+\"))",
-                        "legendFormat": "{{cluster}} {{tier}} ({{k8s_namespace_name}}/{{server}})",
-                        "range": true
-                      }
-                    },
-                    "refId": "A",
-                    "hidden": false
-                  }
-                }
-              ],
-              "transformations": [],
-              "queryOptions": {}
-            }
-          },
-          "vizConfig": {
-            "kind": "VizConfig",
-            "group": "stat",
-            "version": "",
-            "spec": {
-              "options": {
-                "colorMode": "value",
-                "graphMode": "none",
-                "justifyMode": "auto",
-                "orientation": "horizontal",
-                "percentChangeColorMode": "standard",
-                "reduceOptions": {
-                  "calcs": [
-                    "lastNotNull"
-                  ]
-                },
-                "showPercentChange": false,
-                "text": {
-                  "titleSize": 14,
-                  "valueSize": 28
-                },
-                "textMode": "auto",
-                "wideLayout": true
-              },
-              "fieldConfig": {
-                "defaults": {
-                  "unit": "none",
-                  "decimals": 0,
-                  "color": {
-                    "mode": "palette-classic"
-                  }
-                },
-                "overrides": []
-              }
-            }
-          }
-        }
-      },
-      "panel-59": {
-        "kind": "Panel",
-        "spec": {
-          "id": 59,
-          "title": "Latest snapshot size",
-          "description": "Size of the most recent base backup snapshot on Kopia, not accounting for deduplication.",
-          "links": [],
-          "data": {
-            "kind": "QueryGroup",
-            "spec": {
-              "queries": [
-                {
-                  "kind": "PanelQuery",
-                  "spec": {
-                    "query": {
-                      "kind": "DataQuery",
-                      "group": "prometheus",
-                      "version": "v0",
-                      "datasource": {
-                        "name": "${datasource}"
-                      },
-                      "spec": {
-                        "expr": "max by (cluster, tier) (label_replace(klio_server_backup_latest_snapshot_size_bytes{k8s_namespace_name=~\"$server_namespace\",k8s_pod_name=~\"($server)-klio-[0-9]+\",snapshot_source=~\"[^@]*@$served_cluster:.*\"}, \"cluster\", \"$1\", \"snapshot_source\", \"[^@]*@([^:]+):.*\"))",
-                        "legendFormat": "{{cluster}} {{tier}}",
-                        "range": true
-                      }
-                    },
-                    "refId": "A",
-                    "hidden": false
-                  }
-                }
-              ],
-              "transformations": [],
-              "queryOptions": {}
-            }
-          },
-          "vizConfig": {
-            "kind": "VizConfig",
-            "group": "stat",
-            "version": "",
-            "spec": {
-              "options": {
-                "colorMode": "value",
-                "graphMode": "none",
-                "justifyMode": "auto",
-                "orientation": "horizontal",
-                "percentChangeColorMode": "standard",
-                "reduceOptions": {
-                  "calcs": [
-                    "lastNotNull"
-                  ]
-                },
-                "showPercentChange": false,
-                "text": {
-                  "titleSize": 14,
-                  "valueSize": 28
-                },
-                "textMode": "auto",
-                "wideLayout": true
-              },
-              "fieldConfig": {
-                "defaults": {
-                  "unit": "bytes",
-                  "color": {
-                    "mode": "palette-classic"
-                  }
-                },
-                "overrides": []
-              }
-            }
-          }
-        }
-      },
-      "panel-6": {
-        "kind": "Panel",
-        "spec": {
-          "id": 6,
-          "title": "Latest backup duration",
-          "description": "Wall-clock duration of the most recent base backup, per cluster.",
-          "links": [],
-          "data": {
-            "kind": "QueryGroup",
-            "spec": {
-              "queries": [
-                {
-                  "kind": "PanelQuery",
-                  "spec": {
-                    "query": {
-                      "kind": "DataQuery",
-                      "group": "prometheus",
-                      "version": "v0",
-                      "datasource": {
-                        "name": "${datasource}"
-                      },
-                      "spec": {
-                        "expr": "max by (cluster_name) (klio_plugin_backup_latest_duration_seconds{k8s_namespace_name=~\"$namespace\",cluster_name=~\"$cluster\",k8s_pod_name=~\"$pod\"})",
-                        "legendFormat": "{{cluster_name}}",
-                        "range": true
-                      }
-                    },
-                    "refId": "A",
-                    "hidden": false
-                  }
-                }
-              ],
-              "transformations": [],
-              "queryOptions": {}
-            }
-          },
-          "vizConfig": {
-            "kind": "VizConfig",
-            "group": "stat",
-            "version": "",
-            "spec": {
-              "options": {
-                "colorMode": "value",
-                "graphMode": "none",
-                "justifyMode": "auto",
-                "orientation": "horizontal",
-                "percentChangeColorMode": "standard",
-                "reduceOptions": {
-                  "calcs": [
-                    "lastNotNull"
-                  ]
-                },
-                "showPercentChange": false,
-                "text": {
-                  "titleSize": 14,
-                  "valueSize": 28
-                },
-                "textMode": "auto",
-                "wideLayout": true
-              },
-              "fieldConfig": {
-                "defaults": {
-                  "unit": "dtdhms",
-                  "color": {
-                    "mode": "palette-classic"
-                  }
-                },
-                "overrides": []
-              }
-            }
-          }
-        }
-      },
-      "panel-60": {
-        "kind": "Panel",
-        "spec": {
-          "id": 60,
-          "title": "Latest snapshot files",
-          "description": "Number of files in the most recent base backup snapshot on Kopia.",
-          "links": [],
-          "data": {
-            "kind": "QueryGroup",
-            "spec": {
-              "queries": [
-                {
-                  "kind": "PanelQuery",
-                  "spec": {
-                    "query": {
-                      "kind": "DataQuery",
-                      "group": "prometheus",
-                      "version": "v0",
-                      "datasource": {
-                        "name": "${datasource}"
-                      },
-                      "spec": {
-                        "expr": "max by (cluster, tier) (label_replace(klio_server_backup_latest_snapshot_files{k8s_namespace_name=~\"$server_namespace\",k8s_pod_name=~\"($server)-klio-[0-9]+\",snapshot_source=~\"[^@]*@$served_cluster:.*\"}, \"cluster\", \"$1\", \"snapshot_source\", \"[^@]*@([^:]+):.*\"))",
-                        "legendFormat": "{{cluster}} {{tier}}",
-                        "range": true
-                      }
-                    },
-                    "refId": "A",
-                    "hidden": false
-                  }
-                }
-              ],
-              "transformations": [],
-              "queryOptions": {}
-            }
-          },
-          "vizConfig": {
-            "kind": "VizConfig",
-            "group": "stat",
-            "version": "",
-            "spec": {
-              "options": {
-                "colorMode": "value",
-                "graphMode": "none",
-                "justifyMode": "auto",
-                "orientation": "horizontal",
-                "percentChangeColorMode": "standard",
-                "reduceOptions": {
-                  "calcs": [
-                    "lastNotNull"
-                  ]
-                },
-                "showPercentChange": false,
-                "text": {
-                  "titleSize": 14,
-                  "valueSize": 28
-                },
-                "textMode": "auto",
-                "wideLayout": true
-              },
-              "fieldConfig": {
-                "defaults": {
-                  "unit": "none",
-                  "decimals": 0,
-                  "color": {
-                    "mode": "palette-classic"
-                  }
-                },
-                "overrides": []
-              }
-            }
-          }
-        }
-      },
-      "panel-61": {
-        "kind": "Panel",
-        "spec": {
-          "id": 61,
-          "title": "Latest snapshot dirs",
-          "description": "Number of directories in the most recent base backup snapshot on Kopia.",
-          "links": [],
-          "data": {
-            "kind": "QueryGroup",
-            "spec": {
-              "queries": [
-                {
-                  "kind": "PanelQuery",
-                  "spec": {
-                    "query": {
-                      "kind": "DataQuery",
-                      "group": "prometheus",
-                      "version": "v0",
-                      "datasource": {
-                        "name": "${datasource}"
-                      },
-                      "spec": {
-                        "expr": "max by (cluster, tier) (label_replace(klio_server_backup_latest_snapshot_dirs{k8s_namespace_name=~\"$server_namespace\",k8s_pod_name=~\"($server)-klio-[0-9]+\",snapshot_source=~\"[^@]*@$served_cluster:.*\"}, \"cluster\", \"$1\", \"snapshot_source\", \"[^@]*@([^:]+):.*\"))",
-                        "legendFormat": "{{cluster}} {{tier}}",
-                        "range": true
-                      }
-                    },
-                    "refId": "A",
-                    "hidden": false
-                  }
-                }
-              ],
-              "transformations": [],
-              "queryOptions": {}
-            }
-          },
-          "vizConfig": {
-            "kind": "VizConfig",
-            "group": "stat",
-            "version": "",
-            "spec": {
-              "options": {
-                "colorMode": "value",
-                "graphMode": "none",
-                "justifyMode": "auto",
-                "orientation": "horizontal",
-                "percentChangeColorMode": "standard",
-                "reduceOptions": {
-                  "calcs": [
-                    "lastNotNull"
-                  ]
-                },
-                "showPercentChange": false,
-                "text": {
-                  "titleSize": 14,
-                  "valueSize": 28
-                },
-                "textMode": "auto",
-                "wideLayout": true
-              },
-              "fieldConfig": {
-                "defaults": {
-                  "unit": "none",
-                  "decimals": 0,
-                  "color": {
-                    "mode": "palette-classic"
-                  }
-                },
-                "overrides": []
-              }
-            }
-          }
-        }
-      },
-      "panel-62": {
-        "kind": "Panel",
-        "spec": {
-          "id": 62,
-          "title": "Latest snapshot age",
-          "description": "Age of the most recent base backup snapshot on Kopia, per cluster and tier.",
-          "links": [],
-          "data": {
-            "kind": "QueryGroup",
-            "spec": {
-              "queries": [
-                {
-                  "kind": "PanelQuery",
-                  "spec": {
-                    "query": {
-                      "kind": "DataQuery",
-                      "group": "prometheus",
-                      "version": "v0",
-                      "datasource": {
-                        "name": "${datasource}"
-                      },
-                      "spec": {
-                        "expr": "time() - max by (cluster, tier) (label_replace(klio_server_backup_latest_snapshot_timestamp_seconds{k8s_namespace_name=~\"$server_namespace\",k8s_pod_name=~\"($server)-klio-[0-9]+\",snapshot_source=~\"[^@]*@$served_cluster:.*\"}, \"cluster\", \"$1\", \"snapshot_source\", \"[^@]*@([^:]+):.*\"))",
-                        "legendFormat": "{{cluster}} {{tier}}",
-                        "range": true
-                      }
-                    },
-                    "refId": "A",
-                    "hidden": false
-                  }
-                }
-              ],
-              "transformations": [],
-              "queryOptions": {}
-            }
-          },
-          "vizConfig": {
-            "kind": "VizConfig",
-            "group": "stat",
-            "version": "",
-            "spec": {
-              "options": {
-                "colorMode": "value",
-                "graphMode": "none",
-                "justifyMode": "auto",
-                "orientation": "horizontal",
-                "percentChangeColorMode": "standard",
-                "reduceOptions": {
-                  "calcs": [
-                    "lastNotNull"
-                  ]
-                },
-                "showPercentChange": false,
-                "text": {
-                  "titleSize": 14,
-                  "valueSize": 28
-                },
-                "textMode": "auto",
-                "wideLayout": true
-              },
-              "fieldConfig": {
-                "defaults": {
-                  "unit": "dtdhms",
-                  "color": {
-                    "mode": "palette-classic"
-                  }
-                },
-                "overrides": []
-              }
-            }
-          }
-        }
-      },
-      "panel-63": {
-        "kind": "Panel",
-        "spec": {
-          "id": 63,
-          "title": "Oldest snapshot age",
-          "description": "Age of the oldest retained base backup snapshot on Kopia, per cluster and tier.",
-          "links": [],
-          "data": {
-            "kind": "QueryGroup",
-            "spec": {
-              "queries": [
-                {
-                  "kind": "PanelQuery",
-                  "spec": {
-                    "query": {
-                      "kind": "DataQuery",
-                      "group": "prometheus",
-                      "version": "v0",
-                      "datasource": {
-                        "name": "${datasource}"
-                      },
-                      "spec": {
-                        "expr": "time() - min by (cluster, tier) (label_replace(klio_server_backup_oldest_snapshot_timestamp_seconds{k8s_namespace_name=~\"$server_namespace\",k8s_pod_name=~\"($server)-klio-[0-9]+\",snapshot_source=~\"[^@]*@$served_cluster:.*\"}, \"cluster\", \"$1\", \"snapshot_source\", \"[^@]*@([^:]+):.*\"))",
-                        "legendFormat": "{{cluster}} {{tier}}",
-                        "range": true
-                      }
-                    },
-                    "refId": "A",
-                    "hidden": false
-                  }
-                }
-              ],
-              "transformations": [],
-              "queryOptions": {}
-            }
-          },
-          "vizConfig": {
-            "kind": "VizConfig",
-            "group": "stat",
-            "version": "",
-            "spec": {
-              "options": {
-                "colorMode": "value",
-                "graphMode": "none",
-                "justifyMode": "auto",
-                "orientation": "horizontal",
-                "percentChangeColorMode": "standard",
-                "reduceOptions": {
-                  "calcs": [
-                    "lastNotNull"
-                  ]
-                },
-                "showPercentChange": false,
-                "text": {
-                  "titleSize": 14,
-                  "valueSize": 28
-                },
-                "textMode": "auto",
-                "wideLayout": true
-              },
-              "fieldConfig": {
-                "defaults": {
-                  "unit": "dtdhms",
-                  "color": {
-                    "mode": "palette-classic"
-                  }
-                },
-                "overrides": []
-              }
-            }
-          }
-        }
-      },
-      "panel-64": {
-        "kind": "Panel",
-        "spec": {
-          "id": 64,
-          "title": "",
-          "links": [],
-          "data": {
-            "kind": "QueryGroup",
-            "spec": {
-              "queries": [],
-              "transformations": [],
-              "queryOptions": {}
-            }
-          },
-          "vizConfig": {
-            "kind": "VizConfig",
-            "group": "text",
-            "version": "",
-            "spec": {
-              "options": {
-                "content": "Latency of the WAL operations on the server, aggregated across the selected served clusters.",
-                "mode": "markdown"
-              },
-              "fieldConfig": {
-                "defaults": {},
-                "overrides": []
-              }
-            }
-          },
-          "transparent": true
-        }
-      },
-      "panel-65": {
-        "kind": "Panel",
-        "spec": {
-          "id": 65,
           "title": "WAL block operation duration percentiles (rate)",
           "description": "Percentile per-block WAL processing duration on the server, split by `path` (put ingest / get serve) and `stage`, aggregated across the selected clusters. Reflects recent activity, over the rate interval window.",
           "links": [],
@@ -4503,10 +3925,10 @@
           }
         }
       },
-      "panel-66": {
+      "panel-58": {
         "kind": "Panel",
         "spec": {
-          "id": 66,
+          "id": 58,
           "title": "WAL block operation duration percentiles (total)",
           "description": "Percentile per-block WAL processing duration on the server, split by `path` (put ingest / get serve) and `stage`, aggregated across the selected clusters. Reflects all activity since the server last restarted.",
           "links": [],
@@ -4610,10 +4032,10 @@
           }
         }
       },
-      "panel-67": {
+      "panel-59": {
         "kind": "Panel",
         "spec": {
-          "id": 67,
+          "id": 59,
           "title": "WAL file get duration percentiles (rate)",
           "description": "Percentile duration of a complete WAL file gRPC get, split by the tier that served it, aggregated across the selected clusters. Reflects recent activity, over the rate interval window.",
           "links": [],
@@ -4717,10 +4139,83 @@
           }
         }
       },
-      "panel-68": {
+      "panel-6": {
         "kind": "Panel",
         "spec": {
-          "id": 68,
+          "id": 6,
+          "title": "Latest backup duration",
+          "description": "Wall-clock duration of the most recent base backup, per cluster.",
+          "links": [],
+          "data": {
+            "kind": "QueryGroup",
+            "spec": {
+              "queries": [
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "query": {
+                      "kind": "DataQuery",
+                      "group": "prometheus",
+                      "version": "v0",
+                      "datasource": {
+                        "name": "${datasource}"
+                      },
+                      "spec": {
+                        "expr": "max by (cluster_name) (klio_plugin_backup_latest_duration_seconds{k8s_namespace_name=~\"$namespace\",cluster_name=~\"$cluster\",k8s_pod_name=~\"$pod\"})",
+                        "legendFormat": "{{cluster_name}}",
+                        "range": true
+                      }
+                    },
+                    "refId": "A",
+                    "hidden": false
+                  }
+                }
+              ],
+              "transformations": [],
+              "queryOptions": {}
+            }
+          },
+          "vizConfig": {
+            "kind": "VizConfig",
+            "group": "stat",
+            "version": "",
+            "spec": {
+              "options": {
+                "colorMode": "value",
+                "graphMode": "none",
+                "justifyMode": "auto",
+                "orientation": "horizontal",
+                "percentChangeColorMode": "standard",
+                "reduceOptions": {
+                  "calcs": [
+                    "lastNotNull"
+                  ]
+                },
+                "showPercentChange": false,
+                "text": {
+                  "titleSize": 14,
+                  "valueSize": 28
+                },
+                "textMode": "auto",
+                "wideLayout": true
+              },
+              "fieldConfig": {
+                "defaults": {
+                  "unit": "dtdhms",
+                  "color": {
+                    "mode": "palette-classic"
+                  }
+                },
+                "overrides": []
+              }
+            }
+          }
+        }
+      },
+      "panel-60": {
+        "kind": "Panel",
+        "spec": {
+          "id": 60,
           "title": "WAL file get duration percentiles (total)",
           "description": "Percentile duration of a complete WAL file gRPC get, split by the tier that served it, aggregated across the selected clusters. Reflects all activity since the server last restarted.",
           "links": [],
@@ -4816,6 +4311,479 @@
                   "custom": {
                     "fillOpacity": 10,
                     "gradientMode": "opacity"
+                  }
+                },
+                "overrides": []
+              }
+            }
+          }
+        }
+      },
+      "panel-61": {
+        "kind": "Panel",
+        "spec": {
+          "id": 61,
+          "title": "",
+          "links": [],
+          "data": {
+            "kind": "QueryGroup",
+            "spec": {
+              "queries": [],
+              "transformations": [],
+              "queryOptions": {}
+            }
+          },
+          "vizConfig": {
+            "kind": "VizConfig",
+            "group": "text",
+            "version": "",
+            "spec": {
+              "options": {
+                "content": "Base backup snapshots stored in the Kopia repository of each tier.",
+                "mode": "markdown"
+              },
+              "fieldConfig": {
+                "defaults": {},
+                "overrides": []
+              }
+            }
+          },
+          "transparent": true
+        }
+      },
+      "panel-62": {
+        "kind": "Panel",
+        "spec": {
+          "id": 62,
+          "title": "Retained snapshots",
+          "description": "Total kopia snapshots currently retained per cluster and tier, with the Klio server that retains them.",
+          "links": [],
+          "data": {
+            "kind": "QueryGroup",
+            "spec": {
+              "queries": [
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "query": {
+                      "kind": "DataQuery",
+                      "group": "prometheus",
+                      "version": "v0",
+                      "datasource": {
+                        "name": "${datasource}"
+                      },
+                      "spec": {
+                        "expr": "sum by (cluster, tier, k8s_namespace_name, server) (label_replace(label_replace(klio_server_backup_snapshots{k8s_namespace_name=~\"$server_namespace\",k8s_pod_name=~\"($server)-klio-[0-9]+\",snapshot_source=~\"[^@]*@$served_cluster:.*\"}, \"cluster\", \"$1\", \"snapshot_source\", \"[^@]*@([^:]+):.*\"), \"server\", \"$1\", \"k8s_pod_name\", \"(.+)-klio-[0-9]+\"))",
+                        "legendFormat": "{{cluster}} {{tier}} ({{k8s_namespace_name}}/{{server}})",
+                        "range": true
+                      }
+                    },
+                    "refId": "A",
+                    "hidden": false
+                  }
+                }
+              ],
+              "transformations": [],
+              "queryOptions": {}
+            }
+          },
+          "vizConfig": {
+            "kind": "VizConfig",
+            "group": "stat",
+            "version": "",
+            "spec": {
+              "options": {
+                "colorMode": "value",
+                "graphMode": "none",
+                "justifyMode": "auto",
+                "orientation": "horizontal",
+                "percentChangeColorMode": "standard",
+                "reduceOptions": {
+                  "calcs": [
+                    "lastNotNull"
+                  ]
+                },
+                "showPercentChange": false,
+                "text": {
+                  "titleSize": 14,
+                  "valueSize": 28
+                },
+                "textMode": "auto",
+                "wideLayout": true
+              },
+              "fieldConfig": {
+                "defaults": {
+                  "unit": "none",
+                  "decimals": 0,
+                  "color": {
+                    "mode": "palette-classic"
+                  }
+                },
+                "overrides": []
+              }
+            }
+          }
+        }
+      },
+      "panel-63": {
+        "kind": "Panel",
+        "spec": {
+          "id": 63,
+          "title": "Latest snapshot size",
+          "description": "Size of the most recent base backup snapshot on Kopia, not accounting for deduplication.",
+          "links": [],
+          "data": {
+            "kind": "QueryGroup",
+            "spec": {
+              "queries": [
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "query": {
+                      "kind": "DataQuery",
+                      "group": "prometheus",
+                      "version": "v0",
+                      "datasource": {
+                        "name": "${datasource}"
+                      },
+                      "spec": {
+                        "expr": "max by (cluster, tier) (label_replace(klio_server_backup_latest_snapshot_size_bytes{k8s_namespace_name=~\"$server_namespace\",k8s_pod_name=~\"($server)-klio-[0-9]+\",snapshot_source=~\"[^@]*@$served_cluster:.*\"}, \"cluster\", \"$1\", \"snapshot_source\", \"[^@]*@([^:]+):.*\"))",
+                        "legendFormat": "{{cluster}} {{tier}}",
+                        "range": true
+                      }
+                    },
+                    "refId": "A",
+                    "hidden": false
+                  }
+                }
+              ],
+              "transformations": [],
+              "queryOptions": {}
+            }
+          },
+          "vizConfig": {
+            "kind": "VizConfig",
+            "group": "stat",
+            "version": "",
+            "spec": {
+              "options": {
+                "colorMode": "value",
+                "graphMode": "none",
+                "justifyMode": "auto",
+                "orientation": "horizontal",
+                "percentChangeColorMode": "standard",
+                "reduceOptions": {
+                  "calcs": [
+                    "lastNotNull"
+                  ]
+                },
+                "showPercentChange": false,
+                "text": {
+                  "titleSize": 14,
+                  "valueSize": 28
+                },
+                "textMode": "auto",
+                "wideLayout": true
+              },
+              "fieldConfig": {
+                "defaults": {
+                  "unit": "bytes",
+                  "color": {
+                    "mode": "palette-classic"
+                  }
+                },
+                "overrides": []
+              }
+            }
+          }
+        }
+      },
+      "panel-64": {
+        "kind": "Panel",
+        "spec": {
+          "id": 64,
+          "title": "Latest snapshot files",
+          "description": "Number of files in the most recent base backup snapshot on Kopia.",
+          "links": [],
+          "data": {
+            "kind": "QueryGroup",
+            "spec": {
+              "queries": [
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "query": {
+                      "kind": "DataQuery",
+                      "group": "prometheus",
+                      "version": "v0",
+                      "datasource": {
+                        "name": "${datasource}"
+                      },
+                      "spec": {
+                        "expr": "max by (cluster, tier) (label_replace(klio_server_backup_latest_snapshot_files{k8s_namespace_name=~\"$server_namespace\",k8s_pod_name=~\"($server)-klio-[0-9]+\",snapshot_source=~\"[^@]*@$served_cluster:.*\"}, \"cluster\", \"$1\", \"snapshot_source\", \"[^@]*@([^:]+):.*\"))",
+                        "legendFormat": "{{cluster}} {{tier}}",
+                        "range": true
+                      }
+                    },
+                    "refId": "A",
+                    "hidden": false
+                  }
+                }
+              ],
+              "transformations": [],
+              "queryOptions": {}
+            }
+          },
+          "vizConfig": {
+            "kind": "VizConfig",
+            "group": "stat",
+            "version": "",
+            "spec": {
+              "options": {
+                "colorMode": "value",
+                "graphMode": "none",
+                "justifyMode": "auto",
+                "orientation": "horizontal",
+                "percentChangeColorMode": "standard",
+                "reduceOptions": {
+                  "calcs": [
+                    "lastNotNull"
+                  ]
+                },
+                "showPercentChange": false,
+                "text": {
+                  "titleSize": 14,
+                  "valueSize": 28
+                },
+                "textMode": "auto",
+                "wideLayout": true
+              },
+              "fieldConfig": {
+                "defaults": {
+                  "unit": "none",
+                  "decimals": 0,
+                  "color": {
+                    "mode": "palette-classic"
+                  }
+                },
+                "overrides": []
+              }
+            }
+          }
+        }
+      },
+      "panel-65": {
+        "kind": "Panel",
+        "spec": {
+          "id": 65,
+          "title": "Latest snapshot dirs",
+          "description": "Number of directories in the most recent base backup snapshot on Kopia.",
+          "links": [],
+          "data": {
+            "kind": "QueryGroup",
+            "spec": {
+              "queries": [
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "query": {
+                      "kind": "DataQuery",
+                      "group": "prometheus",
+                      "version": "v0",
+                      "datasource": {
+                        "name": "${datasource}"
+                      },
+                      "spec": {
+                        "expr": "max by (cluster, tier) (label_replace(klio_server_backup_latest_snapshot_dirs{k8s_namespace_name=~\"$server_namespace\",k8s_pod_name=~\"($server)-klio-[0-9]+\",snapshot_source=~\"[^@]*@$served_cluster:.*\"}, \"cluster\", \"$1\", \"snapshot_source\", \"[^@]*@([^:]+):.*\"))",
+                        "legendFormat": "{{cluster}} {{tier}}",
+                        "range": true
+                      }
+                    },
+                    "refId": "A",
+                    "hidden": false
+                  }
+                }
+              ],
+              "transformations": [],
+              "queryOptions": {}
+            }
+          },
+          "vizConfig": {
+            "kind": "VizConfig",
+            "group": "stat",
+            "version": "",
+            "spec": {
+              "options": {
+                "colorMode": "value",
+                "graphMode": "none",
+                "justifyMode": "auto",
+                "orientation": "horizontal",
+                "percentChangeColorMode": "standard",
+                "reduceOptions": {
+                  "calcs": [
+                    "lastNotNull"
+                  ]
+                },
+                "showPercentChange": false,
+                "text": {
+                  "titleSize": 14,
+                  "valueSize": 28
+                },
+                "textMode": "auto",
+                "wideLayout": true
+              },
+              "fieldConfig": {
+                "defaults": {
+                  "unit": "none",
+                  "decimals": 0,
+                  "color": {
+                    "mode": "palette-classic"
+                  }
+                },
+                "overrides": []
+              }
+            }
+          }
+        }
+      },
+      "panel-66": {
+        "kind": "Panel",
+        "spec": {
+          "id": 66,
+          "title": "Latest snapshot age",
+          "description": "Age of the most recent base backup snapshot on Kopia, per cluster and tier.",
+          "links": [],
+          "data": {
+            "kind": "QueryGroup",
+            "spec": {
+              "queries": [
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "query": {
+                      "kind": "DataQuery",
+                      "group": "prometheus",
+                      "version": "v0",
+                      "datasource": {
+                        "name": "${datasource}"
+                      },
+                      "spec": {
+                        "expr": "time() - max by (cluster, tier) (label_replace(klio_server_backup_latest_snapshot_timestamp_seconds{k8s_namespace_name=~\"$server_namespace\",k8s_pod_name=~\"($server)-klio-[0-9]+\",snapshot_source=~\"[^@]*@$served_cluster:.*\"}, \"cluster\", \"$1\", \"snapshot_source\", \"[^@]*@([^:]+):.*\"))",
+                        "legendFormat": "{{cluster}} {{tier}}",
+                        "range": true
+                      }
+                    },
+                    "refId": "A",
+                    "hidden": false
+                  }
+                }
+              ],
+              "transformations": [],
+              "queryOptions": {}
+            }
+          },
+          "vizConfig": {
+            "kind": "VizConfig",
+            "group": "stat",
+            "version": "",
+            "spec": {
+              "options": {
+                "colorMode": "value",
+                "graphMode": "none",
+                "justifyMode": "auto",
+                "orientation": "horizontal",
+                "percentChangeColorMode": "standard",
+                "reduceOptions": {
+                  "calcs": [
+                    "lastNotNull"
+                  ]
+                },
+                "showPercentChange": false,
+                "text": {
+                  "titleSize": 14,
+                  "valueSize": 28
+                },
+                "textMode": "auto",
+                "wideLayout": true
+              },
+              "fieldConfig": {
+                "defaults": {
+                  "unit": "dtdhms",
+                  "color": {
+                    "mode": "palette-classic"
+                  }
+                },
+                "overrides": []
+              }
+            }
+          }
+        }
+      },
+      "panel-67": {
+        "kind": "Panel",
+        "spec": {
+          "id": 67,
+          "title": "Oldest snapshot age",
+          "description": "Age of the oldest retained base backup snapshot on Kopia, per cluster and tier.",
+          "links": [],
+          "data": {
+            "kind": "QueryGroup",
+            "spec": {
+              "queries": [
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "query": {
+                      "kind": "DataQuery",
+                      "group": "prometheus",
+                      "version": "v0",
+                      "datasource": {
+                        "name": "${datasource}"
+                      },
+                      "spec": {
+                        "expr": "time() - min by (cluster, tier) (label_replace(klio_server_backup_oldest_snapshot_timestamp_seconds{k8s_namespace_name=~\"$server_namespace\",k8s_pod_name=~\"($server)-klio-[0-9]+\",snapshot_source=~\"[^@]*@$served_cluster:.*\"}, \"cluster\", \"$1\", \"snapshot_source\", \"[^@]*@([^:]+):.*\"))",
+                        "legendFormat": "{{cluster}} {{tier}}",
+                        "range": true
+                      }
+                    },
+                    "refId": "A",
+                    "hidden": false
+                  }
+                }
+              ],
+              "transformations": [],
+              "queryOptions": {}
+            }
+          },
+          "vizConfig": {
+            "kind": "VizConfig",
+            "group": "stat",
+            "version": "",
+            "spec": {
+              "options": {
+                "colorMode": "value",
+                "graphMode": "none",
+                "justifyMode": "auto",
+                "orientation": "horizontal",
+                "percentChangeColorMode": "standard",
+                "reduceOptions": {
+                  "calcs": [
+                    "lastNotNull"
+                  ]
+                },
+                "showPercentChange": false,
+                "text": {
+                  "titleSize": 14,
+                  "valueSize": 28
+                },
+                "textMode": "auto",
+                "wideLayout": true
+              },
+              "fieldConfig": {
+                "defaults": {
+                  "unit": "dtdhms",
+                  "color": {
+                    "mode": "palette-classic"
                   }
                 },
                 "overrides": []
@@ -5228,7 +5196,7 @@
                     {
                       "kind": "RowsLayoutRow",
                       "spec": {
-                        "title": "WAL archiving",
+                        "title": "WAL streaming",
                         "layout": {
                           "kind": "GridLayout",
                           "spec": {
@@ -5284,84 +5252,6 @@
                                     "name": "panel-16"
                                   }
                                 }
-                              },
-                              {
-                                "kind": "GridLayoutItem",
-                                "spec": {
-                                  "x": 0,
-                                  "y": 10,
-                                  "width": 24,
-                                  "height": 6,
-                                  "element": {
-                                    "kind": "ElementReference",
-                                    "name": "panel-17"
-                                  }
-                                }
-                              },
-                              {
-                                "kind": "GridLayoutItem",
-                                "spec": {
-                                  "x": 0,
-                                  "y": 16,
-                                  "width": 24,
-                                  "height": 10,
-                                  "element": {
-                                    "kind": "ElementReference",
-                                    "name": "panel-18"
-                                  }
-                                }
-                              },
-                              {
-                                "kind": "GridLayoutItem",
-                                "spec": {
-                                  "x": 0,
-                                  "y": 26,
-                                  "width": 12,
-                                  "height": 6,
-                                  "element": {
-                                    "kind": "ElementReference",
-                                    "name": "panel-19"
-                                  }
-                                }
-                              },
-                              {
-                                "kind": "GridLayoutItem",
-                                "spec": {
-                                  "x": 12,
-                                  "y": 26,
-                                  "width": 12,
-                                  "height": 6,
-                                  "element": {
-                                    "kind": "ElementReference",
-                                    "name": "panel-20"
-                                  }
-                                }
-                              },
-                              {
-                                "kind": "GridLayoutItem",
-                                "spec": {
-                                  "x": 0,
-                                  "y": 32,
-                                  "width": 12,
-                                  "height": 8,
-                                  "element": {
-                                    "kind": "ElementReference",
-                                    "name": "panel-21"
-                                  }
-                                }
-                              },
-                              {
-                                "kind": "GridLayoutItem",
-                                "spec": {
-                                  "x": 12,
-                                  "y": 32,
-                                  "width": 12,
-                                  "height": 8,
-                                  "element": {
-                                    "kind": "ElementReference",
-                                    "name": "panel-22"
-                                  }
-                                }
                               }
                             ]
                           }
@@ -5385,7 +5275,7 @@
                                   "height": 2,
                                   "element": {
                                     "kind": "ElementReference",
-                                    "name": "panel-23"
+                                    "name": "panel-17"
                                   }
                                 }
                               },
@@ -5398,7 +5288,7 @@
                                   "height": 6,
                                   "element": {
                                     "kind": "ElementReference",
-                                    "name": "panel-24"
+                                    "name": "panel-18"
                                   }
                                 }
                               },
@@ -5411,7 +5301,7 @@
                                   "height": 6,
                                   "element": {
                                     "kind": "ElementReference",
-                                    "name": "panel-25"
+                                    "name": "panel-19"
                                   }
                                 }
                               },
@@ -5424,7 +5314,7 @@
                                   "height": 6,
                                   "element": {
                                     "kind": "ElementReference",
-                                    "name": "panel-26"
+                                    "name": "panel-20"
                                   }
                                 }
                               }
@@ -5450,7 +5340,7 @@
                                   "height": 2,
                                   "element": {
                                     "kind": "ElementReference",
-                                    "name": "panel-27"
+                                    "name": "panel-21"
                                   }
                                 }
                               },
@@ -5463,7 +5353,7 @@
                                   "height": 8,
                                   "element": {
                                     "kind": "ElementReference",
-                                    "name": "panel-28"
+                                    "name": "panel-22"
                                   }
                                 }
                               },
@@ -5476,7 +5366,7 @@
                                   "height": 8,
                                   "element": {
                                     "kind": "ElementReference",
-                                    "name": "panel-29"
+                                    "name": "panel-23"
                                   }
                                 }
                               },
@@ -5489,7 +5379,7 @@
                                   "height": 6,
                                   "element": {
                                     "kind": "ElementReference",
-                                    "name": "panel-30"
+                                    "name": "panel-24"
                                   }
                                 }
                               },
@@ -5502,7 +5392,7 @@
                                   "height": 6,
                                   "element": {
                                     "kind": "ElementReference",
-                                    "name": "panel-31"
+                                    "name": "panel-25"
                                   }
                                 }
                               },
@@ -5515,7 +5405,7 @@
                                   "height": 6,
                                   "element": {
                                     "kind": "ElementReference",
-                                    "name": "panel-32"
+                                    "name": "panel-26"
                                   }
                                 }
                               },
@@ -5528,7 +5418,7 @@
                                   "height": 6,
                                   "element": {
                                     "kind": "ElementReference",
-                                    "name": "panel-33"
+                                    "name": "panel-27"
                                   }
                                 }
                               }
@@ -5679,7 +5569,7 @@
                                   "height": 2,
                                   "element": {
                                     "kind": "ElementReference",
-                                    "name": "panel-34"
+                                    "name": "panel-28"
                                   }
                                 }
                               },
@@ -5692,7 +5582,7 @@
                                   "height": 6,
                                   "element": {
                                     "kind": "ElementReference",
-                                    "name": "panel-35"
+                                    "name": "panel-29"
                                   }
                                 }
                               },
@@ -5705,7 +5595,7 @@
                                   "height": 6,
                                   "element": {
                                     "kind": "ElementReference",
-                                    "name": "panel-36"
+                                    "name": "panel-30"
                                   }
                                 }
                               },
@@ -5718,7 +5608,7 @@
                                   "height": 6,
                                   "element": {
                                     "kind": "ElementReference",
-                                    "name": "panel-37"
+                                    "name": "panel-31"
                                   }
                                 }
                               }
@@ -5744,7 +5634,7 @@
                                   "height": 2,
                                   "element": {
                                     "kind": "ElementReference",
-                                    "name": "panel-38"
+                                    "name": "panel-32"
                                   }
                                 }
                               },
@@ -5757,7 +5647,7 @@
                                   "height": 8,
                                   "element": {
                                     "kind": "ElementReference",
-                                    "name": "panel-39"
+                                    "name": "panel-33"
                                   }
                                 }
                               },
@@ -5770,7 +5660,7 @@
                                   "height": 8,
                                   "element": {
                                     "kind": "ElementReference",
-                                    "name": "panel-40"
+                                    "name": "panel-34"
                                   }
                                 }
                               },
@@ -5783,7 +5673,7 @@
                                   "height": 8,
                                   "element": {
                                     "kind": "ElementReference",
-                                    "name": "panel-41"
+                                    "name": "panel-35"
                                   }
                                 }
                               },
@@ -5796,7 +5686,7 @@
                                   "height": 8,
                                   "element": {
                                     "kind": "ElementReference",
-                                    "name": "panel-42"
+                                    "name": "panel-36"
                                   }
                                 }
                               },
@@ -5809,7 +5699,7 @@
                                   "height": 8,
                                   "element": {
                                     "kind": "ElementReference",
-                                    "name": "panel-43"
+                                    "name": "panel-37"
                                   }
                                 }
                               },
@@ -5822,7 +5712,7 @@
                                   "height": 10,
                                   "element": {
                                     "kind": "ElementReference",
-                                    "name": "panel-44"
+                                    "name": "panel-38"
                                   }
                                 }
                               },
@@ -5835,7 +5725,7 @@
                                   "height": 8,
                                   "element": {
                                     "kind": "ElementReference",
-                                    "name": "panel-45"
+                                    "name": "panel-39"
                                   }
                                 }
                               },
@@ -5848,7 +5738,7 @@
                                   "height": 8,
                                   "element": {
                                     "kind": "ElementReference",
-                                    "name": "panel-46"
+                                    "name": "panel-40"
                                   }
                                 }
                               },
@@ -5861,7 +5751,7 @@
                                   "height": 8,
                                   "element": {
                                     "kind": "ElementReference",
-                                    "name": "panel-47"
+                                    "name": "panel-41"
                                   }
                                 }
                               },
@@ -5874,7 +5764,7 @@
                                   "height": 10,
                                   "element": {
                                     "kind": "ElementReference",
-                                    "name": "panel-48"
+                                    "name": "panel-42"
                                   }
                                 }
                               }
@@ -5900,7 +5790,7 @@
                                   "height": 2,
                                   "element": {
                                     "kind": "ElementReference",
-                                    "name": "panel-49"
+                                    "name": "panel-43"
                                   }
                                 }
                               },
@@ -5913,7 +5803,7 @@
                                   "height": 6,
                                   "element": {
                                     "kind": "ElementReference",
-                                    "name": "panel-50"
+                                    "name": "panel-44"
                                   }
                                 }
                               },
@@ -5926,7 +5816,7 @@
                                   "height": 6,
                                   "element": {
                                     "kind": "ElementReference",
-                                    "name": "panel-51"
+                                    "name": "panel-45"
                                   }
                                 }
                               },
@@ -5939,7 +5829,7 @@
                                   "height": 6,
                                   "element": {
                                     "kind": "ElementReference",
-                                    "name": "panel-52"
+                                    "name": "panel-46"
                                   }
                                 }
                               }
@@ -5951,7 +5841,7 @@
                     {
                       "kind": "RowsLayoutRow",
                       "spec": {
-                        "title": "Served clusters",
+                        "title": "WAL",
                         "layout": {
                           "kind": "GridLayout",
                           "spec": {
@@ -5965,7 +5855,7 @@
                                   "height": 2,
                                   "element": {
                                     "kind": "ElementReference",
-                                    "name": "panel-53"
+                                    "name": "panel-47"
                                   }
                                 }
                               },
@@ -5978,7 +5868,7 @@
                                   "height": 8,
                                   "element": {
                                     "kind": "ElementReference",
-                                    "name": "panel-54"
+                                    "name": "panel-48"
                                   }
                                 }
                               },
@@ -5991,7 +5881,7 @@
                                   "height": 8,
                                   "element": {
                                     "kind": "ElementReference",
-                                    "name": "panel-55"
+                                    "name": "panel-49"
                                   }
                                 }
                               },
@@ -6004,7 +5894,137 @@
                                   "height": 8,
                                   "element": {
                                     "kind": "ElementReference",
+                                    "name": "panel-50"
+                                  }
+                                }
+                              },
+                              {
+                                "kind": "GridLayoutItem",
+                                "spec": {
+                                  "x": 0,
+                                  "y": 10,
+                                  "width": 24,
+                                  "height": 6,
+                                  "element": {
+                                    "kind": "ElementReference",
+                                    "name": "panel-51"
+                                  }
+                                }
+                              },
+                              {
+                                "kind": "GridLayoutItem",
+                                "spec": {
+                                  "x": 0,
+                                  "y": 16,
+                                  "width": 24,
+                                  "height": 10,
+                                  "element": {
+                                    "kind": "ElementReference",
+                                    "name": "panel-52"
+                                  }
+                                }
+                              },
+                              {
+                                "kind": "GridLayoutItem",
+                                "spec": {
+                                  "x": 0,
+                                  "y": 26,
+                                  "width": 12,
+                                  "height": 6,
+                                  "element": {
+                                    "kind": "ElementReference",
+                                    "name": "panel-53"
+                                  }
+                                }
+                              },
+                              {
+                                "kind": "GridLayoutItem",
+                                "spec": {
+                                  "x": 12,
+                                  "y": 26,
+                                  "width": 12,
+                                  "height": 6,
+                                  "element": {
+                                    "kind": "ElementReference",
+                                    "name": "panel-54"
+                                  }
+                                }
+                              },
+                              {
+                                "kind": "GridLayoutItem",
+                                "spec": {
+                                  "x": 0,
+                                  "y": 32,
+                                  "width": 12,
+                                  "height": 8,
+                                  "element": {
+                                    "kind": "ElementReference",
+                                    "name": "panel-55"
+                                  }
+                                }
+                              },
+                              {
+                                "kind": "GridLayoutItem",
+                                "spec": {
+                                  "x": 12,
+                                  "y": 32,
+                                  "width": 12,
+                                  "height": 8,
+                                  "element": {
+                                    "kind": "ElementReference",
                                     "name": "panel-56"
+                                  }
+                                }
+                              },
+                              {
+                                "kind": "GridLayoutItem",
+                                "spec": {
+                                  "x": 0,
+                                  "y": 40,
+                                  "width": 12,
+                                  "height": 8,
+                                  "element": {
+                                    "kind": "ElementReference",
+                                    "name": "panel-57"
+                                  }
+                                }
+                              },
+                              {
+                                "kind": "GridLayoutItem",
+                                "spec": {
+                                  "x": 12,
+                                  "y": 40,
+                                  "width": 12,
+                                  "height": 8,
+                                  "element": {
+                                    "kind": "ElementReference",
+                                    "name": "panel-58"
+                                  }
+                                }
+                              },
+                              {
+                                "kind": "GridLayoutItem",
+                                "spec": {
+                                  "x": 0,
+                                  "y": 48,
+                                  "width": 12,
+                                  "height": 8,
+                                  "element": {
+                                    "kind": "ElementReference",
+                                    "name": "panel-59"
+                                  }
+                                }
+                              },
+                              {
+                                "kind": "GridLayoutItem",
+                                "spec": {
+                                  "x": 12,
+                                  "y": 48,
+                                  "width": 12,
+                                  "height": 8,
+                                  "element": {
+                                    "kind": "ElementReference",
+                                    "name": "panel-60"
                                   }
                                 }
                               }
@@ -6030,58 +6050,6 @@
                                   "height": 2,
                                   "element": {
                                     "kind": "ElementReference",
-                                    "name": "panel-57"
-                                  }
-                                }
-                              },
-                              {
-                                "kind": "GridLayoutItem",
-                                "spec": {
-                                  "x": 0,
-                                  "y": 2,
-                                  "width": 8,
-                                  "height": 8,
-                                  "element": {
-                                    "kind": "ElementReference",
-                                    "name": "panel-58"
-                                  }
-                                }
-                              },
-                              {
-                                "kind": "GridLayoutItem",
-                                "spec": {
-                                  "x": 8,
-                                  "y": 2,
-                                  "width": 8,
-                                  "height": 8,
-                                  "element": {
-                                    "kind": "ElementReference",
-                                    "name": "panel-59"
-                                  }
-                                }
-                              },
-                              {
-                                "kind": "GridLayoutItem",
-                                "spec": {
-                                  "x": 16,
-                                  "y": 2,
-                                  "width": 8,
-                                  "height": 8,
-                                  "element": {
-                                    "kind": "ElementReference",
-                                    "name": "panel-60"
-                                  }
-                                }
-                              },
-                              {
-                                "kind": "GridLayoutItem",
-                                "spec": {
-                                  "x": 0,
-                                  "y": 10,
-                                  "width": 8,
-                                  "height": 8,
-                                  "element": {
-                                    "kind": "ElementReference",
                                     "name": "panel-61"
                                   }
                                 }
@@ -6089,8 +6057,8 @@
                               {
                                 "kind": "GridLayoutItem",
                                 "spec": {
-                                  "x": 8,
-                                  "y": 10,
+                                  "x": 0,
+                                  "y": 2,
                                   "width": 8,
                                   "height": 8,
                                   "element": {
@@ -6102,8 +6070,8 @@
                               {
                                 "kind": "GridLayoutItem",
                                 "spec": {
-                                  "x": 16,
-                                  "y": 10,
+                                  "x": 8,
+                                  "y": 2,
                                   "width": 8,
                                   "height": 8,
                                   "element": {
@@ -6111,27 +6079,14 @@
                                     "name": "panel-63"
                                   }
                                 }
-                              }
-                            ]
-                          }
-                        }
-                      }
-                    },
-                    {
-                      "kind": "RowsLayoutRow",
-                      "spec": {
-                        "title": "WAL processing",
-                        "layout": {
-                          "kind": "GridLayout",
-                          "spec": {
-                            "items": [
+                              },
                               {
                                 "kind": "GridLayoutItem",
                                 "spec": {
-                                  "x": 0,
-                                  "y": 0,
-                                  "width": 24,
-                                  "height": 2,
+                                  "x": 16,
+                                  "y": 2,
+                                  "width": 8,
+                                  "height": 8,
                                   "element": {
                                     "kind": "ElementReference",
                                     "name": "panel-64"
@@ -6142,8 +6097,8 @@
                                 "kind": "GridLayoutItem",
                                 "spec": {
                                   "x": 0,
-                                  "y": 2,
-                                  "width": 12,
+                                  "y": 10,
+                                  "width": 8,
                                   "height": 8,
                                   "element": {
                                     "kind": "ElementReference",
@@ -6154,9 +6109,9 @@
                               {
                                 "kind": "GridLayoutItem",
                                 "spec": {
-                                  "x": 12,
-                                  "y": 2,
-                                  "width": 12,
+                                  "x": 8,
+                                  "y": 10,
+                                  "width": 8,
                                   "height": 8,
                                   "element": {
                                     "kind": "ElementReference",
@@ -6167,26 +6122,13 @@
                               {
                                 "kind": "GridLayoutItem",
                                 "spec": {
-                                  "x": 0,
+                                  "x": 16,
                                   "y": 10,
-                                  "width": 12,
+                                  "width": 8,
                                   "height": 8,
                                   "element": {
                                     "kind": "ElementReference",
                                     "name": "panel-67"
-                                  }
-                                }
-                              },
-                              {
-                                "kind": "GridLayoutItem",
-                                "spec": {
-                                  "x": 12,
-                                  "y": 10,
-                                  "width": 12,
-                                  "height": 8,
-                                  "element": {
-                                    "kind": "ElementReference",
-                                    "name": "panel-68"
                                   }
                                 }
                               }

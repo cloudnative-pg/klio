@@ -126,9 +126,9 @@ func clustersGroup() group {
 				backupPanels(),
 			},
 			{
-				"WAL archiving",
-				"WAL streamed by the client in the PostgreSQL pod, and written by the Klio server to each tier.",
-				append(walStreamingPanels(), walIngestPanels()...),
+				"WAL streaming",
+				"WAL streamed by the client in the PostgreSQL pod to the Klio server.",
+				walStreamingPanels(),
 			},
 			{
 				"WAL replication lag",
@@ -192,19 +192,15 @@ func serversGroup() group {
 				backupMaintenancePanels(),
 			},
 			{
-				"Served clusters",
-				"WAL the selected servers write for each of the clusters they back up.",
-				servedClusterPanels(),
+				"WAL",
+				"WAL the selected servers write for each of the clusters they back up, per tier, and the " +
+					"latency of the WAL operations, aggregated across the selected served clusters.",
+				walPanels(),
 			},
 			{
 				"Kopia snapshots",
 				"Base backup snapshots stored in the Kopia repository of each tier.",
 				snapshotPanels(),
-			},
-			{
-				"WAL processing",
-				"Latency of the WAL operations on the server, aggregated across the selected served clusters.",
-				walProcessingPanels(),
 			},
 		},
 	}

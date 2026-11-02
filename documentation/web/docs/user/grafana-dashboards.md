@@ -30,11 +30,9 @@ The **Clusters** section is split into rows:
   p50/p90/p99 backup duration distribution, backup run and failure rates,
   and the backup success ratio.
 
-- **WAL archiving** — the WAL streaming client the sidecar supervises as a
-  child process (the PostgreSQL timeline it is currently streaming and the
-  p50/p90/p99 latency of sending a WAL block to the server), and the WAL the
-  server writes: the PostgreSQL timeline and latest written LSN per tier,
-  the WAL files written and the p50/p90/p99 tier-2 upload duration.
+- **WAL streaming** — the WAL streaming client the sidecar supervises as a
+  child process: the PostgreSQL timeline it is currently streaming and the
+  p50/p90/p99 latency of sending a WAL block to the server.
 
 ![Clusters section of the Klio dashboard](images/clusters_dashboard.png)
 - **WAL replication lag** — how far behind Klio is in copying WAL:
@@ -66,12 +64,14 @@ The **Servers** section is split into rows:
   latest/oldest backup age, start/end LSN and PostgreSQL timeline.
 - **Backup maintenance** — tier-2 relay, backup verification and
   maintenance run totals per cluster.
-- **Served clusters** — time since the last WAL written and WAL bytes
-  written per tier, for the clusters backed by the selected servers.
+- **WAL** — the WAL the selected servers write for the clusters they back
+  up, per tier: time since the last WAL written, WAL bytes and files
+  written, the PostgreSQL timeline and latest written LSN, and the
+  p50/p90/p99 tier-2 upload duration. Then the p50/p90/p99 WAL block and get
+  duration by path, stage and tier. Every percentile panel comes as both a
+  rolling-window and a since-restart total variant.
 - **Kopia snapshots** — the base snapshot inventory, including file and
   directory counts.
-- **WAL processing** — p50/p90/p99 WAL block and get duration by path, stage
-  and tier, each as both a rolling-window and a since-restart total variant.
 
 ![Servers section of the Klio dashboard](images/servers_dashboard.png)
 
