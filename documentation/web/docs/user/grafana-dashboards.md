@@ -39,10 +39,6 @@ The **Clusters** section is split into rows:
   disk. These two panels need CloudNativePG monitoring (see the
   prerequisites below).
 
-![Clusters section of the Klio dashboard](images/clusters_dashboard.png)
-
-![Klio WAL replication lag metrics](images/klio_wal_replication_lag_metrics.png)
-
 - **WAL restore** — the WAL restores the plugin serves back to PostgreSQL,
   per instance (pod), since each instance restores its own WAL through its
   own prefetch spool: the p50/p90/p99 restore duration (how long PostgreSQL
@@ -51,6 +47,8 @@ The **Clusters** section is split into rows:
   total by tier and outcome, the prefetch hit ratio, and the share of time
   PostgreSQL spent waiting on the plugin (near 0% when recovery is limited
   by replay, not by Klio).
+
+![Clusters section of the Klio dashboard](images/clusters_dashboard.png)
 
 The **Servers** section is split into rows:
 
