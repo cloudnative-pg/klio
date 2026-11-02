@@ -386,6 +386,61 @@ jobs:
             operator/klio-operator-template.yaml
             operator/olm-bundle/bundle
 
+  olm-fruit-tests:
+    name: OLM OperatorHub Tests
+    needs:
+      - change-triage
+      - olm
+    # A separate job because the OperatorHub pipeline script modifies the
+    # runner it runs on. It regenerates the bundle, so it needs the same
+    # images and settings as the olm job.
+    if: |
+      !cancelled() &&
+      needs.olm.result == 'success'
+    env:
+      ENVIRONMENT: "testing"
+      SKIP_IMAGE_DIGESTS: >-
+        ${{ (needs.change-triage.outputs.core-changed != 'true' &&
+             needs.change-triage.outputs.run-openshift != 'true') && 'true' || '' }}
+    runs-on: ubuntu-26.04
+    permissions:
+      contents: read
+      packages: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.sha }}
+
+      - name: Cleanup disk
+        uses: ./.github/actions/cleanup-disk
+        with:
+          min-free-gb: "20"
+
+      - name: Setup dagger
+        uses: ./.github/actions/setup-dagger
+
+      - name: Login to ghcr.io
+        uses: docker/login-action@81c6f93d4bc991e510b342a00b419b3bb4efc5c6 # v4
+        with:
+          registry: "ghcr.io"
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # opp.sh needs Ansible, and jmespath for its json_query filters.
+      - name: Install Ansible
+        run: |
+          pipx install --include-deps ansible
+          pipx inject ansible jmespath
+
+      - name: Run the OperatorHub fruit tests
+        timeout-minutes: 30
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          task olm:fruit-tests
+
   containerize-main:
     name: Containerize Main
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
