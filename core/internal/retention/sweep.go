@@ -157,7 +157,12 @@ func (s *Sweeper) sweepTier(ctx context.Context, tc tierConfig) error {
 	if deletedAny {
 		contextLogger.Info("Refreshing Kopia server cache after retention sweep", "tier", tc.name)
 
-		if err := s.refreshServer(ctx, tc); err != nil {
+		if err := tc.kopiaClient.RefreshServer(ctx, kopia.RefreshServerOptions{
+			ServerControlUser:     s.opts.RunID,
+			ServerControlPassword: s.opts.RunSecret,
+			ServerCertFile:        s.opts.ServerTLSCertFile,
+			Address:               tc.serverAddress,
+		}); err != nil {
 			errs = append(errs, fmt.Errorf("while refreshing the %s Kopia server: %w", tc.name, err))
 		}
 	}
@@ -395,20 +400,4 @@ func groupHostnames(entries []kopia.Manifest) []string {
 	}
 
 	return hostnames
-}
-
-// refreshServer makes the Kopia server of a tier reload its manifests,
-// pinning the served certificate by its current fingerprint.
-func (s *Sweeper) refreshServer(ctx context.Context, tc tierConfig) error {
-	fingerprint, err := kopia.LeafFingerprint(s.opts.ServerTLSCertFile)
-	if err != nil {
-		return fmt.Errorf("while fingerprinting the server certificate: %w", err)
-	}
-
-	return tc.kopiaClient.RefreshServer(ctx, kopia.RefreshServerOptions{
-		ServerControlUser:     s.opts.RunID,
-		ServerControlPassword: s.opts.RunSecret,
-		ServerCertFingerprint: fingerprint,
-		Address:               tc.serverAddress,
-	})
 }

@@ -76,8 +76,9 @@ type BackupOptions struct {
 	// Tier2ServerAddress is the address of the tier 2 Kopia server.
 	Tier2ServerAddress string
 
-	// Tier2ServerCertificateFingerprint is the SHA256 fingerprint of the tier 2 server certificate.
-	Tier2ServerCertificateFingerprint string
+	// ServerTLSCertFile is the PEM file with the serving certificate shared
+	// by the tier 1 and tier 2 Kopia servers.
+	ServerTLSCertFile string
 
 	// RunID is the unique identifier for this server run.
 	RunID string
@@ -215,7 +216,7 @@ func (d *Backup) refreshTier2(ctx context.Context) error {
 	return d.tier2Kopia.RefreshServer(ctx, kopia.RefreshServerOptions{
 		ServerControlUser:     d.opts.RunID,
 		ServerControlPassword: d.opts.RunSecret,
-		ServerCertFingerprint: d.opts.Tier2ServerCertificateFingerprint,
+		ServerCertFile:        d.opts.ServerTLSCertFile,
 		Address:               d.opts.Tier2ServerAddress,
 	})
 }
