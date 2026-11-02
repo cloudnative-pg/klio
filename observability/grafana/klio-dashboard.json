@@ -1271,7 +1271,7 @@
       },
       "gridPos": {
         "h": 6,
-        "w": 8,
+        "w": 12,
         "x": 0,
         "y": 48
       },
@@ -1328,8 +1328,8 @@
       },
       "gridPos": {
         "h": 6,
-        "w": 8,
-        "x": 8,
+        "w": 12,
+        "x": 12,
         "y": 48
       },
       "repeatDirection": "h",
@@ -1386,9 +1386,9 @@
       },
       "gridPos": {
         "h": 6,
-        "w": 8,
-        "x": 16,
-        "y": 48
+        "w": 12,
+        "x": 0,
+        "y": 54
       },
       "repeatDirection": "h",
       "options": {
@@ -1421,6 +1421,58 @@
       }
     },
     {
+      "type": "timeseries",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "expr": "sum by (cluster_name, tier, status) (klio_server_backup_incomplete_backups{service_name=~\"$server\",cluster_name=~\"$cluster\"})",
+          "instant": false,
+          "legendFormat": "{{cluster_name}} {{tier}} {{status}}",
+          "range": true
+        }
+      ],
+      "title": "Incomplete backups",
+      "description": "Backups not fully present on a tier as of the last retention sweep, per cluster, tier and status. PENDING is the latest attempt of the cluster on tier1 and clears within one backup when healthy: alert on it only once it outlives the backup interval. RECOVERABLE clears at the next relay of the cluster. UNRECOVERABLE never clears on its own: delete the backup with klio admin delete-backup.",
+      "transparent": false,
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "gridPos": {
+        "h": 6,
+        "w": 12,
+        "x": 12,
+        "y": 54
+      },
+      "repeatDirection": "h",
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true,
+          "calcs": []
+        },
+        "tooltip": {
+          "mode": "",
+          "sort": ""
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "decimals": 0,
+          "custom": {
+            "gradientMode": "opacity",
+            "fillOpacity": 10
+          }
+        },
+        "overrides": []
+      }
+    },
+    {
       "type": "stat",
       "targets": [
         {
@@ -1445,7 +1497,7 @@
         "h": 6,
         "w": 8,
         "x": 0,
-        "y": 54
+        "y": 60
       },
       "repeatDirection": "h",
       "options": {
@@ -1502,7 +1554,7 @@
         "h": 6,
         "w": 8,
         "x": 8,
-        "y": 54
+        "y": 60
       },
       "repeatDirection": "h",
       "options": {
@@ -1559,7 +1611,7 @@
         "h": 6,
         "w": 8,
         "x": 16,
-        "y": 54
+        "y": 60
       },
       "repeatDirection": "h",
       "options": {
@@ -1665,7 +1717,7 @@
         "h": 6,
         "w": 24,
         "x": 0,
-        "y": 60
+        "y": 66
       },
       "repeatDirection": "h",
       "options": {
@@ -1714,7 +1766,7 @@
         "h": 6,
         "w": 8,
         "x": 0,
-        "y": 66
+        "y": 72
       },
       "repeatDirection": "h",
       "options": {
@@ -1771,7 +1823,7 @@
         "h": 6,
         "w": 8,
         "x": 8,
-        "y": 66
+        "y": 72
       },
       "repeatDirection": "h",
       "options": {
@@ -1828,7 +1880,7 @@
         "h": 6,
         "w": 8,
         "x": 16,
-        "y": 66
+        "y": 72
       },
       "repeatDirection": "h",
       "options": {
@@ -1934,7 +1986,7 @@
         "h": 6,
         "w": 24,
         "x": 0,
-        "y": 72
+        "y": 78
       },
       "repeatDirection": "h",
       "options": {
@@ -1983,7 +2035,7 @@
         "h": 6,
         "w": 4,
         "x": 0,
-        "y": 78
+        "y": 84
       },
       "repeatDirection": "h",
       "options": {
@@ -2041,7 +2093,7 @@
         "h": 6,
         "w": 4,
         "x": 4,
-        "y": 78
+        "y": 84
       },
       "repeatDirection": "h",
       "options": {
@@ -2098,7 +2150,7 @@
         "h": 6,
         "w": 4,
         "x": 8,
-        "y": 78
+        "y": 84
       },
       "repeatDirection": "h",
       "options": {
@@ -2156,7 +2208,7 @@
         "h": 6,
         "w": 4,
         "x": 12,
-        "y": 78
+        "y": 84
       },
       "repeatDirection": "h",
       "options": {
@@ -2214,7 +2266,7 @@
         "h": 6,
         "w": 4,
         "x": 16,
-        "y": 78
+        "y": 84
       },
       "repeatDirection": "h",
       "options": {
@@ -2271,7 +2323,7 @@
         "h": 6,
         "w": 4,
         "x": 20,
-        "y": 78
+        "y": 84
       },
       "repeatDirection": "h",
       "options": {
@@ -2328,7 +2380,7 @@
         "h": 6,
         "w": 8,
         "x": 0,
-        "y": 84
+        "y": 90
       },
       "repeatDirection": "h",
       "options": {
@@ -2382,7 +2434,7 @@
         "h": 6,
         "w": 8,
         "x": 8,
-        "y": 84
+        "y": 90
       },
       "repeatDirection": "h",
       "options": {
@@ -2457,7 +2509,7 @@
         "h": 6,
         "w": 8,
         "x": 16,
-        "y": 84
+        "y": 90
       },
       "repeatDirection": "h",
       "options": {
@@ -2506,7 +2558,7 @@
         "h": 6,
         "w": 12,
         "x": 0,
-        "y": 90
+        "y": 96
       },
       "repeatDirection": "h",
       "options": {
@@ -2557,7 +2609,7 @@
         "h": 6,
         "w": 12,
         "x": 12,
-        "y": 90
+        "y": 96
       },
       "repeatDirection": "h",
       "options": {
@@ -2608,7 +2660,7 @@
         "h": 6,
         "w": 12,
         "x": 0,
-        "y": 96
+        "y": 102
       },
       "repeatDirection": "h",
       "options": {
@@ -2659,7 +2711,7 @@
         "h": 6,
         "w": 12,
         "x": 12,
-        "y": 96
+        "y": 102
       },
       "repeatDirection": "h",
       "options": {
@@ -2730,7 +2782,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 102
+        "y": 108
       },
       "repeatDirection": "h",
       "options": {
@@ -2801,7 +2853,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 102
+        "y": 108
       },
       "repeatDirection": "h",
       "options": {
@@ -2872,7 +2924,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 110
+        "y": 116
       },
       "repeatDirection": "h",
       "options": {
@@ -2943,7 +2995,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 110
+        "y": 116
       },
       "repeatDirection": "h",
       "options": {
@@ -3014,7 +3066,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 118
+        "y": 124
       },
       "repeatDirection": "h",
       "options": {
@@ -3085,7 +3137,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 118
+        "y": 124
       },
       "repeatDirection": "h",
       "options": {
@@ -3136,7 +3188,7 @@
         "h": 6,
         "w": 8,
         "x": 0,
-        "y": 126
+        "y": 132
       },
       "repeatDirection": "h",
       "options": {
@@ -3187,7 +3239,7 @@
         "h": 6,
         "w": 8,
         "x": 8,
-        "y": 126
+        "y": 132
       },
       "repeatDirection": "h",
       "options": {
@@ -3238,7 +3290,7 @@
         "h": 6,
         "w": 8,
         "x": 16,
-        "y": 126
+        "y": 132
       },
       "repeatDirection": "h",
       "options": {
@@ -3289,7 +3341,7 @@
         "h": 6,
         "w": 12,
         "x": 0,
-        "y": 132
+        "y": 138
       },
       "repeatDirection": "h",
       "options": {
@@ -3340,7 +3392,7 @@
         "h": 6,
         "w": 12,
         "x": 12,
-        "y": 132
+        "y": 138
       },
       "repeatDirection": "h",
       "options": {
@@ -3374,7 +3426,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 138
+        "y": 144
       },
       "id": 0,
       "panels": []
@@ -3386,7 +3438,7 @@
         "h": 2,
         "w": 24,
         "x": 0,
-        "y": 139
+        "y": 145
       },
       "repeatDirection": "h",
       "options": {
@@ -3429,7 +3481,7 @@
         "h": 6,
         "w": 8,
         "x": 0,
-        "y": 141
+        "y": 147
       },
       "repeatDirection": "h",
       "options": {
@@ -3490,7 +3542,7 @@
         "h": 6,
         "w": 8,
         "x": 8,
-        "y": 141
+        "y": 147
       },
       "repeatDirection": "h",
       "options": {
@@ -3541,7 +3593,7 @@
         "h": 6,
         "w": 8,
         "x": 16,
-        "y": 141
+        "y": 147
       },
       "repeatDirection": "h",
       "options": {

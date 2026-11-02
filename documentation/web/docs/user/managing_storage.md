@@ -49,7 +49,9 @@ When the Klio server's `/klio` PVC is completely full:
 - WAL streaming to Klio stops
 - PostgreSQL accumulates WAL files on its own PVC
 - No backup corruption occurs, even when backups fail mid-operation
-- No orphan or incomplete snapshots are left behind
+- A backup interrupted by the full disk is left incomplete, and must be
+  deleted by hand to free its space (see
+  [Incomplete Backups](backup_and_restore.md#incomplete-backups))
 - Existing backups remain intact and restorable
 
 All operations resume automatically when space is freed.

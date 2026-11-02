@@ -23,6 +23,7 @@ package retention
 
 import (
 	"fmt"
+	"sync"
 
 	klioclientkopia "github.com/cloudnative-pg/klio/core/internal/client/klioclient/kopia"
 	"github.com/cloudnative-pg/klio/core/internal/kopia"
@@ -67,11 +68,18 @@ type Sweeper struct {
 	opts *Options
 
 	tier1Kopia  *kopia.Client
-	tier1Client *klioclientkopia.Connection
+	tier1Client backupDeleter
 
 	tier2Kopia   *kopia.Client
 	tier2Client  *klioclientkopia.Connection
 	tier2Enabled bool
+
+	// incomplete counts the incomplete backups found by the last sweep of
+	// each tier. The sweep writes it; the incomplete backups gauge
+	// callback reads it from the OTel SDK's goroutine at every collection,
+	// so incompleteMu keeps the two apart.
+	incompleteMu sync.Mutex
+	incomplete   map[incompleteKey]int64
 }
 
 // NewSweeper builds a Sweeper connected directly to the tier1 (and,
@@ -86,6 +94,7 @@ func NewSweeper(opts *Options) (*Sweeper, error) {
 		opts:        opts,
 		tier1Kopia:  tier1Client.KopiaClient(),
 		tier1Client: tier1Client,
+		incomplete:  make(map[incompleteKey]int64),
 	}
 
 	if opts.Tier2KopiaConfig != "" {
@@ -97,6 +106,10 @@ func NewSweeper(opts *Options) (*Sweeper, error) {
 		s.tier2Kopia = tier2Client.KopiaClient()
 		s.tier2Client = tier2Client
 		s.tier2Enabled = true
+	}
+
+	if err := s.registerMetrics(); err != nil {
+		return nil, fmt.Errorf("while registering the sweeper metrics: %w", err)
 	}
 
 	return s, nil
