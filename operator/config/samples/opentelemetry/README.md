@@ -51,8 +51,8 @@ dashboard attribution bugs. `cluster-d` is backed by a *second*, independent
 Klio server that happens to also be named "klio-a" (see `multi/team-d`):
 since a Server's StatefulSet pod name is derived from the Server's own name
 alone, both servers' pods are named "klio-a-klio-0", giving them an
-identical host_name label — a case the dashboard's `$server` variable
-cannot disambiguate on its own.
+identical host_name label. The dashboard identifies a server by its
+namespace and name instead, so the two servers stay distinguishable.
 
 Every Klio server has its own certificate authority, signing only that
 server's own **client** certificates — no CA is ever shared between
@@ -173,20 +173,32 @@ kubectl apply -f operator/config/samples/opentelemetry/multi/backups-example.yam
 ```
 
 Once all backups complete and Prometheus has scraped a metrics-collection
-cycle, open the Klio Grafana dashboard and confirm:
+cycle, open the Klio Grafana dashboard.
+
+On the **Clusters** section, confirm:
 
 - The `$namespace` variable offers `default`, `team-c` and `team-d`.
-- The `$server` variable offers only `klio-a-klio-0` and `klio-b-klio-0`
-  (the value is each server's pod hostname): Grafana's variable query
-  dedupes identical label values, so the two independent `klio-a` servers
-  (`default` and `team-d`) collapse into a single, ambiguous entry — this
-  is the disambiguation gap described above, not a deployment error.
 - The `$cluster` variable offers `cluster-a`, `cluster-b`, `cluster-c` and
-  `cluster-d`, and narrows correctly when `$namespace`/`$server` are
-  filtered (e.g. selecting `$namespace=team-c` should only ever offer
-  `cluster-c`).
-- Per-cluster and per-server panels correctly attribute data instead of
-  aggregating everything together, and in particular that the two
+  `cluster-d`, and narrows when `$namespace` is filtered (e.g. selecting
+  `$namespace=team-c` should only ever offer `cluster-c`).
+- With `$namespace=team-c` and `$cluster=All`, every panel, including the ones
+  built from the Klio server metrics, only shows `cluster-c`.
+- Per-cluster panels correctly attribute data instead of aggregating
+  everything together.
+
+On the **Servers** section, confirm:
+
+- The `$server_namespace` variable offers the namespaces where the Klio
+  servers run, `default` and `team-d`, not `team-c`.
+- The `$server` variable offers `klio-a` and `klio-b`, the Server names. With
+  `$server_namespace=team-d` it only offers `klio-a`, the independent server
+  in `team-d`.
+- With `$server_namespace=team-d` and `$server=All`, every panel only shows
+  the server running in `team-d`.
+- The `$served_cluster` variable (*Served cluster*) offers the clusters
+  backed by the selected servers, including `cluster-c`, which runs in a
+  different namespace than `klio-b`.
+- Per-server panels correctly attribute data, and in particular the two
   same-named `klio-a` servers (in `default` and in `team-d`) are not
   conflated.
 

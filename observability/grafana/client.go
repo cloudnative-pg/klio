@@ -34,20 +34,23 @@ const restoreDurationDescription = "50th/90th/99th-percentile time PostgreSQL wa
 	"rename) and misses (a wait on a download) are pooled, so with a high hit ratio the misses only show " +
 	"in the upper percentiles; see the prefetch hit ratio and wait share panels for their weight."
 
-// clientPanels returns the "Client / Plugin" section panels. These metrics are
-// emitted by the Klio plugin sidecar that runs in each PostgreSQL pod: the
-// backup lifecycle (`klio.plugin.backup.*`, exported to Prometheus as
-// `klio_plugin_backup_*`) and the WAL streaming client it supervises as a
-// child process (`klio.client.wal.*`, exported as `klio_client_wal_*`), and
-// the WAL restores it serves to PostgreSQL (`klio.plugin.wal.*`, exported as
-// `klio_plugin_wal_*`). All three families carry a cluster_name, so every
-// panel groups by cluster_name and is scoped by $namespace and $cluster;
-// nothing folds several clusters that share a namespace into a single value.
-func clientPanels() []sizedPanel {
+// cnpgMatcher selects the CloudNativePG replication metrics for Klio's WAL
+// streaming client. Unlike the klio_* metrics (which carry the OpenTelemetry
+// k8s_namespace_name resource attribute), the cnpg_* metrics come from
+// CloudNativePG's own exporter and use the `namespace` label; application_name
+// is the replication application name Klio connects with. pod is the
+// primary, named `<cluster>-<serial>`, narrowed further by the selected
+// instances.
+const cnpgMatcher = `namespace=~"$namespace",application_name="klio",pod=~"$cluster-[0-9]+",pod=~"$pod"`
+
+// The client panels show the metrics of the plugin sidecar in each PostgreSQL
+// pod (`klio_plugin_*`), of the WAL streaming client it supervises
+// (`klio_client_wal_*`) and CloudNativePG's view of that client's replication
+// (`cnpg_pg_stat_replication_*`).
+
+// backupPanels returns the base backup lifecycle panels.
+func backupPanels() []sizedPanel {
 	return []sizedPanel{
-		sized(gridWidth, descriptionPanelHeight, descriptionPanel(
-			"Backup lifecycle, WAL streaming and WAL restore as seen by the plugin sidecar running in each "+
-				"PostgreSQL pod.")),
 		// Backup activity.
 		// Current backup state, grouped by cluster so a namespace hosting
 		// several clusters shows one series each instead of a folded total.
@@ -139,8 +142,12 @@ func clientPanels() []sizedPanel {
 			quantileTargetsAbsolute("klio_plugin_backup_duration_seconds_bucket", "le, cluster_name",
 				"outcome=\"success\","+clientMatcher, "{{cluster_name}}")...,
 		).Description("50th/90th/99th-percentile duration of successful base backup runs, per cluster.")),
+	}
+}
 
-		// WAL streaming.
+// walStreamingPanels returns the WAL streaming client panels.
+func walStreamingPanels() []sizedPanel {
+	return []sizedPanel{
 		sized(largePanelWidth, mediumPanelHeight, timelinePanel("WAL streaming timeline",
 			query(fmt.Sprintf("max by (cluster_name) (klio_client_wal_timeline{%s})", clientMatcher),
 				"{{cluster_name}}"),
@@ -160,7 +167,35 @@ func clientPanels() []sizedPanel {
 			).Description("50th/90th/99th-percentile duration of the client's gRPC send of a WAL block to the "+
 				"server, per cluster. Reflects all activity since the server last restarted.")),
 
-		// WAL restore. Every RESTORE_WAL request the plugin serves to PostgreSQL
+		// Tier-1 replication lag, from CloudNativePG's pg_stat_replication
+		// metrics: they require CloudNativePG monitoring to be scraped into
+		// the same Prometheus as Klio's metrics.
+		sized(largePanelWidth, mediumPanelHeight, timeseriesPanel("Tier-1 replication lag (bytes)", units.BytesIEC,
+			query(
+				fmt.Sprintf("cnpg_pg_stat_replication_write_diff_bytes{%s}", cnpgMatcher),
+				"{{pod}} write"),
+			query(
+				fmt.Sprintf("cnpg_pg_stat_replication_flush_diff_bytes{%s}", cnpgMatcher),
+				"{{pod}} flush"),
+		).Description("Byte distance between the primary's current WAL LSN and the LSN Klio's streaming "+
+			"client has written to disk and flushed.")),
+
+		sized(largePanelWidth, mediumPanelHeight, timeseriesPanel("Tier-1 replication lag (seconds)", units.Seconds,
+			query(
+				fmt.Sprintf("cnpg_pg_stat_replication_write_lag_seconds{%s}", cnpgMatcher),
+				"{{pod}} write"),
+			query(
+				fmt.Sprintf("cnpg_pg_stat_replication_flush_lag_seconds{%s}", cnpgMatcher),
+				"{{pod}} flush"),
+		).Description("Time between a commit on the primary and Klio's streaming client writing to disk "+
+			"and flushing the corresponding WAL.")),
+	}
+}
+
+// walRestorePanels returns the panels of the WAL restores served to PostgreSQL.
+func walRestorePanels() []sizedPanel {
+	return []sizedPanel{
+		// Every RESTORE_WAL request the plugin serves to PostgreSQL
 		// records klio.plugin.wal.restore_duration. Restores are per instance:
 		// each pod's plugin sidecar restores its own WAL through its own
 		// prefetch spool, so these panels split by k8s_pod_name, which the
