@@ -32,19 +32,6 @@ import (
 	"github.com/cloudnative-pg/klio/core/pkg/config"
 )
 
-// loadClientIdentity loads the client key pair referenced by the client
-// configuration, reading the files fresh on every call. It backs the
-// GetClientCertificate callback, so a rotated client identity is
-// presented on new handshakes without restarting the process.
-func loadClientIdentity(clientConfig *config.ClientConfig) (tls.Certificate, error) {
-	clientCertificate, err := tls.LoadX509KeyPair(clientConfig.Wal.ClientCertPath, clientConfig.Wal.ClientKeyPath)
-	if err != nil {
-		return tls.Certificate{}, fmt.Errorf("while parsing the client certificate: %w", err)
-	}
-
-	return clientCertificate, nil
-}
-
 // loadServerCABundle reads the PEM-encoded CA bundle used to verify the
 // Klio server. Callers re-read it whenever they need it so a rotated
 // bundle takes effect without restarting the process.
@@ -62,30 +49,23 @@ func loadServerCABundle(bundlePath string) (*x509.CertPool, error) {
 	return serverCertificatePool, nil
 }
 
-// buildTLSConfig builds the client TLS configuration from the current
-// trust bundle on disk, wiring the client identity for per-handshake
-// reloads. The eager identity load fails fast on invalid files.
+// buildTLSConfig builds the client TLS configuration from the trust
+// bundle and the client identity currently on disk.
 func buildTLSConfig(clientConfig *config.ClientConfig) (*tls.Config, error) {
 	serverCertificatePool, err := loadServerCABundle(clientConfig.Wal.ServerCertPath)
 	if err != nil {
 		return nil, err
 	}
 
-	if _, err := loadClientIdentity(clientConfig); err != nil {
-		return nil, err
+	clientCertificate, err := tls.LoadX509KeyPair(clientConfig.Wal.ClientCertPath, clientConfig.Wal.ClientKeyPath)
+	if err != nil {
+		return nil, fmt.Errorf("while parsing the client certificate: %w", err)
 	}
 
 	return &tls.Config{
-		MinVersion: tls.VersionTLS12,
-		RootCAs:    serverCertificatePool,
-		GetClientCertificate: func(*tls.CertificateRequestInfo) (*tls.Certificate, error) {
-			clientCertificate, err := loadClientIdentity(clientConfig)
-			if err != nil {
-				return nil, err
-			}
-
-			return &clientCertificate, nil
-		},
+		MinVersion:   tls.VersionTLS12,
+		RootCAs:      serverCertificatePool,
+		Certificates: []tls.Certificate{clientCertificate},
 	}, nil
 }
 

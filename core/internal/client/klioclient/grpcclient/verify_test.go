@@ -426,3 +426,88 @@ func newTestLeafFromIntermediate(
 
 	return cert, key
 }
+
+// writeTestClientIdentity replaces the client key pair on disk with a new
+// one issued by the given CA, and returns the new certificate.
+func writeTestClientIdentity(
+	t *testing.T, clientConfig *config.ClientConfig, caCertPEM, caKeyDER []byte,
+) *x509.Certificate {
+	t.Helper()
+
+	cert, key := newTestCertWithUsage(t, caCertPEM, caKeyDER, x509.ExtKeyUsageClientAuth)
+	keyDER, err := x509.MarshalECPrivateKey(key)
+	require.NoError(t, err)
+
+	require.NoError(t, os.WriteFile(clientConfig.Wal.ClientCertPath,
+		pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: cert.Raw}), 0o600))
+	require.NoError(t, os.WriteFile(clientConfig.Wal.ClientKeyPath,
+		pem.EncodeToMemory(&pem.Block{Type: "EC PRIVATE KEY", Bytes: keyDER}), 0o600))
+
+	return cert
+}
+
+// presentedClientCertificate runs one mutual TLS handshake against a server
+// that, like the WAL server, requires a client certificate signed by
+// clientCAPEM, and returns the certificate the client presented.
+func presentedClientCertificate(
+	t *testing.T, transportCredentials *reloadingCredentials, pki *testPKI, clientCAPEM []byte,
+) []byte {
+	t.Helper()
+
+	listener, err := (&net.ListenConfig{}).Listen(context.Background(), "tcp", "127.0.0.1:0")
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = listener.Close() })
+
+	clientCAs := x509.NewCertPool()
+	require.True(t, clientCAs.AppendCertsFromPEM(clientCAPEM))
+
+	presented := make(chan []byte, 1)
+	go func() {
+		defer close(presented)
+
+		serverConn, err := listener.Accept()
+		if err != nil {
+			return
+		}
+
+		server := tls.Server(serverConn, &tls.Config{
+			MinVersion:   tls.VersionTLS12,
+			NextProtos:   []string{"h2"},
+			Certificates: []tls.Certificate{{Certificate: [][]byte{pki.serverCert.Raw}, PrivateKey: pki.serverKey}},
+			ClientAuth:   tls.RequireAndVerifyClientCert,
+			ClientCAs:    clientCAs,
+		})
+		defer func() { _ = server.Close() }()
+
+		if err := server.HandshakeContext(context.Background()); err == nil {
+			presented <- server.ConnectionState().PeerCertificates[0].Raw
+		}
+	}()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	rawConn, err := (&net.Dialer{}).DialContext(ctx, "tcp", listener.Addr().String())
+	require.NoError(t, err)
+
+	conn, _, err := transportCredentials.ClientHandshake(ctx, testServerHostname, rawConn)
+	require.NoError(t, err)
+	defer func() { _ = conn.Close() }()
+
+	return <-presented
+}
+
+func TestHandshakeRotatedClientIdentity(t *testing.T) {
+	clientConfig, pki := writeTestClientConfig(t, t.TempDir())
+	clientCAPEM, clientCAKeyDER := writeTestCAPrivate(t, "test-client-ca", 50)
+	first := writeTestClientIdentity(t, clientConfig, clientCAPEM, clientCAKeyDER)
+
+	transportCredentials, err := newReloadingCredentials(clientConfig)
+	require.NoError(t, err)
+	require.Equal(t, first.Raw, presentedClientCertificate(t, transportCredentials, pki, clientCAPEM))
+
+	// A renewed identity is presented on the next handshake without
+	// rebuilding the credentials.
+	second := writeTestClientIdentity(t, clientConfig, clientCAPEM, clientCAKeyDER)
+	require.Equal(t, second.Raw, presentedClientCertificate(t, transportCredentials, pki, clientCAPEM))
+}
