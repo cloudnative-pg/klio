@@ -982,6 +982,11 @@ tasks:
       - operator/olm-manifests/**
     generates:
       - operator/olm-bundle/**
+    # The sources don't cover the version, which comes from `git describe`.
+    status:
+      - >
+        grep -qx '  version: {{ .GIT_TAG_VERSION }}'
+        operator/olm-bundle/bundle/manifests/klio-operator.clusterserviceversion.yaml
 
   olm:build:
     desc: Build the require OLM bundle image after generating the bundle
@@ -1394,6 +1399,32 @@ tasks:
           PRIVATE_REGISTRY_HOST: '{{ .PRIVATE_REGISTRY_HOST }}'
           PRIVATE_REGISTRY_USERNAME: '{{ .PRIVATE_REGISTRY_USERNAME }}'
 
+  olm:fruit-tests:
+    desc: Run the OperatorHub fruit tests (kiwi, lemon, orange) against the OLM bundle
+    summary: |
+      Adds the bundle to a temporary community-operators checkout and runs
+      the OperatorHub pipeline script against it. Only runs inside a GitHub
+      Actions runner, since the script modifies the host it runs on.
+      GITHUB_TOKEN, when set, authenticates the script download.
+    requires:
+      vars:
+        - name: ENVIRONMENT
+          enum:
+            ref: .ALLOWED_ENVS
+    # Also checked by ci-machinery, but only after the bundle is generated.
+    # olm:bundle is a cmd rather than a dep so that this check runs first.
+    preconditions:
+      - sh: '[ "${GITHUB_ACTIONS:-}" = "true" ]'
+        msg: "olm:fruit-tests only runs inside a GitHub Actions runner: opp.sh modifies the host it runs on"
+    cmds:
+      - task: olm:bundle
+      - task: ci-machinery-olm:operator-hub:fruit-tests
+        vars:
+          WORKDIR: '{{ .ROOT_DIR }}/operator'
+          OPERATOR_NAME: klio-operator
+          VERSION: '{{ .GIT_TAG_VERSION }}'
+          BUNDLE_DIR: olm-bundle/bundle
+
   olm:clean:
     desc: Cleanup of the OLM build artifacts
     cmds:
@@ -1402,6 +1433,26 @@ tasks:
       - rm -fr operator/config/manifest-build/
       - rm -fr operator/catalog*
       - rm -fr operator/preflight-artifacts
+
+  olm:prune:
+    desc: Clean up the OLM build artifacts and remove the OLM test infrastructure
+    summary: |
+      Runs olm:clean, then deletes the Kind cluster, the local registry, the
+      builder, the Dagger engine and the Docker network of the ci-machinery
+      infrastructure. These are shared with any other project using the same
+      ci-machinery defaults.
+    cmds:
+      - task: olm:clean
+      # The Kind cluster goes first: deleting it needs the Dagger engine.
+      - task: ci-machinery-olm:infra:teardown-kind
+        vars:
+          CLUSTER_NAME: '{{ .OLM_KIND_CLUSTER_NAME }}'
+      - rm -f {{ .OLM_KUBECONFIG_PATH | shellQuote }}
+      - task: ci-machinery-olm:infra:teardown-container-registry
+      - task: ci-machinery-olm:infra:teardown-builder
+      - task: ci-machinery-olm:infra:teardown-dagger-engine
+      # Fails if another project still has containers on the network.
+      - task: ci-machinery-olm:infra:teardown-docker-network
 
   ####################################
   ## DOCUMENTATION
