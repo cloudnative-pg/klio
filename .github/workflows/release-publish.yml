@@ -93,8 +93,8 @@ jobs:
       - name: Setup dagger
         uses: ./.github/actions/setup-dagger
 
-      - name: Login to ghcr.io using Podman
-        uses: redhat-actions/podman-login@50c2d9a331bb67c8fdab99b86455fad05e2e3252 # v2
+      - name: Login to ghcr.io
+        uses: docker/login-action@81c6f93d4bc991e510b342a00b419b3bb4efc5c6 # v4
         with:
           registry: "ghcr.io"
           username: ${{ github.actor }}
