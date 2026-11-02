@@ -61,6 +61,24 @@ vars:
   # digests. Defaults to empty, so digest pinning is on wherever it can work;
   # see olm:bundle for when CI turns it off.
   SKIP_IMAGE_DIGESTS: '{{ .SKIP_IMAGE_DIGESTS | default "" }}'
+  # Registry the OLM images are pushed to and pulled from. Defaults to ghcr.io
+  # in GitHub Actions, and to the local registry of ci-machinery otherwise,
+  # which olm:setup-infra starts. Set it to use an external registry from a
+  # local run; for a private one, also set PRIVATE_REGISTRY_HOST and
+  # PRIVATE_REGISTRY_USERNAME, and the PRIVATE_REGISTRY_PASSWORD environment
+  # variable.
+  # Address of the ci-machinery registry inside its Docker network, i.e.
+  # REGISTRY_NAME:REGISTRY_INTERNAL_PORT of taskfile.infra.yaml, which the vars
+  # here cannot reference since they are resolved before the included ones.
+  OLM_LOCAL_REGISTRY_ADDRESS: 'registry.cnpg:5000'
+  OLM_REGISTRY: '{{ if .OLM_REGISTRY }}{{ .OLM_REGISTRY }}{{ else if .GITHUB_ACTIONS }}ghcr.io/{{ .REGISTRY_OWNER }}{{ else }}{{ .OLM_LOCAL_REGISTRY_ADDRESS }}{{ end }}'
+  OLM_LOCAL_REGISTRY: '{{ if eq .OLM_REGISTRY .OLM_LOCAL_REGISTRY_ADDRESS }}true{{ else }}false{{ end }}'
+  # Host port of the local registry. Not 5000, which is often taken on the host.
+  OLM_REGISTRY_HOST_PORT: '{{ .OLM_REGISTRY_HOST_PORT | default 5005 }}'
+  # Kind cluster the OLM tests run on, and the kubeconfig used to reach it from
+  # inside the Dagger engine.
+  OLM_KIND_CLUSTER_NAME: '{{ .OLM_KIND_CLUSTER_NAME | default "klio-olm-test" }}'
+  OLM_KUBECONFIG_PATH: '{{ .OLM_KUBECONFIG_PATH | default (printf "./%s-kubeconfig" .OLM_KIND_CLUSTER_NAME) }}'
 
 tasks:
 
@@ -770,6 +788,46 @@ tasks:
       - olm:catalog
       - olm:catalog-source
       - olm:scorecard
+
+  olm:setup-infra:
+    desc: Set up the Dagger engine, builder and local registry for the OLM tasks
+    summary: |
+      Starts the ci-machinery Dagger engine and buildx builder, sharing one
+      Docker network, and the local registry when OLM_REGISTRY points to it
+      (the default outside GitHub Actions), published on the host at
+      OLM_REGISTRY_HOST_PORT. Every step is skipped when already up.
+    run: once
+    cmds:
+      - task: ci-machinery-olm:infra:setup-container-registry
+        if: '{{ .OLM_LOCAL_REGISTRY }}'
+        vars:
+          REGISTRY_HOST_PORT: '{{ .OLM_REGISTRY_HOST_PORT }}'
+      - task: ci-machinery-olm:infra:setup-dagger-engine
+      - task: ci-machinery-olm:infra:setup-docker-builder
+
+  olm:setup-kind:
+    desc: Set up the Kind cluster for the OLM tests and export its kubeconfig
+    summary: |
+      Creates the Kind cluster OLM_KIND_CLUSTER_NAME on the ci-machinery
+      Docker network, and writes to OLM_KUBECONFIG_PATH the kubeconfig used
+      to reach it from inside the Dagger engine. When PRIVATE_REGISTRY_HOST
+      and PRIVATE_REGISTRY_USERNAME are set, together with the
+      PRIVATE_REGISTRY_PASSWORD environment variable, the nodes get the
+      credentials to pull from that registry. Skipped when the cluster
+      already exists.
+    run: once
+    cmds:
+      - task: ci-machinery-olm:infra:setup-kind
+        vars:
+          CLUSTER_NAME: '{{ .OLM_KIND_CLUSTER_NAME }}'
+          PRIVATE_REGISTRY_HOST: '{{ .PRIVATE_REGISTRY_HOST }}'
+          PRIVATE_REGISTRY_USERNAME: '{{ .PRIVATE_REGISTRY_USERNAME }}'
+      - task: ci-machinery-olm:infra:export-kubeconfig
+        vars:
+          CLUSTER_NAME: '{{ .OLM_KIND_CLUSTER_NAME }}'
+          INTERNAL: 'true'
+          WORKDIR: '{{ .ROOT_DIR }}'
+          KUBECONFIG_PATH: '{{ .OLM_KUBECONFIG_PATH }}'
 
   olm:manifest:
     run: once
