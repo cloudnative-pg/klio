@@ -7,8 +7,7 @@ kubeconfig-integration
 certs/
 
 # Ignore OLM generated files
-bundle.Dockerfile
-bundle/
+operator/olm-bundle/
 operator/olm-manifests/
 operator/config/manifest-build/
 operator/config/olm-default/manager_sidecar_image_patch.yaml

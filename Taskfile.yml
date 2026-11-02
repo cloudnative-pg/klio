@@ -23,16 +23,14 @@ vars:
   # namespace instead of failing against cloudnative-pg's, which the fork has
   # no write access to.
   REGISTRY_OWNER: '{{ .REGISTRY_OWNER | default .GITHUB_REPOSITORY_OWNER | default "cloudnative-pg" | lower }}'
+  # Must match the version ci-machinery's bundle:generate gives the CSV, which
+  # is derived the same way, since olm:manifest uses it for olm.skipRange.
   GIT_TAG_VERSION:
-    sh: git describe --tags --match 'v*' | sed -e 's/^v//; s/-g[0-9a-f]\+$$//; s/-\([0-9]\+\)$$/-dev\1/'
+    sh: git describe --tags --match 'v*' | sed -e 's/^v//; s/-g[0-9a-f]\+$//; s/-\([0-9]\+\)$/-dev\1/'
   GITHUB_REF_NAME: '{{ .GITHUB_REF_NAME | default "dev" }}'
   CLEANED_REF_NAME: '{{ regexReplaceAll "[/_]" .GITHUB_REF_NAME "-" }}'
   IMAGE_TAG: '{{ .IMAGE_TAG | default (regexReplaceAll "(\\d+)-merge" .CLEANED_REF_NAME "pr-${1}") }}'
   KUBECONFIG_PATH: ./kubeconfig-integration
-  # operator-sdk image used to generate the OLM bundle (olm:bundle) and run
-  # scorecard against it (olm:scorecard); the two must use the same version.
-  # renovate: datasource=docker depName=quay.io/operator-framework/operator-sdk versioning=docker
-  OPERATOR_SDK_IMAGE_VERSION: v1.42.3@sha256:b7378eb179b97fbdf1ff1304e86f62e9ff9f9c2d0089464111ce8eddd39e2013
   # Red Hat Preflight image used by olm:preflight-container (check container, in
   # the Dagger engine) and olm:preflight-operator (check operator, host-side);
   # the two must use the same version.
@@ -778,7 +776,7 @@ tasks:
   ####################################
 
   olm:all:
-    desc: Generate the OLM bundle, catalog image, and CatalogSource YAML
+    desc: Generate the OLM bundle, catalog image and CatalogSource YAML, and test the bundle
     requires:
       vars:
         - name: ENVIRONMENT
@@ -787,6 +785,7 @@ tasks:
     deps:
       - olm:catalog
       - olm:catalog-source
+      - olm:validate
       - olm:scorecard
 
   olm:setup-infra:
@@ -837,12 +836,16 @@ tasks:
         - name: ENVIRONMENT
           enum:
             ref: .ALLOWED_ENVS
+    deps:
+      - olm:setup-infra
     env:
-      registry: '{{ if .GITHUB_ACTIONS }}ghcr.io/{{ .REGISTRY_OWNER }}{{ else }}{{ .KLIO_REGISTRY_NAME }}:{{ .KLIO_REGISTRY_PORT }}{{ end }}'
-      insecure: '{{ if .GITHUB_ACTIONS }}false{{ else }}true{{ end }}'
+      registry: '{{ .OLM_REGISTRY }}'
       suffix: '{{ if ( ne .ENVIRONMENT "production" ) }}-testing{{end}}'
       tag: '{{ .TAG | default .IMAGE_TAG }}'
       ubi_suffix: '{{ .UBI_TAG_SUFFIX }}'
+      # Use the ci-machinery engine: the Dagger CLI starting its own one would
+      # remove it.
+      _EXPERIMENTAL_DAGGER_RUNNER_HOST: docker-container://{{ .DAGGER_ENGINE }}
       # renovate: datasource=git-refs depName=kustomize lookupName=https://github.com/sagikazarmark/daggerverse currentValue=main
       DAGGER_KUSTOMIZE_SHA: ff27cd50f6b4eed2e3753c520632cd6099e1ce52
     cmds:
@@ -927,33 +930,29 @@ tasks:
             ref: .ALLOWED_ENVS
     deps:
       - olm:manifest
-    env:
-      use_image_digests: '{{ if and .GITHUB_ACTIONS (not .SKIP_IMAGE_DIGESTS) }}--use-image-digests{{ end }}'
     cmds:
-      - >
-        docker
-        run --rm
-        -u $(id -u)
-        -v $(pwd)/operator:/operator
-        -w /operator/
-        quay.io/operator-framework/operator-sdk:{{ .OPERATOR_SDK_IMAGE_VERSION }}
-        generate bundle
-        --input-dir olm-manifests/
-        --kustomize-dir config/manifests
-        --package klio-operator
-        --channels {{ .OLM_CHANNELS }}
-        --default-channel {{ .OLM_DEFAULT_CHANNEL }}
-        ${use_image_digests}
-        --version {{ .GIT_TAG_VERSION }}
+      # The bundle version is not passed: bundle:generate derives it from
+      # `git describe` the same way GIT_TAG_VERSION is.
+      - task: ci-machinery-olm:bundle:generate
+        vars:
+          WORKDIR: '{{ .ROOT_DIR }}/operator'
+          INPUT_DIR: olm-manifests
+          OUTPUT_DIR: olm-bundle
+          PACKAGE_NAME: klio-operator
+          CHANNELS: '{{ .OLM_CHANNELS }}'
+          DEFAULT_CHANNEL: '{{ .OLM_DEFAULT_CHANNEL }}'
+          EXTRA_ARGS: '{{ if and .GITHUB_ACTIONS (not .SKIP_IMAGE_DIGESTS) }}--use-image-digests{{ end }}'
+          PRIVATE_REGISTRY_HOST: '{{ .PRIVATE_REGISTRY_HOST }}'
+          PRIVATE_REGISTRY_USERNAME: '{{ .PRIVATE_REGISTRY_USERNAME }}'
       - |
         printf '\n  # OpenShift annotations.\n  com.redhat.openshift.versions: "%s"\n' \
-          '{{ .OPENSHIFT_VERSIONS }}' >> operator/bundle/metadata/annotations.yaml
+          '{{ .OPENSHIFT_VERSIONS }}' >> operator/olm-bundle/bundle/metadata/annotations.yaml
         printf '\n# OpenShift labels.\nLABEL com.redhat.openshift.versions="%s"\n' \
-          '{{ .OPENSHIFT_VERSIONS }}' >> operator/bundle.Dockerfile
+          '{{ .OPENSHIFT_VERSIONS }}' >> operator/olm-bundle/bundle.Dockerfile
     sources:
       - operator/olm-manifests/**
     generates:
-      - operator/bundle/**
+      - operator/olm-bundle/**
 
   olm:build:
     desc: Build the require OLM bundle image after generating the bundle
@@ -963,24 +962,18 @@ tasks:
           enum:
             ref: .ALLOWED_ENVS
     deps:
-      - internal:create-builder
-      - internal:registry-network-connect
+      - olm:setup-infra
       - olm:bundle
-    env:
-      registry: '{{ if .GITHUB_ACTIONS }}ghcr.io/{{ .REGISTRY_OWNER }}{{ else }}{{ .KLIO_REGISTRY_NAME }}:{{ .KLIO_REGISTRY_PORT }}{{ end }}'
-      insecure: '{{ if .GITHUB_ACTIONS }}false{{ else }}true{{ end }}'
-      suffix: '{{ if ( ne .ENVIRONMENT "production" ) }}-testing{{end}}'
-      tag: '{{ .TAG | default .IMAGE_TAG }}'
     cmds:
-      - >
-        docker buildx build
-        --builder {{ .BUILDER_NAME }}
-        --push
-        --platform linux/amd64,linux/arm64
-        -t ${registry}/klio-operator${suffix}:${tag}-bundle
-        -f operator/bundle.Dockerfile
-        --output="type=image,registry.insecure=${insecure}"
-        operator/
+      # Pushed with the ci-machinery builder, which trusts the local registry,
+      # and the host credentials for any other.
+      - task: ci-machinery-olm:bundle:image
+        vars:
+          WORKDIR: '{{ .ROOT_DIR }}/operator'
+          BUNDLE_DIR: olm-bundle
+          IMAGE_REGISTRY: '{{ .OLM_REGISTRY }}'
+          IMAGE_NAME: 'klio-operator{{ if ( ne .ENVIRONMENT "production" ) }}-testing{{end}}'
+          IMAGE_TAG: '{{ .TAG | default .IMAGE_TAG }}-bundle'
 
   olm:catalog-file:
     internal: false
@@ -993,8 +986,8 @@ tasks:
           enum:
             ref: .ALLOWED_ENVS
     env:
-      registry: '{{ if .GITHUB_ACTIONS }}ghcr.io/{{ .REGISTRY_OWNER }}{{ else }}{{ .KLIO_REGISTRY_NAME }}:{{ .KLIO_REGISTRY_PORT }}{{ end }}'
-      insecure: '{{ if .GITHUB_ACTIONS }}false{{ else }}true{{ end }}'
+      registry: '{{ .OLM_REGISTRY }}'
+      insecure: '{{ .OLM_LOCAL_REGISTRY }}'
       suffix: '{{ if ( ne .ENVIRONMENT "production" ) }}-testing{{end}}'
       tag: '{{ .TAG | default .IMAGE_TAG }}'
       # renovate: datasource=docker depName=quay.io/operator-framework/opm versioning=docker
@@ -1025,7 +1018,7 @@ tasks:
       - >
         docker
         run --rm
-        --network {{ .KLIO_REGISTRY_NETWORK }}
+        --network {{ .REGISTRY_NETWORK }}
         -v /tmp/policy.json:/etc/containers/policy.json
         -v ${CONTAINER_AUTH_FILE}:/.config/containers/auth.json
         -u $(id -u)
@@ -1054,8 +1047,8 @@ tasks:
           enum:
             ref: .ALLOWED_ENVS
     env:
-      registry: '{{ if .GITHUB_ACTIONS }}ghcr.io/{{ .REGISTRY_OWNER }}{{ else }}{{ .KLIO_REGISTRY_NAME }}:{{ .KLIO_REGISTRY_PORT }}{{ end }}'
-      insecure: '{{ if .GITHUB_ACTIONS }}false{{ else }}true{{ end }}'
+      registry: '{{ .OLM_REGISTRY }}'
+      insecure: '{{ .OLM_LOCAL_REGISTRY }}'
       suffix: '{{ if ( ne .ENVIRONMENT "production" ) }}-testing{{end}}'
       tag: '{{ .TAG | default .IMAGE_TAG }}'
     deps:
@@ -1063,7 +1056,7 @@ tasks:
     cmds:
       - >
         docker buildx build
-        --builder {{ .BUILDER_NAME }}
+        --builder {{ .DOCKER_BUILDER }}
         --push
         --platform linux/amd64,linux/arm64
         -t ${registry}/klio-operator${suffix}:${tag}-catalog
@@ -1079,8 +1072,8 @@ tasks:
           enum:
             ref: .ALLOWED_ENVS
     env:
-      registry: '{{ if .GITHUB_ACTIONS }}ghcr.io/{{ .REGISTRY_OWNER }}{{ else }}{{ .KLIO_REGISTRY_NAME }}:{{ .KLIO_REGISTRY_PORT }}{{ end }}'
-      insecure: '{{ if .GITHUB_ACTIONS }}false{{ else }}true{{ end }}'
+      registry: '{{ .OLM_REGISTRY }}'
+      insecure: '{{ .OLM_LOCAL_REGISTRY }}'
       suffix: '{{ if ( ne .ENVIRONMENT "production" ) }}-testing{{end}}'
       tag: '{{ .TAG | default .IMAGE_TAG }}'
     cmds:
@@ -1199,7 +1192,7 @@ tasks:
           enum:
             ref: .ALLOWED_ENVS
     env:
-      registry: '{{ if .GITHUB_ACTIONS }}ghcr.io/{{ .REGISTRY_OWNER }}{{ else }}{{ .KLIO_REGISTRY_NAME }}:{{ .KLIO_REGISTRY_PORT }}{{ end }}'
+      registry: '{{ .OLM_REGISTRY }}'
       suffix: '{{ if ( ne .ENVIRONMENT "production" ) }}-testing{{end}}'
       tag: '{{ .TAG | default .IMAGE_TAG }}'
       # REGISTRY_AUTH_FILE is the registry credentials file preflight uses for
@@ -1271,26 +1264,59 @@ tasks:
       # so the verdict is derived from the artifacts in-engine.
       - GITHUB_REF= dagger call -m dagger/preflight verdict --artifacts preflight-artifacts
 
-  olm:scorecard:
-    desc: Run operator-sdk scorecard against the OLM bundle on an ephemeral k3s cluster
+  olm:validate:
+    desc: Validate the OLM bundle image with operator-sdk
     summary: |
-      Runs the operator-sdk scorecard basic and OLM test suites against the
-      generated bundle.
-    dir: operator
+      Runs `operator-sdk bundle validate` against the pushed bundle image,
+      including the optional operatorframework suite.
     run: once
+    requires:
+      vars:
+        - name: ENVIRONMENT
+          enum:
+            ref: .ALLOWED_ENVS
     deps:
-      - olm:bundle
+      - olm:build
     cmds:
-      - >
-        GITHUB_REF= dagger call -m dagger/scorecard
-        --operator-sdk-image quay.io/operator-framework/operator-sdk:{{ .OPERATOR_SDK_IMAGE_VERSION }}
-        run --bundle bundle
+      - task: ci-machinery-olm:bundle:validate
+        vars:
+          BUNDLE_IMAGE: '{{ .OLM_REGISTRY }}/klio-operator{{ if ( ne .ENVIRONMENT "production" ) }}-testing{{end}}:{{ .TAG | default .IMAGE_TAG }}-bundle'
+          EXTRA_ARGS: '--select-optional suite=operatorframework'
+          PRIVATE_REGISTRY_HOST: '{{ .PRIVATE_REGISTRY_HOST }}'
+          PRIVATE_REGISTRY_USERNAME: '{{ .PRIVATE_REGISTRY_USERNAME }}'
+
+  olm:scorecard:
+    desc: Run operator-sdk scorecard against the OLM bundle on the Kind cluster
+    summary: |
+      Runs the operator-sdk scorecard basic and OLM test suites configured in
+      the bundle (tests/scorecard/config.yaml, from operator/config/scorecard)
+      against the pushed bundle image, on the Kind cluster of olm:setup-kind.
+    run: once
+    requires:
+      vars:
+        - name: ENVIRONMENT
+          enum:
+            ref: .ALLOWED_ENVS
+    deps:
+      - olm:build
+      - olm:setup-kind
+    cmds:
+      - task: ci-machinery-olm:bundle:scorecard
+        vars:
+          BUNDLE_IMAGE: '{{ .OLM_REGISTRY }}/klio-operator{{ if ( ne .ENVIRONMENT "production" ) }}-testing{{end}}:{{ .TAG | default .IMAGE_TAG }}-bundle'
+          WORKDIR: '{{ .ROOT_DIR }}'
+          KUBECONFIG_PATH: '{{ .OLM_KUBECONFIG_PATH }}'
+          # The default 30s is often shorter than pulling the test image on a
+          # fresh cluster.
+          EXTRA_ARGS: '--wait-time=300s'
+          PRIVATE_REGISTRY_HOST: '{{ .PRIVATE_REGISTRY_HOST }}'
+          PRIVATE_REGISTRY_USERNAME: '{{ .PRIVATE_REGISTRY_USERNAME }}'
 
   olm:clean:
     desc: Cleanup of the OLM build artifacts
     cmds:
       - rm -fr operator/olm-manifests
-      - rm -fr operator/bundle*
+      - rm -fr operator/olm-bundle
       - rm -fr operator/config/manifest-build/
       - rm -fr operator/catalog*
       - rm -fr operator/preflight-artifacts
