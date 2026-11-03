@@ -55,7 +55,7 @@ func newTestTLSConfiguration() kliov1alpha1.TLSConfiguration {
 				Projected: &corev1.ProjectedVolumeSource{
 					Sources: []corev1.VolumeProjection{{
 						Secret: &corev1.SecretProjection{
-							LocalObjectReference: corev1.LocalObjectReference{Name: "tls-secret"},
+							Name: "tls-secret",
 						},
 					}},
 				},
@@ -464,7 +464,7 @@ func TestBuildRestrictedVolMountConfigMapAndProjected(t *testing.T) {
 		kliov1alpha1.VolumeFileReference{
 			Volume: kliov1alpha1.VolumeSource{
 				ConfigMap: &corev1.ConfigMapVolumeSource{
-					LocalObjectReference: corev1.LocalObjectReference{Name: "cm"},
+					Name: "cm",
 				},
 			},
 			Path: "identity.txt",
@@ -641,8 +641,8 @@ func newTestEncryption(keySecret, idSecret string) kliov1alpha1.EncryptionFiles 
 		Volume: kliov1alpha1.VolumeSource{
 			Projected: &corev1.ProjectedVolumeSource{
 				Sources: []corev1.VolumeProjection{
-					{Secret: &corev1.SecretProjection{LocalObjectReference: corev1.LocalObjectReference{Name: keySecret}}},
-					{Secret: &corev1.SecretProjection{LocalObjectReference: corev1.LocalObjectReference{Name: idSecret}}},
+					{Secret: &corev1.SecretProjection{Name: keySecret}},
+					{Secret: &corev1.SecretProjection{Name: idSecret}},
 				},
 			},
 		},

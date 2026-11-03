@@ -56,7 +56,7 @@ func newTestServerForStatefulSet() *kliov1alpha1.Server {
 						Projected: &corev1.ProjectedVolumeSource{
 							Sources: []corev1.VolumeProjection{{
 								Secret: &corev1.SecretProjection{
-									LocalObjectReference: corev1.LocalObjectReference{Name: "tls-secret"},
+									Name: "tls-secret",
 								},
 							}},
 						},

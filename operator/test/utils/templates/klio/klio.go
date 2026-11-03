@@ -73,14 +73,12 @@ func newFileRef(secretName, fileName string) kliov1alpha1.VolumeFileReference {
 // usually live in different secrets, so they are merged in a projected volume.
 func newEncryptionFiles(opts EncryptionOptions) kliov1alpha1.EncryptionFiles {
 	sources := []corev1.VolumeProjection{
-		{Secret: &corev1.SecretProjection{
-			LocalObjectReference: corev1.LocalObjectReference{Name: opts.EncryptionKeySecretName},
-		}},
+		{Secret: &corev1.SecretProjection{Name: opts.EncryptionKeySecretName}},
 	}
 	if opts.IdentitySecretName != opts.EncryptionKeySecretName {
-		sources = append(sources, corev1.VolumeProjection{Secret: &corev1.SecretProjection{
-			LocalObjectReference: corev1.LocalObjectReference{Name: opts.IdentitySecretName},
-		}})
+		sources = append(sources, corev1.VolumeProjection{
+			Secret: &corev1.SecretProjection{Name: opts.IdentitySecretName},
+		})
 	}
 
 	return kliov1alpha1.EncryptionFiles{

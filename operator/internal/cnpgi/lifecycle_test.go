@@ -64,7 +64,7 @@ func makeTestClientIdentity() kliov1alpha1.TLSIdentity {
 			Projected: &corev1.ProjectedVolumeSource{
 				Sources: []corev1.VolumeProjection{{
 					Secret: &corev1.SecretProjection{
-						LocalObjectReference: corev1.LocalObjectReference{Name: "client-secret"},
+						Name: "client-secret",
 					},
 				}},
 			},
@@ -82,7 +82,7 @@ func makeTestServerCA() kliov1alpha1.VolumeFileReference {
 			Projected: &corev1.ProjectedVolumeSource{
 				Sources: []corev1.VolumeProjection{{
 					Secret: &corev1.SecretProjection{
-						LocalObjectReference: corev1.LocalObjectReference{Name: "server-ca"},
+						Name: "server-ca",
 						Items: []corev1.KeyToPath{
 							{Key: "ca.crt", Path: "ca.crt"},
 						},

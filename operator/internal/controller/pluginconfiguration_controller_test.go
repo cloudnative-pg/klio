@@ -59,7 +59,7 @@ var _ = Describe("PluginConfiguration Controller", func() {
 								Projected: &corev1.ProjectedVolumeSource{
 									Sources: []corev1.VolumeProjection{{
 										Secret: &corev1.SecretProjection{
-											LocalObjectReference: corev1.LocalObjectReference{Name: "client-tls"},
+											Name: "client-tls",
 										},
 									}},
 								},
@@ -72,7 +72,7 @@ var _ = Describe("PluginConfiguration Controller", func() {
 								Projected: &corev1.ProjectedVolumeSource{
 									Sources: []corev1.VolumeProjection{{
 										Secret: &corev1.SecretProjection{
-											LocalObjectReference: corev1.LocalObjectReference{Name: "server-ca"},
+											Name: "server-ca",
 											Items: []corev1.KeyToPath{
 												{Key: "ca.crt", Path: "ca.crt"},
 											},

@@ -72,7 +72,7 @@ var _ = Describe("Server Controller", func() {
 									Projected: &corev1.ProjectedVolumeSource{
 										Sources: []corev1.VolumeProjection{{
 											Secret: &corev1.SecretProjection{
-												LocalObjectReference: corev1.LocalObjectReference{Name: "tls-secret"},
+												Name: "tls-secret",
 											},
 										}},
 									},
@@ -85,7 +85,7 @@ var _ = Describe("Server Controller", func() {
 									Projected: &corev1.ProjectedVolumeSource{
 										Sources: []corev1.VolumeProjection{{
 											Secret: &corev1.SecretProjection{
-												LocalObjectReference: corev1.LocalObjectReference{Name: "ca-secret"},
+												Name: "ca-secret",
 											},
 										}},
 									},

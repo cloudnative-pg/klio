@@ -164,7 +164,7 @@ func TestGenerateConfig(t *testing.T) {
 							Projected: &corev1.ProjectedVolumeSource{
 								Sources: []corev1.VolumeProjection{{
 									ConfigMap: &corev1.ConfigMapProjection{
-										LocalObjectReference: corev1.LocalObjectReference{Name: "klio-server-ca-bundle"},
+										Name: "klio-server-ca-bundle",
 									},
 								}},
 							},
@@ -193,7 +193,7 @@ func TestGenerateConfig(t *testing.T) {
 							Projected: &corev1.ProjectedVolumeSource{
 								Sources: []corev1.VolumeProjection{{
 									Secret: &corev1.SecretProjection{
-										LocalObjectReference: corev1.LocalObjectReference{Name: "client-identity"},
+										Name: "client-identity",
 									},
 								}},
 							},
