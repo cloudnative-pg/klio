@@ -942,8 +942,8 @@ tasks:
       already be pushed when this runs. Callers must therefore order themselves
       after the operator build (in CI, the olm job needs the operator job).
 
-      Digest pinning is enabled only when running in GitHub Actions, where the
-      images live on ghcr.io.
+      Locally, olm:containerize pushes those images to OLM_REGISTRY first
+      (see olm:all).
 
       Resolution covers *every* image in the CSV, the operand included, so a
       caller that cannot guarantee the operand image was pushed for this ref
@@ -970,7 +970,7 @@ tasks:
           PACKAGE_NAME: klio-operator
           CHANNELS: '{{ .OLM_CHANNELS }}'
           DEFAULT_CHANNEL: '{{ .OLM_DEFAULT_CHANNEL }}'
-          EXTRA_ARGS: '{{ if and .GITHUB_ACTIONS (not .SKIP_IMAGE_DIGESTS) }}--use-image-digests{{ end }}'
+          EXTRA_ARGS: '{{ if not .SKIP_IMAGE_DIGESTS }}--use-image-digests{{ end }}'
           PRIVATE_REGISTRY_HOST: '{{ .PRIVATE_REGISTRY_HOST }}'
           PRIVATE_REGISTRY_USERNAME: '{{ .PRIVATE_REGISTRY_USERNAME }}'
       - |
