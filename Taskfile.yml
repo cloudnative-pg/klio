@@ -971,6 +971,7 @@ tasks:
           CHANNELS: '{{ .OLM_CHANNELS }}'
           DEFAULT_CHANNEL: '{{ .OLM_DEFAULT_CHANNEL }}'
           EXTRA_ARGS: '{{ if not .SKIP_IMAGE_DIGESTS }}--use-image-digests{{ end }}'
+          METADATA_DIR: config/olm-metadata
           PRIVATE_REGISTRY_HOST: '{{ .PRIVATE_REGISTRY_HOST }}'
           PRIVATE_REGISTRY_USERNAME: '{{ .PRIVATE_REGISTRY_USERNAME }}'
       - |
@@ -980,6 +981,7 @@ tasks:
           '{{ .OPENSHIFT_VERSIONS }}' >> operator/olm-bundle/bundle.Dockerfile
     sources:
       - operator/olm-manifests/**
+      - operator/config/olm-metadata/**
     generates:
       - operator/olm-bundle/**
     # The sources don't cover the version, which comes from `git describe`.
