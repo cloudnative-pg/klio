@@ -4,7 +4,9 @@
     entrypoint:
     - scorecard-test
     - olm-bundle-validation
-    image: quay.io/operator-framework/scorecard-test:v1.41.0
+    # renovate: datasource=docker depName=quay.io/operator-framework/scorecard-test versioning=docker
+    # Version: v1.42.3
+    image: quay.io/operator-framework/scorecard-test@sha256:2370b520e3ca95b25544191d618b8b7fbe5a7c438ed84f729351847aee0ca6ea
     labels:
       suite: olm
       test: olm-bundle-validation-test
@@ -14,7 +16,9 @@
     entrypoint:
     - scorecard-test
     - olm-crds-have-validation
-    image: quay.io/operator-framework/scorecard-test:v1.41.0
+    # renovate: datasource=docker depName=quay.io/operator-framework/scorecard-test versioning=docker
+    # Version: v1.42.3
+    image: quay.io/operator-framework/scorecard-test@sha256:2370b520e3ca95b25544191d618b8b7fbe5a7c438ed84f729351847aee0ca6ea
     labels:
       suite: olm
       test: olm-crds-have-validation-test
@@ -24,7 +28,9 @@
     entrypoint:
     - scorecard-test
     - olm-crds-have-resources
-    image: quay.io/operator-framework/scorecard-test:v1.41.0
+    # renovate: datasource=docker depName=quay.io/operator-framework/scorecard-test versioning=docker
+    # Version: v1.42.3
+    image: quay.io/operator-framework/scorecard-test@sha256:2370b520e3ca95b25544191d618b8b7fbe5a7c438ed84f729351847aee0ca6ea
     labels:
       suite: olm
       test: olm-crds-have-resources-test
@@ -34,7 +40,9 @@
     entrypoint:
     - scorecard-test
     - olm-spec-descriptors
-    image: quay.io/operator-framework/scorecard-test:v1.41.0
+    # renovate: datasource=docker depName=quay.io/operator-framework/scorecard-test versioning=docker
+    # Version: v1.42.3
+    image: quay.io/operator-framework/scorecard-test@sha256:2370b520e3ca95b25544191d618b8b7fbe5a7c438ed84f729351847aee0ca6ea
     labels:
       suite: olm
       test: olm-spec-descriptors-test
@@ -44,7 +52,9 @@
     entrypoint:
     - scorecard-test
     - olm-status-descriptors
-    image: quay.io/operator-framework/scorecard-test:v1.41.0
+    # renovate: datasource=docker depName=quay.io/operator-framework/scorecard-test versioning=docker
+    # Version: v1.42.3
+    image: quay.io/operator-framework/scorecard-test@sha256:2370b520e3ca95b25544191d618b8b7fbe5a7c438ed84f729351847aee0ca6ea
     labels:
       suite: olm
       test: olm-status-descriptors-test
