@@ -1369,6 +1369,7 @@ tasks:
       - rm -fr operator/olm-bundle
       - rm -fr operator/config/manifest-build/
       - rm -fr operator/olm-catalog
+      - rm -f operator/klio-operator-catalog-source.yaml
       - rm -fr operator/preflight-artifacts
 
   olm:prune:
