@@ -38,6 +38,11 @@ This command will, in order:
   holding only the bundle, wait for the CSV to succeed and uninstall it
   (`olm:test-catalog`)
 
+The bundle depends on CloudNativePG 1.30.0 or later, declared in
+`operator/config/olm-metadata/dependencies.yaml`, so OLM also installs
+CloudNativePG from the OperatorHub catalog. Uninstalling Klio leaves
+CloudNativePG installed; `olm:prune` removes it with the Kind cluster.
+
 Each of these tasks can also be run on its own.
 
 ## Registry
