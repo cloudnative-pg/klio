@@ -105,7 +105,7 @@ func GetCollectorCertificate(namespace string, issuer *certmanagerv1.Issuer) *ce
 
 // GetCollectorConfigMap returns a ConfigMap with the OTEL collector configuration.
 // This configuration uses the Prometheus exporter to expose metrics on :9464/metrics
-// and the debug exporter for traces.
+// and the debug exporter for traces and logs.
 func GetCollectorConfigMap(namespace string) *corev1.ConfigMap {
 	config := `receivers:
   otlp:
@@ -137,6 +137,10 @@ service:
       receivers: [otlp]
       processors: [batch]
       exporters: [prometheus]
+    logs:
+      receivers: [otlp]
+      processors: [batch]
+      exporters: [debug]
 `
 
 	return &corev1.ConfigMap{
@@ -256,6 +260,7 @@ func GetKlioServerOTELConfigMap(namespace string) *corev1.ConfigMap {
 			"OTEL_SERVICE_NAME":                     "klio-server",
 			"OTEL_TRACES_EXPORTER":                  "otlp",
 			"OTEL_METRICS_EXPORTER":                 "otlp",
+			"OTEL_LOGS_EXPORTER":                    "otlp",
 			"OTEL_EXPORTER_OTLP_PROTOCOL":           "grpc",
 			"OTEL_EXPORTER_OTLP_ENDPOINT":           "https://" + CollectorName + ":4317",
 			"OTEL_EXPORTER_OTLP_INSECURE":           "false",
@@ -279,6 +284,7 @@ func GetClusterOTELEnvVars() []corev1.EnvVar {
 		{Name: "OTEL_SERVICE_NAME", Value: "klio-sidecar"},
 		{Name: "OTEL_TRACES_EXPORTER", Value: "otlp"},
 		{Name: "OTEL_METRICS_EXPORTER", Value: "otlp"},
+		{Name: "OTEL_LOGS_EXPORTER", Value: "otlp"},
 		{Name: "OTEL_EXPORTER_OTLP_PROTOCOL", Value: "grpc"},
 		{Name: "OTEL_EXPORTER_OTLP_ENDPOINT", Value: "https://" + CollectorName + ":4317"},
 		{Name: "OTEL_EXPORTER_OTLP_INSECURE", Value: "false"},
