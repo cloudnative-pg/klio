@@ -148,9 +148,8 @@ Deployment by the bundle, as both the `SIDECAR_IMAGE` and the
 the latter, and only the OLM bundle sets it. `RELATED_IMAGE_SIDECAR`
 is the name `operator-sdk` expects, so that `--use-image-digests`
 pins the operand to a digest and copies it into the CSV's
-`relatedImages`, which is what disconnected installs mirror. Digest
-pinning only happens in CI, where the images live on `ghcr.io`; a
-local build leaves both variables on a tag. The images use the same
+`relatedImages`, which is what disconnected installs mirror. Setting
+`SKIP_IMAGE_DIGESTS` leaves both variables on a tag. The images use the same
 registry and tag as the operator image by default, with the `klio`
 repository instead of `klio-operator`. The Subscription can override
 either variable.
