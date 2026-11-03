@@ -35,17 +35,23 @@ type Options struct {
 	// tier1 repository (see the package doc).
 	Tier1KopiaConfig string
 
-	// Tier1ServerAddress and Tier1ServerCertificateFingerprint are used to
-	// refresh the tier1 Kopia server's cache after a sweep pass deletes a
-	// backup.
-	Tier1ServerAddress                string
-	Tier1ServerCertificateFingerprint string
+	// Tier1ServerAddress is used to refresh the tier1 Kopia server's cache
+	// after a sweep pass deletes a backup.
+	Tier1ServerAddress string
 
 	// Tier2KopiaConfig is a Kopia config file connected directly to the
 	// tier2 repository. Empty when tier2 is not configured.
-	Tier2KopiaConfig                  string
-	Tier2ServerAddress                string
-	Tier2ServerCertificateFingerprint string
+	Tier2KopiaConfig string
+
+	// Tier2ServerAddress is used to refresh the tier2 Kopia server's cache
+	// after a sweep pass deletes a backup.
+	Tier2ServerAddress string
+
+	// ServerTLSCertFile is the PEM file with the serving certificate shared
+	// by the tier1 and tier2 Kopia servers. The refresh calls pin it by a
+	// fingerprint computed from this file on every call, so a rotated
+	// certificate is followed without a restart.
+	ServerTLSCertFile string
 
 	// RunID and RunSecret authenticate the Kopia server refresh calls.
 	RunID     string

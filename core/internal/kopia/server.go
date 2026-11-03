@@ -102,8 +102,10 @@ type RefreshServerOptions struct {
 	// ServerControlPassword is the password for server control authentication.
 	ServerControlPassword string
 
-	// ServerCertFingerprint is the SHA256 fingerprint of the server's certificate.
-	ServerCertFingerprint string
+	// ServerCertFile is the PEM file with the certificate the server
+	// presents. It is fingerprinted on every call, so a rotated certificate
+	// is followed without a restart.
+	ServerCertFile string
 
 	// Address is the address of the Kopia server to refresh.
 	Address string
@@ -113,12 +115,17 @@ type RefreshServerOptions struct {
 func (s *Client) RefreshServer(ctx context.Context, opts RefreshServerOptions) error {
 	contextLogger := log.FromContext(ctx)
 
+	fingerprint, err := LeafFingerprint(opts.ServerCertFile)
+	if err != nil {
+		return fmt.Errorf("while fingerprinting the server certificate: %w", err)
+	}
+
 	// Trigger repository refresh on the Kopia server
 	args := []string{
 		"server", "refresh",
 		"--address=" + opts.Address,
 		"--disable-file-logging",
-		"--server-cert-fingerprint=" + opts.ServerCertFingerprint,
+		"--server-cert-fingerprint=" + fingerprint,
 	}
 
 	env := os.Environ()

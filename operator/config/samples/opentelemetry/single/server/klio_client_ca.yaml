@@ -1,13 +1,13 @@
 # This server's own CA, signing only its own clients (see
-# klio_ca_issuer.yaml). Reused per instance by ../../multi with a renamed
+# klio_client_ca_issuer.yaml). Reused per instance by ../../multi with a renamed
 # copy.
 apiVersion: cert-manager.io/v1
 kind: Certificate
 metadata:
-  name: klio-server-ca
+  name: klio-client-ca
 spec:
-  commonName: klio-server
-  secretName: klio-server-ca
+  commonName: klio-client-ca
+  secretName: klio-client-ca
 
   duration: 2160h # 90d
   renewBefore: 360h # 15d

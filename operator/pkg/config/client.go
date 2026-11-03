@@ -111,7 +111,9 @@ type WalRepositoryClientConfig struct {
 	// Address of the Tier 2 Klio server
 	Tier2Address string `json:"tier2_address" mapstructure:"tier2_address"`
 
-	// ServerCertPath is the path to the server public key
+	// ServerCertPath is the path to the PEM file with the CA certificate(s)
+	// the Klio server certificate must chain to. It is used to verify the
+	// server for WAL streaming (gRPC RootCAs).
 	ServerCertPath string `json:"server_cert_path" mapstructure:"server_cert_path"`
 
 	// ClientCertPath is the path to the client public key
@@ -130,7 +132,9 @@ type BaseRepositoryClientConfig struct {
 	// URL is the base URL where the Tier 2 Kopia API server should be reached
 	Tier2URL string `json:"tier2_url" mapstructure:"tier2_url"`
 
-	// ServerCertPath is the path to the server public key
+	// ServerCertPath is the path to the PEM file with the CA certificate(s)
+	// the Kopia server certificate must chain to. It is passed to
+	// `kopia repository connect server` via --server-cert-ca-file.
 	ServerCertPath string `json:"server_cert_path" mapstructure:"server_cert_path"`
 
 	// ClientCertPath is the path to the client public key

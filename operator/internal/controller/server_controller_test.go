@@ -66,31 +66,39 @@ var _ = Describe("Server Controller", func() {
 						ImageConfiguration: kliov1alpha1.ImageConfiguration{
 							Image: "klio:test",
 						},
-						TLSConfiguration: kliov1alpha1.TLSConfiguration{
-							TLSSecretName:      "tls-secret",
-							ClientCASecretName: "ca-secret",
+						TLS: kliov1alpha1.TLSConfiguration{
+							ServerIdentity: kliov1alpha1.TLSIdentity{
+								Volume: kliov1alpha1.VolumeSource{
+									Projected: &corev1.ProjectedVolumeSource{
+										Sources: []corev1.VolumeProjection{{
+											Secret: &corev1.SecretProjection{
+												Name: "tls-secret",
+											},
+										}},
+									},
+								},
+								CertPath: "tls.crt",
+								KeyPath:  "tls.key",
+							},
+							ClientCA: kliov1alpha1.VolumeFileReference{
+								Volume: kliov1alpha1.VolumeSource{
+									Projected: &corev1.ProjectedVolumeSource{
+										Sources: []corev1.VolumeProjection{{
+											Secret: &corev1.SecretProjection{
+												Name: "ca-secret",
+											},
+										}},
+									},
+								},
+								Path: "tls.crt",
+							},
 						},
 						Mode: kliov1alpha1.ModeStandard,
 						Storage: kliov1alpha1.Storage{
 							PersistentVolumeClaimTemplate: pvcTemplate,
 						},
 						Tier1: &kliov1alpha1.Tier1Configuration{
-							EncryptionKeyFile: kliov1alpha1.FileSource{
-								FileReference: &kliov1alpha1.FileReference{
-									Volume: corev1.VolumeSource{
-										Secret: &corev1.SecretVolumeSource{SecretName: "enc-secret"},
-									},
-									Path: "encryption-key.age",
-								},
-							},
-							IdentityFile: kliov1alpha1.FileSource{
-								FileReference: &kliov1alpha1.FileReference{
-									Volume: corev1.VolumeSource{
-										Secret: &corev1.SecretVolumeSource{SecretName: "id-secret"},
-									},
-									Path: "identity.txt",
-								},
-							},
+							Encryption: newTestEncryption("enc-secret", "id-secret"),
 						},
 					},
 				}

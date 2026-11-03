@@ -58,16 +58,33 @@ type EncryptionOptions struct {
 	IdentityFileName string
 }
 
-func newFileSource(secretName, fileName string) kliov1alpha1.FileSource {
-	return kliov1alpha1.FileSource{
-		FileReference: &kliov1alpha1.FileReference{
-			Volume: corev1.VolumeSource{
-				Secret: &corev1.SecretVolumeSource{
-					SecretName: secretName,
-				},
+func newFileRef(secretName, fileName string) kliov1alpha1.VolumeFileReference {
+	return kliov1alpha1.VolumeFileReference{
+		Volume: kliov1alpha1.VolumeSource{
+			Secret: &corev1.SecretVolumeSource{
+				SecretName: secretName,
 			},
-			Path: fileName,
 		},
+		Path: fileName,
+	}
+}
+
+// newEncryptionFiles builds the encryption reference. The key and the identity
+// usually live in different secrets, so they are merged in a projected volume.
+func newEncryptionFiles(opts EncryptionOptions) kliov1alpha1.EncryptionFiles {
+	sources := []corev1.VolumeProjection{
+		{Secret: &corev1.SecretProjection{Name: opts.EncryptionKeySecretName}},
+	}
+	if opts.IdentitySecretName != opts.EncryptionKeySecretName {
+		sources = append(sources, corev1.VolumeProjection{
+			Secret: &corev1.SecretProjection{Name: opts.IdentitySecretName},
+		})
+	}
+
+	return kliov1alpha1.EncryptionFiles{
+		Volume:       kliov1alpha1.VolumeSource{Projected: &corev1.ProjectedVolumeSource{Sources: sources}},
+		KeyPath:      opts.EncryptionKeyFileName,
+		IdentityPath: opts.IdentityFileName,
 	}
 }
 
@@ -91,13 +108,17 @@ func BuildTier2Configuration(
 				Name: s3Opts.S3SecretKeySecretName,
 				Key:  "RUSTFS_SECRET_KEY",
 			},
-			CustomCABundle: &cnpgv1.SecretKeySelector{
-				Name: s3Opts.S3CABundleSecretName,
-				Key:  "ca.crt",
+			CustomCABundle: &kliov1alpha1.VolumeFileReference{
+				Volume: kliov1alpha1.VolumeSource{
+					Secret: &corev1.SecretVolumeSource{
+						SecretName: s3Opts.S3CABundleSecretName,
+						Items:      []corev1.KeyToPath{{Key: "ca.crt", Path: "ca.crt"}},
+					},
+				},
+				Path: "ca.crt",
 			},
 		},
-		EncryptionKeyFile: newFileSource(encOpts.EncryptionKeySecretName, encOpts.EncryptionKeyFileName),
-		IdentityFile:      newFileSource(encOpts.IdentitySecretName, encOpts.IdentityFileName),
+		Encryption: newEncryptionFiles(encOpts),
 	}
 }
 
@@ -112,7 +133,10 @@ type ServerTemplateOptions struct {
 	// is used.
 	StorageClass string
 
-	// TLSSecretName is the secret to be used to expose the Klio server.
+	// TLSSecretName is the secret holding the server certificate
+	// (`tls.crt`), key (`tls.key`) and CA bundle (`ca.crt`). The server
+	// identity and client CA references are built from it; the plugin
+	// `serverCa` comes from ServerCACertificate instead.
 	TLSSecretName string
 
 	// ClientCASecretName is the secret that will be used by Kopia and by
@@ -135,14 +159,27 @@ func newBaseServer(name, namespace string, opts ServerTemplateOptions) *kliov1al
 		sc = new(opts.StorageClass)
 	}
 
+	// The client CA secret also holds the CA private key: mount only
+	// the certificate.
+	clientCA := newFileRef(opts.ClientCASecretName, "ca.crt")
+	clientCA.Volume.Secret.Items = []corev1.KeyToPath{{Key: "ca.crt", Path: "ca.crt"}}
+
 	return &kliov1alpha1.Server{
 		Name:      name,
 		Namespace: namespace,
 		Spec: kliov1alpha1.ServerSpec{
 			ImageConfiguration: imgCfg,
-			TLSConfiguration: kliov1alpha1.TLSConfiguration{
-				TLSSecretName:      opts.TLSSecretName,
-				ClientCASecretName: opts.ClientCASecretName,
+			TLS: kliov1alpha1.TLSConfiguration{
+				ServerIdentity: kliov1alpha1.TLSIdentity{
+					Volume: kliov1alpha1.VolumeSource{
+						Secret: &corev1.SecretVolumeSource{
+							SecretName: opts.TLSSecretName,
+						},
+					},
+					CertPath: "tls.crt",
+					KeyPath:  "tls.key",
+				},
+				ClientCA: clientCA,
 			},
 			Storage: kliov1alpha1.Storage{
 				PersistentVolumeClaimTemplate: corev1.PersistentVolumeClaimSpec{
@@ -168,8 +205,7 @@ func GetServerObject(
 	server := newBaseServer(name, namespace, opts)
 	server.Spec.Mode = kliov1alpha1.ModeStandard
 	server.Spec.Tier1 = &kliov1alpha1.Tier1Configuration{
-		EncryptionKeyFile: newFileSource(opts.Encryption.EncryptionKeySecretName, opts.Encryption.EncryptionKeyFileName),
-		IdentityFile:      newFileSource(opts.Encryption.IdentitySecretName, opts.Encryption.IdentityFileName),
+		Encryption: newEncryptionFiles(opts.Encryption),
 	}
 
 	return server
@@ -179,6 +215,9 @@ func GetServerObject(
 type PluginConfigurationTemplateOptions struct {
 	// ServerCertificate is the server certificate for the Klio server.
 	ServerCertificate *certmanagerv1.Certificate
+	// ServerCACertificate is the CA certificate used to verify the Klio
+	// server. The plugin mounts only its `ca.crt` key, never any private key.
+	ServerCACertificate *certmanagerv1.Certificate
 	// ClientCertificate is the client certificate for authentication.
 	ClientCertificate *certmanagerv1.Certificate
 	// ClusterName is the name of the PostgreSQL cluster.
@@ -199,16 +238,39 @@ func GetPluginConfigurationObject(
 	namespace string,
 	opts PluginConfigurationTemplateOptions,
 ) *kliov1alpha1.PluginConfiguration {
+	if opts.ServerCertificate == nil || opts.ServerCACertificate == nil || opts.ClientCertificate == nil {
+		panic("PluginConfigurationTemplateOptions requires ServerCertificate, ServerCACertificate and ClientCertificate")
+	}
+
 	mode := opts.Mode
 	if mode == "" {
 		mode = kliov1alpha1.ModeStandard
 	}
 	spec := kliov1alpha1.PluginConfigurationSpec{
-		ServerAddress:    opts.ServerCertificate.Spec.DNSNames[0],
-		ClientSecretName: opts.ClientCertificate.Spec.SecretName,
-		ServerSecretName: opts.ServerCertificate.Spec.SecretName,
-		ClusterName:      opts.ClusterName,
-		Mode:             mode,
+		ServerAddress: opts.ServerCertificate.Spec.DNSNames[0],
+		TLS: kliov1alpha1.PluginTLSConfiguration{
+			ClientIdentity: kliov1alpha1.TLSIdentity{
+				Volume: kliov1alpha1.VolumeSource{
+					Secret: &corev1.SecretVolumeSource{
+						SecretName: opts.ClientCertificate.Spec.SecretName,
+					},
+				},
+				CertPath: "tls.crt",
+				KeyPath:  "tls.key",
+			},
+			ServerCA: kliov1alpha1.VolumeFileReference{
+				Volume: kliov1alpha1.VolumeSource{
+					Secret: &corev1.SecretVolumeSource{
+						SecretName: opts.ServerCACertificate.Spec.SecretName,
+						Items:      []corev1.KeyToPath{{Key: "ca.crt", Path: "ca.crt"}},
+					},
+				},
+				Path: "ca.crt",
+			},
+		},
+
+		ClusterName: opts.ClusterName,
+		Mode:        mode,
 	}
 
 	// Only populate Tier2 if either backup or recovery is enabled

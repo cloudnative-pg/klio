@@ -350,7 +350,7 @@ func buildTier2ScenarioResources(namespace string, instances int) *tier2Scenario
 	caCertificate := certificates.GetCACertificateObject(tier2CACertificateName, namespace, issuer)
 	caIssuer := certificates.GetCAIssuerObject(tier2CAIssuerName, namespace, caCertificate.Spec.SecretName)
 	serverCertificate := certificates.GetCertificateObject(tier2ServerCertificateName, namespace,
-		[]string{tier2KlioServerName}, issuer)
+		[]string{tier2KlioServerName}, caIssuer)
 	userCertificate := certificates.GetUserCertificateObject(
 		tier2SourceClientCertName, namespace, tier2SourceClientCertName+"@"+tier2SourceClusterName, caIssuer)
 
@@ -398,6 +398,7 @@ func buildTier2ScenarioResources(namespace string, instances int) *tier2Scenario
 		namespace,
 		klio.PluginConfigurationTemplateOptions{
 			ServerCertificate:   serverCertificate,
+			ServerCACertificate: caCertificate,
 			ClientCertificate:   userCertificate,
 			ClusterName:         tier2SourceClusterName,
 			EnableTier2Backup:   true,
@@ -449,6 +450,7 @@ func buildTier2ScenarioResources(namespace string, instances int) *tier2Scenario
 		namespace,
 		klio.PluginConfigurationTemplateOptions{
 			ServerCertificate:   recoveryServerCertificate,
+			ServerCACertificate: recoveryServerCACertificate,
 			ClientCertificate:   recoveryUserCertificate,
 			ClusterName:         tier2SourceClusterName,
 			EnableTier2Backup:   false,

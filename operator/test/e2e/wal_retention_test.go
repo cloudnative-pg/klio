@@ -572,7 +572,7 @@ func newWALRetentionScenario(name string, namespace string) *walRetentionScenari
 	caCertificate := certificates.GetCACertificateObject(caCertificateName, namespace, issuer)
 	caIssuer := certificates.GetCAIssuerObject(caIssuerName, namespace, caCertificate.Spec.SecretName)
 	serverCertificate := certificates.GetCertificateObject(serverCertificateName, namespace, []string{klioServerName},
-		issuer)
+		caIssuer)
 	userCertificate := certificates.GetUserCertificateObject(
 		cnpgClientCertName, namespace, cnpgClientCertName+"@"+cnpgClusterName, caIssuer)
 
@@ -623,6 +623,7 @@ func newWALRetentionScenario(name string, namespace string) *walRetentionScenari
 		namespace,
 		klio.PluginConfigurationTemplateOptions{
 			ServerCertificate:   serverCertificate,
+			ServerCACertificate: caCertificate,
 			ClientCertificate:   userCertificate,
 			ClusterName:         cnpgClusterName,
 			EnableTier2Backup:   true,

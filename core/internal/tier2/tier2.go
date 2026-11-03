@@ -21,12 +21,7 @@ package tier2
 
 import (
 	"context"
-	"crypto/tls"
-	"crypto/x509"
-	"errors"
 	"fmt"
-	"io"
-	"net/http"
 	"os"
 	"path"
 
@@ -36,8 +31,8 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	aferoS3 "github.com/fclairamb/afero-s3"
 	"github.com/spf13/afero"
-	"sigs.k8s.io/controller-runtime/pkg/log"
 
+	"github.com/cloudnative-pg/klio/core/internal/tier2/awscreds"
 	"github.com/cloudnative-pg/klio/core/pkg/config"
 )
 
@@ -51,7 +46,9 @@ func CreateAWSS3Client(ctx context.Context, cfg *config.Tier2Config) (*s3.Client
 		opts = append(opts, awsconfig.WithRegion(cfg.S3.Region))
 	}
 
-	// Set credentials if provided
+	// Set credentials if provided. When only the shared credentials file is
+	// set (by the operator), re-read it on rotation instead of letting the SDK
+	// cache its keys for the process lifetime.
 	if cfg.S3.AccessKeyID != "" || cfg.S3.SecretAccessKey != "" || cfg.S3.SessionToken != "" {
 		opts = append(opts, awsconfig.WithCredentialsProvider(
 			credentials.NewStaticCredentialsProvider(
@@ -60,11 +57,15 @@ func CreateAWSS3Client(ctx context.Context, cfg *config.Tier2Config) (*s3.Client
 				cfg.S3.SessionToken,
 			),
 		))
+	} else if path := os.Getenv("AWS_SHARED_CREDENTIALS_FILE"); path != "" {
+		opts = append(opts, awsconfig.WithCredentialsProvider(
+			awscreds.NewSharedCredentialsFileProvider(path, os.Getenv("AWS_PROFILE")),
+		))
 	}
 
 	// Set custom HTTP client with custom CA bundle if provided
 	if cfg.S3.CustomCABundleFile != "" {
-		httpClient, err := newHTTPClient(ctx, cfg.S3.CustomCABundleFile)
+		httpClient, err := awscreds.NewHTTPClientWithCABundle(ctx, cfg.S3.CustomCABundleFile)
 		if err != nil {
 			return nil, err
 		}
@@ -118,50 +119,4 @@ func ConnectWAL(ctx context.Context, cfg *config.Tier2Config) (afero.Fs, error) 
 		aferoS3.NewFsFromClient(cfg.S3.BucketName, client),
 		path.Join(cfg.S3.Prefix, "wals"),
 	), nil
-}
-
-func newHTTPClient(ctx context.Context, filename string) (*http.Client, error) {
-	tlsCertPool, err := loadCustomCABundle(ctx, filename)
-	if err != nil {
-		return nil, err
-	}
-
-	return &http.Client{
-		Transport: &http.Transport{
-			TLSClientConfig: &tls.Config{
-				RootCAs:    tlsCertPool,
-				MinVersion: tls.VersionTLS12,
-			},
-		},
-	}, nil
-}
-
-func loadCustomCABundle(ctx context.Context, filename string) (*x509.CertPool, error) {
-	logger := log.FromContext(ctx)
-
-	f, err := os.Open(filename) //nolint:gosec
-	if err != nil {
-		return nil, fmt.Errorf("failed to open custom CA bundle PEM file, %w", err)
-	}
-	defer func() {
-		if err := f.Close(); err != nil {
-			logger.Error(err, "while closing custom CA bundle PEM file", "filename", filename)
-		}
-	}()
-
-	return loadCertPool(f)
-}
-
-func loadCertPool(r io.Reader) (*x509.CertPool, error) {
-	b, err := io.ReadAll(r)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read custom CA bundle PEM file, %w", err)
-	}
-
-	p := x509.NewCertPool()
-	if !p.AppendCertsFromPEM(b) {
-		return nil, errors.New("failed to load custom CA bundle PEM file")
-	}
-
-	return p, nil
 }

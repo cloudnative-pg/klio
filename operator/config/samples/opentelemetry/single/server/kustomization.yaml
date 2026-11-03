@@ -5,5 +5,5 @@
 resources:
   - server.yaml
   - server_certificate.yaml
-  - klio_ca.yaml
-  - klio_ca_issuer.yaml
+  - klio_client_ca.yaml
+  - klio_client_ca_issuer.yaml

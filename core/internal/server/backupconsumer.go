@@ -28,7 +28,6 @@ import (
 	"github.com/nats-io/nats.go"
 
 	"github.com/cloudnative-pg/klio/core/internal/consumer"
-	"github.com/cloudnative-pg/klio/core/internal/kopia"
 	"github.com/cloudnative-pg/klio/core/internal/queue"
 	"github.com/cloudnative-pg/klio/core/pkg/config"
 )
@@ -77,15 +76,9 @@ func (s *BackupConsumer) Serve(ctx context.Context) error {
 	// refresh its cache after a relay. Without tier2 the consumer only
 	// verifies tier1 backups.
 	if s.Tier2KopiaConfigFile != "" {
-		// Tier1 and tier2 share the same server certificate.
-		certificateFingerprint, err := kopia.ExtractSHA256CertificateFingerprint(s.Config.TLS.TLSCert)
-		if err != nil {
-			return fmt.Errorf("error while extracting fingerprint of the kopia server certificate: %w", err)
-		}
-
 		backupOptions.Tier2KopiaConfig = s.Tier2KopiaConfigFile
 		backupOptions.Tier2ServerAddress = "https://" + s.Config.Tier2.BaseListenAddress
-		backupOptions.Tier2ServerCertificateFingerprint = certificateFingerprint
+		backupOptions.ServerTLSCertFile = s.Config.TLS.TLSCert
 		backupOptions.RunID = s.RunID
 		backupOptions.RunSecret = s.RunSecret
 	}

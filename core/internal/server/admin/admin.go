@@ -48,9 +48,12 @@ type Options struct {
 
 	SocketPath string
 
-	RunID                  string
-	RunSecret              string
-	CertificateFingerprint string
+	RunID     string
+	RunSecret string
+
+	// ServerTLSCertFile is the path to the PEM file with the serving
+	// certificate shared by the tier 1 and tier 2 Kopia servers.
+	ServerTLSCertFile string
 
 	Tier2ServerAddress string
 
@@ -199,7 +202,7 @@ func (s *Server) Refresh(
 		if err := s.tier2KopiaClient.RefreshServer(ctx, kopiaWrapper.RefreshServerOptions{
 			ServerControlUser:     s.opts.RunID,
 			ServerControlPassword: s.opts.RunSecret,
-			ServerCertFingerprint: s.opts.CertificateFingerprint,
+			ServerCertFile:        s.opts.ServerTLSCertFile,
 			Address:               s.opts.Tier2ServerAddress,
 		}); err != nil {
 			return nil, status.Errorf(codes.Internal, "while refreshing tier2 server: %s", err.Error())

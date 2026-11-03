@@ -180,7 +180,7 @@ spec:
   usages:
     - client auth
   issuerRef:
-    name: klio-server-ca-issuer
+    name: klio-client-ca-issuer
     kind: Issuer
     group: cert-manager.io
 ---

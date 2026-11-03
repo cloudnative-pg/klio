@@ -69,32 +69,14 @@ _Appears in:_
 | `annotations` _object (keys:string, values:string)_ |  |  |  | Optional: \{\} <br /> |
 
 
-#### FileReference
+#### EncryptionFiles
 
 
 
-FileReference specifies a file from a volume source.
+EncryptionFiles is the Age-encrypted encryption key and the Age identity
+used to decrypt it, read from a single volume.
 
 
-
-_Appears in:_
-- [FileSource](#filesource)
-
-| Field | Description | Required | Default | Validation |
-| --- | --- | --- | --- | --- |
-| `volume` _[VolumeSource](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.37/#volumesource-v1-core)_ | Volume is the volume source to mount. | True |  |  |
-| `path` _string_ | Path is the file path within the mounted volume. | True |  |  |
-
-
-#### FileSource
-
-
-
-FileSource specifies a source for a file. This wrapper allows future
-alternatives to be added without breaking the API.
-
-_Validation:_
-- ExactlyOneOf: [fileReference]
 
 _Appears in:_
 - [Tier1Configuration](#tier1configuration)
@@ -102,7 +84,9 @@ _Appears in:_
 
 | Field | Description | Required | Default | Validation |
 | --- | --- | --- | --- | --- |
-| `fileReference` _[FileReference](#filereference)_ | FileReference specifies a file from a volume source. |  |  | Optional: \{\} <br /> |
+| `volume` _[VolumeSource](#volumesource)_ | Volume is the volume source that holds the encryption key file and<br />the identity file. | True |  | ExactlyOneOf: [secret configMap projected csi] <br /> |
+| `keyPath` _string_ | KeyPath is the path of the Age-encrypted encryption key file within<br />the volume. | True |  | MaxLength: 1024 <br />MinLength: 1 <br />Required: \{\} <br /> |
+| `identityPath` _string_ | IdentityPath is the path of the Age identity (private key) file<br />within the volume, used to decrypt the encryption key. | True |  | MaxLength: 1024 <br />MinLength: 1 <br />Required: \{\} <br /> |
 
 
 #### ImageConfiguration
@@ -160,8 +144,7 @@ _Appears in:_
 | `tier1` _[Tier1PluginConfiguration](#tier1pluginconfiguration)_ | Tier1 is the Tier 1 configuration |  |  | Optional: \{\} <br /> |
 | `tier2` _[Tier2PluginConfiguration](#tier2pluginconfiguration)_ | Tier2 is the Tier 2 configuration |  |  | Optional: \{\} <br /> |
 | `walPrefetch` _[WALPrefetchConfiguration](#walprefetchconfiguration)_ | WALPrefetch configures WAL prefetching behavior during recovery operations. |  |  | Optional: \{\} <br /> |
-| `clientSecretName` _string_ | ClientSecretName is the name of the secret containing the client credentials | True |  | MinLength: 1 <br />Required: \{\} <br /> |
-| `serverSecretName` _string_ | ServerSecretName is the name of the secret containing the server TLS certificate | True |  | MinLength: 1 <br />Required: \{\} <br /> |
+| `tls` _[PluginTLSConfiguration](#plugintlsconfiguration)_ | TLS configures the PKI of the plugin: the identity the PostgreSQL<br />instances present to the Klio server and the CA used to verify it. | True |  | Required: \{\} <br /> |
 | `clusterName` _string_ | ClusterName is the name of the PostgreSQL cluster we are connecting to | True |  | MinLength: 1 <br />Required: \{\} <br /> |
 | `pprof` _boolean_ | Pprof enables the pprof endpoint for performance profiling |  |  | Optional: \{\} <br /> |
 | `mode` _[ServerMode](#servermode)_ | Mode selects the operation mode of the plugin. | True | standard | Enum: [standard read-only] <br /> |
@@ -182,6 +165,24 @@ _Appears in:_
 | Field | Description | Required | Default | Validation |
 | --- | --- | --- | --- | --- |
 | `conditions` _[Condition](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.37/#condition-v1-meta) array_ | Conditions represent the latest available observations of the<br />PluginConfiguration's state. |  |  | Optional: \{\} <br /> |
+
+
+#### PluginTLSConfiguration
+
+
+
+PluginTLSConfiguration contains the information needed to configure
+the PKI of the plugin.
+
+
+
+_Appears in:_
+- [PluginConfigurationSpec](#pluginconfigurationspec)
+
+| Field | Description | Required | Default | Validation |
+| --- | --- | --- | --- | --- |
+| `clientIdentity` _[TLSIdentity](#tlsidentity)_ | ClientIdentity is the TLS identity the PostgreSQL instances<br />present to the Klio server: the client certificate and its<br />matching private key. | True |  | Required: \{\} <br /> |
+| `serverCa` _[VolumeFileReference](#volumefilereference)_ | ServerCA is the CA bundle used to verify the Klio server.<br />It is mounted into PostgreSQL instance pods and used for both<br />base backups (Kopia, via --server-cert-ca-file) and WAL streaming<br />(gRPC).<br />The referenced file must contain the PEM-encoded CA certificate(s). | True |  | Required: \{\} <br /> |
 
 
 #### PodTemplateSpec
@@ -238,7 +239,9 @@ _Appears in:_
 | `accessKeyId` _[SecretKeySelector](https://pkg.go.dev/github.com/cloudnative-pg/machinery/pkg/api#SecretKeySelector)_ | The S3 access key ID |  |  | Optional: \{\} <br /> |
 | `secretAccessKey` _[SecretKeySelector](https://pkg.go.dev/github.com/cloudnative-pg/machinery/pkg/api#SecretKeySelector)_ | The S3 access key |  |  | Optional: \{\} <br /> |
 | `sessionToken` _[SecretKeySelector](https://pkg.go.dev/github.com/cloudnative-pg/machinery/pkg/api#SecretKeySelector)_ | The S3 session token |  |  | Optional: \{\} <br /> |
-| `customCaBundle` _[SecretKeySelector](https://pkg.go.dev/github.com/cloudnative-pg/machinery/pkg/api#SecretKeySelector)_ | A pointer to a custom CA bundle |  |  | Optional: \{\} <br /> |
+| `credentialsFile` _[VolumeFileReference](#volumefilereference)_ | CredentialsFile is an AWS shared credentials file (INI format) mounted<br />from a volume. It is mutually exclusive with accessKeyId,<br />secretAccessKey and sessionToken. |  |  | Optional: \{\} <br /> |
+| `profile` _string_ | Profile is the profile to use within CredentialsFile. |  |  | Optional: \{\} <br /> |
+| `customCaBundle` _[VolumeFileReference](#volumefilereference)_ | CustomCABundle is a PEM-encoded CA bundle, mounted from a volume, that<br />is trusted when connecting to the S3 endpoint. |  |  | Optional: \{\} <br /> |
 
 
 #### Server
@@ -294,8 +297,7 @@ _Appears in:_
 | `image` _string_ | Image is the image to be used for the Klio server | True |  |  |
 | `imagePullPolicy` _[PullPolicy](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.37/#pullpolicy-v1-core)_ | ImagePullPolicy defines the policy for pulling the image |  | IfNotPresent | Optional: \{\} <br /> |
 | `imagePullSecrets` _[LocalObjectReference](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.37/#localobjectreference-v1-core) array_ | ImagePullSecrets is an optional list of references to secrets in the same namespace to use for pulling any of the<br />images |  |  | Optional: \{\} <br /> |
-| `tlsSecretName` _string_ | TLSSecretName is the name of the Kubernetes secret containing the server-side certificate<br />to be used for the Klio server. | True |  |  |
-| `caSecretName` _string_ | ClientCASecretName is the name of the Kubernetes secret containing the CA certificate<br />to be used by the Klio server to validate the users. | True |  |  |
+| `tls` _[TLSConfiguration](#tlsconfiguration)_ | TLS configures the PKI of the Klio server: the identity it presents<br />and the CA used to verify clients. | True |  |  |
 | `mode` _[ServerMode](#servermode)_ | Mode selects the operation mode of the server. | True | standard | Enum: [standard read-only] <br /> |
 | `tier1` _[Tier1Configuration](#tier1configuration)_ | Tier1 is the Tier 1 configuration | True |  |  |
 | `tier2` _[Tier2Configuration](#tier2configuration)_ | Tier2 is the Tier 2 configuration | True |  |  |
@@ -347,8 +349,28 @@ _Appears in:_
 
 | Field | Description | Required | Default | Validation |
 | --- | --- | --- | --- | --- |
-| `tlsSecretName` _string_ | TLSSecretName is the name of the Kubernetes secret containing the server-side certificate<br />to be used for the Klio server. | True |  |  |
-| `caSecretName` _string_ | ClientCASecretName is the name of the Kubernetes secret containing the CA certificate<br />to be used by the Klio server to validate the users. | True |  |  |
+| `serverIdentity` _[TLSIdentity](#tlsidentity)_ | ServerIdentity is the TLS identity presented to clients: the<br />server certificate and its matching private key. | True |  | Required: \{\} <br /> |
+| `clientCa` _[VolumeFileReference](#volumefilereference)_ | ClientCA is the CA bundle used to verify client certificates.<br />It must contain the PEM-encoded CA certificate(s). | True |  | Required: \{\} <br /> |
+
+
+#### TLSIdentity
+
+
+
+TLSIdentity is the certificate and private key a component uses to
+authenticate itself over TLS.
+
+
+
+_Appears in:_
+- [PluginTLSConfiguration](#plugintlsconfiguration)
+- [TLSConfiguration](#tlsconfiguration)
+
+| Field | Description | Required | Default | Validation |
+| --- | --- | --- | --- | --- |
+| `volume` _[VolumeSource](#volumesource)_ | Volume is the volume source that holds the certificate and the<br />private key. | True |  | ExactlyOneOf: [secret configMap projected csi] <br /> |
+| `certPath` _string_ | CertPath is the path of the certificate file within the volume. | True |  | MaxLength: 1024 <br />MinLength: 1 <br />Required: \{\} <br /> |
+| `keyPath` _string_ | KeyPath is the path of the private key file within the volume. | True |  | MaxLength: 1024 <br />MinLength: 1 <br />Required: \{\} <br /> |
 
 
 #### Tier1Configuration
@@ -364,8 +386,7 @@ _Appears in:_
 
 | Field | Description | Required | Default | Validation |
 | --- | --- | --- | --- | --- |
-| `encryptionKeyFile` _[FileSource](#filesource)_ | EncryptionKeyFile specifies the Age-encrypted encryption key file. | True |  | ExactlyOneOf: [fileReference] <br /> |
-| `identityFile` _[FileSource](#filesource)_ | IdentityFile specifies the Age identity (private key) file used to<br />decrypt the encryption key. | True |  | ExactlyOneOf: [fileReference] <br /> |
+| `encryption` _[EncryptionFiles](#encryptionfiles)_ | Encryption specifies the Age-encrypted encryption key file and the<br />Age identity (private key) file used to decrypt it. | True |  |  |
 | `compression` _[CompressionPolicy](#compressionpolicy)_ | Compression defines the repository-wide (global) compression policy<br />applied to base backups stored on tier1. Individual clusters can<br />override it through their PluginConfiguration. |  |  | Optional: \{\} <br /> |
 
 
@@ -400,8 +421,7 @@ _Appears in:_
 | Field | Description | Required | Default | Validation |
 | --- | --- | --- | --- | --- |
 | `s3` _[S3Configuration](#s3configuration)_ | S3 contains the configuration parameters for an S3-based tier 2. | True |  |  |
-| `encryptionKeyFile` _[FileSource](#filesource)_ | EncryptionKeyFile specifies the Age-encrypted encryption key file. | True |  | ExactlyOneOf: [fileReference] <br /> |
-| `identityFile` _[FileSource](#filesource)_ | IdentityFile specifies the Age identity (private key) file used to<br />decrypt the encryption key. | True |  | ExactlyOneOf: [fileReference] <br /> |
+| `encryption` _[EncryptionFiles](#encryptionfiles)_ | Encryption specifies the Age-encrypted encryption key file and the<br />Age identity (private key) file used to decrypt it. | True |  |  |
 | `compression` _[CompressionPolicy](#compressionpolicy)_ | Compression defines the repository-wide (global) compression policy<br />applied to base backups stored on tier2. Individual clusters can<br />override it through their PluginConfiguration. |  |  | Optional: \{\} <br /> |
 
 
@@ -422,6 +442,47 @@ _Appears in:_
 | `enableRecovery` _boolean_ | EnableRecovery controls whether tier2 should be included in the recovery source list |  |  | Optional: \{\} <br /> |
 | `retention` _[RetentionPolicy](#retentionpolicy)_ | RetentionPolicy defines how many backups we should keep |  |  | Optional: \{\} <br /> |
 | `compression` _[CompressionPolicy](#compressionpolicy)_ | Compression defines the compression policy applied to this cluster's<br />base backups on tier2. It overrides the tier2 repository-wide policy<br />configured on the Server. |  |  | Optional: \{\} <br /> |
+
+
+#### VolumeFileReference
+
+
+
+VolumeFileReference specifies a file from a volume source.
+
+
+
+_Appears in:_
+- [PluginTLSConfiguration](#plugintlsconfiguration)
+- [S3Configuration](#s3configuration)
+- [TLSConfiguration](#tlsconfiguration)
+
+| Field | Description | Required | Default | Validation |
+| --- | --- | --- | --- | --- |
+| `volume` _[VolumeSource](#volumesource)_ | Volume is the volume source to mount. | True |  | ExactlyOneOf: [secret configMap projected csi] <br /> |
+| `path` _string_ | Path is the file path within the mounted volume. | True |  | MaxLength: 1024 <br />MinLength: 1 <br />Required: \{\} <br /> |
+
+
+#### VolumeSource
+
+
+
+VolumeSource is the subset of volume sources Klio can read files from.
+
+_Validation:_
+- ExactlyOneOf: [secret configMap projected csi]
+
+_Appears in:_
+- [EncryptionFiles](#encryptionfiles)
+- [TLSIdentity](#tlsidentity)
+- [VolumeFileReference](#volumefilereference)
+
+| Field | Description | Required | Default | Validation |
+| --- | --- | --- | --- | --- |
+| `secret` _[SecretVolumeSource](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.37/#secretvolumesource-v1-core)_ | Secret is a volume populated by a Secret. |  |  | Optional: \{\} <br /> |
+| `configMap` _[ConfigMapVolumeSource](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.37/#configmapvolumesource-v1-core)_ | ConfigMap is a volume populated by a ConfigMap. |  |  | Optional: \{\} <br /> |
+| `projected` _[ProjectedVolumeSource](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.37/#projectedvolumesource-v1-core)_ | Projected is a projected volume (secrets, config maps, cluster<br />trust bundles, ...). |  |  | Optional: \{\} <br /> |
+| `csi` _[CSIVolumeSource](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.37/#csivolumesource-v1-core)_ | CSI is a volume provided by a CSI driver. |  |  | Optional: \{\} <br /> |
 
 
 #### WALPrefetchConfiguration
