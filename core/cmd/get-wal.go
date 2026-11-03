@@ -32,6 +32,7 @@ import (
 	"github.com/cloudnative-pg/klio/core/internal/cli"
 	"github.com/cloudnative-pg/klio/core/internal/client/klioclient"
 	"github.com/cloudnative-pg/klio/core/internal/client/klioclient/grpcclient"
+	"github.com/cloudnative-pg/klio/core/internal/opentelemetry"
 	"github.com/cloudnative-pg/klio/core/pkg/config"
 )
 
@@ -89,6 +90,7 @@ var getWalCmd = &cobra.Command{
 		}
 
 		if address == "" {
+			opentelemetry.ShutdownLogs(cmd.Context())
 			os.Exit(4)
 		}
 
@@ -114,6 +116,7 @@ var getWalCmd = &cobra.Command{
 		case errors.Is(err, klioclient.ErrMissingWALFile):
 			if path.Ext(walName) != "" || !downloadPartial {
 				contextLogger.Debug("Missing WAL file, exiting with error code 4", "wal_name", walName)
+				opentelemetry.ShutdownLogs(cmd.Context())
 				os.Exit(4)
 			}
 
@@ -136,6 +139,7 @@ var getWalCmd = &cobra.Command{
 
 		case errors.Is(err, klioclient.ErrMissingWALFile):
 			contextLogger.Debug("Missing partial WAL file, exiting with error code 4", "wal_name", walName)
+			opentelemetry.ShutdownLogs(cmd.Context())
 			os.Exit(4)
 
 		case err != nil:
