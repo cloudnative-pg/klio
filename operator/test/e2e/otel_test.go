@@ -23,6 +23,9 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"path"
+	"slices"
+	"strings"
 	"testing"
 	"time"
 
@@ -44,6 +47,8 @@ import (
 	"sigs.k8s.io/e2e-framework/pkg/envconf"
 
 	kliov1alpha1 "github.com/cloudnative-pg/klio/operator/api/v1alpha1"
+	"github.com/cloudnative-pg/klio/operator/internal/cnpgi"
+	"github.com/cloudnative-pg/klio/operator/internal/klioconfig"
 	"github.com/cloudnative-pg/klio/operator/test/klio/testconfig"
 	machineryConditions "github.com/cloudnative-pg/klio/operator/test/machinery/pkg/conditions"
 	machineryFeatures "github.com/cloudnative-pg/klio/operator/test/machinery/pkg/features"
@@ -1202,9 +1207,11 @@ func assertOTELTracesReceived(
 
 	t.Log("Fetching traces from OTEL Collector debug logs")
 
-	// Get collector logs (traces are exported via debug exporter)
-	logs, err := pods.GetLogs(ctx, r, collectorPod, "collector")
+	// Get collector logs (traces are exported via debug exporter), keeping
+	// only the spans, since the same exporter also prints the log records
+	collectorLogs, err := pods.GetLogs(ctx, r, collectorPod, "collector")
 	require.NoError(t, err, "failed to get OTEL collector logs")
+	logs := strings.Join(debugExporterBlocks(collectorLogs, "ResourceSpans #"), "")
 
 	// Verify backup lifecycle spans are present
 	t.Log("Verifying backup lifecycle spans")
@@ -1273,6 +1280,111 @@ func assertOTELTracesReceived(
 	t.Log("OTEL traces verification completed successfully")
 }
 
+// assertGetWALExitExportsLogs runs `klio get-wal` for a WAL file the server
+// does not have in the plugin sidecar of the primary. The command exits
+// with code 4 right after logging it, so its record reaches the collector
+// only if the command exports its logs before exiting.
+func assertGetWALExitExportsLogs(
+	ctx context.Context,
+	t *testing.T,
+	cfg *envconf.Config,
+	scenario *otelMetricsScenario,
+) {
+	t.Helper()
+
+	r, err := resources.New(cfg.Client().RESTConfig())
+	require.NoError(t, err, "failed to create resources client")
+
+	var cluster cnpgv1.Cluster
+	require.NoError(t, r.Get(ctx, scenario.cnpgCluster.Name, scenario.namespace.Name, &cluster),
+		"failed to get the CNPG cluster")
+
+	var stdout, stderr bytes.Buffer
+	err = r.ExecInPod(ctx, scenario.namespace.Name, cluster.Status.CurrentPrimary, cnpgi.KlioPluginContainerName,
+		[]string{
+			"klio", "get-wal",
+			"--config", path.Join(klioconfig.KlioConfigDir, klioconfig.ArchiveConfigKey),
+			"--log-level", "debug",
+			"000000010000000A00000001", "/tmp/missing-wal",
+		}, &stdout, &stderr)
+	require.ErrorContains(t, err, "exit code 4", "get-wal must report the missing WAL file; stderr: %s", stderr.String())
+
+	assertOTELLogsReceived(ctx, t, cfg, scenario.namespace.Name, otel.CollectorName,
+		otelLogRecord{service: "klio-sidecar", body: "Missing WAL file, exiting with error code 4", onPod: true},
+	)
+}
+
+// debugExporterBlocks splits the output of the collector's debug exporter
+// into one block per exported resource of the signal whose blocks start with
+// header, such as "ResourceSpans #" or "ResourceLog #". A block ends where
+// the collector writes its next log line.
+func debugExporterBlocks(collectorLogs, header string) []string {
+	parts := strings.Split(collectorLogs, header)[1:]
+	for i := range parts {
+		parts[i], _, _ = strings.Cut(parts[i], "\tinfo\t")
+	}
+
+	return parts
+}
+
+// otelLogRecord identifies an exported log record by its message and by the
+// service.name of the process that exported it. onPod also requires the
+// k8s.pod.name resource attribute, which Klio sets from POD_NAME.
+type otelLogRecord struct {
+	service string
+	body    string
+	onPod   bool
+}
+
+// assertOTELLogsReceived waits until the collector's debug exporter prints
+// every expected log record under the resource of the process exporting it.
+func assertOTELLogsReceived(
+	ctx context.Context,
+	t *testing.T,
+	cfg *envconf.Config,
+	namespace string,
+	collectorLabel string,
+	expected ...otelLogRecord,
+) {
+	t.Helper()
+
+	r, err := resources.New(cfg.Client().RESTConfig())
+	require.NoError(t, err, "failed to create resources client")
+	clientset, err := kubernetes.NewForConfig(cfg.Client().RESTConfig())
+	require.NoError(t, err, "failed to create kubernetes clientset")
+
+	missing := expected
+	err = wait.For(
+		func(ctx context.Context) (bool, error) {
+			podList, err := clientset.CoreV1().Pods(namespace).List(ctx, metav1.ListOptions{
+				LabelSelector: "app=" + collectorLabel,
+			})
+			if err != nil || len(podList.Items) != 1 {
+				return false, nil //nolint:nilerr // retry until the collector pod is listed
+			}
+			collectorLogs, err := pods.GetLogs(ctx, r, &podList.Items[0], "collector")
+			if err != nil {
+				return false, nil //nolint:nilerr // retry on transient errors
+			}
+
+			blocks := debugExporterBlocks(collectorLogs, "ResourceLog #")
+			missing = slices.DeleteFunc(slices.Clone(expected), func(record otelLogRecord) bool {
+				return slices.ContainsFunc(blocks, func(block string) bool {
+					return strings.Contains(block, "-> service.name: Str("+record.service+")") &&
+						(!record.onPod || strings.Contains(block, "-> k8s.pod.name: Str(")) &&
+						strings.Contains(block, "Body: Str("+record.body+")")
+				})
+			})
+
+			return len(missing) == 0, nil
+		},
+		wait.WithContext(ctx),
+		wait.WithTimeout(2*time.Minute),
+		wait.WithInterval(5*time.Second),
+	)
+	require.NoError(t, err, "log records not exported to the OTEL collector: %v", missing)
+}
+
 // OTELMetricsAndTraces returns a BackupFeature that tests OTEL metrics and traces collection.
 func OTELMetricsAndTraces(namespace string) *machineryFeatures.BackupFeature {
 	scenario := newOTELMetricsScenario(namespace)
@@ -1289,10 +1401,28 @@ func OTELMetricsAndTraces(namespace string) *machineryFeatures.BackupFeature {
 			assertOTELMetricsReceived(ctx, t, cfg, scenario)
 			assertOTELServerBackupMetrics(ctx, t, cfg, scenario)
 			assertOTELTracesReceived(ctx, t, cfg, scenario)
+			// The backup run command is a short-lived process spawned by the
+			// sidecar: its record reaches the collector only if the command
+			// exports its logs before exiting.
+			assertOTELLogsReceived(ctx, t, cfg, scenario.namespace.Name, otel.CollectorName,
+				otelLogRecord{service: "klio-server", body: "Starting Klio server", onPod: true},
+				otelLogRecord{service: "klio-sidecar", body: "Starting Klio backup", onPod: true},
+				otelLogRecord{
+					service: "klio-sidecar",
+					body:    "Backup completed, triggered synchronization to tier2 if available",
+					onPod:   true,
+				},
+			)
+			assertGetWALExitExportsLogs(ctx, t, cfg, scenario)
 			// Runs last: it deletes the Klio server and triggers a failing
 			// backup, so it must follow the success-path assertions above
 			// (which require failures to be zero).
 			assertRepositoryErrorFailureCategory(ctx, t, cfg, scenario)
+			// The failing backup run exits with the code of its failure
+			// category, after exporting the record of the failure.
+			assertOTELLogsReceived(ctx, t, cfg, scenario.namespace.Name, otel.CollectorName,
+				otelLogRecord{service: "klio-sidecar", body: "command failed", onPod: true},
+			)
 		},
 		BackupTimeout: 2 * time.Minute,
 	})

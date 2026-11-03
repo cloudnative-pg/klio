@@ -25,6 +25,8 @@ import (
 
 	"github.com/cloudnative-pg/machinery/pkg/log"
 	"github.com/spf13/cobra"
+
+	"github.com/cloudnative-pg/klio/core/internal/opentelemetry"
 )
 
 // RunEWithExitCode wraps a cobra RunE so that an error implementing
@@ -49,6 +51,7 @@ func RunEWithExitCode(
 			// rather than printed as plain text. fn has already returned,
 			// so all of its defers have run.
 			log.FromContext(cmd.Context()).Error(err, "command failed", "command", cmd.CommandPath())
+			opentelemetry.ShutdownLogs(cmd.Context())
 			os.Exit(coded.ExitCode())
 		}
 
