@@ -139,7 +139,10 @@ oc apply -f openshift_subscription.yaml
 ```
 
 OLM will create an `InstallPlan` and deploy the operator into
-the `openshift-operators` namespace.
+the `openshift-operators` namespace. The bundle depends on
+CloudNativePG 1.30.0 or later, so OLM also installs the
+`cloudnative-pg` package from the cluster's catalogs, unless a
+suitable version is already installed.
 
 :::note
 The Klio sidecar (operand) image is baked into the operator
