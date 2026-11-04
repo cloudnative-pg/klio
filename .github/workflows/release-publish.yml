@@ -33,6 +33,18 @@ jobs:
         run: |
           task all:publish
 
+      - name: Attach the CRDs manifest to the release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ github.event.release.tag_name }}
+        run: |
+          for crd in operator/dist/chart/crds/*.yaml; do
+            echo "---"
+            cat "${crd}"
+          done > klio-crds.yaml
+          gh release upload "${TAG}" klio-crds.yaml \
+            --repo "${GITHUB_REPOSITORY}" --clobber
+
   check-release:
     name: Evaluate the release tag
     needs:
