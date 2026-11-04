@@ -1,5 +1,5 @@
 ---
-sidebar_position: 8.5
+sidebar_position: 92
 ---
 
 # Migrating from Plugin Barman Cloud
@@ -35,6 +35,11 @@ Each `Backup` and `ScheduledBackup` targets one plugin through
 at a time, whatever the plugin, so give the two plugins different backup
 schedules.
 
+While both plugins are enabled, either one can serve the WAL files that
+`restore_command` requests, for example when a standby falls behind or a
+former primary is rewound. CloudNativePG tries every enabled plugin that can
+restore WAL, and uses the first that succeeds.
+
 ## Migration steps
 
 1. Create the Klio `PluginConfiguration` and its client certificate, then
@@ -44,24 +49,46 @@ schedules.
 3. Keep both plugins until Klio covers the required recovery window. During
    this phase, switch any replica clusters that follow this cluster through
    Plugin Barman Cloud to a Klio source.
-4. Close the Plugin Barman Cloud archive: run `SELECT pg_switch_wal()` on
-   the primary and wait until `pg_stat_archiver` reports that segment as
-   archived.
-5. Remove Plugin Barman Cloud from `.spec.plugins` and delete its
+4. Remove Plugin Barman Cloud from `.spec.plugins` and delete its
    `ScheduledBackup` objects.
 
 :::warning
-Setting `isWALArchiver: false` does not stop Plugin Barman Cloud from
-archiving; only removing it from `.spec.plugins` does. If you skip step 4,
-the transactions in the last WAL segment are missing from its archive.
+Plugin Barman Cloud stops archiving as soon as the `Cluster` change in
+step 4 is applied, before any instance restarts, so the WAL segment in
+progress at that moment never reaches its archive.
+Any WAL written after Plugin Barman Cloud is removed is only in Klio.
 :::
 
 :::info
-Adding Klio and removing Plugin Barman Cloud each roll out the instances
-and restart the primary in place. If applications keep their connections
-open, the restart waits up to `smartShutdownTimeout` before PostgreSQL shuts
-down.
+Adding Klio in step 1 and removing Plugin Barman Cloud in step 4 each roll
+out the instances.
+
+When the primary is restarted in place or its Pod is recreated, if
+applications keep their connections open, PostgreSQL waits up to
+`smartShutdownTimeout` before shutting down. During a switchover, the
+former primary shuts down in fast mode instead, which disconnects clients
+immediately.
 :::
+
+## Recovery coverage
+
+Each plugin can only recover to points covered by its own base backups and
+WAL archive. During the migration, the two archives overlap:
+
+| Recovery target                                   | Restore from        |
+| ------------------------------------------------- | ------------------- |
+| Before the first Klio backup completes            | Plugin Barman Cloud |
+| From the end of the first Klio backup to step 4   | Either plugin       |
+| From the WAL segment in progress at step 4 onward | Klio                |
+
+Plugin Barman Cloud's coverage ends with the last WAL segment it archived
+before step 4. Klio's coverage starts at the end of the oldest Klio backup
+that its retention policy keeps, so it moves forward over time. Step 3 is
+complete when that point is earlier than the oldest point you need to
+recover to.
+
+See [Point-in-Time Recovery](backup_and_restore.md#point-in-time-recovery-pitr)
+for restoring from Klio.
 
 ## After the migration
 
