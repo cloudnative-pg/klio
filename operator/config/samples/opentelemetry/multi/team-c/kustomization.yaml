@@ -9,6 +9,7 @@ namespace: team-c
 resources:
   - namespace.yaml
   - cluster_klio_otel_config.yaml
+  - cluster_postgres_otel_config.yaml
   - ../../single/cluster
 patches:
   - target:

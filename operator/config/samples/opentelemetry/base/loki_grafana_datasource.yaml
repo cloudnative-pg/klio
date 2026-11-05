@@ -1,0 +1,25 @@
+# Grafana's data source sidecar, enabled by default in the
+# kube-prometheus-stack chart, provisions every ConfigMap labelled
+# grafana_datasource=1 as a data source (it searches all namespaces by
+# default). The url assumes Grafana runs in "default" alongside Loki; point
+# it at http://loki.default.svc.cluster.local:3100 otherwise.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: loki-grafana-datasource
+  labels:
+    grafana_datasource: "1"
+data:
+  loki-datasource.yaml: |
+    apiVersion: 1
+
+    datasources:
+      - name: Loki
+        uid: loki
+        type: loki
+        access: proxy
+        url: http://loki:3100
+        isDefault: false
+        editable: true
+        jsonData:
+          maxLines: 1000
