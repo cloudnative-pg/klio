@@ -23,6 +23,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -610,6 +611,49 @@ func TestInternalConsumeMessagesTerminatesInvalidMessage(t *testing.T) {
 	}, 2*time.Second, 20*time.Millisecond)
 
 	assert.Equal(t, int32(0), calls.Load(), "handler must not run for an invalid message")
+}
+
+func TestInternalConsumeMessagesTerminatesPermanentFailure(t *testing.T) {
+	ns, url := startNATSServer(t)
+	defer ns.Shutdown()
+
+	nc, err := nats.Connect(url)
+	require.NoError(t, err)
+	defer nc.Close()
+
+	const subject = "test.permanent"
+	js, consumer := newTestConsumer(t, nc, subject, 5, 300*time.Millisecond)
+
+	var calls atomic.Int32
+	handler := func(_ context.Context, _ *WALTask, _ nats.Header) error {
+		calls.Add(1)
+
+		return fmt.Errorf("%w: file is gone", ErrPermanent)
+	}
+
+	ctx := t.Context()
+	go func() {
+		_ = internalConsumeMessages(ctx, handler, consumer)
+	}()
+
+	payload, err := json.Marshal(WALTask{ClusterName: "c", WALName: "w"})
+	require.NoError(t, err)
+	_, err = js.Publish(ctx, subject, payload)
+	require.NoError(t, err)
+
+	stream, err := js.Stream(ctx, "test-stream")
+	require.NoError(t, err)
+
+	require.Eventually(t, func() bool {
+		info, infoErr := stream.Info(ctx)
+		require.NoError(t, infoErr)
+
+		return info.State.Msgs == 0
+	}, 2*time.Second, 20*time.Millisecond, "a permanently failed message must leave the work queue")
+
+	// Give a redelivery window a chance to (incorrectly) fire.
+	time.Sleep(time.Second)
+	assert.Equal(t, int32(1), calls.Load(), "a permanently failed message must not be retried")
 }
 
 func TestInternalConsumeMessagesRetriesUntilMaxDeliver(t *testing.T) {

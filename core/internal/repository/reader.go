@@ -48,6 +48,11 @@ type Reader struct {
 	segmentLength uint64
 }
 
+// ErrEmptyWALFile is returned, together with os.ErrNotExist, when a WAL file
+// exists but is empty. It lets callers tell an empty file, which can still be
+// written, apart from a missing one.
+var ErrEmptyWALFile = errors.New("empty WAL file")
+
 // NewReader creates a new WAL file reader. metrics may be nil to skip per-block
 // duration recording (e.g. when reading non-WAL data such as cluster metadata).
 func NewReader(
@@ -81,7 +86,7 @@ func NewReader(
 		// os.ErrNotExist so callers treat it as missing and fall back to the
 		// .partial variant instead of failing hard.
 		if errors.Is(err, io.EOF) {
-			return nil, fmt.Errorf("empty WAL file %s: %w", walFilePath, os.ErrNotExist)
+			return nil, fmt.Errorf("%w %s: %w", ErrEmptyWALFile, walFilePath, os.ErrNotExist)
 		}
 
 		return nil, fmt.Errorf("while reading WAL file header: %w", err)

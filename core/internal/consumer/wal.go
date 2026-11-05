@@ -118,6 +118,15 @@ func (d *WAL) walHandler(ctx context.Context, task *queue.WALTask) (returnErr er
 		task.WALName,
 		d.metrics,
 	)
+	if errors.Is(err, os.ErrNotExist) && !errors.Is(err, repository.ErrEmptyWALFile) {
+		// The file is gone from tier1 and will not come back, so retrying is
+		// pointless. This happens legitimately to a .partial task whose
+		// segment was later completed (and renamed), and that segment is
+		// relayed by its own task. An empty file is still being written (the
+		// WAL server truncates a .partial file when it is sent again), so it
+		// is retried instead.
+		return fmt.Errorf("%w: WAL file %q is no longer in tier1: %w", queue.ErrPermanent, task.WALName, err)
+	}
 	if err != nil {
 		return fmt.Errorf("while creating a new WAL reader: %w", err)
 	}

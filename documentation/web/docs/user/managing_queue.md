@@ -38,6 +38,10 @@ backup verification is not redelivered just because it takes long. When the
 attempts are exhausted, the queue stops delivering the task and files a
 dead-letter queue entry for it — see below.
 
+The server does not retry a WAL archiving task whose segment is no longer in
+the Tier 1 archive, because the segment cannot come back. It drops the task
+at once and logs an error, and the segment stays missing from Tier 2.
+
 ## Monitoring the Queue
 
 `klio admin queue status` reports how many backup and WAL tasks are pending
@@ -64,6 +68,12 @@ unreachable — re-enqueue the failed tasks with `klio admin queue wal retry`
 and `klio admin queue backup retry`. Re-enqueued tasks are delivered like
 new ones, with a fresh attempt budget, and when a retried task succeeds the
 server removes its dead-letter entries on its own.
+
+While a WAL task is queued, being retried or in the dead-letter queue, Tier 1
+retention keeps that segment and every later one of the same cluster, so they
+can still reach Tier 2. A WAL task left in the dead-letter queue therefore
+stops the Tier 1 WAL cleanup of its cluster: its Tier 1 WAL archive grows
+until you retry or discard the task.
 
 If a task should never run again, remove it with
 `klio admin queue wal discard` or `klio admin queue backup discard`.

@@ -316,6 +316,7 @@ func runServer(ctx context.Context, opts serverOpts) error {
 			Config:               opts.cfg,
 			Tier1KopiaConfigFile: tier1ConfigFileName,
 			Tier2KopiaConfigFile: tier2RWConfigFileName,
+			QueueURL:             queueURL,
 			RunID:                opts.runID,
 			RunSecret:            opts.runSecret,
 		})

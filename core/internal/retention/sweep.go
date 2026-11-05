@@ -67,6 +67,11 @@ type tierConfig struct {
 	// retention from deleting a backup tier2 hasn't received yet. Left nil
 	// when there's no further tier to protect against.
 	syncGuardClient backupDeleter
+
+	// pendingWALs, when set, holds WAL retention back so it never removes a
+	// WAL still waiting to be relayed further. Only ever set on tier1's
+	// config, when tier2 is configured.
+	pendingWALs PendingWALLister
 }
 
 // Sweep evaluates and deletes out-of-retention backups for tier1 (and,
@@ -76,39 +81,48 @@ type tierConfig struct {
 func (s *Sweeper) Sweep(ctx context.Context) error {
 	var errs []error
 
-	var tier1SyncGuard backupDeleter
-	if s.tier2Enabled {
-		tier1SyncGuard = s.tier2Client
-	}
-
-	if err := s.sweepTier(ctx, tierConfig{
-		name:            "tier1",
-		metricTier:      opentelemetry.Tier1,
-		kopiaClient:     s.tier1Kopia,
-		backupClient:    s.tier1Client,
-		selectPolicy:    func(p *grpc.RetentionPolicy) *grpc.TierRetentionPolicy { return p.GetTier1Policy() },
-		serverAddress:   s.opts.Tier1ServerAddress,
-		walRepository:   s.opts.Tier1WALRepository,
-		syncGuardClient: tier1SyncGuard,
-	}); err != nil {
-		errs = append(errs, fmt.Errorf("while sweeping tier1 retention: %w", err))
-	}
-
-	if s.tier2Enabled {
-		if err := s.sweepTier(ctx, tierConfig{
-			name:          "tier2",
-			metricTier:    opentelemetry.Tier2,
-			kopiaClient:   s.tier2Kopia,
-			backupClient:  s.tier2Client,
-			selectPolicy:  func(p *grpc.RetentionPolicy) *grpc.TierRetentionPolicy { return p.GetTier2Policy() },
-			serverAddress: s.opts.Tier2ServerAddress,
-			walRepository: s.opts.Tier2WALRepository,
-		}); err != nil {
-			errs = append(errs, fmt.Errorf("while sweeping tier2 retention: %w", err))
+	for _, tc := range s.tierConfigs() {
+		if err := s.sweepTier(ctx, tc); err != nil {
+			errs = append(errs, fmt.Errorf("while sweeping %s retention: %w", tc.name, err))
 		}
 	}
 
 	return errors.Join(errs...)
+}
+
+// tierConfigs returns the configuration of every tier to sweep: tier1 and,
+// when configured, tier2. Only tier1 is guarded against a further tier, and
+// only when tier2 is configured: its backups are kept until they are on
+// tier2, and its WALs until they are relayed there.
+func (s *Sweeper) tierConfigs() []tierConfig {
+	tier1 := tierConfig{
+		name:          "tier1",
+		metricTier:    opentelemetry.Tier1,
+		kopiaClient:   s.tier1Kopia,
+		backupClient:  s.tier1Client,
+		selectPolicy:  func(p *grpc.RetentionPolicy) *grpc.TierRetentionPolicy { return p.GetTier1Policy() },
+		serverAddress: s.opts.Tier1ServerAddress,
+		walRepository: s.opts.Tier1WALRepository,
+	}
+
+	if !s.tier2Enabled {
+		return []tierConfig{tier1}
+	}
+
+	tier1.syncGuardClient = s.tier2Client
+	tier1.pendingWALs = s.opts.PendingWALs
+
+	tier2 := tierConfig{
+		name:          "tier2",
+		metricTier:    opentelemetry.Tier2,
+		kopiaClient:   s.tier2Kopia,
+		backupClient:  s.tier2Client,
+		selectPolicy:  func(p *grpc.RetentionPolicy) *grpc.TierRetentionPolicy { return p.GetTier2Policy() },
+		serverAddress: s.opts.Tier2ServerAddress,
+		walRepository: s.opts.Tier2WALRepository,
+	}
+
+	return []tierConfig{tier1, tier2}
 }
 
 // sweepTier sweeps every cluster on one tier, refreshing that tier's Kopia
