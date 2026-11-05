@@ -72,7 +72,7 @@ jobs:
           echo "Release ${TAG} is-latest=${is_latest} (latest is ${latest})"
 
   olm-bundle:
-    name: Build and push the OLM bundle and catalog
+    name: Build and push the OLM bundle and catalog images
     needs:
       - release-publish
       - check-release
@@ -82,7 +82,7 @@ jobs:
       ENVIRONMENT: "production"
     runs-on: ubuntu-26.04
     permissions:
-      contents: write
+      contents: read
       packages: write
     steps:
       - name: Checkout
@@ -103,83 +103,3 @@ jobs:
       - name: Build and push the bundle and catalog
         run: |
           task olm:publish
-
-      - name: Upload the bundle
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
-        with:
-          name: bundle
-          path: operator/bundle
-
-      - name: Attach the CatalogSource manifest to the release
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          TAG: ${{ github.event.release.tag_name }}
-        run: |
-          gh release upload "${TAG}" operator/klio-operator-catalog-source.yaml \
-            --repo "${GITHUB_REPOSITORY}" --clobber
-
-  publish-bundle:
-    name: Publish the OLM bundle to the artifacts repository
-    needs:
-      - olm-bundle
-    if: github.repository_owner == 'cloudnative-pg'
-    env:
-      VERSION: ${{ github.event.release.tag_name }}
-      BUNDLE_DIR: klio/bundles
-    concurrency:
-      group: publish-bundle
-      cancel-in-progress: false
-    runs-on: ubuntu-26.04
-    permissions:
-      contents: read
-    steps:
-      - name: Checkout the artifacts repository
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
-        with:
-          repository: cloudnative-pg/artifacts
-          token: ${{ secrets.REPO_GHA_PAT }}
-          ref: main
-          fetch-depth: 0
-
-      - name: Configure the git user
-        run: |
-          git config user.name "${GITHUB_ACTOR}"
-          git config user.email "${GITHUB_ACTOR_ID}+${GITHUB_ACTOR}@users.noreply.github.com"
-
-      - name: Download the bundle
-        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
-        with:
-          name: bundle
-          path: downloaded-bundle
-
-      - name: Copy the bundle
-        run: |
-          target="${BUNDLE_DIR}/${VERSION#v}"
-          rm -rf "${target}"
-          mkdir -p "${target}"
-          cp -R downloaded-bundle/* "${target}"
-          rm -rf downloaded-bundle
-
-      - name: Commit and push the bundle
-        run: |
-          if [ -z "$(git status --porcelain)" ]; then
-            echo "Bundle for ${VERSION#v} is already up to date"
-            exit 0
-          fi
-          git add "${BUNDLE_DIR}/${VERSION#v}"
-          git commit -sm "klio-operator (${VERSION#v})"
-          # The checkout above persisted REPO_GHA_PAT, so no separate push
-          # action is needed. Rebase first: the artifacts repository is shared
-          # with the other CloudNativePG projects, so main may have moved
-          # between our checkout and our push. Retry a few times in case
-          # another project's release races ours.
-          for attempt in 1 2 3 4 5; do
-            git pull --rebase origin main
-            if git push origin HEAD:main; then
-              exit 0
-            fi
-            echo "Push attempt ${attempt} failed, retrying..." >&2
-            sleep $((attempt * 5))
-          done
-          echo "Failed to push the bundle after 5 attempts" >&2
-          exit 1

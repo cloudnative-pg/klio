@@ -1036,9 +1036,7 @@ tasks:
     desc: Publish the OLM bundle and catalog images for a release
     summary: |
       Release counterpart of olm:all. Builds and pushes the production bundle
-      and catalog images (no "-testing" suffix) for the tag being released, and
-      leaves operator/bundle/ on disk for the release workflow to upload and
-      forward to the artifacts repository.
+      and catalog images (no "-testing" suffix) for the tag being released.
 
       Scorecard is deliberately not re-run here: it already ran against the
       same bundle in the CI olm job, and it needs a k3s-capable engine that the
@@ -1061,7 +1059,6 @@ tasks:
           {{ .GITHUB_REF_NAME }}; refusing to publish an inconsistent bundle
     cmds:
       - task: olm:catalog
-      - task: olm:catalog-source
 
   olm:preflight-container:
     desc: Run Red Hat Preflight (check container) certification on the operator image
