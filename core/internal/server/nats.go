@@ -93,7 +93,7 @@ func (s *NatsService) String() string {
 // registerQueueMetrics registers observable gauges that report the number of
 // messages and bytes currently held by each JetStream stream. Values carry a
 // `stream` attribute identifying the source stream (e.g. the WAL work queue,
-// the backup work queue, and the latest-uploaded-WAL retention stream).
+// the backup work queue, and the latest-uploaded-WAL stream).
 func (s *NatsService) registerQueueMetrics() (func() error, error) {
 	meter := otel.Meter(opentelemetry.Meter)
 

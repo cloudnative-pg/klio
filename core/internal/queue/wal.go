@@ -26,8 +26,6 @@ import (
 	"fmt"
 
 	"github.com/cloudnative-pg/machinery/pkg/log"
-	"github.com/nats-io/jsm.go"
-	"github.com/nats-io/nats-server/v2/server"
 	"github.com/nats-io/nats.go"
 	"github.com/nats-io/nats.go/jetstream"
 
@@ -108,9 +106,10 @@ func (q *Conn) ConsumeWALReceivedMessages(ctx context.Context, handler WALTaskHa
 			return nil
 		}
 
-		// TODO: now that we allow holes in the WAL sequence, the logic of gating the deletion of WALs based on the
-		// latest uploaded WAL is not correct anymore. If WAL X and X+1 fail to upload, but X+2 is uploaded, the
-		// post-backup clean-up logic may delete WAL X and X+1 even if they have not been uploaded to tier2 yet.
+		// Record the latest WAL relayed to tier2 for each cluster. It is only
+		// reported through the queue metrics: it can't guard retention, as a
+		// later WAL can be relayed while an earlier one is still failing (tier1
+		// retention uses OldestPendingWAL instead).
 		if err := q.notifyMessage(
 			ctx,
 			latestUploadedWalSubject(t.ClusterName),
@@ -119,7 +118,7 @@ func (q *Conn) ConsumeWALReceivedMessages(ctx context.Context, handler WALTaskHa
 		); err != nil {
 			log.FromContext(ctx).Error(
 				err,
-				"Failed to record latest uploaded WAL, retention safety may degrade",
+				"Failed to record latest uploaded WAL",
 				"task", t,
 			)
 		}
@@ -128,39 +127,6 @@ func (q *Conn) ConsumeWALReceivedMessages(ctx context.Context, handler WALTaskHa
 	}
 
 	return internalConsumeMessages(ctx, wrapped, q.walConsumer)
-}
-
-// GetLatestUploadedWAL returns the most recently uploaded WAL file name for
-// the given cluster, or empty string if no WAL has been uploaded yet. This is
-// used by retention to avoid deleting WALs that have not been transferred to
-// tier2.
-func (q *Conn) GetLatestUploadedWAL(_ context.Context, clusterName string) (string, error) {
-	stream, err := q.loadStreamOrNil(klioLatestUploadedWalStreamName)
-	if err != nil {
-		return "", err
-	}
-	if stream == nil {
-		return "", nil
-	}
-
-	msg, err := stream.ReadLastMessageForSubject(latestUploadedWalSubject(clusterName))
-	if err != nil {
-		if jsm.IsNatsError(err, uint16(server.JSNoMessageFoundErr)) {
-			return "", nil
-		}
-
-		return "", fmt.Errorf("while fetching latest uploaded WAL message: %w", err)
-	}
-	if msg == nil {
-		return "", fmt.Errorf("while fetching latest uploaded WAL message: %w", errAmbiguousSourceRead)
-	}
-
-	var task WALTask
-	if err := json.Unmarshal(msg.Data, &task); err != nil {
-		return "", fmt.Errorf("while unmarshalling latest uploaded WAL message: %w", err)
-	}
-
-	return task.WALName, nil
 }
 
 // OldestPendingWAL returns the earliest WAL segment (without .partial) that

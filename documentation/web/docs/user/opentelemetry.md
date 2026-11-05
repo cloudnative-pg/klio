@@ -420,8 +420,8 @@ the embedded NATS JetStream streams used for asynchronous Tier 2
 offloading of WAL files and backups. Each sample carries a `stream`
 attribute identifying the source stream — typically
 `klio-wal-stream` (WAL work queue), `klio-backup-stream` (backup work
-queue), and `klio-latest-uploaded-wal-per-cluster-stream` (retention
-safeguard, capped to one message per cluster):
+queue), and `klio-latest-uploaded-wal-per-cluster-stream` (latest WAL
+relayed to tier-2, capped to one message per cluster):
 
 | Metric Name | Type | Unit | Description |
 |---|---|---|---|
