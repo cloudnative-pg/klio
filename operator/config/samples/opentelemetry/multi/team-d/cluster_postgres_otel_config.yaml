@@ -1,0 +1,12 @@
+# Same settings as ../../base/cluster_postgres_otel_config.yaml, but the
+# endpoint is fully-qualified since the otel-collector Service lives in
+# "default", not in this namespace.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: cluster-postgres-otel-config
+  namespace: team-d
+data:
+  OTEL_EXPORTER_OTLP_PROTOCOL: "grpc"
+  OTEL_EXPORTER_OTLP_ENDPOINT: "https://otel-collector.default.svc.cluster.local:4317"
+  OTEL_EXPORTER_OTLP_CERTIFICATE: "/projected/ca.crt"

@@ -1,8 +1,10 @@
 # OpenTelemetry Collector instance
 # A full-fledged configuration is outside of the scope of this example.
 # This example receives OTLP data over gRPC with TLS, adds Kubernetes attributes,
-# and exports to a Jaeger instance (without TLS, for simplicity) and to Prometheus.
-# It also exports to a debug exporter, which prints the data to the collector's logs.
+# exports traces to a Jaeger instance (without TLS, for simplicity), metrics to
+# Prometheus, and logs to Loki over its native OTLP endpoint.
+# It also exports every signal to a debug exporter, which prints the data to
+# the collector's logs.
 # OpenTelemetry Operator is required to run this:
 #   kubectl apply -f https://github.com/open-telemetry/opentelemetry-operator/releases/latest/download/opentelemetry-operator.yaml
 apiVersion: opentelemetry.io/v1beta1
@@ -63,6 +65,12 @@ spec:
         endpoint: jaeger:4317
         tls:
           insecure: true
+      # Loki ingests OTLP logs natively, so the standard OTLP/HTTP exporter
+      # is enough: no translation to Loki's push API is needed. Loki uses the
+      # service.name and k8s.* resource attributes as stream labels, and
+      # stores the remaining attributes as structured metadata.
+      otlphttp/loki:
+        endpoint: http://loki:3100/otlp
     service:
       pipelines:
         traces:
@@ -73,6 +81,10 @@ spec:
           receivers: [ otlp ]
           processors: [ memory_limiter, batch, k8sattributes ]
           exporters: [ debug, prometheus ]
+        logs:
+          receivers: [ otlp ]
+          processors: [ memory_limiter, batch, k8sattributes ]
+          exporters: [ debug, otlphttp/loki ]
   volumeMounts:
     - name: otel-tls
       mountPath: /etc/otel/certs

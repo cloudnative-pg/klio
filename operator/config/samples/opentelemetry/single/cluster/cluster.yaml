@@ -14,6 +14,19 @@ spec:
             - key: ca.crt
               path: ca.crt
 
+  # The instance manager exports the PostgreSQL logs through OTLP when
+  # OTEL_EXPORTER_OTLP_ENDPOINT is set (see cluster-postgres-otel-config;
+  # the CA is the projected volume above). Variables read through envFrom
+  # are not expanded, hence the identity of the records in env.
+  envFrom:
+    - configMapRef:
+        name: cluster-postgres-otel-config
+  env:
+    - name: OTEL_SERVICE_NAME
+      value: $(CLUSTER_NAME)
+    - name: OTEL_RESOURCE_ATTRIBUTES
+      value: k8s.pod.name=$(POD_NAME),k8s.namespace.name=$(NAMESPACE)
+
   postgresql:
     pg_hba:
       - local replication all peer map=local
