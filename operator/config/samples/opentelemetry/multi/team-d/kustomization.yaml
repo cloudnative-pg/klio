@@ -15,6 +15,7 @@ resources:
   - klio_encryption.yaml
   - klio_server_otel_config.yaml
   - cluster_klio_otel_config.yaml
+  - cluster_postgres_otel_config.yaml
   - cluster_d_klio_client_auth.yaml
   - ../../single/server
   - ../../single/cluster
