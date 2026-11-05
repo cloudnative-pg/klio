@@ -22,12 +22,14 @@ package queue
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 
 	"github.com/cloudnative-pg/machinery/pkg/log"
 	"github.com/nats-io/jsm.go"
 	"github.com/nats-io/nats-server/v2/server"
 	"github.com/nats-io/nats.go"
+	"github.com/nats-io/nats.go/jetstream"
 
 	"github.com/cloudnative-pg/klio/core/internal/wal"
 )
@@ -73,6 +75,19 @@ func (q *Conn) ConsumeWALReceivedMessages(ctx context.Context, handler WALTaskHa
 		}
 
 		if err := handler(ctx, t); err != nil {
+			// A permanently failed retry will never succeed: release the
+			// dead-lettered original too, or it would stay in the WAL stream
+			// and hold back tier1 WAL retention (see OldestPendingWAL).
+			if isRetried && errors.Is(err, ErrPermanent) {
+				if purgeErr := q.purgeWALDLQEntries(ctx, t.ClusterName, t.WALName); purgeErr != nil {
+					logger.Error(
+						purgeErr,
+						"Failed to purge WAL dead-letter queue entries after a permanent failure",
+						"cluster", t.ClusterName, "wal", t.WALName,
+					)
+				}
+			}
+
 			return err
 		}
 
@@ -146,4 +161,56 @@ func (q *Conn) GetLatestUploadedWAL(_ context.Context, clusterName string) (stri
 	}
 
 	return task.WALName, nil
+}
+
+// OldestPendingWAL returns the earliest WAL segment (without .partial) that
+// clusterName still has in the WAL stream, or "" if none. These WALs have not
+// reached tier2 yet, so tier1 must keep them. Every task is checked because
+// DLQ retries are re-published at the end of the stream with an older WAL.
+func (m *StreamManager) OldestPendingWAL(ctx context.Context, clusterName string) (string, error) {
+	stream, err := m.js.Stream(ctx, klioWalStreamName)
+	if errors.Is(err, jetstream.ErrStreamNotFound) {
+		return "", nil
+	}
+	if err != nil {
+		return "", fmt.Errorf("while loading the WAL stream: %w", err)
+	}
+
+	subject := walSubject(clusterName)
+
+	var oldest string
+	for seq := uint64(1); ; {
+		msg, err := stream.GetMsg(ctx, seq, jetstream.WithGetMsgSubject(subject))
+		if errors.Is(err, jetstream.ErrMsgNotFound) {
+			return oldest, nil
+		}
+		if err != nil {
+			return "", fmt.Errorf("while reading the WAL stream at sequence %d: %w", seq, err)
+		}
+
+		var task WALTask
+		if err := json.Unmarshal(msg.Data, &task); err != nil {
+			return "", fmt.Errorf("while unmarshalling the WAL task at sequence %d: %w", msg.Sequence, err)
+		}
+
+		oldest = earlierWALSegment(oldest, task.WALName)
+		seq = msg.Sequence + 1
+	}
+}
+
+// earlierWALSegment returns whichever of current and walName names the
+// earlier WAL segment, comparing walName without its .partial suffix.
+// walName is ignored when it is not a segment (e.g. a .history file), since
+// WAL retention only ever removes segments. An empty current means none yet.
+func earlierWALSegment(current, walName string) string {
+	if !wal.IsWALSegmentOrPartial(walName) {
+		return current
+	}
+
+	segment := wal.TrimPartialSuffix(walName)
+	if current == "" || segment < current {
+		return segment
+	}
+
+	return current
 }

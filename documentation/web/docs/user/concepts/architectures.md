@@ -152,6 +152,14 @@ This ensures data integrity during the asynchronous migration process and
 guarantees that no backup is lost due to retention policies running before
 migration completes.
 
+### Protecting WAL files pending relay to Tier 2
+
+When Tier 2 is enabled, the retention sweep also keeps every Tier 1 WAL file
+that has not reached Tier 2 yet, even when no remaining backup needs it. This
+includes WAL files waiting in the relay queue, being retried, or in the
+dead-letter queue, so a Tier 2 outage delays the Tier 1 WAL cleanup until the
+relay catches up. See [Managing the Work Queue](../managing_queue.md).
+
 ### Restoring from Tier 2
 
 Tier 2 is only used as a restore source, for both base backups and WAL files,

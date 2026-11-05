@@ -351,3 +351,66 @@ func TestListFailedBackupTasksMissingSourceMessage(t *testing.T) {
 	require.NoError(t, err)
 	assert.Empty(t, tasks)
 }
+
+func TestOldestPendingWALMissingStream(t *testing.T) {
+	mgr := newBareManager(t)
+
+	oldest, err := mgr.OldestPendingWAL(t.Context(), "cluster-a")
+	require.NoError(t, err)
+	assert.Empty(t, oldest)
+}
+
+func TestOldestPendingWALEmpty(t *testing.T) {
+	_, _, mgr := newTestManager(t)
+
+	oldest, err := mgr.OldestPendingWAL(t.Context(), "cluster-a")
+	require.NoError(t, err)
+	assert.Empty(t, oldest)
+}
+
+func TestOldestPendingWAL(t *testing.T) {
+	_, conn, mgr := newTestManager(t)
+	ctx := t.Context()
+
+	for _, task := range []WALTask{
+		{ClusterName: "cluster-a", WALName: "000000010000000000000005"},
+		{ClusterName: "cluster-a", WALName: "00000002.history"},
+		{ClusterName: "cluster-b", WALName: "000000010000000000000001"},
+		{ClusterName: "cluster-a", WALName: "000000010000000000000007"},
+		// Published last but older, as a WAL retried from the DLQ is.
+		{ClusterName: "cluster-a", WALName: "000000010000000000000003.partial"},
+	} {
+		require.NoError(t, conn.NotifyWALReceived(ctx, &task))
+	}
+
+	oldest, err := mgr.OldestPendingWAL(ctx, "cluster-a")
+	require.NoError(t, err)
+	assert.Equal(t, "000000010000000000000003", oldest,
+		"every held task must be checked, the .partial suffix trimmed and non-segments ignored")
+
+	oldest, err = mgr.OldestPendingWAL(ctx, "cluster-b")
+	require.NoError(t, err)
+	assert.Equal(t, "000000010000000000000001", oldest, "other clusters' WALs must not leak in")
+
+	oldest, err = mgr.OldestPendingWAL(ctx, "cluster-c")
+	require.NoError(t, err)
+	assert.Empty(t, oldest)
+}
+
+func TestEarlierWALSegment(t *testing.T) {
+	tests := []struct {
+		name, current, walName, want string
+	}{
+		{"first segment", "", "000000010000000000000005", "000000010000000000000005"},
+		{"older segment", "000000010000000000000005", "000000010000000000000003", "000000010000000000000003"},
+		{"newer segment", "000000010000000000000003", "000000010000000000000005", "000000010000000000000003"},
+		{"partial is trimmed", "000000010000000000000005", "000000010000000000000004.partial", "000000010000000000000004"},
+		{"history is ignored", "", "00000002.history", ""},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.want, earlierWALSegment(tt.current, tt.walName))
+		})
+	}
+}

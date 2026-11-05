@@ -23,6 +23,8 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/cloudnative-pg/machinery/pkg/log"
+
 	"github.com/cloudnative-pg/klio/core/internal/client/klioclient"
 	"github.com/cloudnative-pg/klio/core/internal/repository"
 )
@@ -51,11 +53,48 @@ func (s *Sweeper) applyWALRetention(ctx context.Context, clusterName string, tc 
 		return nil
 	}
 
+	oldestWAL, err = s.holdForPendingWALs(ctx, clusterName, tc, oldestWAL)
+	if err != nil {
+		return err
+	}
+
 	if err := repository.ValidateWalFileName(oldestWAL); err != nil {
 		return fmt.Errorf("computed first required WAL %q is invalid: %w", oldestWAL, err)
 	}
 
 	return tc.walRepository.SetFirstRequiredOnCluster(ctx, clusterName, oldestWAL)
+}
+
+// holdForPendingWALs returns the first WAL that WAL retention may keep on
+// this tier: firstRequired, moved back to the earliest WAL still waiting to
+// be relayed to the next tier when there is one. Without it, a relay lagging
+// behind (e.g. during a tier2 outage) would have its queued WALs removed from
+// tier1 before they ever reach tier2. When the pending WALs cannot be
+// determined, it fails rather than guessing, so nothing is removed this pass.
+func (s *Sweeper) holdForPendingWALs(
+	ctx context.Context,
+	clusterName string,
+	tc tierConfig,
+	firstRequired string,
+) (string, error) {
+	if tc.pendingWALs == nil {
+		return firstRequired, nil
+	}
+
+	oldestPending, err := tc.pendingWALs.OldestPendingWAL(ctx, clusterName)
+	if err != nil {
+		return "", fmt.Errorf("while looking up the WALs pending relay to tier2: %w", err)
+	}
+
+	if oldestPending == "" || oldestPending >= firstRequired {
+		return firstRequired, nil
+	}
+
+	log.FromContext(ctx).Info("Holding back WAL retention for WALs not yet relayed to tier2",
+		"tier", tc.name, "cluster", clusterName,
+		"requiredByBackups", firstRequired, "oldestPendingWAL", oldestPending)
+
+	return oldestPending, nil
 }
 
 // findOldestWAL returns the earliest StartWAL among backups, or "" if none
