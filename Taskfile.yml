@@ -780,23 +780,6 @@ tasks:
   ## OLM
   ####################################
 
-  olm:all:
-    desc: Generate the OLM bundle, catalog image and CatalogSource YAML, and test the bundle
-    requires:
-      vars:
-        - name: ENVIRONMENT
-          enum:
-            ref: .ALLOWED_ENVS
-    # Sequential: olm:containerize must come first, see its comments.
-    cmds:
-      - task: olm:containerize
-        if: '{{ if .GITHUB_ACTIONS }}false{{ else }}true{{ end }}'
-      - task: olm:catalog
-      - task: olm:catalog-source
-      - task: olm:validate
-      - task: olm:scorecard
-      - task: olm:test-catalog
-
   olm:containerize:
     desc: Build and push the operator and operand images for OLM testing
     run: once
@@ -873,6 +856,28 @@ tasks:
         build --source config --dir olm
         export --path '{{.OUTPUT_DIR}}/manifest.yaml'
 
+  olm:bundle:generate:
+    desc: Generate the OLM bundle from olm-manifests into olm-bundle, with the OpenShift annotations
+    internal: true
+    requires:
+      vars:
+        - PACKAGE_NAME
+    dir: operator
+    cmds:
+      - task: ci-machinery-olm:bundle:generate
+        vars:
+          WORKDIR: operator
+          PACKAGE_NAME: '{{ .PACKAGE_NAME }}'
+          CHANNELS: '{{ .OLM_CHANNELS }}'
+          DEFAULT_CHANNEL: '{{ .OLM_DEFAULT_CHANNEL }}'
+          EXTRA_ARGS: '{{ .EXTRA_ARGS }}'
+          METADATA_DIR: config/olm/metadata
+      - |
+        printf '\n  # OpenShift annotations.\n  com.redhat.openshift.versions: "%s"\n' \
+          '{{ .OPENSHIFT_VERSIONS }}' >> olm-bundle/bundle/metadata/annotations.yaml
+        printf '\n# OpenShift labels.\nLABEL com.redhat.openshift.versions="%s"\n' \
+          '{{ .OPENSHIFT_VERSIONS }}' >> olm-bundle/bundle.Dockerfile
+
   olm:test:
     desc: Run the OLM CI pipeline
     summary: |
@@ -916,19 +921,10 @@ tasks:
           OPERATOR_IMAGE: '{{ .OPERATOR_IMAGE }}'
           SIDECAR_IMAGE: '{{ .SIDECAR_IMAGE }}'
       - defer: rm -rf olm-bundle
-      - task: ci-machinery-olm:bundle:generate
+      - task: olm:bundle:generate
         vars:
-          WORKDIR: operator
           PACKAGE_NAME: '{{ .PACKAGE_NAME }}'
-          CHANNELS: '{{ .OLM_CHANNELS }}'
-          DEFAULT_CHANNEL: '{{ .OLM_DEFAULT_CHANNEL }}'
           EXTRA_ARGS: '--use-image-digests'
-          METADATA_DIR: config/olm/metadata
-      - |
-        printf '\n  # OpenShift annotations.\n  com.redhat.openshift.versions: "%s"\n' \
-          '{{ .OPENSHIFT_VERSIONS }}' >> olm-bundle/bundle/metadata/annotations.yaml
-        printf '\n# OpenShift labels.\nLABEL com.redhat.openshift.versions="%s"\n' \
-          '{{ .OPENSHIFT_VERSIONS }}' >> olm-bundle/bundle.Dockerfile
       - task: ci-machinery-olm:bundle:image
         vars:
           WORKDIR: operator
@@ -968,106 +964,6 @@ tasks:
           WORKDIR: operator
           OPERATOR_NAME: '{{ .PACKAGE_NAME }}'
           VERSION: '{{ .VERSION }}'
-          BUNDLE_DIR: olm-bundle/bundle
-
-  olm:bundle:
-    desc: Generate the OLM bundle for the operator
-    summary: |
-      Note that --use-image-digests makes operator-sdk resolve every image in
-      the CSV against its registry, so the operator image for this ref must
-      already be pushed when this runs. Callers must therefore order themselves
-      after the operator build (in CI, the olm job needs the operator job).
-
-      Locally, olm:containerize pushes those images to OLM_REGISTRY first
-      (see olm:all).
-
-      Resolution covers *every* image in the CSV, the operand included, so a
-      caller that cannot guarantee the operand image was pushed for this ref
-      must set SKIP_IMAGE_DIGESTS. The CI olm job does that on pull requests
-      where the core job is skipped; releases always build both, and never set
-      it.
-
-    run: once
-    requires:
-      vars:
-        - name: ENVIRONMENT
-          enum:
-            ref: .ALLOWED_ENVS
-    deps:
-      - olm:kustomization
-    cmds:
-      # The bundle version is not passed: bundle:generate derives it from
-      # `git describe` the same way GIT_TAG_VERSION is.
-      - task: ci-machinery-olm:bundle:generate
-        vars:
-          WORKDIR: '{{ .ROOT_DIR }}/operator'
-          INPUT_DIR: olm-manifests
-          OUTPUT_DIR: olm-bundle
-          PACKAGE_NAME: klio-operator
-          CHANNELS: '{{ .OLM_CHANNELS }}'
-          DEFAULT_CHANNEL: '{{ .OLM_DEFAULT_CHANNEL }}'
-          EXTRA_ARGS: '{{ if not .SKIP_IMAGE_DIGESTS }}--use-image-digests{{ end }}'
-          METADATA_DIR: config/olm/metadata
-          PRIVATE_REGISTRY_HOST: '{{ .PRIVATE_REGISTRY_HOST }}'
-          PRIVATE_REGISTRY_USERNAME: '{{ .PRIVATE_REGISTRY_USERNAME }}'
-      - |
-        printf '\n  # OpenShift annotations.\n  com.redhat.openshift.versions: "%s"\n' \
-          '{{ .OPENSHIFT_VERSIONS }}' >> operator/olm-bundle/bundle/metadata/annotations.yaml
-        printf '\n# OpenShift labels.\nLABEL com.redhat.openshift.versions="%s"\n' \
-          '{{ .OPENSHIFT_VERSIONS }}' >> operator/olm-bundle/bundle.Dockerfile
-    sources:
-      - operator/olm-manifests/**
-      - operator/config/olm/metadata/**
-    generates:
-      - operator/olm-bundle/**
-    # The sources don't cover the version, which comes from `git describe`.
-    status:
-      - >
-        grep -qx '  version: {{ .GIT_TAG_VERSION }}'
-        operator/olm-bundle/bundle/manifests/klio-operator.clusterserviceversion.yaml
-
-  olm:build:
-    desc: Build the require OLM bundle image after generating the bundle
-    requires:
-      vars:
-        - name: ENVIRONMENT
-          enum:
-            ref: .ALLOWED_ENVS
-    deps:
-      - olm:bundle
-    cmds:
-      # Pushed with the ci-machinery builder, which trusts the local registry,
-      # and the host credentials for any other.
-      - task: ci-machinery-olm:bundle:image
-        vars:
-          WORKDIR: '{{ .ROOT_DIR }}/operator'
-          BUNDLE_DIR: olm-bundle
-          IMAGE_REGISTRY: '{{ .OLM_REGISTRY }}'
-          IMAGE_NAME: 'klio-operator{{ if ( ne .ENVIRONMENT "production" ) }}-testing{{end}}'
-          IMAGE_TAG: '{{ .TAG | default .IMAGE_TAG }}-bundle'
-
-  olm:catalog:
-    desc: Build the OLM catalog image after the bundle image is built
-    requires:
-      vars:
-        - name: ENVIRONMENT
-          enum:
-            ref: .ALLOWED_ENVS
-    deps:
-      - olm:build
-    cmds:
-      - task: ci-machinery-olm:catalog:generate
-        vars:
-          WORKDIR: '{{ .ROOT_DIR }}/operator'
-          BUNDLE_IMAGE: '{{ .OLM_REGISTRY }}/klio-operator{{ if ( ne .ENVIRONMENT "production" ) }}-testing{{end}}:{{ .TAG | default .IMAGE_TAG }}-bundle'
-          OUTPUT_DIR: olm-catalog
-          PRIVATE_REGISTRY_HOST: '{{ .PRIVATE_REGISTRY_HOST }}'
-          PRIVATE_REGISTRY_USERNAME: '{{ .PRIVATE_REGISTRY_USERNAME }}'
-      - task: ci-machinery-olm:catalog:image
-        vars:
-          WORKDIR: '{{ .ROOT_DIR }}/operator'
-          CATALOG_IMAGE: '{{ .OLM_REGISTRY }}/klio-operator{{ if ( ne .ENVIRONMENT "production" ) }}-testing{{end}}:{{ .TAG | default .IMAGE_TAG }}-catalog'
-          CATALOG_DIR: olm-catalog
 
   olm:catalog-source:
     desc: Build the OLM CatalogSource YAML file
@@ -1097,21 +993,23 @@ tasks:
   olm:publish:
     desc: Publish the OLM bundle and catalog images for a release
     summary: |
-      Release counterpart of olm:all. Builds and pushes the production bundle
-      and catalog images (no "-testing" suffix) for the tag being released.
-
-      Scorecard is deliberately not re-run here: it already ran against the
-      same bundle in the CI olm job, and it needs a k3s-capable engine that the
-      release runner is not set up for.
+      Builds and pushes the production bundle
+      and catalog images for the tag being released.
+    vars:
+      PACKAGE_NAME: klio-operator
+      REGISTRY: ghcr.io
+      BUNDLE_IMAGE_NAME: '{{ .PACKAGE_NAME }}-bundle'
+      IMAGE_TAG: '{{ .GITHUB_REF_NAME }}-bundle'
     requires:
       # We expect this to run in a GitHub workflow, so we put a few
       # GitHub-specific vars here to prevent running this task locally by
       # accident.
       vars:
         - CI
-        - GITHUB_REPOSITORY
         - GITHUB_REF
         - GITHUB_REF_NAME
+        - OPERATOR_IMAGE
+        - SIDECAR_IMAGE
     preconditions:
       - sh: "[[ {{.GITHUB_REF}} =~ 'refs/tags/v.*' ]]"
         msg: not a tag, failing
@@ -1120,7 +1018,33 @@ tasks:
           bundle version {{ .GIT_TAG_VERSION }} does not match tag
           {{ .GITHUB_REF_NAME }}; refusing to publish an inconsistent bundle
     cmds:
-      - task: olm:catalog
+      - defer: rm -rf olm-manifests
+      - task: olm:kustomization
+        vars:
+          OPERATOR_IMAGE: '{{ .OPERATOR_IMAGE }}'
+          SIDECAR_IMAGE: '{{ .SIDECAR_IMAGE }}'
+      - task: olm:bundle:generate
+        vars:
+          PACKAGE_NAME: '{{ .PACKAGE_NAME }}'
+          EXTRA_ARGS: '--use-image-digests'
+      - task: ci-machinery-olm:bundle:image
+        vars:
+          WORKDIR: operator
+          IMAGE_REGISTRY: '{{ .REGISTRY }}'
+          IMAGE_NAME: '{{ .BUNDLE_IMAGE_NAME }}'
+          IMAGE_TAG: '{{ .IMAGE_TAG }}'
+          PLATFORMS: '{{ .PLATFORMS }}'
+      - defer: rm -rf catalog
+      - task: ci-machinery-olm:catalog:generate
+        vars:
+          WORKDIR: operator
+          BUNDLE_IMAGE: '{{ .REGISTRY }}/{{ .BUNDLE_IMAGE_NAME }}:{{ .IMAGE_TAG }}'
+          OUTPUT_DIR: 'catalog'
+      - task: ci-machinery-olm:catalog:image
+        vars:
+          WORKDIR: operator
+          CATALOG_IMAGE: '{{ .REGISTRY }}/{{ .PACKAGE_NAME }}:{{ .IMAGE_TAG }}-catalog'
+          CATALOG_DIR: 'catalog'
 
   olm:preflight-container:
     desc: Run Red Hat Preflight (check container) certification on the operator image
