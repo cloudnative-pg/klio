@@ -8,14 +8,13 @@ output: prefixed
 includes:
   ci-machinery-infra:
     # renovate: datasource=git-refs depName=ci-machinery lookupName=https://github.com/cloudnative-pg/ci-machinery currentValue=main
-    taskfile: https://raw.githubusercontent.com/cloudnative-pg/ci-machinery/1b6e606ea9c22ad1fe912d45c17beb0176917007/taskfiles/taskfile.infra.yaml
+    taskfile: https://raw.githubusercontent.com/cloudnative-pg/ci-machinery/042c1edc1e5370f05198bc25f214405d7f9775f6/taskfiles/taskfile.infra.yaml
     vars:
       # Keep clear of the e2e registry, published on port 5000
       REGISTRY_HOST_PORT: 5050
   ci-machinery-olm:
     # renovate: datasource=git-refs depName=ci-machinery lookupName=https://github.com/cloudnative-pg/ci-machinery currentValue=main
-    taskfile: https://raw.githubusercontent.com/cloudnative-pg/ci-machinery/1b6e606ea9c22ad1fe912d45c17beb0176917007/taskfiles/taskfile.olm.yaml
-
+    taskfile: https://raw.githubusercontent.com/cloudnative-pg/ci-machinery/b1ff297348528d31806022e8158e0d96acf02379/taskfiles/taskfile.olm.yaml
 
 vars:
   BUILDER_NAME: klio-builder
@@ -997,9 +996,8 @@ tasks:
       and catalog images for the tag being released.
     vars:
       PACKAGE_NAME: klio-operator
-      REGISTRY: ghcr.io
-      BUNDLE_IMAGE_NAME: '{{ .PACKAGE_NAME }}-bundle'
-      IMAGE_TAG: '{{ .GITHUB_REF_NAME }}-bundle'
+      REGISTRY: ghcr.io/cloudnative-pg
+      IMAGE_TAG: '{{ .GITHUB_REF_NAME }}'
     requires:
       # We expect this to run in a GitHub workflow, so we put a few
       # GitHub-specific vars here to prevent running this task locally by
@@ -1031,14 +1029,14 @@ tasks:
         vars:
           WORKDIR: operator
           IMAGE_REGISTRY: '{{ .REGISTRY }}'
-          IMAGE_NAME: '{{ .BUNDLE_IMAGE_NAME }}'
-          IMAGE_TAG: '{{ .IMAGE_TAG }}'
+          IMAGE_NAME: '{{ .PACKAGE_NAME }}'
+          IMAGE_TAG: '{{ .IMAGE_TAG }}-bundle'
           PLATFORMS: '{{ .PLATFORMS }}'
       - defer: rm -rf catalog
       - task: ci-machinery-olm:catalog:generate
         vars:
           WORKDIR: operator
-          BUNDLE_IMAGE: '{{ .REGISTRY }}/{{ .BUNDLE_IMAGE_NAME }}:{{ .IMAGE_TAG }}'
+          BUNDLE_IMAGE: '{{ .REGISTRY }}/{{ .PACKAGE_NAME }}:{{ .IMAGE_TAG }}-bundle'
           OUTPUT_DIR: 'catalog'
       - task: ci-machinery-olm:catalog:image
         vars:
@@ -1192,166 +1190,6 @@ tasks:
       # preflight exits non-zero only when it fails to run, not when checks fail,
       # so the verdict is derived from the artifacts in-engine.
       - GITHUB_REF= dagger call -m dagger/preflight verdict --artifacts preflight-artifacts
-
-  olm:validate:
-    desc: Validate the OLM bundle image with operator-sdk
-    summary: |
-      Runs `operator-sdk bundle validate` against the pushed bundle image,
-      including the optional operatorframework suite.
-    run: once
-    requires:
-      vars:
-        - name: ENVIRONMENT
-          enum:
-            ref: .ALLOWED_ENVS
-    deps:
-      - olm:build
-    cmds:
-      - task: ci-machinery-olm:bundle:validate
-        vars:
-          BUNDLE_IMAGE: '{{ .OLM_REGISTRY }}/klio-operator{{ if ( ne .ENVIRONMENT "production" ) }}-testing{{end}}:{{ .TAG | default .IMAGE_TAG }}-bundle'
-          EXTRA_ARGS: '--select-optional suite=operatorframework'
-          PRIVATE_REGISTRY_HOST: '{{ .PRIVATE_REGISTRY_HOST }}'
-          PRIVATE_REGISTRY_USERNAME: '{{ .PRIVATE_REGISTRY_USERNAME }}'
-
-  olm:scorecard:
-    desc: Run operator-sdk scorecard against the OLM bundle on the Kind cluster
-    summary: |
-      Runs the operator-sdk scorecard basic and OLM test suites configured in
-      the bundle (tests/scorecard/config.yaml, from operator/config/olm/scorecard)
-      against the pushed bundle image, on the Kind cluster of olm:setup-kind.
-    run: once
-    requires:
-      vars:
-        - name: ENVIRONMENT
-          enum:
-            ref: .ALLOWED_ENVS
-    deps:
-      - olm:build
-      - olm:setup-kind
-    cmds:
-      - task: ci-machinery-olm:bundle:scorecard
-        vars:
-          BUNDLE_IMAGE: '{{ .OLM_REGISTRY }}/klio-operator{{ if ( ne .ENVIRONMENT "production" ) }}-testing{{end}}:{{ .TAG | default .IMAGE_TAG }}-bundle'
-          WORKDIR: '{{ .ROOT_DIR }}'
-          KUBECONFIG_PATH: '{{ .OLM_KUBECONFIG_PATH }}'
-          # The default 30s is often shorter than pulling the test image on a
-          # fresh cluster.
-          EXTRA_ARGS: '--wait-time=300s'
-          PRIVATE_REGISTRY_HOST: '{{ .PRIVATE_REGISTRY_HOST }}'
-          PRIVATE_REGISTRY_USERNAME: '{{ .PRIVATE_REGISTRY_USERNAME }}'
-
-  olm:olm-install:
-    desc: Install OLM on the Kind cluster of the OLM tests
-    run: once
-    deps:
-      - olm:setup-kind
-    cmds:
-      - task: ci-machinery-olm:olm-operator:setup
-        vars:
-          WORKDIR: '{{ .ROOT_DIR }}'
-          KUBECONFIG_PATH: '{{ .OLM_KUBECONFIG_PATH }}'
-
-  olm:olm-teardown:
-    desc: Uninstall OLM from the Kind cluster of the OLM tests
-    cmds:
-      # Export the kubeconfig instead of depending on olm:setup-kind, so that
-      # a teardown never creates the cluster it is meant to clean up.
-      - task: ci-machinery-infra:export-kubeconfig
-        vars:
-          CLUSTER_NAME: '{{ .OLM_KIND_CLUSTER_NAME }}'
-          INTERNAL: 'true'
-          WORKDIR: '{{ .ROOT_DIR }}'
-          KUBECONFIG_PATH: '{{ .OLM_KUBECONFIG_PATH }}'
-      - task: ci-machinery-olm:olm-operator:teardown
-        vars:
-          WORKDIR: '{{ .ROOT_DIR }}'
-          KUBECONFIG_PATH: '{{ .OLM_KUBECONFIG_PATH }}'
-
-  olm:test-catalog:
-    desc: Install the operator through OLM from the bundle and check it succeeds
-    summary: |
-      Builds an ephemeral catalog holding only the bundle, subscribes to it on
-      the Kind cluster of olm:setup-kind, with OLM installed, waits for the
-      CSV to succeed, and uninstalls the operator. The operator and operand
-      images must be in OLM_REGISTRY, see olm:containerize.
-    run: once
-    requires:
-      vars:
-        - name: ENVIRONMENT
-          enum:
-            ref: .ALLOWED_ENVS
-    deps:
-      - olm:build
-      - olm:olm-install
-    cmds:
-      - task: ci-machinery-olm:bundle:test-install
-        vars:
-          BUNDLE_IMAGE: '{{ .OLM_REGISTRY }}/klio-operator{{ if ( ne .ENVIRONMENT "production" ) }}-testing{{end}}:{{ .TAG | default .IMAGE_TAG }}-bundle'
-          # Same image as olm:catalog builds, rather than the shared default
-          # tag, so that concurrent runs don't overwrite each other.
-          CATALOG_IMAGE: '{{ .OLM_REGISTRY }}/klio-operator{{ if ( ne .ENVIRONMENT "production" ) }}-testing{{end}}:{{ .TAG | default .IMAGE_TAG }}-catalog'
-          PACKAGE_NAME: klio-operator
-          WORKDIR: '{{ .ROOT_DIR }}'
-          KUBECONFIG_PATH: '{{ .OLM_KUBECONFIG_PATH }}'
-          PRIVATE_REGISTRY_HOST: '{{ .PRIVATE_REGISTRY_HOST }}'
-          PRIVATE_REGISTRY_USERNAME: '{{ .PRIVATE_REGISTRY_USERNAME }}'
-
-  olm:fruit-tests:
-    desc: Run the OperatorHub fruit tests (kiwi, lemon, orange) against the OLM bundle
-    summary: |
-      Adds the bundle to a temporary community-operators checkout and runs
-      the OperatorHub pipeline script against it. Only runs inside a GitHub
-      Actions runner, since the script modifies the host it runs on.
-      GITHUB_TOKEN, when set, authenticates the script download.
-    requires:
-      vars:
-        - name: ENVIRONMENT
-          enum:
-            ref: .ALLOWED_ENVS
-    # Also checked by ci-machinery, but only after the bundle is generated.
-    # olm:bundle is a cmd rather than a dep so that this check runs first.
-    preconditions:
-      - sh: '[ "${GITHUB_ACTIONS:-}" = "true" ]'
-        msg: "olm:fruit-tests only runs inside a GitHub Actions runner: opp.sh modifies the host it runs on"
-    cmds:
-      - task: olm:bundle
-      - task: ci-machinery-olm:operator-hub:fruit-tests
-        vars:
-          WORKDIR: '{{ .ROOT_DIR }}/operator'
-          OPERATOR_NAME: klio-operator
-          VERSION: '{{ .GIT_TAG_VERSION }}'
-          BUNDLE_DIR: olm-bundle/bundle
-
-  olm:clean:
-    desc: Cleanup of the OLM build artifacts
-    cmds:
-      - rm -fr operator/olm-manifests
-      - rm -fr operator/olm-bundle
-      - rm -fr operator/config/olm/generated
-      - rm -fr operator/olm-catalog
-      - rm -f operator/klio-operator-catalog-source.yaml
-      - rm -fr operator/preflight-artifacts
-
-  olm:prune:
-    desc: Clean up the OLM build artifacts and remove the OLM test infrastructure
-    summary: |
-      Runs olm:clean, then deletes the Kind cluster, the local registry, the
-      builder, the Dagger engine and the Docker network of the ci-machinery
-      infrastructure. These are shared with any other project using the same
-      ci-machinery defaults.
-    cmds:
-      - task: olm:clean
-      # The Kind cluster goes first: deleting it needs the Dagger engine.
-      - task: ci-machinery-infra:teardown-kind
-        vars:
-          CLUSTER_NAME: '{{ .OLM_KIND_CLUSTER_NAME }}'
-      - rm -f {{ .OLM_KUBECONFIG_PATH | shellQuote }}
-      - task: ci-machinery-infra:teardown-container-registry
-      - task: ci-machinery-infra:teardown-builder
-      - task: ci-machinery-infra:teardown-dagger-engine
-      # Fails if another project still has containers on the network.
-      - task: ci-machinery-infra:teardown-docker-network
 
   ####################################
   ## DOCUMENTATION
@@ -1698,7 +1536,6 @@ tasks:
       - clean:build-env
       - documentation:clean
       - core:clean
-      - olm:clean
     cmds:
       - rm -rf .task/
 
