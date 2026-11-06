@@ -295,18 +295,14 @@ locally.
 
 `olm:publish` is the release counterpart of `olm:all`: it builds and
 pushes the production bundle and catalog images (no `-testing` suffix)
-for the tag being released, and leaves `operator/bundle/` on disk. It
-refuses to run outside a tagged CI checkout, and refuses to run if the
-CSV version derived from `git describe` does not match the tag.
+for the tag being released. It refuses to run outside a tagged CI
+checkout, and refuses to run if the CSV version derived from
+`git describe` does not match the tag.
 
 The `olm-bundle` job in `.github/workflows/release-publish.yml` runs
-it, attaches the resulting `CatalogSource` manifest to the GitHub
-release, and hands `operator/bundle/` to the `publish-bundle` job,
-which commits it to `klio/bundles/<version>` in the
-[artifacts repository](https://github.com/cloudnative-pg/artifacts).
-Both jobs only run for the release GitHub marks as the latest one,
-which excludes drafts and prereleases, so a release candidate never
-reaches the `stable-v0` channel.
+it, and only for the release GitHub marks as the latest one, which
+excludes drafts and prereleases, so a release candidate never reaches
+the `stable-v0` channel.
 
 Each release publishes its own catalog image, tagged with the release
 version, and that catalog carries exactly one bundle. The upgrade edge
