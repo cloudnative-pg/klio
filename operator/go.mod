@@ -7,7 +7,7 @@ require (
 	github.com/cert-manager/cert-manager v1.21.3
 	github.com/cloudnative-pg/api v1.30.0
 	github.com/cloudnative-pg/cloudnative-pg v1.30.1
-	github.com/cloudnative-pg/cloudnative-pg/tests v0.0.0-20261104210248-1ebaea60f5a5
+	github.com/cloudnative-pg/cloudnative-pg/tests v0.0.0-20261106032223-dd68ca1b415e
 	github.com/cloudnative-pg/cnpg-i v0.6.0
 	github.com/cloudnative-pg/cnpg-i-machinery v0.4.2
 	github.com/cloudnative-pg/machinery v0.6.1
@@ -47,7 +47,7 @@ require (
 	github.com/Masterminds/semver/v3 v3.5.0 // indirect
 	github.com/Microsoft/go-winio v0.6.2 // indirect
 	github.com/antlr4-go/antlr/v4 v4.13.1 // indirect
-	github.com/avast/retry-go/v5 v5.0.1 // indirect
+	github.com/avast/retry-go/v5 v5.1.1 // indirect
 	github.com/aws/aws-sdk-go-v2 v1.47.1 // indirect
 	github.com/aws/aws-sdk-go-v2/config v1.33.6 // indirect
 	github.com/aws/aws-sdk-go-v2/credentials v1.20.6 // indirect
@@ -129,7 +129,7 @@ require (
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2 // indirect
 	github.com/power-devops/perfstat v0.0.0-20260916203055-22a1a467d9f0 // indirect
-	github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring v0.94.2 // indirect
+	github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring v0.95.1 // indirect
 	github.com/prometheus/client_golang v1.25.0 // indirect
 	github.com/prometheus/client_model v0.6.3 // indirect
 	github.com/prometheus/otlptranslator v1.0.0 // indirect
