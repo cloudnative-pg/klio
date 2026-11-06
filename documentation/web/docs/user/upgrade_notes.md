@@ -59,6 +59,18 @@ outside it, instead of delegating the decision to Kopia.
 - `klio retention set` no longer accepts the `--keep-*` flags. The policy
   is read from the configuration and sent to the server.
 
+### Tier 1 keeps WAL files not yet on Tier 2
+
+Tier 1 WAL retention now keeps every WAL file that has not reached Tier 2,
+including those whose relay task is in the dead-letter queue. Previously, a
+dead-lettered WAL file was removed from Tier 1 once a later WAL file reached
+Tier 2.
+
+After upgrading, run `klio admin queue wal list-failed`. A cluster with failed
+WAL tasks keeps its Tier 1 WAL files from the oldest failed one on, so retry
+those tasks with `klio admin queue wal retry`, or discard the ones that cannot
+succeed with `klio admin queue wal discard`.
+
 ### The `klio-restore` container is gone
 
 The `klio-plugin` sidecar now also serves the restore while a cluster

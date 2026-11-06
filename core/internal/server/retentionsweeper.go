@@ -21,12 +21,15 @@ package server
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
 	"github.com/cloudnative-pg/machinery/pkg/log"
+	"github.com/nats-io/nats.go"
 	"github.com/spf13/afero"
 
+	"github.com/cloudnative-pg/klio/core/internal/queue"
 	"github.com/cloudnative-pg/klio/core/internal/repository"
 	"github.com/cloudnative-pg/klio/core/internal/retention"
 	"github.com/cloudnative-pg/klio/core/internal/tier2"
@@ -37,6 +40,11 @@ import (
 // retention for every cluster. Fixed for now (no config/CRD knob).
 const retentionSweepInterval = time.Minute
 
+// errQueueConnectionClosed is returned when the queue connection is closed
+// for good (it stopped reconnecting), so the supervisor restarts the sweeper
+// with a new one.
+var errQueueConnectionClosed = errors.New("queue connection closed")
+
 // RetentionSweeper periodically lists every cluster's backups and deletes
 // whatever is out of retention, for tier1 and (when configured) tier2. It
 // runs whenever tier1 is enabled, alongside BackupConsumer.
@@ -44,6 +52,7 @@ type RetentionSweeper struct {
 	Config               *config.ServerConfig
 	Tier1KopiaConfigFile string
 	Tier2KopiaConfigFile string
+	QueueURL             string
 	RunID                string
 	RunSecret            string
 }
@@ -59,34 +68,60 @@ func (s *RetentionSweeper) Serve(ctx context.Context) error {
 		return err
 	}
 
+	// With tier2 configured, the WAL relay queue tells which WALs have not
+	// reached tier2 yet, so tier1 WAL retention keeps them.
+	var queueClosed <-chan struct{}
+	if s.Tier2KopiaConfigFile != "" {
+		natsConnection, closed, err := s.connectPendingWALs(ctx, sweeperOptions)
+		if err != nil {
+			return err
+		}
+		defer natsConnection.Close()
+		queueClosed = closed
+	}
+
 	sweeper, err := retention.NewSweeper(sweeperOptions)
 	if err != nil {
 		return fmt.Errorf("error while creating retention sweeper: %w", err)
 	}
 
-	ticker := time.NewTicker(retentionSweepInterval)
-	defer ticker.Stop()
-
-	// Run once immediately so a fresh server doesn't wait a full interval
-	// before its first sweep.
-	if err := sweeper.Sweep(ctx); err != nil {
-		contextLogger.Error(err, "Retention sweep finished with errors")
-	}
-
-	for {
-		select {
-		case <-ctx.Done():
-			return nil
-		case <-ticker.C:
-			if err := sweeper.Sweep(ctx); err != nil {
-				contextLogger.Error(err, "Retention sweep finished with errors")
-			}
-		}
-	}
+	return runSweeps(ctx, sweeper, queueClosed)
 }
 
 func (s *RetentionSweeper) String() string {
 	return "retention-sweeper"
+}
+
+// connectPendingWALs connects to the queue and sets it as the source of the
+// WALs pending relay to tier2 in opts. The caller closes the returned
+// connection. The returned channel is closed once the connection is closed for
+// good (it stopped reconnecting).
+func (s *RetentionSweeper) connectPendingWALs(
+	ctx context.Context,
+	opts *retention.Options,
+) (*nats.Conn, <-chan struct{}, error) {
+	closed := make(chan struct{})
+	natsConnection, err := nats.Connect(
+		s.QueueURL,
+		nats.RetryOnFailedConnect(true),
+		nats.ReconnectWait(1*time.Second),
+		nats.ClosedHandler(func(*nats.Conn) { close(closed) }),
+	)
+	if err != nil {
+		return nil, nil, fmt.Errorf("error while connecting to the NATS server: %w", err)
+	}
+
+	// Configure the queue like the other services do, so the WAL stream
+	// exists (and any legacy stream is drained into it) before the first
+	// sweep reads it.
+	queueConnection, err := queue.New(ctx, natsConnection)
+	if err != nil {
+		natsConnection.Close()
+		return nil, nil, fmt.Errorf("error while configuring NATS server: %w", err)
+	}
+	opts.PendingWALs = queueConnection
+
+	return natsConnection, closed, nil
 }
 
 // buildSweeperOptions connects to the tier1 WAL repository (where the
@@ -132,4 +167,35 @@ func (s *RetentionSweeper) buildSweeperOptions(ctx context.Context) (*retention.
 	}
 
 	return sweeperOptions, nil
+}
+
+// runSweeps runs sweeper once immediately and then on a fixed interval until
+// ctx is done, or until queueClosed is closed. queueClosed is nil when the
+// sweeper doesn't use the queue.
+func runSweeps(ctx context.Context, sweeper *retention.Sweeper, queueClosed <-chan struct{}) error {
+	contextLogger := log.FromContext(ctx)
+
+	ticker := time.NewTicker(retentionSweepInterval)
+	defer ticker.Stop()
+
+	// Run once immediately so a fresh server doesn't wait a full interval
+	// before its first sweep.
+	if err := sweeper.Sweep(ctx); err != nil {
+		contextLogger.Error(err, "Retention sweep finished with errors")
+	}
+
+	for {
+		select {
+		case <-ctx.Done():
+			return nil
+		case <-queueClosed:
+			// Every sweep would fail its tier1 WAL retention without the
+			// queue, so let the supervisor restart the sweeper instead.
+			return errQueueConnectionClosed
+		case <-ticker.C:
+			if err := sweeper.Sweep(ctx); err != nil {
+				contextLogger.Error(err, "Retention sweep finished with errors")
+			}
+		}
+	}
 }

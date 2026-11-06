@@ -20,6 +20,7 @@ SPDX-License-Identifier: Apache-2.0
 package consumer
 
 import (
+	"path"
 	"testing"
 
 	"github.com/spf13/afero"
@@ -75,6 +76,50 @@ func TestWalHandlerRecordsErrorOnTier2UploadSpan(t *testing.T) {
 
 	require.Len(t, spans[0].Events, 1, "span must carry a recorded-error event")
 	assert.Equal(t, "exception", spans[0].Events[0].Name)
+}
+
+// TestWalHandlerMissingTier1FileIsPermanent verifies that a WAL no longer on
+// tier1 fails with queue.ErrPermanent, so the task is dropped instead of being
+// retried through the whole backoff schedule for a file that won't return.
+func TestWalHandlerMissingTier1FileIsPermanent(t *testing.T) {
+	opts := repository.Options{FS: afero.NewMemMapFs(), Password: "this-password"}
+	require.NoError(t, repository.Initialize(opts))
+	tier1, err := repository.Open(opts)
+	require.NoError(t, err)
+	defer tier1.Close()
+
+	w := NewWAL(&WALOptions{Tier1: tier1, Tier2: tier1})
+
+	err = w.walHandler(t.Context(), &queue.WALTask{
+		ClusterName: "cluster-example",
+		WALName:     "0000000100000000000000FF",
+	})
+	require.ErrorIs(t, err, queue.ErrPermanent)
+}
+
+// TestWalHandlerEmptyTier1FileIsRetried verifies that an empty WAL file on
+// tier1, as left while the WAL server rewrites a .partial file, fails with a
+// retryable error: the file can still be written, so the task is not dropped.
+func TestWalHandlerEmptyTier1FileIsRetried(t *testing.T) {
+	const (
+		clusterName = "cluster-example"
+		walName     = "0000000100000000000000FF.partial"
+	)
+
+	fs := afero.NewMemMapFs()
+	opts := repository.Options{FS: fs, Password: "this-password"}
+	require.NoError(t, repository.Initialize(opts))
+	tier1, err := repository.Open(opts)
+	require.NoError(t, err)
+	defer tier1.Close()
+
+	require.NoError(t, afero.WriteFile(fs, path.Join(clusterName, walName[:16], walName), nil, 0o600))
+
+	w := NewWAL(&WALOptions{Tier1: tier1, Tier2: tier1})
+
+	err = w.walHandler(t.Context(), &queue.WALTask{ClusterName: clusterName, WALName: walName})
+	require.ErrorIs(t, err, repository.ErrEmptyWALFile)
+	require.NotErrorIs(t, err, queue.ErrPermanent)
 }
 
 // TestWalHandlerArchivesPartialWALFile verifies that a WAL segment left on

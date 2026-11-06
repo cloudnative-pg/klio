@@ -346,4 +346,5 @@ func TestNewReaderEmptyFileIsNotFound(t *testing.T) {
 
 	_, err = NewReader(conn, clusterName, walName, NewDummyMetrics())
 	require.ErrorIs(t, err, os.ErrNotExist)
+	require.ErrorIs(t, err, ErrEmptyWALFile)
 }

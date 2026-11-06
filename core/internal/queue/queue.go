@@ -62,6 +62,15 @@ const (
 	legacyKlioStreamName = "KLIO"
 )
 
+// ErrPermanent marks a task handler failure that retrying cannot fix. A
+// handler returns an error wrapping it to have the message terminated
+// instead of redelivered.
+var ErrPermanent = errors.New("permanent task failure")
+
+// permanentFailureReason is the reason recorded when terminating a message
+// whose handler failed with ErrPermanent.
+const permanentFailureReason = "permanent failure"
+
 // heartbeatInterval is how often the consumer sends an InProgress ack while
 // a handler is still working. It must be lower than the smallest backoff
 // configured on the WAL and backup consumers, so JetStream never times out
@@ -392,19 +401,7 @@ func internalConsumeMessages[T any](
 		err = internalRunTaskHandler(ctx, msg, func() error {
 			return handler(ctx, &task, msg.Headers())
 		})
-		if err != nil {
-			// We deliberately do not Nak the message: a plain Nak triggers
-			// immediate redelivery and ignores the consumer's BackOff schedule.
-			// Letting AckWait expire instead causes the server to use the
-			// configured BackOff entry for the current delivery attempt.
-			logger.Error(err, "Error while handling queue message, retrying", "task", &task)
-
-			return
-		}
-
-		if err := msg.Ack(); err != nil {
-			logger.Error(err, "Error while acking queue message, this message will be retried", "task", &task)
-		}
+		settleMessage(ctx, msg, &task, err)
 	}
 
 	consumerContext, consumerError := consumer.Consume(internalConsumer)
@@ -418,6 +415,36 @@ func internalConsumeMessages[T any](
 	consumerContext.Stop()
 
 	return nil
+}
+
+// settleMessage settles msg according to the outcome handlerErr of its
+// handler: acked on success, terminated on a permanent failure, and otherwise
+// left for redelivery.
+func settleMessage(ctx context.Context, msg jetstream.Msg, task any, handlerErr error) {
+	logger := log.FromContext(ctx)
+
+	switch {
+	case errors.Is(handlerErr, ErrPermanent):
+		// Retrying cannot fix this failure, so terminate the message:
+		// redelivering it would only hold the consumer for the whole
+		// BackOff schedule before dead-lettering it.
+		logger.Error(handlerErr, "Permanent error while handling queue message, dropping it", "task", task)
+		if err := msg.TermWithReason(permanentFailureReason); err != nil {
+			logger.Error(err, "Failed to terminate queue message, this message will be retried", "task", task)
+		}
+
+	case handlerErr != nil:
+		// We deliberately do not Nak the message: a plain Nak triggers
+		// immediate redelivery and ignores the consumer's BackOff schedule.
+		// Letting AckWait expire instead causes the server to use the
+		// configured BackOff entry for the current delivery attempt.
+		logger.Error(handlerErr, "Error while handling queue message, retrying", "task", task)
+
+	default:
+		if err := msg.Ack(); err != nil {
+			logger.Error(err, "Error while acking queue message, this message will be retried", "task", task)
+		}
+	}
 }
 
 // internalRunTaskHandler runs handleMessage while a background goroutine sends

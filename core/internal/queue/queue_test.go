@@ -23,6 +23,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -216,22 +217,6 @@ func TestWALTaskSerialization(t *testing.T) {
 	assert.Contains(t, string(msg.Data), "000000010000000000000001")
 }
 
-// publishLatestUploadedWAL publishes directly to the latest-uploaded-WAL
-// stream subject, simulating what the WAL consumer does after a successful
-// tier2 upload.
-func publishLatestUploadedWAL(t *testing.T, nc *nats.Conn, clusterName, walName string) {
-	t.Helper()
-
-	js, err := jetstream.New(nc)
-	require.NoError(t, err)
-
-	data, err := json.Marshal(WALTask{ClusterName: clusterName, WALName: walName})
-	require.NoError(t, err)
-
-	_, err = js.Publish(t.Context(), latestUploadedWalSubject(clusterName), data)
-	require.NoError(t, err)
-}
-
 func TestNotifyBackupReceived(t *testing.T) {
 	ns, url := startNATSServer(t)
 	defer ns.Shutdown()
@@ -312,106 +297,11 @@ func TestStreamIsolation(t *testing.T) {
 	assert.Equal(t, uint64(1), backupInfo.State.Msgs, "backup stream should have exactly 1 message")
 }
 
-func TestGetLatestUploadedWALEmpty(t *testing.T) {
-	ns, url := startNATSServer(t)
-	defer ns.Shutdown()
-
-	nc, err := nats.Connect(url)
-	require.NoError(t, err)
-	defer nc.Close()
-
-	ctx := context.Background()
-	conn, err := New(ctx, nc)
-	require.NoError(t, err)
-
-	latestWAL, err := conn.GetLatestUploadedWAL(ctx, "empty-cluster")
-	require.NoError(t, err)
-	assert.Empty(t, latestWAL, "should return empty string when no WAL has been uploaded")
-}
-
-func TestGetLatestUploadedWALSingleMessage(t *testing.T) {
-	ns, url := startNATSServer(t)
-	defer ns.Shutdown()
-
-	nc, err := nats.Connect(url)
-	require.NoError(t, err)
-	defer nc.Close()
-
-	ctx := context.Background()
-	conn, err := New(ctx, nc)
-	require.NoError(t, err)
-
-	publishLatestUploadedWAL(t, nc, "single-msg-cluster", "000000010000000000000005")
-
-	latestWAL, err := conn.GetLatestUploadedWAL(ctx, "single-msg-cluster")
-	require.NoError(t, err)
-	assert.Equal(t, "000000010000000000000005", latestWAL)
-}
-
-func TestGetLatestUploadedWALKeepsLatest(t *testing.T) {
-	ns, url := startNATSServer(t)
-	defer ns.Shutdown()
-
-	nc, err := nats.Connect(url)
-	require.NoError(t, err)
-	defer nc.Close()
-
-	ctx := context.Background()
-	conn, err := New(ctx, nc)
-	require.NoError(t, err)
-
-	wals := []string{
-		"000000010000000000000001",
-		"000000010000000000000005",
-		"000000010000000000000003",
-		"000000010000000000000007",
-	}
-	for _, wal := range wals {
-		publishLatestUploadedWAL(t, nc, "multi-msg-cluster", wal)
-	}
-
-	latestWAL, err := conn.GetLatestUploadedWAL(ctx, "multi-msg-cluster")
-	require.NoError(t, err)
-	assert.Equal(t, "000000010000000000000007", latestWAL,
-		"should return the most recently published WAL, regardless of WAL name ordering")
-}
-
-func TestGetLatestUploadedWALMultipleClusters(t *testing.T) {
-	ns, url := startNATSServer(t)
-	defer ns.Shutdown()
-
-	nc, err := nats.Connect(url)
-	require.NoError(t, err)
-	defer nc.Close()
-
-	ctx := context.Background()
-	conn, err := New(ctx, nc)
-	require.NoError(t, err)
-
-	publishLatestUploadedWAL(t, nc, "cluster-a", "000000010000000000000010")
-	publishLatestUploadedWAL(t, nc, "cluster-a", "000000010000000000000011")
-	publishLatestUploadedWAL(t, nc, "cluster-b", "000000010000000000000001")
-	publishLatestUploadedWAL(t, nc, "cluster-b", "000000010000000000000002")
-
-	latestWAL, err := conn.GetLatestUploadedWAL(ctx, "cluster-a")
-	require.NoError(t, err)
-	assert.Equal(t, "000000010000000000000011", latestWAL)
-
-	latestWAL, err = conn.GetLatestUploadedWAL(ctx, "cluster-b")
-	require.NoError(t, err)
-	assert.Equal(t, "000000010000000000000002", latestWAL)
-
-	latestWAL, err = conn.GetLatestUploadedWAL(ctx, "cluster-c")
-	require.NoError(t, err)
-	assert.Empty(t, latestWAL)
-}
-
 // TestWALConsumerSkipsLatestUploadedMarkerForNonSegment verifies that
 // ConsumeWALReceivedMessages only records the latest-uploaded-WAL marker for
 // real WAL segments (and their .partial variant): a task carrying a timeline
 // history file name must be processed successfully but must not overwrite the
-// marker, since a history file name is not usable for retention's LSN-based
-// WAL safety check.
+// marker, since a history file name carries no LSN.
 func TestWALConsumerSkipsLatestUploadedMarkerForNonSegment(t *testing.T) {
 	ns, url := startNATSServer(t)
 	defer ns.Shutdown()
@@ -450,9 +340,16 @@ func TestWALConsumerSkipsLatestUploadedMarkerForNonSegment(t *testing.T) {
 	}, 5*time.Second, 25*time.Millisecond,
 		"both the segment and the history file tasks must be processed")
 
-	latestWAL, err := conn.GetLatestUploadedWAL(ctx, clusterName)
+	js, err := jetstream.New(nc)
 	require.NoError(t, err)
-	assert.Equal(t, segmentName, latestWAL,
+	stream, err := js.Stream(ctx, klioLatestUploadedWalStreamName)
+	require.NoError(t, err)
+	msg, err := stream.GetLastMsgForSubject(ctx, latestUploadedWalSubject(clusterName))
+	require.NoError(t, err)
+
+	var latest WALTask
+	require.NoError(t, json.Unmarshal(msg.Data, &latest))
+	assert.Equal(t, segmentName, latest.WALName,
 		"the history file task must not overwrite the latest-uploaded-WAL marker")
 }
 
@@ -610,6 +507,49 @@ func TestInternalConsumeMessagesTerminatesInvalidMessage(t *testing.T) {
 	}, 2*time.Second, 20*time.Millisecond)
 
 	assert.Equal(t, int32(0), calls.Load(), "handler must not run for an invalid message")
+}
+
+func TestInternalConsumeMessagesTerminatesPermanentFailure(t *testing.T) {
+	ns, url := startNATSServer(t)
+	defer ns.Shutdown()
+
+	nc, err := nats.Connect(url)
+	require.NoError(t, err)
+	defer nc.Close()
+
+	const subject = "test.permanent"
+	js, consumer := newTestConsumer(t, nc, subject, 5, 300*time.Millisecond)
+
+	var calls atomic.Int32
+	handler := func(_ context.Context, _ *WALTask, _ nats.Header) error {
+		calls.Add(1)
+
+		return fmt.Errorf("%w: file is gone", ErrPermanent)
+	}
+
+	ctx := t.Context()
+	go func() {
+		_ = internalConsumeMessages(ctx, handler, consumer)
+	}()
+
+	payload, err := json.Marshal(WALTask{ClusterName: "c", WALName: "w"})
+	require.NoError(t, err)
+	_, err = js.Publish(ctx, subject, payload)
+	require.NoError(t, err)
+
+	stream, err := js.Stream(ctx, "test-stream")
+	require.NoError(t, err)
+
+	require.Eventually(t, func() bool {
+		info, infoErr := stream.Info(ctx)
+		require.NoError(t, infoErr)
+
+		return info.State.Msgs == 0
+	}, 2*time.Second, 20*time.Millisecond, "a permanently failed message must leave the work queue")
+
+	// Give a redelivery window a chance to (incorrectly) fire.
+	time.Sleep(time.Second)
+	assert.Equal(t, int32(1), calls.Load(), "a permanently failed message must not be retried")
 }
 
 func TestInternalConsumeMessagesRetriesUntilMaxDeliver(t *testing.T) {

@@ -368,10 +368,9 @@ func (f *WALRetentionFeature) Setup() types.StepFunc {
 
 // Run executes the WAL retention test.
 //
-// Post-backup maintenance now runs server-side: each backup completion makes
-// the backup queue consumer apply tier1 retention, clamped to the tier2
-// transfer frontier so WALs still pending upload are never deleted. There is
-// no client command to trigger maintenance any more, so the test drives it by
+// WAL retention runs server-side: the retention sweeper applies tier1 WAL
+// retention, held back so WALs still pending relay to tier2 are never
+// deleted. There is no client command to trigger it, so the test drives it by
 // completing backups and observes the on-disk effect.
 func (f *WALRetentionFeature) Run() types.StepFunc {
 	return func(ctx context.Context, t *testing.T, cfg *envconf.Config) context.Context {

@@ -22,6 +22,7 @@ SPDX-License-Identifier: Apache-2.0
 package retention
 
 import (
+	"context"
 	"fmt"
 
 	klioclientkopia "github.com/cloudnative-pg/klio/core/internal/client/klioclient/kopia"
@@ -65,6 +66,17 @@ type Options struct {
 	// Tier2WALRepository is where tier2 WAL retention is applied. Nil when
 	// tier2 is not configured.
 	Tier2WALRepository *repository.Connection
+
+	// PendingWALs reports the WALs not yet relayed to tier2, so tier1 WAL
+	// retention never removes one of them. Nil when tier2 is not
+	// configured, as nothing is relayed then.
+	PendingWALs PendingWALLister
+}
+
+// PendingWALLister reports, for a cluster, the earliest WAL segment still
+// waiting to be relayed to tier2, or "" if none is.
+type PendingWALLister interface {
+	OldestPendingWAL(ctx context.Context, clusterName string) (string, error)
 }
 
 // Sweeper evaluates and enforces retention for every cluster in the

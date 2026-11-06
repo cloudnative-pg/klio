@@ -427,7 +427,8 @@ func (m *StreamManager) configureStreams(ctx context.Context, js jetstream.JetSt
 
 // purgeWALDLQEntries discards the WAL dead-letter queue entries for the given
 // cluster and WAL file, releasing the original failed messages they reference.
-// It is called by the WAL consumer after a retried WAL task succeeded.
+// It is called by the WAL consumer after a retried WAL task succeeded or
+// failed permanently.
 //
 // ListFailedWALTasks rejects WAL-name filtering without a cluster name, so the
 // consumer must pass the task's cluster: WAL names are only unique within a
