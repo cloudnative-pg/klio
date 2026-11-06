@@ -215,7 +215,7 @@ spec:
       initContainers:
         # Generate synthetic WAL files
         - name: generate-wals
-          image: ghcr.io/cloudnative-pg/klio:v0.0.20
+          image: ghcr.io/cloudnative-pg/klio:v0.0.21
           imagePullPolicy: Always
           command:
             - /usr/bin/klio
@@ -230,7 +230,7 @@ spec:
       containers:
         # Play WAL files to the Klio server
         - name: play-wals
-          image: ghcr.io/cloudnative-pg/klio:v0.0.20
+          image: ghcr.io/cloudnative-pg/klio:v0.0.21
           imagePullPolicy: Always
           command:
             - /usr/bin/klio
