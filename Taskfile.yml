@@ -500,10 +500,10 @@ tasks:
     dir: '{{ .WORKDIR }}'
     env:
       # renovate: datasource=git-refs depName=go-licenses lookupName=https://github.com/cloudnative-pg/daggerverse currentValue=main
-      DAGGER_GO_LICENSES: 838ccbbd35b0e5e9a7d4af600fa8fa1a4259b1d0
+      DAGGER_GO_LICENSES_SHA: 838ccbbd35b0e5e9a7d4af600fa8fa1a4259b1d0
     cmds:
       - >
-        GITHUB_REF= dagger -s call -m github.com/cloudnative-pg/daggerverse/go-licenses@${DAGGER_GO_LICENSES}
+        GITHUB_REF= dagger -s call -m github.com/cloudnative-pg/daggerverse/go-licenses@${DAGGER_GO_LICENSES_SHA}
         go-licenses --source . --args "save" --args "./..." --args "--force"
         --args "--save_path=licenses/go-licenses" --args "--ignore=github.com/cloudnative-pg/klio"
         directory --path licenses/ export --path licenses/
