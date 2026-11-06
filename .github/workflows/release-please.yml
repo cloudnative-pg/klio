@@ -16,9 +16,15 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
-      - name: Release Please
-        uses: googleapis/release-please-action@45996ed1f6d02564a971a2fa1b5860e934307cf7 # v5
+      - uses: actions/setup-node@v7
         with:
-          token: ${{ secrets.REPO_GHA_PAT }}
-          config-file: release-please-config.json
-          manifest-file: '.release-please-manifest.json'
+          node-version: 26
+        # include-commit-authors is a new option in release-please that is not yet available in the latest release,
+        # so we need to use a specific commit of the release-please package to get this feature.
+      - run: |
+          npx googleapis/release-please#ea20bc261acd75149f0be90890bb9c90e681eea7 github-release \
+            --token="${{ secrets.REPO_PAT }}" \
+            --repo-url="${{ github.repository }}";
+          npx googleapis/release-please#ea20bc261acd75149f0be90890bb9c90e681eea7 release-pr \
+            --token="${{ secrets.REPO_PAT }}" \
+            --repo-url="${{ github.repository }}"

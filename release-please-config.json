@@ -24,6 +24,7 @@
     "documentation/web/docs/user/helm_chart.mdx",
     "documentation/web/docs/user/walplayer.md"
   ],
+  "include-commit-authors": true,
   "prerelease": false,
   "packages": {
     ".": {}
