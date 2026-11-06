@@ -1,0 +1,5 @@
+# A patch rather than an `images` entry, so the overlay builds in place
+# without a rewritten copy of its kustomization.
+- op: replace
+  path: /spec/template/spec/containers/0/image
+  value: ${OPERATOR_IMAGE}

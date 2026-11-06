@@ -24,7 +24,7 @@ vars:
   # no write access to.
   REGISTRY_OWNER: '{{ .REGISTRY_OWNER | default .GITHUB_REPOSITORY_OWNER | default "cloudnative-pg" | lower }}'
   # Must match the version ci-machinery's bundle:generate gives the CSV, which
-  # is derived the same way, since olm:manifest uses it for olm.skipRange.
+  # is derived the same way.
   GIT_TAG_VERSION:
     sh: git describe --tags --match 'v*' | sed -e 's/^v//; s/-g[0-9a-f]\+$//; s/-\([0-9]\+\)$/-dev\1/'
   GITHUB_REF_NAME: '{{ .GITHUB_REF_NAME | default "dev" }}'
@@ -50,11 +50,6 @@ vars:
   OLM_DEFAULT_CHANNEL: 'stable-v0'
   # Minimum OpenShift version the bundle declares support for
   OPENSHIFT_VERSIONS: 'v4.14'
-  # First release that ships an OLM bundle. It is the lower bound of the CSV's
-  # olm.skipRange, which is what lets a catalog carrying a single bundle still
-  # offer an upgrade from any earlier release (see olm:manifest). Never lower
-  # it, and only raise it if a version range is ever declared unupgradable.
-  OLM_FIRST_BUNDLE_VERSION: '0.0.21'
   # Set to a non-empty value to build the OLM bundle without pinning images to
   # digests. Defaults to empty, so digest pinning is on wherever it can work;
   # see olm:bundle for when CI turns it off.
@@ -691,6 +686,7 @@ tasks:
         --exclude templates/deployment.yaml
         --exclude templates/service.yaml
         --exclude templates/metrics-service.yaml
+        --exclude templates/plugin-service.yaml
         --exclude templates/prometheus.yaml
         --exclude .helmignore
         --exclude Chart.yaml
@@ -857,9 +853,8 @@ tasks:
           WORKDIR: '{{ .ROOT_DIR }}'
           KUBECONFIG_PATH: '{{ .OLM_KUBECONFIG_PATH }}'
 
-  olm:manifest:
+  olm:kustomization:
     run: once
-    internal: true
     requires:
       vars:
         - name: ENVIRONMENT
@@ -867,66 +862,31 @@ tasks:
             ref: .ALLOWED_ENVS
     deps:
       - olm:setup-infra
+    vars:
+      IMAGE_SUFFIX: '{{ if ( ne .ENVIRONMENT "production" ) }}-testing{{end}}'
+      IMAGE_REF_TAG: '{{ .TAG | default .IMAGE_TAG }}'
     env:
-      registry: '{{ .OLM_REGISTRY }}'
-      suffix: '{{ if ( ne .ENVIRONMENT "production" ) }}-testing{{end}}'
-      tag: '{{ .TAG | default .IMAGE_TAG }}'
-      ubi_suffix: '{{ .UBI_TAG_SUFFIX }}'
+      OPERATOR_IMAGE: '{{ .OLM_REGISTRY }}/klio-operator{{ .IMAGE_SUFFIX }}:{{ .IMAGE_REF_TAG }}{{ .UBI_TAG_SUFFIX }}'
+      SIDECAR_IMAGE: '{{ .OLM_REGISTRY }}/klio{{ .IMAGE_SUFFIX }}:{{ .IMAGE_REF_TAG }}'
       # Use the ci-machinery engine: the Dagger CLI starting its own one would
       # remove it.
       _EXPERIMENTAL_DAGGER_RUNNER_HOST: docker-container://{{ .DAGGER_ENGINE }}
       # renovate: datasource=git-refs depName=kustomize lookupName=https://github.com/sagikazarmark/daggerverse currentValue=main
       DAGGER_KUSTOMIZE_SHA: ff27cd50f6b4eed2e3753c520632cd6099e1ce52
     cmds:
-      # Generate the kustomize patch that bakes the operand (sidecar) image into
-      # the operator Deployment as the SIDECAR_IMAGE env var, so the OLM
-      # Subscription does not need to set it. The operand shares the operator's
-      # registry and tag, differing only by the "klio" repository instead of
-      # "klio-operator". The patch is consumed by
-      # operator/config/olm-default/kustomization.yaml.
-      #
-      # RELATED_IMAGE_SIDECAR carries the same value under the name OLM
-      # tooling recognizes: operator-sdk's --use-image-digests only discovers
-      # container images and RELATED_IMAGE_* env vars,
-      - |
-        cat > operator/config/olm-default/manager_sidecar_image_patch.yaml <<EOF
-        - op: add
-          path: /spec/template/spec/containers/0/env
-          value:
-            - name: SIDECAR_IMAGE
-              value: ${registry}/klio${suffix}:${tag}
-            - name: RELATED_IMAGE_SIDECAR
-              value: ${registry}/klio${suffix}:${tag}
-        EOF
-      - |
-        cat > operator/config/manifests/csv_container_image_patch.yaml <<EOF
-        - op: add
-          path: /metadata/annotations/containerImage
-          value: ${registry}/klio-operator${suffix}:${tag}${ubi_suffix}
-        EOF
-      # Declare the range of already-released versions this bundle can be
-      # installed over, as olm.skipRange.
-      - |
-        cat > operator/config/manifests/csv_skip_range_patch.yaml <<EOF
-        - op: add
-          path: /metadata/annotations/olm.skipRange
-          value: ">={{ .OLM_FIRST_BUNDLE_VERSION }} <{{ .GIT_TAG_VERSION }}"
-        EOF
-      - |
-        cat > operator/config/manifests/sample_image_patch.yaml <<EOF
-        - op: add
-          path: /spec/image
-          value: ${registry}/klio${suffix}:${tag}
-        EOF
+      # Render the dynamic kustomize patches from operator/config/olm/templates
+      # into operator/config/olm/generated, then build the overlay in place.
+      # The operand shares the operator's registry and tag, differing only by
+      # the "klio" repository instead of "klio-operator".
+      - mkdir -p operator/config/olm/generated
+      - >
+        for f in operator/config/olm/templates/*.yaml.tmpl; do
+        envsubst '${OPERATOR_IMAGE} ${SIDECAR_IMAGE}' < "$f"
+        > "operator/config/olm/generated/$(basename "$f" .tmpl)" || exit 1;
+        done
       - >
         GITHUB_REF= dagger -s call -m github.com/sagikazarmark/daggerverse/kustomize@${DAGGER_KUSTOMIZE_SHA}
-        edit --source .
-        --dir operator/config/manifests
-        set image --image controller=${registry}/klio-operator${suffix}:${tag}${ubi_suffix}
-        directory directory --path operator/config/manifests export --path operator/config/manifest-build
-      - >
-        GITHUB_REF= dagger -s call -m github.com/sagikazarmark/daggerverse/kustomize@${DAGGER_KUSTOMIZE_SHA}
-        build --source operator/config --dir manifest-build
+        build --source operator/config --dir olm
         export --path operator/olm-manifests/manifest.yaml
 
     sources:
@@ -958,7 +918,7 @@ tasks:
           enum:
             ref: .ALLOWED_ENVS
     deps:
-      - olm:manifest
+      - olm:kustomization
     cmds:
       # The bundle version is not passed: bundle:generate derives it from
       # `git describe` the same way GIT_TAG_VERSION is.
@@ -971,7 +931,7 @@ tasks:
           CHANNELS: '{{ .OLM_CHANNELS }}'
           DEFAULT_CHANNEL: '{{ .OLM_DEFAULT_CHANNEL }}'
           EXTRA_ARGS: '{{ if not .SKIP_IMAGE_DIGESTS }}--use-image-digests{{ end }}'
-          METADATA_DIR: config/olm-metadata
+          METADATA_DIR: config/olm/metadata
           PRIVATE_REGISTRY_HOST: '{{ .PRIVATE_REGISTRY_HOST }}'
           PRIVATE_REGISTRY_USERNAME: '{{ .PRIVATE_REGISTRY_USERNAME }}'
       - |
@@ -981,7 +941,7 @@ tasks:
           '{{ .OPENSHIFT_VERSIONS }}' >> operator/olm-bundle/bundle.Dockerfile
     sources:
       - operator/olm-manifests/**
-      - operator/config/olm-metadata/**
+      - operator/config/olm/metadata/**
     generates:
       - operator/olm-bundle/**
     # The sources don't cover the version, which comes from `git describe`.
@@ -1259,7 +1219,7 @@ tasks:
     desc: Run operator-sdk scorecard against the OLM bundle on the Kind cluster
     summary: |
       Runs the operator-sdk scorecard basic and OLM test suites configured in
-      the bundle (tests/scorecard/config.yaml, from operator/config/scorecard)
+      the bundle (tests/scorecard/config.yaml, from operator/config/olm/scorecard)
       against the pushed bundle image, on the Kind cluster of olm:setup-kind.
     run: once
     requires:
@@ -1369,7 +1329,7 @@ tasks:
     cmds:
       - rm -fr operator/olm-manifests
       - rm -fr operator/olm-bundle
-      - rm -fr operator/config/manifest-build/
+      - rm -fr operator/config/olm/generated
       - rm -fr operator/olm-catalog
       - rm -f operator/klio-operator-catalog-source.yaml
       - rm -fr operator/preflight-artifacts
@@ -1868,7 +1828,7 @@ tasks:
       # opm semver renders 0.x.y bundles into stable-v0; bump on 1.0.0.
       KLIO_CHANNEL: 'stable-v0'
       # SIDECAR_IMAGE is baked into the operator Deployment by the bundle (see
-      # the olm:manifest task), so the Subscription does not need to set it.
+      # the olm:kustomization task), so the Subscription does not need to set it.
     preconditions:
       - sh: test -s operator/klio-operator-catalog-source.yaml
         msg: |
