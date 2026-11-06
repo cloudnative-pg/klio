@@ -1,0 +1,49 @@
+# These resources constitute the fully configured set of manifests
+# used to generate the 'manifests/' directory in a bundle.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+- bases/klio-operator.clusterserviceversion.yaml
+- ../default
+- ../samples
+- scorecard
+
+# Files under generated/ are rendered from templates/ (with the right images)
+# by the `olm:manifest` task and are git ignored.
+patches:
+# Point the operator Deployment at the operator image actually being built.
+- path: generated/manager_image.yaml
+  target:
+    kind: Deployment
+# Bake the Klio sidecar (operand) image into the operator Deployment as the
+# SIDECAR_IMAGE env var, so OLM Subscriptions do not need to set it.
+- path: generated/manager_sidecar_image.yaml
+  target:
+    kind: Deployment
+# Mark the plugin cert volumes optional so the pod starts on OLM (no
+# cert-manager); see patches/plugin_certs_optional.yaml for details.
+- path: patches/plugin_certs_optional.yaml
+# Point the sample Server at the operand image actually being built, rather
+# than the local dev registry the committed sample uses.
+- path: generated/sample_image.yaml
+  target:
+    group: klio.cnpg.io
+    version: v1alpha1
+    kind: Server
+# Keep the sample's example encryption Secret out of the bundle; see the patch
+# for why.
+- path: patches/remove_sample_secret.yaml
+
+# Point the CSV's containerImage annotation at the operator image actually
+# being built, by copying it from the Deployment once the patches above have
+# been applied.
+replacements:
+- source:
+    kind: Deployment
+    name: klio-operator-controller-manager
+    fieldPath: spec.template.spec.containers.[name=manager].image
+  targets:
+  - select:
+      kind: ClusterServiceVersion
+    fieldPaths:
+    - metadata.annotations.containerImage

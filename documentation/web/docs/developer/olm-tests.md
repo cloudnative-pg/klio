@@ -39,7 +39,7 @@ This command will, in order:
   (`olm:test-catalog`)
 
 The bundle depends on CloudNativePG 1.30.0 or later, declared in
-`operator/config/olm-metadata/dependencies.yaml`, so OLM also installs
+`operator/config/olm/metadata/dependencies.yaml`, so OLM also installs
 CloudNativePG from the OperatorHub catalog. Uninstalling Klio leaves
 CloudNativePG installed; `olm:prune` removes it with the Kind cluster.
 
