@@ -104,7 +104,7 @@ client:
   cluster_name: walplayer
   wal:
     address: localhost:12000
-    server_cert_path: "/path/to/server.crt"
+    server_cert_path: "/path/to/server/ca.crt"
     client_cert_path: "/path/to/client/tls.crt"
     client_key_path: "/path/to/client/tls.key"
 ```

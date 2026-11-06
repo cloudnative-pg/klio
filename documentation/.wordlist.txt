@@ -377,6 +377,7 @@ subdirectory
 subprocess
 tablespaces
 teardown
+toc
 tolerations
 topologySpreadConstraints
 uint

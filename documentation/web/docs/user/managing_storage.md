@@ -33,13 +33,17 @@ by opening a shell on the Klio server pod and running:
 
 ```bash
 kopia maintenance set --owner=me \
-  --config-file=/tmp/$KOPIACONFIG_TIER1_CONF \
+  --config-file=$(echo /tmp/kopiaconfig_tier1_*[0-9]) \
   --disable-file-logging
 kopia maintenance run \
-  --config-file=/tmp/$KOPIACONFIG_TIER1_CONF \
+  --config-file=$(echo /tmp/kopiaconfig_tier1_*[0-9]) \
   --full \
   --disable-file-logging
 ```
+
+To check that maintenance runs, use `kopia maintenance info` with the same
+`--config-file`. It shows the maintenance owner (`klio@klio`), when the next
+quick and full cycles are due, and the results of recent runs.
 
 ## When the Disk Is Full
 
@@ -216,8 +220,8 @@ The only options in this case are:
 1. Migrate to a StorageClass that supports volume expansion
 1. Create a new Klio server with a larger PVC and restore from backup
 1. Manually migrate data to a new PVC on the same StorageClass (requires
-   downtime and careful planning — see [Migrating from the Multi-PVC
-   Model](upgrade_notes.md#migrating-from-the-multi-pvc-model) for the
+   downtime and careful planning — see [Copy the
+   data](upgrade_notes.md#step-10-copy-the-data) for the
    closely related procedure used when moving off an old, per-component
    PVC layout)
 
@@ -262,10 +266,10 @@ and running maintenance manually.
 
    ```bash
    kopia maintenance set --owner=me \
-     --config-file=/tmp/$KOPIACONFIG_TIER1_CONF \
+     --config-file=$(echo /tmp/kopiaconfig_tier1_*[0-9]) \
      --disable-file-logging
    kopia maintenance run \
-     --config-file=/tmp/$KOPIACONFIG_TIER1_CONF \
+     --config-file=$(echo /tmp/kopiaconfig_tier1_*[0-9]) \
      --full \
      --disable-file-logging
    ```

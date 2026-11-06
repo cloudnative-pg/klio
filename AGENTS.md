@@ -48,7 +48,7 @@ task clean:all              # Full cleanup of generated elements
 
 ### Key Custom Resources
 
-- **Server**: Deploys the Klio backup server (StatefulSet with PVCs for cache, data, queue)
+- **Server**: Deploys the Klio backup server (StatefulSet with a single PVC mounted at `/klio`)
 - **PluginConfiguration**: Configures the CloudNativePG plugin for a cluster
 
 ### Build Pipeline
