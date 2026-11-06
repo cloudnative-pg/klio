@@ -1,0 +1,504 @@
+## Packages
+- [klio.cnpg.io/v1alpha1](#kliocnpgiov1alpha1)
+
+
+## klio.cnpg.io/v1alpha1
+
+Package v1alpha1 contains API Schema definitions for the klio v1alpha1 API group.
+
+### Resource Types
+- [PluginConfiguration](#pluginconfiguration)
+- [Server](#server)
+
+
+
+#### CompressionAlgorithm
+
+_Underlying type:_ _string_
+
+CompressionAlgorithm is the name of a Kopia compression algorithm.
+The special value "none" disables compression.
+
+_Validation:_
+- Enum: [none deflate-best-compression deflate-best-speed deflate-default gzip gzip-best-compression gzip-best-speed pgzip pgzip-best-compression pgzip-best-speed s2-better s2-default s2-parallel-4 s2-parallel-8 zstd zstd-better-compression zstd-fastest]
+
+_Appears in:_
+- [CompressionPolicy](#compressionpolicy)
+
+
+
+#### CompressionPolicy
+
+
+
+CompressionPolicy configures the Kopia compression policy applied to base
+backup data.
+A `minSize` above a non-zero `maxSize` would match no file at all: Kopia
+accepts such a policy and then silently skips compression for every file, so
+it is rejected at admission instead.
+
+
+
+_Appears in:_
+- [Tier1Configuration](#tier1configuration)
+- [Tier1PluginConfiguration](#tier1pluginconfiguration)
+- [Tier2Configuration](#tier2configuration)
+- [Tier2PluginConfiguration](#tier2pluginconfiguration)
+
+| Field | Description | Required | Default | Validation |
+| --- | --- | --- | --- | --- |
+| `algorithm` _[CompressionAlgorithm](#compressionalgorithm)_ | Algorithm is the name of the Kopia compression algorithm to use. | True |  | Enum: [none deflate-best-compression deflate-best-speed deflate-default gzip gzip-best-compression gzip-best-speed pgzip pgzip-best-compression pgzip-best-speed s2-better s2-default s2-parallel-4 s2-parallel-8 zstd zstd-better-compression zstd-fastest] <br />Required: \{\} <br /> |
+| `minSize` _integer_ | MinSize is the minimum file size, in bytes, to attempt compression for.<br />Files smaller than this are stored uncompressed. Zero means no minimum. |  |  | Minimum: 0 <br />Optional: \{\} <br /> |
+| `maxSize` _integer_ | MaxSize is the maximum file size, in bytes, to attempt compression for.<br />Files larger than this are stored uncompressed. Zero means no maximum. |  |  | Minimum: 0 <br />Optional: \{\} <br /> |
+
+
+#### EmbeddedObjectMeta
+
+
+
+EmbeddedObjectMeta contains metadata for embedded objects.
+
+
+
+_Appears in:_
+- [PodTemplateSpec](#podtemplatespec)
+
+| Field | Description | Required | Default | Validation |
+| --- | --- | --- | --- | --- |
+| `labels` _object (keys:string, values:string)_ |  |  |  | Optional: \{\} <br /> |
+| `annotations` _object (keys:string, values:string)_ |  |  |  | Optional: \{\} <br /> |
+
+
+#### EncryptionFiles
+
+
+
+EncryptionFiles is the Age-encrypted encryption key and the Age identity
+used to decrypt it, read from a single volume.
+
+
+
+_Appears in:_
+- [Tier1Configuration](#tier1configuration)
+- [Tier2Configuration](#tier2configuration)
+
+| Field | Description | Required | Default | Validation |
+| --- | --- | --- | --- | --- |
+| `volume` _[VolumeSource](#volumesource)_ | Volume is the volume source that holds the encryption key file and<br />the identity file. | True |  | ExactlyOneOf: [secret configMap projected csi] <br /> |
+| `keyPath` _string_ | KeyPath is the path of the Age-encrypted encryption key file within<br />the volume. | True |  | MaxLength: 1024 <br />MinLength: 1 <br />Required: \{\} <br /> |
+| `identityPath` _string_ | IdentityPath is the path of the Age identity (private key) file<br />within the volume, used to decrypt the encryption key. | True |  | MaxLength: 1024 <br />MinLength: 1 <br />Required: \{\} <br /> |
+
+
+#### ImageConfiguration
+
+
+
+ImageConfiguration contains the information needed to download
+the Klio image.
+
+
+
+_Appears in:_
+- [ServerSpec](#serverspec)
+
+| Field | Description | Required | Default | Validation |
+| --- | --- | --- | --- | --- |
+| `image` _string_ | Image is the image to be used for the Klio server | True |  |  |
+| `imagePullPolicy` _[PullPolicy](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.37/#pullpolicy-v1-core)_ | ImagePullPolicy defines the policy for pulling the image |  | IfNotPresent | Optional: \{\} <br /> |
+| `imagePullSecrets` _[LocalObjectReference](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.37/#localobjectreference-v1-core) array_ | ImagePullSecrets is an optional list of references to secrets in the same namespace to use for pulling any of the<br />images |  |  | Optional: \{\} <br /> |
+
+
+#### PluginConfiguration
+
+
+
+PluginConfiguration is the Schema for the client configuration API.
+
+
+
+
+
+| Field | Description | Required | Default | Validation |
+| --- | --- | --- | --- | --- |
+| `apiVersion` _string_ | `klio.cnpg.io/v1alpha1` | True | | |
+| `kind` _string_ | `PluginConfiguration` | True | | |
+| `metadata` _[ObjectMeta](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.37/#objectmeta-v1-meta)_ | Refer to Kubernetes API documentation for fields of `metadata`. | True |  |  |
+| `spec` _[PluginConfigurationSpec](#pluginconfigurationspec)_ |  | True |  |  |
+| `status` _[PluginConfigurationStatus](#pluginconfigurationstatus)_ |  |  |  | Optional: \{\} <br /> |
+
+
+#### PluginConfigurationSpec
+
+
+
+PluginConfigurationSpec defines the desired state of client configuration.
+
+
+
+_Appears in:_
+- [PluginConfiguration](#pluginconfiguration)
+
+| Field | Description | Required | Default | Validation |
+| --- | --- | --- | --- | --- |
+| `serverAddress` _string_ | ServerAddress is the address of the Klio server | True |  | MinLength: 1 <br />Required: \{\} <br /> |
+| `tier1` _[Tier1PluginConfiguration](#tier1pluginconfiguration)_ | Tier1 is the Tier 1 configuration |  |  | Optional: \{\} <br /> |
+| `tier2` _[Tier2PluginConfiguration](#tier2pluginconfiguration)_ | Tier2 is the Tier 2 configuration |  |  | Optional: \{\} <br /> |
+| `walPrefetch` _[WALPrefetchConfiguration](#walprefetchconfiguration)_ | WALPrefetch configures WAL prefetching behavior during recovery operations. |  |  | Optional: \{\} <br /> |
+| `tls` _[PluginTLSConfiguration](#plugintlsconfiguration)_ | TLS configures the PKI of the plugin: the identity the PostgreSQL<br />instances present to the Klio server and the CA used to verify it. | True |  | Required: \{\} <br /> |
+| `clusterName` _string_ | ClusterName is the name of the PostgreSQL cluster we are connecting to | True |  | MinLength: 1 <br />Required: \{\} <br /> |
+| `pprof` _boolean_ | Pprof enables the pprof endpoint for performance profiling |  |  | Optional: \{\} <br /> |
+| `mode` _[ServerMode](#servermode)_ | Mode selects the operation mode of the plugin. | True | standard | Enum: [standard read-only] <br /> |
+| `containers` _[Container](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.37/#container-v1-core) array_ | Containers allows defining a list of containers that will be merged with the Klio sidecar containers.<br />This enables users to customize the sidecars with additional environment variables, volume mounts,<br />resource limits, and other container settings without polluting the PostgreSQL container environment.<br />Merge behavior:<br />- Containers are matched by name (klio-plugin)<br />- User customizations serve as the base<br />- Klio required values (name, args, CONTAINER_NAME env var) always override user values<br />- User-defined environment variables and volume mounts are preserved<br />- Template defaults are applied only for fields not set by the user or Klio |  |  | MaxItems: 1 <br />Optional: \{\} <br /> |
+
+
+#### PluginConfigurationStatus
+
+
+
+PluginConfigurationStatus defines the observed state of ClientConfig.
+
+
+
+_Appears in:_
+- [PluginConfiguration](#pluginconfiguration)
+
+| Field | Description | Required | Default | Validation |
+| --- | --- | --- | --- | --- |
+| `conditions` _[Condition](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.37/#condition-v1-meta) array_ | Conditions represent the latest available observations of the<br />PluginConfiguration's state. |  |  | Optional: \{\} <br /> |
+
+
+#### PluginTLSConfiguration
+
+
+
+PluginTLSConfiguration contains the information needed to configure
+the PKI of the plugin.
+
+
+
+_Appears in:_
+- [PluginConfigurationSpec](#pluginconfigurationspec)
+
+| Field | Description | Required | Default | Validation |
+| --- | --- | --- | --- | --- |
+| `clientIdentity` _[TLSIdentity](#tlsidentity)_ | ClientIdentity is the TLS identity the PostgreSQL instances<br />present to the Klio server: the client certificate and its<br />matching private key. | True |  | Required: \{\} <br /> |
+| `serverCa` _[VolumeFileReference](#volumefilereference)_ | ServerCA is the CA bundle used to verify the Klio server.<br />It is mounted into PostgreSQL instance pods and used for both<br />base backups (Kopia, via --server-cert-ca-file) and WAL streaming<br />(gRPC).<br />The referenced file must contain the PEM-encoded CA certificate(s). | True |  | Required: \{\} <br /> |
+
+
+#### PodTemplateSpec
+
+
+
+PodTemplateSpec describes the data a pod should have when created from a template.
+
+
+
+_Appears in:_
+- [ServerSpec](#serverspec)
+
+| Field | Description | Required | Default | Validation |
+| --- | --- | --- | --- | --- |
+| `metadata` _[EmbeddedObjectMeta](#embeddedobjectmeta)_ | Refer to Kubernetes API documentation for fields of `metadata`. |  |  | Optional: \{\} <br /> |
+| `spec` _[PodSpec](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.37/#podspec-v1-core)_ |  |  |  | Optional: \{\} <br /> |
+
+
+#### RetentionPolicy
+
+
+
+RetentionPolicy defines how many backups we should keep.
+
+
+
+_Appears in:_
+- [Tier1PluginConfiguration](#tier1pluginconfiguration)
+- [Tier2PluginConfiguration](#tier2pluginconfiguration)
+
+| Field | Description | Required | Default | Validation |
+| --- | --- | --- | --- | --- |
+| `latest` _integer_ | Latest is the number of latest backups to keep. Zero disables<br />retention: every backup is kept, the same as leaving this policy unset. |  |  | Minimum: 0 <br />Optional: \{\} <br /> |
+
+
+#### S3Configuration
+
+
+
+S3Configuration is the configuration to a S3 defined tier 2.
+
+
+
+_Appears in:_
+- [Tier2Configuration](#tier2configuration)
+
+| Field | Description | Required | Default | Validation |
+| --- | --- | --- | --- | --- |
+| `bucketName` _string_ | BucketName is the name of the bucket | True |  |  |
+| `prefix` _string_ | Prefix is the path within the bucket under which all Klio objects<br />are stored, allowing a single bucket to be shared across multiple deployments. |  |  | Optional: \{\} <br /> |
+| `endpoint` _string_ | Endpoint is the endpoint to be used |  |  | Optional: \{\} <br /> |
+| `region` _string_ | Region is the region to be used |  |  | Optional: \{\} <br /> |
+| `accessKeyId` _[SecretKeySelector](https://pkg.go.dev/github.com/cloudnative-pg/machinery/pkg/api#SecretKeySelector)_ | The S3 access key ID |  |  | Optional: \{\} <br /> |
+| `secretAccessKey` _[SecretKeySelector](https://pkg.go.dev/github.com/cloudnative-pg/machinery/pkg/api#SecretKeySelector)_ | The S3 access key |  |  | Optional: \{\} <br /> |
+| `sessionToken` _[SecretKeySelector](https://pkg.go.dev/github.com/cloudnative-pg/machinery/pkg/api#SecretKeySelector)_ | The S3 session token |  |  | Optional: \{\} <br /> |
+| `credentialsFile` _[VolumeFileReference](#volumefilereference)_ | CredentialsFile is an AWS shared credentials file (INI format) mounted<br />from a volume. It is mutually exclusive with accessKeyId,<br />secretAccessKey and sessionToken. |  |  | Optional: \{\} <br /> |
+| `profile` _string_ | Profile is the profile to use within CredentialsFile. |  |  | Optional: \{\} <br /> |
+| `customCaBundle` _[VolumeFileReference](#volumefilereference)_ | CustomCABundle is a PEM-encoded CA bundle, mounted from a volume, that<br />is trusted when connecting to the S3 endpoint. |  |  | Optional: \{\} <br /> |
+
+
+#### Server
+
+
+
+Server is the Schema for the servers API.
+
+
+
+
+
+| Field | Description | Required | Default | Validation |
+| --- | --- | --- | --- | --- |
+| `apiVersion` _string_ | `klio.cnpg.io/v1alpha1` | True | | |
+| `kind` _string_ | `Server` | True | | |
+| `metadata` _[ObjectMeta](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.37/#objectmeta-v1-meta)_ | Refer to Kubernetes API documentation for fields of `metadata`. | True |  |  |
+| `spec` _[ServerSpec](#serverspec)_ |  | True |  |  |
+| `status` _[ServerStatus](#serverstatus)_ |  |  |  | Optional: \{\} <br /> |
+
+
+#### ServerMode
+
+_Underlying type:_ _string_
+
+ServerMode defines the operation mode of the Server.
+
+
+
+_Appears in:_
+- [PluginConfigurationSpec](#pluginconfigurationspec)
+- [ServerSpec](#serverspec)
+
+| Field | Description |
+| --- | --- |
+| `standard` | ModeStandard corresponds to server with standard read/write permissions.<br /> |
+| `read-only` | ModeReadOnly corresponds to a server with read-only permissions.<br /> |
+
+
+#### ServerSpec
+
+
+
+ServerSpec defines the desired state of Server.
+
+
+
+_Appears in:_
+- [Server](#server)
+
+| Field | Description | Required | Default | Validation |
+| --- | --- | --- | --- | --- |
+| `image` _string_ | Image is the image to be used for the Klio server | True |  |  |
+| `imagePullPolicy` _[PullPolicy](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.37/#pullpolicy-v1-core)_ | ImagePullPolicy defines the policy for pulling the image |  | IfNotPresent | Optional: \{\} <br /> |
+| `imagePullSecrets` _[LocalObjectReference](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.37/#localobjectreference-v1-core) array_ | ImagePullSecrets is an optional list of references to secrets in the same namespace to use for pulling any of the<br />images |  |  | Optional: \{\} <br /> |
+| `tls` _[TLSConfiguration](#tlsconfiguration)_ | TLS configures the PKI of the Klio server: the identity it presents<br />and the CA used to verify clients. | True |  |  |
+| `mode` _[ServerMode](#servermode)_ | Mode selects the operation mode of the server. | True | standard | Enum: [standard read-only] <br /> |
+| `tier1` _[Tier1Configuration](#tier1configuration)_ | Tier1 is the Tier 1 configuration | True |  |  |
+| `tier2` _[Tier2Configuration](#tier2configuration)_ | Tier2 is the Tier 2 configuration | True |  |  |
+| `storage` _[Storage](#storage)_ | Storage is the configuration of the single PersistentVolumeClaim<br />mounted at /klio, hosting base backups, WAL, the work queue, and<br />the Tier 1/Tier 2 caches as fixed subdirectories (data, queue,<br />cache_tier1, cache_tier2). | True |  |  |
+| `template` _[PodTemplateSpec](#podtemplatespec)_ | Template to override the default StatefulSet of the Klio server.<br />WARNING: Modifying this template may break the server functionality if not done carefully.<br />This field is primarily intended for advanced configuration such as telemetry setup.<br />Use at your own risk and ensure thorough testing before applying changes. |  |  | Optional: \{\} <br /> |
+
+
+#### ServerStatus
+
+
+
+ServerStatus defines the observed state of Server.
+
+
+
+_Appears in:_
+- [Server](#server)
+
+
+
+#### Storage
+
+
+
+Storage defines the configuration for the Klio server's
+PersistentVolumeClaim.
+
+
+
+_Appears in:_
+- [ServerSpec](#serverspec)
+
+| Field | Description | Required | Default | Validation |
+| --- | --- | --- | --- | --- |
+| `pvcTemplate` _[PersistentVolumeClaimSpec](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.37/#persistentvolumeclaimspec-v1-core)_ | PersistentVolumeClaimTemplate is used to generate the PVC that<br />backs the /klio directory tree for this server. | True |  |  |
+
+
+#### TLSConfiguration
+
+
+
+TLSConfiguration contains the information needed to configure
+the PKI infrastructure of the Klio server.
+
+
+
+_Appears in:_
+- [ServerSpec](#serverspec)
+
+| Field | Description | Required | Default | Validation |
+| --- | --- | --- | --- | --- |
+| `serverIdentity` _[TLSIdentity](#tlsidentity)_ | ServerIdentity is the TLS identity presented to clients: the<br />server certificate and its matching private key. | True |  | Required: \{\} <br /> |
+| `clientCa` _[VolumeFileReference](#volumefilereference)_ | ClientCA is the CA bundle used to verify client certificates.<br />It must contain the PEM-encoded CA certificate(s). | True |  | Required: \{\} <br /> |
+
+
+#### TLSIdentity
+
+
+
+TLSIdentity is the certificate and private key a component uses to
+authenticate itself over TLS.
+
+
+
+_Appears in:_
+- [PluginTLSConfiguration](#plugintlsconfiguration)
+- [TLSConfiguration](#tlsconfiguration)
+
+| Field | Description | Required | Default | Validation |
+| --- | --- | --- | --- | --- |
+| `volume` _[VolumeSource](#volumesource)_ | Volume is the volume source that holds the certificate and the<br />private key. | True |  | ExactlyOneOf: [secret configMap projected csi] <br /> |
+| `certPath` _string_ | CertPath is the path of the certificate file within the volume. | True |  | MaxLength: 1024 <br />MinLength: 1 <br />Required: \{\} <br /> |
+| `keyPath` _string_ | KeyPath is the path of the private key file within the volume. | True |  | MaxLength: 1024 <br />MinLength: 1 <br />Required: \{\} <br /> |
+
+
+#### Tier1Configuration
+
+
+
+Tier1Configuration is the tier 1 configuration.
+
+
+
+_Appears in:_
+- [ServerSpec](#serverspec)
+
+| Field | Description | Required | Default | Validation |
+| --- | --- | --- | --- | --- |
+| `encryption` _[EncryptionFiles](#encryptionfiles)_ | Encryption specifies the Age-encrypted encryption key file and the<br />Age identity (private key) file used to decrypt it. | True |  |  |
+| `compression` _[CompressionPolicy](#compressionpolicy)_ | Compression defines the repository-wide (global) compression policy<br />applied to base backups stored on tier1. Individual clusters can<br />override it through their PluginConfiguration. |  |  | Optional: \{\} <br /> |
+
+
+#### Tier1PluginConfiguration
+
+
+
+Tier1PluginConfiguration configures tier1 backup and recovery settings.
+
+
+
+_Appears in:_
+- [PluginConfigurationSpec](#pluginconfigurationspec)
+
+| Field | Description | Required | Default | Validation |
+| --- | --- | --- | --- | --- |
+| `retention` _[RetentionPolicy](#retentionpolicy)_ | RetentionPolicy defines how many backups we should keep |  |  | Optional: \{\} <br /> |
+| `compression` _[CompressionPolicy](#compressionpolicy)_ | Compression defines the compression policy applied to this cluster's<br />base backups on tier1. It overrides the tier1 repository-wide policy<br />configured on the Server. |  |  | Optional: \{\} <br /> |
+
+
+#### Tier2Configuration
+
+
+
+Tier2Configuration is the tier 2 configuration.
+
+
+
+_Appears in:_
+- [ServerSpec](#serverspec)
+
+| Field | Description | Required | Default | Validation |
+| --- | --- | --- | --- | --- |
+| `s3` _[S3Configuration](#s3configuration)_ | S3 contains the configuration parameters for an S3-based tier 2. | True |  |  |
+| `encryption` _[EncryptionFiles](#encryptionfiles)_ | Encryption specifies the Age-encrypted encryption key file and the<br />Age identity (private key) file used to decrypt it. | True |  |  |
+| `compression` _[CompressionPolicy](#compressionpolicy)_ | Compression defines the repository-wide (global) compression policy<br />applied to base backups stored on tier2. Individual clusters can<br />override it through their PluginConfiguration. |  |  | Optional: \{\} <br /> |
+
+
+#### Tier2PluginConfiguration
+
+
+
+Tier2PluginConfiguration configures tier2 backup and recovery settings.
+
+
+
+_Appears in:_
+- [PluginConfigurationSpec](#pluginconfigurationspec)
+
+| Field | Description | Required | Default | Validation |
+| --- | --- | --- | --- | --- |
+| `enableBackup` _boolean_ | EnableBackup controls whether WAL and base backups should be stored in tier2 |  |  | Optional: \{\} <br /> |
+| `enableRecovery` _boolean_ | EnableRecovery controls whether tier2 should be included in the recovery source list |  |  | Optional: \{\} <br /> |
+| `retention` _[RetentionPolicy](#retentionpolicy)_ | RetentionPolicy defines how many backups we should keep |  |  | Optional: \{\} <br /> |
+| `compression` _[CompressionPolicy](#compressionpolicy)_ | Compression defines the compression policy applied to this cluster's<br />base backups on tier2. It overrides the tier2 repository-wide policy<br />configured on the Server. |  |  | Optional: \{\} <br /> |
+
+
+#### VolumeFileReference
+
+
+
+VolumeFileReference specifies a file from a volume source.
+
+
+
+_Appears in:_
+- [PluginTLSConfiguration](#plugintlsconfiguration)
+- [S3Configuration](#s3configuration)
+- [TLSConfiguration](#tlsconfiguration)
+
+| Field | Description | Required | Default | Validation |
+| --- | --- | --- | --- | --- |
+| `volume` _[VolumeSource](#volumesource)_ | Volume is the volume source to mount. | True |  | ExactlyOneOf: [secret configMap projected csi] <br /> |
+| `path` _string_ | Path is the file path within the mounted volume. | True |  | MaxLength: 1024 <br />MinLength: 1 <br />Required: \{\} <br /> |
+
+
+#### VolumeSource
+
+
+
+VolumeSource is the subset of volume sources Klio can read files from.
+
+_Validation:_
+- ExactlyOneOf: [secret configMap projected csi]
+
+_Appears in:_
+- [EncryptionFiles](#encryptionfiles)
+- [TLSIdentity](#tlsidentity)
+- [VolumeFileReference](#volumefilereference)
+
+| Field | Description | Required | Default | Validation |
+| --- | --- | --- | --- | --- |
+| `secret` _[SecretVolumeSource](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.37/#secretvolumesource-v1-core)_ | Secret is a volume populated by a Secret. |  |  | Optional: \{\} <br /> |
+| `configMap` _[ConfigMapVolumeSource](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.37/#configmapvolumesource-v1-core)_ | ConfigMap is a volume populated by a ConfigMap. |  |  | Optional: \{\} <br /> |
+| `projected` _[ProjectedVolumeSource](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.37/#projectedvolumesource-v1-core)_ | Projected is a projected volume (secrets, config maps, cluster<br />trust bundles, ...). |  |  | Optional: \{\} <br /> |
+| `csi` _[CSIVolumeSource](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.37/#csivolumesource-v1-core)_ | CSI is a volume provided by a CSI driver. |  |  | Optional: \{\} <br /> |
+
+
+#### WALPrefetchConfiguration
+
+
+
+WALPrefetchConfiguration configures WAL prefetching during recovery.
+
+
+
+_Appears in:_
+- [PluginConfigurationSpec](#pluginconfigurationspec)
+
+| Field | Description | Required | Default | Validation |
+| --- | --- | --- | --- | --- |
+| `count` _integer_ | Count is the number of WAL files to prefetch ahead during recovery.<br />A value of 0 disables prefetching. | True | 2 | Maximum: 64 <br />Minimum: 0 <br /> |
+| `maxConcurrentDownloads` _integer_ | MaxConcurrentDownloads is the maximum number of concurrent WAL downloads. | True | 4 | Maximum: 64 <br />Minimum: 1 <br /> |
+
+

@@ -1,0 +1,53 @@
+---
+title: klio admin queue wal discard
+---
+
+## klio admin queue wal discard
+
+Discard failed WAL tasks in the queue
+
+### Synopsis
+
+Discard failed WAL tasks in the queue.
+
+A cluster name is required, and all failed WAL tasks for that cluster are discarded. If WAL files are also given, only those are discarded. Pass --all-clusters instead of a cluster name to discard all failed WAL tasks across every cluster.
+
+Discarding removes the failed task from the queue, not the WAL file itself. The task is permanent: the WAL file is never archived to Tier 2, which can leave a gap in the WAL archive and prevent point-in-time recovery past that point. Use "klio admin queue wal list-failed" to review the failed WAL tasks first.
+
+The number of discarded tasks is printed when the command completes.
+
+```
+klio admin queue wal discard [cluster-name] [WAL1 WAL2 ...] [flags]
+```
+
+### Options
+
+```
+      --all-clusters   Discard failed WAL tasks across every cluster
+  -h, --help           help for discard
+```
+
+### Options inherited from parent commands
+
+```
+      --config string                     config file (default is $HOME/.klio.yaml)
+      --debug                             enable debug logging
+      --json                              Output in JSON format
+      --log-destination string            where the log stream will be written
+      --log-field-level string            JSON log field to report severity in (default: level)
+      --log-field-timestamp string        JSON log field to report timestamp in (default: ts)
+      --log-level string                  the desired log level, one of error, info, debug and trace (default "info")
+      --log-truncate-destination          truncate the log destination on open instead of appending to it (ignored for FIFOs)
+      --pprof-server string               enable the PPROF server using the specified address
+      --socket-path string                Unix socket used by the administration server (default "/tmp/.klio-admin")
+      --zap-devel                         Development Mode defaults(encoder=consoleEncoder,logLevel=Debug,stackTraceLevel=Warn). Production Mode defaults(encoder=jsonEncoder,logLevel=Info,stackTraceLevel=Error)
+      --zap-encoder encoder               Zap log encoding (one of 'json' or 'console')
+      --zap-log-level level               Zap Level to configure the verbosity of logging. Can be one of 'debug', 'info', 'error', 'panic' or any integer value > 0 which corresponds to custom debug levels of increasing verbosity
+      --zap-stacktrace-level level        Zap Level at and above which stacktraces are captured (one of 'info', 'error', 'panic').
+      --zap-time-encoding time-encoding   Zap time encoding (one of 'epoch', 'millis', 'nano', 'iso8601', 'rfc3339' or 'rfc3339nano'). Defaults to 'epoch'.
+```
+
+### SEE ALSO
+
+* [klio admin queue wal](klio_admin_queue_wal.md)	 - Manage the queue WAL tasks
+
