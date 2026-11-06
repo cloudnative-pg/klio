@@ -9,7 +9,7 @@ metadata:
     cnpg.io/pluginClientSecret: klio-plugin-client-tls
     cnpg.io/pluginServerSecret: klio-plugin-server-tls
     cnpg.io/pluginPort: "9090"
-  name: klio-operator-plugin
+  name: plugin
   namespace: system
 spec:
   ports:

@@ -307,9 +307,4 @@ excludes drafts and prereleases, so a release candidate never reaches
 the `stable-v0` channel.
 
 Each release publishes its own catalog image, tagged with the release
-version, and that catalog carries exactly one bundle. The upgrade edge
-back to the installed version comes from the `olm.skipRange` annotation
-`olm:manifest` writes into the CSV, which spans every release from
-`OLM_FIRST_BUNDLE_VERSION` up to (but excluding) the one being built.
-Raise that variable only to declare a version range unupgradable, and
-never lower it.
+version, and that catalog carries exactly one bundle.
