@@ -500,7 +500,7 @@ tasks:
     dir: '{{ .WORKDIR }}'
     env:
       # renovate: datasource=git-refs depName=go-licenses lookupName=https://github.com/cloudnative-pg/daggerverse currentValue=main
-      DAGGER_GO_LICENSES_SHA: 838ccbbd35b0e5e9a7d4af600fa8fa1a4259b1d0
+      DAGGER_GO_LICENSES_SHA: 6f8e4a643a70ce118a68a2fcbae7531b2d1f8b6a
     cmds:
       - >
         GITHUB_REF= dagger -s call -m github.com/cloudnative-pg/daggerverse/go-licenses@${DAGGER_GO_LICENSES_SHA}
