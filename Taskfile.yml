@@ -6,7 +6,16 @@ version: 3.54.0
 output: prefixed
 
 includes:
-  ci-machinery-olm: https://raw.githubusercontent.com/cloudnative-pg/ci-machinery/refs/heads/main/taskfiles/taskfile.olm.yaml
+  ci-machinery-infra:
+    # renovate: datasource=git-refs depName=ci-machinery lookupName=https://github.com/cloudnative-pg/ci-machinery currentValue=main
+    taskfile: https://raw.githubusercontent.com/cloudnative-pg/ci-machinery/1b6e606ea9c22ad1fe912d45c17beb0176917007/taskfiles/taskfile.infra.yaml
+    vars:
+      # Keep clear of the e2e registry, published on port 5000
+      REGISTRY_HOST_PORT: 5050
+  ci-machinery-olm:
+    # renovate: datasource=git-refs depName=ci-machinery lookupName=https://github.com/cloudnative-pg/ci-machinery currentValue=main
+    taskfile: https://raw.githubusercontent.com/cloudnative-pg/ci-machinery/1b6e606ea9c22ad1fe912d45c17beb0176917007/taskfiles/taskfile.olm.yaml
+
 
 vars:
   BUILDER_NAME: klio-builder
@@ -70,7 +79,7 @@ vars:
   OLM_REGISTRY_HOST_PORT: '{{ .OLM_REGISTRY_HOST_PORT | default 5005 }}'
   # Kind cluster the OLM tests run on, and the kubeconfig used to reach it from
   # inside the Dagger engine.
-  OLM_KIND_CLUSTER_NAME: '{{ .OLM_KIND_CLUSTER_NAME | default "klio-olm-test" }}'
+  OLM_KIND_CLUSTER_NAME: '{{ .OLM_KIND_CLUSTER_NAME | default "klio.olm-testing" }}'
   OLM_KUBECONFIG_PATH: '{{ .OLM_KUBECONFIG_PATH | default (printf "./%s-kubeconfig" .OLM_KIND_CLUSTER_NAME) }}'
 
 tasks:
@@ -788,111 +797,182 @@ tasks:
       - task: olm:scorecard
       - task: olm:test-catalog
 
-  olm:setup-infra:
-    desc: Set up the Dagger engine, builder and local registry for the OLM tasks
-    summary: |
-      Starts the ci-machinery Dagger engine and buildx builder, sharing one
-      Docker network, and the local registry when OLM_REGISTRY points to it
-      (the default outside GitHub Actions), published on the host at
-      OLM_REGISTRY_HOST_PORT. Every step is skipped when already up.
-    run: once
-    cmds:
-      - task: ci-machinery-olm:infra:setup-container-registry
-        if: '{{ .OLM_LOCAL_REGISTRY }}'
-        vars:
-          REGISTRY_HOST_PORT: '{{ .OLM_REGISTRY_HOST_PORT }}'
-      - task: ci-machinery-olm:infra:setup-dagger-engine
-      - task: ci-machinery-olm:infra:setup-docker-builder
-
   olm:containerize:
-    desc: Build and push the operator and operand images to OLM_REGISTRY
-    summary: |
-      The bundle references the operator and operand images in OLM_REGISTRY
-      with the same tag, so they must be there for the operator to be
-      installed. In GitHub Actions the core and operator jobs push them to
-      ghcr.io; otherwise this builds the testing images with the ci-machinery
-      builder and pushes them to OLM_REGISTRY.
+    desc: Build and push the operator and operand images for OLM testing
     run: once
-    env:
-      environment: testing
-      registry: '{{ .OLM_REGISTRY }}'
-      insecure: '{{ .OLM_LOCAL_REGISTRY }}'
-      version: '{{ .TAG | default .IMAGE_TAG }}'
-      latest: 'false'
-    cmds:
-      # These run Dagger on its default engine, whose start removes the
-      # ci-machinery one, so they go before olm:setup-infra, which starts it
-      # again when missing.
-      - task: core:goreleaser-snapshot
-      - task: operator:controller-gen
-      - task: olm:setup-infra
-      - for: [core, operator]
-        cmd: cd {{ .ITEM }} && docker buildx bake --builder {{ .DOCKER_BUILDER }} --push --metadata-file metadata.json
-
-  olm:setup-kind:
-    desc: Set up the Kind cluster for the OLM tests and export its kubeconfig
-    summary: |
-      Creates the Kind cluster OLM_KIND_CLUSTER_NAME on the ci-machinery
-      Docker network, and writes to OLM_KUBECONFIG_PATH the kubeconfig used
-      to reach it from inside the Dagger engine. When PRIVATE_REGISTRY_HOST
-      and PRIVATE_REGISTRY_USERNAME are set, together with the
-      PRIVATE_REGISTRY_PASSWORD environment variable, the nodes get the
-      credentials to pull from that registry. Skipped when the cluster
-      already exists.
-    run: once
-    cmds:
-      - task: ci-machinery-olm:infra:setup-kind
-        vars:
-          CLUSTER_NAME: '{{ .OLM_KIND_CLUSTER_NAME }}'
-          PRIVATE_REGISTRY_HOST: '{{ .PRIVATE_REGISTRY_HOST }}'
-          PRIVATE_REGISTRY_USERNAME: '{{ .PRIVATE_REGISTRY_USERNAME }}'
-      - task: ci-machinery-olm:infra:export-kubeconfig
-        vars:
-          CLUSTER_NAME: '{{ .OLM_KIND_CLUSTER_NAME }}'
-          INTERNAL: 'true'
-          WORKDIR: '{{ .ROOT_DIR }}'
-          KUBECONFIG_PATH: '{{ .OLM_KUBECONFIG_PATH }}'
-
-  olm:kustomization:
-    run: once
+    internal: false
     requires:
       vars:
-        - name: ENVIRONMENT
-          enum:
-            ref: .ALLOWED_ENVS
+        - OPERATOR_IMAGE
+        - SIDECAR_IMAGE
     deps:
-      - olm:setup-infra
-    vars:
-      IMAGE_SUFFIX: '{{ if ( ne .ENVIRONMENT "production" ) }}-testing{{end}}'
-      IMAGE_REF_TAG: '{{ .TAG | default .IMAGE_TAG }}'
+      - task: ci-machinery-infra:setup-container-registry
+      - task: ci-machinery-infra:setup-docker-builder
     env:
-      OPERATOR_IMAGE: '{{ .OLM_REGISTRY }}/klio-operator{{ .IMAGE_SUFFIX }}:{{ .IMAGE_REF_TAG }}{{ .UBI_TAG_SUFFIX }}'
-      SIDECAR_IMAGE: '{{ .OLM_REGISTRY }}/klio{{ .IMAGE_SUFFIX }}:{{ .IMAGE_REF_TAG }}'
-      # Use the ci-machinery engine: the Dagger CLI starting its own one would
-      # remove it.
-      _EXPERIMENTAL_DAGGER_RUNNER_HOST: docker-container://{{ .DAGGER_ENGINE }}
+      insecure: 'true'
+      version: '{{ .TAG | default .IMAGE_TAG }}'
+    cmds:
+      - task: operator:controller-gen
+      - task: core:goreleaser-snapshot
+      - >
+        cd core && docker buildx bake --builder {{ .DOCKER_BUILDER }} --push
+        --set '*.platform=linux/{{ ARCH }}'
+        --set '*.tags={{ .SIDECAR_IMAGE }}'
+      - >
+        cd operator && docker buildx bake distroless --builder {{ .DOCKER_BUILDER }} --push
+        --set '*.platform=linux/{{ ARCH }}'
+        --set '*.tags={{ .OPERATOR_IMAGE }}'
+
+  olm:setup-kind-env:
+    desc: Setup a kind cluster for OLM testing
+    vars:
+      KUBECONFIG_PATH: '{{.KUBECONFIG_PATH | default .OLM_KUBECONFIG_PATH}}'
+    internal: true
+    requires:
+      vars:
+        - CLUSTER_NAME
+    cmds:
+      - task: ci-machinery-infra:setup-kind
+        vars:
+          CLUSTER_NAME: '{{.CLUSTER_NAME}}'
+      - task: ci-machinery-infra:export-kubeconfig
+        vars:
+          WORKDIR: operator
+          CLUSTER_NAME: '{{.CLUSTER_NAME}}'
+          KUBECONFIG_PATH: '{{.KUBECONFIG_PATH}}'
+          INTERNAL: 'true'
+      - task: ci-machinery-olm:olm-operator:setup
+        vars:
+          WORKDIR: operator
+          KUBECONFIG_PATH: '{{.KUBECONFIG_PATH}}'
+  olm:kustomization:
+    run: once
+    vars:
+      OUTPUT_DIR: '{{.OUTPUT_DIR | default "olm-manifests"}}'
+      PATCHES_DIR: "config/olm/generated"
+    requires:
+      vars:
+        - OPERATOR_IMAGE
+        - SIDECAR_IMAGE
+    dir: operator
+    env:
+      OPERATOR_IMAGE: '{{ .OPERATOR_IMAGE }}'
+      SIDECAR_IMAGE: '{{ .SIDECAR_IMAGE }}'
       # renovate: datasource=git-refs depName=kustomize lookupName=https://github.com/sagikazarmark/daggerverse currentValue=main
       DAGGER_KUSTOMIZE_SHA: ff27cd50f6b4eed2e3753c520632cd6099e1ce52
     cmds:
-      # Render the dynamic kustomize patches from operator/config/olm/templates
-      # into operator/config/olm/generated, then build the overlay in place.
-      # The operand shares the operator's registry and tag, differing only by
-      # the "klio" repository instead of "klio-operator".
-      - mkdir -p operator/config/olm/generated
+      - defer: rm -rf '{{.PATCHES_DIR}}'
+      - mkdir -p '{{.PATCHES_DIR}}'
       - >
-        for f in operator/config/olm/templates/*.yaml.tmpl; do
+        for f in config/olm/templates/*.yaml.tmpl; do
         envsubst '${OPERATOR_IMAGE} ${SIDECAR_IMAGE}' < "$f"
-        > "operator/config/olm/generated/$(basename "$f" .tmpl)" || exit 1;
+        > "{{.PATCHES_DIR}}/$(basename "$f" .tmpl)" || exit 1;
         done
       - >
         GITHUB_REF= dagger -s call -m github.com/sagikazarmark/daggerverse/kustomize@${DAGGER_KUSTOMIZE_SHA}
-        build --source operator/config --dir olm
-        export --path operator/olm-manifests/manifest.yaml
+        build --source config --dir olm
+        export --path '{{.OUTPUT_DIR}}/manifest.yaml'
 
-    sources:
-      - operator/config/**/*
-    generates:
-      - operator/olm-manifests/manifest.yaml
+  olm:test:
+    desc: Run the OLM CI pipeline
+    summary: |
+      Builds the operator and operand images, renders the OLM manifests,
+      generates, validates and pushes the bundle, then installs it through OLM
+      on a fresh Kind cluster and runs the scorecard and the OperatorHub fruit
+      tests. Everything it creates, the ci-machinery infrastructure included,
+      is removed at the end.
+
+      SKIP_CONTAINERS_BUILD=true reuses the images already in the registry.
+      The fruit tests only run in GitHub Actions, so they are skipped elsewhere
+      unless SKIP_FRUIT_TESTS=false.
+    vars:
+      PLATFORMS: '{{ .PLATFORMS | default (print "linux/" ARCH) }}'
+      VERSION: '{{ .GIT_TAG_VERSION }}'
+      REGISTRY: '{{ .REGISTRY_NAME }}:{{ .REGISTRY_INTERNAL_PORT }}'
+      OPERATOR_IMAGE: '{{ .OPERATOR_IMAGE | default (print .REGISTRY "/klio-operator-testing:" .VERSION) }}'
+      SIDECAR_IMAGE: '{{ .SIDECAR_IMAGE | default (print .REGISTRY "/klio-testing:" .VERSION) }}'
+      PACKAGE_NAME: klio-operator
+      BUNDLE_IMAGE_NAME: klio-operator-testing
+      BUNDLE_TAG: '{{ .VERSION }}-bundle'
+      BUNDLE_IMAGE: '{{ .REGISTRY }}/{{ .BUNDLE_IMAGE_NAME }}:{{ .BUNDLE_TAG }}'
+      CLUSTER_NAME: '{{ .OLM_KIND_CLUSTER_NAME }}'
+      KUBECONFIG_PATH: '{{ .OLM_KUBECONFIG_PATH }}'
+      SKIP_CONTAINERS_BUILD: '{{ .SKIP_CONTAINERS_BUILD | default "false" }}'
+      SKIP_FRUIT_TESTS: '{{.SKIP_FRUIT_TESTS | default "false"}}'
+    dir: operator
+    cmds:
+      - defer:
+          task: ci-machinery-infra:teardown
+      - task: ci-machinery-infra:setup-container-registry
+        vars:
+          REGISTRY_HOST_PORT: '{{ .OLM_REGISTRY_HOST_PORT }}'
+      - task: olm:containerize
+        if: '[ "{{ .SKIP_CONTAINERS_BUILD }}" != "true" ]'
+        vars:
+          OPERATOR_IMAGE: '{{ .OPERATOR_IMAGE }}'
+          SIDECAR_IMAGE: '{{ .SIDECAR_IMAGE }}'
+          TAG: '{{ .VERSION }}'
+      - defer: rm -rf olm-manifests
+      - task: olm:kustomization
+        vars:
+          OPERATOR_IMAGE: '{{ .OPERATOR_IMAGE }}'
+          SIDECAR_IMAGE: '{{ .SIDECAR_IMAGE }}'
+      - defer: rm -rf olm-bundle
+      - task: ci-machinery-olm:bundle:generate
+        vars:
+          WORKDIR: operator
+          PACKAGE_NAME: '{{ .PACKAGE_NAME }}'
+          CHANNELS: '{{ .OLM_CHANNELS }}'
+          DEFAULT_CHANNEL: '{{ .OLM_DEFAULT_CHANNEL }}'
+          EXTRA_ARGS: '--use-image-digests'
+          METADATA_DIR: config/olm/metadata
+      - |
+        printf '\n  # OpenShift annotations.\n  com.redhat.openshift.versions: "%s"\n' \
+          '{{ .OPENSHIFT_VERSIONS }}' >> olm-bundle/bundle/metadata/annotations.yaml
+        printf '\n# OpenShift labels.\nLABEL com.redhat.openshift.versions="%s"\n' \
+          '{{ .OPENSHIFT_VERSIONS }}' >> olm-bundle/bundle.Dockerfile
+      - task: ci-machinery-olm:bundle:image
+        vars:
+          WORKDIR: operator
+          IMAGE_REGISTRY: '{{ .REGISTRY }}'
+          IMAGE_NAME: '{{ .BUNDLE_IMAGE_NAME }}'
+          IMAGE_TAG: '{{ .BUNDLE_TAG }}'
+          PLATFORMS: '{{ .PLATFORMS }}'
+      - task: ci-machinery-olm:bundle:validate
+        vars:
+          BUNDLE_IMAGE: '{{ .BUNDLE_IMAGE }}'
+          EXTRA_ARGS: '--select-optional suite=operatorframework'
+      - defer:
+          task: ci-machinery-infra:teardown-kind
+          vars:
+            CLUSTER_NAME: '{{ .CLUSTER_NAME }}'
+      - defer: rm -f {{ .KUBECONFIG_PATH | shellQuote }}
+      - task: olm:setup-kind-env
+        vars:
+          CLUSTER_NAME: '{{ .CLUSTER_NAME }}'
+          KUBECONFIG_PATH: '{{ .KUBECONFIG_PATH }}'
+      - task: ci-machinery-olm:bundle:test-install
+        vars:
+          WORKDIR: operator
+          KUBECONFIG_PATH: '{{ .KUBECONFIG_PATH }}'
+          PACKAGE_NAME: '{{ .PACKAGE_NAME }}'
+          BUNDLE_IMAGE: '{{ .BUNDLE_IMAGE }}'
+          PLATFORMS: '{{ .PLATFORMS }}'
+      - task: ci-machinery-olm:bundle:scorecard
+        vars:
+          WORKDIR: operator
+          KUBECONFIG_PATH: '{{ .KUBECONFIG_PATH }}'
+          BUNDLE_IMAGE: '{{ .BUNDLE_IMAGE }}'
+          # The default 30s is often shorter than pulling the test image on a
+          # fresh cluster.
+          EXTRA_ARGS: '--wait-time=300s'
+      - task: ci-machinery-olm:operator-hub:fruit-tests
+        if: '[ "{{ .SKIP_FRUIT_TESTS }}" != "true" ]'
+        vars:
+          WORKDIR: operator
+          OPERATOR_NAME: '{{ .PACKAGE_NAME }}'
+          VERSION: '{{ .VERSION }}'
+          BUNDLE_DIR: olm-bundle/bundle
 
   olm:bundle:
     desc: Generate the OLM bundle for the operator
@@ -958,7 +1038,6 @@ tasks:
           enum:
             ref: .ALLOWED_ENVS
     deps:
-      - olm:setup-infra
       - olm:bundle
     cmds:
       # Pushed with the ci-machinery builder, which trusts the local registry,
@@ -1258,7 +1337,7 @@ tasks:
     cmds:
       # Export the kubeconfig instead of depending on olm:setup-kind, so that
       # a teardown never creates the cluster it is meant to clean up.
-      - task: ci-machinery-olm:infra:export-kubeconfig
+      - task: ci-machinery-infra:export-kubeconfig
         vars:
           CLUSTER_NAME: '{{ .OLM_KIND_CLUSTER_NAME }}'
           INTERNAL: 'true'
@@ -1344,15 +1423,15 @@ tasks:
     cmds:
       - task: olm:clean
       # The Kind cluster goes first: deleting it needs the Dagger engine.
-      - task: ci-machinery-olm:infra:teardown-kind
+      - task: ci-machinery-infra:teardown-kind
         vars:
           CLUSTER_NAME: '{{ .OLM_KIND_CLUSTER_NAME }}'
       - rm -f {{ .OLM_KUBECONFIG_PATH | shellQuote }}
-      - task: ci-machinery-olm:infra:teardown-container-registry
-      - task: ci-machinery-olm:infra:teardown-builder
-      - task: ci-machinery-olm:infra:teardown-dagger-engine
+      - task: ci-machinery-infra:teardown-container-registry
+      - task: ci-machinery-infra:teardown-builder
+      - task: ci-machinery-infra:teardown-dagger-engine
       # Fails if another project still has containers on the network.
-      - task: ci-machinery-olm:infra:teardown-docker-network
+      - task: ci-machinery-infra:teardown-docker-network
 
   ####################################
   ## DOCUMENTATION
