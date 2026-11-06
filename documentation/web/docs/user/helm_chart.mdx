@@ -85,10 +85,6 @@ Check the [Upgrade Notes](upgrade_notes.md) for version-specific
 instructions.
 :::
 
-Starting with 0.0.21, each release publishes its CRDs as the
-`klio-crds.yaml` release asset. To upgrade to an earlier version, follow the
-documentation of that version.
-
 #### Step 1: Review CRD changes
 
 Before applying, review the CRD changes to understand what is being
@@ -173,9 +169,10 @@ will recreate it with the chosen image.
 :::
 
 :::warning
-Not all parameters can be updated in a StatefulSet. In case a new version of
-the operator requires such a change, delete the StatefulSet managing the Klio
-Server. The operator will automatically recreate the StatefulSet.
+Not all parameters can be updated in a StatefulSet. When a new version of
+the operator requires such a change, the operator deletes and recreates the
+StatefulSet managing the Klio Server. If it does not, delete the StatefulSet
+yourself and the operator will recreate it.
 StatefulSets [retain their PVCs by default](https://kubernetes.io/docs/concepts/workloads/controllers/statefulset/#persistentvolumeclaim-retention),
 make sure your data is safe before proceeding.
 
@@ -187,11 +184,8 @@ kubectl delete statefulset -l klio.cnpg.io/klio-server=<SERVER_NAME> -n <NAMESPA
 #### Upgrade Klio client sidecars
 
 The Pods of the CNPG instances need to be recreated to run the new Klio image.
-You can use the CNPG `kubectl` plugin to trigger a rolling update:
-
-```sh
-kubectl cnpg restart <cluster-name>
-```
+When the operator upgrade changes the sidecar image, CloudNativePG rolls out
+the instance Pods automatically.
 
 Refer to the
 [CloudNativePG documentation](https://cloudnative-pg.io/documentation/current/rolling_update/)
