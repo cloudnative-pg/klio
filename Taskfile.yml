@@ -904,8 +904,6 @@ tasks:
       - defer:
           task: ci-machinery-infra:teardown
       - task: ci-machinery-infra:setup-container-registry
-        vars:
-          REGISTRY_HOST_PORT: '{{ .OLM_REGISTRY_HOST_PORT }}'
       - task: olm:containerize
         if: '[ "{{ .SKIP_CONTAINERS_BUILD }}" != "true" ]'
         vars:
@@ -963,8 +961,6 @@ tasks:
           WORKDIR: operator
           KUBECONFIG_PATH: '{{ .KUBECONFIG_PATH }}'
           BUNDLE_IMAGE: '{{ .BUNDLE_IMAGE }}'
-          # The default 30s is often shorter than pulling the test image on a
-          # fresh cluster.
           EXTRA_ARGS: '--wait-time=300s'
       - task: ci-machinery-olm:operator-hub:fruit-tests
         if: '[ "{{ .SKIP_FRUIT_TESTS }}" != "true" ]'
