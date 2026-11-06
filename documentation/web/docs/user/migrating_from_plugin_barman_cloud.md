@@ -5,7 +5,8 @@ sidebar_position: 92
 # Migrating from Plugin Barman Cloud
 
 You can enable the Klio plugin on a cluster already protected by
-[Plugin Barman Cloud](https://github.com/cloudnative-pg/plugin-barman-cloud/) and run the two side by side.
+[Plugin Barman Cloud](https://github.com/cloudnative-pg/plugin-barman-cloud/)
+and run the two side by side.
 To migrate without losing the ability to recover, keep both until Klio's
 backups cover the recovery window you need, then remove Plugin Barman Cloud.
 
@@ -30,10 +31,10 @@ spec:
         pluginConfigurationRef: <plugin-configuration>
 ```
 
-Each `Backup` and `ScheduledBackup` targets one plugin through
-`.spec.pluginConfiguration.name`. CloudNativePG runs a cluster's backups one
-at a time, whatever the plugin, so give the two plugins different backup
-schedules.
+Each `Backup` and `ScheduledBackup` uses `method: plugin` and targets one
+plugin through `.spec.pluginConfiguration.name`. CloudNativePG runs a
+cluster's backups one at a time, whatever the plugin, so give the two plugins
+different backup schedules.
 
 While both plugins are enabled, either one can serve the WAL files that
 `restore_command` requests, for example when a standby falls behind or a
@@ -49,8 +50,8 @@ restore WAL, and uses the first that succeeds.
 3. Keep both plugins until Klio covers the required recovery window. During
    this phase, switch any replica clusters that follow this cluster through
    Plugin Barman Cloud to a Klio source.
-4. Remove Plugin Barman Cloud from `.spec.plugins` and delete its
-   `ScheduledBackup` objects.
+4. Delete the Plugin Barman Cloud `ScheduledBackup` objects, then remove
+   the plugin from `.spec.plugins`.
 
 :::warning
 Plugin Barman Cloud stops archiving as soon as the `Cluster` change in
