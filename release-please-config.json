@@ -1,7 +1,6 @@
 {
   "changelog-path": "CHANGELOG.md",
   "release-type": "go",
-  "changelog-type": "github",
   "bump-minor-pre-major": true,
   "bump-patch-for-minor-pre-major": true,
   "draft": false,
