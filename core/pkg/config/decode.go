@@ -26,14 +26,19 @@ import (
 
 	"github.com/go-viper/mapstructure/v2"
 	"github.com/spf13/afero"
-	"go.yaml.in/yaml/v3"
+	"go.yaml.in/yaml/v4"
 )
 
 // DecodeYAML decodes YAML data into a Data struct using mapstructure.
 // This ensures consistent behavior with Viper by respecting mapstructure tags.
 func DecodeYAML(r io.Reader) (*Data, error) {
+	loader, err := yaml.NewLoader(r)
+	if err != nil {
+		return nil, fmt.Errorf("creating YAML loader: %w", err)
+	}
+
 	var rawConfig map[string]any
-	if err := yaml.NewDecoder(r).Decode(&rawConfig); err != nil {
+	if err := loader.Load(&rawConfig); err != nil {
 		return nil, fmt.Errorf("decoding YAML: %w", err)
 	}
 
