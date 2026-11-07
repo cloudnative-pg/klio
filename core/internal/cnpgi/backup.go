@@ -344,6 +344,7 @@ func (b backupServiceImplementation) setRetentionPolicy(ctx context.Context) err
 	var stdout bytes.Buffer
 	cmd.Stdout = &stdout
 	cmd.Stderr = os.Stderr
+	cmd.Env = filterOTelEnv(os.Environ())
 	if err := cmd.Run(); err != nil {
 		return fmt.Errorf("failed to execute 'klio retention get' command: %w", err)
 	}

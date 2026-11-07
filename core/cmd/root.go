@@ -36,6 +36,7 @@ import (
 	"github.com/cloudnative-pg/klio/core/cmd/retention"
 	"github.com/cloudnative-pg/klio/core/cmd/server"
 	"github.com/cloudnative-pg/klio/core/cmd/walplayer"
+	"github.com/cloudnative-pg/klio/core/internal/opentelemetry"
 
 	_ "net/http/pprof" //nolint:gosec
 )
@@ -74,7 +75,11 @@ run directly by end users.`,
 		if debug {
 			log.SetLogLevel(log.DebugLevelString)
 		}
-		logFlags.ConfigureLogging()
+		loggingOptions, otelErr := opentelemetry.LoggingOptions(cmd.Context())
+		logFlags.ConfigureLogging(loggingOptions...)
+		if otelErr != nil {
+			log.Error(otelErr, "Cannot export the logs via OpenTelemetry")
+		}
 
 		if pprofServerAddress != "" {
 			go func() {
@@ -97,6 +102,7 @@ run directly by end users.`,
 // This is called by main.main(). It only needs to happen once to the rootCmd.
 func Execute(ctx context.Context) {
 	err := rootCmd.ExecuteContext(ctx)
+	opentelemetry.ShutdownLogs(ctx)
 	if err != nil {
 		os.Exit(1)
 	}
