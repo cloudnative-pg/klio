@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.0.21](https://github.com/cloudnative-pg/klio/compare/v0.0.21...v0.0.21) (2026-11-07)
+
+
+### Bug Fixes
+
+* **deps:** Update all non-major go dependencies ([@renovate](https://github.com/renovate)[bot]) ([ff9e2d2](https://github.com/cloudnative-pg/klio/commit/ff9e2d2b8d17e90510f99630f68c88b391843fda))
+
 ## [0.0.21](https://github.com/cloudnative-pg/klio/compare/v0.0.20...v0.0.21) (2026-11-06)
 
 
