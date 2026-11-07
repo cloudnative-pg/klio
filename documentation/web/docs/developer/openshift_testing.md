@@ -139,7 +139,10 @@ oc apply -f openshift_subscription.yaml
 ```
 
 OLM will create an `InstallPlan` and deploy the operator into
-the `openshift-operators` namespace.
+the `openshift-operators` namespace. The bundle depends on
+CloudNativePG 1.30.0 or later, so OLM also installs the
+`cloudnative-pg` package from the cluster's catalogs, unless a
+suitable version is already installed.
 
 :::note
 The Klio sidecar (operand) image is baked into the operator
@@ -148,9 +151,8 @@ Deployment by the bundle, as both the `SIDECAR_IMAGE` and the
 the latter, and only the OLM bundle sets it. `RELATED_IMAGE_SIDECAR`
 is the name `operator-sdk` expects, so that `--use-image-digests`
 pins the operand to a digest and copies it into the CSV's
-`relatedImages`, which is what disconnected installs mirror. Digest
-pinning only happens in CI, where the images live on `ghcr.io`; a
-local build leaves both variables on a tag. The images use the same
+`relatedImages`, which is what disconnected installs mirror. Setting
+`SKIP_IMAGE_DIGESTS` leaves both variables on a tag. The images use the same
 registry and tag as the operator image by default, with the `klio`
 repository instead of `klio-operator`. The Subscription can override
 either variable.
@@ -305,9 +307,4 @@ excludes drafts and prereleases, so a release candidate never reaches
 the `stable-v0` channel.
 
 Each release publishes its own catalog image, tagged with the release
-version, and that catalog carries exactly one bundle. The upgrade edge
-back to the installed version comes from the `olm.skipRange` annotation
-`olm:manifest` writes into the CSV, which spans every release from
-`OLM_FIRST_BUNDLE_VERSION` up to (but excluding) the one being built.
-Raise that variable only to declare a version range unupgradable, and
-never lower it.
+version, and that catalog carries exactly one bundle.
