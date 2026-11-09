@@ -5,9 +5,10 @@ sidebar_position: 3
 # Testing the OLM bundle
 
 This guide explains how to build and test the Klio OLM (Operator
-Lifecycle Manager) bundle. The tasks come from the OLM Taskfile of
+Lifecycle Manager) bundle. The tasks come from
 [`ci-machinery`](https://github.com/cloudnative-pg/ci-machinery),
-which `Taskfile.yml` includes as `ci-machinery-olm`.
+which `Taskfile.yml` includes twice, as `ci-machinery-infra` and
+`ci-machinery-olm`.
 
 ## Prerequisites
 
@@ -21,86 +22,66 @@ so they don't need to be installed.
 ## Running the tests
 
 ```bash
-task olm:all ENVIRONMENT=testing
+task olm:test
 ```
 
 This command will, in order:
 
-- Build and push the operator and operand images (`olm:containerize`)
-- Generate the bundle, then build and push its image (`olm:bundle`,
-  `olm:build`)
-- Build the catalog image and the CatalogSource YAML (`olm:catalog`,
-  `olm:catalog-source`)
+- Start a local container registry, `registry.cnpg:5000`
+- Build and push the operator and operand images for the host platform
+  (`olm:containerize`)
+- Render the OLM manifests (`olm:kustomization`), then generate the
+  bundle and build and push its image
 - Validate the bundle with `operator-sdk bundle validate`, including
-  the OperatorHub checks (`olm:validate`)
-- Run `operator-sdk scorecard` on a Kind cluster (`olm:scorecard`)
-- Install OLM on the Kind cluster, install the operator from a catalog
-  holding only the bundle, wait for the CSV to succeed and uninstall it
-  (`olm:test-catalog`)
+  the OperatorHub checks
+- Create a Kind cluster with OLM installed, install the operator from a
+  catalog holding only the bundle, wait for the CSV to succeed and
+  uninstall it
+- Run `operator-sdk scorecard` on the Kind cluster
+- Run the OperatorHub fruit tests (see below)
+
+Everything runs internally: the registry, the Docker builder, the
+Dagger engine and the Kind cluster are created by the task itself, and
+removed when it ends, whether it succeeds or fails, together with the
+generated manifests, bundle and kubeconfig. Nothing is pushed to an
+external registry.
+
+The teardown removes the `ci-machinery` infrastructure, which other
+projects using the `ci-machinery` defaults share.
 
 The bundle depends on CloudNativePG 1.30.0 or later, declared in
 `operator/config/olm/metadata/dependencies.yaml`, so OLM also installs
-CloudNativePG from the OperatorHub catalog. Uninstalling Klio leaves
-CloudNativePG installed; `olm:prune` removes it with the Kind cluster.
+CloudNativePG from the OperatorHub catalog.
 
-Each of these tasks can also be run on its own.
-
-## Registry
-
-The images go to the registry in `OLM_REGISTRY`, which defaults to:
-
-- `ghcr.io/<owner>` in GitHub Actions
-- the local `ci-machinery` registry, `registry.cnpg:5000`, otherwise
-
-`olm:setup-infra` starts the local registry, together with the Dagger
-engine and the Docker builder the tasks use. From the host, the
-registry is reachable on port 5005 (`OLM_REGISTRY_HOST_PORT`).
-
-To use an external registry, log in to it and set `OLM_REGISTRY`:
+### Running locally
 
 ```bash
-docker login registry.example.com
-task olm:all ENVIRONMENT=testing OLM_REGISTRY=registry.example.com/klio
+task olm:test SKIP_FRUIT_TESTS=true
 ```
 
-If the registry is private, the tasks running in Dagger and the Kind
-cluster also need its credentials:
+The OperatorHub [operator test suite][opp] (kiwi, lemon and orange)
+installs tools on the machine it runs on and changes its
+configuration, so it is only meant to run on a disposable GitHub
+Actions runner, and refuses to run anywhere else. Outside GitHub
+Actions, set `SKIP_FRUIT_TESTS=true`, otherwise the task fails at that
+last step.
 
-```bash
-export PRIVATE_REGISTRY_PASSWORD=<password or token>
-task olm:all ENVIRONMENT=testing \
-  OLM_REGISTRY=registry.example.com/klio \
-  PRIVATE_REGISTRY_HOST=registry.example.com \
-  PRIVATE_REGISTRY_USERNAME=<user>
-```
+### Options
 
-## OperatorHub tests
-
-`task olm:fruit-tests ENVIRONMENT=testing` runs the OperatorHub
-[operator test suite][opp] (kiwi, lemon and orange) against the
-bundle. The test script modifies
-the machine it runs on, so the task only runs inside a GitHub Actions
-runner.
+- `SKIP_CONTAINERS_BUILD=true` reuses the images already in the
+  registry instead of building them.
+- `OPERATOR_IMAGE` and `SIDECAR_IMAGE` set the operator and operand
+  images the bundle references. They default to
+  `registry.cnpg:5000/klio-operator-testing:<version>` and
+  `registry.cnpg:5000/klio-testing:<version>`, where `<version>` is
+  derived from `git describe`.
+- `PLATFORMS` sets the platforms of the bundle and catalog images,
+  `linux/<host architecture>` by default.
 
 ## CI
 
-The `olm` job in `.github/workflows/ci.yml` runs `task olm:all` after
-the `core` and `operator` jobs, which have already pushed the images
-to `ghcr.io`, so `olm:containerize` is skipped. The `olm-fruit-tests`
-job then runs `task olm:fruit-tests` on its own runner.
-
-## Cleaning up
-
-```bash
-# Uninstall OLM from the Kind cluster
-task olm:olm-teardown
-
-# Remove the generated files, the Kind cluster, the local registry, the
-# Docker builder, the Dagger engine and the Docker network
-task olm:prune
-```
-
-`olm:prune` removes the `ci-machinery` infrastructure, which other
-projects using the `ci-machinery` defaults share.
+The `olm` job in `.github/workflows/ci.yml` runs `task olm:test`,
+fruit tests included, whenever the core or the operator module
+changes.
 
 [opp]: https://k8s-operatorhub.github.io/community-operators/operator-test-suite/
