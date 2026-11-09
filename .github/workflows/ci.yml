@@ -327,9 +327,6 @@ jobs:
     if: needs.change-triage.outputs.core-changed == 'true' || needs.change-triage.outputs.operator-changed == 'true'
     env:
       ENVIRONMENT: "testing"
-      SKIP_IMAGE_DIGESTS: >-
-        ${{ (needs.change-triage.outputs.core-changed != 'true' &&
-             needs.change-triage.outputs.run-openshift != 'true') && 'true' || '' }}
     runs-on: ${{ vars.CI_RUNNERS || 'ubuntu-latest' }}
     permissions:
       contents: read
@@ -357,7 +354,7 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Run OLM task
-        timeout-minutes: 20
+        timeout-minutes: 30
         run: |
           task olm:test
 
