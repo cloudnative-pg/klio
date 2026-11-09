@@ -871,8 +871,7 @@ tasks:
       is removed at the end.
 
       SKIP_CONTAINERS_BUILD=true reuses the images already in the registry.
-      The fruit tests only run in GitHub Actions, so they are skipped elsewhere
-      unless SKIP_FRUIT_TESTS=false.
+      SKIP_FRUIT_TESTS=true skips the fruit tests, which are only supported in CI.
     vars:
       PLATFORMS: '{{ .PLATFORMS | default (print "linux/" ARCH) }}'
       VERSION: '{{ .GIT_TAG_VERSION }}'
@@ -982,6 +981,7 @@ tasks:
       PACKAGE_NAME: klio-operator
       REGISTRY: ghcr.io/cloudnative-pg
       IMAGE_TAG: '{{ .GITHUB_REF_NAME }}'
+      CATALOG_DIR: olm-catalog
     requires:
       # We expect this to run in a GitHub workflow, so we put a few
       # GitHub-specific vars here to prevent running this task locally by
@@ -1016,17 +1016,17 @@ tasks:
           IMAGE_NAME: '{{ .PACKAGE_NAME }}'
           IMAGE_TAG: '{{ .IMAGE_TAG }}-bundle'
           PLATFORMS: '{{ .PLATFORMS }}'
-      - defer: rm -rf catalog
+      - defer: rm -rf '{{ .CATALOG_DIR }}'
       - task: ci-machinery-olm:catalog:generate
         vars:
           WORKDIR: operator
           BUNDLE_IMAGE: '{{ .REGISTRY }}/{{ .PACKAGE_NAME }}:{{ .IMAGE_TAG }}-bundle'
-          OUTPUT_DIR: 'catalog'
+          OUTPUT_DIR: '{{ .CATALOG_DIR }}'
       - task: ci-machinery-olm:catalog:image
         vars:
           WORKDIR: operator
           CATALOG_IMAGE: '{{ .REGISTRY }}/{{ .PACKAGE_NAME }}:{{ .IMAGE_TAG }}-catalog'
-          CATALOG_DIR: 'catalog'
+          CATALOG_DIR: '{{ .CATALOG_DIR }}'
 
   olm:preflight-container:
     desc: Run Red Hat Preflight (check container) certification on the operator image
