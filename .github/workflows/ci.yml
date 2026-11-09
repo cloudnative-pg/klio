@@ -354,7 +354,6 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Run OLM task
-        timeout-minutes: 30
         run: |
           task olm:test
 

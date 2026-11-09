@@ -11,6 +11,9 @@ jobs:
   release-publish:
     if: github.repository_owner == 'cloudnative-pg'
     runs-on: ${{ vars.CI_RUNNERS || 'ubuntu-latest' }}
+    outputs:
+      operator-image: ${{ steps.images.outputs.operator-image }}
+      sidecar-image: ${{ steps.images.outputs.sidecar-image }}
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -32,6 +35,28 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           task all:publish
+
+      # Read the images just published from the bake metadata, picking the
+      # release tag rather than the moving "latest" one. The OLM bundle ships
+      # the UBI variant of the operator, the one submitted to Red Hat
+      # certification.
+      - name: Read the published images
+        id: images
+        env:
+          TAG: ${{ github.event.release.tag_name }}
+        run: |
+          operator=$(jq -r --arg tag "${TAG}-ubi9" \
+            '.ubi."image.name" | split(",") | map(select(endswith(":" + $tag))) | .[0] // empty' \
+            operator/metadata.json)
+          sidecar=$(jq -r --arg tag "${TAG}" \
+            '.default."image.name" | split(",") | map(select(endswith(":" + $tag))) | .[0] // empty' \
+            core/metadata.json)
+          if [ -z "${operator}" ] || [ -z "${sidecar}" ]; then
+            echo "::error::release images for ${TAG} not found in the bake metadata"
+            exit 1
+          fi
+          echo "operator-image=${operator}" >> "${GITHUB_OUTPUT}"
+          echo "sidecar-image=${sidecar}" >> "${GITHUB_OUTPUT}"
 
       - name: Attach the CRDs manifest to the release
         env:
@@ -101,5 +126,10 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build and push the bundle and catalog
+        env:
+          OPERATOR_IMAGE: ${{ needs.release-publish.outputs.operator-image }}
+          SIDECAR_IMAGE: ${{ needs.release-publish.outputs.sidecar-image }}
         run: |
-          task olm:publish
+          task olm:publish \
+            OPERATOR_IMAGE="${OPERATOR_IMAGE}" \
+            SIDECAR_IMAGE="${SIDECAR_IMAGE}"
