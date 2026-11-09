@@ -321,32 +321,16 @@ jobs:
           if-no-files-found: ignore
 
   olm:
-    name: OLM Bundle & Catalog
+    name: OLM CI
     needs:
       - change-triage
-      - core
-      - operator
-      # the bundle needs the core and operator images
-
-    # olm:all pushes and then resolves digests for the bundle/catalog images
-    # by reference, so it needs the core/operator images actually pushed to
-    # ghcr.io. A fork pull_request never gets that (see PUSH in the core/
-    # operator jobs), so skip the whole job rather than fail it — matching
-    # cloudnative-pg/cloudnative-pg, which doesn't require its analogous
-    # olm-bundle/preflight jobs for exactly this reason.
-    if: |
-      !cancelled() &&
-      (needs.change-triage.outputs.operator-changed == 'true' ||
-       needs.change-triage.outputs.run-openshift == 'true') &&
-      needs.operator.result == 'success' &&
-      (needs.core.result == 'success' || needs.core.result == 'skipped') &&
-      needs.change-triage.outputs.same-repo == 'true'
+    if: needs.change-triage.outputs.core-changed == 'true' || needs.change-triage.outputs.operator-changed == 'true'
     env:
       ENVIRONMENT: "testing"
       SKIP_IMAGE_DIGESTS: >-
         ${{ (needs.change-triage.outputs.core-changed != 'true' &&
              needs.change-triage.outputs.run-openshift != 'true') && 'true' || '' }}
-    runs-on: ubuntu-26.04
+    runs-on: ${{ vars.CI_RUNNERS || 'ubuntu-latest' }}
     permissions:
       contents: read
       packages: write
