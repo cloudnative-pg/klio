@@ -795,22 +795,19 @@ tasks:
     internal: true
     requires:
       vars:
-        - CLUSTER_NAME
         - KUBECONFIG_PATH
     cmds:
       - task: ci-machinery-infra:setup-kind
-        vars:
-          CLUSTER_NAME: '{{.CLUSTER_NAME}}'
       - task: ci-machinery-infra:export-kubeconfig
         vars:
           WORKDIR: operator
-          CLUSTER_NAME: '{{.CLUSTER_NAME}}'
           KUBECONFIG_PATH: '{{.KUBECONFIG_PATH}}'
           INTERNAL: 'true'
       - task: ci-machinery-olm:olm-operator:setup
         vars:
           WORKDIR: operator
           KUBECONFIG_PATH: '{{.KUBECONFIG_PATH}}'
+
   olm:kustomization:
     run: once
     vars:
@@ -882,7 +879,6 @@ tasks:
       BUNDLE_IMAGE_NAME: klio-operator-testing
       BUNDLE_TAG: '{{ .VERSION }}-bundle'
       BUNDLE_IMAGE: '{{ .REGISTRY }}/{{ .BUNDLE_IMAGE_NAME }}:{{ .BUNDLE_TAG }}'
-      CLUSTER_NAME: 'klio.olm-testing'
       KUBECONFIG_PATH: './kubeconfig-internal'
       SKIP_CONTAINERS_BUILD: '{{ .SKIP_CONTAINERS_BUILD | default "false" }}'
       SKIP_FRUIT_TESTS: '{{.SKIP_FRUIT_TESTS | default "false"}}'
@@ -921,11 +917,9 @@ tasks:
       - defer:
           task: ci-machinery-infra:teardown-kind
           vars:
-            CLUSTER_NAME: '{{ .CLUSTER_NAME }}'
       - defer: rm -f {{ .KUBECONFIG_PATH | shellQuote }}
       - task: olm:setup-kind-env
         vars:
-          CLUSTER_NAME: '{{ .CLUSTER_NAME }}'
           KUBECONFIG_PATH: '{{ .KUBECONFIG_PATH }}'
       - task: ci-machinery-olm:bundle:test-install
         vars:
