@@ -98,7 +98,7 @@ func TestLoggingOptionsExportWithTheResourceOfTheMetrics(t *testing.T) {
 	})
 
 	log.WithName("setup").Info("logs-marker")
-	require.NoError(t, ShutdownLogs(t.Context()))
+	ShutdownLogs(t.Context())
 
 	records := memoryLogs.withBody("logs-marker")
 	require.Len(t, records, 1)

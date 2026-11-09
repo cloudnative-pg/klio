@@ -23,6 +23,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"time"
 
 	"github.com/cloudnative-pg/machinery/pkg/log"
 	"go.opentelemetry.io/contrib/exporters/autoexport"
@@ -67,12 +68,18 @@ func LoggingOptions(ctx context.Context) ([]log.ConfigureOption, error) {
 	return []log.ConfigureOption{log.WithOpenTelemetryLoggerProvider(loggerProvider)}, nil
 }
 
-// ShutdownLogs exports the queued log records and stops their export. It is
-// a no-op when the export is disabled.
-func ShutdownLogs(ctx context.Context) error {
+// ShutdownLogs exports the queued log records and stops their export,
+// waiting at most five seconds for the collector, even when ctx is already
+// cancelled. It is a no-op when the export is disabled.
+func ShutdownLogs(ctx context.Context) {
 	if loggerProvider == nil {
-		return nil
+		return
 	}
 
-	return loggerProvider.Shutdown(ctx)
+	ctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
+	defer cancel()
+
+	if err := loggerProvider.Shutdown(ctx); err != nil {
+		log.Error(err, "failed to shutdown the OpenTelemetry logger provider")
+	}
 }

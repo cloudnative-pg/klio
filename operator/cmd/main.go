@@ -54,16 +54,7 @@ import (
 var setupLog = ctrl.Log.WithName("setup") //nolint:gochecknoglobals
 
 func main() {
-	code := run()
-
-	// The logs are exported last, so that every record of run is exported
-	shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	if err := opentelemetry.ShutdownLogs(shutdownCtx); err != nil {
-		setupLog.Error(err, "OpenTelemetry log export shutdown failed")
-	}
-	cancel()
-
-	os.Exit(code)
+	os.Exit(run())
 }
 
 // run starts the operator and returns the exit code of the process
@@ -116,6 +107,8 @@ func run() int { // NOSONAR
 
 	loggingOptions, otelErr := opentelemetry.LoggingOptions(context.Background())
 	logFlags.ConfigureLogging(loggingOptions...)
+	// Registered first, so it runs last: every record of run is exported
+	defer opentelemetry.ShutdownLogs(context.Background())
 	if otelErr != nil {
 		setupLog.Error(otelErr, "Cannot export the logs via OpenTelemetry")
 	}
