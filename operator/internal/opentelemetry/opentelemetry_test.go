@@ -56,4 +56,15 @@ func TestIsOtelConfigPresent(t *testing.T) {
 		t.Setenv("OTEL_SERVICE_NAME", "klio-operator")
 		assert.True(t, isOtelConfigPresent())
 	})
+
+	t.Run("returns false when the SDK is disabled", func(t *testing.T) {
+		t.Setenv("OTEL_SERVICE_NAME", "klio-operator")
+		t.Setenv("OTEL_SDK_DISABLED", "True")
+		assert.False(t, isOtelConfigPresent())
+	})
+
+	t.Run("returns true when OTEL_SDK_DISABLED is not true", func(t *testing.T) {
+		t.Setenv("OTEL_SDK_DISABLED", "1")
+		assert.True(t, isOtelConfigPresent())
+	})
 }

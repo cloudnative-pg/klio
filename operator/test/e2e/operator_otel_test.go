@@ -127,7 +127,7 @@ func (f *operatorOTELFeature) Setup() types.StepFunc {
 		otelEnv := []corev1.EnvVar{
 			{Name: "OTEL_SERVICE_NAME", Value: "klio-operator"},
 			{Name: "OTEL_METRICS_EXPORTER", Value: "otlp"},
-			{Name: "OTEL_LOGS_EXPORTER", Value: "otlp"},
+			// OTEL_LOGS_EXPORTER is left unset to cover its "otlp" default
 			{Name: "OTEL_EXPORTER_OTLP_PROTOCOL", Value: "http/protobuf"},
 			{Name: "OTEL_EXPORTER_OTLP_ENDPOINT", Value: collectorEndpoint},
 			{Name: "OTEL_METRIC_EXPORT_INTERVAL", Value: "5000"},

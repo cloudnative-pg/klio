@@ -22,7 +22,6 @@ package opentelemetry
 import (
 	"context"
 	"fmt"
-	"os"
 	"time"
 
 	"github.com/cloudnative-pg/machinery/pkg/log"
@@ -37,13 +36,13 @@ var loggerProvider *sdklog.LoggerProvider
 
 // LoggingOptions creates the provider exporting the log records, with the
 // resource of the metrics and the exporter selected by OTEL_LOGS_EXPORTER,
-// and returns the options making ConfigureLogging use it. It returns no
-// option when OTEL_LOGS_EXPORTER is unset or "none": a configuration
-// written for the metrics does not start sending the logs too. Call it
+// "otlp" when unset, and returns the options making ConfigureLogging use
+// it. Like the metrics, it returns no option when OpenTelemetry is not
+// configured or disabled, and when OTEL_LOGS_EXPORTER is "none". Call it
 // before ConfigureLogging, so that every record is exported, and call
 // ShutdownLogs before the process exits.
 func LoggingOptions(ctx context.Context) ([]log.ConfigureOption, error) {
-	if os.Getenv("OTEL_LOGS_EXPORTER") == "" {
+	if !isOtelConfigPresent() {
 		return nil, nil
 	}
 
