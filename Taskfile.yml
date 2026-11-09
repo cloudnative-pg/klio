@@ -44,10 +44,6 @@ vars:
   # the two must use the same version.
   # renovate: datasource=docker depName=quay.io/opdev/preflight versioning=docker
   PREFLIGHT_VERSION: 1.22.0@sha256:cb198b3bb3b5fc8969f4af2e7bef22533f46eae185c586c7077cbc33612f0ba5
-  # Tag suffix of the UBI variant of the operator image, as produced by the
-  # "ubi" target of operator/docker-bake.hcl. The OLM bundle ships the UBI
-  # image, since that is the variant submitted to Red Hat certification.
-  UBI_TAG_SUFFIX: '-ubi9'
   ALLOWED_ENVS: [testing, production]
   # OLM channel the bundle is published on. "stable" is the support tier and
   # "v0" pins the major version, per the OLM channel-naming convention
@@ -55,13 +51,8 @@ vars:
   # Bump to stable-v1 at the 1.0 release, by adding the new channel instead
   # of renaming this one.
   OLM_CHANNELS: 'stable-v0'
-  OLM_DEFAULT_CHANNEL: 'stable-v0'
   # Minimum OpenShift version the bundle declares support for
   OPENSHIFT_VERSIONS: 'v4.14'
-  # Set to a non-empty value to build the OLM bundle without pinning images to
-  # digests. Defaults to empty, so digest pinning is on wherever it can work;
-  # see olm:bundle for when CI turns it off.
-  SKIP_IMAGE_DIGESTS: '{{ .SKIP_IMAGE_DIGESTS | default "" }}'
   # Registry the OLM images are pushed to and pulled from. Defaults to ghcr.io
   # in GitHub Actions, and to the local registry of ci-machinery otherwise,
   # which olm:setup-infra starts. Set it to use an external registry from a
@@ -74,12 +65,6 @@ vars:
   OLM_LOCAL_REGISTRY_ADDRESS: 'registry.cnpg:5000'
   OLM_REGISTRY: '{{ if .OLM_REGISTRY }}{{ .OLM_REGISTRY }}{{ else if .GITHUB_ACTIONS }}ghcr.io/{{ .REGISTRY_OWNER }}{{ else }}{{ .OLM_LOCAL_REGISTRY_ADDRESS }}{{ end }}'
   OLM_LOCAL_REGISTRY: '{{ if eq .OLM_REGISTRY .OLM_LOCAL_REGISTRY_ADDRESS }}true{{ else }}false{{ end }}'
-  # Host port of the local registry. Not 5000, which is often taken on the host.
-  OLM_REGISTRY_HOST_PORT: '{{ .OLM_REGISTRY_HOST_PORT | default 5005 }}'
-  # Kind cluster the OLM tests run on, and the kubeconfig used to reach it from
-  # inside the Dagger engine.
-  OLM_KIND_CLUSTER_NAME: '{{ .OLM_KIND_CLUSTER_NAME | default "klio.olm-testing" }}'
-  OLM_KUBECONFIG_PATH: '{{ .OLM_KUBECONFIG_PATH | default (printf "./%s-kubeconfig" .OLM_KIND_CLUSTER_NAME) }}'
 
 tasks:
 
@@ -808,12 +793,11 @@ tasks:
 
   olm:setup-kind-env:
     desc: Setup a kind cluster for OLM testing
-    vars:
-      KUBECONFIG_PATH: '{{.KUBECONFIG_PATH | default .OLM_KUBECONFIG_PATH}}'
     internal: true
     requires:
       vars:
         - CLUSTER_NAME
+        - KUBECONFIG_PATH
     cmds:
       - task: ci-machinery-infra:setup-kind
         vars:
@@ -869,7 +853,7 @@ tasks:
           WORKDIR: operator
           PACKAGE_NAME: '{{ .PACKAGE_NAME }}'
           CHANNELS: '{{ .OLM_CHANNELS }}'
-          DEFAULT_CHANNEL: '{{ .OLM_DEFAULT_CHANNEL }}'
+          DEFAULT_CHANNEL: '{{ .OLM_CHANNELS }}'
           EXTRA_ARGS: '{{ .EXTRA_ARGS }}'
           METADATA_DIR: config/olm/metadata
       - |
@@ -900,8 +884,8 @@ tasks:
       BUNDLE_IMAGE_NAME: klio-operator-testing
       BUNDLE_TAG: '{{ .VERSION }}-bundle'
       BUNDLE_IMAGE: '{{ .REGISTRY }}/{{ .BUNDLE_IMAGE_NAME }}:{{ .BUNDLE_TAG }}'
-      CLUSTER_NAME: '{{ .OLM_KIND_CLUSTER_NAME }}'
-      KUBECONFIG_PATH: '{{ .OLM_KUBECONFIG_PATH }}'
+      CLUSTER_NAME: 'klio.olm-testing'
+      KUBECONFIG_PATH: './kubeconfig-internal'
       SKIP_CONTAINERS_BUILD: '{{ .SKIP_CONTAINERS_BUILD | default "false" }}'
       SKIP_FRUIT_TESTS: '{{.SKIP_FRUIT_TESTS | default "false"}}'
     dir: operator
