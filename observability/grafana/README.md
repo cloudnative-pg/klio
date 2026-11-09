@@ -8,8 +8,8 @@ sections, top-level rows that each have their own variables:
 
 - **Clusters**, organized by PostgreSQL cluster: backups, WAL streaming and
   WAL restore.
-- **Servers**, organized by Klio server: server health, retained backups,
-  backup maintenance, WAL and Kopia snapshots.
+- **Servers**, organized by Klio server: server health, dead-letter queue,
+  retained backups, backup maintenance, WAL and Kopia snapshots.
 
 The dashboard visualizes the Prometheus export of Klio's OpenTelemetry
 metrics. The panels are built in [`client.go`](client.go) (plugin sidecar

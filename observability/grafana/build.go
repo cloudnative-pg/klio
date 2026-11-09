@@ -176,6 +176,12 @@ func serversGroup() group {
 				serverHealthPanels(),
 			},
 			{
+				"Dead-letter queue",
+				"Tasks that exhausted their delivery attempts and wait in the dead-letter queue for an operator " +
+					"to retry or discard them.",
+				dlqPanels(),
+			},
+			{
 				"Retained backups",
 				"Retention window of the physical PostgreSQL backups the Klio server keeps for each cluster.",
 				retainedBackupPanels(),

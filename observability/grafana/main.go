@@ -220,6 +220,12 @@ func (b *statPanelBuilder) Decimals(decimals float64) *statPanelBuilder {
 	return b
 }
 
+// Decimals sets the number of decimals shown on the axis and in the legend.
+func (b *timeseriesPanelBuilder) Decimals(decimals float64) *timeseriesPanelBuilder {
+	b.vis.Decimals(decimals)
+	return b
+}
+
 // Orientation sets how the stat tiles are stacked.
 func (b *statPanelBuilder) Orientation(orientation common.VizOrientation) *statPanelBuilder {
 	b.vis.Orientation(orientation)
