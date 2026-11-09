@@ -196,22 +196,8 @@ Short-lived commands spawned by the sidecar export their records before
 exiting, so the logs of a backup triggered with
 `single/backups-example.yaml` or `multi/backups-example.yaml` show up too.
 
-The operator itself exports logs only when `OTEL_LOGS_EXPORTER` is set in its
-Deployment. Pointing it straight at Loki also works, since Loki speaks
-OTLP/HTTP and needs no TLS here:
-
-```shell
-kubectl -n cnpg-system set env deployment/<operator-deployment> \
-  OTEL_SERVICE_NAME=klio-operator \
-  OTEL_LOGS_EXPORTER=otlp \
-  OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf \
-  OTEL_EXPORTER_OTLP_ENDPOINT=http://loki.default.svc.cluster.local:3100/otlp
-```
-
-Find `<operator-deployment>` with `kubectl -n cnpg-system get deployments`,
-then query `{service_name="klio-operator"}` in Grafana. Alternatively, set
-the same variables under `controllerManager.manager.env` in the Helm values
-used to install it.
+The operator itself exports logs once any `OTEL_*` variable is set in its
+Deployment.
 
 ## Validating the Grafana dashboard with the "multi" sample
 

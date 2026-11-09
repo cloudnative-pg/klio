@@ -115,9 +115,10 @@ func TestLoggingOptionsWithoutExport(t *testing.T) {
 	}{
 		{name: "no OpenTelemetry configuration"},
 		{
-			name: "logs exporter not requested",
+			name: "SDK disabled",
 			env: map[string]string{
-				"OTEL_SERVICE_NAME":           "klio-operator",
+				"OTEL_SDK_DISABLED":           "TRUE",
+				"OTEL_LOGS_EXPORTER":          "otlp",
 				"OTEL_EXPORTER_OTLP_ENDPOINT": "http://localhost:4318",
 			},
 		},
@@ -143,4 +144,18 @@ func TestLoggingOptionsWithoutExport(t *testing.T) {
 			assert.Nil(t, loggerProvider)
 		})
 	}
+}
+
+func TestLoggingOptionsDefaultToOTLP(t *testing.T) {
+	clearOTELEnv(t)
+	t.Setenv("OTEL_EXPORTER_OTLP_ENDPOINT", "http://localhost:4318")
+	t.Cleanup(func() {
+		ShutdownLogs(t.Context())
+		loggerProvider = nil
+	})
+
+	options, err := LoggingOptions(t.Context())
+	require.NoError(t, err)
+	assert.Len(t, options, 1)
+	assert.NotNil(t, loggerProvider)
 }
