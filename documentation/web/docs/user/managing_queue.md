@@ -51,6 +51,10 @@ You can also watch queue activity through the server metrics — WAL archiving
 durations, backup relays and verifications are exposed there; see
 [the metrics reference](opentelemetry.md).
 
+Tasks entering, retried from and discarded from the dead-letter queue (see
+below) are counted per cluster by the `klio.server.queue.dlq.*` metrics, so
+you can alert on failed tasks without polling `list-failed`.
+
 ## Failed Tasks and the Dead-Letter Queue
 
 A queued task that exhausts its attempts (retry schedule above) is moved to

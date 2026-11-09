@@ -109,6 +109,23 @@ func (p Path) Attribute() attribute.KeyValue {
 	return AttributeKeyPath.Of(string(p))
 }
 
+// DiscardReason identifies why a dead-letter queue entry was removed, used as
+// the value of the `reason` attribute.
+type DiscardReason string
+
+const (
+	// DiscardReasonManual marks entries discarded by an operator.
+	DiscardReasonManual DiscardReason = "manual"
+	// DiscardReasonAutomatic marks entries removed by the server after the
+	// failed task (or a later task of the same cluster) succeeded.
+	DiscardReasonAutomatic DiscardReason = "automatic"
+)
+
+// Attribute returns the `reason` attribute for this discard reason.
+func (r DiscardReason) Attribute() attribute.KeyValue {
+	return AttributeKeyReason.Of(string(r))
+}
+
 // AttributeKey is the key of an OTEL attribute recorded by Klio on metrics
 // and spans.
 type AttributeKey string
@@ -146,6 +163,9 @@ const (
 	// wait on a download (false). A prefetch still in flight when PostgreSQL
 	// asks counts as false, because the restore waits for that download.
 	AttributeKeyCacheHit AttributeKey = "cache_hit"
+	// AttributeKeyReason is the attribute key for why a dead-letter queue
+	// entry was discarded.
+	AttributeKeyReason AttributeKey = "reason"
 )
 
 // Of builds an OTEL string attribute with the attribute key and the given value.
