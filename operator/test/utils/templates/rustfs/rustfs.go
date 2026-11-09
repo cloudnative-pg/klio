@@ -35,7 +35,7 @@ const (
 	// RustFSImage is the RustFS container image.
 	//nolint:godot
 	// renovate image: datasource=docker depName=rustfs/rustfs versioning=docker
-	RustFSImage = "rustfs/rustfs:1.0.0-alpha.83@sha256:1cfa82fb394a7c6a4ffc24f5333b52afee608d258503f94b37fcce5cc965c896"
+	RustFSImage = "rustfs/rustfs:1.0.4@sha256:ed9210d6411d77ffceb70d94b964a3cb7d225983368bc25bebe01e995293dcc2"
 
 	// BusyboxImage is the busybox container image used for init containers.
 	//nolint:godot
