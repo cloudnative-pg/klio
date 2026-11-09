@@ -477,6 +477,8 @@ The following environment variables are used to configure OpenTelemetry:
 - `OTEL_RESOURCE_DETECTORS`: Comma-separated list of resource detectors
   from the [`autodetect`](https://pkg.go.dev/go.opentelemetry.io/contrib/detectors/autodetect)
   package, used to automatically populate resource attributes
+- `OTEL_SDK_DISABLED`: set to `true` to disable every signal, whatever the
+  other variables say
 
 ### Traces exporter
 
@@ -531,17 +533,17 @@ server using the following environment variables:
 
 ### Logs exporter
 
-To enable the logs exporter, set the `OTEL_LOGS_EXPORTER` environment
-variable to one of the supported exporters:
+Select the logs exporter with the `OTEL_LOGS_EXPORTER` environment
+variable:
 
-- `otlp`: OpenTelemetry Protocol (OTLP) exporter
+- `otlp`: OpenTelemetry Protocol (OTLP) exporter, the default
 - `console`: Console exporter (useful for debugging)
 - `none`: No-op exporter (disables the logs export)
 
-Unlike traces and metrics, the logs are not exported when
-`OTEL_LOGS_EXPORTER` is unset, so an existing configuration keeps sending
-only the signals it was written for. The standard output keeps receiving
-every record. The exported records are those written at the configured log
+As for traces and metrics, the logs are exported via OTLP as soon as any
+OpenTelemetry variable is set: set `OTEL_LOGS_EXPORTER` to `none` to export
+only the other signals. The standard output keeps receiving every record.
+The exported records are those written at the configured log
 level, with the same resource as the traces and metrics of the process, and
 their structured fields become attributes with the keys they have on the
 standard output.
@@ -671,9 +673,11 @@ spec:
                       path: tls.key
 ```
 
-To export the server logs too, add `OTEL_LOGS_EXPORTER: "otlp"` and the
-matching `OTEL_EXPORTER_OTLP_LOGS_*` variables, or replace the per-signal
-variables with the generic ones shown in the plugin example below.
+The server exports its logs too, by default, but this example only
+configures the traces and metrics endpoints, so the logs would go to the
+default OTLP endpoint. Add the matching `OTEL_EXPORTER_OTLP_LOGS_*`
+variables, replace the per-signal variables with the generic ones shown in
+the plugin example below, or set `OTEL_LOGS_EXPORTER: "none"`.
 
 ### Klio plugins with OpenTelemetry
 
@@ -800,14 +804,13 @@ controllerManager:
   manager:
     env:
       OTEL_SERVICE_NAME: "klio-operator"
-      OTEL_LOGS_EXPORTER: "otlp"
       OTEL_EXPORTER_OTLP_ENDPOINT: "http://otel-collector:4318"
       OTEL_EXPORTER_OTLP_PROTOCOL: "http/protobuf"  # or "grpc"
 ```
 
 The operator writes its logs on the standard output in JSON, at the level
 set by the `--log-level` argument (`info` by default), and exports them
-when `OTEL_LOGS_EXPORTER` is set.
+with the metrics, unless `OTEL_LOGS_EXPORTER` is `none`.
 
 The Helm chart automatically injects `POD_NAME`,
 `NAMESPACE_NAME`, and `CONTAINER_NAME` via the Kubernetes

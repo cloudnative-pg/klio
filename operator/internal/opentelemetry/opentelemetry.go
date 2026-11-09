@@ -36,7 +36,8 @@ import (
 var logger = ctrl.Log.WithName("opentelemetry") //nolint:gochecknoglobals
 
 // Init initializes OpenTelemetry metrics for the operator. If no OTEL_*
-// environment variables are set, a noop meter provider is installed.
+// environment variables are set, or OTEL_SDK_DISABLED is "true", a noop
+// meter provider is installed.
 // On setup failure it logs and falls back to a noop provider so that the
 // operator keeps running without telemetry.
 // The returned function flushes and shuts down the meter provider.
@@ -69,7 +70,14 @@ func Init(ctx context.Context) func(context.Context) error {
 	return provider.Shutdown
 }
 
+// isOtelConfigPresent reports whether an OTEL_* environment variable is set
+// and OTEL_SDK_DISABLED is not "true", the only value the specification
+// treats as true, ignoring the case.
 func isOtelConfigPresent() bool {
+	if strings.EqualFold(os.Getenv("OTEL_SDK_DISABLED"), "true") {
+		return false
+	}
+
 	return slices.ContainsFunc(os.Environ(), func(env string) bool {
 		return strings.HasPrefix(env, "OTEL_")
 	})
