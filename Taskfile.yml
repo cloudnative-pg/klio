@@ -679,7 +679,6 @@ tasks:
         --exclude templates/deployment.yaml
         --exclude templates/service.yaml
         --exclude templates/metrics-service.yaml
-        --exclude templates/plugin-service.yaml
         --exclude templates/prometheus.yaml
         --exclude templates/plugin.yaml
         --exclude .helmignore
