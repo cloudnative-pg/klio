@@ -772,6 +772,7 @@ tasks:
       vars:
         - OPERATOR_IMAGE
         - SIDECAR_IMAGE
+        - PLATFORMS
     deps:
       - task: ci-machinery-infra:setup-container-registry
       - task: ci-machinery-infra:setup-docker-builder
@@ -783,11 +784,11 @@ tasks:
       - task: core:goreleaser-snapshot
       - >
         cd core && docker buildx bake --builder {{ .DOCKER_BUILDER }} --push
-        --set '*.platform=linux/{{ ARCH }}'
+        --set '*.platform={{ .PLATFORMS }}'
         --set '*.tags={{ .SIDECAR_IMAGE }}'
       - >
         cd operator && docker buildx bake distroless --builder {{ .DOCKER_BUILDER }} --push
-        --set '*.platform=linux/{{ ARCH }}'
+        --set '*.platform={{ .PLATFORMS }}'
         --set '*.tags={{ .OPERATOR_IMAGE }}'
 
   olm:setup-kind-env:
@@ -823,6 +824,8 @@ tasks:
       SIDECAR_IMAGE: '{{ .SIDECAR_IMAGE }}'
       # renovate: datasource=git-refs depName=kustomize lookupName=https://github.com/sagikazarmark/daggerverse currentValue=main
       DAGGER_KUSTOMIZE_SHA: ff27cd50f6b4eed2e3753c520632cd6099e1ce52
+      # renovate: datasource=github-releases depName=kubernetes-sigs/kustomize extractVersion=^kustomize/(?<version>.+)$
+      KUSTOMIZE_VERSION: v5.8.3
     cmds:
       - defer: rm -rf '{{.PATCHES_DIR}}'
       - mkdir -p '{{.PATCHES_DIR}}'
@@ -833,6 +836,7 @@ tasks:
         done
       - >
         GITHUB_REF= dagger -s call -m github.com/sagikazarmark/daggerverse/kustomize@${DAGGER_KUSTOMIZE_SHA}
+        --version ${KUSTOMIZE_VERSION}
         build --source config --dir olm
         export --path '{{.OUTPUT_DIR}}/manifest.yaml'
 
@@ -893,6 +897,7 @@ tasks:
           OPERATOR_IMAGE: '{{ .OPERATOR_IMAGE }}'
           SIDECAR_IMAGE: '{{ .SIDECAR_IMAGE }}'
           TAG: '{{ .VERSION }}'
+          PLATFORMS: '{{ .PLATFORMS }}'
       - defer: rm -rf olm-manifests
       - task: olm:kustomization
         vars:
