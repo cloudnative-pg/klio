@@ -307,3 +307,11 @@ the `stable-v0` channel.
 
 Each release publishes its own catalog image, tagged with the release
 version, and that catalog carries exactly one bundle.
+
+## Releasing to OperatorHub
+
+`operator-hub:release` submits the release to the OperatorHub
+community catalog. Using It rebuilds the production bundle with image digests,
+copies it into `operators/klio-operator/<version>/` of a checkout of
+`k8s-operatorhub/community-operators`, pushes a branch to the
+`cloudnative-pg` fork, and opens a pull request upstream.
