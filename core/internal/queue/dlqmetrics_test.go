@@ -21,8 +21,10 @@ package queue
 
 import (
 	"context"
+	"errors"
 	"sort"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -119,8 +121,9 @@ func TestRetryFailedTasksRecordsRetriedEntries(t *testing.T) {
 	seedFailedWAL(t, js, "cluster-a", "000000010000000000000001")
 	seedFailedWAL(t, js, "cluster-a", "000000010000000000000002")
 	seedFailedWAL(t, js, "cluster-b", "000000010000000000000001")
-	// Two backup entries of one cluster are merged into a single task, but
-	// both entries are retried.
+	// A WAL dead-lettered twice and two backup entries of one cluster are
+	// each re-enqueued as a single task, but every entry is retried.
+	seedFailedWAL(t, js, "cluster-a", "000000010000000000000001")
 	seedFailedBackup(t, js, "cluster-a")
 	seedFailedBackup(t, js, "cluster-a")
 
@@ -128,7 +131,7 @@ func TestRetryFailedTasksRecordsRetriedEntries(t *testing.T) {
 	require.NoError(t, conn.RetryFailedBackupTasks(ctx))
 
 	assert.Equal(t, map[string]int64{
-		"cluster_name=cluster-a,stream=klio-dlq-wal-stream":    2,
+		"cluster_name=cluster-a,stream=klio-dlq-wal-stream":    3,
 		"cluster_name=cluster-b,stream=klio-dlq-wal-stream":    1,
 		"cluster_name=cluster-a,stream=klio-dlq-backup-stream": 2,
 	}, dlqCounts(t, reader, opentelemetry.ServerQueueDLQRetriedMetric))
@@ -160,6 +163,26 @@ func TestDiscardFailedTasksRecordsDiscardReason(t *testing.T) {
 		"cluster_name=cluster-b,reason=automatic,stream=klio-dlq-wal-stream":    1,
 		"cluster_name=cluster-b,reason=automatic,stream=klio-dlq-backup-stream": 1,
 	}, dlqCounts(t, reader, opentelemetry.ServerQueueDLQDiscardedMetric))
+}
+
+func TestDiscardFailedTasksSkipsEntriesNotRemoved(t *testing.T) {
+	reader := setupDLQTestMeter(t)
+	conn, js := newDLQTestConn(t)
+	ctx := t.Context()
+
+	seedFailedWAL(t, js, "cluster-a", testWALName)
+
+	// A DLQ stream refusing deletes makes the purge of its entries fail.
+	stream, err := js.Stream(ctx, klioDLQWalStreamName)
+	require.NoError(t, err)
+	cfg := stream.CachedInfo().Config
+	cfg.DenyDelete = true
+	_, err = js.UpdateStream(ctx, cfg)
+	require.NoError(t, err)
+
+	_, err = conn.DiscardFailedWALTasks(ctx)
+	require.Error(t, err)
+	assert.Empty(t, dlqCounts(t, reader, opentelemetry.ServerQueueDLQDiscardedMetric))
 }
 
 // runDLQWatcher runs w against conn in the background and returns a function
@@ -214,4 +237,64 @@ func TestDLQWatcherRecordsCapturedEntries(t *testing.T) {
 	require.EventuallyWithT(t, func(c *assert.CollectT) {
 		assert.Equal(c, want, dlqCounts(t, reader, opentelemetry.ServerQueueDLQCapturedMetric))
 	}, 5*time.Second, 50*time.Millisecond)
+}
+
+// TestDLQMetricsFollowAFailedWALTask drives a WAL task through the production
+// consumer until JetStream itself dead-letters it, then retries it and lets
+// the retry succeed, so every counter is fed by the real queue flow instead
+// of seeded advisories.
+func TestDLQMetricsFollowAFailedWALTask(t *testing.T) {
+	reader := setupDLQTestMeter(t)
+	conn, js := newDLQTestConn(t)
+	ctx := t.Context()
+
+	// Shrink the attempt budget of the WAL consumer, so the task is
+	// dead-lettered in a fraction of a second instead of after the
+	// production backoff schedule.
+	_, err := js.UpdateConsumer(ctx, klioWalStreamName, jetstream.ConsumerConfig{
+		Name:          klioWalConsumerName,
+		Durable:       klioWalConsumerName,
+		AckPolicy:     jetstream.AckExplicitPolicy,
+		MaxAckPending: 1,
+		MaxDeliver:    2,
+		AckWait:       200 * time.Millisecond,
+	})
+	require.NoError(t, err)
+
+	defer runDLQWatcher(t, NewDLQWatcher(time.Now()), conn)()
+
+	var attempts atomic.Int32
+	var healthy atomic.Bool
+	go func() {
+		_ = conn.ConsumeWALReceivedMessages(ctx, func(context.Context, *WALTask) error {
+			attempts.Add(1)
+			if !healthy.Load() {
+				return errors.New("tier2 unreachable")
+			}
+
+			return nil
+		})
+	}()
+
+	task := WALTask{ClusterName: "cluster-a", WALName: testWALName}
+	require.NoError(t, conn.notifyMessage(ctx, walSubject(task.ClusterName), task, nil))
+
+	captured := map[string]int64{"cluster_name=cluster-a,stream=klio-dlq-wal-stream": 1}
+	require.EventuallyWithT(t, func(c *assert.CollectT) {
+		assert.Equal(c, captured, dlqCounts(t, reader, opentelemetry.ServerQueueDLQCapturedMetric))
+	}, 5*time.Second, 50*time.Millisecond)
+	assert.Equal(t, int32(2), attempts.Load())
+
+	// The retried task succeeds, and the consumer cleans up its DLQ entry.
+	healthy.Store(true)
+	require.NoError(t, conn.RetryFailedWALTasks(ctx, WithCluster(task.ClusterName)))
+
+	require.EventuallyWithT(t, func(c *assert.CollectT) {
+		assert.Equal(c, map[string]int64{
+			"cluster_name=cluster-a,reason=automatic,stream=klio-dlq-wal-stream": 1,
+		}, dlqCounts(t, reader, opentelemetry.ServerQueueDLQDiscardedMetric))
+	}, 5*time.Second, 50*time.Millisecond)
+	assert.Equal(t, map[string]int64{"cluster_name=cluster-a,stream=klio-dlq-wal-stream": 1},
+		dlqCounts(t, reader, opentelemetry.ServerQueueDLQRetriedMetric))
+	assert.Equal(t, captured, dlqCounts(t, reader, opentelemetry.ServerQueueDLQCapturedMetric))
 }
