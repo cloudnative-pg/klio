@@ -367,6 +367,10 @@ func GetRustFSCreateBucketJob(name, namespace, bucketName string) *batchv1.Job {
 									},
 								},
 								{
+									Name:  "AWS_REGION",
+									Value: RustFSRegion,
+								},
+								{
 									Name:  "AWS_CA_BUNDLE",
 									Value: "/certs/ca.crt",
 								},
