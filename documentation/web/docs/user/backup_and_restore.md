@@ -30,7 +30,7 @@ recovery procedures.
 
 Before performing backup and restore operations, you need a running
 Klio server and a PostgreSQL cluster configured with the Klio plugin.
-The [Quickstart](./quickstart.md) sets both up from scratch; see
+The [Quickstart](./quickstart.mdx) sets both up from scratch; see
 [The Klio Server](./klio_server.md) and
 [The Klio Plugin](./plugin_configuration.md) for the full
 configuration reference.

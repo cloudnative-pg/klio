@@ -2,6 +2,12 @@
 sidebar_position: 2
 ---
 
+<!-- spell-checker-disable -->
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
+
+<!-- spell-checker-enable -->
+
 # Quickstart
 
 This guide walks you through a minimal Klio installation: the Klio
@@ -23,7 +29,7 @@ You need:
 
 - A Kubernetes cluster and `kubectl` configured to access it
 - A default storage class (check with `kubectl get storageclass`)
-- **Helm** — see the
+- **Helm** (only required to install the operator with Helm) — see the
   [Helm installation guide](https://helm.sh/docs/intro/install/)
 - **CloudNativePG** already installed — see the
   [CloudNativePG installation guide](https://cloudnative-pg.io/documentation/current/installation_upgrade/)
@@ -43,6 +49,9 @@ with your namespace.
 :::
 
 ## Step 1: Install the Klio operator
+
+<Tabs groupId="install-method">
+<TabItem value="helm" label="Helm Chart" default>
 
 Create a `values.yaml` file. The chart expects the Prometheus Operator by
 default, so disable it unless you have it installed:
@@ -78,6 +87,116 @@ kubectl get crds | grep klio.cnpg.io
 
 You should see the operator pod in a `Running` state, along with the
 `servers.klio.cnpg.io` and `pluginconfigurations.klio.cnpg.io` CRDs.
+
+</TabItem>
+<TabItem value="olm" label="OperatorHub (OLM)">
+
+The Klio operator is published on
+[OperatorHub](https://operatorhub.io/) and can be installed with the
+[Operator Lifecycle Manager](https://olm.operatorframework.io/) (OLM),
+either from the OpenShift web console or by creating a `Subscription`.
+
+Create a `Subscription` for the operator. The example below uses the
+`operatorhubio-catalog` catalog source shipped with upstream OLM:
+
+```yaml
+apiVersion: operators.coreos.com/v1alpha1
+kind: Subscription
+metadata:
+  name: klio-operator
+  namespace: cnpg-system
+spec:
+  name: klio-operator
+  source: operatorhubio-catalog
+  sourceNamespace: olm
+```
+
+Wait for the `ClusterServiceVersion` to reach the `Succeeded` phase:
+
+```sh
+kubectl get csv -n cnpg-system
+```
+
+### Create the plugin certificates
+
+An OLM bundle cannot contain cert-manager resources, so, unlike the Helm
+chart, **the certificates securing the communication between
+CloudNativePG and the Klio plugin are not created for you**.
+The Klio operator pod starts without them, but CloudNativePG cannot
+register the plugin, and clusters that use it report an unknown plugin,
+until both secrets exist in the operator's namespace:
+
+- `klio-plugin-server-tls`, presented by the plugin's gRPC server
+- `klio-plugin-client-tls`, used by CloudNativePG to authenticate to
+  the plugin
+
+Save the following as `klio-plugin-certificates.yaml`, replacing
+`cnpg-system` if needed:
+
+```yaml
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  name: klio-operator-selfsigned-issuer
+  namespace: cnpg-system
+spec:
+  selfSigned: {}
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: klio-plugin-server
+  namespace: cnpg-system
+spec:
+  secretName: klio-plugin-server-tls
+  dnsNames:
+    - klio-operator-plugin
+    - klio-operator-plugin.cnpg-system
+    - klio-operator-plugin.cnpg-system.svc
+  usages:
+    - server auth
+  issuerRef:
+    name: klio-operator-selfsigned-issuer
+    kind: Issuer
+    group: cert-manager.io
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: klio-plugin-client
+  namespace: cnpg-system
+spec:
+  secretName: klio-plugin-client-tls
+  commonName: klio-plugin-client
+  usages:
+    - client auth
+  issuerRef:
+    name: klio-operator-selfsigned-issuer
+    kind: Issuer
+    group: cert-manager.io
+```
+
+Apply it:
+
+```sh
+kubectl apply -f klio-plugin-certificates.yaml
+```
+
+The plugin loads the certificates on every TLS handshake, so it starts serving
+as soon as the secrets exist, without a restart.
+You can also provide the secrets by other means, as long as they have the
+same names and contain the `tls.crt` and `tls.key` keys.
+
+Check that the operator is running:
+
+```sh
+kubectl get pods -n cnpg-system -l app.kubernetes.io/name=klio-operator
+```
+
+You should see the operator pod in a `Running` state.
+
+</TabItem>
+</Tabs>
 
 ## Step 2: Create the encryption key
 
