@@ -27,7 +27,7 @@ your PostgreSQL clusters. To use Klio with a CloudNativePG cluster, you need to:
 
 Before configuring a cluster to use the Klio plugin you need a running
 Klio `Server`, a client TLS certificate and the CA bundle that signed
-the server's TLS certificate. The [Quickstart](quickstart.md) creates
+the server's TLS certificate. The [Quickstart](quickstart.mdx) creates
 all three.
 
 ## Creating a PluginConfiguration resource
@@ -39,7 +39,7 @@ profiling, and backup retention policies.
 
 A minimal `PluginConfiguration` requires only `serverAddress`,
 `tls.clientIdentity`, `tls.serverCa` and `clusterName` — see
-[Configure the PostgreSQL cluster](quickstart.md#step-5-configure-the-postgresql-cluster)
+[Configure the PostgreSQL cluster](quickstart.mdx#step-5-configure-the-postgresql-cluster)
 for an example. The sections below document each field and the
 optional settings.
 
@@ -93,7 +93,7 @@ trust-manager `Bundle`), or a CSI volume.
 
 Once you have created a `PluginConfiguration`, reference it from the
 `plugins` section of your CloudNativePG `Cluster` resource. See
-[Configure the PostgreSQL cluster](quickstart.md#step-5-configure-the-postgresql-cluster)
+[Configure the PostgreSQL cluster](quickstart.mdx#step-5-configure-the-postgresql-cluster)
 for a complete `Cluster` manifest.
 
 To be able to stream WAL files, ensure that your PostgreSQL configuration
