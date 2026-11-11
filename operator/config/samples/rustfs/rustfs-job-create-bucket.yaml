@@ -25,6 +25,8 @@ spec:
               secretKeyRef:
                 name: rustfs-secret
                 key: RUSTFS_SECRET_KEY
+          - name: AWS_REGION
+            value: us-east-1
           - name: AWS_CA_BUNDLE
             value: /certs/ca.crt
           volumeMounts:
