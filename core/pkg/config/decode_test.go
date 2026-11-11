@@ -99,6 +99,27 @@ source:
 			yaml:    `{invalid`,
 			wantErr: true,
 		},
+		{
+			name:    "empty input",
+			yaml:    ``,
+			wantErr: true,
+		},
+		{
+			name:    "comment-only input",
+			yaml:    "# nothing here\n",
+			wantErr: true,
+		},
+		{
+			name: "multiple documents",
+			yaml: `
+client:
+  cluster_name: first
+---
+client:
+  cluster_name: second
+`,
+			wantErr: true,
+		},
 	}
 
 	for _, tt := range tests {
