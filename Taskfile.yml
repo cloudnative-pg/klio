@@ -1027,6 +1027,64 @@ tasks:
           CATALOG_IMAGE: '{{ .REGISTRY }}/{{ .PACKAGE_NAME }}:{{ .IMAGE_TAG }}-catalog'
           CATALOG_DIR: '{{ .CATALOG_DIR }}'
 
+  operator-hub:release:
+    desc: Build the OLM bundle and open the OperatorHub community pull request
+    summary: |
+      Builds the production bundle for the tag being released and opens a
+      pull request adding it to the OperatorHub community-operators
+      repository, through a branch pushed to the cloudnative-pg fork.
+    vars:
+      PRODUCT_NAME: klio-operator
+      VERSION: '{{ trimPrefix "v" .GITHUB_REF_NAME }}'
+      COMMUNITY_OPERATORS_PATH: community-operators
+    requires:
+      # We expect this to run in a GitHub workflow, so we put a few
+      # GitHub-specific vars here to prevent running this task locally by
+      # accident.
+      vars:
+        - CI
+        - GITHUB_REF
+        - GITHUB_REF_NAME
+        - OPERATOR_IMAGE
+        - SIDECAR_IMAGE
+    preconditions:
+      - sh: "[[ {{.GITHUB_REF}} =~ 'refs/tags/v.*' ]]"
+        msg: not a tag, failing
+      - sh: '[[ "{{ .GIT_TAG_VERSION }}" == "{{ .VERSION }}" ]]'
+        msg: >-
+          bundle version {{ .GIT_TAG_VERSION }} does not match tag
+          {{ .GITHUB_REF_NAME }}; refusing to release an inconsistent bundle
+    cmds:
+      - defer:
+          task: ci-machinery-infra:teardown
+      - defer: rm -rf operator/olm-manifests
+      - task: olm:kustomization
+        vars:
+          OPERATOR_IMAGE: '{{ .OPERATOR_IMAGE }}'
+          SIDECAR_IMAGE: '{{ .SIDECAR_IMAGE }}'
+      - defer: rm -rf operator/olm-bundle
+      - task: olm:bundle:generate
+        vars:
+          PACKAGE_NAME: '{{ .PRODUCT_NAME }}'
+          EXTRA_ARGS: '--use-image-digests'
+      - defer: rm -rf 'operator/{{ .COMMUNITY_OPERATORS_PATH }}'
+      - task: ci-machinery-olm:operator-hub:clone
+        vars:
+          WORKDIR: operator
+          COMMUNITY_OPERATORS_PATH: '{{ .COMMUNITY_OPERATORS_PATH }}'
+      - task: ci-machinery-olm:operator-hub:add
+        vars:
+          WORKDIR: operator
+          OPERATOR_NAME: '{{ .PRODUCT_NAME }}'
+          VERSION: '{{ .VERSION }}'
+          COMMUNITY_OPERATORS_PATH: '{{ .COMMUNITY_OPERATORS_PATH }}'
+      - task: ci-machinery-olm:operator-hub:pull-request
+        vars:
+          WORKDIR: operator
+          OPERATOR_NAME: '{{ .PRODUCT_NAME }}'
+          VERSION: '{{ .VERSION }}'
+          COMMUNITY_OPERATOR_PATH: '{{ .COMMUNITY_OPERATORS_PATH }}'
+
   olm:preflight-container:
     desc: Run Red Hat Preflight (check container) certification on the operator image
     dir: operator
