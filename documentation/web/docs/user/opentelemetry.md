@@ -171,7 +171,7 @@ attribute key.
 | `stage` | put: `wrap`, `write`, `flush`, `send` (client); get: `read`, `unwrap`, `send` | `klio.server.wal.block_duration`, `klio.client.wal.block_duration`. |
 | `snapshot_source` | Kopia source descriptor (`userName@hostName:path`) | All `klio.server.backup.*` base snapshot gauges (`snapshots`, `latest_snapshot_*`, `oldest_snapshot_timestamp`). |
 | `stream` | JetStream stream name (`klio-wal-stream`, `klio-backup-stream`, `klio-latest-uploaded-wal-per-cluster-stream`, `klio-dlq-wal-stream`, `klio-dlq-backup-stream`) | `klio.server.queue.messages`, `klio.server.queue.bytes`, and the `klio.server.queue.dlq.*` counters (dead-letter queue streams only). |
-| `reason` | `manual` (`klio admin queue discard`), `automatic` (cleanup after the task succeeds) | `klio.server.queue.dlq.discarded`. |
+| `reason` | `manual` (`klio admin queue wal discard`, `klio admin queue backup discard`), `automatic` (cleanup after the task succeeds) | `klio.server.queue.dlq.discarded`. |
 
 ### Backup lifecycle metrics (plugin sidecar)
 

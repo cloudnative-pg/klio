@@ -574,13 +574,15 @@ func InitServerQueueMetrics() {
 	)
 	ServerQueue.DLQRetried, _ = meter.Int64Counter(ServerQueueDLQRetriedMetric,
 		metric.WithDescription("Number of dead-letter queue entries re-enqueued by `klio admin queue "+
-			"retry`, split by the `stream` (DLQ stream) and `cluster_name` attributes."),
+			"wal retry` or `klio admin queue backup retry`, split by the `stream` (DLQ stream) and "+
+			"`cluster_name` attributes."),
 		metric.WithUnit("{entries}"),
 	)
 	ServerQueue.DLQDiscarded, _ = meter.Int64Counter(ServerQueueDLQDiscardedMetric,
 		metric.WithDescription("Number of dead-letter queue entries removed, split by the `stream` "+
 			"(DLQ stream), `cluster_name` and `reason` attributes. `reason` is `manual` for "+
-			"`klio admin queue discard` and `automatic` for the cleanup after the task succeeds."),
+			"`klio admin queue wal discard` or `klio admin queue backup discard`, and `automatic` "+
+			"for the cleanup after the task succeeds."),
 		metric.WithUnit("{entries}"),
 	)
 }

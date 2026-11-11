@@ -1711,7 +1711,7 @@
         "spec": {
           "id": 31,
           "title": "Dead-letter queue entries",
-          "description": "Entries currently in the dead-letter queue of each server, per task type (`wal` or `backup`). A value above zero means tasks wait for `klio admin queue retry` or `discard`. It includes the entries whose original task no longer exists, which `list-failed` does not show.",
+          "description": "Entries currently in the dead-letter queue of each server, per task type (`wal` or `backup`). A value above zero means tasks wait for `klio admin queue wal|backup retry` or `discard`. It includes the entries whose original task no longer exists, which `list-failed` does not show.",
           "links": [],
           "data": {
             "kind": "QueryGroup",
@@ -1853,7 +1853,7 @@
         "spec": {
           "id": 33,
           "title": "Retried dead-letter queue entries",
-          "description": "Total dead-letter queue entries re-enqueued by `klio admin queue retry` since the server last restarted, per cluster and task type.",
+          "description": "Total dead-letter queue entries re-enqueued by `klio admin queue wal|backup retry` since the server last restarted, per cluster and task type.",
           "links": [],
           "data": {
             "kind": "QueryGroup",
@@ -1921,7 +1921,7 @@
         "spec": {
           "id": 34,
           "title": "Discarded dead-letter queue entries",
-          "description": "Total dead-letter queue entries removed since the server last restarted, per cluster, task type and reason: `manual` for `klio admin queue discard`, `automatic` for the cleanup after the task succeeds.",
+          "description": "Total dead-letter queue entries removed since the server last restarted, per cluster, task type and reason: `manual` for `klio admin queue wal|backup discard`, `automatic` for the cleanup after the task succeeds.",
           "links": [],
           "data": {
             "kind": "QueryGroup",

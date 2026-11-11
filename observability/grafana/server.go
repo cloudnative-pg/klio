@@ -319,7 +319,7 @@ func dlqPanels() []sizedPanel {
 		).Decimals(0).
 			Orientation(common.VizOrientationHorizontal).
 			Description("Entries currently in the dead-letter queue of each server, per task type (`wal` or "+
-				"`backup`). A value above zero means tasks wait for `klio admin queue retry` or `discard`. It "+
+				"`backup`). A value above zero means tasks wait for `klio admin queue wal|backup retry` or `discard`. It "+
 				"includes the entries whose original task no longer exists, which `list-failed` does not show.")),
 
 		sized(mediumPanelWidth, mediumPanelHeight, timeseriesPanel("Tasks moved to the dead-letter queue",
@@ -338,7 +338,7 @@ func dlqPanels() []sizedPanel {
 				dlqTask(servedScope.series("klio_server_queue_dlq_retried_total"))),
 				"{{cluster_name}} {{task}}"),
 		).Decimals(0).
-			Description("Total dead-letter queue entries re-enqueued by `klio admin queue retry` since the server "+
+			Description("Total dead-letter queue entries re-enqueued by `klio admin queue wal|backup retry` since the server "+
 				"last restarted, per cluster and task type.")),
 
 		sized(mediumPanelWidth, mediumPanelHeight, timeseriesPanel("Discarded dead-letter queue entries",
@@ -348,7 +348,7 @@ func dlqPanels() []sizedPanel {
 				"{{cluster_name}} {{task}} / {{reason}}"),
 		).Decimals(0).
 			Description("Total dead-letter queue entries removed since the server last restarted, per cluster, "+
-				"task type and reason: `manual` for `klio admin queue discard`, `automatic` for the cleanup after "+
+				"task type and reason: `manual` for `klio admin queue wal|backup discard`, `automatic` for the cleanup after "+
 				"the task succeeds.")),
 	}
 }
