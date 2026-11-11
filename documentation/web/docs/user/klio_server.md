@@ -191,7 +191,7 @@ default). Account for this when estimating your WAL segment rate.
 
 ## Setting up a new Klio server
 
-The [Quickstart](quickstart.md) walks through a complete minimal
+The [Quickstart](quickstart.mdx) walks through a complete minimal
 setup: the encryption key, the certificates, a Tier 1 `Server` and a
 PostgreSQL cluster streaming to it. Start there.
 
@@ -666,7 +666,7 @@ This enables:
 #### Referencing the key files
 
 To generate the Age key pair and the encrypted encryption key, see
-[Create the encryption key](quickstart.md#step-2-create-the-encryption-key).
+[Create the encryption key](quickstart.mdx#step-2-create-the-encryption-key).
 
 Once the Secrets exist, reference them in the Server spec:
 
@@ -789,4 +789,4 @@ the wrong cluster path. See
 
 For a worked example creating the CA, the CA-backed issuer and a client
 certificate together, see
-[Create the certificates](quickstart.md#step-3-create-the-certificates).
+[Create the certificates](quickstart.mdx#step-3-create-the-certificates).
