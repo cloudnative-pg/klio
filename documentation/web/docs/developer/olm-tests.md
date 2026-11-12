@@ -68,8 +68,11 @@ last step.
 
 ### Options
 
-- `SKIP_CONTAINERS_BUILD=true` reuses the images already in the
-  registry instead of building them.
+- `SKIP_CONTAINERS_BUILD=true` skips building the operator and operand
+  images. The local registry starts empty on every run, because the
+  task removes it at the end, so set `OPERATOR_IMAGE` and
+  `SIDECAR_IMAGE` to images already pushed to a registry the cluster
+  can pull from.
 - `OPERATOR_IMAGE` and `SIDECAR_IMAGE` set the operator and operand
   images the bundle references. They default to
   `registry.cnpg:5000/klio-operator-testing:<version>` and

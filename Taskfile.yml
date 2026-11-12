@@ -870,7 +870,9 @@ tasks:
       tests. Everything it creates, the ci-machinery infrastructure included,
       is removed at the end.
 
-      SKIP_CONTAINERS_BUILD=true reuses the images already in the registry.
+      SKIP_CONTAINERS_BUILD=true skips building the operator and operand images.
+      The local registry starts empty on every run, so point OPERATOR_IMAGE and
+      SIDECAR_IMAGE at images already pushed to a registry the cluster can pull.
       SKIP_FRUIT_TESTS=true skips the fruit tests, which are only supported in CI.
     vars:
       PLATFORMS: '{{ .PLATFORMS | default (print "linux/" ARCH) }}'
