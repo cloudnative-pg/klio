@@ -425,28 +425,29 @@ func internalConsumeMessages[T any](
 func settleMessage(ctx context.Context, msg jetstream.Msg, task any, handlerErr error) {
 	logger := log.FromContext(ctx)
 
-	switch {
-	case errors.Is(handlerErr, ErrPermanent):
-		// Retrying cannot fix this failure, and following the BackOff
-		// schedule would only hold the consumer before dead-lettering the
-		// message. A plain Nak redelivers it at once, so it uses up its
-		// attempts quickly and reaches the dead-letter queue, where it is
-		// listed with the other failed tasks.
-		logger.Error(handlerErr, "Error while handling queue message, retrying at once", "task", task)
-		if err := msg.Nak(); err != nil {
-			logger.Error(err, "Failed to nak queue message, this message will be retried", "task", task)
-		}
-
-	case handlerErr != nil:
-		// We deliberately do not Nak the message: a plain Nak triggers
-		// immediate redelivery and ignores the consumer's BackOff schedule.
-		// Letting AckWait expire instead causes the server to use the
-		// configured BackOff entry for the current delivery attempt.
-		logger.Error(handlerErr, "Error while handling queue message, retrying", "task", task)
-
-	default:
+	if handlerErr == nil {
 		if err := msg.Ack(); err != nil {
 			logger.Error(err, "Error while acking queue message, this message will be retried", "task", task)
+		}
+
+		return
+	}
+
+	logger.Error(handlerErr, "Error while handling queue message, retrying", "task", task)
+
+	// We deliberately do not Nak a message on a transient failure: a plain
+	// Nak triggers immediate redelivery and ignores the consumer's BackOff
+	// schedule. Letting AckWait expire instead causes the server to use the
+	// configured BackOff entry for the current delivery attempt.
+	//
+	// A permanent failure is the exception. Retrying cannot fix it, and
+	// following the BackOff schedule would only hold the consumer before
+	// dead-lettering the message. A plain Nak redelivers it at once, so it
+	// uses up its attempts quickly and reaches the dead-letter queue, where
+	// it is listed with the other failed tasks.
+	if errors.Is(handlerErr, ErrPermanent) {
+		if err := msg.Nak(); err != nil {
+			logger.Error(err, "Failed to nak queue message, this message will be retried", "task", task)
 		}
 	}
 }
