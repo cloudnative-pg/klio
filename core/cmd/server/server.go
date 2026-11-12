@@ -207,7 +207,11 @@ func runServer(ctx context.Context, opts serverOpts) error {
 		}
 
 		queueURL = nats.ClientURL()
+		// Created before the queue server starts, so the watcher also counts
+		// the tasks that exhaust their attempts right after startup.
+		dlqWatcher := server.NewDLQWatcher(queueURL)
 		klio.Add(nats)
+		klio.Add(dlqWatcher)
 	}
 
 	var tier1ConfigFileName, tier2RWConfigFileName, tier2ROConfigFileName string

@@ -54,6 +54,10 @@ The **Servers** section is split into rows:
 
 - **Server health** — the uptime of each Klio server and its embedded NATS
   JetStream queue.
+- **Dead-letter queue** — the entries currently waiting in the dead-letter
+  queue of each server, and the totals of tasks moved to it, retried and
+  discarded per cluster (see
+  [Managing the Work Queue](managing_queue.md)).
 - **Retained backups** — the retention window of the physical PostgreSQL
   backups the Klio server keeps for each cluster: counts by tier and server,
   latest/oldest backup age, start/end LSN and PostgreSQL timeline.
@@ -173,7 +177,8 @@ On the Servers section:
   apart.
 - `served_cluster` (*Served cluster*): the clusters backed up by the
   selected servers, from any namespace. It does not filter the server health
-  panels, which have no cluster label.
+  panels and the *Dead-letter queue entries* panel, which have no cluster
+  label.
 
 Every aggregation groups by the identifying label (cluster, server, tier),
 so multiple clusters or servers are never folded into a single misleading
