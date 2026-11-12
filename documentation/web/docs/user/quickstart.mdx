@@ -96,6 +96,13 @@ The Klio operator is published on
 [Operator Lifecycle Manager](https://olm.operatorframework.io/) (OLM),
 either from the OpenShift web console or by creating a `Subscription`.
 
+:::note
+OLM installs CloudNativePG in the `operators` namespace
+(`openshift-operators` on OpenShift). Install Klio there too, replacing
+`cnpg-system` accordingly, as described in the
+[namespace requirement](#before-you-start).
+:::
+
 Create a `Subscription` for the operator. The example below uses the
 `operatorhubio-catalog` catalog source shipped with upstream OLM:
 
