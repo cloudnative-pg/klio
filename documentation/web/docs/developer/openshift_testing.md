@@ -64,8 +64,9 @@ a catalog image built from the branch under test.
 The bundle declares OpenShift 4.14 as the minimum supported version,
 through the `com.redhat.openshift.versions` annotation. The value comes
 from the `OPENSHIFT_VERSIONS` variable in `Taskfile.yml`, which
-`olm:bundle` writes into both `bundle/metadata/annotations.yaml` and
-the labels of `bundle.Dockerfile`.
+`olm:bundle:generate` writes into both
+`operator/olm-bundle/bundle/metadata/annotations.yaml` and the labels
+of `operator/olm-bundle/bundle.Dockerfile`.
 
 ## Prerequisites
 
@@ -73,7 +74,8 @@ the labels of `bundle.Dockerfile`.
 - Cluster admin privileges
 - cert-manager installed in the cluster (for TLS certificate
   creation)
-- A catalog image built with `task olm:catalog ENVIRONMENT=testing`
+- The catalog image of the build under test, published on `ghcr.io`
+  (no task builds the testing catalog at the moment)
 
 The Klio operator, bundle, catalog and operand images are public
 on `ghcr.io`, so no pull secret is needed.
@@ -276,9 +278,8 @@ Debian based and is not part of the operator certification.
 
 Point `EXTERNAL_KUBECONFIG` at an OpenShift (CRC) cluster and run the
 task. The bundle and catalog (index) images must already be published
-for the build under test — build them first with
-`task olm:catalog ENVIRONMENT=testing` if needed; the certification runs
-against the existing bundle rather than rebuilding it.
+for the build under test; the certification runs against the existing
+bundle rather than rebuilding it.
 
 ```bash
 export EXTERNAL_KUBECONFIG=/path/to/crc/kubeconfig
@@ -294,11 +295,10 @@ locally.
 
 ## Publishing the bundle and catalog
 
-`olm:publish` is the release counterpart of `olm:all`: it builds and
-pushes the production bundle and catalog images (no `-testing` suffix)
-for the tag being released. It refuses to run outside a tagged CI
-checkout, and refuses to run if the CSV version derived from
-`git describe` does not match the tag.
+`olm:publish` builds and pushes the production bundle and catalog
+images (no `-testing` suffix) for the tag being released. It refuses
+to run outside a tagged CI checkout, and refuses to run if the CSV
+version derived from `git describe` does not match the tag.
 
 The `olm-bundle` job in `.github/workflows/release-publish.yml` runs
 it, and only for the release GitHub marks as the latest one, which

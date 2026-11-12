@@ -9,7 +9,7 @@ resources:
 - scorecard
 
 # Files under generated/ are rendered from templates/ (with the right images)
-# by the `olm:manifest` task and are git ignored.
+# by the `olm:kustomization` task and are git ignored.
 patches:
 # Point the operator Deployment at the operator image actually being built.
 - path: generated/manager_image.yaml
