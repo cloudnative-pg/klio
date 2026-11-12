@@ -347,6 +347,49 @@ func TestWALConsumerDeadLettersPermanentFailureAtOnce(t *testing.T) {
 	}, 10*time.Second, 50*time.Millisecond, "a permanently failed WAL task must be dead-lettered at once")
 }
 
+// TestOldestPendingWALKeepsDeadLetteredWAL verifies that a WAL whose task
+// used up its attempts is still reported as pending, so tier1 keeps it, until
+// the task is discarded.
+func TestOldestPendingWALKeepsDeadLetteredWAL(t *testing.T) {
+	ns, url := startNATSServer(t)
+	defer ns.Shutdown()
+
+	nc, err := nats.Connect(url)
+	require.NoError(t, err)
+	defer nc.Close()
+
+	ctx := t.Context()
+	conn, err := New(ctx, nc)
+	require.NoError(t, err)
+
+	js, err := jetstream.New(nc)
+	require.NoError(t, err)
+
+	handler := func(_ context.Context, _ *WALTask) error {
+		return fmt.Errorf("%w: file is gone", ErrPermanent)
+	}
+	go func() {
+		_ = conn.ConsumeWALReceivedMessages(ctx, handler)
+	}()
+
+	publishWALMessage(t, js, "gone-cluster", false)
+	require.Eventually(t, func() bool {
+		failed, listErr := conn.ListFailedWALTasks(ctx)
+		return listErr == nil && len(failed) == 1
+	}, 10*time.Second, 50*time.Millisecond, "the WAL task must be dead-lettered")
+
+	oldest, err := conn.OldestPendingWAL(ctx, "gone-cluster")
+	require.NoError(t, err)
+	assert.Equal(t, testWALName, oldest, "a dead-lettered WAL must still be pending")
+
+	_, err = conn.DiscardFailedWALTasks(ctx, WithCluster("gone-cluster"))
+	require.NoError(t, err)
+
+	oldest, err = conn.OldestPendingWAL(ctx, "gone-cluster")
+	require.NoError(t, err)
+	assert.Empty(t, oldest, "a discarded WAL must not be pending any more")
+}
+
 func TestWALConsumerSkipsDLQWithoutRetryMarker(t *testing.T) {
 	ns, url := startNATSServer(t)
 	defer ns.Shutdown()
