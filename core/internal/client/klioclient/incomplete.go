@@ -19,6 +19,8 @@ SPDX-License-Identifier: Apache-2.0
 
 package klioclient
 
+import "slices"
+
 // IncompleteStatus says whether an incomplete backup can still complete.
 type IncompleteStatus string
 
@@ -64,11 +66,14 @@ type IncompleteBackup struct {
 	Latest bool `json:"-"`
 }
 
-// ClassifyTier1IncompleteBackups sets the tier and status of backups
-// listed on tier1. Backup names are per attempt and the metadata is
+// ClassifyTier1IncompleteBackups returns a copy of the backups listed on
+// tier1 with their tier and status set, leaving the input untouched.
+// Backup names are per attempt and the metadata is
 // uploaded last, so only the latest attempt of a cluster, and only
 // without its metadata, can still be uploading.
 func ClassifyTier1IncompleteBackups(backups []IncompleteBackup) []IncompleteBackup {
+	backups = slices.Clone(backups)
+
 	for i := range backups {
 		backups[i].Tier = Tier1Name
 		backups[i].Status = IncompleteStatusUnrecoverable
@@ -80,8 +85,9 @@ func ClassifyTier1IncompleteBackups(backups []IncompleteBackup) []IncompleteBack
 	return backups
 }
 
-// ClassifyTier2IncompleteBackups sets the tier and status of backups
-// listed on tier2. The relay copies to tier2 whatever a cluster has on
+// ClassifyTier2IncompleteBackups returns a copy of the backups listed on
+// tier2 with their tier and status set, leaving the input untouched.
+// The relay copies to tier2 whatever a cluster has on
 // tier1, so a backup complete on tier1 is rebuilt by the next relay.
 func ClassifyTier2IncompleteBackups(backups []IncompleteBackup, tier1Complete BackupList) []IncompleteBackup {
 	type clusterBackup struct{ cluster, name string }
@@ -90,6 +96,8 @@ func ClassifyTier2IncompleteBackups(backups []IncompleteBackup, tier1Complete Ba
 	for _, b := range tier1Complete {
 		relayable[clusterBackup{b.ClusterName, b.Name}] = struct{}{}
 	}
+
+	backups = slices.Clone(backups)
 
 	for i := range backups {
 		backups[i].Tier = Tier2Name
