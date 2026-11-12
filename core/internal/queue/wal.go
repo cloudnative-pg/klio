@@ -115,10 +115,10 @@ func (q *Conn) ConsumeWALReceivedMessages(ctx context.Context, handler WALTaskHa
 // reached tier2 yet, so tier1 must keep them. Every task is checked because
 // DLQ retries are re-published at the end of the stream with an older WAL.
 //
-// ponytail: one request per pending message, per cluster, per sweep. Fine up
-// to tens of thousands of pending WALs. If a sweep gets slow, put the WAL
-// name in the subject (klio.wal.<cluster>.<wal>) and read the pending names
-// from one stream Info call with a subject filter.
+// This issues one request per pending message, for every cluster and sweep,
+// which is fine up to tens of thousands of pending WALs. If a sweep gets
+// slow, put the WAL name in the subject (klio.wal.<cluster>.<wal>) and read
+// the pending names from one stream Info call with a subject filter.
 func (m *StreamManager) OldestPendingWAL(ctx context.Context, clusterName string) (string, error) {
 	// A missing stream is an error too: reporting no pending WAL would let
 	// retention remove WALs that may still have to be relayed.
