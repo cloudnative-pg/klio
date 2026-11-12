@@ -9,6 +9,24 @@ This page lists version-specific changes that may require
 manual action when upgrading Klio. For the generic upgrade procedure,
 see the [Helm chart page](helm_chart.mdx#upgrades).
 
+## 0.0.21 to 0.1.0
+
+### Tier 1 keeps WAL files not yet on Tier 2
+
+When Tier 2 is enabled, Tier 1 WAL retention now keeps every WAL file that has
+not reached Tier 2, including those whose relay task is in the dead-letter
+queue. In 0.0.21, a WAL file was removed from Tier 1 as soon as no backup
+needed it, even when it had not reached Tier 2 yet.
+
+After upgrading, run `klio admin queue wal list-failed`. A cluster with failed
+WAL tasks keeps its Tier 1 WAL files from the oldest failed one on, so retry
+those tasks with `klio admin queue wal retry`, or discard the ones that cannot
+succeed with `klio admin queue wal discard`.
+
+The server also deletes the `klio-latest-uploaded-wal-per-cluster-stream`
+queue stream on startup, as nothing uses it anymore, so
+`klio.server.queue.messages` and `klio.server.queue.bytes` stop reporting it.
+
 ## 0.0.20 to 0.0.21
 
 Version 0.0.21 introduces several breaking changes to the `Server` and
@@ -29,7 +47,6 @@ perform it.
 | The `klio-restore` container is gone | Remove it from `PluginConfiguration` | [4](#step-4-remove-the-klio-restore-container) |
 | Unified storage layout | Create a new PVC and copy the data | [5](#step-5-prepare-the-unified-storage), [9–12](#phase-3-migrate-each-server-downtime-continues) |
 | Grafana dashboard requires Grafana 13.1 | Import the new dashboard | [After the upgrade](#after-the-upgrade-grafana-dashboard) |
-| Tier 1 keeps WAL files not yet on Tier 2 | Retry or discard failed WAL tasks | [After the upgrade](#after-the-upgrade-tier-1-keeps-wal-files-not-yet-on-tier-2) |
 
 ### Phase 1: Prepare (no downtime)
 
@@ -451,19 +468,3 @@ and needs Grafana 13.1 or later. See
 
 Import the new file in place of the previous dashboard. This does not require
 downtime and can be done at any time.
-
-### After the upgrade: Tier 1 keeps WAL files not yet on Tier 2
-
-Tier 1 WAL retention now keeps every WAL file that has not reached Tier 2,
-including those whose relay task is in the dead-letter queue. Previously, a
-dead-lettered WAL file was removed from Tier 1 once a later WAL file reached
-Tier 2.
-
-After upgrading, run `klio admin queue wal list-failed`. A cluster with failed
-WAL tasks keeps its Tier 1 WAL files from the oldest failed one on, so retry
-those tasks with `klio admin queue wal retry`, or discard the ones that cannot
-succeed with `klio admin queue wal discard`.
-
-The server also deletes the `klio-latest-uploaded-wal-per-cluster-stream`
-queue stream on startup, as nothing uses it anymore, so
-`klio.server.queue.messages` and `klio.server.queue.bytes` stop reporting it.
