@@ -10,12 +10,13 @@ require (
 	github.com/cloudnative-pg/cloudnative-pg/tests v0.0.0-20261109182034-14542858a7be
 	github.com/cloudnative-pg/cnpg-i v0.6.0
 	github.com/cloudnative-pg/cnpg-i-machinery v0.4.2
-	github.com/cloudnative-pg/machinery v0.6.1
+	github.com/cloudnative-pg/machinery v0.6.2-0.20261110171004-0f58adc95f80
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc
 	github.com/evanphx/json-patch/v5 v5.9.11
 	github.com/onsi/ginkgo/v2 v2.34.0
 	github.com/onsi/gomega v1.44.0
 	github.com/prometheus/common v0.73.1
+	github.com/spf13/pflag v1.1.0
 	github.com/spf13/viper v1.21.0
 	github.com/stretchr/testify v1.12.1
 	go.opentelemetry.io/contrib/bridges/prometheus v0.72.0
@@ -28,6 +29,7 @@ require (
 	go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetrichttp v1.47.0
 	go.opentelemetry.io/otel/metric v1.47.0
 	go.opentelemetry.io/otel/sdk v1.47.0
+	go.opentelemetry.io/otel/sdk/log v1.47.0
 	go.opentelemetry.io/otel/sdk/metric v1.47.0
 	golang.org/x/sync v0.25.0
 	google.golang.org/grpc v1.85.0
@@ -141,7 +143,6 @@ require (
 	github.com/spf13/afero v1.15.0 // indirect
 	github.com/spf13/cast v1.10.0 // indirect
 	github.com/spf13/cobra v1.10.2 // indirect
-	github.com/spf13/pflag v1.0.10 // indirect
 	github.com/stern/stern v1.35.0 // indirect
 	github.com/subosito/gotenv v1.6.0 // indirect
 	github.com/thoas/go-funk v0.9.3 // indirect
@@ -150,6 +151,7 @@ require (
 	github.com/x448/float16 v0.8.4 // indirect
 	github.com/yusufpapurcu/wmi v1.2.4 // indirect
 	go.opentelemetry.io/auto/sdk v1.2.1 // indirect
+	go.opentelemetry.io/contrib/bridges/otelzap v0.21.0 // indirect
 	go.opentelemetry.io/contrib/detectors/aws/ec2/v2 v2.6.0 // indirect
 	go.opentelemetry.io/contrib/detectors/aws/ecs v1.47.0 // indirect
 	go.opentelemetry.io/contrib/detectors/aws/eks v1.47.0 // indirect
@@ -176,7 +178,6 @@ require (
 	go.opentelemetry.io/otel/exporters/stdout/stdoutmetric v1.47.0 // indirect
 	go.opentelemetry.io/otel/exporters/stdout/stdouttrace v1.47.0 // indirect
 	go.opentelemetry.io/otel/log v1.47.0 // indirect
-	go.opentelemetry.io/otel/sdk/log v1.47.0 // indirect
 	go.opentelemetry.io/otel/trace v1.47.0 // indirect
 	go.opentelemetry.io/proto/otlp v1.11.1 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
@@ -188,7 +189,7 @@ require (
 	golang.org/x/mod v0.41.0 // indirect
 	golang.org/x/net v0.62.0 // indirect
 	golang.org/x/oauth2 v0.37.0 // indirect
-	golang.org/x/sys v0.49.0 // indirect
+	golang.org/x/sys v0.50.0 // indirect
 	golang.org/x/term v0.47.0 // indirect
 	golang.org/x/text v0.43.0 // indirect
 	golang.org/x/time v0.16.0 // indirect

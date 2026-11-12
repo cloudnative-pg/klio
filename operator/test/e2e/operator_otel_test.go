@@ -127,6 +127,7 @@ func (f *operatorOTELFeature) Setup() types.StepFunc {
 		otelEnv := []corev1.EnvVar{
 			{Name: "OTEL_SERVICE_NAME", Value: "klio-operator"},
 			{Name: "OTEL_METRICS_EXPORTER", Value: "otlp"},
+			// OTEL_LOGS_EXPORTER is left unset to cover its "otlp" default
 			{Name: "OTEL_EXPORTER_OTLP_PROTOCOL", Value: "http/protobuf"},
 			{Name: "OTEL_EXPORTER_OTLP_ENDPOINT", Value: collectorEndpoint},
 			{Name: "OTEL_METRIC_EXPORT_INTERVAL", Value: "5000"},
@@ -243,6 +244,11 @@ func (f *operatorOTELFeature) Run() types.StepFunc {
 		_, found := promMetrics.GetValueWithLabels(crMetrics[0].Name, serviceNameLabels)
 		assert.True(t, found,
 			"%s should carry service_name=klio-operator label", crMetrics[0].Name)
+
+		t.Log("Waiting for the operator logs to reach the OTel collector")
+		// Only the Helm chart sets POD_NAME on the operator container
+		assertOTELLogsReceived(ctx, t, cfg, f.namespace, operatorOTELCollector,
+			otelLogRecord{service: "klio-operator", body: "starting manager", onPod: f.operatorSubscription == ""})
 
 		t.Log("Operator OTel metrics verification completed")
 
@@ -437,6 +443,8 @@ processors:
     send_batch_size: 100
     timeout: 1s
 exporters:
+  debug:
+    verbosity: detailed
   prometheus:
     endpoint: "0.0.0.0:9464"
     send_timestamps: true
@@ -448,6 +456,10 @@ service:
       receivers: [otlp]
       processors: [batch]
       exporters: [prometheus]
+    logs:
+      receivers: [otlp]
+      processors: [batch]
+      exporters: [debug]
 `
 
 	cm := &corev1.ConfigMap{

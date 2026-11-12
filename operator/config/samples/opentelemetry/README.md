@@ -15,12 +15,13 @@
 
 This directory contains two sample environments exercising Klio's
 OpenTelemetry integration, both sharing the OTel collector / Jaeger /
-Prometheus stack defined in `base/`. Every CNPG cluster also gets its own
-`PodMonitor` (see `single/cluster/cluster_pod_monitor.yaml`), so Prometheus
-scrapes CloudNativePG's own `cnpg_pg_stat_replication_*` metrics in
-addition to what the OTel collector exports — the Grafana dashboard's WAL
-Replication Lag row needs this (see
-`documentation/web/docs/user/grafana-dashboards.md`):
+Prometheus / Loki stack defined in `base/`. Klio exports its traces to
+Jaeger, its metrics to Prometheus, and its logs to Loki. Every CNPG cluster
+also gets its own `PodMonitor` (see
+`single/cluster/cluster_pod_monitor.yaml`), so Prometheus scrapes
+CloudNativePG's own `cnpg_pg_stat_replication_*` metrics in addition to what
+the OTel collector exports — the Grafana dashboard's WAL Replication Lag row
+needs this (see `documentation/web/docs/user/grafana-dashboards.md`):
 
 - [`single/`](single): one Klio server and one CNPG cluster. Start here if
   you just want to see OpenTelemetry wired up.
@@ -159,6 +160,44 @@ kubectl apply -k operator/config/samples/opentelemetry/multi
 This deploys `default` (klio-a/cluster-a, klio-b/cluster-b), `team-c`
 (cluster-c) and `team-d` (a second, independent klio-a, and cluster-d) in
 one shot.
+
+## Viewing the logs in Grafana
+
+Both samples enable log export in the Klio server's and plugin sidecar's OTel
+ConfigMaps (`OTEL_LOGS_EXPORTER: "otlp"`), so the records they write on their
+standard output reach the collector along with their traces and metrics.
+`base/otel_collector.yaml` adds a `logs` pipeline forwarding them to Loki's
+native OTLP endpoint, and `base/loki_grafana_datasource.yaml` registers Loki
+as a Grafana data source through the sidecar convention of the
+kube-prometheus-stack chart (`grafana_datasource: "1"`). No manual setup is
+needed when Grafana runs in `default`, as in the install command above; if it
+runs elsewhere, set the data source `url` to
+`http://loki.default.svc.cluster.local:3100` instead.
+
+Port-forward Grafana and log in with `admin` / `prom-operator`:
+
+```shell
+kubectl port-forward svc/prometheus-community-grafana 3000:80
+```
+
+Open `http://localhost:3000/`, select **Explore**, then the **Loki** data
+source. Loki maps the OTel resource attributes to stream labels
+(`service_name`, `k8s_namespace_name`, `k8s_pod_name`, ...) and keeps the
+remaining attributes, including each record's structured fields, as
+structured metadata. For example:
+
+- Klio server records: `{service_name="klio-server"}`
+- Plugin sidecar records: `{service_name="klio-plugin"}`
+- Records mentioning an error: `{service_name=~"klio-.*"} |= "error"`
+- Records of one cluster's sidecar:
+  `{service_name="klio-plugin", k8s_namespace_name="team-c"}`
+
+Short-lived commands spawned by the sidecar export their records before
+exiting, so the logs of a backup triggered with
+`single/backups-example.yaml` or `multi/backups-example.yaml` show up too.
+
+The operator itself exports logs once any `OTEL_*` variable is set in its
+Deployment.
 
 ## Validating the Grafana dashboard with the "multi" sample
 

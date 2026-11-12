@@ -27,6 +27,8 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/cloudnative-pg/machinery/pkg/log"
+	"github.com/spf13/pflag"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/client-go/discovery"
@@ -34,7 +36,6 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/certwatcher"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
-	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	"sigs.k8s.io/controller-runtime/pkg/metrics/filters"
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
@@ -52,8 +53,14 @@ import (
 
 var setupLog = ctrl.Log.WithName("setup") //nolint:gochecknoglobals
 
+func main() {
+	os.Exit(run())
+}
+
+// run starts the operator and returns the exit code of the process
+//
 //nolint:cyclop,maintidx
-func main() { // NOSONAR
+func run() int { // NOSONAR
 	var metricsAddr string
 	var metricsCertPath, metricsCertName, metricsCertKey string
 	var webhookCertPath, webhookCertName, webhookCertKey string
@@ -93,14 +100,18 @@ func main() { // NOSONAR
 	flag.StringVar(&pluginClientCert, "plugin-client-cert", "", "Path to the plugin client certificate")
 	flag.StringVar(&pluginServerAddress, "plugin-server-address", ":9090", "Address of the plugin server")
 
-	opts := zap.Options{
-		Development: true,
+	logFlags := &log.Flags{}
+	logFlags.AddFlags(pflag.CommandLine)
+	pflag.CommandLine.AddGoFlagSet(flag.CommandLine)
+	pflag.Parse()
+
+	loggingOptions, otelErr := opentelemetry.LoggingOptions(context.Background())
+	logFlags.ConfigureLogging(loggingOptions...)
+	// Registered first, so it runs last: every record of run is exported
+	defer opentelemetry.ShutdownLogs(context.Background())
+	if otelErr != nil {
+		setupLog.Error(otelErr, "Cannot export the logs via OpenTelemetry")
 	}
-
-	opts.BindFlags(flag.CommandLine)
-	flag.Parse()
-
-	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&opts)))
 
 	// if the enable-http2 flag is false (the default), http/2 should be disabled
 	// due to its vulnerabilities. More specifically, disabling http/2 will
@@ -135,7 +146,7 @@ func main() { // NOSONAR
 		)
 		if err != nil {
 			setupLog.Error(err, "Failed to initialize webhook certificate watcher")
-			os.Exit(1)
+			return 1
 		}
 
 		webhookTLSOpts = append(webhookTLSOpts, func(config *tls.Config) {
@@ -186,7 +197,7 @@ func main() { // NOSONAR
 		)
 		if err != nil {
 			setupLog.Error(err, "to initialize metrics certificate watcher", "error", err)
-			os.Exit(1)
+			return 1
 		}
 
 		metricsServerOptions.TLSOpts = append(metricsServerOptions.TLSOpts, func(config *tls.Config) {
@@ -194,7 +205,13 @@ func main() { // NOSONAR
 		})
 	}
 
-	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
+	restConfig, err := ctrl.GetConfig()
+	if err != nil {
+		setupLog.Error(err, "unable to get kubeconfig")
+		return 1
+	}
+
+	mgr, err := ctrl.NewManager(restConfig, ctrl.Options{
 		Scheme:                 generateScheme(),
 		Metrics:                metricsServerOptions,
 		WebhookServer:          webhookServer,
@@ -215,19 +232,19 @@ func main() { // NOSONAR
 	})
 	if err != nil {
 		setupLog.Error(err, "unable to start manager")
-		os.Exit(1)
+		return 1
 	}
 
 	discoveryClient, err := discovery.NewDiscoveryClientForConfig(mgr.GetConfig())
 	if err != nil {
 		setupLog.Error(err, "unable to create discovery client")
-		os.Exit(1)
+		return 1
 	}
 
 	haveSCC, err := kliodiscovery.HaveSecurityContextConstraints(discoveryClient)
 	if err != nil {
 		setupLog.Error(err, "unable to detect OpenShift Security Context Constraints")
-		os.Exit(1)
+		return 1
 	}
 
 	setupLog.Info("Cluster capabilities detected",
@@ -242,7 +259,7 @@ func main() { // NOSONAR
 		HaveSecurityContextConstraints: haveSCC,
 	}); err != nil {
 		setupLog.Error(err, "unable to create CNPGI runnable")
-		os.Exit(1)
+		return 1
 	}
 
 	if err := (&controller.ServerReconciler{
@@ -252,7 +269,7 @@ func main() { // NOSONAR
 		HaveSecurityContextConstraints: haveSCC,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "Server")
-		os.Exit(1)
+		return 1
 	}
 
 	if err := (&controller.PluginConfigurationReconciler{
@@ -260,7 +277,7 @@ func main() { // NOSONAR
 		Scheme: mgr.GetScheme(),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "PluginConfiguration")
-		os.Exit(1)
+		return 1
 	}
 
 	// +kubebuilder:scaffold:builder
@@ -269,7 +286,7 @@ func main() { // NOSONAR
 		setupLog.Info("Adding metrics certificate watcher to manager")
 		if err := mgr.Add(metricsCertWatcher); err != nil {
 			setupLog.Error(err, "unable to add metrics certificate watcher to manager")
-			os.Exit(1)
+			return 1
 		}
 	}
 
@@ -277,17 +294,17 @@ func main() { // NOSONAR
 		setupLog.Info("Adding webhook certificate watcher to manager")
 		if err := mgr.Add(webhookCertWatcher); err != nil {
 			setupLog.Error(err, "unable to add webhook certificate watcher to manager")
-			os.Exit(1)
+			return 1
 		}
 	}
 
 	if err := mgr.AddHealthzCheck("healthz", healthz.Ping); err != nil {
 		setupLog.Error(err, "unable to set up health check")
-		os.Exit(1)
+		return 1
 	}
 	if err := mgr.AddReadyzCheck("readyz", healthz.Ping); err != nil {
 		setupLog.Error(err, "unable to set up ready check")
-		os.Exit(1)
+		return 1
 	}
 
 	ctx := ctrl.SetupSignalHandler()
@@ -305,8 +322,10 @@ func main() { // NOSONAR
 
 	if mgrErr != nil {
 		setupLog.Error(mgrErr, "problem running manager")
-		os.Exit(1)
+		return 1
 	}
+
+	return 0
 }
 
 // generateScheme builds the controller-manager scheme. CNPG types are not

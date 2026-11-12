@@ -49,7 +49,7 @@ func Init(ctx context.Context) func() {
 	noop := func() {}
 
 	if !isOtelConfigPresent() {
-		contextLogger.Info("OpenTelemetry not configured, setting noop meter provider")
+		contextLogger.Info("OpenTelemetry not configured or disabled, setting noop providers")
 		otel.SetMeterProvider(metricNoop.NewMeterProvider())
 		otel.SetTracerProvider(traceNoop.NewTracerProvider())
 
@@ -103,7 +103,14 @@ func Init(ctx context.Context) func() {
 	}
 }
 
+// isOtelConfigPresent reports whether an OTEL_* environment variable is set
+// and OTEL_SDK_DISABLED is not "true", the only value the specification
+// treats as true, ignoring the case.
 func isOtelConfigPresent() bool {
+	if strings.EqualFold(os.Getenv("OTEL_SDK_DISABLED"), "true") {
+		return false
+	}
+
 	for _, env := range os.Environ() {
 		if strings.HasPrefix(env, "OTEL_") {
 			return true

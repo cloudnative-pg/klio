@@ -5,8 +5,8 @@ sidebar_position: 10
 # OpenTelemetry Observability
 
 Klio provides built-in support for [OpenTelemetry](https://opentelemetry.io/),
-enabling comprehensive observability through distributed tracing and metrics
-collection. This allows you to monitor backup operations, performance
+enabling comprehensive observability through distributed tracing, metrics
+collection and log export. This allows you to monitor backup operations, performance
 characteristics, and system health across your Klio deployment.
 
 ## Available Telemetry
@@ -61,10 +61,9 @@ Klio automatically collects the following:
    - Client (WAL streaming)
       - Per-block WAL send durations (histogram)
       - Timeline currently being streamed (gauge)
-
-:::note
-Log exporters are not currently supported.
-:::
+- Logs
+   - The records the server, the plugin sidecars, the operator and the Klio
+     commands they run write on their standard output
 
 ## Traces Reference
 
@@ -465,7 +464,7 @@ Klio automatically detects OpenTelemetry configuration through standard
 environment variables. If no OpenTelemetry environment variables are present,
 Klio will use no-op providers that don't collect any telemetry data.
 
-Traces and metrics exporters can be configured independently through the
+Traces, metrics and logs exporters can be configured independently through the
 [`autoexport`](https://go.opentelemetry.io/contrib/exporters/autoexport) package.
 
 ### General Settings
@@ -478,6 +477,8 @@ The following environment variables are used to configure OpenTelemetry:
 - `OTEL_RESOURCE_DETECTORS`: Comma-separated list of resource detectors
   from the [`autodetect`](https://pkg.go.dev/go.opentelemetry.io/contrib/detectors/autodetect)
   package, used to automatically populate resource attributes
+- `OTEL_SDK_DISABLED`: set to `true` to disable every signal, whatever the
+  other variables say
 
 ### Traces exporter
 
@@ -529,6 +530,36 @@ server using the following environment variables:
 
 - `OTEL_EXPORTER_PROMETHEUS_HOST` (default: `localhost`)
 - `OTEL_EXPORTER_PROMETHEUS_PORT` (default: `9464`)
+
+### Logs exporter
+
+Select the logs exporter with the `OTEL_LOGS_EXPORTER` environment
+variable:
+
+- `otlp`: OpenTelemetry Protocol (OTLP) exporter, the default
+- `console`: Console exporter (useful for debugging)
+- `none`: No-op exporter (disables the logs export)
+
+As for traces and metrics, the logs are exported via OTLP as soon as any
+OpenTelemetry variable is set: set `OTEL_LOGS_EXPORTER` to `none` to export
+only the other signals. The standard output keeps receiving every record.
+The exported records are those written at the configured log
+level, with the same resource as the traces and metrics of the process, and
+their structured fields become attributes with the keys they have on the
+standard output.
+
+You can define the OTLP protocol using the `OTEL_EXPORTER_OTLP_LOGS_PROTOCOL`
+variable, or the general `OTEL_EXPORTER_OTLP_PROTOCOL`. Supported protocols
+include:
+
+- `http/protobuf` (default)
+- `grpc`
+
+Additional configuration options for logs exporters can be found in the
+documentation of the respective exporters:
+
+- [OTLP Log gRPC Exporter](https://pkg.go.dev/go.opentelemetry.io/otel/exporters/otlp/otlplog/otlploggrpc)
+- [OTLP Log HTTP Exporter](https://pkg.go.dev/go.opentelemetry.io/otel/exporters/otlp/otlplog/otlploghttp)
 
 ### Exporters and receivers
 
@@ -642,6 +673,12 @@ spec:
                       path: tls.key
 ```
 
+The server exports its logs too, by default, but this example only
+configures the traces and metrics endpoints, so the logs would go to the
+default OTLP endpoint. Add the matching `OTEL_EXPORTER_OTLP_LOGS_*`
+variables, replace the per-signal variables with the generic ones shown in
+the plugin example below, or set `OTEL_LOGS_EXPORTER: "none"`.
+
 ### Klio plugins with OpenTelemetry
 
 When deploying Klio as a CNPG Cluster plugin, configure OpenTelemetry by
@@ -650,7 +687,9 @@ the `PluginConfiguration` spec. The only container that can be customized
 is `klio-plugin`: the plugin sidecar for backup, WAL and restore
 operations.
 
-Create a `ConfigMap` for the shared OpenTelemetry configuration:
+Create a `ConfigMap` for the shared OpenTelemetry configuration. The generic
+`OTEL_EXPORTER_OTLP_*` variables apply to every signal, so this single
+configuration sends traces, metrics and logs to the same collector:
 
 ```yaml
 apiVersion: v1
@@ -661,6 +700,7 @@ data:
   OTEL_RESOURCE_DETECTORS: "telemetry.sdk,host,os.type,process.executable.name"
   OTEL_TRACES_EXPORTER: "otlp"
   OTEL_METRICS_EXPORTER: "otlp"
+  OTEL_LOGS_EXPORTER: "otlp"
   OTEL_EXPORTER_OTLP_PROTOCOL: "grpc"
   OTEL_EXPORTER_OTLP_ENDPOINT: "https://otel-collector:4317"
   OTEL_EXPORTER_OTLP_COMPRESSION: "gzip"
@@ -767,6 +807,10 @@ controllerManager:
       OTEL_EXPORTER_OTLP_ENDPOINT: "http://otel-collector:4318"
       OTEL_EXPORTER_OTLP_PROTOCOL: "http/protobuf"  # or "grpc"
 ```
+
+The operator writes its logs on the standard output in JSON, at the level
+set by the `--log-level` argument (`info` by default), and exports them
+with the metrics, unless `OTEL_LOGS_EXPORTER` is `none`.
 
 The Helm chart automatically injects `POD_NAME`,
 `NAMESPACE_NAME`, and `CONTAINER_NAME` via the Kubernetes

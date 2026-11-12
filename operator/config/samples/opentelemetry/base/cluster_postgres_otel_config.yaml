@@ -1,0 +1,12 @@
+# OTLP log export settings of the CloudNativePG instance manager, read
+# through the Cluster's envFrom. Unlike cluster-klio-otel-config, it holds
+# only what the log export needs: the instance manager exports nothing else.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: cluster-postgres-otel-config
+data:
+  OTEL_EXPORTER_OTLP_PROTOCOL: "grpc"
+  OTEL_EXPORTER_OTLP_ENDPOINT: "https://otel-collector:4317"
+  # Mounted by the Cluster's projectedVolumeTemplate.
+  OTEL_EXPORTER_OTLP_CERTIFICATE: "/projected/ca.crt"

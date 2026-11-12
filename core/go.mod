@@ -13,7 +13,7 @@ require (
 	github.com/cloudnative-pg/cloudnative-pg v1.30.1
 	github.com/cloudnative-pg/cnpg-i v0.6.0
 	github.com/cloudnative-pg/cnpg-i-machinery v0.4.2
-	github.com/cloudnative-pg/machinery v0.6.1
+	github.com/cloudnative-pg/machinery v0.6.2-0.20261110171004-0f58adc95f80
 	github.com/fclairamb/afero-s3 v0.5.0
 	github.com/go-viper/mapstructure/v2 v2.5.0
 	github.com/google/uuid v1.6.0
@@ -55,6 +55,8 @@ require (
 	sigs.k8s.io/controller-runtime v0.25.2
 	sigs.k8s.io/yaml v1.6.0 // indirect
 )
+
+require go.opentelemetry.io/otel/sdk/log v1.47.0
 
 require (
 	cloud.google.com/go/compute/metadata v0.10.0 // indirect
@@ -159,7 +161,7 @@ require (
 	github.com/sagikazarmark/locafero v0.11.0 // indirect
 	github.com/shirou/gopsutil/v4 v4.26.9 // indirect
 	github.com/spf13/cast v1.10.0 // indirect
-	github.com/spf13/pflag v1.0.10 // indirect
+	github.com/spf13/pflag v1.1.0 // indirect
 	github.com/subosito/gotenv v1.6.0 // indirect
 	github.com/thoas/go-funk v0.9.3 // indirect
 	github.com/tklauser/go-sysconf v0.4.0 // indirect
@@ -167,6 +169,7 @@ require (
 	github.com/x448/float16 v0.8.4 // indirect
 	github.com/yusufpapurcu/wmi v1.2.4 // indirect
 	go.opentelemetry.io/auto/sdk v1.2.1 // indirect
+	go.opentelemetry.io/contrib/bridges/otelzap v0.21.0 // indirect
 	go.opentelemetry.io/contrib/detectors/aws/ec2/v2 v2.6.0 // indirect
 	go.opentelemetry.io/contrib/detectors/aws/ecs v1.47.0 // indirect
 	go.opentelemetry.io/contrib/detectors/aws/eks v1.47.0 // indirect
@@ -193,7 +196,6 @@ require (
 	go.opentelemetry.io/otel/exporters/stdout/stdoutmetric v1.47.0 // indirect
 	go.opentelemetry.io/otel/exporters/stdout/stdouttrace v1.47.0 // indirect
 	go.opentelemetry.io/otel/log v1.47.0 // indirect
-	go.opentelemetry.io/otel/sdk/log v1.47.0 // indirect
 	go.opentelemetry.io/proto/otlp v1.11.1 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
 	go.uber.org/zap v1.28.0 // indirect
@@ -203,7 +205,7 @@ require (
 	golang.org/x/net v0.60.0 // indirect
 	golang.org/x/oauth2 v0.37.0 // indirect
 	golang.org/x/sync v0.24.0 // indirect
-	golang.org/x/sys v0.49.0 // indirect
+	golang.org/x/sys v0.50.0 // indirect
 	golang.org/x/term v0.47.0 // indirect
 	golang.org/x/text v0.43.0 // indirect
 	golang.org/x/time v0.16.0 // indirect
