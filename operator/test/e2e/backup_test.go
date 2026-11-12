@@ -74,7 +74,7 @@ func assertVerificationRan(
 	// A successful backup must not have left any failed tasks in the
 	// dead-letter queue. This also smoke-tests the admin "queue list-failed"
 	// CLI -> admin gRPC -> StreamManager -> NATS path against a live server.
-	assertNoFailedQueueTasks(ctx, t, r, backup.Namespace)
+	assertNoFailedQueueTasks(ctx, t, r, backup.Namespace, klioServerName)
 }
 
 // adminSocketPath is the default Unix socket the Klio server's admin gRPC
@@ -83,17 +83,17 @@ func assertVerificationRan(
 const adminSocketPath = "/tmp/.klio-admin"
 
 // assertNoFailedQueueTasks runs `klio admin queue {wal,backup} list-failed`
-// against the live admin socket in the Klio server pod and asserts both return
-// well-formed JSON with no entries.
+// against the live admin socket in the pod of the Klio server serverName and
+// asserts both return well-formed JSON with no entries.
 func assertNoFailedQueueTasks(
 	ctx context.Context,
 	t *testing.T,
 	r *resources.Resources,
-	namespace string,
+	namespace, serverName string,
 ) {
 	t.Helper()
 
-	podName := klioServerName + "-klio-0"
+	podName := serverName + "-klio-0"
 
 	for _, tc := range []struct {
 		kind string

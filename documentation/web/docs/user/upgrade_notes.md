@@ -9,6 +9,24 @@ This page lists version-specific changes that may require
 manual action when upgrading Klio. For the generic upgrade procedure,
 see the [Helm chart page](helm_chart.mdx#upgrades).
 
+## 0.0.21 to 0.1.0
+
+### Tier 1 keeps WAL files not yet on Tier 2
+
+When Tier 2 is enabled, Tier 1 WAL retention now keeps every WAL file that has
+not reached Tier 2, including those whose relay task is in the dead-letter
+queue. In 0.0.21, a WAL file was removed from Tier 1 as soon as no backup
+needed it, even when it had not reached Tier 2 yet.
+
+After upgrading, run `klio admin queue wal list-failed`. A cluster with failed
+WAL tasks keeps its Tier 1 WAL files from the oldest failed one on, so retry
+those tasks with `klio admin queue wal retry`, or discard the ones that cannot
+succeed with `klio admin queue wal discard`.
+
+The server also deletes the `klio-latest-uploaded-wal-per-cluster-stream`
+queue stream on startup, as nothing uses it anymore, so
+`klio.server.queue.messages` and `klio.server.queue.bytes` stop reporting it.
+
 ## 0.0.20 to 0.0.21
 
 Version 0.0.21 introduces several breaking changes to the `Server` and

@@ -168,7 +168,7 @@ attribute key.
 | `path` | `put` (WAL ingest), `get` (WAL serve) | `klio.server.wal.block_duration`, `klio.client.wal.block_duration`. |
 | `stage` | put: `wrap`, `write`, `flush`, `send` (client); get: `read`, `unwrap`, `send` | `klio.server.wal.block_duration`, `klio.client.wal.block_duration`. |
 | `snapshot_source` | Kopia source descriptor (`userName@hostName:path`) | All `klio.server.backup.*` base snapshot gauges (`snapshots`, `latest_snapshot_*`, `oldest_snapshot_timestamp`). |
-| `stream` | JetStream stream name (`klio-wal-stream`, `klio-backup-stream`, `klio-latest-uploaded-wal-per-cluster-stream`) | `klio.server.queue.messages`, `klio.server.queue.bytes`. |
+| `stream` | JetStream stream name (`klio-wal-stream`, `klio-backup-stream`, `klio-dlq-wal-stream`, `klio-dlq-backup-stream`) | `klio.server.queue.messages`, `klio.server.queue.bytes`. |
 
 ### Backup lifecycle metrics (plugin sidecar)
 
@@ -420,8 +420,8 @@ the embedded NATS JetStream streams used for asynchronous Tier 2
 offloading of WAL files and backups. Each sample carries a `stream`
 attribute identifying the source stream — typically
 `klio-wal-stream` (WAL work queue), `klio-backup-stream` (backup work
-queue), and `klio-latest-uploaded-wal-per-cluster-stream` (retention
-safeguard, capped to one message per cluster):
+queue), and `klio-dlq-wal-stream` and `klio-dlq-backup-stream` (tasks
+dead-lettered after their last attempt):
 
 | Metric Name | Type | Unit | Description |
 |---|---|---|---|

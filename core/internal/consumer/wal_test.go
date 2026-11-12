@@ -20,6 +20,7 @@ SPDX-License-Identifier: Apache-2.0
 package consumer
 
 import (
+	"path"
 	"testing"
 
 	"github.com/spf13/afero"
@@ -75,6 +76,99 @@ func TestWalHandlerRecordsErrorOnTier2UploadSpan(t *testing.T) {
 
 	require.Len(t, spans[0].Events, 1, "span must carry a recorded-error event")
 	assert.Equal(t, "exception", spans[0].Events[0].Name)
+}
+
+// TestWalHandlerMissingTier1FileIsPermanent verifies that a WAL no longer on
+// tier1 fails with queue.ErrPermanent, so the task is dead-lettered at once
+// instead of being retried through the whole backoff schedule for a file that
+// won't return.
+func TestWalHandlerMissingTier1FileIsPermanent(t *testing.T) {
+	opts := repository.Options{FS: afero.NewMemMapFs(), Password: "this-password"}
+	require.NoError(t, repository.Initialize(opts))
+	tier1, err := repository.Open(opts)
+	require.NoError(t, err)
+	defer tier1.Close()
+
+	w := NewWAL(&WALOptions{Tier1: tier1, Tier2: tier1})
+
+	err = w.walHandler(t.Context(), &queue.WALTask{
+		ClusterName: "cluster-example",
+		WALName:     "0000000100000000000000FF",
+	})
+	require.ErrorIs(t, err, queue.ErrPermanent)
+}
+
+// TestWalHandlerEmptyTier1FileIsRetried verifies that an empty WAL file on
+// tier1, as left while the WAL server rewrites a .partial file, fails with a
+// retryable error: the file can still be written, so the task is not dropped.
+func TestWalHandlerEmptyTier1FileIsRetried(t *testing.T) {
+	const (
+		clusterName = "cluster-example"
+		walName     = "0000000100000000000000FF.partial"
+	)
+
+	fs := afero.NewMemMapFs()
+	opts := repository.Options{FS: fs, Password: "this-password"}
+	require.NoError(t, repository.Initialize(opts))
+	tier1, err := repository.Open(opts)
+	require.NoError(t, err)
+	defer tier1.Close()
+
+	require.NoError(t, afero.WriteFile(fs, path.Join(clusterName, walName[:16], walName), nil, 0o600))
+
+	w := NewWAL(&WALOptions{Tier1: tier1, Tier2: tier1})
+
+	err = w.walHandler(t.Context(), &queue.WALTask{ClusterName: clusterName, WALName: walName})
+	require.ErrorIs(t, err, repository.ErrEmptyWALFile)
+	require.NotErrorIs(t, err, queue.ErrPermanent)
+}
+
+// TestWalHandlerSupersededPartialSucceeds verifies that a .partial task whose
+// file is gone from tier1 succeeds when its completed segment exists in tier1:
+// the segment is relayed by its own task, so nothing is lost. Without the
+// completed segment the .partial is lost and the task fails permanently.
+func TestWalHandlerSupersededPartialSucceeds(t *testing.T) {
+	const (
+		clusterName = "cluster-example"
+		segmentName = "000000010000000000000003"
+		partialName = segmentName + ".partial"
+	)
+
+	newRepo := func(t *testing.T) *repository.Connection {
+		t.Helper()
+		opts := repository.Options{FS: afero.NewMemMapFs(), Password: "this-password"}
+		require.NoError(t, repository.Initialize(opts))
+		conn, err := repository.Open(opts)
+		require.NoError(t, err)
+		t.Cleanup(conn.Close)
+
+		return conn
+	}
+	writeSegment := func(t *testing.T, conn *repository.Connection) {
+		t.Helper()
+		writer, err := conn.NewWriter(repository.WriterOptions{
+			ClusterName: clusterName,
+			WALName:     segmentName,
+			SegmentSize: 16,
+		})
+		require.NoError(t, err)
+		require.NoError(t, writer.WriteBlock(t.Context(), []byte("segment-data")))
+		require.NoError(t, writer.CloseMarkDone())
+	}
+	task := &queue.WALTask{ClusterName: clusterName, WALName: partialName}
+
+	t.Run("segment in tier1", func(t *testing.T) {
+		tier1 := newRepo(t)
+		writeSegment(t, tier1)
+
+		w := NewWAL(&WALOptions{Tier1: tier1, Tier2: newRepo(t)})
+		require.NoError(t, w.walHandler(t.Context(), task))
+	})
+
+	t.Run("segment missing", func(t *testing.T) {
+		w := NewWAL(&WALOptions{Tier1: newRepo(t), Tier2: newRepo(t)})
+		require.ErrorIs(t, w.walHandler(t.Context(), task), queue.ErrPermanent)
+	})
 }
 
 // TestWalHandlerArchivesPartialWALFile verifies that a WAL segment left on

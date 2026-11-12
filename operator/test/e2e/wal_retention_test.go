@@ -24,6 +24,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"slices"
 	"sort"
 	"strings"
 	"testing"
@@ -35,6 +36,7 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	"sigs.k8s.io/e2e-framework/klient/k8s/resources"
 	"sigs.k8s.io/e2e-framework/klient/wait"
 	"sigs.k8s.io/e2e-framework/pkg/envconf"
@@ -170,6 +172,51 @@ func (s *walRetentionScenario) Teardown(
 	t.Logf("Resources torn down for WAL retention feature: %s", s.name)
 
 	return ctx
+}
+
+// walRetentionHoldCheck is how long the WALs pending relay to tier2 are
+// checked to stay on tier1. It is longer than the interval of the retention
+// sweeper (one minute), so that at least one sweep runs in the meantime.
+const walRetentionHoldCheck = 90 * time.Second
+
+// cutTier2 makes the tier2 object store unreachable from the Klio server and
+// returns the function that makes it reachable again. The RustFS Service is
+// detached from its pod instead of scaling the Deployment down, because RustFS
+// keeps the bucket in an emptyDir volume, which would be lost with the pod.
+// The RustFS process is then restarted to close the connections the Klio
+// server already holds, which would keep working without the Service.
+func (s *walRetentionScenario) cutTier2(ctx context.Context, t *testing.T, r *resources.Resources) func() {
+	t.Helper()
+
+	var service corev1.Service
+	require.NoError(t, r.Get(ctx, s.rustfsService.Name, s.namespace.Name, &service),
+		"failed to get the RustFS service")
+	selector := service.Spec.Selector
+	service.Spec.Selector = map[string]string{"klio.cnpg.io/e2e-tier2-outage": "true"}
+	require.NoError(t, r.Update(ctx, &service), "failed to detach the RustFS service from its pod")
+
+	var pods corev1.PodList
+	require.NoError(t,
+		r.WithNamespace(s.namespace.Name).List(ctx, &pods,
+			resources.WithLabelSelector(labels.FormatLabels(selector))),
+		"failed to list the RustFS pods")
+	require.Len(t, pods.Items, 1, "expected exactly one RustFS pod")
+
+	// The exec ends with an error when the process it runs in is terminated,
+	// so its outcome is not checked.
+	var stdout, stderr bytes.Buffer
+	_ = r.ExecInPod(ctx, s.namespace.Name, pods.Items[0].Name, "rustfs",
+		[]string{"sh", "-c", "kill 1"}, &stdout, &stderr)
+
+	return func() {
+		t.Helper()
+
+		var service corev1.Service
+		require.NoError(t, r.Get(ctx, s.rustfsService.Name, s.namespace.Name, &service),
+			"failed to get the RustFS service")
+		service.Spec.Selector = selector
+		require.NoError(t, r.Update(ctx, &service), "failed to attach the RustFS service to its pod")
+	}
 }
 
 // getWALFilesInTier1 returns the list of WAL files stored in tier1 for a cluster.
@@ -368,10 +415,9 @@ func (f *WALRetentionFeature) Setup() types.StepFunc {
 
 // Run executes the WAL retention test.
 //
-// Post-backup maintenance now runs server-side: each backup completion makes
-// the backup queue consumer apply tier1 retention, clamped to the tier2
-// transfer frontier so WALs still pending upload are never deleted. There is
-// no client command to trigger maintenance any more, so the test drives it by
+// WAL retention runs server-side: the retention sweeper applies tier1 WAL
+// retention, held back so WALs still pending relay to tier2 are never
+// deleted. There is no client command to trigger it, so the test drives it by
 // completing backups and observes the on-disk effect.
 func (f *WALRetentionFeature) Run() types.StepFunc {
 	return func(ctx context.Context, t *testing.T, cfg *envconf.Config) context.Context {
@@ -391,7 +437,22 @@ func (f *WALRetentionFeature) Run() types.StepFunc {
 		)
 		require.NoError(t, err, "backup not completed")
 
-		// Step 2: generate WAL activity so there are older WAL segments that a
+		// The backup is looked up now because "klio backup list" spans both
+		// tiers, and it is slow while tier2 is down.
+		backupNames, err := f.scenario.listBackups(ctx, r)
+		require.NoError(t, err, "failed to list backups")
+		require.Len(t, backupNames, 1, "expected exactly one backup, got %v", backupNames)
+		oldestBackup := backupNames[0]
+
+		// Step 2: take tier2 down, so that the WALs archived from now on stay
+		// queued for the relay. The WALs already in tier1 are noted, to tell
+		// them apart from those.
+		t.Log("Making tier2 unreachable...")
+		restoreTier2 := f.scenario.cutTier2(ctx, t, r)
+		archivedBeforeOutage, err := f.scenario.getWALFilesInTier1(ctx, r)
+		require.NoError(t, err, "failed to get WAL files in tier1")
+
+		// Step 3: generate WAL activity so there are older WAL segments that a
 		// later retention pass could prune.
 		t.Log("Generating WAL activity...")
 		_, err = machineryPostgres.ExecPostgresQuery(
@@ -411,10 +472,9 @@ func (f *WALRetentionFeature) Run() types.StepFunc {
 			require.NoError(t, err, "failed to switch WAL on iteration %d", i)
 		}
 
-		// Step 3: second backup. Its completion triggers a server-side
-		// maintenance pass. Once the older backup is deleted, this backup's
-		// begin WAL becomes the retention frontier: retention may prune
-		// everything older, but only after those WALs reach tier2.
+		// Step 4: second backup. Once the older backup is deleted, this
+		// backup's begin WAL becomes the retention frontier: retention may
+		// prune everything older, but only after those WALs reach tier2.
 		t.Log("Creating second backup...")
 		secondBackup := f.scenario.backup.DeepCopy()
 		secondBackup.Name = "test-backup-2"
@@ -441,18 +501,37 @@ func (f *WALRetentionFeature) Run() types.StepFunc {
 		require.NotEmpty(t, walsOlderThan(walFiles, boundary),
 			"expected WAL segments older than the second backup begin WAL before retention advances")
 
-		// Step 4: delete the oldest backup so the retention point can advance to
+		// Among them, those archived during the outage are waiting to be
+		// relayed to tier2.
+		pendingRelay := slices.DeleteFunc(walsOlderThan(walFiles, boundary), func(walFile string) bool {
+			return slices.Contains(archivedBeforeOutage, walFile)
+		})
+		require.NotEmpty(t, pendingRelay,
+			"expected WAL segments archived during the tier2 outage older than the second backup begin WAL")
+
+		// Step 5: delete the oldest backup so the retention point can advance to
 		// the second backup's begin WAL.
 		t.Log("Deleting the oldest backup to advance the retention point...")
-		backupNames, err := f.scenario.listBackups(ctx, r)
-		require.NoError(t, err, "failed to list backups")
-		require.GreaterOrEqual(t, len(backupNames), 2,
-			"expected at least 2 backups, got %d: %v", len(backupNames), backupNames)
-		require.NoError(t, f.scenario.deleteBackup(ctx, r, backupNames[0]),
-			"failed to delete oldest backup %s", backupNames[0])
+		require.NoError(t, f.scenario.deleteBackup(ctx, r, oldestBackup),
+			"failed to delete oldest backup %s", oldestBackup)
 
-		// Step 5: a third backup triggers a fresh maintenance pass now that the
-		// oldest backup is gone and tier2 has had time to catch up.
+		// Step 6: tier2 is still down, so none of the WALs archived during the
+		// outage can have reached it. Tier1 retention must keep them all across
+		// at least one sweep, even though no remaining backup needs them.
+		t.Log("Checking that tier1 retention keeps the WALs pending relay to tier2...")
+		for deadline := time.Now().Add(walRetentionHoldCheck); time.Now().Before(deadline); {
+			walFiles, err = f.scenario.getWALFilesInTier1(ctx, r)
+			require.NoError(t, err, "failed to get WAL files in tier1")
+			require.Subset(t, walFiles, pendingRelay,
+				"tier1 retention removed WALs that have not reached tier2 yet")
+			time.Sleep(10 * time.Second)
+		}
+
+		t.Log("Making tier2 reachable again...")
+		restoreTier2()
+
+		// Step 7: a third backup triggers a fresh maintenance pass now that the
+		// oldest backup is gone and tier2 is back.
 		t.Log("Creating a third backup to trigger another maintenance pass...")
 		thirdBackup := f.scenario.backup.DeepCopy()
 		thirdBackup.Name = "test-backup-3"
@@ -465,11 +544,12 @@ func (f *WALRetentionFeature) Run() types.StepFunc {
 		)
 		require.NoError(t, err, "third backup not completed")
 
-		// Step 6: poll until server-side retention has pruned every WAL older
+		// Step 8: poll until server-side retention has pruned every WAL older
 		// than the retention frontier. This only happens once those WALs have
 		// been transferred to tier2, so it verifies both that retention runs
 		// automatically and that the queue-awareness clamp releases after the
-		// tier2 frontier advances.
+		// tier2 frontier advances. The relay resumes at its next attempt, which
+		// can be up to five minutes away.
 		t.Log("Waiting for server-side tier1 WAL retention to prune WALs older than the retention frontier...")
 		err = wait.For(
 			func(ctx context.Context) (bool, error) {
@@ -477,7 +557,7 @@ func (f *WALRetentionFeature) Run() types.StepFunc {
 				walFiles, err = f.scenario.getWALFilesInTier1(ctx, r)
 				return len(walsOlderThan(walFiles, boundary)) == 0, err
 			},
-			wait.WithTimeout(5*time.Minute),
+			wait.WithTimeout(10*time.Minute),
 			wait.WithInterval(10*time.Second),
 		)
 		require.NoError(t, err,
@@ -488,7 +568,11 @@ func (f *WALRetentionFeature) Run() types.StepFunc {
 		t.Logf("Server-side WAL retention verified: %d WAL files remain, all >= begin WAL %q",
 			len(walFiles), boundary)
 
-		// Step 7: the newest backup has been through a full maintenance pass by
+		// The WALs pruned above were relayed first: none of their tasks failed
+		// for a file missing from tier1.
+		assertNoFailedQueueTasks(ctx, t, r, f.scenario.namespace.Name, f.scenario.klioServer.Name)
+
+		// Step 9: the newest backup has been through a full maintenance pass by
 		// the time we get here. Verifying it now exercises real resolution by
 		// root object ID against a backup that mixes directory and file roots.
 		//

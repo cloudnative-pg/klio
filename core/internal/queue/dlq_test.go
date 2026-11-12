@@ -260,6 +260,136 @@ func TestWALConsumerPurgesDLQOnRetrySuccess(t *testing.T) {
 		"a successful retry must purge the dead-letter queue entry for the cluster and WAL")
 }
 
+func TestWALConsumerKeepsOneDLQEntryForFailedRetry(t *testing.T) {
+	ns, url := startNATSServer(t)
+	defer ns.Shutdown()
+
+	nc, err := nats.Connect(url)
+	require.NoError(t, err)
+	defer nc.Close()
+
+	ctx := t.Context()
+	conn, err := New(ctx, nc)
+	require.NoError(t, err)
+
+	js, err := jetstream.New(nc)
+	require.NoError(t, err)
+
+	handler := func(_ context.Context, _ *WALTask) error {
+		return fmt.Errorf("%w: file is gone", ErrPermanent)
+	}
+	go func() {
+		_ = conn.ConsumeWALReceivedMessages(ctx, handler)
+	}()
+
+	failedOnce := func() []FailedTask[WALTask] {
+		var failed []FailedTask[WALTask]
+		require.Eventually(t, func() bool {
+			var listErr error
+			failed, listErr = conn.ListFailedWALTasks(ctx)
+			return listErr == nil && len(failed) == 1
+		}, 10*time.Second, 50*time.Millisecond, "the WAL task must be dead-lettered")
+
+		return failed
+	}
+
+	publishWALMessage(t, js, "retry-cluster", false)
+	previous := failedOnce()[0].Sequence
+
+	// Every retry fails as well: its earlier entry and original are discarded
+	// and the retried message is dead-lettered in their place. The second
+	// retry checks that the entry left by the first one is discarded too.
+	for range 2 {
+		require.NoError(t, conn.RetryFailedWALTasks(ctx, WithCluster("retry-cluster")))
+		require.Eventually(t, func() bool {
+			failed, listErr := conn.ListFailedWALTasks(ctx)
+			if listErr != nil || len(failed) != 1 || failed[0].Sequence == previous {
+				return false
+			}
+			previous = failed[0].Sequence
+
+			return true
+		}, 10*time.Second, 50*time.Millisecond, "a failed retry must leave exactly one entry, its own")
+		assertQueueCounts(t, conn, klioWalStreamName, klioDLQWalStreamName, 1, 1)
+	}
+}
+
+func TestWALConsumerDeadLettersPermanentFailureAtOnce(t *testing.T) {
+	ns, url := startNATSServer(t)
+	defer ns.Shutdown()
+
+	nc, err := nats.Connect(url)
+	require.NoError(t, err)
+	defer nc.Close()
+
+	ctx := t.Context()
+	conn, err := New(ctx, nc)
+	require.NoError(t, err)
+
+	js, err := jetstream.New(nc)
+	require.NoError(t, err)
+
+	handler := func(_ context.Context, _ *WALTask) error {
+		return fmt.Errorf("%w: file is gone", ErrPermanent)
+	}
+	go func() {
+		_ = conn.ConsumeWALReceivedMessages(ctx, handler)
+	}()
+
+	publishWALMessage(t, js, "gone-cluster", false)
+
+	// Without the immediate redeliveries this would take the whole BackOff
+	// schedule (tens of minutes).
+	require.Eventually(t, func() bool {
+		failed, listErr := conn.ListFailedWALTasks(ctx)
+		return listErr == nil && len(failed) == 1 &&
+			failed[0].Task == WALTask{ClusterName: "gone-cluster", WALName: testWALName}
+	}, 10*time.Second, 50*time.Millisecond, "a permanently failed WAL task must be dead-lettered at once")
+}
+
+// TestOldestPendingWALKeepsDeadLetteredWAL verifies that a WAL whose task
+// used up its attempts is still reported as pending, so tier1 keeps it, until
+// the task is discarded.
+func TestOldestPendingWALKeepsDeadLetteredWAL(t *testing.T) {
+	ns, url := startNATSServer(t)
+	defer ns.Shutdown()
+
+	nc, err := nats.Connect(url)
+	require.NoError(t, err)
+	defer nc.Close()
+
+	ctx := t.Context()
+	conn, err := New(ctx, nc)
+	require.NoError(t, err)
+
+	js, err := jetstream.New(nc)
+	require.NoError(t, err)
+
+	handler := func(_ context.Context, _ *WALTask) error {
+		return fmt.Errorf("%w: file is gone", ErrPermanent)
+	}
+	go func() {
+		_ = conn.ConsumeWALReceivedMessages(ctx, handler)
+	}()
+
+	publishWALMessage(t, js, "gone-cluster", false)
+	require.Eventually(t, func() bool {
+		failed, listErr := conn.ListFailedWALTasks(ctx)
+		return listErr == nil && len(failed) == 1
+	}, 10*time.Second, 50*time.Millisecond, "the WAL task must be dead-lettered")
+
+	oldest, err := conn.OldestPendingWAL(ctx, "gone-cluster")
+	require.NoError(t, err)
+	assert.Equal(t, testWALName, oldest, "a dead-lettered WAL must still be pending")
+
+	_, err = conn.DiscardFailedWALTasks(ctx, WithCluster("gone-cluster"))
+	require.NoError(t, err)
+
+	oldest, err = conn.OldestPendingWAL(ctx, "gone-cluster")
+	require.NoError(t, err)
+	assert.Empty(t, oldest, "a discarded WAL must not be pending any more")
+}
+
 func TestWALConsumerSkipsDLQWithoutRetryMarker(t *testing.T) {
 	ns, url := startNATSServer(t)
 	defer ns.Shutdown()

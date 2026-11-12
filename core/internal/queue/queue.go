@@ -45,9 +45,8 @@ type Conn struct {
 }
 
 const (
-	klioBackupStreamName            = "klio-backup-stream"
-	klioWalStreamName               = "klio-wal-stream"
-	klioLatestUploadedWalStreamName = "klio-latest-uploaded-wal-per-cluster-stream"
+	klioBackupStreamName = "klio-backup-stream"
+	klioWalStreamName    = "klio-wal-stream"
 
 	klioDLQBackupStreamName = "klio-dlq-backup-stream"
 	klioDLQWalStreamName    = "klio-dlq-wal-stream"
@@ -60,7 +59,18 @@ const (
 	// startup when empty so the queue volume does not accumulate stale
 	// streams across upgrades.
 	legacyKlioStreamName = "KLIO"
+
+	// obsoleteLatestUploadedWalStreamName is the name of the stream that
+	// earlier versions used to record the latest WAL relayed to tier2 for
+	// each cluster. Nothing reads it, so it is deleted on startup.
+	obsoleteLatestUploadedWalStreamName = "klio-latest-uploaded-wal-per-cluster-stream"
 )
+
+// ErrPermanent marks a task handler failure that retrying cannot fix. A
+// handler returns an error wrapping it to have the message redelivered at
+// once instead of following the BackOff schedule, so that the task reaches
+// the dead-letter queue right away.
+var ErrPermanent = errors.New("permanent task failure")
 
 // heartbeatInterval is how often the consumer sends an InProgress ack while
 // a handler is still working. It must be lower than the smallest backoff
@@ -91,10 +101,6 @@ func walSubject(clusterName string) string {
 	return "klio.wal." + clusterName
 }
 
-func latestUploadedWalSubject(clusterName string) string {
-	return "klio.latest-uploaded-wal." + clusterName
-}
-
 // New creates a new queue client.
 func New(ctx context.Context, natsConnection *nats.Conn) (*Conn, error) {
 	result := &Conn{
@@ -118,6 +124,11 @@ func New(ctx context.Context, natsConnection *nats.Conn) (*Conn, error) {
 	pending, err := drainLegacyStream(ctx, js)
 	if err != nil {
 		return nil, err
+	}
+
+	if err := js.DeleteStream(ctx, obsoleteLatestUploadedWalStreamName); err != nil &&
+		!errors.Is(err, jetstream.ErrStreamNotFound) {
+		return nil, fmt.Errorf("while deleting the obsolete %q stream: %w", obsoleteLatestUploadedWalStreamName, err)
 	}
 
 	if err := result.configureStreams(ctx, js); err != nil {
@@ -351,10 +362,11 @@ type Status struct {
 }
 
 // internalConsumeMessages starts consuming messages and ends
-// when the context is canceled.
+// when the context is canceled. The handler receives the headers of the
+// message and its sequence in the stream.
 func internalConsumeMessages[T any](
 	ctx context.Context,
-	handler func(ctx context.Context, t *T, headers nats.Header) error,
+	handler func(ctx context.Context, t *T, headers nats.Header, streamSeq uint64) error,
 	consumer jetstream.Consumer,
 ) error {
 	logger := log.FromContext(ctx)
@@ -390,21 +402,9 @@ func internalConsumeMessages[T any](
 		}
 
 		err = internalRunTaskHandler(ctx, msg, func() error {
-			return handler(ctx, &task, msg.Headers())
+			return handler(ctx, &task, msg.Headers(), meta.Sequence.Stream)
 		})
-		if err != nil {
-			// We deliberately do not Nak the message: a plain Nak triggers
-			// immediate redelivery and ignores the consumer's BackOff schedule.
-			// Letting AckWait expire instead causes the server to use the
-			// configured BackOff entry for the current delivery attempt.
-			logger.Error(err, "Error while handling queue message, retrying", "task", &task)
-
-			return
-		}
-
-		if err := msg.Ack(); err != nil {
-			logger.Error(err, "Error while acking queue message, this message will be retried", "task", &task)
-		}
+		settleMessage(ctx, msg, &task, err)
 	}
 
 	consumerContext, consumerError := consumer.Consume(internalConsumer)
@@ -418,6 +418,39 @@ func internalConsumeMessages[T any](
 	consumerContext.Stop()
 
 	return nil
+}
+
+// settleMessage settles msg according to the outcome handlerErr of its
+// handler: acked on success, and otherwise left for redelivery, at once on a
+// permanent failure.
+func settleMessage(ctx context.Context, msg jetstream.Msg, task any, handlerErr error) {
+	logger := log.FromContext(ctx)
+
+	if handlerErr == nil {
+		if err := msg.Ack(); err != nil {
+			logger.Error(err, "Error while acking queue message, this message will be retried", "task", task)
+		}
+
+		return
+	}
+
+	logger.Error(handlerErr, "Error while handling queue message, retrying", "task", task)
+
+	// We deliberately do not Nak a message on a transient failure: a plain
+	// Nak triggers immediate redelivery and ignores the consumer's BackOff
+	// schedule. Letting AckWait expire instead causes the server to use the
+	// configured BackOff entry for the current delivery attempt.
+	//
+	// A permanent failure is the exception. Retrying cannot fix it, and
+	// following the BackOff schedule would only hold the consumer before
+	// dead-lettering the message. A plain Nak redelivers it at once, so it
+	// uses up its attempts quickly and reaches the dead-letter queue, where
+	// it is listed with the other failed tasks.
+	if errors.Is(handlerErr, ErrPermanent) {
+		if err := msg.Nak(); err != nil {
+			logger.Error(err, "Failed to nak queue message, this message will be retried", "task", task)
+		}
+	}
 }
 
 // internalRunTaskHandler runs handleMessage while a background goroutine sends
