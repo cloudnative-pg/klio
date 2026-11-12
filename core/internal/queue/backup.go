@@ -64,7 +64,7 @@ type BackupTaskHandler func(ctx context.Context, t *BackupTask) error
 func (q *Conn) ConsumeBackupReceivedMessages(ctx context.Context, handler BackupTaskHandler) error {
 	logger := log.FromContext(ctx).WithName("backup-consumer")
 
-	wrapped := func(ctx context.Context, t *BackupTask, headers nats.Header) error {
+	wrapped := func(ctx context.Context, t *BackupTask, headers nats.Header, _ uint64) error {
 		if isDLQRetry(headers) {
 			logger.Info(
 				"Retrying backup task re-enqueued from the dead-letter queue",

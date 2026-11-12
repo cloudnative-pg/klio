@@ -413,7 +413,7 @@ func TestInternalConsumeMessagesAcksOnSuccess(t *testing.T) {
 
 	var calls atomic.Int32
 	//nolint:unparam // must satisfy the WALTaskHandler signature
-	handler := func(_ context.Context, _ *WALTask, _ nats.Header) error {
+	handler := func(_ context.Context, _ *WALTask, _ nats.Header, _ uint64) error {
 		calls.Add(1)
 
 		return nil
@@ -452,7 +452,7 @@ func TestInternalConsumeMessagesTerminatesInvalidMessage(t *testing.T) {
 
 	var calls atomic.Int32
 	//nolint:unparam // must satisfy the WALTaskHandler signature
-	handler := func(_ context.Context, _ *WALTask, _ nats.Header) error {
+	handler := func(_ context.Context, _ *WALTask, _ nats.Header, _ uint64) error {
 		calls.Add(1)
 
 		return nil
@@ -495,7 +495,7 @@ func TestInternalConsumeMessagesRetriesPermanentFailureAtOnce(t *testing.T) {
 	js, consumer := newTestConsumer(t, nc, subject, maxDeliver, time.Minute)
 
 	var calls atomic.Int32
-	handler := func(_ context.Context, _ *WALTask, _ nats.Header) error {
+	handler := func(_ context.Context, _ *WALTask, _ nats.Header, _ uint64) error {
 		calls.Add(1)
 
 		return fmt.Errorf("%w: file is gone", ErrPermanent)
@@ -533,7 +533,7 @@ func TestInternalConsumeMessagesRetriesUntilMaxDeliver(t *testing.T) {
 	js, consumer := newTestConsumer(t, nc, subject, maxDeliver, 300*time.Millisecond)
 
 	var calls atomic.Int32
-	handler := func(_ context.Context, _ *WALTask, _ nats.Header) error {
+	handler := func(_ context.Context, _ *WALTask, _ nats.Header, _ uint64) error {
 		calls.Add(1)
 
 		return errors.New("boom")
@@ -708,7 +708,7 @@ func TestDLQCapturesMaxDeliveryAdvisory(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	handler := func(_ context.Context, _ *WALTask, _ nats.Header) error {
+	handler := func(_ context.Context, _ *WALTask, _ nats.Header, _ uint64) error {
 		return errors.New("boom")
 	}
 

@@ -294,16 +294,24 @@ func TestWALConsumerKeepsOneDLQEntryForFailedRetry(t *testing.T) {
 	}
 
 	publishWALMessage(t, js, "retry-cluster", false)
-	first := failedOnce()
+	previous := failedOnce()[0].Sequence
 
-	// The retry fails as well: its earlier entry and original are discarded
-	// and the retried message is dead-lettered in their place.
-	require.NoError(t, conn.RetryFailedWALTasks(ctx, WithCluster("retry-cluster")))
-	require.Eventually(t, func() bool {
-		failed, listErr := conn.ListFailedWALTasks(ctx)
-		return listErr == nil && len(failed) == 1 && failed[0].Sequence != first[0].Sequence
-	}, 10*time.Second, 50*time.Millisecond, "a failed retry must leave exactly one entry, its own")
-	assertQueueCounts(t, conn, klioWalStreamName, klioDLQWalStreamName, 1, 1)
+	// Every retry fails as well: its earlier entry and original are discarded
+	// and the retried message is dead-lettered in their place. The second
+	// retry checks that the entry left by the first one is discarded too.
+	for range 2 {
+		require.NoError(t, conn.RetryFailedWALTasks(ctx, WithCluster("retry-cluster")))
+		require.Eventually(t, func() bool {
+			failed, listErr := conn.ListFailedWALTasks(ctx)
+			if listErr != nil || len(failed) != 1 || failed[0].Sequence == previous {
+				return false
+			}
+			previous = failed[0].Sequence
+
+			return true
+		}, 10*time.Second, 50*time.Millisecond, "a failed retry must leave exactly one entry, its own")
+		assertQueueCounts(t, conn, klioWalStreamName, klioDLQWalStreamName, 1, 1)
+	}
 }
 
 func TestWALConsumerDeadLettersPermanentFailureAtOnce(t *testing.T) {

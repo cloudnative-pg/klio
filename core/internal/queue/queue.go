@@ -362,10 +362,11 @@ type Status struct {
 }
 
 // internalConsumeMessages starts consuming messages and ends
-// when the context is canceled.
+// when the context is canceled. The handler receives the headers of the
+// message and its sequence in the stream.
 func internalConsumeMessages[T any](
 	ctx context.Context,
-	handler func(ctx context.Context, t *T, headers nats.Header) error,
+	handler func(ctx context.Context, t *T, headers nats.Header, streamSeq uint64) error,
 	consumer jetstream.Consumer,
 ) error {
 	logger := log.FromContext(ctx)
@@ -401,7 +402,7 @@ func internalConsumeMessages[T any](
 		}
 
 		err = internalRunTaskHandler(ctx, msg, func() error {
-			return handler(ctx, &task, msg.Headers())
+			return handler(ctx, &task, msg.Headers(), meta.Sequence.Stream)
 		})
 		settleMessage(ctx, msg, &task, err)
 	}

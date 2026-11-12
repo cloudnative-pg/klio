@@ -62,11 +62,11 @@ type WALTaskHandler func(ctx context.Context, t *WALTask) error
 func (q *Conn) ConsumeWALReceivedMessages(ctx context.Context, handler WALTaskHandler) error {
 	logger := log.FromContext(ctx).WithName("wal-consumer")
 
-	// purged is the last retried task whose dead-letter queue entries were
-	// purged.
-	var purged WALTask
+	// purged is the stream sequence of the last retried message whose
+	// dead-letter queue entries were purged.
+	var purged uint64
 
-	wrapped := func(ctx context.Context, t *WALTask, headers nats.Header) error {
+	wrapped := func(ctx context.Context, t *WALTask, headers nats.Header, streamSeq uint64) error {
 		isRetried := isDLQRetry(headers)
 		if isRetried {
 			logger.Info(
@@ -87,10 +87,12 @@ func (q *Conn) ConsumeWALReceivedMessages(ctx context.Context, handler WALTaskHa
 		//
 		// A failing task is redelivered several times, and each purge lists
 		// the whole dead-letter queue, so the purge is skipped when the
-		// previous run already did it for the same task. Messages are
+		// previous run already did it for the same message. Messages are
 		// handled one at a time (MaxAckPending is 1), so the redeliveries of
-		// a task are consecutive.
-		if isRetried && (err == nil || *t != purged) {
+		// a message are consecutive. The message is told by its stream
+		// sequence, not by its task: a task retried again is a new message,
+		// and the entry its previous retry left must be purged too.
+		if isRetried && (err == nil || streamSeq != purged) {
 			if purgeErr := q.purgeWALDLQEntries(ctx, t.ClusterName, t.WALName); purgeErr != nil {
 				logger.Error(
 					purgeErr,
@@ -98,7 +100,7 @@ func (q *Conn) ConsumeWALReceivedMessages(ctx context.Context, handler WALTaskHa
 					"cluster", t.ClusterName, "wal", t.WALName,
 				)
 			} else {
-				purged = *t
+				purged = streamSeq
 			}
 		}
 
