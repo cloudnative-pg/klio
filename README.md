@@ -25,7 +25,7 @@ Documentation for Klio is available at
 ---
 
 <p align="center">
-Klio is part of CloudNativePG, a <a href="https://www.cncf.io/sandbox-projects/">Cloud Native Computing Foundation Sandbox project</a>.
+Klio is part of CloudNativePG, a <a href="https://www.cncf.io/projects/cloudnativepg/">Cloud Native Computing Foundation Incubating project</a>.
 </p>
 
 <p style="text-align:center;" align="center">
