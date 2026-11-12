@@ -10,7 +10,7 @@ work with any PostgreSQL setup.
 It consists of two main Go modules in a monorepo structure.
 
 Klio is part of the [CloudNativePG](https://cloudnative-pg.io) project, a
-Cloud Native Computing Foundation (CNCF) Sandbox project. Org-wide
+Cloud Native Computing Foundation (CNCF) Incubating project. Org-wide
 contribution guidelines, Code of Conduct, and the AI-assistance policy live in
 [`cloudnative-pg/governance`](https://github.com/cloudnative-pg/governance)
 and apply here as the baseline.
