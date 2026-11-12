@@ -657,11 +657,6 @@ tasks:
       - operator:controller-gen
     dir: operator
     run: once
-    env:
-      # renovate: datasource=git-refs depName=kustomize lookupName=https://github.com/sagikazarmark/daggerverse currentValue=main
-      DAGGER_KUSTOMIZE_SHA: ff27cd50f6b4eed2e3753c520632cd6099e1ce52
-      # renovate: datasource=docker depName=registry.k8s.io/kustomize/kustomize versioning=docker
-      KUSTOMIZE_IMAGE_VERSION: v5.8.3@sha256:429eda4a1c76a7de458d0c4ca3ded9b5d764899ff6bdaeccc1d98b1b6ee873e4
     cmds:
       # Generate the Helm chart for the operator.
       # Kubebuilder wants to generate the CRDs in the chart/templates/crd directory, but we want to
@@ -823,8 +818,10 @@ tasks:
       SIDECAR_IMAGE: '{{ .SIDECAR_IMAGE }}'
       # renovate: datasource=git-refs depName=kustomize lookupName=https://github.com/sagikazarmark/daggerverse currentValue=main
       DAGGER_KUSTOMIZE_SHA: ff27cd50f6b4eed2e3753c520632cd6099e1ce52
-      # renovate: datasource=github-releases depName=kubernetes-sigs/kustomize extractVersion=^kustomize/(?<version>.+)$
-      KUSTOMIZE_VERSION: v5.8.3
+      # Same image as operator/dagger/helmify. The module uses it as the tag of
+      # registry.k8s.io/kustomize/kustomize, so the digest pins it.
+      # renovate: datasource=docker depName=registry.k8s.io/kustomize/kustomize versioning=docker
+      KUSTOMIZE_IMAGE_VERSION: v5.8.3@sha256:429eda4a1c76a7de458d0c4ca3ded9b5d764899ff6bdaeccc1d98b1b6ee873e4
     cmds:
       - defer: rm -rf '{{.PATCHES_DIR}}'
       - mkdir -p '{{.PATCHES_DIR}}'
@@ -835,7 +832,7 @@ tasks:
         done
       - >
         GITHUB_REF= dagger -s call -m github.com/sagikazarmark/daggerverse/kustomize@${DAGGER_KUSTOMIZE_SHA}
-        --version ${KUSTOMIZE_VERSION}
+        --version ${KUSTOMIZE_IMAGE_VERSION}
         build --source config --dir olm
         export --path '{{.OUTPUT_DIR}}/manifest.yaml'
 
