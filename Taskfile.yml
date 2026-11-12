@@ -998,12 +998,14 @@ tasks:
         msg: >-
           bundle version {{ .GIT_TAG_VERSION }} does not match tag
           {{ .GITHUB_REF_NAME }}; refusing to publish an inconsistent bundle
+    dir: operator
     cmds:
       - defer: rm -rf olm-manifests
       - task: olm:kustomization
         vars:
           OPERATOR_IMAGE: '{{ .OPERATOR_IMAGE }}'
           SIDECAR_IMAGE: '{{ .SIDECAR_IMAGE }}'
+      - defer: rm -rf olm-bundle
       - task: olm:bundle:generate
         vars:
           PACKAGE_NAME: '{{ .PACKAGE_NAME }}'
