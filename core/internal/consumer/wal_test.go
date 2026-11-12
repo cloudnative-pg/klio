@@ -79,8 +79,9 @@ func TestWalHandlerRecordsErrorOnTier2UploadSpan(t *testing.T) {
 }
 
 // TestWalHandlerMissingTier1FileIsPermanent verifies that a WAL no longer on
-// tier1 fails with queue.ErrPermanent, so the task is dropped instead of being
-// retried through the whole backoff schedule for a file that won't return.
+// tier1 fails with queue.ErrPermanent, so the task is dead-lettered at once
+// instead of being retried through the whole backoff schedule for a file that
+// won't return.
 func TestWalHandlerMissingTier1FileIsPermanent(t *testing.T) {
 	opts := repository.Options{FS: afero.NewMemMapFs(), Password: "this-password"}
 	require.NoError(t, repository.Initialize(opts))
@@ -120,6 +121,54 @@ func TestWalHandlerEmptyTier1FileIsRetried(t *testing.T) {
 	err = w.walHandler(t.Context(), &queue.WALTask{ClusterName: clusterName, WALName: walName})
 	require.ErrorIs(t, err, repository.ErrEmptyWALFile)
 	require.NotErrorIs(t, err, queue.ErrPermanent)
+}
+
+// TestWalHandlerSupersededPartialSucceeds verifies that a .partial task whose
+// file is gone from tier1 succeeds when its completed segment exists in tier1:
+// the segment is relayed by its own task, so nothing is lost. Without the
+// completed segment the .partial is lost and the task fails permanently.
+func TestWalHandlerSupersededPartialSucceeds(t *testing.T) {
+	const (
+		clusterName = "cluster-example"
+		segmentName = "000000010000000000000003"
+		partialName = segmentName + ".partial"
+	)
+
+	newRepo := func(t *testing.T) *repository.Connection {
+		t.Helper()
+		opts := repository.Options{FS: afero.NewMemMapFs(), Password: "this-password"}
+		require.NoError(t, repository.Initialize(opts))
+		conn, err := repository.Open(opts)
+		require.NoError(t, err)
+		t.Cleanup(conn.Close)
+
+		return conn
+	}
+	writeSegment := func(t *testing.T, conn *repository.Connection) {
+		t.Helper()
+		writer, err := conn.NewWriter(repository.WriterOptions{
+			ClusterName: clusterName,
+			WALName:     segmentName,
+			SegmentSize: 16,
+		})
+		require.NoError(t, err)
+		require.NoError(t, writer.WriteBlock(t.Context(), []byte("segment-data")))
+		require.NoError(t, writer.CloseMarkDone())
+	}
+	task := &queue.WALTask{ClusterName: clusterName, WALName: partialName}
+
+	t.Run("segment in tier1", func(t *testing.T) {
+		tier1 := newRepo(t)
+		writeSegment(t, tier1)
+
+		w := NewWAL(&WALOptions{Tier1: tier1, Tier2: newRepo(t)})
+		require.NoError(t, w.walHandler(t.Context(), task))
+	})
+
+	t.Run("segment missing", func(t *testing.T) {
+		w := NewWAL(&WALOptions{Tier1: newRepo(t), Tier2: newRepo(t)})
+		require.ErrorIs(t, w.walHandler(t.Context(), task), queue.ErrPermanent)
+	})
 }
 
 // TestWalHandlerArchivesPartialWALFile verifies that a WAL segment left on

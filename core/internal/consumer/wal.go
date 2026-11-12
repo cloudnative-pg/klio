@@ -120,12 +120,10 @@ func (d *WAL) walHandler(ctx context.Context, task *queue.WALTask) (returnErr er
 	)
 	if errors.Is(err, os.ErrNotExist) && !errors.Is(err, repository.ErrEmptyWALFile) {
 		// The file is gone from tier1 and will not come back, so retrying is
-		// pointless. This happens legitimately to a .partial task whose
-		// segment was later completed (and renamed), and that segment is
-		// relayed by its own task. An empty file is still being written (the
-		// WAL server truncates a .partial file when it is sent again), so it
-		// is retried instead.
-		return fmt.Errorf("%w: WAL file %q is no longer in tier1: %w", queue.ErrPermanent, task.WALName, err)
+		// pointless. An empty file is still being written (the WAL server
+		// truncates a .partial file when it is sent again), so it is retried
+		// instead.
+		return d.handleMissingTier1File(ctx, task, err)
 	}
 	if err != nil {
 		return fmt.Errorf("while creating a new WAL reader: %w", err)
@@ -185,6 +183,29 @@ func (d *WAL) walHandler(ctx context.Context, task *queue.WALTask) (returnErr er
 	}
 
 	return nil
+}
+
+// handleMissingTier1File handles a task whose WAL file is no longer in tier1.
+// A .partial file that was later completed is relayed by the completed
+// segment's own task, so the task succeeds. Any other missing file is lost,
+// so the task fails with queue.ErrPermanent.
+func (d *WAL) handleMissingTier1File(ctx context.Context, task *queue.WALTask, readErr error) error {
+	if wal.IsPartialWALFile(task.WALName) {
+		segment := wal.TrimPartialSuffix(task.WALName)
+		exists, err := d.opts.Tier1.IsWALFileExisting(task.ClusterName, segment)
+		if err != nil {
+			return fmt.Errorf("while checking whether WAL segment %q exists: %w", segment, err)
+		}
+		if exists {
+			log.FromContext(ctx).Info(
+				"Skipping a .partial WAL file superseded by its completed segment",
+				"cluster", task.ClusterName, "wal", task.WALName, "segment", segment)
+
+			return nil
+		}
+	}
+
+	return fmt.Errorf("%w: WAL file %q is no longer in tier1: %w", queue.ErrPermanent, task.WALName, readErr)
 }
 
 // recordArchivedWALMetrics emits the per-WAL gauges and counters that

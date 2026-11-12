@@ -38,9 +38,13 @@ backup verification is not redelivered just because it takes long. When the
 attempts are exhausted, the queue stops delivering the task and files a
 dead-letter queue entry for it — see below.
 
-The server does not retry a WAL archiving task whose segment is no longer in
-the Tier 1 archive, because the segment cannot come back. It drops the task
-at once and logs an error, and the segment stays missing from Tier 2.
+A WAL archiving task whose file is no longer in the Tier 1 archive cannot
+succeed, because the file cannot come back. The server uses up its attempts
+at once, without waiting for the retry delays, so the task reaches the
+dead-letter queue right away, and the file stays missing from Tier 2. The
+exception is a `.partial` file whose completed segment is already in Tier 1:
+the completed segment replaces it, so nothing is lost and the task ends
+without an error.
 
 ## Monitoring the Queue
 
@@ -67,7 +71,9 @@ If the failure was transient — for example, the Tier 2 object store was
 unreachable — re-enqueue the failed tasks with `klio admin queue wal retry`
 and `klio admin queue backup retry`. Re-enqueued tasks are delivered like
 new ones, with a fresh attempt budget, and when a retried task succeeds the
-server removes its dead-letter entries on its own.
+server removes its dead-letter entries on its own. A retried WAL task has its
+earlier entries removed even when it fails again: if it then uses up its
+attempts, it is dead-lettered with a single new entry.
 
 While a WAL task is queued, being retried or in the dead-letter queue, Tier 1
 retention keeps that segment and every later one of the same cluster, so they

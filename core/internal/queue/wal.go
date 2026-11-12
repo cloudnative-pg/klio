@@ -58,10 +58,13 @@ func (q *Conn) NotifyWALReceived(ctx context.Context, task *WALTask) error {
 type WALTaskHandler func(ctx context.Context, t *WALTask) error
 
 // ConsumeWALReceivedMessages starts consuming the WAL received messages and ends
-// when the context is canceled. After a successful handler run, the WAL is
-// recorded as the latest uploaded WAL for its cluster.
+// when the context is canceled.
 func (q *Conn) ConsumeWALReceivedMessages(ctx context.Context, handler WALTaskHandler) error {
 	logger := log.FromContext(ctx).WithName("wal-consumer")
+
+	// purged is the last retried task whose dead-letter queue entries were
+	// purged.
+	var purged WALTask
 
 	wrapped := func(ctx context.Context, t *WALTask, headers nats.Header) error {
 		isRetried := isDLQRetry(headers)
@@ -72,58 +75,34 @@ func (q *Conn) ConsumeWALReceivedMessages(ctx context.Context, handler WALTaskHa
 			)
 		}
 
-		if err := handler(ctx, t); err != nil {
-			// A permanently failed retry will never succeed: release the
-			// dead-lettered original too, or it would stay in the WAL stream
-			// and hold back tier1 WAL retention (see OldestPendingWAL).
-			if isRetried && errors.Is(err, ErrPermanent) {
-				if purgeErr := q.purgeWALDLQEntries(ctx, t.ClusterName, t.WALName); purgeErr != nil {
-					logger.Error(
-						purgeErr,
-						"Failed to purge WAL dead-letter queue entries after a permanent failure",
-						"cluster", t.ClusterName, "wal", t.WALName,
-					)
-				}
-			}
+		err := handler(ctx, t)
 
-			return err
-		}
-
-		// The task's cluster name is never empty: the WAL server rejects
-		// empty cluster names before enqueuing the task, and
+		// Once a retried task has run, its earlier dead-letter queue entries
+		// are redundant whatever the outcome: it either succeeded, or it is
+		// retried and, if it keeps failing, dead-lettered again with a fresh
+		// entry. Discarding them also releases their original from the WAL
+		// stream. The task's cluster name is never empty: the WAL server
+		// rejects empty cluster names before enqueuing the task, and
 		// purgeWALDLQEntries needs it to select the entries to discard.
-		if isRetried {
-			if err := q.purgeWALDLQEntries(ctx, t.ClusterName, t.WALName); err != nil {
+		//
+		// A failing task is redelivered several times, and each purge lists
+		// the whole dead-letter queue, so the purge is skipped when the
+		// previous run already did it for the same task. Messages are
+		// handled one at a time (MaxAckPending is 1), so the redeliveries of
+		// a task are consecutive.
+		if isRetried && (err == nil || *t != purged) {
+			if purgeErr := q.purgeWALDLQEntries(ctx, t.ClusterName, t.WALName); purgeErr != nil {
 				logger.Error(
-					err,
-					"Failed to purge WAL dead-letter queue entries after successful retry",
+					purgeErr,
+					"Failed to purge WAL dead-letter queue entries of a retried task",
 					"cluster", t.ClusterName, "wal", t.WALName,
 				)
+			} else {
+				purged = *t
 			}
 		}
 
-		if !wal.IsWALSegmentOrPartial(t.WALName) {
-			return nil
-		}
-
-		// Record the latest WAL relayed to tier2 for each cluster. It is only
-		// reported through the queue metrics: it can't guard retention, as a
-		// later WAL can be relayed while an earlier one is still failing (tier1
-		// retention uses OldestPendingWAL instead).
-		if err := q.notifyMessage(
-			ctx,
-			latestUploadedWalSubject(t.ClusterName),
-			t,
-			nil,
-		); err != nil {
-			log.FromContext(ctx).Error(
-				err,
-				"Failed to record latest uploaded WAL",
-				"task", t,
-			)
-		}
-
-		return nil
+		return err
 	}
 
 	return internalConsumeMessages(ctx, wrapped, q.walConsumer)
@@ -133,11 +112,15 @@ func (q *Conn) ConsumeWALReceivedMessages(ctx context.Context, handler WALTaskHa
 // clusterName still has in the WAL stream, or "" if none. These WALs have not
 // reached tier2 yet, so tier1 must keep them. Every task is checked because
 // DLQ retries are re-published at the end of the stream with an older WAL.
+//
+// ponytail: one request per pending message, per cluster, per sweep. Fine up
+// to tens of thousands of pending WALs. If a sweep gets slow, put the WAL
+// name in the subject (klio.wal.<cluster>.<wal>) and read the pending names
+// from one stream Info call with a subject filter.
 func (m *StreamManager) OldestPendingWAL(ctx context.Context, clusterName string) (string, error) {
+	// A missing stream is an error too: reporting no pending WAL would let
+	// retention remove WALs that may still have to be relayed.
 	stream, err := m.js.Stream(ctx, klioWalStreamName)
-	if errors.Is(err, jetstream.ErrStreamNotFound) {
-		return "", nil
-	}
 	if err != nil {
 		return "", fmt.Errorf("while loading the WAL stream: %w", err)
 	}

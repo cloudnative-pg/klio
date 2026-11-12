@@ -297,12 +297,9 @@ func TestStreamIsolation(t *testing.T) {
 	assert.Equal(t, uint64(1), backupInfo.State.Msgs, "backup stream should have exactly 1 message")
 }
 
-// TestWALConsumerSkipsLatestUploadedMarkerForNonSegment verifies that
-// ConsumeWALReceivedMessages only records the latest-uploaded-WAL marker for
-// real WAL segments (and their .partial variant): a task carrying a timeline
-// history file name must be processed successfully but must not overwrite the
-// marker, since a history file name carries no LSN.
-func TestWALConsumerSkipsLatestUploadedMarkerForNonSegment(t *testing.T) {
+// TestNewDeletesObsoleteLatestUploadedStream verifies that New deletes the
+// latest-uploaded-WAL stream left by earlier versions, which nothing reads.
+func TestNewDeletesObsoleteLatestUploadedStream(t *testing.T) {
 	ns, url := startNATSServer(t)
 	defer ns.Shutdown()
 
@@ -311,46 +308,20 @@ func TestWALConsumerSkipsLatestUploadedMarkerForNonSegment(t *testing.T) {
 	defer nc.Close()
 
 	ctx := t.Context()
-	conn, err := New(ctx, nc)
-	require.NoError(t, err)
-
-	const (
-		clusterName = "history-cluster"
-		segmentName = "000000010000000000000001"
-		historyName = "00000002.history"
-	)
-
-	require.NoError(t, conn.NotifyWALReceived(ctx, &WALTask{
-		ClusterName: clusterName,
-		WALName:     segmentName,
-	}))
-	require.NoError(t, conn.NotifyWALReceived(ctx, &WALTask{
-		ClusterName: clusterName,
-		WALName:     historyName,
-	}))
-
-	handler := func(_ context.Context, _ *WALTask) error { return nil }
-	go func() {
-		_ = conn.ConsumeWALReceivedMessages(ctx, handler)
-	}()
-
-	require.Eventually(t, func() bool {
-		info, infoErr := streamHandle(ctx, t, conn.conn, klioWalStreamName).Info(ctx)
-		return infoErr == nil && info.State.Msgs == 0
-	}, 5*time.Second, 25*time.Millisecond,
-		"both the segment and the history file tasks must be processed")
-
 	js, err := jetstream.New(nc)
 	require.NoError(t, err)
-	stream, err := js.Stream(ctx, klioLatestUploadedWalStreamName)
-	require.NoError(t, err)
-	msg, err := stream.GetLastMsgForSubject(ctx, latestUploadedWalSubject(clusterName))
+
+	_, err = js.CreateStream(ctx, jetstream.StreamConfig{
+		Name:     obsoleteLatestUploadedWalStreamName,
+		Subjects: []string{"klio.latest-uploaded-wal.*"},
+	})
 	require.NoError(t, err)
 
-	var latest WALTask
-	require.NoError(t, json.Unmarshal(msg.Data, &latest))
-	assert.Equal(t, segmentName, latest.WALName,
-		"the history file task must not overwrite the latest-uploaded-WAL marker")
+	_, err = New(ctx, nc)
+	require.NoError(t, err)
+
+	_, err = js.Stream(ctx, obsoleteLatestUploadedWalStreamName)
+	require.ErrorIs(t, err, jetstream.ErrStreamNotFound)
 }
 
 // TestConsumerRetryConfig pins the bounded-retry configuration of the
@@ -509,7 +480,7 @@ func TestInternalConsumeMessagesTerminatesInvalidMessage(t *testing.T) {
 	assert.Equal(t, int32(0), calls.Load(), "handler must not run for an invalid message")
 }
 
-func TestInternalConsumeMessagesTerminatesPermanentFailure(t *testing.T) {
+func TestInternalConsumeMessagesRetriesPermanentFailureAtOnce(t *testing.T) {
 	ns, url := startNATSServer(t)
 	defer ns.Shutdown()
 
@@ -517,8 +488,11 @@ func TestInternalConsumeMessagesTerminatesPermanentFailure(t *testing.T) {
 	require.NoError(t, err)
 	defer nc.Close()
 
+	// An AckWait far longer than the test: only an immediate redelivery can
+	// use up the attempts in time.
 	const subject = "test.permanent"
-	js, consumer := newTestConsumer(t, nc, subject, 5, 300*time.Millisecond)
+	const maxDeliver = 5
+	js, consumer := newTestConsumer(t, nc, subject, maxDeliver, time.Minute)
 
 	var calls atomic.Int32
 	handler := func(_ context.Context, _ *WALTask, _ nats.Header) error {
@@ -537,19 +511,13 @@ func TestInternalConsumeMessagesTerminatesPermanentFailure(t *testing.T) {
 	_, err = js.Publish(ctx, subject, payload)
 	require.NoError(t, err)
 
-	stream, err := js.Stream(ctx, "test-stream")
-	require.NoError(t, err)
-
 	require.Eventually(t, func() bool {
-		info, infoErr := stream.Info(ctx)
-		require.NoError(t, infoErr)
+		return calls.Load() == int32(maxDeliver)
+	}, 5*time.Second, 20*time.Millisecond, "a permanently failed message must use up its attempts at once")
 
-		return info.State.Msgs == 0
-	}, 2*time.Second, 20*time.Millisecond, "a permanently failed message must leave the work queue")
-
-	// Give a redelivery window a chance to (incorrectly) fire.
-	time.Sleep(time.Second)
-	assert.Equal(t, int32(1), calls.Load(), "a permanently failed message must not be retried")
+	// Once the attempts are used up the message is not delivered again.
+	time.Sleep(500 * time.Millisecond)
+	assert.Equal(t, int32(maxDeliver), calls.Load())
 }
 
 func TestInternalConsumeMessagesRetriesUntilMaxDeliver(t *testing.T) {

@@ -463,3 +463,7 @@ After upgrading, run `klio admin queue wal list-failed`. A cluster with failed
 WAL tasks keeps its Tier 1 WAL files from the oldest failed one on, so retry
 those tasks with `klio admin queue wal retry`, or discard the ones that cannot
 succeed with `klio admin queue wal discard`.
+
+The server also deletes the `klio-latest-uploaded-wal-per-cluster-stream`
+queue stream on startup, as nothing uses it anymore, so
+`klio.server.queue.messages` and `klio.server.queue.bytes` stop reporting it.

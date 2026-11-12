@@ -260,7 +260,7 @@ func TestWALConsumerPurgesDLQOnRetrySuccess(t *testing.T) {
 		"a successful retry must purge the dead-letter queue entry for the cluster and WAL")
 }
 
-func TestWALConsumerPurgesDLQOnPermanentRetryFailure(t *testing.T) {
+func TestWALConsumerKeepsOneDLQEntryForFailedRetry(t *testing.T) {
 	ns, url := startNATSServer(t)
 	defer ns.Shutdown()
 
@@ -275,11 +275,51 @@ func TestWALConsumerPurgesDLQOnPermanentRetryFailure(t *testing.T) {
 	js, err := jetstream.New(nc)
 	require.NoError(t, err)
 
-	// As in TestWALConsumerPurgesDLQOnRetrySuccess, the advisory points at the
-	// retried task itself: the purge runs inside the handler, before the
-	// message is terminated, so it releases both.
-	retrySeq := publishWALMessage(t, js, "retry-cluster", true)
-	seedDLQAdvisory(t, js, klioWalStreamName, klioWalConsumerName, retrySeq)
+	handler := func(_ context.Context, _ *WALTask) error {
+		return fmt.Errorf("%w: file is gone", ErrPermanent)
+	}
+	go func() {
+		_ = conn.ConsumeWALReceivedMessages(ctx, handler)
+	}()
+
+	failedOnce := func() []FailedTask[WALTask] {
+		var failed []FailedTask[WALTask]
+		require.Eventually(t, func() bool {
+			var listErr error
+			failed, listErr = conn.ListFailedWALTasks(ctx)
+			return listErr == nil && len(failed) == 1
+		}, 10*time.Second, 50*time.Millisecond, "the WAL task must be dead-lettered")
+
+		return failed
+	}
+
+	publishWALMessage(t, js, "retry-cluster", false)
+	first := failedOnce()
+
+	// The retry fails as well: its earlier entry and original are discarded
+	// and the retried message is dead-lettered in their place.
+	require.NoError(t, conn.RetryFailedWALTasks(ctx, WithCluster("retry-cluster")))
+	require.Eventually(t, func() bool {
+		failed, listErr := conn.ListFailedWALTasks(ctx)
+		return listErr == nil && len(failed) == 1 && failed[0].Sequence != first[0].Sequence
+	}, 10*time.Second, 50*time.Millisecond, "a failed retry must leave exactly one entry, its own")
+	assertQueueCounts(t, conn, klioWalStreamName, klioDLQWalStreamName, 1, 1)
+}
+
+func TestWALConsumerDeadLettersPermanentFailureAtOnce(t *testing.T) {
+	ns, url := startNATSServer(t)
+	defer ns.Shutdown()
+
+	nc, err := nats.Connect(url)
+	require.NoError(t, err)
+	defer nc.Close()
+
+	ctx := t.Context()
+	conn, err := New(ctx, nc)
+	require.NoError(t, err)
+
+	js, err := jetstream.New(nc)
+	require.NoError(t, err)
 
 	handler := func(_ context.Context, _ *WALTask) error {
 		return fmt.Errorf("%w: file is gone", ErrPermanent)
@@ -288,18 +328,15 @@ func TestWALConsumerPurgesDLQOnPermanentRetryFailure(t *testing.T) {
 		_ = conn.ConsumeWALReceivedMessages(ctx, handler)
 	}()
 
-	// A dead-lettered original is never delivered again, so unless it is
-	// released it would hold back tier1 WAL retention forever.
-	require.Eventually(t, func() bool {
-		info, infoErr := streamHandle(ctx, t, conn.conn, klioDLQWalStreamName).Info(ctx)
-		return infoErr == nil && info.State.Msgs == 0
-	}, 5*time.Second, 50*time.Millisecond,
-		"a permanently failed retry must purge its dead-letter queue entry")
-	assertQueueCounts(t, conn, klioWalStreamName, klioDLQWalStreamName, 0, 0)
+	publishWALMessage(t, js, "gone-cluster", false)
 
-	oldest, err := conn.OldestPendingWAL(ctx, "retry-cluster")
-	require.NoError(t, err)
-	assert.Empty(t, oldest)
+	// Without the immediate redeliveries this would take the whole BackOff
+	// schedule (tens of minutes).
+	require.Eventually(t, func() bool {
+		failed, listErr := conn.ListFailedWALTasks(ctx)
+		return listErr == nil && len(failed) == 1 &&
+			failed[0].Task == WALTask{ClusterName: "gone-cluster", WALName: testWALName}
+	}, 10*time.Second, 50*time.Millisecond, "a permanently failed WAL task must be dead-lettered at once")
 }
 
 func TestWALConsumerSkipsDLQWithoutRetryMarker(t *testing.T) {

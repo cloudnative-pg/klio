@@ -355,9 +355,8 @@ func TestListFailedBackupTasksMissingSourceMessage(t *testing.T) {
 func TestOldestPendingWALMissingStream(t *testing.T) {
 	mgr := newBareManager(t)
 
-	oldest, err := mgr.OldestPendingWAL(t.Context(), "cluster-a")
-	require.NoError(t, err)
-	assert.Empty(t, oldest)
+	_, err := mgr.OldestPendingWAL(t.Context(), "cluster-a")
+	require.ErrorIs(t, err, jetstream.ErrStreamNotFound)
 }
 
 func TestOldestPendingWALEmpty(t *testing.T) {
