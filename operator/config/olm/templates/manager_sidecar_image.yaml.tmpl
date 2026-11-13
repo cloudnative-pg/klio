@@ -1,0 +1,13 @@
+# Bake the operand (sidecar) image into the operator Deployment as the
+# SIDECAR_IMAGE env var, so OLM Subscriptions do not need to set it.
+#
+# RELATED_IMAGE_SIDECAR carries the same value under the name OLM tooling
+# recognizes: operator-sdk's --use-image-digests only discovers container
+# images and RELATED_IMAGE_* env vars.
+- op: add
+  path: /spec/template/spec/containers/0/env
+  value:
+    - name: SIDECAR_IMAGE
+      value: ${SIDECAR_IMAGE}
+    - name: RELATED_IMAGE_SIDECAR
+      value: ${SIDECAR_IMAGE}

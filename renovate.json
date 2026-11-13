@@ -62,6 +62,15 @@
     {
       "customType": "regex",
       "managerFilePatterns": [
+        "operator/config/olm/scorecard/patches/*.yaml"
+      ],
+      "matchStrings": [
+        "#\\s*renovate:\\s*datasource=(?<datasource>[a-z-.]+?)\\s+depName=(?<depName>[^\\s]+?)(?:\\s+versioning=(?<versioning>[^\\s]+?))?\\s*\\n\\s*#\\s*Version:\\s*(?<currentValue>[^\\s]+?)\\s*\\n\\s*image:\\s*[^@\\s]+@(?<currentDigest>sha256:[a-f0-9]+)"
+      ]
+    },
+    {
+      "customType": "regex",
+      "managerFilePatterns": [
         "*/dagger/*/main.go",
         "*/docker-bake.hcl",
         "operator/test/utils/templates/rustfs/rustfs.go",
