@@ -134,6 +134,9 @@ const (
 	// AttributeKeyTier is the attribute key for the storage tier (tier1 or tier2)
 	// in a tiered metric.
 	AttributeKeyTier AttributeKey = "tier"
+	// AttributeKeyStatus is the attribute key for the status of an
+	// incomplete backup (PENDING, RECOVERABLE or UNRECOVERABLE).
+	AttributeKeyStatus AttributeKey = "status"
 	// AttributeKeyStage is the attribute key for the pipeline stage of a
 	// per-block WAL duration histogram (receive, wrap, write, flush, read,
 	// unwrap, send).

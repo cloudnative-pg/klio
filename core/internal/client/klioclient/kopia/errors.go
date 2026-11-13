@@ -39,6 +39,27 @@ func (err NoBackupFoundError) Error() string {
 	return fmt.Sprintf("backup %q for host %q not found", err.backupName, err.hostName)
 }
 
+// IncompleteBackupError is raised when a backup has a metadata snapshot but
+// misses some of its other snapshots on this tier.
+type IncompleteBackupError struct {
+	hostName     string
+	backupName   string
+	missingParts []string
+}
+
+func newIncompleteBackupError(hostName string, backupName string, missingParts []string) IncompleteBackupError {
+	return IncompleteBackupError{
+		hostName:     hostName,
+		backupName:   backupName,
+		missingParts: missingParts,
+	}
+}
+
+func (err IncompleteBackupError) Error() string {
+	return fmt.Sprintf("backup %q for host %q is incomplete, missing %v",
+		err.backupName, err.hostName, err.missingParts)
+}
+
 // NoSnapshotFoundError is raised when the requested snapshot has not been found
 // in the Kopia manifests store.
 type NoSnapshotFoundError struct {

@@ -38,6 +38,12 @@ type mockClient struct {
 	klioclient.Client
 
 	deleteBackupFunc func(ctx context.Context, hostname string, name string) error
+	backups          klioclient.BackupList
+	incomplete       []klioclient.IncompleteBackup
+}
+
+func (m *mockClient) ListIncompleteBackups(_ context.Context, _ string) ([]klioclient.IncompleteBackup, error) {
+	return m.incomplete, nil
 }
 
 func (m *mockClient) DeleteBackup(ctx context.Context, hostname string, name string) error {
@@ -51,7 +57,7 @@ func (m *mockClient) DeleteBackup(ctx context.Context, hostname string, name str
 func (m *mockClient) Close(_ context.Context) {}
 
 func (m *mockClient) ListBackups(_ context.Context, _ string) (klioclient.BackupList, error) {
-	return nil, nil
+	return m.backups, nil
 }
 
 func (m *mockClient) GetMetadata(_ context.Context, _ string, _ string) (*klioclient.BackupMetadata, error) {
@@ -65,8 +71,8 @@ func TestDeleteBackup(t *testing.T) {
 	tests := []struct {
 		name         string
 		req          *klioGRPC.DeleteBackupRequest
-		tier1        klioclient.Client
-		tier2        klioclient.Client
+		tier1        tierClient
+		tier2        tierClient
 		expectedCode codes.Code
 		expectedMsg  string
 	}{

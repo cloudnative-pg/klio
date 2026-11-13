@@ -37,7 +37,7 @@ func (s *Connection) RestoreTablespace(
 ) error {
 	source, err := s.getSnapshotID(ctx, map[string]string{
 		klioclient.BackupContentTagName:  "tablespace",
-		klioclient.TablespaceNameTagName: tbl.Name,
+		klioclient.TablespaceNameTagName: tablespaceTagValue(tbl),
 		klioclient.BackupNameTagName:     metadata.Name,
 	})
 	if err != nil {

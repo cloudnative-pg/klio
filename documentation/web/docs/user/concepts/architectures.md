@@ -147,6 +147,8 @@ The sweep checks Tier 2's current
 backup list at evaluation time before deleting anything from Tier 1, so a
 backup that is still being migrated is always left alone regardless of what
 the retention policy would otherwise decide.
+A backup counts as present on Tier 2 only once all of its snapshots are
+there.
 
 This ensures data integrity during the asynchronous migration process and
 guarantees that no backup is lost due to retention policies running before

@@ -79,6 +79,7 @@ IfNotPresent
 ImageConfiguration
 ImagePullPolicy
 ImagePullSecrets
+IncompleteBackup
 JSON
 Jaeger
 JetStream
@@ -173,6 +174,7 @@ QueueRetryWALsRequest
 QueueStatus
 QueueStatusRequest
 QueueStatusResponse
+RECOVERABLE
 RPO
 ReadOnly
 RefreshRequest
@@ -222,6 +224,7 @@ TrueClass
 UBI
 UID
 UIDs
+UNRECOVERABLE
 UTF
 Unreferenced
 UpDownCounter
@@ -250,6 +253,7 @@ backend
 backends
 backupID
 backupId
+backupName
 benchmarking
 bool
 certmanager
@@ -257,11 +261,13 @@ clientCa
 clientSecret
 clientTlsIdentity
 clusterDomain
+clusterName
 cnpg
 config
 configMap
 containerSecurityContext
 contrib
+controldata
 controllerManager
 crd
 createMetricsCertificate
@@ -290,6 +296,7 @@ fileReference
 filesystem
 fullnameOverride
 gRPC
+gauge
 ghcr
 github
 goroutines
@@ -321,8 +328,10 @@ localhost
 lsn
 mTLS
 md
+metadataPresent
 metricsService
 metricsServiceSecret
+missingParts
 nameOverride
 namespace
 namespace's
@@ -357,6 +366,7 @@ pullSecrets
 quickstart
 readinessProbe
 recompressed
+relayed
 renewBefore
 restorable
 rollout
@@ -371,10 +381,12 @@ sessionToken
 sfixed
 sint
 snapshotted
+startedAt
 str
 subdirectories
 subdirectory
 subprocess
+tablespace
 tablespaces
 teardown
 toc
