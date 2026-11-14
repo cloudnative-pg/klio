@@ -59,7 +59,7 @@ Install the chart:
 ```sh
 helm install klio-operator \
   oci://ghcr.io/cloudnative-pg/klio-operator-chart \
-  --version 0.0.21 \
+  --version 0.1.0 \
   --namespace cnpg-system \
   -f values.yaml
 ```
@@ -280,7 +280,7 @@ metadata:
   name: klio-server
   namespace: default
 spec:
-  image: ghcr.io/cloudnative-pg/klio:v0.0.21
+  image: ghcr.io/cloudnative-pg/klio:v0.1.0
 
   # TLS identity presented to clients. Both files come from a
   # single volume so the pair always belongs together — never

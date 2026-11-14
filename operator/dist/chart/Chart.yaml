@@ -10,8 +10,8 @@ keywords:
   - backup
   - CloudNativePG
 type: application
-version: 0.0.21
-appVersion: 0.0.21
+version: 0.1.0
+appVersion: 0.1.0
 home: https://github.com/cloudnative-pg/klio
 maintainers:
   - name: fcanovai

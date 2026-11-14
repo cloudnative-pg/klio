@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.1.0](https://github.com/cloudnative-pg/klio/compare/v0.0.21...v0.1.0) (2026-11-14)
+
+
+### Bug Fixes
+
+* **deps:** Update all non-major go dependencies ([@renovate](https://github.com/renovate)[bot]) ([70b36b6](https://github.com/cloudnative-pg/klio/commit/70b36b621c363ffa76ca4b27a90e6345a44dba16))
+* **deps:** Update all non-major go dependencies ([@renovate](https://github.com/renovate)[bot]) ([3380508](https://github.com/cloudnative-pg/klio/commit/3380508f4acef17878ba1f45cd3203730e7031e9))
+* **deps:** Update all non-major go dependencies ([@renovate](https://github.com/renovate)[bot]) ([ff9e2d2](https://github.com/cloudnative-pg/klio/commit/ff9e2d2b8d17e90510f99630f68c88b391843fda))
+* **deps:** Update github.com/cloudnative-pg/cloudnative-pg/tests digest to 719385f ([@renovate](https://github.com/renovate)[bot]) ([af8412a](https://github.com/cloudnative-pg/klio/commit/af8412a61454a70e901c747ea9b8cf85a9035b9b))
+* **deps:** Update module go.yaml.in/yaml/v3 to v4 ([#571](https://github.com/cloudnative-pg/klio/issues/571)) ([@renovate](https://github.com/renovate)[bot]) ([372af5c](https://github.com/cloudnative-pg/klio/commit/372af5cd4f00ddb3406dfb18c30a3882126049e2))
+* **retention:** Keep tier1 WALs until they reach tier2 ([#579](https://github.com/cloudnative-pg/klio/issues/579)) ([@gabriele-wolfox](https://github.com/gabriele-wolfox)) ([5872e64](https://github.com/cloudnative-pg/klio/commit/5872e6472115e02ecf7cc4adbb48e0fdc2de7abd)), refs [#578](https://github.com/cloudnative-pg/klio/issues/578)
+* **samples:** Set AWS_REGION on the RustFS create-bucket sample ([@armru](https://github.com/armru)) ([e1d5987](https://github.com/cloudnative-pg/klio/commit/e1d5987c4f28f0d8074cb7ece31abd7284070b4b))
+* **test:** Set AWS_REGION on the RustFS create-bucket job ([@gabriele-wolfox](https://github.com/gabriele-wolfox)) ([8519590](https://github.com/cloudnative-pg/klio/commit/851959054f1946a58f4e22feda747e51738f2a30))
+
 ## [0.0.21](https://github.com/cloudnative-pg/klio/compare/v0.0.20...v0.0.21) (2026-11-06)
 
 
