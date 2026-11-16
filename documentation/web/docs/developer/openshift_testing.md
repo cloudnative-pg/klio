@@ -64,8 +64,9 @@ a catalog image built from the branch under test.
 The bundle declares OpenShift 4.14 as the minimum supported version,
 through the `com.redhat.openshift.versions` annotation. The value comes
 from the `OPENSHIFT_VERSIONS` variable in `Taskfile.yml`, which
-`olm:bundle` writes into both `bundle/metadata/annotations.yaml` and
-the labels of `bundle.Dockerfile`.
+`olm:bundle:generate` writes into both
+`operator/olm-bundle/bundle/metadata/annotations.yaml` and the labels
+of `operator/olm-bundle/bundle.Dockerfile`.
 
 ## Prerequisites
 
@@ -73,7 +74,8 @@ the labels of `bundle.Dockerfile`.
 - Cluster admin privileges
 - cert-manager installed in the cluster (for TLS certificate
   creation)
-- A catalog image built with `task olm:catalog ENVIRONMENT=testing`
+- The catalog image of the build under test, published on `ghcr.io`
+  (no task builds the testing catalog at the moment)
 
 The Klio operator, bundle, catalog and operand images are public
 on `ghcr.io`, so no pull secret is needed.
@@ -139,7 +141,10 @@ oc apply -f openshift_subscription.yaml
 ```
 
 OLM will create an `InstallPlan` and deploy the operator into
-the `openshift-operators` namespace.
+the `openshift-operators` namespace. The bundle depends on
+CloudNativePG 1.30.0 or later, so OLM also installs the
+`cloudnative-pg` package from the cluster's catalogs, unless a
+suitable version is already installed.
 
 :::note
 The Klio sidecar (operand) image is baked into the operator
@@ -148,12 +153,10 @@ Deployment by the bundle, as both the `SIDECAR_IMAGE` and the
 the latter, and only the OLM bundle sets it. `RELATED_IMAGE_SIDECAR`
 is the name `operator-sdk` expects, so that `--use-image-digests`
 pins the operand to a digest and copies it into the CSV's
-`relatedImages`, which is what disconnected installs mirror. Digest
-pinning only happens in CI, where the images live on `ghcr.io`; a
-local build leaves both variables on a tag. The images use the same
-registry and tag as the operator image by default, with the `klio`
-repository instead of `klio-operator`. The Subscription can override
-either variable.
+`relatedImages`, which is what disconnected installs mirror. The images
+use the same registry and tag as the operator image by default, with the
+`klio` repository instead of `klio-operator`. The Subscription can
+override either variable.
 :::
 
 ## 3. Create TLS certificates
@@ -275,9 +278,8 @@ Debian based and is not part of the operator certification.
 
 Point `EXTERNAL_KUBECONFIG` at an OpenShift (CRC) cluster and run the
 task. The bundle and catalog (index) images must already be published
-for the build under test — build them first with
-`task olm:catalog ENVIRONMENT=testing` if needed; the certification runs
-against the existing bundle rather than rebuilding it.
+for the build under test; the certification runs against the existing
+bundle rather than rebuilding it.
 
 ```bash
 export EXTERNAL_KUBECONFIG=/path/to/crc/kubeconfig
@@ -293,11 +295,10 @@ locally.
 
 ## Publishing the bundle and catalog
 
-`olm:publish` is the release counterpart of `olm:all`: it builds and
-pushes the production bundle and catalog images (no `-testing` suffix)
-for the tag being released. It refuses to run outside a tagged CI
-checkout, and refuses to run if the CSV version derived from
-`git describe` does not match the tag.
+`olm:publish` builds and pushes the production bundle and catalog
+images (no `-testing` suffix) for the tag being released. It refuses
+to run outside a tagged CI checkout, and refuses to run if the CSV
+version derived from `git describe` does not match the tag.
 
 The `olm-bundle` job in `.github/workflows/release-publish.yml` runs
 it, and only for the release GitHub marks as the latest one, which
@@ -305,9 +306,4 @@ excludes drafts and prereleases, so a release candidate never reaches
 the `stable-v0` channel.
 
 Each release publishes its own catalog image, tagged with the release
-version, and that catalog carries exactly one bundle. The upgrade edge
-back to the installed version comes from the `olm.skipRange` annotation
-`olm:manifest` writes into the CSV, which spans every release from
-`OLM_FIRST_BUNDLE_VERSION` up to (but excluding) the one being built.
-Raise that variable only to declare a version range unupgradable, and
-never lower it.
+version, and that catalog carries exactly one bundle.

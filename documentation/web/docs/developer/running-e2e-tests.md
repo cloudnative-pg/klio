@@ -298,8 +298,7 @@ kubeconfig (CRC writes it to `~/.kube/config`):
 ```bash
 export EXTERNAL_KUBECONFIG="$HOME/.kube/config"
 
-# Generate the Klio OLM CatalogSource the deploy step requires (or
-# download the klio-olm artifact from the ci.yml olm job instead).
+# Generate the Klio OLM CatalogSource the deploy step requires.
 task olm:catalog-source
 
 task integration:e2e-openshift

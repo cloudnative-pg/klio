@@ -1,0 +1,70 @@
+# These resources constitute the fully configured set of manifests
+# used to generate the 'manifests/' directory in a bundle.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+- bases/klio-operator.clusterserviceversion.yaml
+- ../default
+- ../samples
+- scorecard
+
+# The images come from images.env, written by the `olm:kustomization` task
+# and git ignored. It is the only input: the replacements below copy its two
+# values to every place that needs them. The ConfigMap is local config, so it
+# is not part of the output.
+configMapGenerator:
+- name: olm-images
+  envs:
+  - images.env
+  options:
+    disableNameSuffixHash: true
+    annotations:
+      config.kubernetes.io/local-config: "true"
+
+patches:
+# Add the env vars that carry the Klio sidecar (operand) image to the operator
+# Deployment; the replacements below fill in their values.
+- path: patches/manager_sidecar_image.yaml
+  target:
+    kind: Deployment
+# Mark the plugin cert volumes optional so the pod starts on OLM (no
+# cert-manager); see patches/plugin_certs_optional.yaml for details.
+- path: patches/plugin_certs_optional.yaml
+# Keep the sample's example encryption Secret out of the bundle; see the patch
+# for why.
+- path: patches/remove_sample_secret.yaml
+
+replacements:
+# The operator image actually being built.
+- source:
+    kind: ConfigMap
+    name: olm-images
+    fieldPath: data.OPERATOR_IMAGE
+  targets:
+  - select:
+      kind: Deployment
+    fieldPaths:
+    - spec.template.spec.containers.[name=manager].image
+  - select:
+      kind: ClusterServiceVersion
+    fieldPaths:
+    - metadata.annotations.containerImage
+# The operand image actually being built: baked into the operator Deployment,
+# so OLM Subscriptions do not need to set it, and into the sample Server,
+# rather than the local dev registry the committed sample uses.
+- source:
+    kind: ConfigMap
+    name: olm-images
+    fieldPath: data.SIDECAR_IMAGE
+  targets:
+  - select:
+      kind: Deployment
+    fieldPaths:
+    - spec.template.spec.containers.[name=manager].env.[name=SIDECAR_IMAGE].value
+    - spec.template.spec.containers.[name=manager].env.[name=RELATED_IMAGE_SIDECAR].value
+  - select:
+      group: klio.cnpg.io
+      version: v1alpha1
+      kind: Server
+    fieldPaths:
+    - spec.image
