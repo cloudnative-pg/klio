@@ -172,6 +172,16 @@ func (s stubBackupLister) ListBackups(context.Context, string) (klioclient.Backu
 	return s.backups, nil
 }
 
+func (s stubBackupLister) ListBackupsByCompleteness(
+	context.Context, string,
+) (klioclient.BackupList, klioclient.BackupList, error) {
+	return s.backups, nil, nil
+}
+
+func (s stubBackupLister) ListIncompleteBackups(context.Context, string) ([]klioclient.IncompleteBackup, error) {
+	return nil, nil
+}
+
 func (s stubBackupLister) DeleteBackup(context.Context, string, string) error {
 	return nil
 }
