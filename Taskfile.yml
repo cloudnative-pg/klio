@@ -807,15 +807,13 @@ tasks:
     run: once
     vars:
       OUTPUT_DIR: '{{.OUTPUT_DIR | default "olm-manifests"}}'
-      PATCHES_DIR: "config/olm/generated"
+      IMAGES_ENV: "config/olm/images.env"
     requires:
       vars:
         - OPERATOR_IMAGE
         - SIDECAR_IMAGE
     dir: operator
     env:
-      OPERATOR_IMAGE: '{{ .OPERATOR_IMAGE }}'
-      SIDECAR_IMAGE: '{{ .SIDECAR_IMAGE }}'
       # renovate: datasource=git-refs depName=kustomize lookupName=https://github.com/sagikazarmark/daggerverse currentValue=main
       DAGGER_KUSTOMIZE_SHA: ff27cd50f6b4eed2e3753c520632cd6099e1ce52
       # Same image as operator/dagger/helmify. The module uses it as the tag of
@@ -823,13 +821,10 @@ tasks:
       # renovate: datasource=docker depName=registry.k8s.io/kustomize/kustomize versioning=docker
       KUSTOMIZE_IMAGE_VERSION: v5.8.3@sha256:429eda4a1c76a7de458d0c4ca3ded9b5d764899ff6bdaeccc1d98b1b6ee873e4
     cmds:
-      - defer: rm -rf '{{.PATCHES_DIR}}'
-      - mkdir -p '{{.PATCHES_DIR}}'
+      - defer: rm -f '{{.IMAGES_ENV}}'
       - >
-        for f in config/olm/templates/*.yaml.tmpl; do
-        envsubst '${OPERATOR_IMAGE} ${SIDECAR_IMAGE}' < "$f"
-        > "{{.PATCHES_DIR}}/$(basename "$f" .tmpl)" || exit 1;
-        done
+        printf 'OPERATOR_IMAGE=%s\nSIDECAR_IMAGE=%s\n'
+        '{{.OPERATOR_IMAGE}}' '{{.SIDECAR_IMAGE}}' > '{{.IMAGES_ENV}}'
       - >
         GITHUB_REF= dagger -s call -m github.com/sagikazarmark/daggerverse/kustomize@${DAGGER_KUSTOMIZE_SHA}
         --version ${KUSTOMIZE_IMAGE_VERSION}

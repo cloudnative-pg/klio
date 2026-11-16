@@ -10,7 +10,7 @@ certs/
 # Ignore OLM generated files
 operator/olm-bundle/
 operator/olm-manifests/
-operator/config/olm/generated/
+operator/config/olm/images.env
 operator/olm-catalog/
 operator/klio-operator-catalog-source.yaml
 

@@ -4,10 +4,12 @@
 # RELATED_IMAGE_SIDECAR carries the same value under the name OLM tooling
 # recognizes: operator-sdk's --use-image-digests only discovers container
 # images and RELATED_IMAGE_* env vars.
+#
+# The values are placeholders, replaced by the overlay's replacements.
 - op: add
   path: /spec/template/spec/containers/0/env
   value:
     - name: SIDECAR_IMAGE
-      value: ${SIDECAR_IMAGE}
+      value: placeholder
     - name: RELATED_IMAGE_SIDECAR
-      value: ${SIDECAR_IMAGE}
+      value: placeholder

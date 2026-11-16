@@ -8,42 +8,63 @@ resources:
 - ../samples
 - scorecard
 
-# Files under generated/ are rendered from templates/ (with the right images)
-# by the `olm:kustomization` task and are git ignored.
+# The images come from images.env, written by the `olm:kustomization` task
+# and git ignored. It is the only input: the replacements below copy its two
+# values to every place that needs them. The ConfigMap is local config, so it
+# is not part of the output.
+configMapGenerator:
+- name: olm-images
+  envs:
+  - images.env
+  options:
+    disableNameSuffixHash: true
+    annotations:
+      config.kubernetes.io/local-config: "true"
+
 patches:
-# Point the operator Deployment at the operator image actually being built.
-- path: generated/manager_image.yaml
-  target:
-    kind: Deployment
-# Bake the Klio sidecar (operand) image into the operator Deployment as the
-# SIDECAR_IMAGE env var, so OLM Subscriptions do not need to set it.
-- path: generated/manager_sidecar_image.yaml
+# Add the env vars that carry the Klio sidecar (operand) image to the operator
+# Deployment; the replacements below fill in their values.
+- path: patches/manager_sidecar_image.yaml
   target:
     kind: Deployment
 # Mark the plugin cert volumes optional so the pod starts on OLM (no
 # cert-manager); see patches/plugin_certs_optional.yaml for details.
 - path: patches/plugin_certs_optional.yaml
-# Point the sample Server at the operand image actually being built, rather
-# than the local dev registry the committed sample uses.
-- path: generated/sample_image.yaml
-  target:
-    group: klio.cnpg.io
-    version: v1alpha1
-    kind: Server
 # Keep the sample's example encryption Secret out of the bundle; see the patch
 # for why.
 - path: patches/remove_sample_secret.yaml
 
-# Point the CSV's containerImage annotation at the operator image actually
-# being built, by copying it from the Deployment once the patches above have
-# been applied.
 replacements:
+# The operator image actually being built.
 - source:
-    kind: Deployment
-    name: klio-operator-controller-manager
-    fieldPath: spec.template.spec.containers.[name=manager].image
+    kind: ConfigMap
+    name: olm-images
+    fieldPath: data.OPERATOR_IMAGE
   targets:
+  - select:
+      kind: Deployment
+    fieldPaths:
+    - spec.template.spec.containers.[name=manager].image
   - select:
       kind: ClusterServiceVersion
     fieldPaths:
     - metadata.annotations.containerImage
+# The operand image actually being built: baked into the operator Deployment,
+# so OLM Subscriptions do not need to set it, and into the sample Server,
+# rather than the local dev registry the committed sample uses.
+- source:
+    kind: ConfigMap
+    name: olm-images
+    fieldPath: data.SIDECAR_IMAGE
+  targets:
+  - select:
+      kind: Deployment
+    fieldPaths:
+    - spec.template.spec.containers.[name=manager].env.[name=SIDECAR_IMAGE].value
+    - spec.template.spec.containers.[name=manager].env.[name=RELATED_IMAGE_SIDECAR].value
+  - select:
+      group: klio.cnpg.io
+      version: v1alpha1
+      kind: Server
+    fieldPaths:
+    - spec.image
