@@ -53,14 +53,14 @@ vars:
   OLM_CHANNELS: 'stable-v0'
   # Minimum OpenShift version the bundle declares support for
   OPENSHIFT_VERSIONS: 'v4.14'
-  # Registry olm:catalog-source and olm:preflight-operator pull the published
-  # OLM images from. Defaults to ghcr.io in GitHub Actions, and to the local
-  # registry of ci-machinery otherwise. olm:test does not use it: it always
-  # pushes to and pulls from the ci-machinery local registry.
   # Address of the ci-machinery registry inside its Docker network, i.e.
   # REGISTRY_NAME:REGISTRY_INTERNAL_PORT of taskfile.infra.yaml, which the vars
   # here cannot reference since they are resolved before the included ones.
   OLM_LOCAL_REGISTRY_ADDRESS: 'registry.cnpg:5000'
+  # Registry olm:catalog-source and olm:preflight-operator pull the published
+  # OLM images from. Defaults to ghcr.io in GitHub Actions, and to the local
+  # registry of ci-machinery otherwise. olm:test does not use it: it always
+  # pushes to and pulls from the ci-machinery local registry.
   OLM_REGISTRY: '{{ if .OLM_REGISTRY }}{{ .OLM_REGISTRY }}{{ else if .GITHUB_ACTIONS }}ghcr.io/{{ .REGISTRY_OWNER }}{{ else }}{{ .OLM_LOCAL_REGISTRY_ADDRESS }}{{ end }}'
 
 tasks:
