@@ -57,6 +57,8 @@ jobs:
               - 'core/proto/**/*.proto'
               - 'operator/api/**/*.go'
               - 'operator/dist/chart/values.yaml'
+              - 'operator/dist/chart/Chart.yaml'
+              - 'operator/dist/chart/README.md'
               - 'Taskfile.yml'
               - '.github/actions/**'
               - '.github/workflows/ci.yml'
