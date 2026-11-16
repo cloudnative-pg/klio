@@ -720,7 +720,6 @@ tasks:
         package --chart dist/chart/
         with-name --name klio_chart.tgz
         export --path dist/chart/ --allow-parent-dir-path
-      # TODO: sign the chart
       # Pushing the chart to the registry. It automatically gets the name and the
       # version from the Chart.yaml file.
       - >

@@ -11,6 +11,10 @@ jobs:
   release-publish:
     if: github.repository_owner == 'cloudnative-pg'
     runs-on: ${{ vars.CI_RUNNERS || 'ubuntu-latest' }}
+    permissions:
+      contents: write
+      packages: write
+      id-token: write # Required for keyless signing
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -32,6 +36,17 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           task all:publish
+
+      - name: Install cosign
+        uses: sigstore/cosign-installer@756fe2d284c7292c4e9b62c8a28f1e5629c59532 # v4.1.3
+
+      - name: Sign the helm chart
+        run: |
+          version=$(awk '$1 == "version:" {print $2}' operator/dist/chart/Chart.yaml)
+          chart="ghcr.io/${GITHUB_REPOSITORY_OWNER}/klio-operator-chart"
+          digest=$(docker buildx imagetools inspect "${chart}:${version}" \
+            --format '{{ .Manifest.Digest }}')
+          cosign sign --yes "${chart}@${digest}"
 
       - name: Attach the CRDs manifest to the release
         env:
