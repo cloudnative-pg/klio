@@ -1,0 +1,83 @@
+{{- /* Template for operator/dist/chart/README.md, the page Artifact Hub shows for the chart. */ -}}
+{{- /* Artifact Hub renders relative links as plain text and drops raw HTML: use absolute links and Markdown only. */ -}}
+{{ template "chart.header" . }}
+
+{{ template "chart.description" . }}
+
+{{ template "chart.homepageLine" . }}
+
+## About this chart
+
+Helm chart to install the operator of [Klio](https://cloudnative-pg.io/klio/),
+the backup and recovery solution for PostgreSQL clusters managed by
+[CloudNativePG](https://cloudnative-pg.io).
+
+The chart installs the Klio operator with its RBAC, services, cert-manager
+certificates and the `Server` and `PluginConfiguration` CRDs. It does not
+install CloudNativePG, and it does not create any `Server` or
+`PluginConfiguration` resource: the
+[Quickstart](https://cloudnative-pg.io/klio/docs/user/quickstart) shows how to
+set them up.
+
+## Getting Started
+
+### Prerequisites
+
+- [CloudNativePG](https://cloudnative-pg.io/documentation/current/installation_upgrade/).
+  The Klio operator must run in the same namespace as the CloudNativePG
+  operator (`cnpg-system` in the examples below).
+- [cert-manager](https://cert-manager.io/docs/installation/), which issues the
+  operator's TLS certificates.
+
+### Install the operator
+
+```console
+helm install klio-operator \
+  oci://ghcr.io/cloudnative-pg/klio-operator-chart \
+  --namespace cnpg-system
+```
+
+> [!NOTE]
+> The chart creates a Prometheus Operator `ServiceMonitor` by default. If the
+> Prometheus Operator is not installed, add `--set prometheus.enable=false`.
+
+See the [Values](#values) section below for the full list of configurable
+parameters.
+
+### Verify the installation
+
+```console
+kubectl get pods -n cnpg-system -l app.kubernetes.io/name=klio
+kubectl get crds | grep klio.cnpg.io
+```
+
+## Upgrading
+
+Helm does not upgrade CRDs. Follow the
+[upgrade procedure](https://cloudnative-pg.io/klio/docs/user/helm_chart#upgrades)
+to apply them before running `helm upgrade`.
+
+## Uninstalling
+
+```console
+helm uninstall klio-operator --namespace cnpg-system
+```
+
+> [!WARNING]
+> Uninstalling the chart does not remove the CRDs, the Klio resources or the
+> persistent volumes holding the backup data.
+
+{{ template "chart.valuesSection" . }}
+
+## Contributing
+
+Please read the
+[code of conduct](https://github.com/cloudnative-pg/klio/blob/main/CODE_OF_CONDUCT.md)
+and the
+[guidelines](https://github.com/cloudnative-pg/klio/blob/main/CONTRIBUTING.md)
+to contribute to the project.
+
+## License
+
+Klio is distributed under the
+[Apache License 2.0](https://github.com/cloudnative-pg/klio/blob/main/LICENSE).
