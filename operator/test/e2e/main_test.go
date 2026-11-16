@@ -62,6 +62,7 @@ func TestMain(m *testing.M) {
 	runner.RegisterFeature(RecoverClusterFromTier2Pitr(envconf.RandomName("recovery-from-tier2-pitr", 32)))
 	runner.RegisterFeature(PluginConfigurationUpdate(envconf.RandomName("plugin-config-update", 32)))
 	runner.RegisterFeature(Retention(envconf.RandomName("retention", 32)))
+	runner.RegisterFeature(IncompleteBackup(envconf.RandomName("incomplete-backup", 32)))
 	runner.RegisterFeature(Compression(envconf.RandomName("compression", 32)))
 	runner.RegisterFeature(WALRetentionQueueAwareness(envconf.RandomName("wal-retention-queue", 32)))
 	runner.RegisterFeature(ServerTierReconfiguration(envconf.RandomName("server-reconfig", 32)))

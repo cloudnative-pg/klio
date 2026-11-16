@@ -402,6 +402,7 @@ span a timeline switch, so its start and end share one timeline):
 | Metric Name | Type | Unit | Description |
 |---|---|---|---|
 | `klio.server.backup.backups` | Gauge | - | Number of PostgreSQL backups retained |
+| `klio.server.backup.incomplete_backups` | Gauge | - | Number of backups not fully present on the tier as of the last retention sweep, also split by `status` (`PENDING` / `RECOVERABLE` / `UNRECOVERABLE`, see [Incomplete Backups](backup_and_restore.md#incomplete-backups)) |
 | `klio.server.backup.latest_backup_start_time` | Gauge | s | Unix epoch timestamp when the latest retained backup started |
 | `klio.server.backup.latest_backup_completion_time` | Gauge | s | Unix epoch timestamp when the latest retained backup completed |
 | `klio.server.backup.latest_backup_start_lsn` | Gauge | By | Start LSN of the latest retained backup (base 10) |

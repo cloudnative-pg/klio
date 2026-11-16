@@ -22,6 +22,7 @@ package retention
 import (
 	"context"
 	"fmt"
+	"slices"
 
 	"github.com/cloudnative-pg/machinery/pkg/log"
 
@@ -40,10 +41,13 @@ func (s *Sweeper) applyWALRetention(ctx context.Context, clusterName string, tc 
 		return nil
 	}
 
-	backups, err := tc.backupClient.ListBackups(ctx, clusterName)
+	// Incomplete backups are included: a backup still being relayed needs
+	// its WALs once it is complete, and dropping them cannot be undone.
+	complete, incomplete, err := tc.backupClient.ListBackupsByCompleteness(ctx, clusterName)
 	if err != nil {
 		return fmt.Errorf("while listing backups: %w", err)
 	}
+	backups := slices.Concat(complete, incomplete)
 	if len(backups) == 0 {
 		return nil
 	}

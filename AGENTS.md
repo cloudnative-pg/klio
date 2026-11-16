@@ -139,6 +139,15 @@ Klio-only assertions) must live outside `machinery` — e.g. under
   - `operator/pkg/config/client.go` ↔ `core/pkg/config/client.go`
   - `operator/pkg/config/compression.go` ↔ `core/pkg/config/compression.go`
 
+- The e2e tests in `operator/test/` copy some values from core, because the
+  operator module cannot import core's `internal` packages. When you change
+  one of these in core, update its copies:
+  - Kopia tag names (`core/internal/client/klioclient/consts.go`) ↔
+    `operator/test/klio/features/incomplete_backup.go`
+  - Tier annotations (`core/internal/client/klioclient/kopia/multiconnect.go`)
+    ↔ `operator/test/klio/features/retention.go`,
+    `operator/test/klio/conditions/conditions.go`
+
 - When you change a metric in `core/internal/opentelemetry/catalog.go`
   (rename, add, remove, or change a metric's unit, type, or attributes),
   update the Grafana dashboard builder in `observability/grafana/` to match
@@ -192,8 +201,12 @@ propose the server-routed alternative, and proceed only if the user confirms.
   steps. A contained exception, not a pattern to copy.
 - **`core/internal/retention`** (the periodic sweeper) also writes
   directly — a repo-wide sweep has no single-cluster server connection. It
-  deletes out-of-policy backups (`DeleteBackup`, by manifest ID) and
-  orphans, and applies WAL retention via
+  deletes out-of-policy complete backups (`DeleteBackup`, by manifest ID),
+  reports the incomplete ones without deleting them
+  (`sweepIncompleteBackups`; the status rules in
+  `klioclient.ClassifyTier1IncompleteBackups` and
+  `ClassifyTier2IncompleteBackups` are shared with
+  `klio admin list-backups --incomplete`), and applies WAL retention via
   `Connection.SetFirstRequiredOnCluster` (a WAL op, not a Kopia write). It
   refreshes each tier's server cache once per pass that deleted anything —
   a freshness convenience for `klio backup list`/restore right after a
@@ -239,8 +252,7 @@ exists today; this is a guardrail for the future). Pick identity by use:
   content dedupes to the same root across backups, and `snapshot delete`
   removes every snapshot matching the given ID, so a root-ID delete can take
   another backup's snapshot with it. Retry on a concurrent rewrite by
-  re-listing (`DeleteBackup`; reused by the sweeper's
-  `sweepCluster`/`sweepOrphans`).
+  re-listing (`DeleteBackup`; reused by the sweeper's `sweepCluster`).
 
 ### Dagger caching issues
 
