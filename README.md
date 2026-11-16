@@ -1,5 +1,7 @@
 [![CloudNativePG](./logo/cloudnativepg.png)](https://cloudnative-pg.io/)
 
+[![Artifact Hub](https://img.shields.io/endpoint?url=https://artifacthub.io/badge/repository/klio)](https://artifacthub.io/packages/search?repo=klio)
+
 # Klio: multi-tiered backup and recovery CNPG-I plugin for CloudNativePG
 
 **Klio** is a multi-tiered backup and recovery plugin for CloudNativePG.
