@@ -1254,7 +1254,7 @@ tasks:
     run: once
     vars:
       # renovate: datasource=docker depName=golang versioning=docker
-      GOLANG_IMAGE_VERSION: 1.27.4-alpine@sha256:0a5f7fe796599ff487605987432e7619ae45beeb2fba4c2ce0b907879932aebf
+      GOLANG_IMAGE_VERSION: 1.27.4-alpine@sha256:70bd7ddea8b6cbe5d6943cde279d6b67feb10cc924fb9100d1d8757c1575b280
     cmds:
       - >
         dagger core container from --address golang:{{ .GOLANG_IMAGE_VERSION }}
@@ -1325,7 +1325,7 @@ tasks:
       # renovate: datasource=git-refs depName=crd-gen-refs lookupName=https://github.com/cloudnative-pg/daggerverse currentValue=main
       DAGGER_CRDGENREF_SHA: 3b5df5d63d248ba4d67f0b951ef780b90817d07f
       # renovate: datasource=docker depName=golang versioning=docker
-      GOLANG_IMAGE_VERSION: 1.27.4-alpine@sha256:0a5f7fe796599ff487605987432e7619ae45beeb2fba4c2ce0b907879932aebf
+      GOLANG_IMAGE_VERSION: 1.27.4-alpine@sha256:70bd7ddea8b6cbe5d6943cde279d6b67feb10cc924fb9100d1d8757c1575b280
     cmds:
       - >
         GITHUB_REF= dagger -s call -m github.com/cloudnative-pg/daggerverse/crd-ref-docs@${DAGGER_CRDGENREF_SHA}
@@ -1459,7 +1459,7 @@ tasks:
     run: once
     vars:
       # renovate: datasource=docker depName=golang versioning=docker
-      GOLANG_IMAGE_VERSION: 1.27.4-alpine@sha256:0a5f7fe796599ff487605987432e7619ae45beeb2fba4c2ce0b907879932aebf
+      GOLANG_IMAGE_VERSION: 1.27.4-alpine@sha256:70bd7ddea8b6cbe5d6943cde279d6b67feb10cc924fb9100d1d8757c1575b280
     cmds:
       - >
         dagger core container from --address golang:{{ .GOLANG_IMAGE_VERSION }}
@@ -1484,7 +1484,7 @@ tasks:
     desc: Run go test on the Grafana dashboard generator
     vars:
       # renovate: datasource=docker depName=golang versioning=docker
-      GOLANG_IMAGE_VERSION: 1.27.4-alpine@sha256:0a5f7fe796599ff487605987432e7619ae45beeb2fba4c2ce0b907879932aebf
+      GOLANG_IMAGE_VERSION: 1.27.4-alpine@sha256:70bd7ddea8b6cbe5d6943cde279d6b67feb10cc924fb9100d1d8757c1575b280
     cmds:
       - >
         dagger core container from --address golang:{{ .GOLANG_IMAGE_VERSION }}
@@ -1516,7 +1516,7 @@ tasks:
       # renovate: datasource=github-releases depName=grafana/gcx versioning=semver
       GCX_VERSION: 1.7.1
       # renovate: datasource=docker depName=golang versioning=docker
-      GOLANG_IMAGE_VERSION: 1.27.4-alpine@sha256:0a5f7fe796599ff487605987432e7619ae45beeb2fba4c2ce0b907879932aebf
+      GOLANG_IMAGE_VERSION: 1.27.4-alpine@sha256:70bd7ddea8b6cbe5d6943cde279d6b67feb10cc924fb9100d1d8757c1575b280
       # uneditable-dashboard is disabled: the dashboard ships editable.
       # panel-title-description is disabled: the note text panels have no
       # title; go test checks it for every other panel.
@@ -1669,7 +1669,7 @@ tasks:
         # Redundant curly braces are used to escape the template syntax in Taskfile.
         sh: docker inspect --format '{{"{{"}} (index (index .HostConfig.PortBindings "6443/tcp") 0).HostPort {{"}}"}}' {{ .KIND_CLUSTER_NAME }}-control-plane
       # renovate: datasource=docker depName=golang versioning=docker
-      GOLANG_IMAGE_VERSION: 1.27.4-alpine@sha256:0a5f7fe796599ff487605987432e7619ae45beeb2fba4c2ce0b907879932aebf
+      GOLANG_IMAGE_VERSION: 1.27.4-alpine@sha256:70bd7ddea8b6cbe5d6943cde279d6b67feb10cc924fb9100d1d8757c1575b280
     cmds:
       - |
         kind get kubeconfig --name {{ .KIND_CLUSTER_NAME }} > {{ .KUBECONFIG_PATH }}
