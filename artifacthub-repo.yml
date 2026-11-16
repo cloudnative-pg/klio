@@ -1,1 +1,5 @@
+# The chart is an OCI artifact, so Artifact Hub reads this file from the
+# artifacthub.io tag of ghcr.io/cloudnative-pg/klio-operator-chart, not from
+# git. After editing it, push it again as shown in the "OCI support" section of
+# https://github.com/artifacthub/hub/blob/master/docs/helm_charts_repositories.md
 repositoryID: 45209f6d-ea81-40a5-8492-1bb56433a293
