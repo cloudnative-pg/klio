@@ -766,16 +766,16 @@ tasks:
         - SIDECAR_IMAGE
         - PLATFORMS
     deps:
-      - task: ci-machinery-infra:setup-container-registry
-      - task: ci-machinery-infra:setup-docker-builder
+      - ci-machinery-infra:setup-container-registry
+      - ci-machinery-infra:setup-docker-builder
+      - operator:controller-gen
+      - core:goreleaser-snapshot
     env:
       # Read by the docker-bake.hcl files: the image version labels, and
       # pushing to the ci-machinery local registry.
       insecure: 'true'
       version: '{{ .TAG | default .IMAGE_TAG }}'
     cmds:
-      - task: operator:controller-gen
-      - task: core:goreleaser-snapshot
       - >
         cd core && docker buildx bake --builder {{ .DOCKER_BUILDER }} --push
         --set '*.platform={{ .PLATFORMS }}'
