@@ -1,5 +1,7 @@
 # klio-operator-chart
 
+![Version: 0.0.21](https://img.shields.io/badge/Version-0.0.21-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: 0.0.21](https://img.shields.io/badge/AppVersion-0.0.21-informational?style=flat-square)
+
 The Klio operator manages the lifecycle of Klio components in a Kubernetes cluster.
 Klio is a cloud-native backup solution for PostgreSQL databases, designed to work seamlessly with CloudNativePG.
 
@@ -71,6 +73,10 @@ helm uninstall klio-operator --namespace cnpg-system
 > [!WARNING]
 > Uninstalling the chart does not remove the CRDs, the Klio resources or the
 > persistent volumes holding the backup data.
+
+## Source Code
+
+* <https://github.com/cloudnative-pg/klio>
 
 ## Values
 
