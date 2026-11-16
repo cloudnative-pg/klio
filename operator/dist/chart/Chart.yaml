@@ -12,7 +12,9 @@ keywords:
 type: application
 version: 0.0.21
 appVersion: 0.0.21
-home: https://github.com/cloudnative-pg/klio
+home: https://cloudnative-pg.io/klio/
+sources:
+  - https://github.com/cloudnative-pg/klio
 icon: https://raw.githubusercontent.com/cloudnative-pg/artwork/refs/heads/main/stacked/color/cloudnativepg-stacked-color.svg
 maintainers:
   - name: fcanovai

@@ -3,13 +3,9 @@
 The Klio operator manages the lifecycle of Klio components in a Kubernetes cluster.
 Klio is a cloud-native backup solution for PostgreSQL databases, designed to work seamlessly with CloudNativePG.
 
-**Homepage:** <https://github.com/cloudnative-pg/klio>
+**Homepage:** <https://cloudnative-pg.io/klio/>
 
 ## About this chart
-
-Helm chart to install the operator of [Klio](https://cloudnative-pg.io/klio/),
-the backup and recovery solution for PostgreSQL clusters managed by
-[CloudNativePG](https://cloudnative-pg.io).
 
 The chart installs the Klio operator with its RBAC, services, cert-manager
 certificates and the `Server` and `PluginConfiguration` CRDs. It does not
@@ -22,9 +18,10 @@ set them up.
 
 ### Prerequisites
 
-- [CloudNativePG](https://cloudnative-pg.io/documentation/current/installation_upgrade/).
-  The Klio operator must run in the same namespace as the CloudNativePG
-  operator (`cnpg-system` in the examples below).
+- [CloudNativePG](https://cloudnative-pg.io/documentation/current/installation_upgrade/),
+  or an operator based on it: Klio detects the API group of the `Cluster`
+  resources on its own. The Klio operator must run in the same namespace as
+  that operator (`cnpg-system` in the examples below).
 - [cert-manager](https://cert-manager.io/docs/installation/), which issues the
   operator's TLS certificates.
 
@@ -33,6 +30,7 @@ set them up.
 ```console
 helm install klio-operator \
   oci://ghcr.io/cloudnative-pg/klio-operator-chart \
+  --version 0.0.21 \
   --namespace cnpg-system
 ```
 
@@ -40,8 +38,9 @@ helm install klio-operator \
 > The chart creates a Prometheus Operator `ServiceMonitor` by default. If the
 > Prometheus Operator is not installed, add `--set prometheus.enable=false`.
 
-See the [Values](#values) section below for the full list of configurable
-parameters.
+To change other parameters, list them in a `values.yaml` file and add
+`-f values.yaml` to the command. Keep the file: you need it again for every
+upgrade. The [Values](#values) section below describes all the parameters.
 
 ### Verify the installation
 
@@ -52,9 +51,16 @@ kubectl get crds | grep klio.cnpg.io
 
 ## Upgrading
 
-Helm does not upgrade CRDs. Follow the
+An upgrade has three steps, in this order:
+
+1. Apply the new CRDs. Helm does not upgrade them.
+2. Run `helm upgrade` with the `values.yaml` file used to install the chart.
+3. Update the Klio image in your `Server` resources. The operator does not
+   change it for you.
+
+The
 [upgrade procedure](https://cloudnative-pg.io/klio/docs/user/helm_chart#upgrades)
-to apply them before running `helm upgrade`.
+has the commands for each step.
 
 ## Uninstalling
 
