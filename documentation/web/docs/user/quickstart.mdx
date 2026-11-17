@@ -93,14 +93,25 @@ You should see the operator pod in a `Running` state, along with the
 
 The Klio operator is published on
 [OperatorHub](https://operatorhub.io/) and can be installed with the
-[Operator Lifecycle Manager](https://olm.operatorframework.io/) (OLM),
-either from the OpenShift web console or by creating a `Subscription`.
+[Operator Lifecycle Manager](https://olm.operatorframework.io/) (OLM)
+by creating a `Subscription`.
 
-:::note
-OLM installs CloudNativePG in the `operators` namespace
-(`openshift-operators` on OpenShift). Install Klio there too, replacing
-`cnpg-system` accordingly, as described in the
-[namespace requirement](#before-you-start).
+:::important
+This installation method **requires CloudNativePG to be installed through OLM
+as well**. The plugin depends on the CloudNativePG APIs (the `Cluster` and
+`Backup` resources of the `postgresql.cnpg.io` group), so OLM looks for an
+operator it manages that provides them. If CloudNativePG was installed in any
+other way (for example with the manifest or the Helm chart), OLM does not
+detect it and **installs a second CloudNativePG operator** to satisfy the
+dependency, which conflicts with the existing one.
+
+If your CloudNativePG operator is not managed by OLM, use one of the other
+installation methods instead.
+
+Install the plugin in the **same namespace as the CloudNativePG operator**
+(see the [namespace requirement](#before-you-start)). The examples below
+assume `cnpg-system`; if your CloudNativePG `Subscription` lives elsewhere,
+replace `cnpg-system` with that namespace.
 :::
 
 Create a `Subscription` for the operator. The example below uses the
