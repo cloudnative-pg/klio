@@ -48,6 +48,23 @@ This downloads the chart and extracts it into the
 `klio-operator-chart` folder, where you can review the templates,
 the default `values.yaml`, and other chart files.
 
+### Verifying the Chart Signature
+
+Each release signs the chart with [Sigstore](https://www.sigstore.dev/)
+keyless signing, from the release workflow of the Klio repository. You can
+verify the signature with `cosign` before installing the chart:
+
+<!-- x-release-please-start-version -->
+```sh
+cosign verify ghcr.io/cloudnative-pg/klio-operator-chart:0.0.21 \
+  --certificate-identity-regexp '^https://github\.com/cloudnative-pg/klio/\.github/workflows/release-publish\.yml@refs/tags/v' \
+  --certificate-oidc-issuer https://token.actions.githubusercontent.com
+```
+<!-- x-release-please-end -->
+
+The command succeeds only if the chart was signed by that workflow for a
+release tag. Charts up to version 0.0.21 are not signed.
+
 ### Configuration Reference
 
 <PartialValues />
