@@ -141,14 +141,21 @@ capabilities.
 
 ### Protecting backups pending migration to Tier 2
 
-When Tier 2 is enabled, Klio's retention sweep never deletes a Tier 1 backup
-until it confirms that backup already exists on Tier 2.
+When Tier 2 is enabled, Klio's retention sweep does not delete a Tier 1 backup
+that Tier 2 is still waiting for.
 The sweep checks Tier 2's current
 backup list at evaluation time before deleting anything from Tier 1, so a
 backup that is still being migrated is always left alone regardless of what
-the retention policy would otherwise decide.
+the Tier 1 retention policy would otherwise decide.
 A backup counts as present on Tier 2 only once all of its snapshots are
 there.
+
+Klio only migrates the backups that Tier 2 retention keeps. A backup that
+Tier 2 retention would delete on arrival, because Tier 2 already holds enough
+newer backups, is never migrated, and the sweep deletes it from Tier 1
+without waiting for it. A backup that is already partly on Tier 2 is the
+exception: the next migration completes it, so it stays on Tier 1 until
+then.
 
 This ensures data integrity during the asynchronous migration process and
 guarantees that no backup is lost due to retention policies running before

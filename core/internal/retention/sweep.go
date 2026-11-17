@@ -23,6 +23,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
 
 	"github.com/cloudnative-pg/machinery/pkg/log"
 
@@ -82,7 +83,8 @@ type tierConfig struct {
 	walRepository *repository.Connection
 
 	// syncGuardClient, when set, is queried before deleting a candidate
-	// backup: the candidate is only deleted if it already exists there.
+	// backup: the candidate is only deleted if it already exists there, or
+	// if no part of it is there and that tier's retention would not keep it.
 	// Only ever set on tier1's config (pointing at tier2), to stop tier1
 	// retention from deleting a backup tier2 hasn't received yet. Left nil
 	// when there's no further tier to protect against.
@@ -315,7 +317,7 @@ func backupNames(targets []hostBackupName) []string {
 // restored. The incomplete backups are never deleted automatically: see
 // sweepIncompleteBackups.
 // When tc guards tier1 against unsynced tier2 backups, the candidates are
-// filtered down to only the ones already complete on tier2.
+// filtered down to the ones tier2 does not miss: see protectUnsyncedToTier2.
 func deletionCandidates(
 	ctx context.Context,
 	clusterName string,
@@ -333,7 +335,12 @@ func deletionCandidates(
 		return toDelete, nil
 	}
 
-	guarded, err := protectUnsyncedToTier2(ctx, clusterName, toDelete, tc.syncGuardClient)
+	tier2Policy, err := policyFromProto(retentionPolicy.GetTier2Policy())
+	if err != nil {
+		return nil, err
+	}
+
+	guarded, err := protectUnsyncedToTier2(ctx, clusterName, toDelete, tc.syncGuardClient, tier2Policy)
 	if err != nil {
 		return nil, fmt.Errorf("while checking tier2 sync status: %w", err)
 	}
@@ -349,9 +356,14 @@ func deletionCandidates(
 	return guarded, nil
 }
 
-// protectUnsyncedToTier2 filters candidates down to only the backups
-// already fully present on tier2 (via tier2Client), so tier1 retention
-// never deletes a backup tier2 hasn't completely received yet. On a
+// protectUnsyncedToTier2 filters candidates down to the backups that tier1
+// can drop without tier2 missing them. These are the backups already fully
+// present on tier2 (via tier2Client), and the backups that tier2Policy would
+// not keep on tier2, because tier2 already holds enough newer backups, as
+// long as tier2 holds no part of them. The relay never copies the latter
+// (see BackupsToRelay), so waiting for them would keep them on tier1
+// forever. A backup that tier2 holds only in part stays protected whatever
+// tier2Policy says: the next relay completes it from tier1. On a
 // tier2-listing error, the caller treats this as "delete nothing this tick"
 // rather than guessing.
 func protectUnsyncedToTier2(
@@ -359,25 +371,62 @@ func protectUnsyncedToTier2(
 	clusterName string,
 	candidates klioclient.BackupList,
 	tier2Client backupDeleter,
+	tier2Policy policy.Policy,
 ) (klioclient.BackupList, error) {
 	tier2Backups, err := tier2Client.ListBackups(ctx, clusterName)
 	if err != nil {
 		return nil, fmt.Errorf("while listing tier2 backups: %w", err)
 	}
 
-	onTier2 := make(map[string]struct{}, len(tier2Backups))
-	for _, b := range tier2Backups {
-		onTier2[b.Name] = struct{}{}
+	onTier2 := backupNameSet(tier2Backups)
+
+	var safe, unsynced klioclient.BackupList
+	for _, b := range candidates {
+		switch _, ok := onTier2[b.Name]; {
+		case ok:
+			safe = append(safe, b)
+		case !keepsWith(tier2Policy, tier2Backups, b):
+			unsynced = append(unsynced, b)
+		}
 	}
 
-	var safe klioclient.BackupList
-	for _, b := range candidates {
-		if _, ok := onTier2[b.Name]; ok {
+	if len(unsynced) == 0 {
+		return safe, nil
+	}
+
+	incomplete, err := tier2Client.ListIncompleteBackups(ctx, clusterName)
+	if err != nil {
+		return nil, fmt.Errorf("while listing tier2 incomplete backups: %w", err)
+	}
+
+	for _, b := range unsynced {
+		partial := slices.ContainsFunc(incomplete, func(i klioclient.IncompleteBackup) bool {
+			return i.BackupName == b.Name
+		})
+		if !partial {
 			safe = append(safe, b)
 		}
 	}
 
 	return safe, nil
+}
+
+// keepsWith reports whether p would keep b on a tier that holds held.
+func keepsWith(p policy.Policy, held klioclient.BackupList, b klioclient.BackupMetadata) bool {
+	// Evaluate sorts and slices in place: give it its own slice.
+	_, kept := backupNameSet(p.Evaluate(slices.Concat(held, klioclient.BackupList{b})))[b.Name]
+
+	return kept
+}
+
+// backupNameSet returns the names of backups as a set.
+func backupNameSet(backups klioclient.BackupList) map[string]struct{} {
+	names := make(map[string]struct{}, len(backups))
+	for _, b := range backups {
+		names[b.Name] = struct{}{}
+	}
+
+	return names
 }
 
 // policyFromProto builds the policy.Policy that implements a cluster's
@@ -398,10 +447,7 @@ func policyFromProto(p *grpc.TierRetentionPolicy) (policy.Policy, error) {
 // diffByName returns the entries of all that are not present (by Name) in
 // keep -- the backups a Policy.Evaluate call decided to drop.
 func diffByName(all, keep klioclient.BackupList) klioclient.BackupList {
-	keepNames := make(map[string]struct{}, len(keep))
-	for _, b := range keep {
-		keepNames[b.Name] = struct{}{}
-	}
+	keepNames := backupNameSet(keep)
 
 	var dropped klioclient.BackupList
 	for _, b := range all {

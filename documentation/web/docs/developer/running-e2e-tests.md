@@ -129,10 +129,15 @@ The E2E tests are located in `operator/test/e2e/` and include:
   by both of the above; also asserts that the read-only (tier2-only)
   recovery Server gets the unified `klio` PVC/mount, same as a tier1
   server
-- **`retention_test.go`** - Combined tier1/tier2 backup and WAL
-  retention: verifies both tiers converge to their configured backup
-  count and that each tier's oldest remaining WAL segment matches what
-  its surviving backups require (`Retention`)
+- **`retention_test.go`** - Combined tier1/tier2 retention tests:
+   - `Retention`: verifies both tiers converge to their configured
+    backup count and that each tier's oldest remaining WAL segment
+    matches what its surviving backups require
+   - `RelayTighterTier2Retention`: with a tier2 retention tighter than
+    tier1's, verifies that the relay does not copy back the backups that
+    tier2 retention removed, that it still completes a backup that tier2
+    holds only in part, and that tier1 retention still deletes the
+    backups that tier2 no longer holds
 - **`incomplete_backup_test.go`** - Backups missing one of their
   snapshots: verifies such a backup is not listed; that one damaged on
   both tiers is reported `UNRECOVERABLE` by

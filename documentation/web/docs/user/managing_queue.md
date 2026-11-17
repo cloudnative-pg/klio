@@ -20,9 +20,10 @@ job type:
   instance streams to the server, the server enqueues one task that reads
   the segment from its Tier 1 archive and copies it to Tier 2.
 - **Backup processing** — when a base backup completes, the server enqueues
-  one task that verifies the cluster's Tier 1 backups server-side and, when
-  the backup requested Tier 2 relay, migrates the cluster's backups to
-  Tier 2 and verifies them there.
+  one task that verifies the cluster's Tier 1 backups server-side. When the
+  backup requested Tier 2 relay, the task also migrates the cluster's
+  backups that Tier 2 is missing and that Tier 2 retention keeps, and
+  verifies them on Tier 2.
 
 Each stream is consumed one task at a time: a task is retried automatically
 after a failure, with the delay growing between attempts until they are

@@ -265,9 +265,12 @@ Retention is evaluated periodically by the Klio server, not only right after
 a backup completes, so out-of-retention backups are removed even if no new
 backup is taken for a while.
 
-A Tier 1 backup that has not yet been copied to Tier 2 is never deleted by
+A Tier 1 backup that has not yet been copied to Tier 2 is not deleted by
 Tier 1 retention, even if it is otherwise out of retention: it is kept until
-Tier 2 has it.
+Tier 2 has it. The exception is a backup that Tier 2 retention would not
+keep, because Tier 2 already holds enough newer backups: unless Tier 2
+already holds part of it, it is never copied to Tier 2, so Tier 1 retention
+deletes it without waiting.
 
 A backup that is missing part of its data on a tier, for example after an
 interrupted deletion, is not listed and cannot be restored from that tier.
