@@ -50,6 +50,11 @@ jobs:
           digest=$(docker buildx imagetools inspect "${chart}:${version}" \
             --format '{{ .Manifest.Digest }}')
           cosign sign --yes "${chart}@${digest}"
+          # Check the signature the way users do (see the Helm chart docs)
+          cosign verify "${chart}@${digest}" \
+            --certificate-identity "https://github.com/${GITHUB_WORKFLOW_REF}" \
+            --certificate-oidc-issuer https://token.actions.githubusercontent.com \
+            > /dev/null
 
       # Read the images just published from the bake metadata, picking the
       # release tag rather than the moving "latest" one. The OLM bundle ships

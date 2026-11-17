@@ -723,6 +723,8 @@ tasks:
         package --chart dist/chart/
         with-name --name klio_chart.tgz
         export --path dist/chart/ --allow-parent-dir-path
+      # The chart is signed after the push by the release-publish workflow,
+      # as keyless signing needs the OIDC token of the workflow.
       # Pushing the chart to the registry. It automatically gets the name and the
       # version from the Chart.yaml file.
       - >
