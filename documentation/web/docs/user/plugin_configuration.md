@@ -263,7 +263,8 @@ a backup completes, so out-of-retention backups are removed even if no new
 backup is taken for a while.
 
 When `tier2.retention` is set, Tier 1 retention never deletes a backup
-that has not yet been copied to Tier 2: see
+that has not yet been copied to Tier 2, unless Tier 2 retention would not
+keep it: see
 [Protecting backups pending migration to Tier
 2](./concepts/architectures.md#protecting-backups-pending-migration-to-tier-2).
 

@@ -87,8 +87,8 @@ func ClassifyTier1IncompleteBackups(backups []IncompleteBackup) []IncompleteBack
 
 // ClassifyTier2IncompleteBackups returns a copy of the backups listed on
 // tier2 with their tier and status set, leaving the input untouched.
-// The relay copies to tier2 whatever a cluster has on
-// tier1, so a backup complete on tier1 is rebuilt by the next relay.
+// Every relay completes the backups that tier2 holds only in part,
+// so a backup complete on tier1 is rebuilt by the next relay.
 func ClassifyTier2IncompleteBackups(backups []IncompleteBackup, tier1Complete BackupList) []IncompleteBackup {
 	type clusterBackup struct{ cluster, name string }
 

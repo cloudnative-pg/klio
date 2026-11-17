@@ -149,9 +149,9 @@ func (s *retentionScenario) Teardown(
 }
 
 // newRetentionFeatureConfig creates a new retention feature configuration.
-// It configures a single-instance cluster with tier1 latest=1 and tier2
-// latest=2, and takes one more backup than the larger of the two so both
-// tiers' retention is exercised.
+// It configures a single-instance cluster with tier1 latest=tier1Keep and
+// tier2 latest=tier2Keep, and takes one more backup than the larger of the
+// two so both tiers' retention is exercised.
 func newRetentionFeatureConfig(name, namespace string, tier1Keep, tier2Keep int32) klioFeatures.RetentionFeatureConfig {
 	const (
 		cnpgClusterName = "pg-retention"
@@ -314,4 +314,15 @@ func newRetentionFeatureConfig(name, namespace string, tier1Keep, tier2Keep int3
 func Retention(namespace string) *klioFeatures.RetentionFeature {
 	return klioFeatures.NewRetentionFeature(
 		newRetentionFeatureConfig("Retention", namespace, 1, 2))
+}
+
+// RelayTighterTier2Retention returns a RelayFeature verifying the relay
+// with a tier2 retention tighter than tier1's (tier1 keeps its latest two
+// backups, tier2 its latest one): the relay does not copy back the backups
+// that the tier2 sweep removed, it still completes a backup that tier2 holds
+// only in part, and tier1 retention still deletes the backups that tier2 no
+// longer holds.
+func RelayTighterTier2Retention(namespace string) *klioFeatures.RelayFeature {
+	return klioFeatures.NewRelayFeature(
+		newRetentionFeatureConfig("RelayTighterTier2Retention", namespace, 2, 1))
 }

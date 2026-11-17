@@ -158,7 +158,7 @@ func (f *IncompleteBackupFeature) Run() types.StepFunc {
 		podName := f.klioServer.Name + klioPodSuffix
 		first, second, third := f.backups[0], f.backups[1], f.backups[2]
 
-		f.takeBackup(ctx, t, r, first)
+		takeBackup(ctx, t, r, first, f.backupTimeout, f.checkInterval)
 		t.Log("Waiting for the first backup to be relayed to tier2")
 		err = wait.For(
 			klioConditions.Tier2BackupCountEquals(r, f.namespace, podName, serverContainerName, 1),
@@ -180,7 +180,7 @@ func (f *IncompleteBackupFeature) Run() types.StepFunc {
 		)
 		require.NoError(t, err, "incomplete backup %q is still listed", firstName)
 
-		f.takeBackup(ctx, t, r, second)
+		takeBackup(ctx, t, r, second, f.backupTimeout, f.checkInterval)
 		t.Log("Waiting for the second backup to be listed on both tiers")
 		err = wait.For(
 			checkBackupCounts(r, f.namespace, f.klioServer.Name, 1, 1),
@@ -229,7 +229,7 @@ func (f *IncompleteBackupFeature) Run() types.StepFunc {
 		)
 		require.NoError(t, err, "unrecoverable backup %q is still reported", firstName)
 
-		f.takeBackup(ctx, t, r, third)
+		takeBackup(ctx, t, r, third, f.backupTimeout, f.checkInterval)
 		t.Log("Waiting for the relay of the third backup to rebuild the second one on tier2")
 		err = wait.For(
 			func(ctx context.Context) (bool, error) {
@@ -353,12 +353,14 @@ func listIncompleteBackups(
 	return backups, nil
 }
 
-// takeBackup creates backup and waits for it to complete.
-func (f *IncompleteBackupFeature) takeBackup(
+// takeBackup creates backup and waits for it to complete, checking every
+// interval for at most timeout.
+func takeBackup(
 	ctx context.Context,
 	t *testing.T,
 	r *resources.Resources,
 	backup *cnpgv1.Backup,
+	timeout, interval time.Duration,
 ) {
 	t.Helper()
 
@@ -367,8 +369,8 @@ func (f *IncompleteBackupFeature) takeBackup(
 
 	err := wait.For(
 		machineryConditions.BackupIsCompleted(r, backup),
-		wait.WithTimeout(f.backupTimeout),
-		wait.WithInterval(f.checkInterval),
+		wait.WithTimeout(timeout),
+		wait.WithInterval(interval),
 	)
 	require.NoError(t, err, "backup %s did not complete", backup.Name)
 	t.Logf("Backup %s completed with ID %q", backup.Name, backup.Status.BackupID)

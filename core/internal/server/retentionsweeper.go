@@ -128,13 +128,9 @@ func (s *RetentionSweeper) connectPendingWALs(
 // per-cluster retention policy is stored) and, when tier2 is configured,
 // the tier2 WAL repository too, wiring both into a retention.Options.
 func (s *RetentionSweeper) buildSweeperOptions(ctx context.Context) (*retention.Options, error) {
-	tier1WALFS := afero.NewBasePathFs(afero.NewOsFs(), s.Config.Tier1.Wal.WALPath)
-	tier1WALRepository, err := repository.Open(repository.Options{
-		FS:       tier1WALFS,
-		Password: s.Config.Tier1.EncryptionKey,
-	})
+	tier1WALRepository, err := openTier1WALRepository(s.Config)
 	if err != nil {
-		return nil, fmt.Errorf("failed to open tier1 WAL repository: %w", err)
+		return nil, err
 	}
 
 	sweeperOptions := &retention.Options{
@@ -167,6 +163,20 @@ func (s *RetentionSweeper) buildSweeperOptions(ctx context.Context) (*retention.
 	}
 
 	return sweeperOptions, nil
+}
+
+// openTier1WALRepository opens the tier1 WAL repository, where the
+// per-cluster retention policy is stored.
+func openTier1WALRepository(cfg *config.ServerConfig) (*repository.Connection, error) {
+	tier1WALRepository, err := repository.Open(repository.Options{
+		FS:       afero.NewBasePathFs(afero.NewOsFs(), cfg.Tier1.Wal.WALPath),
+		Password: cfg.Tier1.EncryptionKey,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to open tier1 WAL repository: %w", err)
+	}
+
+	return tier1WALRepository, nil
 }
 
 // runSweeps runs sweeper once immediately and then on a fixed interval until

@@ -72,10 +72,16 @@ func (s *BackupConsumer) Serve(ctx context.Context) error {
 	}
 
 	// When tier2 is configured, wire the tier2 client so the consumer can
-	// relay backups destined for tier2, and the tier2 Kopia server so it can
-	// refresh its cache after a relay. Without tier2 the consumer only
-	// verifies tier1 backups.
+	// relay backups destined for tier2, the tier1 WAL repository so it can
+	// read the tier2 retention the relay follows, and the tier2 Kopia server
+	// so it can refresh its cache after a relay. Without tier2 the consumer
+	// only verifies tier1 backups.
 	if s.Tier2KopiaConfigFile != "" {
+		backupOptions.Tier1WALRepository, err = openTier1WALRepository(s.Config)
+		if err != nil {
+			return err
+		}
+
 		backupOptions.Tier2KopiaConfig = s.Tier2KopiaConfigFile
 		backupOptions.Tier2ServerAddress = "https://" + s.Config.Tier2.BaseListenAddress
 		backupOptions.ServerTLSCertFile = s.Config.TLS.TLSCert
