@@ -1028,7 +1028,7 @@ tasks:
       pull request adding it to the OperatorHub community-operators
       repository, through a branch pushed to the cloudnative-pg fork.
     vars:
-      PRODUCT_NAME: klio-operator
+      PRODUCT_NAME: klio
       VERSION: '{{ trimPrefix "v" .GITHUB_REF_NAME }}'
       COMMUNITY_OPERATORS_PATH: community-operators
     requires:
