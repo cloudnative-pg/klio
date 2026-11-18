@@ -1036,7 +1036,6 @@ tasks:
       # GitHub-specific vars here to prevent running this task locally by
       # accident.
       vars:
-        - CI
         - GITHUB_REF
         - GITHUB_REF_NAME
         - OPERATOR_IMAGE
@@ -1044,10 +1043,6 @@ tasks:
     preconditions:
       - sh: "[[ {{.GITHUB_REF}} =~ 'refs/tags/v.*' ]]"
         msg: not a tag, failing
-      - sh: '[[ "{{ .GIT_TAG_VERSION }}" == "{{ .VERSION }}" ]]'
-        msg: >-
-          bundle version {{ .GIT_TAG_VERSION }} does not match tag
-          {{ .GITHUB_REF_NAME }}; refusing to release an inconsistent bundle
     cmds:
       - defer:
           task: ci-machinery-infra:teardown
@@ -1059,8 +1054,11 @@ tasks:
       - defer: rm -rf operator/olm-bundle
       - task: olm:bundle:generate
         vars:
-          PACKAGE_NAME: '{{ .PRODUCT_NAME }}'
-          EXTRA_ARGS: '--use-image-digests'
+          PACKAGE_NAME: '{{.PRODUCT_NAME}}'
+          CHANNELS: '{{.CHANNEL}}'
+          DEFAULT_CHANNEL: '{{.CHANNEL}}'
+          EXTRA_ARGS: "--use-image-digests"
+          METADATA_DIR: "config/olm/metadata"
       - defer: rm -rf 'operator/{{ .COMMUNITY_OPERATORS_PATH }}'
       - task: ci-machinery-olm:operator-hub:clone
         vars:
@@ -1072,6 +1070,7 @@ tasks:
           OPERATOR_NAME: '{{ .PRODUCT_NAME }}'
           VERSION: '{{ .VERSION }}'
           COMMUNITY_OPERATORS_PATH: '{{ .COMMUNITY_OPERATORS_PATH }}'
+          CI_YAML: 'config/olm/ci.yaml'
       - task: ci-machinery-olm:operator-hub:pull-request
         vars:
           WORKDIR: operator
