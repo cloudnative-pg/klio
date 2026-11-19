@@ -416,8 +416,8 @@ kubectl apply -f cluster-example.yaml
 ```
 
 :::warning Order matters
-The `PluginConfiguration` must exist before the `Cluster`. If it does
-not, the Klio plugin gates reconciliation and the cluster waits
+The `PluginConfiguration` must exist before creating or updating the `Cluster`.
+If it does not, the Klio plugin gates reconciliation and the cluster waits
 without progressing until you create it.
 :::
 

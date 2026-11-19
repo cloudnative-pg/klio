@@ -53,8 +53,7 @@ approach:
 
 - **Improved efficiency and scalability:** A single, continuously running WAL
   streamer process replaces the need to spawn a new process for each WAL
-  segment, resulting in lower CPU and I/O usage and better scalability during
-  periods of high WAL volume.
+  segment, resulting in better scalability during periods of high WAL volume.
 
 - **Enhanced security:** WAL data is encrypted end-to-end, both in transit and
   at rest, providing protection not available with the traditional
