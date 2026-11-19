@@ -126,6 +126,7 @@ worker nodes for Klio pods using Kubernetes taints and tolerations.
 (DR) strategies. It's physically and logically separate from the primary
 Kubernetes cluster and typically consists of an external object storage system,
 such as Amazon S3, Google Cloud Storage, or Azure Blob Storage.
+Klio currently supports Amazon S3 and S3-compatible storage providers.
 Storing backups off-site ensures **geographical redundancy**, protecting data
 against a full cluster or site failure.
 

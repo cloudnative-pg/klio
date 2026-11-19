@@ -118,7 +118,7 @@ The `plugins` section in the `Cluster` specification requires:
 :::note
 Even though the Klio plugin is used to archive WAL files on the Klio server,
 it does not use the `archiveCommand` parameter in the PostgreSQL configuration,
-as the WAL are streamed directly to the Klio server. Thus, you must not set
+as the WALs are streamed directly to the Klio server. Thus, you must not set
 `isWALArchiver: true` in the plugin configuration.
 :::
 

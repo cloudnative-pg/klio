@@ -348,8 +348,8 @@ Klio will choose the latest backup available in case the `backupID` field is
 omitted.
 :::
 
-Create a corresponding `PluginConfiguration` that specifies which backup to
-restore:
+Create a corresponding `PluginConfiguration` that tells Klio how to reach the server
+holding the backups:
 
 ```yaml
 apiVersion: klio.cnpg.io/v1alpha1

@@ -147,7 +147,9 @@ Queue Size = WAL_segments_per_hour × max_backlog_hours × 300 bytes × 2
 Where:
 
 - **WAL_segments_per_hour**: How many WAL segments your database generates per
-  hour (check with `pg_stat_archiver` or monitor WAL production)
+  hour. Estimate it by sampling `pg_current_wal_lsn()` at two points in
+  time, computing the difference with `pg_wal_lsn_diff()`, then dividing by
+  `wal_segment_size`, scaling the results to one hour.
 - **max_backlog_hours**: Maximum duration the Tier 2 WAL replication backlog
   can grow before the queue fills up and tasks are lost. Backlog builds up
   when Tier 2 replication falls behind Tier 1 ingestion — for example, during
