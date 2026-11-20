@@ -1296,11 +1296,18 @@ tasks:
         --version ${HELM_DOCS_IMAGE_VERSION}
         generate --chart operator/dist/chart --templates documentation/helm-docs/helm_chart.md.gotmpl
         export --path documentation/web/docs/user/_helm_chart_values.md
+      - >
+        GITHUB_REF= dagger -s call -m github.com/sagikazarmark/daggerverse/helm-docs@${DAGGER_HELM_DOCS_SHA}
+        --version ${HELM_DOCS_IMAGE_VERSION}
+        generate --chart operator/dist/chart --templates documentation/helm-docs/README.md.gotmpl
+        export --path operator/dist/chart/README.md
     sources:
       - operator/dist/chart/**/*
-      - documentation/helm-docs/helm_chart.md.gotmpl
+      - documentation/helm-docs/*.gotmpl
+      - exclude: operator/dist/chart/README.md
     generates:
         - documentation/web/docs/user/_helm_chart_values.md
+        - operator/dist/chart/README.md
 
   documentation:docusaurus-build-test:
     desc: Check that the documentation builds
