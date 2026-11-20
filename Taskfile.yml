@@ -82,7 +82,7 @@ tasks:
     desc: Check for conventional commits
     env:
       # renovate: datasource=git-refs depName=commitlint lookupName=https://github.com/cloudnative-pg/daggerverse currentValue=main
-      DAGGER_COMMITLINT_SHA: 3b5df5d63d248ba4d67f0b951ef780b90817d07f
+      DAGGER_COMMITLINT_SHA: 4c902812565daea20165e8349ad08b935794e680
     cmds:
       - >
         GITHUB_REF= dagger -s call -m github.com/cloudnative-pg/daggerverse/commitlint@${DAGGER_COMMITLINT_SHA}
@@ -127,7 +127,7 @@ tasks:
     run: once
     env:
       # renovate: datasource=git-refs depName=protolint lookupName=https://github.com/cloudnative-pg/daggerverse currentValue=main
-      DAGGER_PROTOLINT_SHA: 3b5df5d63d248ba4d67f0b951ef780b90817d07f
+      DAGGER_PROTOLINT_SHA: 4c902812565daea20165e8349ad08b935794e680
     cmds:
       - >
         GITHUB_REF= dagger -s call -m github.com/cloudnative-pg/daggerverse/protolint@${DAGGER_PROTOLINT_SHA}
@@ -143,7 +143,7 @@ tasks:
     run: once
     env:
       # renovate: datasource=git-refs depName=protoc-gen-go-grpc lookupName=https://github.com/cloudnative-pg/daggerverse currentValue=main
-      DAGGER_PROTOC_GEN_GO_GRPC_SHA: 3b5df5d63d248ba4d67f0b951ef780b90817d07f
+      DAGGER_PROTOC_GEN_GO_GRPC_SHA: 4c902812565daea20165e8349ad08b935794e680
     cmds:
       - >
         GITHUB_REF= dagger -s call
@@ -495,7 +495,7 @@ tasks:
     internal: true
     env:
       # renovate: datasource=git-refs depName=uncommitted lookupName=https://github.com/cloudnative-pg/daggerverse currentValue=main
-      DAGGER_UNCOMMITTED_SHA: 3b5df5d63d248ba4d67f0b951ef780b90817d07f
+      DAGGER_UNCOMMITTED_SHA: 4c902812565daea20165e8349ad08b935794e680
     cmds:
       - >
         GITHUB_REF= dagger -s call -m github.com/cloudnative-pg/daggerverse/uncommitted@${DAGGER_UNCOMMITTED_SHA}
@@ -507,7 +507,7 @@ tasks:
     dir: '{{ .WORKDIR }}'
     env:
       # renovate: datasource=git-refs depName=go-licenses lookupName=https://github.com/cloudnative-pg/daggerverse currentValue=main
-      DAGGER_GO_LICENSES_SHA: 3b5df5d63d248ba4d67f0b951ef780b90817d07f
+      DAGGER_GO_LICENSES_SHA: 4c902812565daea20165e8349ad08b935794e680
     cmds:
       - >
         GITHUB_REF= dagger -s call -m github.com/cloudnative-pg/daggerverse/go-licenses@${DAGGER_GO_LICENSES_SHA}
@@ -626,7 +626,7 @@ tasks:
     run: once
     env:
       # renovate: datasource=git-refs depName=controller-gen lookupName=https://github.com/cloudnative-pg/daggerverse currentValue=main
-      DAGGER_CONTROLLER_GEN_SHA: 3b5df5d63d248ba4d67f0b951ef780b90817d07f
+      DAGGER_CONTROLLER_GEN_SHA: 4c902812565daea20165e8349ad08b935794e680
       # renovate: datasource=docker depName=golang versioning=docker
       GOLANG_IMAGE_VERSION: 1.27.4@sha256:205c7636d74e0ffbe3d007162df7d74f859f5a8c8322dfb9f907977686c126cf
     cmds:
@@ -1229,7 +1229,7 @@ tasks:
       - documentation:protoc-gen-doc
     env:
       # renovate: datasource=git-refs depName=spellcheck lookupName=https://github.com/cloudnative-pg/daggerverse currentValue=main
-      DAGGER_SPELLCHECK_SHA: 3b5df5d63d248ba4d67f0b951ef780b90817d07f
+      DAGGER_SPELLCHECK_SHA: 4c902812565daea20165e8349ad08b935794e680
     cmds:
       - >
         GITHUB_REF= dagger -s call -m github.com/cloudnative-pg/daggerverse/spellcheck@${DAGGER_SPELLCHECK_SHA}
@@ -1245,7 +1245,7 @@ tasks:
     run: once
     env:
       # renovate: datasource=git-refs depName=protoc-gen-doc lookupName=https://github.com/cloudnative-pg/daggerverse currentValue=main
-      DAGGER_PROTOC_GEN_DOC_SHA: 3b5df5d63d248ba4d67f0b951ef780b90817d07f
+      DAGGER_PROTOC_GEN_DOC_SHA: 4c902812565daea20165e8349ad08b935794e680
     cmds:
       - >
         GITHUB_REF= dagger -s call -m github.com/cloudnative-pg/daggerverse/protoc-gen-doc@${DAGGER_PROTOC_GEN_DOC_SHA}
@@ -1260,7 +1260,7 @@ tasks:
     run: once
     env:
       # renovate: datasource=git-refs depName=crd-gen-refs lookupName=https://github.com/cloudnative-pg/daggerverse currentValue=main
-      DAGGER_CRDGENREF_SHA: 3b5df5d63d248ba4d67f0b951ef780b90817d07f
+      DAGGER_CRDGENREF_SHA: 4c902812565daea20165e8349ad08b935794e680
       # renovate: datasource=docker depName=golang versioning=docker
       GOLANG_IMAGE_VERSION: 1.27.4-alpine@sha256:70bd7ddea8b6cbe5d6943cde279d6b67feb10cc924fb9100d1d8757c1575b280
     cmds:
