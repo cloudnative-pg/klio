@@ -29,6 +29,30 @@ For installation instructions, including the prerequisites and the
 This page is the reference for the chart itself: its configuration
 parameters, the upgrade procedure and how to uninstall it.
 
+## Verifying the Chart Signature
+
+The chart's OCI images are cryptographically signed using
+[cosign](https://github.com/sigstore/cosign), a signature tool from
+[Sigstore](https://www.sigstore.dev/).
+This process is automated via GitHub Actions and leverages
+[short-lived tokens issued through OpenID Connect](https://docs.github.com/en/actions/security-for-github-actions/security-hardening-your-deployments/about-security-hardening-with-openid-connect).
+
+The token issuer is `https://token.actions.githubusercontent.com`, and the
+signing identity corresponds to a GitHub workflow executed under the
+[Klio](https://github.com/cloudnative-pg/klio/) repository.
+This workflow uses the
+[cosign-installer action](https://github.com/marketplace/actions/cosign-installer)
+to streamline the signing process.
+
+To verify the authenticity of the chart, use the following `cosign`
+command with the chart digest:
+
+```shell
+cosign verify ghcr.io/cloudnative-pg/klio-operator-chart@sha256:<DIGEST> \
+  --certificate-identity-regexp="^https://github\.com/cloudnative-pg/klio/\.github/workflows/release-publish\.yml@refs/tags/v" \
+  --certificate-oidc-issuer="https://token.actions.githubusercontent.com"
+```
+
 ## Configuration
 
 ### Inspecting the Chart

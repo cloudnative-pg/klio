@@ -126,6 +126,7 @@ OTLP
 ObjectMeta
 OpenBao
 OpenEBS
+OpenID
 OpenShift
 OpenTelemetry
 OperatorHub
@@ -207,6 +208,7 @@ SessionExpirationAge
 SetRetentionPolicy
 SetRetentionPolicyRequest
 SetRetentionPolicyResult
+Sigstore
 StartWALFile
 StatefulSet
 StatefulSet's
@@ -313,6 +315,7 @@ init
 io
 js
 keychain
+keyless
 klio
 klioclient
 kopia
