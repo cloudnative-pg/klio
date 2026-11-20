@@ -331,7 +331,7 @@ func dlqPanels() []sizedPanel {
 			Orientation(common.VizOrientationHorizontal).
 			Description("Entries currently in the dead-letter queue of each server, per task type (`wal` or "+
 				"`backup`). A value above zero means tasks wait for `klio admin queue wal|backup retry` or `discard`. It "+
-				"includes the entries whose original task no longer exists, which `list-failed` does not show.")),
+				"can include entries whose original task no longer exists: the next queue command removes them.")),
 
 		sized(mediumPanelWidth, mediumPanelHeight, timeseriesPanel("Tasks moved to the dead-letter queue",
 			units.Number,

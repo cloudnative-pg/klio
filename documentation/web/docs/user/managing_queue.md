@@ -82,6 +82,11 @@ server removes its dead-letter entries on its own. A retried WAL task has its
 earlier entries removed even when it fails again: if it then uses up its
 attempts, it is dead-lettered with a single new entry.
 
+A dead-letter entry whose original task no longer exists has nothing to
+retry or discard. The server removes such entries on its own the next time
+the dead-letter queue is listed, by any of the commands above or by its own
+cleanup.
+
 While a WAL task is queued, being retried or in the dead-letter queue, Tier 1
 retention keeps that segment and every later one of the same cluster, so they
 can still reach Tier 2. A WAL task left in the dead-letter queue therefore
