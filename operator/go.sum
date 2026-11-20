@@ -64,14 +64,14 @@ github.com/cloudnative-pg/barman-cloud v0.7.0 h1:F6U2qNzucaHss4pZbznOZ1ZdVVubRgp
 github.com/cloudnative-pg/barman-cloud v0.7.0/go.mod h1:PVldcjsh/1VCS18Ka7w0dqXEx6tAyXzW+BnuvYLaulY=
 github.com/cloudnative-pg/cloudnative-pg v1.30.2 h1:l/7my8Oz98KxP/lXd0RHSfXLhaQH0avJeKiMIK151iM=
 github.com/cloudnative-pg/cloudnative-pg v1.30.2/go.mod h1:ltFmTxZmErjujJbTYluj6J9UtZSjcpsI8xcU6sZQunY=
-github.com/cloudnative-pg/cloudnative-pg/tests v0.0.0-20261118122804-78a018f45c7d h1:kCegJqQrZB0tYcMENOcMrs6JEF2WY83POckdi6rKjPg=
-github.com/cloudnative-pg/cloudnative-pg/tests v0.0.0-20261118122804-78a018f45c7d/go.mod h1:w7okgQzTBSukNL7jNb9s4jksBUjJOctWA/Y7xf2oaPM=
+github.com/cloudnative-pg/cloudnative-pg/tests v0.0.0-20261120143722-c26cc43da429 h1:2JY6ZnVr5UmzxH7OuxZwMHJ3XD1pEoSnJtnnbz3J7bk=
+github.com/cloudnative-pg/cloudnative-pg/tests v0.0.0-20261120143722-c26cc43da429/go.mod h1:w7okgQzTBSukNL7jNb9s4jksBUjJOctWA/Y7xf2oaPM=
 github.com/cloudnative-pg/cnpg-i v0.6.0 h1:LA//DLkFOLIjU0ASOpFkydZhGir9IAIDfgSsTTX9IpU=
 github.com/cloudnative-pg/cnpg-i v0.6.0/go.mod h1:4kcpLAj+feMTnh0TVadXRASdVnEhBytNSm/BvktLgmI=
 github.com/cloudnative-pg/cnpg-i-machinery v0.4.2 h1:0reS9MtyLYINHXQ/MfxJ9jp39hhBf8e3Qdj+T5Nsq6I=
 github.com/cloudnative-pg/cnpg-i-machinery v0.4.2/go.mod h1:gvrKabgxXq0zGthXGucemDdsxakLEQDMxn43M4HLW30=
-github.com/cloudnative-pg/machinery v0.6.1 h1:qcFS4TIO2XH0yW2uwts5KdWGldBBwvTZw00qJNStqvs=
-github.com/cloudnative-pg/machinery v0.6.1/go.mod h1:AUE7ifNhkD8BU/ebFY+dxrpvOaUlU4Fvl+yjiUkCpMY=
+github.com/cloudnative-pg/machinery v0.7.0 h1:jj7f+yHnj232Qs6MdO/SFLPsecB8DRi/t6hF7ZASXOk=
+github.com/cloudnative-pg/machinery v0.7.0/go.mod h1:Vg9aWuAY9uu2hbst7yJ2YjBO4Xurw31oIwU7qHo32bI=
 github.com/containerd/errdefs v1.0.0 h1:tg5yIfIlQIrxYtu9ajqY42W3lpS19XqdxRQeEwYG8PI=
 github.com/containerd/errdefs v1.0.0/go.mod h1:+YBYIdtsnF4Iw6nWZhJcqGSg/dwvV7tyJ/kCkyJ2k+M=
 github.com/containerd/errdefs/pkg v0.3.0 h1:9IKJ06FvyNlexW690DXuQNx2KA2cUJXx151Xdx3ZPPE=
@@ -279,8 +279,8 @@ github.com/spf13/cast v1.10.0/go.mod h1:jNfB8QC9IA6ZuY2ZjDp0KtFO2LZZlg4S/7bzP6qq
 github.com/spf13/cobra v1.10.2 h1:DMTTonx5m65Ic0GOoRY2c16WCbHxOOw6xxezuLaBpcU=
 github.com/spf13/cobra v1.10.2/go.mod h1:7C1pvHqHw5A4vrJfjNwvOdzYu0Gml16OCs2GRiTUUS4=
 github.com/spf13/pflag v1.0.9/go.mod h1:McXfInJRrz4CZXVZOBLb0bTZqETkiAhM9Iw0y3An2Bg=
-github.com/spf13/pflag v1.0.10 h1:4EBh2KAYBwaONj6b2Ye1GiHfwjqyROoF4RwYO+vPwFk=
-github.com/spf13/pflag v1.0.10/go.mod h1:McXfInJRrz4CZXVZOBLb0bTZqETkiAhM9Iw0y3An2Bg=
+github.com/spf13/pflag v1.1.0 h1:6W6MbVUrnMb8PEhjkqwsVLY7ryuzRfFHF4mQd7L94ag=
+github.com/spf13/pflag v1.1.0/go.mod h1:McXfInJRrz4CZXVZOBLb0bTZqETkiAhM9Iw0y3An2Bg=
 github.com/spf13/viper v1.21.0 h1:x5S+0EU27Lbphp4UKm1C+1oQO+rKx36vfCoaVebLFSU=
 github.com/spf13/viper v1.21.0/go.mod h1:P0lhsswPGWD/1lZJ9ny3fYnVqxiegrlNrEmgLjbTCAY=
 github.com/stern/stern v1.35.0 h1:DnZrpdzOj83bKUcSgKsJ6jVsjieWoThDD+Cti/4GD+I=
@@ -319,6 +319,8 @@ github.com/yusufpapurcu/wmi v1.2.4 h1:zFUKzehAFReQwLys1b/iSMl+JQGSCSjtVqQn9bBrPo
 github.com/yusufpapurcu/wmi v1.2.4/go.mod h1:SBZ9tNy3G9/m5Oi98Zks0QjeHVDvuK0qfxQmPyzfmi0=
 go.opentelemetry.io/auto/sdk v1.2.1 h1:jXsnJ4Lmnqd11kwkBV2LgLoFMZKizbCi5fNZ/ipaZ64=
 go.opentelemetry.io/auto/sdk v1.2.1/go.mod h1:KRTj+aOaElaLi+wW1kO/DZRXwkF4C5xPbEe3ZiIhN7Y=
+go.opentelemetry.io/contrib/bridges/otelzap v0.21.0 h1:p23nklcy3VVRcfZ2ce5AXQa6RHQPQvIMM+fW3GzXCU0=
+go.opentelemetry.io/contrib/bridges/otelzap v0.21.0/go.mod h1:7NPD4VToURMipQu1xgz6seTz8aXmbCqQNZs7bQADEjU=
 go.opentelemetry.io/contrib/bridges/prometheus v0.72.0 h1:OUIUu7ovHCEvG4IE5LQd2PNBH2eVYh50w/1ROwHEM7M=
 go.opentelemetry.io/contrib/bridges/prometheus v0.72.0/go.mod h1:pCrnkC07AZ5+h+0A0Z/1GYyqB+xu3A8LaEEhxvv9s6o=
 go.opentelemetry.io/contrib/detectors/autodetect v0.19.0 h1:EqEFSUPTVuB3YSgv/V8eWLj9kq2qcfH81gRWy9Lfx9c=
@@ -387,6 +389,8 @@ go.opentelemetry.io/otel/exporters/stdout/stdouttrace v1.47.0 h1:N3YQCxjxQ/bMjyc
 go.opentelemetry.io/otel/exporters/stdout/stdouttrace v1.47.0/go.mod h1:Mp8HOFqcaUyypCuGv9IhDdTHnJ56lSudSHMd+pVSCEA=
 go.opentelemetry.io/otel/log v1.47.0 h1:cOTS1CcLbSQeZKanGJ+0JpF/+t4PELi3O3bbl2lqCcI=
 go.opentelemetry.io/otel/log v1.47.0/go.mod h1:9byitSQ5pLC6PpqwGXjqdMKya6ZTswHRZh2vvXT33nw=
+go.opentelemetry.io/otel/log/logtest v0.23.0 h1:XeI2D+/DjUMYzrfmMPXOxnTIkUTCXT/HwQ5QBJSEC/8=
+go.opentelemetry.io/otel/log/logtest v0.23.0/go.mod h1:TOVBzNwEZG0vmQUuvE9UHaiKkUN7q3j1d+GeVGs/yQ8=
 go.opentelemetry.io/otel/metric v1.47.0 h1:4PptaldXx3Eat1XjMZ68pPJEs5wrhlemctZE9a3UdWY=
 go.opentelemetry.io/otel/metric v1.47.0/go.mod h1:ADGSXxRrXM6bjbvLo535EstVFlPpPYZm4LBKixjDHwU=
 go.opentelemetry.io/otel/metric/x v0.69.0 h1:DjRLr15H83v+hCW7JA9NoJvOkYTtmq5YoDRbe9deYpM=
