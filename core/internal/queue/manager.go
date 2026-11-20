@@ -616,10 +616,9 @@ func (m *StreamManager) purgeDLQEntryBySequence(
 
 	// Release the original failed message first. The message may already be
 	// gone (e.g. drained by the work queue), so a missing original is treated
-	// as already cleaned up rather than an error. Deleting the original before
-	// the DLQ entry makes this function idempotent: if it is interrupted after
-	// this point the DLQ entry still exists and a retry will skip the
-	// already-deleted original and then complete the DLQ removal.
+	// as already cleaned up rather than an error. If this function is
+	// interrupted after this point, the DLQ entry is left orphaned: the next
+	// listing of the dead-letter queue removes it (see listPager).
 	// We read before deleting because DeleteMessageRequest returns the generic
 	// JSStreamMsgDeleteFailedF (10057) when the message is absent, which would
 	// mask real delete failures. ReadMessage returns the precise
@@ -694,7 +693,11 @@ func listFailedTasks[T clusterTask](
 		}
 	}()
 
-	return listPager[T](ctx, pgr, taskStream.ReadMessage, state.Msgs, cfg)
+	dropOrphan := func(dlqSeq uint64) error {
+		return dlqStream.DeleteMessageRequest(api.JSApiMsgDeleteRequest{Seq: dlqSeq})
+	}
+
+	return listPager[T](ctx, pgr, taskStream.ReadMessage, dropOrphan, state.Msgs, cfg)
 }
 
 // dlqAdvisory is a DLQ entry collected from the pager before its original
@@ -711,6 +714,7 @@ type dlqAdvisory struct {
 func listPager[T clusterTask](ctx context.Context,
 	pgr *jsm.StreamPager,
 	readMessage func(seq uint64) (*api.StoredMsg, error),
+	dropOrphan func(dlqSeq uint64) error,
 	expected uint64,
 	cfg optionConfig,
 ) ([]FailedTask[T], error) {
@@ -730,15 +734,23 @@ func listPager[T clusterTask](ctx context.Context,
 		msg, err := readMessage(advisory.sourceSeq)
 		switch {
 		case jsm.IsNatsError(err, uint16(server.JSNoMessageFoundErr)):
-			// The DLQ advisory outlives the original message: once a failed
-			// task is retried or the source stream is purged, the advisory
-			// remains but its source message is gone. A genuine orphan always
-			// surfaces as this not-found error, so skip it instead of failing
-			// the whole listing.
-			log.FromContext(ctx).Info(
-				"Skipping orphaned DLQ entry: original stream message not found",
+			// The DLQ advisory can outlive the original message: a purge
+			// interrupted between its two deletes, a task acked after it was
+			// dead-lettered, or a purge of the source stream leave the
+			// advisory without its source message. Such an orphan has no
+			// task to retry or discard and no command could select it, so it
+			// is removed here, where it is detected. A genuine orphan always
+			// surfaces as this not-found error. The log line is the only
+			// trace left of the entry.
+			logger := log.FromContext(ctx).WithValues(
+				"dlqSeq", advisory.dlqSequence,
 				"streamSeq", advisory.sourceSeq,
+				"timestamp", advisory.timestamp,
 			)
+			logger.Info("Removing orphaned DLQ entry: original stream message not found")
+			if err := dropOrphan(advisory.dlqSequence); err != nil {
+				logger.Error(err, "Failed to remove orphaned DLQ entry, the next listing retries")
+			}
 
 			continue
 		case err != nil:
