@@ -126,6 +126,7 @@ OTLP
 ObjectMeta
 OpenBao
 OpenEBS
+OpenID
 OpenShift
 OpenTelemetry
 OperatorHub
