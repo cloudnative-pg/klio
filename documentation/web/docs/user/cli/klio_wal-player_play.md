@@ -13,20 +13,20 @@ klio wal-player play [directory] [flags]
 ### Options
 
 ```
-      --block-size int   Block size in KiB. Max 8192 (8 MiB). Defaults to 2048. (default 2048)
-  -h, --help             help for play
-  -j, --jobs int         Number of parallel jobs to use when sending WALs (default 1)
+      --block-size int      Block size in KiB. Max 8192 (8 MiB). Defaults to 2048. (default 2048)
+  -h, --help[=true|false]   help for play
+  -j, --jobs int            Number of parallel jobs to use when sending WALs (default 1)
 ```
 
 ### Options inherited from parent commands
 
 ```
       --config string                     config file (default is $HOME/.klio.yaml)
-      --debug                             enable debug logging
+      --debug[=true|false]                enable debug logging
       --log-destination string            where the log stream will be written
       --log-field-level string            JSON log field to report severity in (default: level)
       --log-field-timestamp string        JSON log field to report timestamp in (default: ts)
-      --log-level string                  the desired log level, one of error, info, debug and trace (default "info")
+      --log-level string                  the desired log level, one of error, warning, info, debug and trace (default "info")
       --log-truncate-destination          truncate the log destination on open instead of appending to it (ignored for FIFOs)
       --pprof-server string               enable the PPROF server using the specified address
       --zap-devel                         Development Mode defaults(encoder=consoleEncoder,logLevel=Debug,stackTraceLevel=Warn). Production Mode defaults(encoder=jsonEncoder,logLevel=Info,stackTraceLevel=Error)

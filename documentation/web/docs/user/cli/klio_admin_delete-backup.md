@@ -13,21 +13,21 @@ klio admin delete-backup [backupName] [flags]
 ### Options
 
 ```
-      --cluster string   The name of the cluster that owns the backup
-  -h, --help             help for delete-backup
-      --tier1            Delete the backup from tier1 (local cache)
-      --tier2            Delete the backup from tier2 (object storage)
+      --cluster string       The name of the cluster that owns the backup
+  -h, --help[=true|false]    help for delete-backup
+      --tier1[=true|false]   Delete the backup from tier1 (local cache)
+      --tier2[=true|false]   Delete the backup from tier2 (object storage)
 ```
 
 ### Options inherited from parent commands
 
 ```
       --config string                     config file (default is $HOME/.klio.yaml)
-      --debug                             enable debug logging
+      --debug[=true|false]                enable debug logging
       --log-destination string            where the log stream will be written
       --log-field-level string            JSON log field to report severity in (default: level)
       --log-field-timestamp string        JSON log field to report timestamp in (default: ts)
-      --log-level string                  the desired log level, one of error, info, debug and trace (default "info")
+      --log-level string                  the desired log level, one of error, warning, info, debug and trace (default "info")
       --log-truncate-destination          truncate the log destination on open instead of appending to it (ignored for FIFOs)
       --pprof-server string               enable the PPROF server using the specified address
       --socket-path string                Unix socket used by the administration server (default "/tmp/.klio-admin")
