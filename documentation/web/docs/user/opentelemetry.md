@@ -41,8 +41,7 @@ Klio automatically collects the following:
       - Queue metrics
          - Number of messages in the queue
          - Number of bytes in the queue
-         - Number of dead-letter queue entries captured, retried and
-           discarded (per cluster)
+         - Number of tasks moved to the dead-letter queue (per cluster)
       - [GRPC metrics](https://opentelemetry.io/docs/specs/semconv/rpc/rpc-metrics/)
       - [Go runtime statistics](https://pkg.go.dev/go.opentelemetry.io/contrib/instrumentation/runtime)
       - [Host metrics](https://pkg.go.dev/go.opentelemetry.io/contrib/instrumentation/host)
@@ -163,15 +162,14 @@ attribute key.
 | Attribute | Values | Applies to |
 |---|---|---|
 | `tier` | `tier1` (local disk on the Klio server), `tier2` (remote object store); `unknown` on `klio.plugin.wal.restore_duration` when the restore failed before any tier was tried, and on every `not_found` restore | All `klio.server.wal.*` and `klio.server.backup.*` instruments, `klio.plugin.wal.restore_duration`. |
-| `cluster_name` | Name of the PostgreSQL cluster the recording belongs to | All `klio.plugin.backup.*` instruments, `klio.plugin.wal.restore_duration`, all `klio.server.wal.*` instruments (counters, gauges, and the WAL duration histograms), `klio.client.wal.*`, the `klio.server.backup.*` PostgreSQL backup gauges (`backups`, `latest_backup_*`, `oldest_backup_*`) and the `klio.server.backup.relay` / `klio.server.backup.maintenance` counters, and the `klio.server.queue.dlq.*` counters (`unknown` on `klio.server.queue.dlq.captured` when the original task can no longer be read). |
+| `cluster_name` | Name of the PostgreSQL cluster the recording belongs to | All `klio.plugin.backup.*` instruments, `klio.plugin.wal.restore_duration`, all `klio.server.wal.*` instruments (counters, gauges, and the WAL duration histograms), `klio.client.wal.*`, the `klio.server.backup.*` PostgreSQL backup gauges (`backups`, `latest_backup_*`, `oldest_backup_*`) and the `klio.server.backup.relay` / `klio.server.backup.maintenance` counters, and the `klio.server.queue.dlq.captured` counter. |
 | `outcome` | `success`, `failure`; `not_found` on `klio.plugin.wal.restore_duration` only | `klio.plugin.backup.runs`, `klio.plugin.wal.restore_duration`, `klio.server.backup.relay`, `klio.server.backup.maintenance`, `klio.server.backup.verifications`, and all WAL duration histograms (`klio.server.wal.*_duration`, `klio.client.wal.block_duration`). |
 | `cache_hit` | `true` (served from the prefetch spool), `false` (downloaded) | `klio.plugin.wal.restore_duration`. |
 | `failure_category` | `repository_error`, `source_error`, `verification`, `timeout`, `canceled`, `unknown` | `klio.plugin.backup.runs` failure data points only. |
 | `path` | `put` (WAL ingest), `get` (WAL serve) | `klio.server.wal.block_duration`, `klio.client.wal.block_duration`. |
 | `stage` | put: `wrap`, `write`, `flush`, `send` (client); get: `read`, `unwrap`, `send` | `klio.server.wal.block_duration`, `klio.client.wal.block_duration`. |
 | `snapshot_source` | Kopia source descriptor (`userName@hostName:path`) | All `klio.server.backup.*` base snapshot gauges (`snapshots`, `latest_snapshot_*`, `oldest_snapshot_timestamp`). |
-| `stream` | JetStream stream name (`klio-wal-stream`, `klio-backup-stream`, `klio-dlq-wal-stream`, `klio-dlq-backup-stream`) | `klio.server.queue.messages`, `klio.server.queue.bytes`, and the `klio.server.queue.dlq.*` counters (dead-letter queue streams only). |
-| `reason` | `manual` (`klio admin queue wal discard`, `klio admin queue backup discard`), `automatic` (cleanup after the task succeeds) | `klio.server.queue.dlq.discarded`. |
+| `stream` | JetStream stream name (`klio-wal-stream`, `klio-backup-stream`, `klio-dlq-wal-stream`, `klio-dlq-backup-stream`) | `klio.server.queue.messages`, `klio.server.queue.bytes`, and the `klio.server.queue.dlq.captured` counter (dead-letter queue streams only). |
 
 ### Backup lifecycle metrics (plugin sidecar)
 
@@ -435,15 +433,13 @@ dead-lettered after their last attempt):
 The dead-letter queue streams, `klio-dlq-wal-stream` and
 `klio-dlq-backup-stream`, hold the tasks that exhausted their delivery
 attempts (see [Managing the Work Queue](managing_queue.md)). Their size is
-reported by the gauges above; the following counters track their activity.
-Each sample carries the dead-letter queue `stream` and the `cluster_name` of
-the failed task:
+reported by the gauges above; the following counter tells which clusters
+feed them. Each sample carries the dead-letter queue `stream` and the
+`cluster_name` of the failed task:
 
 | Metric Name | Type | Unit | Description |
 |---|---|---|---|
-| `klio.server.queue.dlq.captured` | Counter | `{entries}` | Number of tasks moved to the dead-letter queue after exhausting their delivery attempts |
-| `klio.server.queue.dlq.retried` | Counter | `{entries}` | Number of dead-letter queue entries re-enqueued by `klio admin queue wal retry` or `klio admin queue backup retry` |
-| `klio.server.queue.dlq.discarded` | Counter | `{entries}` | Number of dead-letter queue entries removed, split by `reason` (`manual` / `automatic`) |
+| `klio.server.queue.dlq.captured` | Counter | `{entries}` | Number of tasks that failed their last delivery attempt and are moved to the dead-letter queue |
 
 ### Migration from the previous metric names
 
