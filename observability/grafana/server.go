@@ -316,14 +316,15 @@ func dlqTask(selector string) string {
 	return fmt.Sprintf(`label_replace(%s, "task", "$1", "stream", "klio-dlq-(.+)-stream")`, selector)
 }
 
-// dlqPanels returns the dead-letter queue panels. The counters show the total
+// dlqPanels returns the dead-letter queue panels, shown in the server health
+// row under the queue ones. The counter shows the total
 // since the server last restarted, as the backup maintenance ones: a counter
 // series only appears on its first event, which increase() would not count.
 func dlqPanels() []sizedPanel {
 	dlqStreams := scope{matcher: `stream=~"klio-dlq-.+",` + serverMatcher}
 
 	return []sizedPanel{
-		sized(mediumPanelWidth, mediumPanelHeight, statPanel("Dead-letter queue entries", units.Number,
+		sized(largestPanelWidth, mediumPanelHeight, statPanel("Dead-letter queue entries", units.Number,
 			query(fmt.Sprintf("sum by (k8s_namespace_name, server, task) (%s)",
 				dlqTask(serverLabel(dlqStreams.series("klio_server_queue_messages")))),
 				"{{k8s_namespace_name}}/{{server}} {{task}}"),
@@ -333,34 +334,14 @@ func dlqPanels() []sizedPanel {
 				"`backup`). A value above zero means tasks wait for `klio admin queue wal|backup retry` or `discard`. It "+
 				"can include entries whose original task no longer exists: the next queue command removes them.")),
 
-		sized(mediumPanelWidth, mediumPanelHeight, timeseriesPanel("Tasks moved to the dead-letter queue",
+		sized(largestPanelWidth, mediumPanelHeight, timeseriesPanel("Tasks moved to the dead-letter queue",
 			units.Number,
 			query(fmt.Sprintf("sum by (cluster_name, task) (%s)",
 				dlqTask(servedScope.series("klio_server_queue_dlq_captured_total"))),
 				"{{cluster_name}} {{task}}"),
 		).Decimals(0).
 			Description("Total tasks moved to the dead-letter queue after exhausting their delivery attempts since "+
-				"the server last restarted, per cluster and task type. `unknown` collects the entries whose original "+
-				"task could not be read.")),
-
-		sized(mediumPanelWidth, mediumPanelHeight, timeseriesPanel("Retried dead-letter queue entries",
-			units.Number,
-			query(fmt.Sprintf("sum by (cluster_name, task) (%s)",
-				dlqTask(servedScope.series("klio_server_queue_dlq_retried_total"))),
-				"{{cluster_name}} {{task}}"),
-		).Decimals(0).
-			Description("Total dead-letter queue entries re-enqueued by `klio admin queue wal|backup retry` since the server "+
-				"last restarted, per cluster and task type.")),
-
-		sized(mediumPanelWidth, mediumPanelHeight, timeseriesPanel("Discarded dead-letter queue entries",
-			units.Number,
-			query(fmt.Sprintf("sum by (cluster_name, task, reason) (%s)",
-				dlqTask(servedScope.series("klio_server_queue_dlq_discarded_total"))),
-				"{{cluster_name}} {{task}} / {{reason}}"),
-		).Decimals(0).
-			Description("Total dead-letter queue entries removed since the server last restarted, per cluster, "+
-				"task type and reason: `manual` for `klio admin queue wal|backup discard`, `automatic` for the cleanup after "+
-				"the task succeeds.")),
+				"the server last restarted, per cluster and task type.")),
 	}
 }
 

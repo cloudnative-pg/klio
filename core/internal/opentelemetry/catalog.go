@@ -138,9 +138,7 @@ const (
 	ServerQueueMessagesMetric = "klio.server.queue.messages"
 	ServerQueueBytesMetric    = "klio.server.queue.bytes"
 
-	ServerQueueDLQCapturedMetric  = "klio.server.queue.dlq.captured"
-	ServerQueueDLQRetriedMetric   = "klio.server.queue.dlq.retried"
-	ServerQueueDLQDiscardedMetric = "klio.server.queue.dlq.discarded"
+	ServerQueueDLQCapturedMetric = "klio.server.queue.dlq.captured"
 )
 
 // PluginBackupMetrics holds OTel instruments for backup lifecycle tracking.
@@ -256,14 +254,11 @@ type PluginWalMetrics struct {
 }
 
 // ServerQueueMetrics holds OTel instruments for the dead-letter queue (DLQ)
-// activity of the embedded work queue. Every recording carries a `stream`
-// attribute (the DLQ stream name) and a `cluster_name` attribute identifying
-// the PostgreSQL cluster of the failed task. DLQDiscarded additionally carries
-// a `reason` attribute (see DiscardReason).
+// of the embedded work queue. Every recording carries a `stream` attribute
+// (the DLQ stream name) and a `cluster_name` attribute identifying the
+// PostgreSQL cluster of the failed task.
 type ServerQueueMetrics struct {
-	DLQCaptured  metric.Int64Counter
-	DLQRetried   metric.Int64Counter
-	DLQDiscarded metric.Int64Counter
+	DLQCaptured metric.Int64Counter
 }
 
 // Centralized metric instrument instances.
@@ -571,27 +566,13 @@ func InitPluginWalMetrics() {
 }
 
 // InitServerQueueMetrics creates OTel instruments for the dead-letter queue
-// activity of the embedded work queue.
+// of the embedded work queue.
 func InitServerQueueMetrics() {
 	meter := otel.Meter(Meter)
 
 	ServerQueue.DLQCaptured, _ = meter.Int64Counter(ServerQueueDLQCapturedMetric,
-		metric.WithDescription("Number of tasks moved to the dead-letter queue after exhausting their "+
-			"delivery attempts, split by the `stream` (DLQ stream) and `cluster_name` attributes. "+
-			"`cluster_name` is `unknown` when the original task can no longer be read."),
-		metric.WithUnit("{entries}"),
-	)
-	ServerQueue.DLQRetried, _ = meter.Int64Counter(ServerQueueDLQRetriedMetric,
-		metric.WithDescription("Number of dead-letter queue entries re-enqueued by `klio admin queue "+
-			"wal retry` or `klio admin queue backup retry`, split by the `stream` (DLQ stream) and "+
-			"`cluster_name` attributes."),
-		metric.WithUnit("{entries}"),
-	)
-	ServerQueue.DLQDiscarded, _ = meter.Int64Counter(ServerQueueDLQDiscardedMetric,
-		metric.WithDescription("Number of dead-letter queue entries removed, split by the `stream` "+
-			"(DLQ stream), `cluster_name` and `reason` attributes. `reason` is `manual` for "+
-			"`klio admin queue wal discard` or `klio admin queue backup discard`, and `automatic` "+
-			"for the cleanup after the task succeeds."),
+		metric.WithDescription("Number of tasks that failed their last delivery attempt and are moved to "+
+			"the dead-letter queue, split by the `stream` (DLQ stream) and `cluster_name` attributes."),
 		metric.WithUnit("{entries}"),
 	)
 }

@@ -35,10 +35,6 @@ import (
 	"github.com/nats-io/nats-server/v2/server"
 	"github.com/nats-io/nats.go"
 	"github.com/nats-io/nats.go/jetstream"
-	"go.opentelemetry.io/otel/attribute"
-	"go.opentelemetry.io/otel/metric"
-
-	"github.com/cloudnative-pg/klio/core/internal/opentelemetry"
 )
 
 // errIncompleteDLQListing indicates the DLQ pager stopped before reading every
@@ -83,9 +79,8 @@ type clusterTask interface {
 type Option func(*optionConfig)
 
 type optionConfig struct {
-	cluster       string
-	wals          []string
-	discardReason opentelemetry.DiscardReason
+	cluster string
+	wals    []string
 }
 
 // WithCluster restricts the operation to failed tasks whose original task
@@ -101,14 +96,6 @@ func WithCluster(name string) Option {
 func WithWALs(wals ...string) Option {
 	return func(c *optionConfig) {
 		c.wals = wals
-	}
-}
-
-// withDiscardReason sets the `reason` recorded on the discarded-entries metric.
-// Discards default to opentelemetry.DiscardReasonManual.
-func withDiscardReason(reason opentelemetry.DiscardReason) Option {
-	return func(c *optionConfig) {
-		c.discardReason = reason
 	}
 }
 
@@ -251,7 +238,7 @@ func (m *StreamManager) DiscardFailedWALTasks(
 		return 0, fmt.Errorf("while listing failed WAL tasks: %w", err)
 	}
 
-	return purgeDLQEntries(ctx, m, klioDLQWalStreamName, klioWalStreamName, failed, opts...)
+	return purgeDLQEntries(m, klioDLQWalStreamName, klioWalStreamName, failed)
 }
 
 // DiscardFailedBackupTasks discards failed backup tasks from the dead-letter
@@ -265,7 +252,7 @@ func (m *StreamManager) DiscardFailedBackupTasks(
 		return 0, fmt.Errorf("while listing failed backup tasks: %w", err)
 	}
 
-	return purgeDLQEntries(ctx, m, klioDLQBackupStreamName, klioBackupStreamName, failed, opts...)
+	return purgeDLQEntries(m, klioDLQBackupStreamName, klioBackupStreamName, failed)
 }
 
 // RetryFailedBackupTasks re-enqueues failed backup tasks from the dead-letter queue.
@@ -287,9 +274,6 @@ func (m *StreamManager) enqueueWALTasks(ctx context.Context, tasks []FailedTask[
 	attempted := make(map[WALTask]struct{}, len(tasks))
 	for _, task := range tasks {
 		if _, ok := attempted[task.Task]; ok {
-			// A duplicate entry is covered by the task already re-enqueued.
-			recordDLQEntry(ctx, opentelemetry.ServerQueue.DLQRetried, klioDLQWalStreamName, task.Task.ClusterName)
-
 			continue
 		}
 		if err := m.notifyMessage(
@@ -306,7 +290,6 @@ func (m *StreamManager) enqueueWALTasks(ctx context.Context, tasks []FailedTask[
 				err)
 		}
 		attempted[task.Task] = struct{}{}
-		recordDLQEntry(ctx, opentelemetry.ServerQueue.DLQRetried, klioDLQWalStreamName, task.Task.ClusterName)
 	}
 
 	return nil
@@ -336,9 +319,6 @@ func (m *StreamManager) enqueueBackupTasks(ctx context.Context, tasks []FailedTa
 			},
 		); err != nil {
 			return fmt.Errorf("while retrying failed backup task for cluster %s: %w", clusterName, err)
-		}
-		for range pending[clusterName] {
-			recordDLQEntry(ctx, opentelemetry.ServerQueue.DLQRetried, klioDLQBackupStreamName, clusterName)
 		}
 	}
 
@@ -446,8 +426,7 @@ func (m *StreamManager) configureStreams(ctx context.Context, js jetstream.JetSt
 // consumer must pass the task's cluster: WAL names are only unique within a
 // cluster.
 func (m *StreamManager) purgeWALDLQEntries(ctx context.Context, clusterName, walName string) error {
-	_, err := m.DiscardFailedWALTasks(ctx,
-		WithCluster(clusterName), WithWALs(walName), withDiscardReason(opentelemetry.DiscardReasonAutomatic))
+	_, err := m.DiscardFailedWALTasks(ctx, WithCluster(clusterName), WithWALs(walName))
 
 	return err
 }
@@ -460,34 +439,25 @@ func (m *StreamManager) purgeWALDLQEntries(ctx context.Context, clusterName, wal
 // then selects every cluster, so the consumer must pass the backed-up
 // cluster's name: nothing else guards against discarding unrelated entries.
 func (m *StreamManager) purgeBackupDLQEntries(ctx context.Context, clusterName string) error {
-	_, err := m.DiscardFailedBackupTasks(ctx,
-		WithCluster(clusterName), withDiscardReason(opentelemetry.DiscardReasonAutomatic))
+	_, err := m.DiscardFailedBackupTasks(ctx, WithCluster(clusterName))
 
 	return err
 }
 
 // purgeDLQEntries removes the given dead-letter queue entries from dlqName,
 // releases the original failed messages they reference from sourceName, and
-// returns how many entries were purged. Each purged entry is recorded with the
-// discard reason selected by opts.
+// returns how many entries were purged.
 //
 // When some of the purges fail, the returned error reports how many of the
 // requested entries were discarded: since some entries may be already gone,
 // the caller must not assume the operation removed nothing.
 func purgeDLQEntries[T clusterTask](
-	ctx context.Context,
 	m *StreamManager,
 	dlqName, sourceName string,
 	failed []FailedTask[T],
-	opts ...Option,
 ) (uint64, error) {
 	if len(failed) == 0 {
 		return 0, nil
-	}
-
-	cfg := optionConfig{discardReason: opentelemetry.DiscardReasonManual}
-	for _, opt := range opts {
-		opt(&cfg)
 	}
 
 	dlqStream, err := m.loadStreamOrNil(dlqName)
@@ -511,8 +481,6 @@ func purgeDLQEntries[T clusterTask](
 			continue
 		}
 		purged++
-		recordDLQEntry(ctx, opentelemetry.ServerQueue.DLQDiscarded, dlqName, task.Task.Cluster(),
-			cfg.discardReason.Attribute())
 	}
 
 	if err := errors.Join(errs...); err != nil {
@@ -569,25 +537,6 @@ func (m *StreamManager) pendingMsgs(name string) (uint64, error) {
 	}
 
 	return info.State.Msgs, nil
-}
-
-// recordDLQEntry adds one dead-letter queue entry to counter, tagged with the
-// DLQ stream and the cluster of the failed task.
-func recordDLQEntry(
-	ctx context.Context,
-	counter metric.Int64Counter,
-	dlqName, clusterName string,
-	attrs ...attribute.KeyValue,
-) {
-	if counter == nil {
-		return
-	}
-
-	attrs = append(attrs,
-		opentelemetry.AttributeKeyStream.Of(dlqName),
-		opentelemetry.AttributeKeyClusterName.Of(clusterName),
-	)
-	counter.Add(ctx, 1, metric.WithAttributes(attrs...))
 }
 
 // purgeDLQEntryBySequence removes the dead-letter queue entry stored at dlqSeq
