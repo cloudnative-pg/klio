@@ -51,6 +51,38 @@ func TestParseVerifyOutput(t *testing.T) {
 	})
 }
 
+func TestBuildMigrateArgs(t *testing.T) {
+	opts := SnapshotMigrateOpts{
+		SourceConfig: "/etc/kopia/tier1",
+		Sources:      []string{"postgres@cluster:/pgdata"},
+		Tags:         []string{"klio.io/tag"},
+	}
+	common := []string{
+		"snapshot", "migrate",
+		"--progress",
+		"--progress-update-interval=60s",
+		"--source-config=/etc/kopia/tier1",
+		"--config-file=/etc/kopia/tier2",
+		"--disable-file-logging",
+		"--sources=postgres@cluster:/pgdata",
+		"--tags=tag:klio.io/tag",
+	}
+
+	t.Run("no match tags migrates every snapshot of the sources", func(t *testing.T) {
+		assert.Equal(t, common, buildMigrateArgs("/etc/kopia/tier2", opts))
+	})
+
+	// Kopia prefixes the --match-tags keys itself: a prefixed key would
+	// match no snapshot, and the migration would silently copy nothing.
+	t.Run("match tags are passed without the user tag prefix", func(t *testing.T) {
+		opts.MatchTags = map[string]string{"klio.io/tag": "backup-20261027T140000Z"}
+
+		assert.Equal(t,
+			append(common, "--match-tags=klio.io/tag:backup-20261027T140000Z"),
+			buildMigrateArgs("/etc/kopia/tier2", opts))
+	})
+}
+
 func TestBuildVerifyArgs(t *testing.T) {
 	t.Run("no selection verifies everything visible to the client", func(t *testing.T) {
 		args := buildVerifyArgs("/etc/kopia/config")

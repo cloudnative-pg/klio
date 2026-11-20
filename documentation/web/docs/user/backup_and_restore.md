@@ -190,11 +190,11 @@ depends on the tier it is on:
 - `PENDING`: on tier1, the latest attempt of its cluster, without
   metadata. It may still be uploading. Wait for it. If it is older than
   the backup interval of the cluster, the attempt died: delete it.
-- `RECOVERABLE`: on tier2, complete on tier1. The relay copies to tier2
-  whatever tier1 has, so the next backup of the cluster relayed to tier2
-  copies the missing parts. A relay in progress looks like this too.
-  Wait for the next relayed backup, or delete it: the relay copies it
-  again.
+- `RECOVERABLE`: on tier2, complete on tier1. Every relay also completes
+  the backups that tier2 holds only in part, so the next backup of the
+  cluster relayed to tier2 copies the missing parts. A relay in progress
+  looks like this too. Wait for the next relayed backup, or delete it:
+  the relay copies it again while tier2 retention still keeps it.
 - `UNRECOVERABLE`: it can never complete. It is an older tier1 attempt
   (a newer one started), a tier1 backup that lost a part, or a tier2
   backup with no complete copy on tier1. Delete it.
@@ -255,9 +255,10 @@ kubectl exec -it klio-server-klio-0 -- \
 ```
 
 When deleting a backup by hand from both tiers, delete the tier1 copy
-first, or together with the tier2 one as above. The relay copies to tier2
-whatever tier1 still has, so a tier2 copy deleted alone comes back at the
-next relay of the cluster.
+first, or together with the tier2 one as above. The relay copies the
+tier1 backups that tier2 is missing and that tier2 retention keeps, so a
+tier2 copy deleted alone comes back at the next relay of the cluster,
+unless tier2 retention has already moved past it.
 
 ### Incomplete Backups and WAL Retention
 

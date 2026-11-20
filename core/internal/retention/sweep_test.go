@@ -32,15 +32,17 @@ import (
 
 // stubTier2Client is a minimal backupDeleter stub for testing
 // protectUnsyncedToTier2 without a real Kopia client. backups are its
-// complete backups and incomplete the ones missing some snapshot.
+// complete backups, incomplete the ones missing some snapshot and partial
+// every backup not fully present.
 type stubTier2Client struct {
 	backups    klioclient.BackupList
 	incomplete klioclient.BackupList
+	partial    []klioclient.IncompleteBackup
 	listErr    error
 }
 
 func (s *stubTier2Client) ListIncompleteBackups(_ context.Context, _ string) ([]klioclient.IncompleteBackup, error) {
-	return nil, s.listErr
+	return s.partial, s.listErr
 }
 
 func (s *stubTier2Client) ListBackups(_ context.Context, _ string) (klioclient.BackupList, error) {
@@ -91,52 +93,102 @@ func (s *stubDeleter) DeleteBackup(_ context.Context, host string, name string) 
 }
 
 func TestProtectUnsyncedToTier2(t *testing.T) {
+	backup := func(name string, startedAt int64) klioclient.BackupMetadata {
+		return klioclient.BackupMetadata{Name: name, StartedAt: startedAt}
+	}
+
 	tests := []struct {
-		name       string
-		candidates klioclient.BackupList
-		tier2      klioclient.BackupList
-		tier2Err   error
-		want       klioclient.BackupList
-		wantErr    bool
+		name        string
+		candidates  klioclient.BackupList
+		tier2       klioclient.BackupList
+		partial     []klioclient.IncompleteBackup
+		tier2Latest int
+		tier2Err    error
+		want        klioclient.BackupList
+		wantErr     bool
 	}{
 		{
-			name:       "candidate present on tier2 is kept for deletion",
-			candidates: klioclient.BackupList{{Name: "backup-1"}},
-			tier2:      klioclient.BackupList{{Name: "backup-1"}},
-			want:       klioclient.BackupList{{Name: "backup-1"}},
+			name:        "candidate present on tier2 is kept for deletion",
+			candidates:  klioclient.BackupList{backup("backup-1", 1)},
+			tier2:       klioclient.BackupList{backup("backup-1", 1)},
+			tier2Latest: 2,
+			want:        klioclient.BackupList{backup("backup-1", 1)},
 		},
 		{
-			name:       "candidate absent from tier2 is protected (not deleted)",
-			candidates: klioclient.BackupList{{Name: "backup-1"}},
-			tier2:      klioclient.BackupList{},
-			want:       nil,
+			name:        "candidate absent from tier2 is protected (not deleted)",
+			candidates:  klioclient.BackupList{backup("backup-1", 1)},
+			tier2:       klioclient.BackupList{},
+			tier2Latest: 2,
+			want:        nil,
 		},
 		{
-			name:       "mixed candidates: only the synced one survives",
-			candidates: klioclient.BackupList{{Name: "backup-1"}, {Name: "backup-2"}},
-			tier2:      klioclient.BackupList{{Name: "backup-2"}},
-			want:       klioclient.BackupList{{Name: "backup-2"}},
+			name:        "mixed candidates: only the synced one survives",
+			candidates:  klioclient.BackupList{backup("backup-1", 1), backup("backup-2", 2)},
+			tier2:       klioclient.BackupList{backup("backup-2", 2)},
+			tier2Latest: 2,
+			want:        klioclient.BackupList{backup("backup-2", 2)},
 		},
 		{
-			name:       "tier2 listing error fails closed",
-			candidates: klioclient.BackupList{{Name: "backup-1"}},
-			tier2Err:   errors.New("boom"),
-			want:       nil,
-			wantErr:    true,
+			// The relay never copies it again, so tier1 must not wait for it.
+			name:        "candidate that tier2 retention moved past is kept for deletion",
+			candidates:  klioclient.BackupList{backup("backup-1", 1)},
+			tier2:       klioclient.BackupList{backup("backup-2", 2), backup("backup-3", 3)},
+			tier2Latest: 2,
+			want:        klioclient.BackupList{backup("backup-1", 1)},
 		},
 		{
-			name:       "no candidates is a no-op",
-			candidates: nil,
-			tier2:      klioclient.BackupList{{Name: "backup-1"}},
-			want:       nil,
+			// The next relay completes it from tier1, whatever its age.
+			name:        "candidate that tier2 holds in part is protected",
+			candidates:  klioclient.BackupList{backup("backup-1", 1)},
+			tier2:       klioclient.BackupList{backup("backup-2", 2), backup("backup-3", 3)},
+			partial:     []klioclient.IncompleteBackup{{BackupName: "backup-1"}},
+			tier2Latest: 2,
+			want:        nil,
+		},
+		{
+			name:        "candidate newer than what tier2 holds is protected",
+			candidates:  klioclient.BackupList{backup("backup-3", 3)},
+			tier2:       klioclient.BackupList{backup("backup-1", 1), backup("backup-2", 2)},
+			tier2Latest: 2,
+			want:        nil,
+		},
+		{
+			name:        "candidate that tier2 has room for is protected",
+			candidates:  klioclient.BackupList{backup("backup-1", 1)},
+			tier2:       klioclient.BackupList{backup("backup-2", 2)},
+			tier2Latest: 2,
+			want:        nil,
+		},
+		{
+			name:        "tier2 retention disabled protects every unsynced candidate",
+			candidates:  klioclient.BackupList{backup("backup-1", 1)},
+			tier2:       klioclient.BackupList{backup("backup-2", 2), backup("backup-3", 3)},
+			tier2Latest: 0,
+			want:        nil,
+		},
+		{
+			name:        "tier2 listing error fails closed",
+			candidates:  klioclient.BackupList{backup("backup-1", 1)},
+			tier2Err:    errors.New("boom"),
+			tier2Latest: 2,
+			want:        nil,
+			wantErr:     true,
+		},
+		{
+			name:        "no candidates is a no-op",
+			candidates:  nil,
+			tier2:       klioclient.BackupList{backup("backup-1", 1)},
+			tier2Latest: 2,
+			want:        nil,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			client := &stubTier2Client{backups: tt.tier2, listErr: tt.tier2Err}
+			client := &stubTier2Client{backups: tt.tier2, partial: tt.partial, listErr: tt.tier2Err}
 
-			got, err := protectUnsyncedToTier2(context.Background(), "cluster-a", tt.candidates, client)
+			got, err := protectUnsyncedToTier2(context.Background(), "cluster-a", tt.candidates, client,
+				&policy.LatestPolicy{Count: tt.tier2Latest})
 
 			if (err != nil) != tt.wantErr {
 				t.Fatalf("err = %v, wantErr = %v", err, tt.wantErr)
@@ -160,8 +212,9 @@ func TestDeletionCandidates(t *testing.T) {
 		complete klioclient.BackupList
 		// tier2 is the complete tier2 backup list. When nil, there is no
 		// sync guard.
-		tier2 klioclient.BackupList
-		want  []string
+		tier2       klioclient.BackupList
+		tier2Latest int32
+		want        []string
 	}{
 		{
 			name:     "out-of-policy complete backup is deleted",
@@ -170,11 +223,22 @@ func TestDeletionCandidates(t *testing.T) {
 			want:     []string{"b1"},
 		},
 		{
-			name:     "sync guard keeps a complete backup not complete on tier2",
-			latest:   1,
-			complete: klioclient.BackupList{backup("b1", 1), backup("b2", 2)},
-			tier2:    klioclient.BackupList{backup("b2", 2)},
-			want:     nil,
+			name:        "sync guard keeps a complete backup not complete on tier2",
+			latest:      1,
+			complete:    klioclient.BackupList{backup("b1", 1), backup("b2", 2)},
+			tier2:       klioclient.BackupList{backup("b2", 2)},
+			tier2Latest: 2,
+			want:        nil,
+		},
+		{
+			// With a tier2 retention tighter than tier1's, tier2 drops b1
+			// while tier1 still keeps it, and no relay brings it back.
+			name:        "sync guard releases a backup that tier2 retention moved past",
+			latest:      2,
+			complete:    klioclient.BackupList{backup("b1", 1), backup("b2", 2), backup("b3", 3)},
+			tier2:       klioclient.BackupList{backup("b3", 3)},
+			tier2Latest: 1,
+			want:        []string{"b1"},
 		},
 	}
 
@@ -184,7 +248,7 @@ func TestDeletionCandidates(t *testing.T) {
 			retentionPolicy := &grpc.RetentionPolicy{}
 			if tt.tier2 != nil {
 				tc.syncGuardClient = &stubTier2Client{backups: tt.tier2}
-				retentionPolicy.Tier2Policy = &grpc.TierRetentionPolicy{Latest: 1}
+				retentionPolicy.Tier2Policy = &grpc.TierRetentionPolicy{Latest: tt.tier2Latest}
 			}
 
 			got, err := deletionCandidates(context.Background(), "cluster-a", tc, retentionPolicy,
