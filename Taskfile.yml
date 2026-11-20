@@ -1304,6 +1304,7 @@ tasks:
     sources:
       - operator/dist/chart/**/*
       - documentation/helm-docs/*.gotmpl
+      - exclude: operator/dist/chart/README.md
     generates:
         - documentation/web/docs/user/_helm_chart_values.md
         - operator/dist/chart/README.md
