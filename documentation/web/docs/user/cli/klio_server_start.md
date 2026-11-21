@@ -13,21 +13,21 @@ klio server start [flags]
 ### Options
 
 ```
-  -h, --help                 help for start
+  -h, --help[=true|false]    help for start
       --socket-path string   Unix socket used by the administration server (default "/tmp/.klio-admin")
-      --tier1                Enables Tier1 server components (default true)
-      --tier2                Enables Tier2 server components
+      --tier1[=true|false]   Enables Tier1 server components (default true)
+      --tier2[=true|false]   Enables Tier2 server components
 ```
 
 ### Options inherited from parent commands
 
 ```
       --config string                     config file (default is $HOME/.klio.yaml)
-      --debug                             enable debug logging
+      --debug[=true|false]                enable debug logging
       --log-destination string            where the log stream will be written
       --log-field-level string            JSON log field to report severity in (default: level)
       --log-field-timestamp string        JSON log field to report timestamp in (default: ts)
-      --log-level string                  the desired log level, one of error, info, debug and trace (default "info")
+      --log-level string                  the desired log level, one of error, warning, info, debug and trace (default "info")
       --log-truncate-destination          truncate the log destination on open instead of appending to it (ignored for FIFOs)
       --pprof-server string               enable the PPROF server using the specified address
       --zap-devel                         Development Mode defaults(encoder=consoleEncoder,logLevel=Debug,stackTraceLevel=Warn). Production Mode defaults(encoder=jsonEncoder,logLevel=Info,stackTraceLevel=Error)

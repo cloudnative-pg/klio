@@ -720,14 +720,17 @@ func assertRepositoryErrorFailureCategory(
 }
 
 // assertOTELQueueMetrics verifies NATS queue depth metrics are exported per
-// JetStream stream. Each work-queue stream created by core/internal/queue
-// must produce its own data point distinguished by the `stream` attribute.
+// JetStream stream. Each of the streams created by core/internal/queue,
+// dead-letter queue streams included, must produce its own data point
+// distinguished by the `stream` attribute.
 func assertOTELQueueMetrics(t *testing.T, promMetrics metrics.PrometheusMetrics) {
 	t.Helper()
 
 	for _, stream := range []string{
 		"klio-wal-stream",
 		"klio-backup-stream",
+		"klio-dlq-wal-stream",
+		"klio-dlq-backup-stream",
 	} {
 		labels := map[string]string{"stream": stream}
 

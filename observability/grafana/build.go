@@ -172,8 +172,9 @@ func serversGroup() group {
 		sections: []section{
 			{
 				"Health",
-				"Uptime of each Klio server and the messages waiting in its embedded queue.",
-				serverHealthPanels(),
+				"Uptime of each Klio server, the messages waiting in its embedded queue and the tasks in its " +
+					"dead-letter queue, which wait for an operator to retry or discard them.",
+				append(serverHealthPanels(), dlqPanels()...),
 			},
 			{
 				"Retained backups",

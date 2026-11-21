@@ -32,6 +32,9 @@ import (
 	"github.com/cloudnative-pg/machinery/pkg/log"
 	"github.com/nats-io/nats.go"
 	"github.com/nats-io/nats.go/jetstream"
+	"go.opentelemetry.io/otel/metric"
+
+	"github.com/cloudnative-pg/klio/core/internal/opentelemetry"
 )
 
 // Conn is a work queue as used by Klio.
@@ -364,12 +367,24 @@ type Status struct {
 // internalConsumeMessages starts consuming messages and ends
 // when the context is canceled. The handler receives the headers of the
 // message and its sequence in the stream.
-func internalConsumeMessages[T any](
+//
+// A task failing its last delivery attempt is counted on the
+// klio.server.queue.dlq.captured metric against dlqName, the dead-letter queue
+// stream JetStream moves it to.
+func internalConsumeMessages[T clusterTask](
 	ctx context.Context,
 	handler func(ctx context.Context, t *T, headers nats.Header, streamSeq uint64) error,
 	consumer jetstream.Consumer,
+	dlqName string,
 ) error {
 	logger := log.FromContext(ctx)
+
+	// Read once: the attempt budget does not change while consuming.
+	info, infoErr := consumer.Info(ctx)
+	if infoErr != nil {
+		return fmt.Errorf("while reading the queue consumer configuration: %w", infoErr)
+	}
+	maxDeliver := info.Config.MaxDeliver
 
 	internalConsumer := func(msg jetstream.Msg) {
 		var task T
@@ -404,6 +419,9 @@ func internalConsumeMessages[T any](
 		err = internalRunTaskHandler(ctx, msg, func() error {
 			return handler(ctx, &task, msg.Headers(), meta.Sequence.Stream)
 		})
+		if err != nil {
+			countDLQCapture(ctx, meta.NumDelivered, maxDeliver, dlqName, task.Cluster())
+		}
 		settleMessage(ctx, msg, &task, err)
 	}
 
@@ -418,6 +436,21 @@ func internalConsumeMessages[T any](
 	consumerContext.Stop()
 
 	return nil
+}
+
+// countDLQCapture counts a failed delivery on the klio.server.queue.dlq.captured
+// metric when it was the last attempt, numDelivered having reached maxDeliver.
+// The capture is counted here, when the handler returns an error on the last
+// delivery attempt.
+func countDLQCapture(ctx context.Context, numDelivered uint64, maxDeliver int, dlqName, clusterName string) {
+	if maxDeliver <= 0 || numDelivered < uint64(maxDeliver) {
+		return
+	}
+
+	opentelemetry.ServerQueue.DLQCaptured.Add(ctx, 1, metric.WithAttributes(
+		opentelemetry.AttributeKeyStream.Of(dlqName),
+		opentelemetry.AttributeKeyClusterName.Of(clusterName),
+	))
 }
 
 // settleMessage settles msg according to the outcome handlerErr of its

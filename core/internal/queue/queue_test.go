@@ -421,7 +421,7 @@ func TestInternalConsumeMessagesAcksOnSuccess(t *testing.T) {
 
 	ctx := t.Context()
 	go func() {
-		_ = internalConsumeMessages(ctx, handler, consumer)
+		_ = internalConsumeMessages(ctx, handler, consumer, klioDLQWalStreamName)
 	}()
 
 	payload, err := json.Marshal(WALTask{ClusterName: "c", WALName: "w"})
@@ -460,7 +460,7 @@ func TestInternalConsumeMessagesTerminatesInvalidMessage(t *testing.T) {
 
 	ctx := t.Context()
 	go func() {
-		_ = internalConsumeMessages(ctx, handler, consumer)
+		_ = internalConsumeMessages(ctx, handler, consumer, klioDLQWalStreamName)
 	}()
 
 	_, err = js.Publish(ctx, subject, []byte("not-json"))
@@ -503,7 +503,7 @@ func TestInternalConsumeMessagesRetriesPermanentFailureAtOnce(t *testing.T) {
 
 	ctx := t.Context()
 	go func() {
-		_ = internalConsumeMessages(ctx, handler, consumer)
+		_ = internalConsumeMessages(ctx, handler, consumer, klioDLQWalStreamName)
 	}()
 
 	payload, err := json.Marshal(WALTask{ClusterName: "c", WALName: "w"})
@@ -541,7 +541,7 @@ func TestInternalConsumeMessagesRetriesUntilMaxDeliver(t *testing.T) {
 
 	ctx := t.Context()
 	go func() {
-		_ = internalConsumeMessages(ctx, handler, consumer)
+		_ = internalConsumeMessages(ctx, handler, consumer, klioDLQWalStreamName)
 	}()
 
 	payload, err := json.Marshal(WALTask{ClusterName: "c", WALName: "w"})
@@ -714,7 +714,7 @@ func TestDLQCapturesMaxDeliveryAdvisory(t *testing.T) {
 
 	ctx := t.Context()
 	go func() {
-		_ = internalConsumeMessages(ctx, handler, consumer)
+		_ = internalConsumeMessages(ctx, handler, consumer, klioDLQWalStreamName)
 	}()
 
 	payload, err := json.Marshal(WALTask{ClusterName: "c", WALName: "w"})
