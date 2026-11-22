@@ -14,7 +14,7 @@ klio restore [destination] [flags]
 
 ```
       --backup-id string      The ID of the backup to be restored. Defaults to the latest backup found for the cluster
-  -h, --help                  help for restore
+  -h, --help[=true|false]     help for restore
       --tablespaces strings   A comma-separated list of tablespace_name:tablespace_path to customize the restore location of a tablespace.
       --target-time string    If specified, Klio will recover from the most recent backup that was taken before the time specified. This allows to configure PostgreSQL to do a point-in-time recovery with the specified target time.
 ```
@@ -23,11 +23,11 @@ klio restore [destination] [flags]
 
 ```
       --config string                     config file (default is $HOME/.klio.yaml)
-      --debug                             enable debug logging
+      --debug[=true|false]                enable debug logging
       --log-destination string            where the log stream will be written
       --log-field-level string            JSON log field to report severity in (default: level)
       --log-field-timestamp string        JSON log field to report timestamp in (default: ts)
-      --log-level string                  the desired log level, one of error, info, debug and trace (default "info")
+      --log-level string                  the desired log level, one of error, warning, info, debug and trace (default "info")
       --log-truncate-destination          truncate the log destination on open instead of appending to it (ignored for FIFOs)
       --pprof-server string               enable the PPROF server using the specified address
       --zap-devel                         Development Mode defaults(encoder=consoleEncoder,logLevel=Debug,stackTraceLevel=Warn). Production Mode defaults(encoder=jsonEncoder,logLevel=Info,stackTraceLevel=Error)

@@ -19,15 +19,15 @@ run directly by end users.
 
 ```
       --config string                     config file (default is $HOME/.klio.yaml)
-      --debug                             enable debug logging
-  -h, --help                              help for klio
+      --debug[=true|false]                enable debug logging
+  -h, --help[=true|false]                 help for klio
       --log-destination string            where the log stream will be written
       --log-field-level string            JSON log field to report severity in (default: level)
       --log-field-timestamp string        JSON log field to report timestamp in (default: ts)
-      --log-level string                  the desired log level, one of error, info, debug and trace (default "info")
+      --log-level string                  the desired log level, one of error, warning, info, debug and trace (default "info")
       --log-truncate-destination          truncate the log destination on open instead of appending to it (ignored for FIFOs)
       --pprof-server string               enable the PPROF server using the specified address
-  -t, --toggle                            Help message for toggle
+  -t, --toggle[=true|false]               Help message for toggle
       --zap-devel                         Development Mode defaults(encoder=consoleEncoder,logLevel=Debug,stackTraceLevel=Warn). Production Mode defaults(encoder=jsonEncoder,logLevel=Info,stackTraceLevel=Error)
       --zap-encoder encoder               Zap log encoding (one of 'json' or 'console')
       --zap-log-level level               Zap Level to configure the verbosity of logging. Can be one of 'debug', 'info', 'error', 'panic' or any integer value > 0 which corresponds to custom debug levels of increasing verbosity
