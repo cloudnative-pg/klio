@@ -1337,6 +1337,8 @@ tasks:
       - operator/dist/chart/**/*
       - documentation/helm-docs/*.gotmpl
       - exclude: operator/dist/chart/README.md
+      # helm-docs does not read the schema.
+      - exclude: operator/dist/chart/values.schema.json
     generates:
         - documentation/web/docs/user/_helm_chart_values.md
         - operator/dist/chart/README.md
