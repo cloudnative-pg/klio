@@ -78,6 +78,12 @@ jobs:
           echo "operator-image=${operator}" >> "${GITHUB_OUTPUT}"
           echo "sidecar-image=${sidecar}" >> "${GITHUB_OUTPUT}"
 
+      # Sign the operator (distroless and UBI) and the operand images.
+      - name: Sign the images
+        uses: ./.github/actions/sign-images
+        with:
+          metadata-files: operator/metadata.json core/metadata.json
+
       - name: Attach the CRDs manifest to the release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

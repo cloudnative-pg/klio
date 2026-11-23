@@ -28,7 +28,7 @@ For installation instructions, including the prerequisites and the
 This page is the reference for the chart itself: its configuration
 parameters, the upgrade procedure and how to uninstall it.
 
-## Verifying the Chart Signature
+## Verifying the Signatures
 
 The chart's OCI images are cryptographically signed using
 [cosign](https://github.com/sigstore/cosign), a signature tool from
@@ -48,6 +48,18 @@ command with the chart digest:
 
 ```shell
 cosign verify ghcr.io/cloudnative-pg/klio-operator-chart@sha256:<DIGEST> \
+  --certificate-identity-regexp="^https://github\.com/cloudnative-pg/klio/\.github/workflows/release-publish\.yml@refs/tags/v" \
+  --certificate-oidc-issuer="https://token.actions.githubusercontent.com"
+```
+
+The container images the chart deploys are signed the same way: the operator
+image (`ghcr.io/cloudnative-pg/klio-operator`, both the distroless and the
+`-ubi9` variants) and the Klio image (`ghcr.io/cloudnative-pg/klio`) used by
+the server and the sidecar. Verify them with the same command, replacing the
+chart reference with the image digest:
+
+```shell
+cosign verify ghcr.io/cloudnative-pg/klio@sha256:<DIGEST> \
   --certificate-identity-regexp="^https://github\.com/cloudnative-pg/klio/\.github/workflows/release-publish\.yml@refs/tags/v" \
   --certificate-oidc-issuer="https://token.actions.githubusercontent.com"
 ```
