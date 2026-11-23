@@ -4,37 +4,30 @@
     "certmanager": {
       "properties": {
         "clusterDomain": {
-          "default": "cluster.local",
           "description": "The DNS domain of the cluster",
           "type": "string"
         },
         "createMetricsCertificate": {
-          "default": true,
           "description": "Create certificates for the metrics service.",
           "type": "boolean"
         },
         "createPluginClientCertificate": {
-          "default": true,
           "description": "Create certificates for the plugin client.",
           "type": "boolean"
         },
         "createPluginServerCertificate": {
-          "default": true,
           "description": "Create certificates for the plugin server.",
           "type": "boolean"
         },
         "duration": {
-          "default": "2160h",
           "description": "The duration of the certificates.",
           "type": "string"
         },
         "enable": {
-          "default": true,
           "description": "Enable cert-manager integration for certificate creation.",
           "type": "boolean"
         },
         "renewBefore": {
-          "default": "360h",
           "description": "The renew before time for the certificates.",
           "type": "string"
         }
@@ -63,7 +56,6 @@
               "description": "The security context for the controller manager container.",
               "properties": {
                 "allowPrivilegeEscalation": {
-                  "default": false,
                   "type": "boolean"
                 },
                 "capabilities": {
@@ -92,7 +84,6 @@
               "description": "The environment variables to set in the controller manager container.\nSet OTEL_* variables here to enable OpenTelemetry export.\nSee the OpenTelemetry Observability page in the documentation.",
               "properties": {
                 "SIDECAR_IMAGE": {
-                  "default": "ghcr.io/cloudnative-pg/klio:v0.0.21",
                   "type": "string"
                 }
               },
@@ -102,7 +93,6 @@
             "image": {
               "properties": {
                 "pullPolicy": {
-                  "default": "Always",
                   "description": "The controller manager container imagePullPolicy.",
                   "type": "string"
                 },
@@ -114,12 +104,10 @@
                   "type": "array"
                 },
                 "repository": {
-                  "default": "ghcr.io/cloudnative-pg/klio-operator",
                   "description": "The image to use for the controller manager container.",
                   "type": "string"
                 },
                 "tag": {
-                  "default": "v0.0.21",
                   "description": "The tag to use for the controller manager container image.",
                   "type": "string"
                 }
@@ -133,11 +121,9 @@
                 "httpGet": {
                   "properties": {
                     "path": {
-                      "default": "/healthz",
                       "type": "string"
                     },
                     "port": {
-                      "default": 8081,
                       "type": "integer"
                     }
                   },
@@ -145,11 +131,9 @@
                   "type": "object"
                 },
                 "initialDelaySeconds": {
-                  "default": 15,
                   "type": "integer"
                 },
                 "periodSeconds": {
-                  "default": 20,
                   "type": "integer"
                 }
               },
@@ -162,11 +146,9 @@
                 "httpGet": {
                   "properties": {
                     "path": {
-                      "default": "/readyz",
                       "type": "string"
                     },
                     "port": {
-                      "default": 8081,
                       "type": "integer"
                     }
                   },
@@ -174,11 +156,9 @@
                   "type": "object"
                 },
                 "initialDelaySeconds": {
-                  "default": 5,
                   "type": "integer"
                 },
                 "periodSeconds": {
-                  "default": 10,
                   "type": "integer"
                 }
               },
@@ -191,7 +171,6 @@
                 "limits": {
                   "properties": {
                     "cpu": {
-                      "default": "500m",
                       "required": [],
                       "type": [
                         "string",
@@ -199,7 +178,6 @@
                       ]
                     },
                     "memory": {
-                      "default": "128Mi",
                       "required": [],
                       "type": [
                         "string",
@@ -213,7 +191,6 @@
                 "requests": {
                   "properties": {
                     "cpu": {
-                      "default": "10m",
                       "required": [],
                       "type": [
                         "string",
@@ -221,7 +198,6 @@
                       ]
                     },
                     "memory": {
-                      "default": "64Mi",
                       "required": [],
                       "type": [
                         "string",
@@ -250,13 +226,11 @@
           "description": "The security context for the controller manager pod.",
           "properties": {
             "runAsNonRoot": {
-              "default": true,
               "type": "boolean"
             },
             "seccompProfile": {
               "properties": {
                 "type": {
-                  "default": "RuntimeDefault",
                   "type": "string"
                 }
               },
@@ -268,7 +242,6 @@
           "type": "object"
         },
         "priorityClassName": {
-          "default": "",
           "description": "Priority class name for the controller manager pod.",
           "type": "string"
         },
@@ -303,7 +276,6 @@
       "type": "object"
     },
     "fullnameOverride": {
-      "default": "",
       "description": "Override the fully qualified name of the Helm Chart.",
       "type": "string"
     },
@@ -313,19 +285,16 @@
       "type": "object"
     },
     "kubernetesClusterDomain": {
-      "default": "cluster.local",
       "description": "The domain for the Kubernetes cluster.",
       "type": "string"
     },
     "metricsService": {
       "properties": {
         "enable": {
-          "default": true,
           "description": "Enable the metrics service for the controller manager.",
           "type": "boolean"
         },
         "metricsServiceSecret": {
-          "default": "klio-metrics-server-cert",
           "description": "The name of the secret containing the TLS certificate for the metrics service.",
           "type": "string"
         },
@@ -336,19 +305,15 @@
               {
                 "properties": {
                   "name": {
-                    "default": "https",
                     "type": "string"
                   },
                   "port": {
-                    "default": 8443,
                     "type": "integer"
                   },
                   "protocol": {
-                    "default": "TCP",
                     "type": "string"
                   },
                   "targetPort": {
-                    "default": 8443,
                     "type": "integer"
                   }
                 },
@@ -361,7 +326,6 @@
           "type": "array"
         },
         "type": {
-          "default": "ClusterIP",
           "description": "Service type for the metrics service.",
           "type": "string"
         }
@@ -370,29 +334,24 @@
       "type": "object"
     },
     "nameOverride": {
-      "default": "klio",
       "description": "Override the name of the Helm Chart.",
       "type": "string"
     },
     "plugin": {
       "properties": {
         "clientSecret": {
-          "default": "klio-plugin-client-tls",
           "description": "The Client TLS certificate.",
           "type": "string"
         },
         "name": {
-          "default": "klio.cnpg.io",
           "description": "The name the plugin will use to register itself with the CNPG Operator.",
           "type": "string"
         },
         "port": {
-          "default": 9090,
           "description": "The port the plugin will listen on. It must match the \"--plugin-server-address\" argument.",
           "type": "integer"
         },
         "serverSecret": {
-          "default": "klio-plugin-server-tls",
           "description": "The Server TLS certificate.",
           "type": "string"
         }
@@ -403,7 +362,6 @@
     "prometheus": {
       "properties": {
         "enable": {
-          "default": true,
           "description": "To enable a ServiceMonitor to export metrics to Prometheus set true.",
           "type": "boolean"
         }
@@ -420,17 +378,14 @@
           "type": "object"
         },
         "automount": {
-          "default": true,
           "description": "Automount service account token.",
           "type": "boolean"
         },
         "create": {
-          "default": true,
           "description": "Specifies whether a service account should be created.",
           "type": "boolean"
         },
         "name": {
-          "default": "",
           "description": "The name of the service account",
           "type": "string"
         }
