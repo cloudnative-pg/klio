@@ -61,10 +61,22 @@ controllerManager:
     # -- The resources to allocate.
     resources:
       limits:
+        # @schema
+        # type: [string, number]
+        # @schema
         cpu: 500m
+        # @schema
+        # type: [string, number]
+        # @schema
         memory: 128Mi
       requests:
+        # @schema
+        # type: [string, number]
+        # @schema
         cpu: 10m
+        # @schema
+        # type: [string, number]
+        # @schema
         memory: 64Mi
   # @schema
   # type: object
