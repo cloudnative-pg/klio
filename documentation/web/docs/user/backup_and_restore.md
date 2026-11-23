@@ -256,10 +256,9 @@ kubectl exec -it klio-server-klio-0 -- \
 ```
 
 When deleting a backup by hand from both tiers, delete the tier1 copy
-first, or together with the tier2 one as above. The relay copies the
-tier1 backups that tier2 is missing and that tier2 retention keeps, so a
-tier2 copy deleted alone comes back at the next relay of the cluster,
-unless tier2 retention has already moved past it.
+first, or together with the tier2 one as above. A tier2 copy deleted
+alone comes back at the next relay of the cluster, as long as tier2
+retention still keeps it.
 
 ### Incomplete Backups and WAL Retention
 
