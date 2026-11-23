@@ -971,6 +971,8 @@ tasks:
           WORKDIR: operator
           OPERATOR_NAME: '{{ .PACKAGE_NAME }}'
           VERSION: '{{ .VERSION }}'
+          CI_YAML: 'config/olm/ci.yaml'
+          COMPUTE_UPGRADE_EDGES: 'true'
 
   olm:catalog-source:
     desc: Build the OLM CatalogSource YAML file
@@ -1104,6 +1106,7 @@ tasks:
           VERSION: '{{ .VERSION }}'
           COMMUNITY_OPERATORS_PATH: '{{ .COMMUNITY_OPERATORS_PATH }}'
           CI_YAML: 'config/olm/ci.yaml'
+          COMPUTE_UPGRADE_EDGES: 'true'
       - task: ci-machinery-olm:operator-hub:pull-request
         vars:
           WORKDIR: operator
