@@ -38,7 +38,6 @@
     "controllerManager": {
       "properties": {
         "affinity": {
-          "additionalProperties": true,
           "description": "Affinity rules for the operator deployment.",
           "required": [],
           "type": "object"
@@ -80,7 +79,6 @@
               "type": "object"
             },
             "env": {
-              "additionalProperties": true,
               "description": "The environment variables to set in the controller manager container.\nSet OTEL_* variables here to enable OpenTelemetry export.\nSee the OpenTelemetry Observability page in the documentation.",
               "properties": {
                 "SIDECAR_IMAGE": {
@@ -217,7 +215,6 @@
           "type": "object"
         },
         "nodeSelector": {
-          "additionalProperties": true,
           "description": "NodeSelector for the operator deployment.",
           "required": [],
           "type": "object"
@@ -248,7 +245,6 @@
         "serviceAccount": {
           "properties": {
             "annotations": {
-              "additionalProperties": true,
               "description": "The annotations to add to the service account.",
               "required": [],
               "type": "object"
@@ -372,7 +368,6 @@
     "serviceAccount": {
       "properties": {
         "annotations": {
-          "additionalProperties": true,
           "description": "The annotations to add to the service account.",
           "required": [],
           "type": "object"

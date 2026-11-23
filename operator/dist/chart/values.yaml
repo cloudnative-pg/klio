@@ -34,10 +34,6 @@ controllerManager:
       pullPolicy: Always
       # -- The list of imagePullSecrets.
       pullSecrets: []
-    # @schema
-    # type: object
-    # additionalProperties: true
-    # @schema
     # -- The environment variables to set in the controller manager container.
     # Set OTEL_* variables here to enable OpenTelemetry export.
     # See the OpenTelemetry Observability page in the documentation.
@@ -78,10 +74,6 @@ controllerManager:
         # type: [string, number]
         # @schema
         memory: 64Mi
-  # @schema
-  # type: object
-  # additionalProperties: true
-  # @schema
   # -- Affinity rules for the operator deployment.
   affinity: {}
   # -- The security context for the controller manager pod.
@@ -90,16 +82,8 @@ controllerManager:
     seccompProfile:
       type: RuntimeDefault
   serviceAccount:
-    # @schema
-    # type: object
-    # additionalProperties: true
-    # @schema
     # -- The annotations to add to the service account.
     annotations: {}
-  # @schema
-  # type: object
-  # additionalProperties: true
-  # @schema
   # -- NodeSelector for the operator deployment.
   nodeSelector: {}
   # -- Priority class name for the controller manager pod.
@@ -157,10 +141,6 @@ certmanager:
   clusterDomain: cluster.local
 
 serviceAccount:
-  # @schema
-  # type: object
-  # additionalProperties: true
-  # @schema
   # -- The annotations to add to the service account.
   annotations: {}
   # -- Specifies whether a service account should be created.
