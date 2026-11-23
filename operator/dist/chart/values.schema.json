@@ -79,6 +79,9 @@
               "type": "object"
             },
             "env": {
+              "additionalProperties": {
+                "type": "string"
+              },
               "description": "The environment variables to set in the controller manager container.\nSet OTEL_* variables here to enable OpenTelemetry export.\nSee the OpenTelemetry Observability page in the documentation.",
               "properties": {
                 "SIDECAR_IMAGE": {
