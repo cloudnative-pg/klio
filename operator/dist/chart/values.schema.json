@@ -192,11 +192,19 @@
                   "properties": {
                     "cpu": {
                       "default": "500m",
-                      "type": "string"
+                      "required": [],
+                      "type": [
+                        "string",
+                        "number"
+                      ]
                     },
                     "memory": {
                       "default": "128Mi",
-                      "type": "string"
+                      "required": [],
+                      "type": [
+                        "string",
+                        "number"
+                      ]
                     }
                   },
                   "required": [],
@@ -206,11 +214,19 @@
                   "properties": {
                     "cpu": {
                       "default": "10m",
-                      "type": "string"
+                      "required": [],
+                      "type": [
+                        "string",
+                        "number"
+                      ]
                     },
                     "memory": {
                       "default": "64Mi",
-                      "type": "string"
+                      "required": [],
+                      "type": [
+                        "string",
+                        "number"
+                      ]
                     }
                   },
                   "required": [],
