@@ -24,9 +24,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"maps"
 	"os/exec"
-	"slices"
 
 	"github.com/cloudnative-pg/machinery/pkg/log"
 )
@@ -86,8 +84,9 @@ type SnapshotMigrateOpts struct {
 	Tags []string
 
 	// MatchTags restricts the migration to the snapshots carrying all of
-	// these tags. Empty migrates every snapshot of Sources.
-	MatchTags map[string]string
+	// these tags, each as name:value. Empty migrates every snapshot of
+	// Sources.
+	MatchTags []string
 }
 
 // MigrateSnapshots migrates snapshots from a source configuration.
@@ -132,8 +131,8 @@ func buildMigrateArgs(configFile string, opts SnapshotMigrateOpts) []string {
 	}
 
 	// Unlike --tags, Kopia adds the user tag prefix to --match-tags itself.
-	for _, name := range slices.Sorted(maps.Keys(opts.MatchTags)) {
-		args = append(args, "--match-tags="+name+":"+opts.MatchTags[name])
+	for _, tag := range opts.MatchTags {
+		args = append(args, "--match-tags="+tag)
 	}
 
 	return args

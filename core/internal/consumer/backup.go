@@ -271,7 +271,7 @@ func (d *Backup) relayTier2(ctx context.Context, task *queue.BackupTask, entries
 				klioclient.BackupContentTagName,
 				klioclient.BackupNameTagName,
 			},
-			MatchTags: map[string]string{klioclient.BackupNameTagName: name},
+			MatchTags: []string{klioclient.BackupNameTagName + ":" + name},
 		}); err != nil {
 			return err
 		}

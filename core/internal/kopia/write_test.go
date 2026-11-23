@@ -75,7 +75,7 @@ func TestBuildMigrateArgs(t *testing.T) {
 	// Kopia prefixes the --match-tags keys itself: a prefixed key would
 	// match no snapshot, and the migration would silently copy nothing.
 	t.Run("match tags are passed without the user tag prefix", func(t *testing.T) {
-		opts.MatchTags = map[string]string{"klio.io/tag": "backup-20261027T140000Z"}
+		opts.MatchTags = []string{"klio.io/tag:backup-20261027T140000Z"}
 
 		assert.Equal(t,
 			append(common, "--match-tags=klio.io/tag:backup-20261027T140000Z"),
