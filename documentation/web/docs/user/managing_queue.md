@@ -59,6 +59,13 @@ You can also watch queue activity through the server metrics — WAL archiving
 durations, backup relays and verifications are exposed there; see
 [the metrics reference](opentelemetry.md).
 
+To alert on failed tasks without polling `list-failed`, watch the size of
+the dead-letter queue (see below): `klio.server.queue.messages` above zero
+on the `klio-dlq-wal-stream` or `klio-dlq-backup-stream` stream. The
+`klio.server.queue.dlq.captured` counter tells, per cluster, how many tasks
+entered it. A counter series only appears with its first event, so an alert
+based on its increase misses that event.
+
 ## Failed Tasks and the Dead-Letter Queue
 
 A queued task that exhausts its attempts (retry schedule above) is moved to
@@ -74,6 +81,11 @@ new ones, with a fresh attempt budget, and when a retried task succeeds the
 server removes its dead-letter entries on its own. A retried WAL task has its
 earlier entries removed even when it fails again: if it then uses up its
 attempts, it is dead-lettered with a single new entry.
+
+A dead-letter entry whose original task no longer exists has nothing to
+retry or discard. The server removes such entries on its own the next time
+the dead-letter queue is listed, by any of the commands above or by its own
+cleanup.
 
 While a WAL task is queued, being retried or in the dead-letter queue, Tier 1
 retention keeps that segment and every later one of the same cluster, so they

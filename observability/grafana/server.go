@@ -310,6 +310,41 @@ func serverHealthPanels() []sizedPanel {
 	}
 }
 
+// dlqTask wraps a selector in a label_replace that derives a `task` label (`wal`
+// or `backup`) from the dead-letter queue stream name (`klio-dlq-<task>-stream`).
+func dlqTask(selector string) string {
+	return fmt.Sprintf(`label_replace(%s, "task", "$1", "stream", "klio-dlq-(.+)-stream")`, selector)
+}
+
+// dlqPanels returns the dead-letter queue panels, shown in the server health
+// row under the queue ones. The counter shows the total
+// since the server last restarted, as the backup maintenance ones: a counter
+// series only appears on its first event, which increase() would not count.
+func dlqPanels() []sizedPanel {
+	dlqStreams := scope{matcher: `stream=~"klio-dlq-.+",` + serverMatcher}
+
+	return []sizedPanel{
+		sized(largestPanelWidth, mediumPanelHeight, statPanel("Dead-letter queue entries", units.Number,
+			query(fmt.Sprintf("sum by (k8s_namespace_name, server, task) (%s)",
+				dlqTask(serverLabel(dlqStreams.series("klio_server_queue_messages")))),
+				"{{k8s_namespace_name}}/{{server}} {{task}}"),
+		).Decimals(0).
+			Orientation(common.VizOrientationHorizontal).
+			Description("Entries currently in the dead-letter queue of each server, per task type (`wal` or "+
+				"`backup`). A value above zero means tasks wait for `klio admin queue wal|backup retry` or `discard`. It "+
+				"can include entries whose original task no longer exists: the next queue command removes them.")),
+
+		sized(largestPanelWidth, mediumPanelHeight, timeseriesPanel("Tasks moved to the dead-letter queue",
+			units.Number,
+			query(fmt.Sprintf("sum by (cluster_name, task) (%s)",
+				dlqTask(servedScope.series("klio_server_queue_dlq_captured_total"))),
+				"{{cluster_name}} {{task}}"),
+		).Decimals(0).
+			Description("Total tasks moved to the dead-letter queue after exhausting their delivery attempts since "+
+				"the server last restarted, per cluster and task type.")),
+	}
+}
+
 // snapshotPanels returns the Kopia base snapshot panels.
 func snapshotPanels() []sizedPanel {
 	// Three tiles per row: the per-server legend of Retained snapshots does not

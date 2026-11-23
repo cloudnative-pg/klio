@@ -137,6 +137,8 @@ const (
 
 	ServerQueueMessagesMetric = "klio.server.queue.messages"
 	ServerQueueBytesMetric    = "klio.server.queue.bytes"
+
+	ServerQueueDLQCapturedMetric = "klio.server.queue.dlq.captured"
 )
 
 // PluginBackupMetrics holds OTel instruments for backup lifecycle tracking.
@@ -251,6 +253,14 @@ type PluginWalMetrics struct {
 	RestoreDuration metric.Int64Histogram
 }
 
+// ServerQueueMetrics holds OTel instruments for the dead-letter queue (DLQ)
+// of the embedded work queue. Every recording carries a `stream` attribute
+// (the DLQ stream name) and a `cluster_name` attribute identifying the
+// PostgreSQL cluster of the failed task.
+type ServerQueueMetrics struct {
+	DLQCaptured metric.Int64Counter
+}
+
 // Centralized metric instrument instances.
 //
 //nolint:gochecknoglobals
@@ -260,6 +270,7 @@ var (
 	ServerWal    ServerWalMetrics
 	ClientWal    ClientWalMetrics
 	PluginWal    PluginWalMetrics
+	ServerQueue  ServerQueueMetrics
 )
 
 // All metric instruments are created when this package is loaded, in the
@@ -274,6 +285,7 @@ func init() {
 	InitServerWalMetrics()
 	InitClientWalMetrics()
 	InitPluginWalMetrics()
+	InitServerQueueMetrics()
 }
 
 // InitPluginBackupMetrics creates OTel instruments for backup lifecycle tracking.
@@ -550,5 +562,17 @@ func InitPluginWalMetrics() {
 			"storage tier that served the restore, or the one that failed, and `unknown` when no tier "+
 			"was tried or none held the file; `cluster_name` identifies the PostgreSQL cluster."),
 		metric.WithUnit("ns"),
+	)
+}
+
+// InitServerQueueMetrics creates OTel instruments for the dead-letter queue
+// of the embedded work queue.
+func InitServerQueueMetrics() {
+	meter := otel.Meter(Meter)
+
+	ServerQueue.DLQCaptured, _ = meter.Int64Counter(ServerQueueDLQCapturedMetric,
+		metric.WithDescription("Number of tasks that failed their last delivery attempt and are moved to "+
+			"the dead-letter queue, split by the `stream` (DLQ stream) and `cluster_name` attributes."),
+		metric.WithUnit("{entries}"),
 	)
 }

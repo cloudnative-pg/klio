@@ -87,5 +87,5 @@ func (q *Conn) ConsumeBackupReceivedMessages(ctx context.Context, handler Backup
 		return nil
 	}
 
-	return internalConsumeMessages(ctx, wrapped, q.backupConsumer)
+	return internalConsumeMessages(ctx, wrapped, q.backupConsumer, klioDLQBackupStreamName)
 }

@@ -232,9 +232,13 @@ func TestListPagerShortRead(t *testing.T) {
 
 	// Claim the stream holds two entries while the pager will only ever deliver
 	// the single seeded one, simulating an early pager termination.
-	_, err = listPager[WALTask](t.Context(), pgr, source.ReadMessage, 2, optionConfig{})
+	_, err = listPager[WALTask](t.Context(), pgr, source.ReadMessage, noDropOrphan, 2, optionConfig{})
 	require.ErrorIs(t, err, errIncompleteDLQListing)
 }
+
+// noDropOrphan is the orphan cleanup of the listPager tests that have no
+// orphaned entry to remove.
+func noDropOrphan(uint64) error { return nil }
 
 // TestListPagerContextCancelled asserts that a cancelled caller context is
 // surfaced as an error instead of being mistaken for end-of-stream.
@@ -250,7 +254,7 @@ func TestListPagerContextCancelled(t *testing.T) {
 	ctx, cancel := context.WithCancel(t.Context())
 	cancel()
 
-	_, err = listPager[WALTask](ctx, pgr, source.ReadMessage, 1, optionConfig{})
+	_, err = listPager[WALTask](ctx, pgr, source.ReadMessage, noDropOrphan, 1, optionConfig{})
 	require.ErrorIs(t, err, context.Canceled)
 }
 
@@ -295,13 +299,17 @@ func TestListFailedWALTasksMissingSourceMessage(t *testing.T) {
 	nc, _, mgr := newTestManager(t)
 
 	// Advisory references a sequence that has never been published, mimicking
-	// an orphaned DLQ entry whose source message was retried or purged. The
-	// orphaned entry must be skipped rather than failing the whole listing.
+	// an orphaned DLQ entry whose source message is gone. The orphaned entry
+	// must be left out of the listing and removed from the dead-letter queue.
 	publishDLQAdvisory(t, nc, klioWalStreamName, klioWalConsumerName, 9999)
 
 	tasks, err := mgr.ListFailedWALTasks(t.Context())
 	require.NoError(t, err)
 	assert.Empty(t, tasks)
+
+	left, err := mgr.pendingMsgs(klioDLQWalStreamName)
+	require.NoError(t, err)
+	assert.Zero(t, left)
 }
 
 func TestListFailedBackupTasksEmpty(t *testing.T) {
@@ -343,13 +351,17 @@ func TestListFailedBackupTasks(t *testing.T) {
 func TestListFailedBackupTasksMissingSourceMessage(t *testing.T) {
 	nc, _, mgr := newTestManager(t)
 
-	// An orphaned DLQ entry (source message retried or purged) must be skipped
-	// rather than failing the whole listing.
+	// An orphaned DLQ entry (source message gone) must be left out of the
+	// listing and removed from the dead-letter queue.
 	publishDLQAdvisory(t, nc, klioBackupStreamName, klioBackupConsumerName, 9999)
 
 	tasks, err := mgr.ListFailedBackupTasks(t.Context())
 	require.NoError(t, err)
 	assert.Empty(t, tasks)
+
+	left, err := mgr.pendingMsgs(klioDLQBackupStreamName)
+	require.NoError(t, err)
+	assert.Zero(t, left)
 }
 
 func TestOldestPendingWALMissingStream(t *testing.T) {

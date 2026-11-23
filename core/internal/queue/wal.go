@@ -107,7 +107,7 @@ func (q *Conn) ConsumeWALReceivedMessages(ctx context.Context, handler WALTaskHa
 		return err
 	}
 
-	return internalConsumeMessages(ctx, wrapped, q.walConsumer)
+	return internalConsumeMessages(ctx, wrapped, q.walConsumer, klioDLQWalStreamName)
 }
 
 // OldestPendingWAL returns the earliest WAL segment (without .partial) that
