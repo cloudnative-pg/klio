@@ -1588,7 +1588,7 @@ tasks:
         vars:
           GITHUB_ACTIONS: ''
           TAG: 'dev'
-      - operator:helm-chart
+      - operator:helm-schema
     run: once
     requires:
       vars:
