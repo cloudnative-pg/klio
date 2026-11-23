@@ -46,6 +46,9 @@ controllerManager:
       periodSeconds: 20
       httpGet:
         path: /healthz
+        # @schema
+        # type: [integer, string]
+        # @schema
         port: 8081
     # -- Readiness probe configuration.
     readinessProbe:
@@ -53,6 +56,9 @@ controllerManager:
       periodSeconds: 10
       httpGet:
         path: /readyz
+        # @schema
+        # type: [integer, string]
+        # @schema
         port: 8081
     # -- The resources to allocate.
     resources:
@@ -104,6 +110,9 @@ metricsService:
   - name: https
     port: 8443
     protocol: TCP
+    # @schema
+    # type: [integer, string]
+    # @schema
     targetPort: 8443
   # -- Service type for the metrics service.
   type: ClusterIP

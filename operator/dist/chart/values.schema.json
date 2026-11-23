@@ -122,7 +122,11 @@
                       "type": "string"
                     },
                     "port": {
-                      "type": "integer"
+                      "required": [],
+                      "type": [
+                        "integer",
+                        "string"
+                      ]
                     }
                   },
                   "required": [],
@@ -147,7 +151,11 @@
                       "type": "string"
                     },
                     "port": {
-                      "type": "integer"
+                      "required": [],
+                      "type": [
+                        "integer",
+                        "string"
+                      ]
                     }
                   },
                   "required": [],
@@ -310,7 +318,11 @@
                     "type": "string"
                   },
                   "targetPort": {
-                    "type": "integer"
+                    "required": [],
+                    "type": [
+                      "integer",
+                      "string"
+                    ]
                   }
                 },
                 "required": [],
