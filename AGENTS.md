@@ -34,6 +34,7 @@ task core:protoc-gen-go-grpc  # Compile proto files
 task operator:lint          # Run golangci-lint on operator
 task operator:controller-gen  # Generate CRDs and DeepCopy methods
 task operator:helm-chart    # Generate Helm chart
+task operator:helm-schema   # Generate the Helm chart values.schema.json
 
 # Documentation
 task documentation:ci       # Run documentation CI

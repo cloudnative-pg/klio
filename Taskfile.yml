@@ -527,6 +527,7 @@ tasks:
       - operator:controller-gen
       - operator:containerize-snapshot
       - operator:helm-chart
+      - operator:helm-schema
       - operator:helm-lint
       - operator:uncommitted
 
@@ -682,12 +683,43 @@ tasks:
     generates:
       - dist/**
 
+  operator:helm-schema:
+    desc: Generate the values.schema.json of the Helm chart for the operator
+    deps:
+      - operator:helm-chart
+    dir: operator
+    run: once
+    vars:
+      # renovate: datasource=docker depName=golang versioning=docker
+      GOLANG_IMAGE_VERSION: 1.27.4-alpine@sha256:70bd7ddea8b6cbe5d6943cde279d6b67feb10cc924fb9100d1d8757c1575b280
+      # renovate: datasource=github-releases depName=dadav/helm-schema versioning=semver
+      HELM_SCHEMA_VERSION: 0.24.0
+      # The Dagger CLI splits --args values on commas, so the flag is repeated.
+      HELM_SCHEMA_FLAGS: -a --no-dependencies --skip-auto-generation title --skip-auto-generation required --skip-auto-generation additionalProperties --skip-auto-generation default
+    cmds:
+      - >
+        dagger core container from --address golang:{{ .GOLANG_IMAGE_VERSION }}
+        with-mounted-cache --cache go-mod --path "/go/pkg/mod"
+        with-env-variable --name GOMODCACHE --value /go/pkg/mod
+        with-mounted-cache --cache go-build --path "/go/build-cache"
+        with-env-variable --name GOCACHE --value /go/build-cache
+        with-exec --args go --args install --args github.com/dadav/helm-schema/cmd/helm-schema@{{ .HELM_SCHEMA_VERSION }}
+        with-directory --path /src/chart --source dist/chart
+        with-workdir --path /src
+        with-exec --args sh --args '-c' --args "helm-schema {{ .HELM_SCHEMA_FLAGS }} -c chart"
+        file --path chart/values.schema.json
+        export --path dist/chart/values.schema.json
+    sources:
+      - dist/chart/values.yaml
+    generates:
+      - dist/chart/values.schema.json
+
   operator:helm-lint:
     desc: Lint the Helm chart for the operator
     dir: operator
     run: once
     deps:
-      - operator:helm-chart
+      - operator:helm-schema
     env:
       # renovate: datasource=git-refs depName=helm lookupName=https://github.com/sagikazarmark/daggerverse currentValue=main
       DAGGER_HELM_SHA: ff27cd50f6b4eed2e3753c520632cd6099e1ce52
@@ -703,7 +735,7 @@ tasks:
     dir: operator
     run: once
     deps:
-      - operator:helm-chart
+      - operator:helm-schema
     requires:
       # We expect this to run in a GitHub workflow, so we put a few GitHub-specific vars here
       # to prevent running this task locally by accident.
@@ -738,7 +770,7 @@ tasks:
   operator:uncommitted:
     desc: Check for uncommitted changes after chart generation
     deps:
-      - operator:helm-chart
+      - operator:helm-schema
     cmds:
       - task: internal:uncommitted
     sources:
@@ -1305,6 +1337,8 @@ tasks:
       - operator/dist/chart/**/*
       - documentation/helm-docs/*.gotmpl
       - exclude: operator/dist/chart/README.md
+      # helm-docs does not read the schema.
+      - exclude: operator/dist/chart/values.schema.json
     generates:
         - documentation/web/docs/user/_helm_chart_values.md
         - operator/dist/chart/README.md
@@ -1556,7 +1590,7 @@ tasks:
         vars:
           GITHUB_ACTIONS: ''
           TAG: 'dev'
-      - operator:helm-chart
+      - operator:helm-schema
     run: once
     requires:
       vars:
@@ -1595,7 +1629,7 @@ tasks:
         with-exec -- sh -c "helm upgrade -i --wait --create-namespace --namespace cert-manager --version {{ .CERT_MANAGER_VERSION }} --set crds.enabled=true cert-manager jetstack/cert-manager" |
         with-env-variable CACHE_BUST {{ .CACHE_BUST }} |
         with-exec -- sh -c "helm uninstall --wait --ignore-not-found klio -n cnpg-system || true" |
-        with-exec -- sh -c "helm upgrade -i --wait --create-namespace --namespace cnpg-system --set controllerManager.manager.image.repository={{ .OPERATOR_IMAGE_REPOSITORY }} --set controllerManager.manager.image.tag={{ .OPERATOR_IMAGE_TAG }} --set controllerManager.manager.env.SIDECAR_IMAGE={{ .OPERAND_IMAGE_REPOSITORY }}:{{ .OPERAND_IMAGE_TAG }} klio /chart"
+        with-exec -- sh -c "helm upgrade -i --wait --create-namespace --namespace cnpg-system --set controllerManager.manager.image.repository={{ .OPERATOR_IMAGE_REPOSITORY }} --set-string controllerManager.manager.image.tag={{ .OPERATOR_IMAGE_TAG }} --set controllerManager.manager.env.SIDECAR_IMAGE={{ .OPERAND_IMAGE_REPOSITORY }}:{{ .OPERAND_IMAGE_TAG }} klio /chart"
         .
       - rm -f {{ .KUBECONFIG_PATH }}
 

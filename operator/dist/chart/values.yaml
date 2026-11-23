@@ -5,6 +5,11 @@ fullnameOverride: ""
 
 controllerManager:
   manager:
+    # @schema
+    # type: array
+    # items:
+    #   type: string
+    # @schema
     # -- List of command line arguments to pass to the controller manager.
     args:
       - "--metrics-bind-address=:8443"
@@ -29,6 +34,11 @@ controllerManager:
       pullPolicy: Always
       # -- The list of imagePullSecrets.
       pullSecrets: []
+    # @schema
+    # type: object
+    # additionalProperties:
+    #   type: string
+    # @schema
     # -- The environment variables to set in the controller manager container.
     # Set OTEL_* variables here to enable OpenTelemetry export.
     # See the OpenTelemetry Observability page in the documentation.
@@ -41,6 +51,9 @@ controllerManager:
       periodSeconds: 20
       httpGet:
         path: /healthz
+        # @schema
+        # type: [integer, string]
+        # @schema
         port: 8081
     # -- Readiness probe configuration.
     readinessProbe:
@@ -48,14 +61,29 @@ controllerManager:
       periodSeconds: 10
       httpGet:
         path: /readyz
+        # @schema
+        # type: [integer, string]
+        # @schema
         port: 8081
     # -- The resources to allocate.
     resources:
       limits:
+        # @schema
+        # type: [string, number]
+        # @schema
         cpu: 500m
+        # @schema
+        # type: [string, number]
+        # @schema
         memory: 128Mi
       requests:
+        # @schema
+        # type: [string, number]
+        # @schema
         cpu: 10m
+        # @schema
+        # type: [string, number]
+        # @schema
         memory: 64Mi
   # -- Affinity rules for the operator deployment.
   affinity: {}
@@ -87,6 +115,9 @@ metricsService:
   - name: https
     port: 8443
     protocol: TCP
+    # @schema
+    # type: [integer, string]
+    # @schema
     targetPort: 8443
   # -- Service type for the metrics service.
   type: ClusterIP

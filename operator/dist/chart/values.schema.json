@@ -1,0 +1,409 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "properties": {
+    "certmanager": {
+      "properties": {
+        "clusterDomain": {
+          "description": "The DNS domain of the cluster",
+          "type": "string"
+        },
+        "createMetricsCertificate": {
+          "description": "Create certificates for the metrics service.",
+          "type": "boolean"
+        },
+        "createPluginClientCertificate": {
+          "description": "Create certificates for the plugin client.",
+          "type": "boolean"
+        },
+        "createPluginServerCertificate": {
+          "description": "Create certificates for the plugin server.",
+          "type": "boolean"
+        },
+        "duration": {
+          "description": "The duration of the certificates.",
+          "type": "string"
+        },
+        "enable": {
+          "description": "Enable cert-manager integration for certificate creation.",
+          "type": "boolean"
+        },
+        "renewBefore": {
+          "description": "The renew before time for the certificates.",
+          "type": "string"
+        }
+      },
+      "required": [],
+      "type": "object"
+    },
+    "controllerManager": {
+      "properties": {
+        "affinity": {
+          "description": "Affinity rules for the operator deployment.",
+          "required": [],
+          "type": "object"
+        },
+        "manager": {
+          "properties": {
+            "args": {
+              "description": "List of command line arguments to pass to the controller manager.",
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "containerSecurityContext": {
+              "description": "The security context for the controller manager container.",
+              "properties": {
+                "allowPrivilegeEscalation": {
+                  "type": "boolean"
+                },
+                "capabilities": {
+                  "properties": {
+                    "drop": {
+                      "items": {
+                        "anyOf": [
+                          {
+                            "type": "string"
+                          }
+                        ],
+                        "required": []
+                      },
+                      "type": "array"
+                    }
+                  },
+                  "required": [],
+                  "type": "object"
+                }
+              },
+              "required": [],
+              "type": "object"
+            },
+            "env": {
+              "additionalProperties": {
+                "type": "string"
+              },
+              "description": "The environment variables to set in the controller manager container.\nSet OTEL_* variables here to enable OpenTelemetry export.\nSee the OpenTelemetry Observability page in the documentation.",
+              "properties": {
+                "SIDECAR_IMAGE": {
+                  "type": "string"
+                }
+              },
+              "required": [],
+              "type": "object"
+            },
+            "image": {
+              "properties": {
+                "pullPolicy": {
+                  "description": "The controller manager container imagePullPolicy.",
+                  "type": "string"
+                },
+                "pullSecrets": {
+                  "description": "The list of imagePullSecrets.",
+                  "items": {
+                    "required": []
+                  },
+                  "type": "array"
+                },
+                "repository": {
+                  "description": "The image to use for the controller manager container.",
+                  "type": "string"
+                },
+                "tag": {
+                  "description": "The tag to use for the controller manager container image.",
+                  "type": "string"
+                }
+              },
+              "required": [],
+              "type": "object"
+            },
+            "livenessProbe": {
+              "description": "Liveness probe configuration.",
+              "properties": {
+                "httpGet": {
+                  "properties": {
+                    "path": {
+                      "type": "string"
+                    },
+                    "port": {
+                      "required": [],
+                      "type": [
+                        "integer",
+                        "string"
+                      ]
+                    }
+                  },
+                  "required": [],
+                  "type": "object"
+                },
+                "initialDelaySeconds": {
+                  "type": "integer"
+                },
+                "periodSeconds": {
+                  "type": "integer"
+                }
+              },
+              "required": [],
+              "type": "object"
+            },
+            "readinessProbe": {
+              "description": "Readiness probe configuration.",
+              "properties": {
+                "httpGet": {
+                  "properties": {
+                    "path": {
+                      "type": "string"
+                    },
+                    "port": {
+                      "required": [],
+                      "type": [
+                        "integer",
+                        "string"
+                      ]
+                    }
+                  },
+                  "required": [],
+                  "type": "object"
+                },
+                "initialDelaySeconds": {
+                  "type": "integer"
+                },
+                "periodSeconds": {
+                  "type": "integer"
+                }
+              },
+              "required": [],
+              "type": "object"
+            },
+            "resources": {
+              "description": "The resources to allocate.",
+              "properties": {
+                "limits": {
+                  "properties": {
+                    "cpu": {
+                      "required": [],
+                      "type": [
+                        "string",
+                        "number"
+                      ]
+                    },
+                    "memory": {
+                      "required": [],
+                      "type": [
+                        "string",
+                        "number"
+                      ]
+                    }
+                  },
+                  "required": [],
+                  "type": "object"
+                },
+                "requests": {
+                  "properties": {
+                    "cpu": {
+                      "required": [],
+                      "type": [
+                        "string",
+                        "number"
+                      ]
+                    },
+                    "memory": {
+                      "required": [],
+                      "type": [
+                        "string",
+                        "number"
+                      ]
+                    }
+                  },
+                  "required": [],
+                  "type": "object"
+                }
+              },
+              "required": [],
+              "type": "object"
+            }
+          },
+          "required": [],
+          "type": "object"
+        },
+        "nodeSelector": {
+          "description": "NodeSelector for the operator deployment.",
+          "required": [],
+          "type": "object"
+        },
+        "podSecurityContext": {
+          "description": "The security context for the controller manager pod.",
+          "properties": {
+            "runAsNonRoot": {
+              "type": "boolean"
+            },
+            "seccompProfile": {
+              "properties": {
+                "type": {
+                  "type": "string"
+                }
+              },
+              "required": [],
+              "type": "object"
+            }
+          },
+          "required": [],
+          "type": "object"
+        },
+        "priorityClassName": {
+          "description": "Priority class name for the controller manager pod.",
+          "type": "string"
+        },
+        "serviceAccount": {
+          "properties": {
+            "annotations": {
+              "description": "The annotations to add to the service account.",
+              "required": [],
+              "type": "object"
+            }
+          },
+          "required": [],
+          "type": "object"
+        },
+        "tolerations": {
+          "description": "Tolerations for the operator deployment.",
+          "items": {
+            "required": []
+          },
+          "type": "array"
+        },
+        "topologySpreadConstraints": {
+          "description": "Topology Spread Constraints for the operator deployment.",
+          "items": {
+            "required": []
+          },
+          "type": "array"
+        }
+      },
+      "required": [],
+      "type": "object"
+    },
+    "fullnameOverride": {
+      "description": "Override the fully qualified name of the Helm Chart.",
+      "type": "string"
+    },
+    "global": {
+      "description": "Global values are values that can be accessed from any chart or subchart by exactly the same name.",
+      "required": [],
+      "type": "object"
+    },
+    "kubernetesClusterDomain": {
+      "description": "The domain for the Kubernetes cluster.",
+      "type": "string"
+    },
+    "metricsService": {
+      "properties": {
+        "enable": {
+          "description": "Enable the metrics service for the controller manager.",
+          "type": "boolean"
+        },
+        "metricsServiceSecret": {
+          "description": "The name of the secret containing the TLS certificate for the metrics service.",
+          "type": "string"
+        },
+        "ports": {
+          "description": "The port the metrics service will listen on.",
+          "items": {
+            "anyOf": [
+              {
+                "properties": {
+                  "name": {
+                    "type": "string"
+                  },
+                  "port": {
+                    "type": "integer"
+                  },
+                  "protocol": {
+                    "type": "string"
+                  },
+                  "targetPort": {
+                    "required": [],
+                    "type": [
+                      "integer",
+                      "string"
+                    ]
+                  }
+                },
+                "required": [],
+                "type": "object"
+              }
+            ],
+            "required": []
+          },
+          "type": "array"
+        },
+        "type": {
+          "description": "Service type for the metrics service.",
+          "type": "string"
+        }
+      },
+      "required": [],
+      "type": "object"
+    },
+    "nameOverride": {
+      "description": "Override the name of the Helm Chart.",
+      "type": "string"
+    },
+    "plugin": {
+      "properties": {
+        "clientSecret": {
+          "description": "The Client TLS certificate.",
+          "type": "string"
+        },
+        "name": {
+          "description": "The name the plugin will use to register itself with the CNPG Operator.",
+          "type": "string"
+        },
+        "port": {
+          "description": "The port the plugin will listen on. It must match the \"--plugin-server-address\" argument.",
+          "type": "integer"
+        },
+        "serverSecret": {
+          "description": "The Server TLS certificate.",
+          "type": "string"
+        }
+      },
+      "required": [],
+      "type": "object"
+    },
+    "prometheus": {
+      "properties": {
+        "enable": {
+          "description": "To enable a ServiceMonitor to export metrics to Prometheus set true.",
+          "type": "boolean"
+        }
+      },
+      "required": [],
+      "type": "object"
+    },
+    "serviceAccount": {
+      "properties": {
+        "annotations": {
+          "description": "The annotations to add to the service account.",
+          "required": [],
+          "type": "object"
+        },
+        "automount": {
+          "description": "Automount service account token.",
+          "type": "boolean"
+        },
+        "create": {
+          "description": "Specifies whether a service account should be created.",
+          "type": "boolean"
+        },
+        "name": {
+          "description": "The name of the service account",
+          "type": "string"
+        }
+      },
+      "required": [],
+      "type": "object"
+    }
+  },
+  "required": [],
+  "type": "object"
+}

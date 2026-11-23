@@ -36,7 +36,7 @@ spec:
             value: manager
           {{- range $key, $value := .Values.controllerManager.manager.env }}
           - name: {{ $key }}
-            value: {{ $value }}
+            value: {{ $value | quote }}
           {{- end }}
         image: {{ .Values.controllerManager.manager.image.repository }}:{{ .Values.controllerManager.manager.image.tag
           | default .Chart.AppVersion }}
