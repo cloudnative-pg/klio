@@ -36,7 +36,6 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/labels"
 	"sigs.k8s.io/e2e-framework/klient/k8s/resources"
 	"sigs.k8s.io/e2e-framework/klient/wait"
 	"sigs.k8s.io/e2e-framework/pkg/envconf"
@@ -49,6 +48,7 @@ import (
 	machineryConditions "github.com/cloudnative-pg/klio/operator/test/machinery/pkg/conditions"
 	"github.com/cloudnative-pg/klio/operator/test/machinery/pkg/namespaces"
 	machineryPostgres "github.com/cloudnative-pg/klio/operator/test/machinery/pkg/postgres"
+	"github.com/cloudnative-pg/klio/operator/test/utils/conditions"
 	"github.com/cloudnative-pg/klio/operator/test/utils/templates/certificates"
 	"github.com/cloudnative-pg/klio/operator/test/utils/templates/cnpg"
 	"github.com/cloudnative-pg/klio/operator/test/utils/templates/klio"
@@ -179,44 +179,38 @@ func (s *walRetentionScenario) Teardown(
 // sweeper (one minute), so that at least one sweep runs in the meantime.
 const walRetentionHoldCheck = 90 * time.Second
 
-// cutTier2 makes the tier2 object store unreachable from the Klio server and
-// returns the function that makes it reachable again. The RustFS Service is
-// detached from its pod instead of scaling the Deployment down, because RustFS
-// keeps the bucket in an emptyDir volume, which would be lost with the pod.
-// The RustFS process is then restarted to close the connections the Klio
-// server already holds, which would keep working without the Service.
+// cutTier2 sets a bucket policy that makes tier2 reject every request, and
+// returns a function that removes it.
 func (s *walRetentionScenario) cutTier2(ctx context.Context, t *testing.T, r *resources.Resources) func() {
 	t.Helper()
 
-	var service corev1.Service
-	require.NoError(t, r.Get(ctx, s.rustfsService.Name, s.namespace.Name, &service),
-		"failed to get the RustFS service")
-	selector := service.Spec.Selector
-	service.Spec.Selector = map[string]string{"klio.cnpg.io/e2e-tier2-outage": "true"}
-	require.NoError(t, r.Update(ctx, &service), "failed to detach the RustFS service from its pod")
-
-	var pods corev1.PodList
-	require.NoError(t,
-		r.WithNamespace(s.namespace.Name).List(ctx, &pods,
-			resources.WithLabelSelector(labels.FormatLabels(selector))),
-		"failed to list the RustFS pods")
-	require.Len(t, pods.Items, 1, "expected exactly one RustFS pod")
-
-	// The exec ends with an error when the process it runs in is terminated,
-	// so its outcome is not checked.
-	var stdout, stderr bytes.Buffer
-	_ = r.ExecInPod(ctx, s.namespace.Name, pods.Items[0].Name, "rustfs",
-		[]string{"sh", "-c", "kill 1"}, &stdout, &stderr)
+	s.runTier2PolicyJob(ctx, t, r, rustfs.GetRustFSDenyBucketAccessJob(
+		"tier2-outage-start", s.namespace.Name, rustfs.RustFSBucketName))
 
 	return func() {
 		t.Helper()
 
-		var service corev1.Service
-		require.NoError(t, r.Get(ctx, s.rustfsService.Name, s.namespace.Name, &service),
-			"failed to get the RustFS service")
-		service.Spec.Selector = selector
-		require.NoError(t, r.Update(ctx, &service), "failed to attach the RustFS service to its pod")
+		s.runTier2PolicyJob(ctx, t, r, rustfs.GetRustFSAllowBucketAccessJob(
+			"tier2-outage-end", s.namespace.Name, rustfs.RustFSBucketName))
 	}
+}
+
+// runTier2PolicyJob runs a bucket policy Job and waits for it to complete.
+func (s *walRetentionScenario) runTier2PolicyJob(
+	ctx context.Context,
+	t *testing.T,
+	r *resources.Resources,
+	job *batchv1.Job,
+) {
+	t.Helper()
+
+	require.NoError(t, r.Create(ctx, job), "failed to create job %s", job.Name)
+	err := wait.For(
+		conditions.JobIsComplete(r, job),
+		wait.WithTimeout(2*time.Minute),
+		wait.WithInterval(2*time.Second),
+	)
+	require.NoError(t, err, "job %s not completed", job.Name)
 }
 
 // getWALFilesInTier1 returns the list of WAL files stored in tier1 for a cluster.
