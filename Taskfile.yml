@@ -1627,7 +1627,7 @@ tasks:
         with-exec -- sh -c "helm upgrade -i --wait --create-namespace --namespace cert-manager --version {{ .CERT_MANAGER_VERSION }} --set crds.enabled=true cert-manager jetstack/cert-manager" |
         with-env-variable CACHE_BUST {{ .CACHE_BUST }} |
         with-exec -- sh -c "helm uninstall --wait --ignore-not-found klio -n cnpg-system || true" |
-        with-exec -- sh -c "helm upgrade -i --wait --create-namespace --namespace cnpg-system --set controllerManager.manager.image.repository={{ .OPERATOR_IMAGE_REPOSITORY }} --set controllerManager.manager.image.tag={{ .OPERATOR_IMAGE_TAG }} --set controllerManager.manager.env.SIDECAR_IMAGE={{ .OPERAND_IMAGE_REPOSITORY }}:{{ .OPERAND_IMAGE_TAG }} klio /chart"
+        with-exec -- sh -c "helm upgrade -i --wait --create-namespace --namespace cnpg-system --set controllerManager.manager.image.repository={{ .OPERATOR_IMAGE_REPOSITORY }} --set-string controllerManager.manager.image.tag={{ .OPERATOR_IMAGE_TAG }} --set controllerManager.manager.env.SIDECAR_IMAGE={{ .OPERAND_IMAGE_REPOSITORY }}:{{ .OPERAND_IMAGE_TAG }} klio /chart"
         .
       - rm -f {{ .KUBECONFIG_PATH }}
 
