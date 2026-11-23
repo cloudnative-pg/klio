@@ -98,11 +98,13 @@ func TestProtectUnsyncedToTier2(t *testing.T) {
 	}
 
 	tests := []struct {
-		name        string
-		candidates  klioclient.BackupList
+		name       string
+		candidates klioclient.BackupList
+		// complete are the complete tier1 backups; nil means the candidates.
+		complete    klioclient.BackupList
 		tier2       klioclient.BackupList
 		partial     []klioclient.IncompleteBackup
-		tier2Latest int
+		tier2Latest int32
 		tier2Err    error
 		want        klioclient.BackupList
 		wantErr     bool
@@ -146,18 +148,23 @@ func TestProtectUnsyncedToTier2(t *testing.T) {
 			want:        nil,
 		},
 		{
-			name:        "candidate newer than what tier2 holds is protected",
-			candidates:  klioclient.BackupList{backup("backup-3", 3)},
-			tier2:       klioclient.BackupList{backup("backup-1", 1), backup("backup-2", 2)},
-			tier2Latest: 2,
-			want:        nil,
-		},
-		{
 			name:        "candidate that tier2 has room for is protected",
 			candidates:  klioclient.BackupList{backup("backup-1", 1)},
 			tier2:       klioclient.BackupList{backup("backup-2", 2)},
 			tier2Latest: 2,
 			want:        nil,
+		},
+		{
+			// Tier2 retention keeps backup-3 and backup-4, so the relay
+			// skips backup-2.
+			name:       "candidate that the relay skips is kept for deletion",
+			candidates: klioclient.BackupList{backup("backup-2", 2)},
+			complete: klioclient.BackupList{
+				backup("backup-1", 1), backup("backup-2", 2), backup("backup-3", 3), backup("backup-4", 4),
+			},
+			tier2:       klioclient.BackupList{backup("backup-1", 1)},
+			tier2Latest: 2,
+			want:        klioclient.BackupList{backup("backup-2", 2)},
 		},
 		{
 			name:        "tier2 retention disabled protects every unsynced candidate",
@@ -187,8 +194,13 @@ func TestProtectUnsyncedToTier2(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			client := &stubTier2Client{backups: tt.tier2, partial: tt.partial, listErr: tt.tier2Err}
 
-			got, err := protectUnsyncedToTier2(context.Background(), "cluster-a", tt.candidates, client,
-				&policy.LatestPolicy{Count: tt.tier2Latest})
+			complete := tt.complete
+			if complete == nil {
+				complete = tt.candidates
+			}
+
+			got, err := protectUnsyncedToTier2(context.Background(), "cluster-a", tt.candidates, complete, client,
+				&grpc.TierRetentionPolicy{Latest: tt.tier2Latest})
 
 			if (err != nil) != tt.wantErr {
 				t.Fatalf("err = %v, wantErr = %v", err, tt.wantErr)

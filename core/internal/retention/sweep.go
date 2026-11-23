@@ -335,12 +335,8 @@ func deletionCandidates(
 		return toDelete, nil
 	}
 
-	tier2Policy, err := policyFromProto(retentionPolicy.GetTier2Policy())
-	if err != nil {
-		return nil, err
-	}
-
-	guarded, err := protectUnsyncedToTier2(ctx, clusterName, toDelete, tc.syncGuardClient, tier2Policy)
+	guarded, err := protectUnsyncedToTier2(
+		ctx, clusterName, toDelete, complete, tc.syncGuardClient, retentionPolicy.GetTier2Policy())
 	if err != nil {
 		return nil, fmt.Errorf("while checking tier2 sync status: %w", err)
 	}
@@ -369,29 +365,13 @@ func deletionCandidates(
 func protectUnsyncedToTier2(
 	ctx context.Context,
 	clusterName string,
-	candidates klioclient.BackupList,
+	candidates, complete klioclient.BackupList,
 	tier2Client backupDeleter,
-	tier2Policy policy.Policy,
+	tier2Policy *grpc.TierRetentionPolicy,
 ) (klioclient.BackupList, error) {
 	tier2Backups, err := tier2Client.ListBackups(ctx, clusterName)
 	if err != nil {
 		return nil, fmt.Errorf("while listing tier2 backups: %w", err)
-	}
-
-	onTier2 := backupNameSet(tier2Backups)
-
-	var safe, unsynced klioclient.BackupList
-	for _, b := range candidates {
-		switch _, ok := onTier2[b.Name]; {
-		case ok:
-			safe = append(safe, b)
-		case !keepsWith(tier2Policy, tier2Backups, b):
-			unsynced = append(unsynced, b)
-		}
-	}
-
-	if len(unsynced) == 0 {
-		return safe, nil
 	}
 
 	incomplete, err := tier2Client.ListIncompleteBackups(ctx, clusterName)
@@ -399,24 +379,24 @@ func protectUnsyncedToTier2(
 		return nil, fmt.Errorf("while listing tier2 incomplete backups: %w", err)
 	}
 
-	for _, b := range unsynced {
-		partial := slices.ContainsFunc(incomplete, func(i klioclient.IncompleteBackup) bool {
-			return i.BackupName == b.Name
-		})
-		if !partial {
+	partial := make([]string, 0, len(incomplete))
+	for _, b := range incomplete {
+		partial = append(partial, b.BackupName)
+	}
+
+	pending, err := BackupsToRelay(tier2Policy, complete, tier2Backups, partial)
+	if err != nil {
+		return nil, err
+	}
+
+	var safe klioclient.BackupList
+	for _, b := range candidates {
+		if !slices.Contains(pending, b.Name) {
 			safe = append(safe, b)
 		}
 	}
 
 	return safe, nil
-}
-
-// keepsWith reports whether p would keep b on a tier that holds held.
-func keepsWith(p policy.Policy, held klioclient.BackupList, b klioclient.BackupMetadata) bool {
-	// Evaluate sorts and slices in place: give it its own slice.
-	_, kept := backupNameSet(p.Evaluate(slices.Concat(held, klioclient.BackupList{b})))[b.Name]
-
-	return kept
 }
 
 // backupNameSet returns the names of backups as a set.
