@@ -695,7 +695,7 @@ tasks:
       # renovate: datasource=github-releases depName=dadav/helm-schema versioning=semver
       HELM_SCHEMA_VERSION: 0.24.0
       # The Dagger CLI splits --args values on commas, so the flag is repeated.
-      HELM_SCHEMA_FLAGS: -a --no-dependencies --skip-auto-generation title --skip-auto-generation required --skip-auto-generation additionalProperties
+      HELM_SCHEMA_FLAGS: -a --no-dependencies --skip-auto-generation title --skip-auto-generation required --skip-auto-generation additionalProperties --skip-auto-generation default
     cmds:
       - >
         dagger core container from --address golang:{{ .GOLANG_IMAGE_VERSION }}
