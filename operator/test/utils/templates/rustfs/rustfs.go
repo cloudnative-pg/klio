@@ -326,6 +326,44 @@ func GetRustFSDeployment(name, namespace string) *appsv1.Deployment {
 
 // GetRustFSCreateBucketJob returns a Job to create an S3 bucket in RustFS.
 func GetRustFSCreateBucketJob(name, namespace, bucketName string) *batchv1.Job {
+	return getRustFSAWSCLIJob(name, namespace, "create-bucket",
+		fmt.Sprintf("aws s3 mb s3://%v --endpoint-url=%s",
+			bucketName,
+			GetRustFSEndpoint("rustfs", namespace),
+		),
+	)
+}
+
+// GetRustFSDenyBucketAccessJob returns a Job that sets a bucket policy
+// denying every request on the bucket, including root's.
+func GetRustFSDenyBucketAccessJob(name, namespace, bucketName string) *batchv1.Job {
+	policy := fmt.Sprintf(
+		`{"Version":"2012-10-17","Statement":[{"Effect":"Deny","Principal":{"AWS":["*"]},`+
+			`"Action":["s3:*"],"Resource":["arn:aws:s3:::%[1]s","arn:aws:s3:::%[1]s/*"]}]}`,
+		bucketName,
+	)
+
+	return getRustFSAWSCLIJob(name, namespace, "deny-bucket-access",
+		fmt.Sprintf("aws s3api put-bucket-policy --bucket %s --policy '%s' --endpoint-url=%s",
+			bucketName,
+			policy,
+			GetRustFSEndpoint("rustfs", namespace),
+		),
+	)
+}
+
+// GetRustFSAllowBucketAccessJob returns a Job that deletes the bucket policy.
+func GetRustFSAllowBucketAccessJob(name, namespace, bucketName string) *batchv1.Job {
+	return getRustFSAWSCLIJob(name, namespace, "allow-bucket-access",
+		fmt.Sprintf("aws s3api delete-bucket-policy --bucket %s --endpoint-url=%s",
+			bucketName,
+			GetRustFSEndpoint("rustfs", namespace),
+		),
+	)
+}
+
+// getRustFSAWSCLIJob returns a Job that runs an AWS CLI command against RustFS.
+func getRustFSAWSCLIJob(name, namespace, containerName, command string) *batchv1.Job {
 	return &batchv1.Job{
 		Name:      name,
 		Namespace: namespace,
@@ -335,17 +373,14 @@ func GetRustFSCreateBucketJob(name, namespace, bucketName string) *batchv1.Job {
 					RestartPolicy: corev1.RestartPolicyOnFailure,
 					Containers: []corev1.Container{
 						{
-							Name:  "create-bucket",
+							Name:  containerName,
 							Image: AWSCLIImage,
 							Command: []string{
 								"/bin/sh",
 								"-c",
 							},
 							Args: []string{
-								fmt.Sprintf("aws s3 mb s3://%v --endpoint-url=%s",
-									bucketName,
-									GetRustFSEndpoint("rustfs", namespace),
-								),
+								command,
 							},
 							Env: []corev1.EnvVar{
 								{
