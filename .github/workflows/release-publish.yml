@@ -17,7 +17,8 @@ jobs:
     permissions:
       contents: write
       packages: write
-      id-token: write # Required for keyless signing
+      id-token: write # Required for keyless signing and attestations
+      attestations: write
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -68,18 +69,64 @@ jobs:
         with:
           metadata-files: operator/metadata.json core/metadata.json
 
-      - name: Sign the helm chart
+      - name: Read the chart digest
+        id: chart
         run: |
           version=$(awk '$1 == "version:" {print $2}' operator/dist/chart/Chart.yaml)
           chart="ghcr.io/${GITHUB_REPOSITORY_OWNER}/klio-operator-chart"
           digest=$(docker buildx imagetools inspect "${chart}:${version}" \
             --format '{{ .Manifest.Digest }}')
-          cosign sign --yes "${chart}@${digest}"
+          echo "name=${chart}" >> "${GITHUB_OUTPUT}"
+          echo "digest=${digest}" >> "${GITHUB_OUTPUT}"
+
+      - name: Sign the helm chart
+        env:
+          CHART: ${{ steps.chart.outputs.name }}
+          DIGEST: ${{ steps.chart.outputs.digest }}
+        run: |
+          cosign sign --yes "${CHART}@${DIGEST}"
           # Check the signature the way users do (see the Helm chart docs)
-          cosign verify "${chart}@${digest}" \
+          cosign verify "${CHART}@${DIGEST}" \
             --certificate-identity "https://github.com/${GITHUB_WORKFLOW_REF}" \
             --certificate-oidc-issuer https://token.actions.githubusercontent.com \
             > /dev/null
+
+      # SLSA build provenance for the chart, pushed to the registry next to it.
+      - name: Attest the helm chart
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
+        with:
+          subject-name: ${{ steps.chart.outputs.name }}
+          subject-digest: ${{ steps.chart.outputs.digest }}
+          push-to-registry: true
+          create-storage-record: false
+
+      # SLSA build provenance for the archives and packages that goreleaser
+      # uploaded to the GitHub release.
+      - name: Attest the binaries
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
+        with:
+          subject-path: |
+            core/dist/*.deb
+            core/dist/*.rpm
+            core/dist/*.tar.gz
+
+      - name: Attest the Klio image
+        uses: ./.github/actions/attest-image
+        with:
+          metadata-file: core/metadata.json
+          target: default
+
+      - name: Attest the distroless operator image
+        uses: ./.github/actions/attest-image
+        with:
+          metadata-file: operator/metadata.json
+          target: distroless
+
+      - name: Attest the UBI operator image
+        uses: ./.github/actions/attest-image
+        with:
+          metadata-file: operator/metadata.json
+          target: ubi
 
       - name: Attach the CRDs manifest to the release
         env:

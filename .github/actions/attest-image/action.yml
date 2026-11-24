@@ -1,0 +1,42 @@
+name: Attest image
+description: >
+  Generate a SLSA build provenance attestation for one image pushed by docker
+  buildx bake, identified by digest, and push it to the registry next to the
+  image. The calling job needs `id-token: write`, `attestations: write` and
+  `packages: write`, and must already be logged in to the registry.
+inputs:
+  metadata-file:
+    description: Bake metadata file
+    required: true
+  target:
+    description: Bake target that built the image
+    required: true
+runs:
+  using: composite
+  steps:
+    - name: Read the image digest
+      id: image
+      shell: bash
+      env:
+        METADATA_FILE: ${{ inputs.metadata-file }}
+        TARGET: ${{ inputs.target }}
+      run: |
+        image='.[$target] | objects | select(has("containerimage.digest"))'
+        name=$(jq -r --arg target "${TARGET}" "${image}"'
+          | ."image.name" | split(",")[0] | sub(":[^:/]+$"; "")' "${METADATA_FILE}")
+        digest=$(jq -r --arg target "${TARGET}" "${image}"'
+          | ."containerimage.digest"' "${METADATA_FILE}")
+        if [ -z "${name}" ] || [ -z "${digest}" ]; then
+          echo "::error::no pushed image for target ${TARGET} in ${METADATA_FILE}"
+          exit 1
+        fi
+        echo "name=${name}" >> "${GITHUB_OUTPUT}"
+        echo "digest=${digest}" >> "${GITHUB_OUTPUT}"
+
+    - name: Attest the image
+      uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
+      with:
+        subject-name: ${{ steps.image.outputs.name }}
+        subject-digest: ${{ steps.image.outputs.digest }}
+        push-to-registry: true
+        create-storage-record: false
