@@ -6,8 +6,8 @@ sidebar_position: 10
 
 Klio provides built-in support for [OpenTelemetry](https://opentelemetry.io/),
 enabling comprehensive observability through distributed tracing, metrics
-collection and log export. This allows you to monitor backup operations, performance
-characteristics, and system health across your Klio deployment.
+collection and log export. This allows you to monitor backup operations,
+performance characteristics, and system health across your Klio deployment.
 
 ## Available Telemetry
 
