@@ -168,6 +168,7 @@ jobs:
     permissions:
       contents: read
       packages: write
+      id-token: write # Required for keyless signing
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -197,6 +198,13 @@ jobs:
         run: |
           task core:ci
 
+      - name: Sign the images
+        # Only images actually pushed can be signed (see the PUSH env above).
+        if: needs.change-triage.outputs.same-repo == 'true'
+        uses: ./.github/actions/sign-images
+        with:
+          metadata-files: core/metadata.json
+
       - name: Upload assets
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
@@ -217,6 +225,7 @@ jobs:
     permissions:
       contents: read
       packages: write
+      id-token: write # Required for keyless signing
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -244,6 +253,13 @@ jobs:
           PUSH: ${{ needs.change-triage.outputs.same-repo }}
         run: |
           task operator:ci
+
+      - name: Sign the images
+        # Only images actually pushed can be signed (see the PUSH env above).
+        if: needs.change-triage.outputs.same-repo == 'true'
+        uses: ./.github/actions/sign-images
+        with:
+          metadata-files: operator/metadata.json
 
       - name: Run Red Hat preflight certification
         # Preflight pulls the just-pushed UBI image by reference, so it can
@@ -362,6 +378,7 @@ jobs:
     permissions:
       contents: read
       packages: write
+      id-token: write # Required for keyless signing
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -390,6 +407,11 @@ jobs:
       - name: Containerize operator main
         run: |
           task operator:containerize-main
+
+      - name: Sign the images
+        uses: ./.github/actions/sign-images
+        with:
+          metadata-files: core/metadata.json operator/metadata.json
 
   renovate:
     name: Renovate Linter

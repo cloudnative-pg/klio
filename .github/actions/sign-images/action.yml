@@ -1,0 +1,36 @@
+name: Sign images
+description: >
+  Keyless-sign with cosign every image listed in the given docker buildx bake
+  metadata files, by digest. --recursive also signs each per-platform manifest
+  in the multi-arch index. The calling job needs `id-token: write` and must
+  already be logged in to the registry.
+inputs:
+  metadata-files:
+    description: Space-separated list of bake metadata files
+    required: true
+runs:
+  using: composite
+  steps:
+    - name: Install cosign
+      uses: sigstore/cosign-installer@756fe2d284c7292c4e9b62c8a28f1e5629c59532 # v4.1.3
+
+    - name: Sign the images
+      shell: bash
+      env:
+        METADATA_FILES: ${{ inputs.metadata-files }}
+      run: |
+        refs=$(jq -r '.[] | objects | select(has("containerimage.digest"))
+          | (."image.name" | split(",")[0] | sub(":[^:/]+$"; ""))
+          + "@" + ."containerimage.digest"' ${METADATA_FILES})
+        if [ -z "${refs}" ]; then
+          echo "::error::no pushed image found in ${METADATA_FILES}"
+          exit 1
+        fi
+        for ref in ${refs}; do
+          cosign sign --yes --recursive "${ref}"
+          # Check the signature the way users do (see the docs)
+          cosign verify "${ref}" \
+            --certificate-identity "https://github.com/${GITHUB_WORKFLOW_REF}" \
+            --certificate-oidc-issuer https://token.actions.githubusercontent.com \
+            > /dev/null
+        done

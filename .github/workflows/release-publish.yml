@@ -27,9 +27,6 @@ jobs:
       - name: Setup dagger
         uses: ./.github/actions/setup-dagger
 
-      - name: Install cosign
-        uses: sigstore/cosign-installer@756fe2d284c7292c4e9b62c8a28f1e5629c59532 # v4.1.3
-
       - name: Login to ghcr.io
         uses: docker/login-action@8aa5831fb8d48d8f76594c7ddde61ae58019f550 # v4
         with:
@@ -42,19 +39,6 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           task all:publish
-
-      - name: Sign the helm chart
-        run: |
-          version=$(awk '$1 == "version:" {print $2}' operator/dist/chart/Chart.yaml)
-          chart="ghcr.io/${GITHUB_REPOSITORY_OWNER}/klio-operator-chart"
-          digest=$(docker buildx imagetools inspect "${chart}:${version}" \
-            --format '{{ .Manifest.Digest }}')
-          cosign sign --yes "${chart}@${digest}"
-          # Check the signature the way users do (see the Helm chart docs)
-          cosign verify "${chart}@${digest}" \
-            --certificate-identity "https://github.com/${GITHUB_WORKFLOW_REF}" \
-            --certificate-oidc-issuer https://token.actions.githubusercontent.com \
-            > /dev/null
 
       # Read the images just published from the bake metadata, picking the
       # release tag rather than the moving "latest" one. The OLM bundle ships
@@ -77,6 +61,25 @@ jobs:
           fi
           echo "operator-image=${operator}" >> "${GITHUB_OUTPUT}"
           echo "sidecar-image=${sidecar}" >> "${GITHUB_OUTPUT}"
+
+      # Sign the operator (distroless and UBI) and the operand images.
+      - name: Sign the images
+        uses: ./.github/actions/sign-images
+        with:
+          metadata-files: operator/metadata.json core/metadata.json
+
+      - name: Sign the helm chart
+        run: |
+          version=$(awk '$1 == "version:" {print $2}' operator/dist/chart/Chart.yaml)
+          chart="ghcr.io/${GITHUB_REPOSITORY_OWNER}/klio-operator-chart"
+          digest=$(docker buildx imagetools inspect "${chart}:${version}" \
+            --format '{{ .Manifest.Digest }}')
+          cosign sign --yes "${chart}@${digest}"
+          # Check the signature the way users do (see the Helm chart docs)
+          cosign verify "${chart}@${digest}" \
+            --certificate-identity "https://github.com/${GITHUB_WORKFLOW_REF}" \
+            --certificate-oidc-issuer https://token.actions.githubusercontent.com \
+            > /dev/null
 
       - name: Attach the CRDs manifest to the release
         env:
