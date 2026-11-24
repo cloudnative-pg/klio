@@ -22,7 +22,7 @@ data:
   OTEL_EXPORTER_OTLP_METRICS_TIMEOUT: "60000"
   OTEL_EXPORTER_OTLP_METRICS_INSECURE: "false"
   OTEL_EXPORTER_OTLP_METRICS_CERTIFICATE: "/otel/ca.crt"
-  # Unlike traces and metrics, the logs are not exported unless this is set.
+  # Like traces and metrics, the logs default to "otlp"; "none" turns them off.
   # The per-signal settings above keep the generic OTEL_EXPORTER_OTLP_* ones
   # from applying to the logs, so they need their own LOGS_* counterparts.
   OTEL_LOGS_EXPORTER: "otlp"

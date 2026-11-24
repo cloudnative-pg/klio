@@ -11,7 +11,7 @@ data:
   # export traces over gRPC.
   OTEL_TRACES_EXPORTER: "otlp"
   OTEL_METRICS_EXPORTER: "otlp"
-  # Unlike traces and metrics, the logs are not exported unless this is set.
+  # Like traces and metrics, the logs default to "otlp"; "none" turns them off.
   # The generic OTEL_EXPORTER_OTLP_* settings below apply to the logs too.
   OTEL_LOGS_EXPORTER: "otlp"
   OTEL_EXPORTER_OTLP_PROTOCOL: "grpc"
