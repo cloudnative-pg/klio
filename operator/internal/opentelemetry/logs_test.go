@@ -129,6 +129,14 @@ func TestLoggingOptionsWithoutExport(t *testing.T) {
 				"OTEL_EXPORTER_OTLP_ENDPOINT": "http://localhost:4318",
 			},
 		},
+		{
+			name: "only Kubernetes service links",
+			env: map[string]string{
+				"OTEL_COLLECTOR_SERVICE_HOST":  "10.96.0.10",
+				"OTEL_COLLECTOR_PORT_4317_TCP": "tcp://10.96.0.10:4317",
+				"OTEL_COLLECTOR_SERVICE_PORT":  "4317",
+			},
+		},
 	}
 
 	for _, tt := range tests {

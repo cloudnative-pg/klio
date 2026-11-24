@@ -22,6 +22,7 @@ package opentelemetry
 import (
 	"context"
 	"os"
+	"slices"
 	"strings"
 	"time"
 
@@ -103,19 +104,44 @@ func Init(ctx context.Context) func() {
 	}
 }
 
-// isOtelConfigPresent reports whether an OTEL_* environment variable is set
-// and OTEL_SDK_DISABLED is not "true", the only value the specification
-// treats as true, ignoring the case.
+// otelEnvPrefixes are the prefixes of the variables configuring the
+// OpenTelemetry SDK. Other OTEL_* variables, like the ones Kubernetes injects
+// for a Service named "otel-collector", do not configure it.
+//
+//nolint:gochecknoglobals
+var otelEnvPrefixes = []string{
+	"OTEL_SDK_DISABLED",
+	"OTEL_SERVICE_NAME",
+	"OTEL_RESOURCE_",
+	"OTEL_PROPAGATORS",
+	"OTEL_TRACES_",
+	"OTEL_METRICS_",
+	"OTEL_METRIC_",
+	"OTEL_LOGS_",
+	"OTEL_EXPORTER_",
+	"OTEL_BSP_",
+	"OTEL_BLRP_",
+	"OTEL_ATTRIBUTE_",
+	"OTEL_SPAN_",
+	"OTEL_EVENT_",
+	"OTEL_LINK_",
+	"OTEL_LOGRECORD_",
+	"OTEL_LOG_LEVEL",
+	"OTEL_CONFIG_FILE",
+	"OTEL_GO_X_",
+}
+
+// isOtelConfigPresent reports whether a variable configuring the
+// OpenTelemetry SDK is set and OTEL_SDK_DISABLED is not "true", the only
+// value the specification treats as true, ignoring the case.
 func isOtelConfigPresent() bool {
 	if strings.EqualFold(os.Getenv("OTEL_SDK_DISABLED"), "true") {
 		return false
 	}
 
-	for _, env := range os.Environ() {
-		if strings.HasPrefix(env, "OTEL_") {
-			return true
-		}
-	}
-
-	return false
+	return slices.ContainsFunc(os.Environ(), func(env string) bool {
+		return slices.ContainsFunc(otelEnvPrefixes, func(prefix string) bool {
+			return strings.HasPrefix(env, prefix)
+		})
+	})
 }
