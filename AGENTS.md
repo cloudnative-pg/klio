@@ -139,6 +139,9 @@ Klio-only assertions) must live outside `machinery` — e.g. under
   - `operator/pkg/config/server.go` ↔ `core/pkg/config/server.go`
   - `operator/pkg/config/client.go` ↔ `core/pkg/config/client.go`
   - `operator/pkg/config/compression.go` ↔ `core/pkg/config/compression.go`
+  - `otelEnvPrefixes` and `isOtelConfigPresent` in
+    `operator/internal/opentelemetry/opentelemetry.go` ↔
+    `core/internal/opentelemetry/opentelemetry.go`
 
 - The e2e tests in `operator/test/` copy some values from core, because the
   operator module cannot import core's `internal` packages. When you change

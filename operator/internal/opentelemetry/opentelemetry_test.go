@@ -67,4 +67,11 @@ func TestIsOtelConfigPresent(t *testing.T) {
 		t.Setenv("OTEL_SDK_DISABLED", "1")
 		assert.True(t, isOtelConfigPresent())
 	})
+
+	t.Run("returns false for Kubernetes service links only", func(t *testing.T) {
+		clearOTELEnv(t)
+		t.Setenv("OTEL_COLLECTOR_SERVICE_HOST", "10.96.0.10")
+		t.Setenv("OTEL_COLLECTOR_PORT_4317_TCP", "tcp://10.96.0.10:4317")
+		assert.False(t, isOtelConfigPresent())
+	})
 }
