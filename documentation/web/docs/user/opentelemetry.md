@@ -9,6 +9,52 @@ enabling comprehensive observability through distributed tracing, metrics
 collection and log export. This allows you to monitor backup operations,
 performance characteristics, and system health across your Klio deployment.
 
+## Overview
+
+OpenTelemetry carries three kinds of data, also called signals. Klio uses
+all three:
+
+- **Metrics** are numbers sampled over time, such as "seconds since the last
+  successful backup" or "bytes of WAL written". They are what you chart and
+  alert on.
+- **Traces** follow a single operation from start to finish, split into timed
+  steps called spans. A trace of a backup shows how long the backup took,
+  and how long its verification took. They are what you look at when
+  something is slow or failing.
+- **Logs** are the records the server, the plugin sidecars and the operator
+  write on their standard output.
+
+Each Klio process has the OpenTelemetry library built in. Usually the data goes to a
+**collector**: a small separate service that receives telemetry from many senders,
+processes it, and forwards it to one or more **backends**, such as Prometheus for
+metrics or Jaeger for traces. Klio only needs to know the collector's address, and
+backends can be changed without touching Klio.
+
+```text
+ Klio server ------\                    +--> Metrics backend --> Dashboards
+                    \                   |    (e.g. Prometheus) and alerts (e.g. Grafana)
+ Plugin sidecars ----+--> Collector ----+     
+                    /                   |
+ Klio operator ----/                    +--> Traces backend
+                                              (e.g. Jaeger)
+```
+
+All connections use the **OTLP** (the OpenTelemetry Protocol). It runs over gRPC
+(port `4317` by convention) or HTTP (port `4318`).
+
+Four Klio components emit telemetry. The component name is also the second
+part of every metric name (`klio.<component>.<domain>.<measurement>`):
+
+| Component | What it is | What it emits |
+|---|---|---|
+| `server` | The Klio server `StatefulSet`: Kopia server, WAL gRPC ingest, embedded NATS JetStream queue, and the Tier 2 WAL consumer | Backup, WAL and queue metrics; WAL and Tier 2 traces |
+| `plugin` | The `klio-plugin` sidecar in each PostgreSQL pod | Backup lifecycle and WAL restore metrics; backup traces |
+| `client` | The WAL streaming client run by the sidecar | WAL send duration and current timeline |
+| `operator` | The Klio operator | Controller-runtime, Go runtime and host metrics |
+
+Telemetry is **off by default**. If no `OTEL_*` environment variable is set,
+Klio collects nothing and pays no cost for it.
+
 ## Available Telemetry
 
 Klio automatically collects the following:
@@ -65,6 +111,260 @@ Klio automatically collects the following:
 - Logs
    - The records the server, the plugin sidecars, the operator and the Klio
      commands they run write on their standard output
+
+## Setting up OpenTelemetry
+
+This section sets Klio up to send OTLP over gRPC to a collector, encrypted
+with TLS.
+
+### What you need
+
+- **A collector** that Klio can reach. This page assumes one called
+`otel-collector`, listening over gRPC on port `4317`. Setting up the collector and the
+backends is outside the scope of this page. The
+[OpenTelemetry Operator](https://opentelemetry.io/docs/platforms/kubernetes/operator/)
+can run it for you through the `OpenTelemetryCollector` resource.
+
+- **Certificates.** The examples below assume the following Secrets. How you
+create them is up to you, for example with [cert-manager](https://cert-manager.io/).
+Klio only needs the files to be available at the paths set in the `OTEL_*`
+variables:
+
+| Secret | Contains | Used by |
+|---|---|---|
+| `otel-collector-tls` | `tls.crt`, `tls.key`: the collector's certificate and private key. `ca.crt`: the CA that signed it | The collector, which uses `tls.crt` and `tls.key` to identify itself. Klio server and plugin sidecars, which use only `ca.crt` to trust the collector |
+| `otel-client-cert` | `tls.crt`, `tls.key`: Klio's certificate and private key | Klio server and plugin sidecars, to identify themselves to the collector |
+
+The Klio Secrets must be in the namespace of the pods that mount them: the
+server's namespace, and the CNPG cluster's namespace.
+
+:::note
+The Secret names above are examples. Use your own and update the references in
+the examples below to match. The key names (`ca.crt`, `tls.crt`, `tls.key`) are
+the ones cert-manager writes. If you create the Secrets yourself with other key
+names, change the `key` in each `items` entry.
+:::
+
+### Klio server
+
+When deploying a Klio `Server`, you can configure OpenTelemetry by specifying
+the necessary settings in the `template` section of the `Server` spec:
+
+1. Set the required environment variables for OpenTelemetry configuration in
+   the `server` container.
+1. Mount any required TLS certificates for secure communication with the
+   OpenTelemetry Collector.
+
+For simpler management, use a `ConfigMap` to store the OpenTelemetry configuration:
+
+```yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: klio-otel-config
+data:
+  OTEL_SERVICE_NAME: "klio-server"
+  OTEL_RESOURCE_DETECTORS: "telemetry.sdk,host,os.type,process.executable.name"
+
+  OTEL_TRACES_EXPORTER: "otlp"
+  OTEL_EXPORTER_OTLP_TRACES_PROTOCOL: "grpc"
+  OTEL_EXPORTER_OTLP_TRACES_ENDPOINT: "https://otel-collector:4317"
+  OTEL_EXPORTER_OTLP_TRACES_COMPRESSION: "gzip"
+  OTEL_EXPORTER_OTLP_TRACES_TIMEOUT: "10000"
+  OTEL_EXPORTER_OTLP_TRACES_INSECURE: "false"
+  OTEL_EXPORTER_OTLP_TRACES_CERTIFICATE: "/otel/ca.crt"
+  OTEL_EXPORTER_OTLP_TRACES_CLIENT_CERTIFICATE: "/otel/tls.crt"
+  OTEL_EXPORTER_OTLP_TRACES_CLIENT_KEY: "/otel/tls.key"
+
+  OTEL_METRICS_EXPORTER: "otlp"
+  OTEL_METRIC_EXPORT_INTERVAL: "60000"
+  OTEL_EXPORTER_OTLP_METRICS_PROTOCOL: "grpc"
+  OTEL_EXPORTER_OTLP_METRICS_ENDPOINT: "https://otel-collector:4317"
+  OTEL_EXPORTER_OTLP_METRICS_TIMEOUT: "60000"
+  OTEL_EXPORTER_OTLP_METRICS_INSECURE: "false"
+  OTEL_EXPORTER_OTLP_METRICS_CERTIFICATE: "/otel/ca.crt"
+  OTEL_EXPORTER_OTLP_METRICS_CLIENT_CERTIFICATE: "/otel/tls.crt"
+  OTEL_EXPORTER_OTLP_METRICS_CLIENT_KEY: "/otel/tls.key"
+```
+
+Configure the `Server` to load the `ConfigMap` into the `server` container and
+to mount the certificates:
+
+```yaml
+apiVersion: klio.cnpg.io/v1alpha1
+kind: Server
+metadata:
+  name: my-klio-server
+spec:
+  # ... other configuration ...
+  template:
+    spec:
+      containers:
+        - name: server
+          envFrom:
+            - configMapRef:
+                name: klio-otel-config
+          volumeMounts:
+            - mountPath: /otel
+              name: otel
+      volumes:
+        - name: otel
+          projected:
+            sources:
+              - secret:
+                  name: otel-collector-tls
+                  items:
+                    - key: ca.crt
+                      path: ca.crt
+              - secret:
+                  name: otel-client-cert
+                  items:
+                    - key: tls.crt
+                      path: tls.crt
+                    - key: tls.key
+                      path: tls.key
+```
+
+The server exports its logs too, by default, but this example only
+configures the traces and metrics endpoints, so the logs would go to the
+default OTLP endpoint. Add the matching `OTEL_EXPORTER_OTLP_LOGS_*`
+variables, replace the per-signal variables with the generic ones shown in
+the plugin example below, or set `OTEL_LOGS_EXPORTER: "none"`.
+
+### Plugin sidecars
+
+When deploying Klio as a CNPG Cluster plugin, configure OpenTelemetry by
+specifying the necessary environment variables in the `containers` section of
+the `PluginConfiguration` spec. The only container that can be customized
+is `klio-plugin`: the plugin sidecar for backup, WAL and restore
+operations.
+
+Create a `ConfigMap` for the shared OpenTelemetry configuration. The generic
+`OTEL_EXPORTER_OTLP_*` variables apply to every signal, so this single
+configuration sends traces, metrics and logs to the same collector:
+
+```yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: cluster-klio-otel-config
+data:
+  OTEL_RESOURCE_DETECTORS: "telemetry.sdk,host,os.type,process.executable.name"
+
+  OTEL_TRACES_EXPORTER: "otlp"
+  OTEL_METRICS_EXPORTER: "otlp"
+  OTEL_LOGS_EXPORTER: "otlp"
+
+  OTEL_EXPORTER_OTLP_PROTOCOL: "grpc"
+  OTEL_EXPORTER_OTLP_ENDPOINT: "https://otel-collector:4317"
+  OTEL_EXPORTER_OTLP_COMPRESSION: "gzip"
+  OTEL_EXPORTER_OTLP_TIMEOUT: "10000"
+  OTEL_EXPORTER_OTLP_INSECURE: "false"
+
+  OTEL_EXPORTER_OTLP_INSECURE: "false"
+  OTEL_EXPORTER_OTLP_CERTIFICATE: "/projected/ca.crt"
+  OTEL_EXPORTER_OTLP_CLIENT_CERTIFICATE: "/projected/tls.crt"
+  OTEL_EXPORTER_OTLP_CLIENT_KEY: "/projected/tls.key"
+```
+
+Configure the `PluginConfiguration` to inject the environment variables into
+each sidecar container:
+
+```yaml
+apiVersion: klio.cnpg.io/v1alpha1
+kind: PluginConfiguration
+metadata:
+  name: client-config-cluster-example
+spec:
+  # ... other configuration ...
+  containers:
+    - name: klio-plugin
+      env:
+        - name: OTEL_SERVICE_NAME
+          value: "klio-plugin"
+      envFrom:
+        - configMapRef:
+            name: cluster-klio-otel-config
+```
+
+Mount the OpenTelemetry certificates using the Cluster's `projectedVolumeTemplate`.
+The projected volume is mounted at `/projected/` and is accessible to all
+sidecar containers:
+
+```yaml
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+  name: cluster-example
+spec:
+  # ... other configuration ...
+  projectedVolumeTemplate:
+    sources:
+      - secret:
+          name: otel-collector-tls
+          items:
+            - key: ca.crt
+              path: ca.crt
+      - secret:
+          name: otel-client-cert
+          items:
+            - key: tls.crt
+              path: tls.crt
+            - key: tls.key
+              path: tls.key
+```
+
+### Klio operator
+
+The operator already publishes its metrics on a `/metrics` endpoint that
+Prometheus can scrape. That keeps working, whether or not you turn on
+OpenTelemetry.
+
+To also send those metrics to your collector, set the `OTEL_*` variables in
+the Helm chart values, under `controllerManager.manager.env`:
+
+```yaml
+controllerManager:
+  manager:
+    env:
+      OTEL_SERVICE_NAME: "klio-operator"
+      OTEL_EXPORTER_OTLP_ENDPOINT: "http://otel-collector.<namespace>.svc:4318"
+      OTEL_EXPORTER_OTLP_PROTOCOL: "http/protobuf"  # or "grpc"
+```
+
+Replace `<namespace>` with the namespace where the collector runs. The operator
+usually runs in a different namespace, where a short name such as
+`otel-collector` would not resolve.
+
+The chart also sets `POD_NAME`, `NAMESPACE_NAME` and `CONTAINER_NAME` for you,
+so the pod and namespace show up on the metrics without extra configuration.
+
+The operator writes its logs on the standard output in JSON, at the level
+set by the `--log-level` argument (`info` by default), and exports them
+with the metrics, unless `OTEL_LOGS_EXPORTER` is `none`.
+
+:::note
+The operator connects without certificates: the Helm chart does not let you
+mount extra volumes, so it cannot load a client certificate or a custom CA.
+It therefore needs a plain OTLP receiver on the collector, in addition to the
+TLS one the other components use. This example uses OTLP over HTTP on port
+`4318`.
+:::
+
+### Verify and next steps
+
+Once the configuration is applied and the pods have restarted, check that data
+is arriving:
+
+- Look for Klio's metrics in your metrics backend. In Prometheus, the dots
+  in names become underscores and the unit is added as a suffix, so
+  `klio.server.uptime` appears as `klio_server_uptime_seconds`.
+- Trigger a backup and look for a trace whose root span is named `backup`.
+
+To visualize the metrics, see [Grafana dashboards](grafana-dashboards.md).
+For more detail, see the [Configuration](#configuration) reference, and the
+[Traces](#traces-reference) and [Metrics](#metrics-reference) references for
+everything Klio emits.
 
 ## Traces Reference
 
@@ -493,6 +793,29 @@ The following environment variables are used to configure OpenTelemetry:
 - `OTEL_SDK_DISABLED`: set to `true` to disable every signal, whatever the
   other variables say
 
+### Kubernetes resource attributes
+
+When running in a Kubernetes environment, Klio will automatically define
+`CONTAINER_NAME`, `POD_NAME` and `NAMESPACE_NAME` environment variables.
+When any of these environment variables are set, Klio will automatically add
+the corresponding resource attributes (`k8s.container.name`, `k8s.pod.name`,
+`k8s.namespace.name`) to all of Klio's own telemetry (the server, the plugin
+sidecars, the operator, and the WAL streaming client). Each attribute is added
+independently - you don't need all three environment variables to be present.
+
+This applies to telemetry Klio emits itself. The Kopia subprocess exports its
+own traces through a separate exporter that ignores these variables; see
+[Kopia repository spans](#kopia-repository-spans) for how resource attributes
+are populated on those spans.
+
+:::info
+If you have already defined any of these attributes in
+`OTEL_RESOURCE_ATTRIBUTES`, Klio will **not override** them. Only missing
+attributes will be added from the environment variables. This allows you to
+customize the values while still benefiting from automatic defaults for any
+attributes you don't explicitly set.
+:::
+
 ### Traces exporter
 
 To enable the traces exporter, set the `OTEL_TRACES_EXPORTER` environment
@@ -589,243 +912,3 @@ options include:
 
 The Prometheus exporter starts a local HTTP server that Prometheus scrapes
 directly, with no intermediate collector required.
-
-## Configuring Klio with OpenTelemetry in Kubernetes
-
-When running in a Kubernetes environment, Klio will automatically define
-`CONTAINER_NAME`, `POD_NAME` and `NAMESPACE_NAME` environment variables.
-When any of these environment variables are set, Klio will automatically add
-the corresponding resource attributes (`k8s.container.name`, `k8s.pod.name`,
-`k8s.namespace.name`) to all of Klio's own telemetry (the server, the plugin
-sidecars, the operator, and the WAL streaming client). Each attribute is added
-independently - you don't need all three environment variables to be present.
-
-This applies to telemetry Klio emits itself. The Kopia subprocess exports its
-own traces through a separate exporter that ignores these variables; see
-[Kopia repository spans](#kopia-repository-spans) for how resource attributes
-are populated on those spans.
-
-:::info
-If you have already defined any of these attributes in
-`OTEL_RESOURCE_ATTRIBUTES`, Klio will **not override** them. Only missing
-attributes will be added from the environment variables. This allows you to
-customize the values while still benefiting from automatic defaults for any
-attributes you don't explicitly set.
-:::
-
-### Klio server with OpenTelemetry
-
-When deploying a Klio `Server`, you can configure OpenTelemetry by specifying
-the necessary settings in the `template` section of the `Server` spec:
-
-1. Set the required environment variables for OpenTelemetry configuration in
-   the `server` container.
-1. Mount any necessary TLS certificates for secure communication with the
-   OpenTelemetry Collector.
-
-For simpler management, use a `ConfigMap` to store the OpenTelemetry configuration:
-
-```yaml
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: klio-otel-config
-data:
-  OTEL_SERVICE_NAME: "klio-server"
-  OTEL_RESOURCE_DETECTORS: "telemetry.sdk,host,os.type,process.executable.name"
-  OTEL_TRACES_EXPORTER: "otlp"
-  OTEL_EXPORTER_OTLP_TRACES_PROTOCOL: "grpc"
-  OTEL_EXPORTER_OTLP_TRACES_ENDPOINT: "https://otel-collector:4317"
-  OTEL_EXPORTER_OTLP_TRACES_COMPRESSION: "gzip"
-  OTEL_EXPORTER_OTLP_TRACES_TIMEOUT: "10000"
-  OTEL_EXPORTER_OTLP_TRACES_INSECURE: "false"
-  OTEL_EXPORTER_OTLP_TRACES_CERTIFICATE: "/otel/ca.crt"
-  OTEL_EXPORTER_OTLP_TRACES_CLIENT_CERTIFICATE: "/otel/tls.crt"
-  OTEL_EXPORTER_OTLP_TRACES_CLIENT_KEY: "/otel/tls.key"
-  OTEL_METRICS_EXPORTER: "otlp"
-  OTEL_METRIC_EXPORT_INTERVAL: "60000"
-  OTEL_EXPORTER_OTLP_METRICS_PROTOCOL: "grpc"
-  OTEL_EXPORTER_OTLP_METRICS_ENDPOINT: "https://otel-collector:4317"
-  OTEL_EXPORTER_OTLP_METRICS_TIMEOUT: "60000"
-  OTEL_EXPORTER_OTLP_METRICS_INSECURE: "false"
-  OTEL_EXPORTER_OTLP_METRICS_CERTIFICATE: "/otel/ca.crt"
-  OTEL_EXPORTER_OTLP_METRICS_CLIENT_CERTIFICATE: "/otel/tls.crt"
-  OTEL_EXPORTER_OTLP_METRICS_CLIENT_KEY: "/otel/tls.key"
----
-apiVersion: klio.cnpg.io/v1alpha1
-kind: Server
-metadata:
-  name: my-klio-server
-spec:
-  # ... other configuration ...
-  template:
-    spec:
-      containers:
-        - name: server
-          envFrom:
-            - configMapRef:
-                name: klio-otel-config
-          volumeMounts:
-            - mountPath: /otel
-              name: otel
-      volumes:
-        - name: otel
-          projected:
-            sources:
-              - secret:
-                  name: otel-collector-tls
-                  items:
-                    - key: ca.crt
-                      path: ca.crt
-              - secret:
-                  name: otel-client-cert
-                  items:
-                    - key: tls.crt
-                      path: tls.crt
-                    - key: tls.key
-                      path: tls.key
-```
-
-The server exports its logs too, by default, but this example only
-configures the traces and metrics endpoints, so the logs would go to the
-default OTLP endpoint. Add the matching `OTEL_EXPORTER_OTLP_LOGS_*`
-variables, replace the per-signal variables with the generic ones shown in
-the plugin example below, or set `OTEL_LOGS_EXPORTER: "none"`.
-
-### Klio plugins with OpenTelemetry
-
-When deploying Klio as a CNPG Cluster plugin, configure OpenTelemetry by
-specifying the necessary environment variables in the `containers` section of
-the `PluginConfiguration` spec. The only container that can be customized
-is `klio-plugin`: the plugin sidecar for backup, WAL and restore
-operations.
-
-Create a `ConfigMap` for the shared OpenTelemetry configuration. The generic
-`OTEL_EXPORTER_OTLP_*` variables apply to every signal, so this single
-configuration sends traces, metrics and logs to the same collector:
-
-```yaml
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: cluster-klio-otel-config
-data:
-  OTEL_RESOURCE_DETECTORS: "telemetry.sdk,host,os.type,process.executable.name"
-  OTEL_TRACES_EXPORTER: "otlp"
-  OTEL_METRICS_EXPORTER: "otlp"
-  OTEL_LOGS_EXPORTER: "otlp"
-  OTEL_EXPORTER_OTLP_PROTOCOL: "grpc"
-  OTEL_EXPORTER_OTLP_ENDPOINT: "https://otel-collector:4317"
-  OTEL_EXPORTER_OTLP_COMPRESSION: "gzip"
-  OTEL_EXPORTER_OTLP_TIMEOUT: "10000"
-  OTEL_EXPORTER_OTLP_INSECURE: "false"
-  OTEL_EXPORTER_OTLP_CERTIFICATE: "/projected/ca.crt"
-  OTEL_EXPORTER_OTLP_CLIENT_CERTIFICATE: "/projected/tls.crt"
-  OTEL_EXPORTER_OTLP_CLIENT_KEY: "/projected/tls.key"
-```
-
-Configure the `PluginConfiguration` to inject the environment variables into
-each sidecar container:
-
-```yaml
-apiVersion: klio.cnpg.io/v1alpha1
-kind: PluginConfiguration
-metadata:
-  name: client-config-cluster-example
-spec:
-  serverAddress: klio.default
-  tls:
-    clientIdentity:
-      volume:
-        secret:
-          secretName: cluster-example-klio-user
-      certPath: tls.crt
-      keyPath: tls.key
-    serverCa:
-      volume:
-        secret:
-          secretName: klio-server-tls
-          items:
-          - key: ca.crt
-            path: ca.crt
-      path: ca.crt
-  clusterName: cluster-example
-  containers:
-    - name: klio-plugin
-      env:
-        - name: OTEL_SERVICE_NAME
-          value: "klio-plugin"
-      envFrom:
-        - configMapRef:
-            name: cluster-klio-otel-config
-```
-
-Mount the OpenTelemetry certificates using the Cluster's `projectedVolumeTemplate`.
-The projected volume is mounted at `/projected/` and is accessible to all
-sidecar containers:
-
-```yaml
-apiVersion: postgresql.cnpg.io/v1
-kind: Cluster
-metadata:
-  name: cluster-example
-spec:
-  instances: 3
-
-  projectedVolumeTemplate:
-    sources:
-      - secret:
-          name: otel-collector-tls
-          items:
-            - key: ca.crt
-              path: ca.crt
-      - secret:
-          name: otel-client-cert
-          items:
-            - key: tls.crt
-              path: tls.crt
-            - key: tls.key
-              path: tls.key
-
-  plugins:
-    - name: klio.cnpg.io
-      enabled: true
-      parameters:
-        pluginConfigurationRef: client-config-cluster-example
-
-  storage:
-    size: 10Gi
-```
-
-### Klio operator with OpenTelemetry
-
-The operator bridges the controller-runtime Prometheus metrics
-registry to OTLP and adds Go runtime and host instrumentation.
-When no `OTEL_*` environment variables are present, a no-op
-meter provider is installed and the operator runs without
-telemetry overhead.
-
-The existing Prometheus `/metrics` endpoint remains available
-for pull-based scraping regardless of whether OTLP export is
-enabled.
-
-To enable OTLP export, set `OTEL_*` variables through the Helm
-chart's `controllerManager.manager.env` value:
-
-```yaml
-controllerManager:
-  manager:
-    env:
-      OTEL_SERVICE_NAME: "klio-operator"
-      OTEL_EXPORTER_OTLP_ENDPOINT: "http://otel-collector:4318"
-      OTEL_EXPORTER_OTLP_PROTOCOL: "http/protobuf"  # or "grpc"
-```
-
-The operator writes its logs on the standard output in JSON, at the level
-set by the `--log-level` argument (`info` by default), and exports them
-with the metrics, unless `OTEL_LOGS_EXPORTER` is `none`.
-
-The Helm chart automatically injects `POD_NAME`,
-`NAMESPACE_NAME`, and `CONTAINER_NAME` via the Kubernetes
-downward API, so the corresponding `k8s.*` resource attributes
-are populated without additional configuration.
