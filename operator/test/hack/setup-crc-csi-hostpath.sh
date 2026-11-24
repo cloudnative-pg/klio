@@ -38,7 +38,7 @@ CSI_DRIVER_HOST_PATH_VERSION="v1.19.0"
 # renovate: datasource=github-releases depName=kubernetes-csi/external-provisioner
 EXTERNAL_PROVISIONER_VERSION="v6.4.0"
 # renovate: datasource=github-releases depName=kubernetes-csi/external-attacher
-EXTERNAL_ATTACHER_VERSION="v4.13.0"
+EXTERNAL_ATTACHER_VERSION="v4.13.1"
 # renovate: datasource=github-releases depName=kubernetes-csi/external-resizer
 EXTERNAL_RESIZER_VERSION="v2.3.0"
 # renovate: datasource=github-releases depName=kubernetes-csi/external-snapshotter
