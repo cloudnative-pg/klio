@@ -23,3 +23,6 @@ e2e_cluster_logs/
 # Vendor directories
 core/vendor/
 operator/vendor/
+
+# macOS
+.DS_Store
