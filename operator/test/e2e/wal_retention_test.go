@@ -47,6 +47,7 @@ import (
 	"github.com/cloudnative-pg/klio/operator/test/klio/testconfig"
 	machineryConditions "github.com/cloudnative-pg/klio/operator/test/machinery/pkg/conditions"
 	"github.com/cloudnative-pg/klio/operator/test/machinery/pkg/namespaces"
+	"github.com/cloudnative-pg/klio/operator/test/machinery/pkg/pods"
 	machineryPostgres "github.com/cloudnative-pg/klio/operator/test/machinery/pkg/postgres"
 	"github.com/cloudnative-pg/klio/operator/test/utils/conditions"
 	"github.com/cloudnative-pg/klio/operator/test/utils/templates/certificates"
@@ -210,7 +211,43 @@ func (s *walRetentionScenario) runTier2PolicyJob(
 		wait.WithTimeout(2*time.Minute),
 		wait.WithInterval(2*time.Second),
 	)
+	if err != nil {
+		s.logJobPods(ctx, t, r, job)
+	}
 	require.NoError(t, err, "job %s not completed", job.Name)
+}
+
+// logJobPods writes the logs of the pods of a Job to the test output. The log
+// streaming set up in TestMain does not catch these short-lived containers.
+func (s *walRetentionScenario) logJobPods(
+	ctx context.Context,
+	t *testing.T,
+	r *resources.Resources,
+	job *batchv1.Job,
+) {
+	t.Helper()
+
+	var podList corev1.PodList
+	if err := r.WithNamespace(job.Namespace).List(ctx, &podList,
+		resources.WithLabelSelector("batch.kubernetes.io/job-name="+job.Name)); err != nil {
+		t.Logf("failed to list the pods of job %s: %v", job.Name, err)
+		return
+	}
+	if len(podList.Items) == 0 {
+		t.Logf("no pods found for job %s", job.Name)
+	}
+
+	for i := range podList.Items {
+		pod := &podList.Items[i]
+		for _, container := range pod.Spec.Containers {
+			logs, err := pods.GetLogs(ctx, r, pod, container.Name)
+			if err != nil {
+				t.Logf("failed to get the logs of %s/%s: %v", pod.Name, container.Name, err)
+				continue
+			}
+			t.Logf("logs of %s/%s:\n%s", pod.Name, container.Name, logs)
+		}
+	}
 }
 
 // getWALFilesInTier1 returns the list of WAL files stored in tier1 for a cluster.
