@@ -544,7 +544,7 @@ func (f *WALRetentionFeature) Run() types.StepFunc {
 		}
 
 		t.Log("Making tier2 reachable again...")
-		runTier2PolicyJob(ctx, t, r, rustfs.GetRustFSAllowBucketAccessJob(
+		runTier2PolicyJob(ctx, t, r, rustfs.GetRustFSDeleteBucketPolicyJob(
 			"tier2-outage-end", f.scenario.namespace.Name, rustfs.RustFSBucketName))
 
 		// Step 7: a third backup triggers a fresh maintenance pass now that the

@@ -352,9 +352,9 @@ func GetRustFSDenyBucketAccessJob(name, namespace, bucketName string) *batchv1.J
 	)
 }
 
-// GetRustFSAllowBucketAccessJob returns a Job that deletes the bucket policy.
-func GetRustFSAllowBucketAccessJob(name, namespace, bucketName string) *batchv1.Job {
-	return getRustFSAWSCLIJob(name, namespace, "allow-bucket-access",
+// GetRustFSDeleteBucketPolicyJob returns a Job that deletes the bucket policy.
+func GetRustFSDeleteBucketPolicyJob(name, namespace, bucketName string) *batchv1.Job {
+	return getRustFSAWSCLIJob(name, namespace, "delete-bucket-policy",
 		fmt.Sprintf("aws s3api delete-bucket-policy --bucket %s --endpoint-url=%s",
 			bucketName,
 			GetRustFSEndpoint("rustfs", namespace),
