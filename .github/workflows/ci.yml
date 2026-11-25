@@ -313,6 +313,8 @@ jobs:
       - name: Start Kind cluster
         id: kind-cluster
         working-directory: cloudnativepg
+        env:
+          POSTGRES_IMG: ghcr.io/cloudnative-pg/postgresql:19.0-minimal-trixie
         run: |
           hack/setup-cluster.sh create load deploy
           CLUSTERS=$(kind get clusters)
