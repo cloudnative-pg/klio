@@ -63,12 +63,12 @@ jobs:
               - '.github/actions/**'
               - '.github/workflows/ci.yml'
             core-changed:
-              - 'core/!(licenses)**'
+              - 'core/**'
               - 'Taskfile.yml'
               - '.github/actions/**'
               - '.github/workflows/ci.yml'
             operator-changed:
-              - 'operator/!(licenses)**'
+              - 'operator/**'
               - 'Taskfile.yml'
               - '.github/actions/**'
               - '.github/workflows/ci.yml'
