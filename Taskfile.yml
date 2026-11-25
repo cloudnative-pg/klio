@@ -8,13 +8,13 @@ output: prefixed
 includes:
   ci-machinery-infra:
     # renovate: datasource=git-refs depName=ci-machinery lookupName=https://github.com/cloudnative-pg/ci-machinery currentValue=main
-    taskfile: https://raw.githubusercontent.com/cloudnative-pg/ci-machinery/509a26d5d2d671633d5f1817f0bf6c3aa9018055/taskfiles/taskfile.infra.yaml
+    taskfile: https://raw.githubusercontent.com/cloudnative-pg/ci-machinery/48cbe0ba1f52b144b1499a5e84dd097043a482d9/taskfiles/taskfile.infra.yaml
     vars:
       # Keep clear of the e2e registry, published on port 5000
       REGISTRY_HOST_PORT: 5050
   ci-machinery-olm:
     # renovate: datasource=git-refs depName=ci-machinery lookupName=https://github.com/cloudnative-pg/ci-machinery currentValue=main
-    taskfile: https://raw.githubusercontent.com/cloudnative-pg/ci-machinery/509a26d5d2d671633d5f1817f0bf6c3aa9018055/taskfiles/taskfile.olm.yaml
+    taskfile: https://raw.githubusercontent.com/cloudnative-pg/ci-machinery/48cbe0ba1f52b144b1499a5e84dd097043a482d9/taskfiles/taskfile.olm.yaml
 
 vars:
   BUILDER_NAME: klio-builder
