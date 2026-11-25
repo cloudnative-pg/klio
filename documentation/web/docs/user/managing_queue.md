@@ -12,12 +12,11 @@ this page is about operating it.
 
 ## How the Queue Works
 
-The queue is backed by NATS JetStream with file storage on the server's PVC,
-so queued tasks survive a server restart. It runs two task streams, one per
-job type:
+Queued tasks survive a server restart. The queue runs two task streams,
+one per job type:
 
-- **WAL archiving** — for every WAL segment or partial file a PostgreSQL
-  instance streams to the server, the server enqueues one task that reads
+- **WAL archiving** — for every WAL segment or partial file streamed by a
+  cluster with Tier 2 backup enabled, the server enqueues one task that reads
   the segment from its Tier 1 archive and copies it to Tier 2.
 - **Backup processing** — when a base backup completes, the server enqueues
   one task that verifies the cluster's Tier 1 backups server-side and, when

@@ -49,9 +49,12 @@ external registry.
 The teardown removes the `ci-machinery` infrastructure, which other
 projects using the `ci-machinery` defaults share.
 
-The bundle depends on CloudNativePG 1.30.0 or later, declared in
-`operator/config/olm/metadata/dependencies.yaml`, so OLM also installs
-CloudNativePG from the OperatorHub catalog.
+### CloudNativePG dependency
+
+The bundle requires the `postgresql.cnpg.io/v1` `Cluster` and `Backup`
+APIs, declared as group/version/kind dependencies in
+`operator/config/olm/metadata/dependencies.yaml`, so OLM also installs a
+CloudNativePG package providing them from the OperatorHub catalog.
 
 ### Running locally
 
@@ -87,4 +90,5 @@ The `olm` job in `.github/workflows/ci.yml` runs `task olm:test`,
 fruit tests included, whenever the core or the operator module
 changes.
 
-[opp]: https://k8s-operatorhub.github.io/community-operators/operator-test-suite/
+[opp]:
+https://k8s-operatorhub.github.io/community-operators/operator-test-suite/

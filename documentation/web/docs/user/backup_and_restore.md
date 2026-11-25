@@ -17,7 +17,8 @@ and
 
 A working **online backup** is composed of:
 
-- A **physical base backup**: A filesystem copy of the PostgreSQL data directory.
+- A **physical base backup**: A filesystem copy of the PostgreSQL data
+  directory.
 - A set of **WAL (Write-Ahead Log) files**: Continuous logs of all changes made
   to the database during the entire period of the base backup.
 
@@ -84,7 +85,7 @@ kubectl apply -f backup.yaml
 ```
 
 Alternatively, you can request a backup directly using the
- [`kubectl cnpg` plugin](https://cloudnative-pg.io/documentation/current/kubectl-plugin/#requesting-a-new-physical-backup):
+[`kubectl cnpg` plugin](https://cloudnative-pg.io/documentation/current/kubectl-plugin/#requesting-a-new-physical-backup):
 
 ```bash
 kubectl cnpg backup cluster-example \
@@ -222,10 +223,10 @@ The output is a JSON array, empty when nothing is incomplete:
 [
   {
     "clusterName": "cluster-example",
-    "backupName": "backup-20261027T140000Z",
+    "backupName": "backup-20261027140000",
     "tier": "tier2",
     "status": "RECOVERABLE",
-    "startedAt": "2026-10-27T14:00:00.123456Z",
+    "startedAt": "2026-10-27T14:00:00Z",
     "metadataPresent": true,
     "missingParts": ["pgdata"]
   }
@@ -250,7 +251,7 @@ An incomplete backup is deleted like a complete one:
 
 ```bash
 kubectl exec -it klio-server-klio-0 -- \
-  klio admin delete-backup backup-20261027T140000Z \
+  klio admin delete-backup backup-20261027140000 \
     --cluster cluster-example --tier1 --tier2
 ```
 
@@ -269,9 +270,8 @@ holds no WAL files, as its starting WAL is not known.
 
 ## Finding Your backupID for Recovery
 
-To restore a specific backup, you need its backupID, otherwise Klio will
-choose the latest one autonomously.
-You can list all available, completed Backup resources using kubectl:
+To restore a specific backup, you need its backupID. You can list all available,
+completed Backup resources using kubectl:
 
 ```bash
 kubectl get backups -n <your-namespace>
@@ -285,10 +285,9 @@ kubectl get backup <backup_name> -n <your-namespace> -o jsonpath='{.status.backu
 
 ## Restoring from a Backup
 
-Klio supports restoring PostgreSQL clusters from backups using CloudNativePG's
-recovery mechanism. Unlike traditional in-place recovery, Klio follows
-CloudNativePG's approach of **bootstrapping a new cluster** from a backup,
-which ensures data integrity and allows for flexible recovery scenarios.
+Klio restores a backup by **bootstrapping a new cluster** from it through
+CloudNativePG's recovery mechanism. See
+[Continuous Backup](concepts/continuous_backup.md#recovery) for the concepts.
 
 ### How Recovery Works
 
@@ -297,13 +296,12 @@ following actions during a restore:
 
 1. **Restores the base backup**: Copies the physical backup data to the new
    cluster's data directory. Uses `klio restore` command under the hood.
-1. **Restores WAL files**: Klio is configured to retrieve the WAL files
-   required for PostgreSQL recovery as needed.
-   Uses `klio get-wal` command under the hood.
+1. **Restores WAL files**: PostgreSQL's `restore_command` asks the Klio
+   plugin sidecar for each WAL file it needs, and the sidecar fetches it
+   from the Klio server.
 
-The execution of these commands is driven by CloudNativePG's recovery
-mechanism, which ensures that the PostgreSQL server starts correctly after
-the restore.
+Both steps are driven by CloudNativePG's recovery mechanism, which ensures
+that the PostgreSQL server starts correctly after the restore.
 
 A restored cluster operates independently of the original cluster. By default,
 it will **not** perform backups unless you explicitly configure the Klio plugin
@@ -329,7 +327,7 @@ spec:
       source: source
       # OPTIONAL: Specify the backup to restore from
       # recoveryTarget:
-      #   backupID: cluster-example-backup-YYYYMMDDHHMMSS
+      #   backupID: backup-YYYYMMDDHHMMSS
 
   # Reference the Klio plugin configuration
   externalClusters:
@@ -343,13 +341,17 @@ spec:
     size: 10Gi
 ```
 
-:::note
-Klio will choose the latest backup available in case the `backupID` field is
-omitted.
-:::
+#### Backup selection
 
-Create a corresponding `PluginConfiguration` that tells Klio how to reach the server
-holding the backups:
+When `backupID` is omitted, Klio chooses the backup:
+
+- with `targetTime` is specified, the most recent backup completed before it;
+- otherwise the latest backup. This includes every other recovery target
+  (`targetLSN`, `targetXID`, `targetName`): set `backupID` to a backup
+  taken before such a target if not the latest.
+
+Create a corresponding `PluginConfiguration` that tells Klio how to reach
+the server holding the backups:
 
 ```yaml
 apiVersion: klio.cnpg.io/v1alpha1
@@ -380,15 +382,14 @@ spec:
   clusterName: cluster-example
 ```
 
-The client credentials secret (`cluster-example-klio-user`) should contain the
-necessary authentication information to access the Klio server. See the
-[Klio plugin configuration guide](./plugin_configuration.md#client-credentials-secret)
-for the requirements a client secret must satisfy.
+The client identity secret (`cluster-example-klio-user`) holds the client
+certificate and its private key: see
+[Client identity](./plugin_configuration.md#client-identity).
 
 :::note
-The `clusterName` field in the `PluginConfiguration` and the `commonName`
-of the certificate should match the name of the **original cluster** that
-was backed up, not the name of the new restored cluster.
+The `clusterName` field in the `PluginConfiguration` and the host part of
+the certificate's Common Name must match the name of the **original
+cluster** that was backed up, not the name of the new restored cluster.
 :::
 
 Apply both resources:
@@ -433,8 +434,5 @@ backup was completed and the time of the latest transaction recorded in the
 available WAL files.
 :::
 
-:::note
-During the Point in Time Recovery, if `targetTime` or `targetLSN` are specified,
-Klio will automatically choose the closest backup for the PITR, if not defined
-with the `backupID` field.
-:::
+See [which backup Klio chooses](#backup-selection) when `backupID` is not
+set: only `targetTime` selects a backup automatically.

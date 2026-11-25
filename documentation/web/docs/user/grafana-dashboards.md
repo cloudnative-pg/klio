@@ -52,13 +52,14 @@ The **Clusters** section is split into rows:
 
 The **Servers** section is split into rows:
 
-- **Server health** — the uptime of each Klio server, its embedded NATS
+- **Health** — the uptime of each Klio server, its embedded NATS
   JetStream queue, the entries currently waiting in its dead-letter queue
   and the total of tasks moved to it per cluster (see
   [Managing the Work Queue](managing_queue.md)).
 - **Retained backups** — the retention window of the physical PostgreSQL
   backups the Klio server keeps for each cluster: counts by tier and server,
-  latest/oldest backup age, start/end LSN and PostgreSQL timeline.
+  latest/oldest backup age, start/end LSN and PostgreSQL timeline, the
+  oldest restorable point and the incomplete backups by status.
 - **Backup maintenance** — tier-2 relay, backup verification and
   maintenance run totals per cluster.
 - **WAL** — the WAL the selected servers write for the clusters they back
@@ -78,7 +79,10 @@ Some panels need extra context to interpret correctly. Two are derived
 from the alerting guidance in [OpenTelemetry](opentelemetry.md):
 
 - **Time since last WAL written** surfaces the staleness signal
-  described under *Alerting on stalled WAL processing*: a stale tier-1 value
+  described under
+  [Alerting on stalled WAL
+  processing](opentelemetry.md#alerting-on-stalled-wal-processing):
+  a stale tier-1 value
   means PostgreSQL is no longer shipping WALs, while a stale tier-2 value
   means the remote backend is no longer receiving them.
 - **Tier-2 archival lag (bytes)** plots the LSN difference between
@@ -103,9 +107,9 @@ The dashboard needs Grafana 13.1 or later. It uses the dashboard schema v2
 these provides it:
 
 - The [kube-prometheus-stack](https://github.com/prometheus-community/helm-charts/tree/main/charts/kube-prometheus-stack)
-  chart, whose current releases install Grafana 13.2 (see the example
-  below).
-- The [Grafana Helm chart](https://github.com/grafana/helm-charts/tree/main/charts/grafana),
+  chart (see the example below).
+- The [Grafana Helm
+  chart](https://github.com/grafana/helm-charts/tree/main/charts/grafana),
   setting `image.tag` to 13.1 or later if the chart default is older.
 - The `grafana/grafana` container image, tag 13.1 or later.
 - Grafana Cloud.
@@ -165,12 +169,12 @@ are in the Servers section.
 
 On the Servers section:
 
-- `server_namespace` (*Server namespace*): the namespace where the Klio
+- `server_namespace` (*Namespace*): the namespace where the Klio
   server runs, which can differ from the namespace of the clusters it backs
   up.
 - `server`: the name of the Klio `Server`, taken from its pod name
   (`<server>-klio-<ordinal>`). A server is identified by its namespace and
-  name: with *Server namespace* set to all, two servers with the same name in
+  name: with *Namespace* set to all, two servers with the same name in
   different namespaces share one entry, so select the namespace to tell them
   apart.
 - `served_cluster` (*Served cluster*): the clusters backed up by the

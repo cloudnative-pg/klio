@@ -28,12 +28,12 @@ loss is essential.
 
 :::
 
-At its core, [PostgreSQL’s continuous backup and recovery](https://www.postgresql.org/docs/current/continuous-archiving.html)
+At its core, [PostgreSQL’s continuous backup and
+recovery](https://www.postgresql.org/docs/current/continuous-archiving.html)
 system uses **physical (file system level) copies** combined with **write-ahead
 log (WAL) archiving**.
 This approach enables consistent, recoverable backups while keeping systems
-online, a strategy proven effective in production environments for over two
-decades.
+online.
 
 In a PostgreSQL backup solution, the infrastructure typically consists of:
 

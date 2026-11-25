@@ -7,8 +7,8 @@ description: >-
 
 # WAL Streaming
 
-A standout feature of Klio is its native, cloud-first implementation of WAL
-streaming for PostgreSQL. This architecture enables:
+Klio implements WAL streaming for PostgreSQL natively. This architecture
+enables:
 
 - Partial WAL segment streaming, ensuring real-time data transfer
 - Built-in compression and encryption using user-provided keys

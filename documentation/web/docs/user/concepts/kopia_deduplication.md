@@ -33,7 +33,7 @@ each backup adding only what changed](../images/kopia-deduplication.svg)
 Because a chunk's identity comes from its contents rather than from its
 filename or its position in a file, this works across backups without
 Klio having to track what changed. Untouched relations produce the
-same content IDs as the one before it, and Kopia recognizes that it
+same content IDs as in the previous backup, and Kopia recognizes that it
 already holds them.
 
 Sharing is not limited to consecutive pairs, either. A content introduced

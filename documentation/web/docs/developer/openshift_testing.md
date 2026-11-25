@@ -41,8 +41,8 @@ When running on OpenShift:
   and `runAsGroup` from the container security context for the
   same reason.
 
-On vanilla Kubernetes, the operator continues to set explicit
-UIDs (1000 for server pods, 26 for plugin sidecars) as before.
+On vanilla Kubernetes, the operator sets explicit UIDs (1000 for
+server pods, 26 for plugin sidecars).
 
 No user configuration is required. The detection is automatic and
 logged at startup:
@@ -68,21 +68,22 @@ from the `OPENSHIFT_VERSIONS` variable in `Taskfile.yml`, which
 `operator/olm-bundle/bundle/metadata/annotations.yaml` and the labels
 of `operator/olm-bundle/bundle.Dockerfile`.
 
-## Prerequisites
+### Prerequisites
 
 - An OpenShift cluster with `oc` CLI configured
 - Cluster admin privileges
 - cert-manager installed in the cluster (for TLS certificate
   creation)
 - The catalog image of the build under test, published on `ghcr.io`
-  (no task builds the testing catalog at the moment)
+  by CI (no task builds the testing catalog locally)
 
 The Klio operator, bundle, catalog and operand images are public
 on `ghcr.io`, so no pull secret is needed.
 
-## 1. Apply the CatalogSource
+### 1. Apply the CatalogSource
 
-A CI run creates a catalog image, tagged with the branch name or the PR number:
+A CI run creates a catalog image, tagged with the branch name or the PR
+number:
 
 Examples:
 ```
@@ -91,7 +92,9 @@ ghcr.io/cloudnative-pg/klio-operator-testing:pr-1325-catalog
 ```
 
 Create an `openshift_catalogsource.yaml` file pointing to the
-catalog image built from your branch:
+catalog image built from your branch
+(`task olm:catalog-source ENVIRONMENT=testing TAG=<tag>` generates an
+equivalent `operator/klio-operator-catalog-source.yaml`):
 
 ```yaml
 apiVersion: operators.coreos.com/v1alpha1
@@ -116,7 +119,7 @@ Wait for the catalog pod to become ready:
 oc get pods -n openshift-marketplace -w | grep klio
 ```
 
-## 2. Subscribe to the operator
+### 2. Subscribe to the operator
 
 Create an `openshift_subscription.yaml` file:
 
@@ -141,10 +144,10 @@ oc apply -f openshift_subscription.yaml
 ```
 
 OLM will create an `InstallPlan` and deploy the operator into
-the `openshift-operators` namespace. The bundle depends on
-CloudNativePG 1.30.0 or later, so OLM also installs the
-`cloudnative-pg` package from the cluster's catalogs, unless a
-suitable version is already installed.
+the `openshift-operators` namespace. The bundle
+[depends on the CloudNativePG APIs](olm-tests.md#cloudnativepg-dependency),
+so OLM also installs the `cloudnative-pg` package from the cluster's
+catalogs, unless it is already installed.
 
 :::note
 The Klio sidecar (operand) image is baked into the operator
@@ -159,7 +162,7 @@ use the same registry and tag as the operator image by default, with the
 override either variable.
 :::
 
-## 3. Create TLS certificates
+### 3. Create TLS certificates
 
 The Klio plugin requires two TLS secrets to establish mutual
 TLS with the CNPG operator:
@@ -168,8 +171,8 @@ TLS with the CNPG operator:
 - `klio-plugin-client-tls` — used by CNPG to authenticate to
   the plugin
 
-They can be created manually, but the recommended method is to use cert-manager to
-automatically generate and manage the certificates.
+They can be created manually, but the recommended method is to use cert-manager
+to automatically generate and manage the certificates.
 
 Create a file `openshift_certificates.yaml` with the following
 content, adjusting the `namespace` if the operator was installed
@@ -234,7 +237,7 @@ oc get secrets -n openshift-operators \
   klio-plugin-server-tls klio-plugin-client-tls
 ```
 
-## 4. Verify the installation
+### 4. Verify the installation
 
 The installation is complete when the CSV reaches the
 `Succeeded` phase. You can check its status with:
@@ -251,7 +254,8 @@ certification policies. Two checks cover the two artifacts:
 
 - **`check container`** — static policy checks on the operator image
   (labels, layers, license, base image). It needs no cluster and runs
-  in the Dagger engine on every PR via `task olm:preflight-container`.
+  in the Dagger engine via `task olm:preflight-container`, in CI on
+  same-repository changes to core or the operator.
   It is run against the UBI variant of the operator image, since the
   base-image policy only accepts a Red Hat UBI base.
 - **`check operator`** — installs the bundle through OLM into a live

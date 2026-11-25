@@ -12,11 +12,13 @@ The Klio server runs as a single `server` container. On startup, it first
 initializes the Kopia repository, then starts serving both base backups
 (using Kopia) and the incoming stream of PostgreSQL Write-Ahead Logs (WAL).
 
-All of the server's persistent state — base backups, WAL archive, work
-queue, and Kopia caches — lives on a single PersistentVolumeClaim (PVC),
-mounted at `/klio` inside the pod. Base backups and WAL files are stored
-in the `/klio/data/base` and `/klio/data/wal` directories, respectively.
-See [Storage Requirements](#storage-requirements) for the full layout.
+All of the server's persistent state lives on a single
+PersistentVolumeClaim (PVC): see
+[Storage Requirements](#storage-requirements) for the layout.
+
+To set up a new Klio server, start from the [Quickstart](quickstart.mdx),
+which walks through a complete minimal setup. This page is the reference
+for the `Server` resource.
 
 ## Storage Tiers
 
@@ -38,20 +40,23 @@ configured. This is useful for disaster recovery sites that need to restore
 from object storage without the overhead of local storage. See the
 [Read-Only Mode](#read-only-mode) section for details.
 
-Currently, Klio supports only Amazon S3 and S3-compatible storage providers.
+Klio supports only Amazon S3 and S3-compatible storage providers.
 See the [Object Store](#object-store) section for configuration details.
 
 ### The Work Queue
 
-When Tier 1 is configured, the Klio Server pods will use a work queue.
+When Tier 1 is configured, the Klio server uses a work queue.
 The work queue is backed by NATS JetStream with file storage in the
 `/klio/queue` directory, on the same PVC as everything else.
-The queue serves two purposes:
+The queue serves three purposes:
 
 - **Backup verification**: Verifies each Tier 1 base backup after it
   completes
 - **Tier 2 replication**: When Tier 2 is enabled, manages asynchronous
   transfer to object storage
+- **WAL retention**: When Tier 2 is enabled, tells the retention sweep
+  which WAL files are still waiting for relay to Tier 2, so it keeps
+  them on Tier 1
 
 Tasks that exhaust their attempts are moved to a dead-letter queue; see
 [Managing the Work Queue](managing_queue.md) for how to monitor and handle
@@ -105,8 +110,9 @@ you can size the single PVC to hold all of them.
 
 ### Base Backups and WAL Archive (`data`)
 
-The `data` subdirectory holds the base backups and the WAL archive of
-all the servers that are backed up by this Klio server. The following
+The `data` subdirectory holds the base backups (`data/base`) and the WAL
+archive (`data/wal`) of all the clusters that are backed up by this Klio
+server. The following
 factors should be considered when sizing for it:
 
 1. WAL file production rate
@@ -120,17 +126,16 @@ The Tier 1 and Tier 2 caches are used by Kopia for its
 They are used to speed up snapshot operations.
 
 :::warning
-Klio is currently limited to use the default cache size when creating a Kopia
-repository, 5GB for content and 5GB for metadata.
+Klio uses Kopia's default cache size when creating a repository: 5GB for
+content and 5GB for metadata.
 The cache sizes are not hard limits, as the cache is swept periodically,
 so users should have a space buffer to account for this additional space.
 :::
 
-### The Work Queue (`queue`)
+### The Work Queue (`queue`) {#queue-sizing}
 
 The `queue` subdirectory is created when Tier 1 is configured. It holds
-the NATS JetStream work queue used for backup verification and
-asynchronous Tier 2 replication.
+[the work queue](#the-work-queue).
 
 #### Queue Sizing Guidelines
 
@@ -152,9 +157,11 @@ Where:
   `wal_segment_size`, scaling the results to one hour.
 - **max_backlog_hours**: Maximum duration the Tier 2 WAL replication backlog
   can grow before the queue fills up and tasks are lost. Backlog builds up
-  when Tier 2 replication falls behind Tier 1 ingestion — for example, during
-  Tier 2 outages or when object storage uploads are slower than local disk writes.
-- **300 bytes**: Approximate storage per WAL task (message + JetStream overhead)
+  when Tier 2 replication falls behind Tier 1 ingestion — for example,
+  during Tier 2 outages or when object storage uploads are slower than
+  local disk writes.
+- **300 bytes**: Approximate storage per WAL task (message + JetStream
+  overhead)
 - **2**: Safety factor
 
 **Recommended headroom:**
@@ -167,10 +174,11 @@ Where:
 | Very high write | >500 segments/hour | **100 MiB** |
 
 These recommendations assume a 24-hour backlog tolerance and include an
-additional **~10x safety margin** beyond the formula result. This margin accounts
-for:
+additional **~10x safety margin** beyond the formula result. This margin
+accounts for:
 
-- **Burst workloads**: WAL production can spike significantly above average rates
+- **Burst workloads**: WAL production can spike significantly above
+  average rates
 - **Multiple clusters**: A single Klio server may handle several CNPG clusters
 - **Low cost of headroom**: Storage is cheap relative to the risk of queue
   overflow, which causes WAL loss
@@ -190,16 +198,6 @@ Large transactions that modify significant amounts of data will automatically
 generate multiple WAL segments (PostgreSQL rotates WAL files at ~16 MB by
 default). Account for this when estimating your WAL segment rate.
 :::
-
-## Setting up a new Klio server
-
-The [Quickstart](quickstart.mdx) walks through a complete minimal
-setup: the encryption key, the certificates, a Tier 1 `Server` and a
-PostgreSQL cluster streaming to it. Start there.
-
-The rest of this page is the reference for the `Server` resource — the
-storage tiers and how to size them, read-only servers, object storage,
-encryption and authentication.
 
 ## Read-Only Mode
 
@@ -323,8 +321,8 @@ source through a PluginConfiguration. The server will fetch backups and WAL
 files from Tier 2 object storage transparently.
 
 See the Read-Only Server Mode section in the
-[Architectures](concepts/architectures.md) documentation for detailed use cases and
-architectural patterns.
+[Architectures](concepts/architectures.md) documentation for detailed use
+cases and architectural patterns.
 
 ### Restrictions
 
@@ -335,25 +333,7 @@ In read-only mode, the following operations are **not available**:
 - Applying retention policies
 - Any write operations
 
-## Advanced Configuration
-
-The `.spec.template` field allows you to customize the Klio server's pod
-template. You can add additional containers, volumes, or modify existing
-settings.
-
-:::warning Advanced Users Only
-The `.spec.template` field is primarily designed for advanced configurations.
-While powerful, improper modifications can affect server functionality.
-Always test changes in a non-production environment first.
-:::
-
-:::note
-The `containers` field within `.spec.template.spec` is mandatory but will be
-merged with the default Klio `server` container. If you do not need to add
-containers or modify the default one, you must still include an empty list.
-:::
-
-### Compression
+## Compression
 
 By default, Kopia stores base backup data uncompressed. You can set a
 repository-wide compression policy per tier on the `Server`. This becomes the
@@ -378,16 +358,31 @@ spec:
       algorithm: zstd-better-compression
 ```
 
-The `algorithm` field accepts any compression algorithm supported by Kopia
-(for example `zstd`, `s2-default`, `gzip`, or `none` to disable compression).
-The optional `minSize` and `maxSize` fields (in bytes, `0` meaning no limit)
-restrict compression to files within a size range, matching the per-cluster
-[PluginConfiguration](./plugin_configuration.md#compression-policies) fields.
-The global policy is applied to the repository when the server starts, and it
-only affects backups taken afterwards; existing backups are not recompressed.
-No manual step is needed beyond configuring the field. Because content is
-deduplicated by hash, only new or changed data is compressed with the new
-algorithm.
+The `algorithm`, `minSize` and `maxSize` fields accept the same values as
+the per-cluster policy: see
+[Compression policies](./plugin_configuration.md#compression-policies) for
+the list of algorithms and for how a policy change affects existing
+backups. The global policy is applied to the repository when the server
+starts. `tier2.compression` cannot be set on a
+[read-only server](#read-only-mode).
+
+## Advanced Configuration
+
+The `.spec.template` field allows you to customize the Klio server's pod
+template. You can add additional containers, volumes, or modify existing
+settings.
+
+:::warning Advanced Users Only
+The `.spec.template` field is primarily designed for advanced configurations.
+While powerful, improper modifications can affect server functionality.
+Always test changes in a non-production environment first.
+:::
+
+:::note
+The `containers` field within `.spec.template.spec` is mandatory but will be
+merged with the default Klio `server` container. If you do not need to add
+containers or modify the default one, you must still include an empty list.
+:::
 
 ### Node Affinity and Tolerations
 
@@ -416,19 +411,20 @@ spec:
                     operator: Exists
 ```
 
-See [Reserving Nodes for Klio Workloads](concepts/architectures.md#reserving-nodes-for-klio-workloads)
+See [Reserving Nodes for Klio
+Workloads](concepts/architectures.md#reserving-nodes-for-klio-workloads)
 for details on node tainting.
 
 ### Monitoring
 
-Refer to the [OpenTelemetry](./opentelemetry.md#klio-server-with-opentelemetry)
+Refer to the [OpenTelemetry](./opentelemetry.md#klio-server)
 documentation for setting up monitoring and telemetry for the Klio server.
 
 ## Object Store
 
 Klio uses object storage for Tier 2, providing durable, cost-effective
-long-term backup storage. Currently, Klio supports Amazon S3 and S3-compatible
-storage providers.
+long-term backup storage. Klio supports Amazon S3 and S3-compatible storage
+providers.
 
 ### S3
 
@@ -453,7 +449,8 @@ tier2:
 #### Credentials from a File
 
 Instead of `accessKeyId` and `secretAccessKey`, you can mount an
-[AWS shared credentials file](https://docs.aws.amazon.com/sdkref/latest/guide/file-format.html)
+[AWS shared credentials
+file](https://docs.aws.amazon.com/sdkref/latest/guide/file-format.html)
 (INI format) from a volume:
 
 ```yaml
@@ -518,14 +515,15 @@ tier2:
       key: SECRET_ACCESS_KEY
 ```
 
-The bundle is read when the server starts. Changes won't have effects
-until a restart.
+A changed bundle takes effect only after a server restart: see
+[Rotating Credentials](#rotating-credentials).
 
 #### AWS IAM Roles (IRSA/Pod Identity)
 
 For AWS EKS clusters, using
 [IAM Roles for Service Accounts (IRSA)](https://docs.aws.amazon.com/eks/latest/userguide/iam-roles-for-service-accounts.html)
-or [EKS Pod Identity](https://docs.aws.amazon.com/eks/latest/userguide/pod-identities.html)
+or [EKS Pod
+Identity](https://docs.aws.amazon.com/eks/latest/userguide/pod-identities.html)
 is the recommended approach. This provides better security through automatic
 credential rotation, reduced secret sprawl, and fine-grained IAM policies.
 
@@ -577,8 +575,8 @@ loss of access to all backup data. There is no key recovery mechanism.
 WAL files are encrypted using a master key derivation system with authenticated
 encryption. The encryption process works as follows:
 
-1. **Master Key Generation**: A 32-byte master key is derived from the encryption
-   key using PBKDF2
+1. **Master Key Generation**: A 32-byte master key is derived from the
+   encryption key using PBKDF2
 1. **Key Enveloping**: The master key itself is encrypted using AES-256-GCM
    with a password-derived encryption key to protect the key at rest
 1. **Per-File Encryption**: Each WAL file is compressed and then encrypted using
@@ -593,16 +591,10 @@ ensuring a unified security model across all backup artifacts.
 ### Encryption Credential Rotation
 
 The underlying encryption key (used by Kopia and the WAL keychain)
-cannot be changed once set. However, you can rotate the Age identity
-without touching the encryption key or the repository:
-
-1. Generate a new Age key pair
-1. Re-encrypt the encryption key file with the new public key
-1. Deploy the new identity file and re-encrypted key file
-
-This rotation only changes how the encryption key is protected,
-not the key itself. See [Rotating Age Credentials](#rotating-age-credentials)
-for step-by-step instructions.
+cannot be changed once set. However, you can rotate the Age identity,
+which only changes how the encryption key is protected, not the key
+itself. See [Rotating Age Credentials](#rotating-age-credentials) for
+step-by-step instructions.
 
 :::tip
 Choose a strong encryption key from the start. Use a password
@@ -668,29 +660,23 @@ This enables:
 #### Referencing the key files
 
 To generate the Age key pair and the encrypted encryption key, see
-[Create the encryption key](quickstart.mdx#step-2-create-the-encryption-key).
+[Create the encryption key](quickstart.mdx#create-the-encryption-key).
 
-Once the Secrets exist, reference them in the Server spec:
+Once the Secret exists, reference it in the Server spec:
 
 ```yaml
 tier1:
   encryption:
     volume:
-      projected:
-        sources:
-          - secret:
-              name: klio-encryption-key-age
-          - secret:
-              name: klio-age-identity
+      secret:
+        secretName: klio-age
     keyPath: encryption-key.age
     identityPath: identity.txt
 ```
 
 The key and the identity are read from a single volume, referenced by
-`keyPath` and `identityPath`. They can live in one Secret, or in two
-merged by a `projected` volume as above. The same configuration applies
-to `tier2`; both tiers can point at the same volume when they share the
-same key.
+`keyPath` and `identityPath`. The same configuration applies to `tier2`;
+both tiers can point at the same volume when they share the same key.
 
 :::note
 Only standard Age identities (X25519 keys) are supported.
@@ -734,27 +720,25 @@ or the repository:
 
 1. Generate a new Age key pair:
 
-```bash
-age-keygen -o new-identity.txt
-```
+   ```bash
+   age-keygen -o new-identity.txt
+   ```
 
 2. Re-encrypt the key file with the new public key:
 
-```bash
-age -d -i identity.txt encryption-key.age | \
-    age -r <new-public-key> -o encryption-key-new.age
-```
+   ```bash
+   age -d -i identity.txt encryption-key.age | \
+       age -r <new-public-key> -o encryption-key-new.age
+   ```
 
-3. Update the Kubernetes Secrets:
+3. Update the Kubernetes Secret holding both files:
 
-```bash
-kubectl create secret generic klio-encryption-key-age \
-    --from-file=encryption-key.age=encryption-key-new.age \
-    --dry-run=client -o yaml | kubectl apply -f -
-kubectl create secret generic klio-age-identity \
-    --from-file=identity.txt=new-identity.txt \
-    --dry-run=client -o yaml | kubectl apply -f -
-```
+   ```bash
+   kubectl create secret generic klio-age \
+       --from-file=encryption-key.age=encryption-key-new.age \
+       --from-file=identity.txt=new-identity.txt \
+       --dry-run=client -o yaml | kubectl apply -f -
+   ```
 
 4. Optionally, restart the Klio server pod to check the new files. The
    running server decrypts the key once at startup and does not read these
@@ -783,12 +767,11 @@ all of the following:
   access, and must match the `clusterName` of the
   `PluginConfiguration` using it.
 
-The host part of the Common Name is load bearing. For Tier 1 base
-backups a mismatch is rejected at connection time; for WAL streaming it
-is not currently detected and can lead to WAL files being stored under
-the wrong cluster path. See
+A mismatch between the host part of the Common Name and `clusterName` is
+rejected: the Kopia client refuses to connect, and the WAL server answers
+`PermissionDenied`. See
 [Cluster name override](plugin_configuration.md#cluster-name-override).
 
 For a worked example creating the CA, the CA-backed issuer and a client
 certificate together, see
-[Create the certificates](quickstart.mdx#step-3-create-the-certificates).
+[Create the certificates](quickstart.mdx#create-the-certificates).

@@ -13,15 +13,20 @@ components and CloudNativePG in a real Kubernetes environment.
 Before running E2E tests, ensure you have the following tools installed:
 
 - [Docker](https://docs.docker.com/get-docker/) - Container runtime
-- [Kind](https://kind.sigs.k8s.io/docs/user/quick-start/) - Kubernetes in Docker
+- [Kind](https://kind.sigs.k8s.io/docs/user/quick-start/) - Kubernetes in
+  Docker
 - [Task](https://taskfile.dev/installation/) - Task runner
+- [Dagger](https://docs.dagger.io/install/) - Runs the build and test
+  pipelines
 - [Go](https://golang.org/doc/install) - Go programming language
-- [kubectl](https://kubernetes.io/docs/tasks/tools/) - Kubernetes command-line tool
+- [kubectl](https://kubernetes.io/docs/tasks/tools/) - Kubernetes
+  command-line tool
 
 ## Required Setup
 
 :::info
-Before running any E2E tests, you must first set up the CloudNativePG environment.
+Before running any E2E tests, you must first set up the CloudNativePG
+environment.
 :::
 
 ### 1. Clone CloudNativePG Repository
@@ -49,7 +54,8 @@ This script will:
 
 The E2E tests require a specific environment setup that includes:
 
-1. **Kind cluster** with CloudNativePG operator installed ✅ (completed above)
+1. **Kind cluster** with CloudNativePG operator installed (see
+   [Required Setup](#required-setup))
 1. **Klio operator** deployed to the cluster
 1. **cert-manager** for TLS certificate management
 
@@ -110,9 +116,9 @@ The E2E tests are located in `operator/test/e2e/` and include:
   freshly-created replica cluster: verifies the backup completes even
   when the WAL streamer and `pg_backup_start` disagree on the starting
   WAL (`BackupFromReplicaCluster`)
-- **`maintenance_test.go`** - Server-side post-backup maintenance on a
-  tier1-only deployment: verifies the backup queue consumer applies
-  tier1 WAL retention after a backup even when tier2 is not configured
+- **`maintenance_test.go`** - Server-side maintenance on a tier1-only
+  deployment: verifies the server's periodic retention sweep applies
+  tier1 WAL retention even when tier2 is not configured
   (`Tier1ServerSideMaintenance`)
 - **`recovery_test.go`** - Cluster recovery tests:
    - `RecoverClusterFromBackupID`: recovery using a specific backup ID
@@ -150,7 +156,8 @@ The E2E tests are located in `operator/test/e2e/` and include:
   verifying data integrity (`Compression`)
 - **`wal_retention_test.go`** - WAL retention queue-awareness: verifies
   server-side tier1 retention prunes old WALs only after they reach tier2,
-  driven by backup completion rather than a client command
+  driven by the server's periodic retention sweep rather than a client
+  command
   (`WALRetentionQueueAwareness`)
 - **`server_reconfig_test.go`** - Adding tier2 to an existing tier1-only
   server: verifies the single unified `klio` PVC is retained (same UID,
@@ -164,9 +171,10 @@ The E2E tests are located in `operator/test/e2e/` and include:
   and sidecar restart behavior (`PluginConfigurationUpdate`)
 - **`pvc_resize_test.go`** - Resize of the single unified `klio` PVC
   backing `/klio` (`PVCResize`)
-- **`otel_test.go`** - OpenTelemetry metrics and traces export: deploys
-  an OTEL Collector and verifies that backup lifecycle metrics and
-  traces are correctly exported via OTLP. It also runs the
+- **`otel_test.go`** - OpenTelemetry metrics, traces and logs export:
+  deploys an OTEL Collector and verifies that backup lifecycle, WAL, queue
+  and server backup metrics, traces and log records are correctly exported
+  via OTLP. It also runs the
   `restore_command` in the primary to check that WAL restores are recorded
   in `klio.plugin.wal.restore_duration`. After the success-path
   assertions it deletes the Klio server and triggers a failing backup to
@@ -177,11 +185,20 @@ The E2E tests are located in `operator/test/e2e/` and include:
   that controller-runtime metrics are bridged to an OTLP collector
   (`OperatorOTELMetrics`, serial)
 
+Klio-specific feature types, reused by the tests above, live in
+`operator/test/klio/features/`:
+
+- **`simple.go`** - `NewSimpleFeature`
+- **`incomplete_backup.go`** - `NewIncompleteBackupFeature`
+- **`pvc_resize.go`** - `NewPVCResizeFeature`
+- **`retention.go`** - `NewRetentionFeature`
+
 ## Test Configuration
 
 The e2e tests are configured through a YAML file located at
-`operator/test/e2e/e2e-config.yaml`. The file is committed with
-default values that match the local development environment.
+`operator/test/e2e/e2e-config.yaml`. The file is not committed: copy
+`e2e-config.yaml.example` to create it. Without a file, the built-in
+defaults apply.
 
 Available options:
 
@@ -193,6 +210,7 @@ serverImage: "registry.dev:5000/klio-testing:dev"
 logDir: "e2e_cluster_logs"
 
 # Kubernetes storage class used for all PVC templates in the tests.
+# Empty by default: the cluster's default storage class is used.
 storageClass: "csi-hostpath-sc"
 
 # Namespace where the Klio operator runs. Defaults to cnpg-system (Helm/Kind);
@@ -278,9 +296,6 @@ the pipeline requires:
   This is the same secret, under the same name, that `cloudnative-pg`
   uses to install its own OpenShift test clusters.
 
-The Klio operator, bundle, catalog and operand images are public on
-`ghcr.io`, so no registry credentials are needed.
-
 :::note
 The Red Hat pull secret is not available to forks, so the
 `openshift-e2e` CI job is gated on the `OPENSHIFT_ENABLED` repository
@@ -299,7 +314,7 @@ kubeconfig (CRC writes it to `~/.kube/config`):
 export EXTERNAL_KUBECONFIG="$HOME/.kube/config"
 
 # Generate the Klio OLM CatalogSource the deploy step requires.
-task olm:catalog-source
+task olm:catalog-source ENVIRONMENT=testing
 
 task integration:e2e-openshift
 ```
@@ -325,7 +340,7 @@ PR, and on demand via the CI workflow's `workflow_dispatch`
 (`run-openshift` input). When it runs, the `core` and `operator` jobs
 are forced to build so their images are published to GHCR before the
 suite pulls them; the deploy step also consumes the `klio-olm`
-CatalogSource artifact produced by the always-on `olm` job. It is
+CatalogSource artifact produced by the `olm` job. It is
 defined in `.github/workflows/openshift-e2e.yml` and provisions the
 cluster with the `crc-org/crc-github-action` action.
 
@@ -346,8 +361,10 @@ When adding new E2E tests:
 1. Follow the existing patterns in `backup_test.go` or
    `recovery_test.go`
 1. Use the machinery framework for test setup
-   1. Add new feature types if needed. Everything in the framework must be
-       plugin-agnostic, and can be tested only through CloudNativePG APIs.
+   1. Add new feature types if needed. Everything in the `machinery`
+       framework must be plugin-agnostic, and can be tested only through
+       CloudNativePG APIs; Klio-specific feature types go in
+       `operator/test/klio/features`.
 1. Register new features in `main_test.go`
 1. Ensure proper cleanup of test resources
 
@@ -357,7 +374,6 @@ The E2E tests are automatically run in CI when:
 
 - Changes are made to core components
 - Changes are made to operator components
-- Pull requests are submitted
 
 The CI environment automatically handles cluster setup and cleanup.
 After the run, cluster logs are uploaded as a workflow artifact named

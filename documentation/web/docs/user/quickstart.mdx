@@ -2,13 +2,13 @@
 sidebar_position: 2
 ---
 
+# Quickstart
+
 <!-- spell-checker-disable -->
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
 
 <!-- spell-checker-enable -->
-
-# Quickstart
 
 This guide walks you through a minimal Klio installation: the Klio
 operator, one Klio server using Tier 1 (local) storage, and a
@@ -32,7 +32,8 @@ You need:
 - **Helm** (only required to install the operator with Helm) — see the
   [Helm installation guide](https://helm.sh/docs/intro/install/)
 - **CloudNativePG** already installed — see the
-  [CloudNativePG installation guide](https://cloudnative-pg.io/documentation/current/installation_upgrade/)
+  [CloudNativePG installation
+  guide](https://cloudnative-pg.io/documentation/current/installation_upgrade/)
 - **cert-manager** already installed — see the
   [cert-manager installation guide](https://cert-manager.io/docs/installation/)
 - The [Age](https://github.com/FiloSottile/age) CLI, to create the
@@ -48,7 +49,7 @@ other than `cnpg-system`, replace `cnpg-system` throughout this guide
 with your namespace.
 :::
 
-## Step 1: Install the Klio operator
+## Step 1: Install the Klio operator {#install-the-operator}
 
 <Tabs groupId="install-method">
 <TabItem value="helm" label="Helm Chart" default>
@@ -216,7 +217,7 @@ You should see the operator pod in a `Running` state.
 </TabItem>
 </Tabs>
 
-## Step 2: Create the encryption key
+## Step 2: Create the encryption key {#create-the-encryption-key}
 
 Klio encrypts your backups at rest. The encryption key is itself protected with
 [Age](https://github.com/FiloSottile/age), so that the credential can be
@@ -256,7 +257,7 @@ the cluster. Losing them means permanent, unrecoverable loss of access
 to every backup. There is no key recovery mechanism.
 :::
 
-## Step 3: Create the certificates
+## Step 3: Create the certificates {#create-the-certificates}
 
 Klio secures all traffic with TLS and authenticates clients with
 mutual TLS. This step creates four certificates with cert-manager:
@@ -402,7 +403,7 @@ Certificate Authority instead of a self-signed root. See
 client certificates must satisfy.
 :::
 
-## Step 4: Create the Klio server
+## Step 4: Create the Klio server {#create-the-server}
 
 The `Server` resource creates a StatefulSet running the Klio server,
 along with the persistent volume holding your backups.
@@ -485,7 +486,7 @@ it a moment to reach `Running`. If it does not, check the logs:
 kubectl logs -l klio.cnpg.io/klio-server=klio-server -f
 ```
 
-## Step 5: Configure the PostgreSQL cluster
+## Step 5: Configure the PostgreSQL cluster {#configure-the-postgresql-cluster}
 
 Two resources are needed: a `PluginConfiguration` telling the Klio
 plugin how to reach the server, and a CloudNativePG `Cluster`
@@ -573,7 +574,7 @@ A few details worth noting:
   only a convention — the two are independent. See
   [Cluster name override](plugin_configuration.md#cluster-name-override).
 
-## Step 6: Verify the setup
+## Step 6: Verify the setup {#verify-the-setup}
 
 Check that the Klio server is ready:
 
@@ -619,7 +620,7 @@ You should see lines with the `Received completed WAL file` message.
   authentication
 - [The Klio Plugin](plugin_configuration.md) — retention policies,
   Tier 2, WAL prefetch and sidecar customization
-- [Klio Operator Helm Chart](helm_chart.mdx) — the full chart
+- [Helm Chart](helm_chart.mdx) — the full chart
   configuration reference and the upgrade procedure
 - [OpenTelemetry](opentelemetry.md) and
   [Grafana dashboards](grafana-dashboards.md) — monitoring
