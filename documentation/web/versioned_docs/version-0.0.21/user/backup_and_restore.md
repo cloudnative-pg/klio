@@ -277,7 +277,7 @@ spec:
 
 The client credentials secret (`cluster-example-klio-user`) should contain the
 necessary authentication information to access the Klio server. See the
-[Klio plugin configuration guide](./plugin_configuration.md#client-credentials-secret)
+[Klio plugin configuration guide](./plugin_configuration.md#client-identity)
 for the requirements a client secret must satisfy.
 
 :::note
