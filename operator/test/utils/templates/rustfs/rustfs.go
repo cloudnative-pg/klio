@@ -371,8 +371,7 @@ func getRustFSAWSCLIJob(name, namespace, containerName, command string) *batchv1
 			Template: corev1.PodTemplateSpec{
 				Spec: corev1.PodSpec{
 					// Never keeps the failed pods, and their logs, once the Job
-					// reaches its backoff limit. With OnFailure the Job
-					// controller deletes the pod and the error is lost.
+					// reaches its backoff limit.
 					RestartPolicy: corev1.RestartPolicyNever,
 					Containers: []corev1.Container{
 						{

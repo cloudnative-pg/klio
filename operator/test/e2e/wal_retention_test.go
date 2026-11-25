@@ -217,8 +217,7 @@ func (s *walRetentionScenario) runTier2PolicyJob(
 	require.NoError(t, err, "job %s not completed", job.Name)
 }
 
-// logJobPods writes the logs of the pods of a Job to the test output. The log
-// streaming set up in TestMain does not catch these short-lived containers.
+// logJobPods writes the logs of the pods of a Job to the test output.
 func (s *walRetentionScenario) logJobPods(
 	ctx context.Context,
 	t *testing.T,
