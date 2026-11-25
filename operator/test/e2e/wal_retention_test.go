@@ -180,24 +180,8 @@ func (s *walRetentionScenario) Teardown(
 // sweeper (one minute), so that at least one sweep runs in the meantime.
 const walRetentionHoldCheck = 90 * time.Second
 
-// cutTier2 sets a bucket policy that makes tier2 reject every request, and
-// returns a function that removes it.
-func (s *walRetentionScenario) cutTier2(ctx context.Context, t *testing.T, r *resources.Resources) func() {
-	t.Helper()
-
-	s.runTier2PolicyJob(ctx, t, r, rustfs.GetRustFSDenyBucketAccessJob(
-		"tier2-outage-start", s.namespace.Name, rustfs.RustFSBucketName))
-
-	return func() {
-		t.Helper()
-
-		s.runTier2PolicyJob(ctx, t, r, rustfs.GetRustFSAllowBucketAccessJob(
-			"tier2-outage-end", s.namespace.Name, rustfs.RustFSBucketName))
-	}
-}
-
 // runTier2PolicyJob runs a bucket policy Job and waits for it to complete.
-func (s *walRetentionScenario) runTier2PolicyJob(
+func runTier2PolicyJob(
 	ctx context.Context,
 	t *testing.T,
 	r *resources.Resources,
@@ -212,13 +196,13 @@ func (s *walRetentionScenario) runTier2PolicyJob(
 		wait.WithInterval(2*time.Second),
 	)
 	if err != nil {
-		s.logJobPods(ctx, t, r, job)
+		logJobPods(ctx, t, r, job)
 	}
 	require.NoError(t, err, "job %s not completed", job.Name)
 }
 
 // logJobPods writes the logs of the pods of a Job to the test output.
-func (s *walRetentionScenario) logJobPods(
+func logJobPods(
 	ctx context.Context,
 	t *testing.T,
 	r *resources.Resources,
@@ -474,11 +458,13 @@ func (f *WALRetentionFeature) Run() types.StepFunc {
 		require.Len(t, backupNames, 1, "expected exactly one backup, got %v", backupNames)
 		oldestBackup := backupNames[0]
 
-		// Step 2: take tier2 down, so that the WALs archived from now on stay
-		// queued for the relay. The WALs already in tier1 are noted, to tell
-		// them apart from those.
+		// Step 2: take tier2 down with a bucket policy that rejects every
+		// request, so that the WALs archived from now on stay queued for the
+		// relay. The WALs already in tier1 are noted, to tell them apart from
+		// those.
 		t.Log("Making tier2 unreachable...")
-		restoreTier2 := f.scenario.cutTier2(ctx, t, r)
+		runTier2PolicyJob(ctx, t, r, rustfs.GetRustFSDenyBucketAccessJob(
+			"tier2-outage-start", f.scenario.namespace.Name, rustfs.RustFSBucketName))
 		archivedBeforeOutage, err := f.scenario.getWALFilesInTier1(ctx, r)
 		require.NoError(t, err, "failed to get WAL files in tier1")
 
@@ -558,7 +544,8 @@ func (f *WALRetentionFeature) Run() types.StepFunc {
 		}
 
 		t.Log("Making tier2 reachable again...")
-		restoreTier2()
+		runTier2PolicyJob(ctx, t, r, rustfs.GetRustFSAllowBucketAccessJob(
+			"tier2-outage-end", f.scenario.namespace.Name, rustfs.RustFSBucketName))
 
 		// Step 7: a third backup triggers a fresh maintenance pass now that the
 		// oldest backup is gone and tier2 is back.
