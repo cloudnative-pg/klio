@@ -6,49 +6,68 @@ sidebar_position: 1
 
 ## Development environment prerequisites
 
-* A [dagger](https://dagger.io/) installation
+* [Dagger](https://dagger.io/)
+* [Task](https://taskfile.dev/)
+* [kind](https://kind.sigs.k8s.io/), `kubectl` and Docker
+* A checkout of the
+  [CloudNativePG](https://github.com/cloudnative-pg/cloudnative-pg)
+  repository, for its `hack/setup-cluster.sh` script
 
 ## How to test Klio in a kind cluster during development
 
-During the development phase, it is recommended to test any changes in a test
-environment as soon as they are implemented. To perform such a test, a developer
-can build and deploy the binaries and the images in a reusable Kubernetes environment.
+To test changes as soon as they are implemented, build the binaries and
+the images and deploy them, with the Klio operator and its resources, in a
+reusable kind cluster.
 
-This section will guide you through the steps required to deploy the Klio operator and
-its resources inside a kind cluster.
+1. Create a kind cluster using the `hack/setup-cluster.sh` script from the
+   CNPG repository.
+2. Build and deploy the Klio images and the operator:
 
-1. Create a kind cluster using the `hack/setup-cluster.sh` script from the CNPG repository.
-2. To build and deploy Klio images and operator, exec the command: `KIND_CLUSTER_NAME=$(kind get clusters) task integration:deploy-to-kind`
-3. Once the operator is in `Ready` state, you can deploy the resources:
-  * Klio server: `kubectl apply -f operator/config/samples/klio_v1alpha1_server.yaml`
-  * CNPG Cluster with Klio plugin and related PluginConfiguration CR: `kubectl apply -f operator/config/samples/cluster-example-plugin.yaml`
-  The PluginConfiguration CR name should be equal to the value of `ref` parameter,
-  set inside the Cluster manifest `.spec.plugins` section.
-
-  ```yaml
-    plugins:
-      - name: klio.cnpg.io
-        enabled: true
-        parameters:
-          pluginConfigurationRef: client-config-example-plugin
+   ```sh
+   KIND_CLUSTER_NAME=$(kind get clusters) task integration:deploy-to-kind
    ```
 
-Repeat step 2 to deploy the new changes applied to the code, and reset the operator.
-Then rollout the new binary in both server and cluster pods:
+3. Once the operator is in `Ready` state, deploy the resources:
 
-1. delete the Klio Server pod: `kubectl delete pod server-sample-klio-0`
-2. delete the Cluster's pods: `kubectl delete pod -l cnpg.io/cluster=cluster-example`
-3. delete the PluginConfiguration CR: `kubectl delete pluginconfiguration client-config-example-plugin`
+   * Klio server:
+     `kubectl apply -f operator/config/samples/klio_v1alpha1_server.yaml`
+   * CNPG Cluster with the Klio plugin and the related PluginConfiguration:
+     `kubectl apply -f operator/config/samples/cluster-example-plugin.yaml`
+
+   The PluginConfiguration name must be equal to the value of the
+   `pluginConfigurationRef` parameter, set inside the Cluster manifest
+   `.spec.plugins` section.
+
+   ```yaml
+   plugins:
+     - name: klio.cnpg.io
+       enabled: true
+       parameters:
+         pluginConfigurationRef: client-config-example-plugin
+   ```
+
+Repeat step 2 to deploy the new changes applied to the code, and reset the
+operator. Then roll out the new binary in both server and cluster pods:
+
+1. Delete the Klio Server pod: `kubectl delete pod server-sample-klio-0`
+2. Delete the Cluster's pods:
+   `kubectl delete pod -l cnpg.io/cluster=cluster-example`
+3. Delete the PluginConfiguration:
+   `kubectl delete pluginconfiguration client-config-example-plugin`
 
 ### How to get performance profiles with pprof
 
-1. Open a port forward connection to port 6060: `kubectl port-forward pod/server-sample-klio-0 6060`
-2. run pprof tool, e.g.: `go tool pprof -http=:9999 http://localhost:6060/debug/pprof/profile\?seconds=30`
+1. Enable the pprof endpoint of the server:
+   `kubectl annotate server server-sample klio.cnpg.io/pprof=true`
+2. Open a port forward connection to port 6060:
+   `kubectl port-forward pod/server-sample-klio-0 6060`
+3. Run the pprof tool, e.g.:
+   `go tool pprof -http=:9999 http://localhost:6060/debug/pprof/profile\?seconds=30`
 
 ## How to recreate the GRPC stub and skeleton
 
 ```sh
-dagger call protoc --source . -o internal/grpc
+task core:protoc-gen-go-grpc
 ```
 
 ## How to setup manually a Klio server
@@ -56,8 +75,10 @@ dagger call protoc --source . -o internal/grpc
 Given the following configuration file in `/home/klio/.klio.yaml`:
 
 ```yaml
+queue_directory: /home/klio/klio_data/queue
 tier1:
-  encryption_key: thiskey
+  encryption_key_file: /home/klio/encryption-key.age
+  identity_file: /home/klio/identity.txt
   base:
     repository: /home/klio/klio_data/base
     cache: /home/klio/klio_data/base
@@ -71,9 +92,12 @@ tls:
   key: /home/klio/server.key
 ```
 
-A new Klio repository for both WAL and base backups can be bootstrapped with:
+Create the Age-encrypted encryption key and the certificates:
 
 ```sh
+age-keygen -o identity.txt
+openssl rand -hex 32 | age -e -i identity.txt -o encryption-key.age
+
 openssl genrsa -out ca-key.pem 2048
 
 openssl req -new -key ca-key.pem -out ca-csr.pem -subj "/CN=KlioClientsCA"
@@ -83,12 +107,11 @@ openssl x509 -req -in ca-csr.pem -signkey ca-key.pem -out ca-cert.pem -days 365 
 openssl req -x509 -newkey rsa:4096 -sha256 -days 3650 \
   -nodes -keyout server.key -out server.crt -subj "/CN=klio-server" \
   -addext "subjectAltName=DNS:klio-server,IP:127.0.0.1"
-
-~/klio server initialize
 ```
 
 The Klio server hosts both the WAL streaming server and the base backup
-server in a single process. Start them with:
+server in a single process. It initializes the repository on its first
+start. Start it with:
 
 ```sh
 ~/klio server start
@@ -105,10 +128,10 @@ client:
     server_cert_path: /home/klio/server.crt
     client_cert_path: /home/klio/client-cert.pem
     client_key_path: /home/klio/client-key.pem
-    address: klio-server:12000
+    address: klio-server:12001
 
   base:
-    url: https://klio-server:12001
+    url: https://klio-server:12000
     server_cert_path: /home/klio/server.crt
     client_cert_path: /home/klio/client-cert.pem
     client_key_path: /home/klio/client-key.pem

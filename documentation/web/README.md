@@ -3,20 +3,20 @@
 This website is built using [Docusaurus](https://docusaurus.io/), a modern
 static website generator.
 
-### Requirements
+## Requirements
 
 - Docker
 - [Node.js](https://nodejs.org/) (with npm)
 - [Dagger](https://dagger.io/)
 - [Task](https://taskfile.dev/)
 
-### Installation
+## Installation
 
 ```shell
 $ npm install
 ```
 
-### Local Development
+## Local Development
 
 ```shell
 $ npm start
@@ -25,7 +25,7 @@ $ npm start
 This command starts a local development server and opens up a browser window.
 Most changes are reflected live without having to restart the server.
 
-### Build
+## Build
 
 ```shell
 $ npm run build
@@ -34,7 +34,7 @@ $ npm run build
 This command generates static content into the `build` directory and can be
 served using any static contents hosting service.
 
-### Test the build
+## Test the build
 
 ```shell
 $ npm run serve
@@ -42,15 +42,15 @@ $ npm run serve
 
 By default, this will load your site at http://localhost:3000/.
 
-### Spellchecking
+## Spellchecking
 
 From the top directory:
 
 ```shell
-task spellcheck
+task documentation:spellcheck
 ```
 
-### Versioning
+## Versioning
 
 Docusaurus allows versioning of the documentation to maintain separate sets of
 documentation for different software versions.

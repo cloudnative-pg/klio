@@ -13,15 +13,8 @@ server in real-time.
 The same container serves the restore hooks while a cluster bootstraps from
 a Klio backup, so a backup requested during recovery is served as well.
 
-## Configuration
-
-The Klio plugin integrates with CloudNativePG through the CNPG-I (CloudNativePG
-Interface) specification, enabling Klio to manage backups and WAL streaming for
-your PostgreSQL clusters. To use Klio with a CloudNativePG cluster, you need to:
-
-1. Create a `PluginConfiguration` resource that defines how to connect to the
-   Klio server
-1. Reference the plugin in your `Cluster` resource specification
+The plugin integrates with CloudNativePG through the CNPG-I (CloudNativePG
+Interface) specification.
 
 ## Prerequisites
 
@@ -39,7 +32,8 @@ profiling, and backup retention policies.
 
 A minimal `PluginConfiguration` requires only `serverAddress`,
 `tls.clientIdentity`, `tls.serverCa` and `clusterName` — see
-[Configure the PostgreSQL cluster](quickstart.mdx#step-5-configure-the-postgresql-cluster)
+[Configure the PostgreSQL
+cluster](quickstart.mdx#configure-the-postgresql-cluster)
 for an example. The sections below document each field and the
 optional settings.
 
@@ -64,10 +58,10 @@ tls:
 The identity can also come from a CSI volume that mints it per
 mount.
 
-This identity can be generated with cert-manager by following the
-[documentation in the Klio server
-page](klio_server.md#creating-a-client-side-certificate), or be
-provided by the user.
+See
+[Creating a client-side
+certificate](klio_server.md#creating-a-client-side-certificate)
+for what the server requires of this certificate.
 
 ### Server Address
 
@@ -93,7 +87,8 @@ trust-manager `Bundle`), or a CSI volume.
 
 Once you have created a `PluginConfiguration`, reference it from the
 `plugins` section of your CloudNativePG `Cluster` resource. See
-[Configure the PostgreSQL cluster](quickstart.mdx#step-5-configure-the-postgresql-cluster)
+[Configure the PostgreSQL
+cluster](quickstart.mdx#configure-the-postgresql-cluster)
 for a complete `Cluster` manifest.
 
 To be able to stream WAL files, ensure that your PostgreSQL configuration
@@ -109,16 +104,18 @@ spec:
 
 ### Plugin parameters
 
-The `plugins` section in the `Cluster` specification requires:
+The `plugins` section in the `Cluster` specification accepts:
 
 - **name**: Must be set to `klio.cnpg.io` to identify the Klio plugin
-- **enabled**: Set to `true` to activate the plugin. This is the default value.
-- **parameters.pluginConfigurationRef**: The name of your `PluginConfiguration` resource
+- **enabled**: Optional, defaults to `true`. Set to `false` to
+  [disable the plugin](#disabling-the-plugin).
+- **parameters.pluginConfigurationRef**: The name of your
+  `PluginConfiguration` resource
 
 :::note
 Even though the Klio plugin is used to archive WAL files on the Klio server,
 it does not use the `archiveCommand` parameter in the PostgreSQL configuration,
-as the WAL are streamed directly to the Klio server. Thus, you must not set
+as the WALs are streamed directly to the Klio server. Thus, you must not set
 `isWALArchiver: true` in the plugin configuration.
 :::
 
@@ -136,8 +133,9 @@ satisfied. Ensure the `PluginConfiguration` is created with the correct name.
 
 Most changes to the `PluginConfiguration` resource are applied
 automatically. When you update a `PluginConfiguration`, the Klio
-operator detects the change and updates the corresponding
-`klio-config` Secret. The Klio sidecar containers monitor their
+operator detects the change and updates the Secret holding the
+generated client configuration, named after the `PluginConfiguration`.
+The Klio sidecar containers monitor their
 configuration file for changes and **restart automatically** to apply
 the new configuration. This restart is intentional and expected.
 
@@ -158,7 +156,6 @@ stored in the config file, including:
 
 - Server address
 - Tier 1 and Tier 2 settings (backup, recovery, retention)
-- Operation mode (`standard` or `read-only`)
 - Cluster name override
 - WAL prefetch configuration
 
@@ -265,9 +262,10 @@ Retention is evaluated periodically by the Klio server, not only right after
 a backup completes, so out-of-retention backups are removed even if no new
 backup is taken for a while.
 
-A Tier 1 backup that has not yet been copied to Tier 2 is never deleted by
-Tier 1 retention, even if it is otherwise out of retention: it is kept until
-Tier 2 has it.
+When `tier2.retention` is set, Tier 1 retention never deletes a backup
+that has not yet been copied to Tier 2: see
+[Protecting backups pending migration to Tier
+2](./concepts/architectures.md#protecting-backups-pending-migration-to-tier-2).
 
 A backup that is missing part of its data on a tier, for example after an
 interrupted deletion, is not listed and cannot be restored from that tier.
@@ -316,15 +314,15 @@ spec:
       algorithm: zstd-better-compression
 ```
 
-The `algorithm` field selects one of the compression algorithms supported by
-Kopia. Common choices are:
+The `algorithm` field accepts one of the following values:
 
 - `none`: explicitly disable compression. This is what a repository with no
   compression policy configured does, and it is also how you turn compression
   back off once a policy has been applied.
 - `zstd`, `zstd-fastest`, `zstd-better-compression`: the Zstandard family,
   offering a good balance of ratio and speed.
-- `s2-default`, `s2-better`: the S2 family, optimized for throughput.
+- `s2-default`, `s2-better`, `s2-parallel-4`, `s2-parallel-8`: the S2
+  family, optimized for throughput.
 - `gzip`, `gzip-best-compression`, `gzip-best-speed`.
 - `pgzip`, `pgzip-best-compression`, `pgzip-best-speed`.
 - `deflate-default`, `deflate-best-compression`, `deflate-best-speed`.
@@ -414,12 +412,8 @@ spec:
   # restoring from, not the name of the new cluster being created.
   clusterName: cluster-example
 
-  # Read-only mode requires:
-  # - tier2 configuration with enableRecovery: true
-  # - NO tier1 configuration
   tier2:
     enableRecovery: true
-    # enableBackup must be false or omitted
 ```
 
 **Restrictions in read-only mode:**
@@ -427,6 +421,7 @@ spec:
 - Tier 2 must be configured with `enableRecovery: true`
 - Tier 2 `enableBackup` must be `false` or omitted
 - Tier 1 configuration is not allowed
+- `tier2.compression` is not allowed
 - No backup or WAL streaming operations are performed
 
 See the [Read-Only Server Mode](klio_server.md#read-only-mode) documentation
@@ -475,11 +470,10 @@ server hits the same error, since the original cluster backups and
 WALs will still exist on the Klio server.
 :::
 
-Whichever value you use, it must match the host name in the Common Name of the
-client certificate (`userName@hostName`). For tier 1 base backups, a mismatch
-is rejected at connection time; for WAL streaming, a mismatch is not currently
-detected and can lead to WALs being stored or retrieved under the wrong
-cluster path.
+Whichever value you use, it must match the host part of the Common Name
+of the client certificate; a mismatch is rejected. See
+[Creating a client-side
+certificate](klio_server.md#creating-a-client-side-certificate).
 
 ### Tier 2 configuration
 
@@ -498,14 +492,15 @@ spec:
 
 #### Options
 
+At least one of `enableBackup` or `enableRecovery` must be `true`.
+
 - **`enableBackup`**: When set to `true`, backups and WAL files are
   automatically synchronized to Tier 2 storage after being stored in Tier 1.
   This ensures your backups are available in long-term storage.
 
 - **`enableRecovery`**: When set to `true`, Klio will look for backups and
-  WAL files in both Tier 1 and Tier 2 during restore operations. If a backup
-  is available in both tiers, Tier 1 takes precedence as restore from it will
-  be faster.
+  WAL files in both Tier 1 and Tier 2 during restore operations, preferring
+  Tier 1.
 
 - **`retention`**: Configure a separate retention policy for Tier 2.
   Typically, you would keep more backups on Tier 2 than on Tier 1, since
@@ -620,7 +615,8 @@ following merge behavior:
 
 1. **Your container is the base**: When you define a container
    (e.g., `klio-plugin`), your specification serves as the starting point
-1. **Klio enforces required values**: Klio sets its essential configuration:
+1. **Klio enforces required values**: Klio sets its essential configuration,
+   overriding any value you set for these fields:
    - Container `name` (`klio-plugin`)
    - Container `args` (the command arguments needed for operation)
    - `CONTAINER_NAME` environment variable
@@ -629,16 +625,9 @@ following merge behavior:
 1. **Template defaults fill gaps**: For fields you don't specify, Klio applies
    sensible defaults (image, security context, standard volume mounts, etc.)
 
-:::info
+## Plugin configuration selection
 
-Klio's required values (name, args, `CONTAINER_NAME` env var) will
-always override any conflicting values you set. All other customizations are
-respected.
-:::
-
-### Plugin configuration selection in replica clusters
-
-When a CloudNativePG `Cluster` has multiple `PluginConfiguration`
+When a CloudNativePG `Cluster` references multiple `PluginConfiguration`
 resources — one for archiving and one or more for external clusters —
 Klio selects which configuration to apply to the sidecar containers
 using the following logic:
@@ -647,12 +636,14 @@ using the following logic:
    plugin declared in `.spec.plugins` (the archive plugin), its
    `PluginConfiguration` is used for the sidecar containers on every
    pod.
-1. **Fallback to replica source**: if no archive plugin is configured
-   and the cluster is a replica (`.spec.replica` is set), the
-   designated primary pod uses the `PluginConfiguration` referenced
-   by the external cluster defined as the replica source
-   (`.spec.replica.source`). Non-primary pods do not receive a Klio
-   sidecar in this case.
+1. **Recovery source during bootstrap**: if no archive plugin is
+   configured, then while the cluster bootstraps from a Klio backup the
+   `PluginConfiguration` of the recovery source is used.
+1. **Fallback to replica source**: otherwise, if the cluster is a replica
+   (`.spec.replica` is set), the designated primary pod uses the
+   `PluginConfiguration` referenced by the external cluster defined as the
+   replica source (`.spec.replica.source`). Non-primary pods do not receive a
+   Klio sidecar in this case.
 
 For example, consider a replica cluster that does not archive locally
 but restores WALs from an external source managed by Klio:
@@ -683,5 +674,5 @@ In this setup, only the designated primary of `cluster-dc-b` gets a
 Klio sidecar, configured from the `source-plugin-config`
 `PluginConfiguration`. The container customizations defined in that
 `PluginConfiguration` (image, resources, environment variables, etc.)
-are applied to the sidecar following the same merging rules described
-above.
+are applied to the sidecar following the
+[container merging rules](#how-container-merging-works).

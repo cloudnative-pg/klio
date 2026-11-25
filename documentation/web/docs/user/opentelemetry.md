@@ -4,67 +4,328 @@ sidebar_position: 10
 
 # OpenTelemetry Observability
 
-Klio provides built-in support for [OpenTelemetry](https://opentelemetry.io/),
-enabling comprehensive observability through distributed tracing, metrics
-collection and log export. This allows you to monitor backup operations,
-performance characteristics, and system health across your Klio deployment.
+Klio exports traces, metrics and logs over
+[OpenTelemetry](https://opentelemetry.io/), so you can monitor backup
+operations, performance and the health of your Klio deployment.
+
+## Overview
+
+OpenTelemetry carries three kinds of data, also called signals. Klio uses
+all three:
+
+- **Metrics** are numbers sampled over time, such as "seconds since the last
+  successful backup" or "bytes of WAL written". They are what you chart and
+  alert on.
+- **Traces** follow a single operation from start to finish, split into timed
+  steps called spans. A trace of a backup shows how long the backup took,
+  and how long its verification took. They are what you look at when
+  something is slow or failing.
+- **Logs** are the records the server, the plugin sidecars and the operator
+  write on their standard output.
+
+Each Klio process has the OpenTelemetry library built in. Usually the data
+goes to a **collector**: a small separate service that receives telemetry
+from many senders, processes it, and forwards it to one or more
+**backends**, such as Prometheus for metrics or Jaeger for traces. Klio only
+needs to know the collector's address, and backends can be changed without
+touching Klio.
+
+```text
+ Klio server ------\                    +--> Metrics backend --> Dashboards
+                    \                   |    (e.g. Prometheus) and alerts (e.g. Grafana)
+ Plugin sidecars ----+--> Collector ----+     
+                    /                   |
+ Klio operator ----/                    +--> Traces backend
+                                              (e.g. Jaeger)
+```
+
+All connections use **OTLP** (the OpenTelemetry Protocol). It runs over gRPC
+(port `4317` by convention) or HTTP (port `4318`).
+
+Four Klio components emit telemetry. Klio metric names follow the
+`klio.<component>.<domain>.<measurement>` taxonomy, where the component is
+`server`, `plugin` or `client`. The operator defines no `klio.*` metric: it
+emits only third-party ones.
+
+| Component | What it is | What it emits |
+|---|---|---|
+| `server` | The Klio server `StatefulSet`: Kopia server, WAL gRPC ingest, embedded NATS JetStream queue, and the Tier 2 WAL consumer | Backup, WAL and queue metrics; WAL and Tier 2 traces |
+| `plugin` | The `klio-plugin` sidecar in each PostgreSQL pod | Backup lifecycle and WAL restore metrics; backup traces |
+| `client` | The WAL streaming client run by the sidecar | WAL send duration and current timeline |
+| `operator` | The Klio operator | Controller-runtime, Go runtime and host metrics |
+
+Telemetry is **off by default**. If no `OTEL_*` environment variable is set,
+Klio collects nothing and pays no cost for it.
 
 ## Available Telemetry
 
-Klio automatically collects the following:
+Klio defines its own traces and metrics, listed in the
+[Traces](#traces-reference) and [Metrics](#metrics-reference) references,
+and exports as [logs](#logs-exporter) the records each component writes on
+its standard output.
 
-- Traces
-   - Distributed WAL streaming and processing
-   - Backup lifecycle (backup, backup run, verification, maintenance)
-- Metrics
-   - Server
-      - Server uptime
-      - Backup metrics
-         - Number of snapshots
-         - Number of files in the latest snapshot
-         - Number of directories in the latest snapshot
-         - Size of the latest snapshot
-         - Timestamp of the latest snapshot
-         - Timestamp of the oldest snapshot
-         - Number of retained PostgreSQL backups (per cluster and tier)
-         - Start/end time, timeline and LSN of the latest and oldest
-           retained PostgreSQL backup (per cluster and tier)
-         - Total number of backup verifications (split by outcome and tier)
-      - WAL processing metrics
-         - Number of WAL files written
-         - Bytes written
-         - Timestamp of the most recently written WAL file
-         - LSN progress of WAL ingestion (Tier 1) and archival (Tier 2)
-         - Timeline of the latest WAL on Tier 1 and Tier 2
-         - Per-block processing durations split by stage (histogram)
-         - Per-file get and Tier 2 upload durations (histogram)
-      - Queue metrics
-         - Number of messages in the queue
-         - Number of bytes in the queue
-         - Number of tasks moved to the dead-letter queue (per cluster)
-      - [GRPC metrics](https://opentelemetry.io/docs/specs/semconv/rpc/rpc-metrics/)
-      - [Go runtime statistics](https://pkg.go.dev/go.opentelemetry.io/contrib/instrumentation/runtime)
-      - [Host metrics](https://pkg.go.dev/go.opentelemetry.io/contrib/instrumentation/host)
-      - [Controller runtime metrics](https://book.kubebuilder.io/reference/metrics-reference)
-   - Sidecar
-      - Backup metrics
-         - Number of backups currently in progress
-         - Timestamp of the most recent backup start
-         - Timestamp of the most recent successful completion
-         - Timestamp of the most recent failure
-         - Duration of the most recent backup
-         - Total number of backup runs (split by outcome)
-         - Total number of backup verifications (split by outcome)
-      - [GRPC metrics](https://opentelemetry.io/docs/specs/semconv/rpc/rpc-metrics/)
-      - [Go runtime statistics](https://pkg.go.dev/go.opentelemetry.io/contrib/instrumentation/runtime)
-      - [Host metrics](https://pkg.go.dev/go.opentelemetry.io/contrib/instrumentation/host)
-      - [Controller runtime metrics](https://book.kubebuilder.io/reference/metrics-reference)
-   - Client (WAL streaming)
-      - Per-block WAL send durations (histogram)
-      - Timeline currently being streamed (gauge)
-- Logs
-   - The records the server, the plugin sidecars, the operator and the Klio
-     commands they run write on their standard output
+In addition, the processes emit these third-party metrics:
+
+| Metrics | Server | Plugin sidecar | Operator |
+|---|---|---|---|
+| [gRPC](https://opentelemetry.io/docs/specs/semconv/rpc/rpc-metrics/) | yes | yes | no |
+| [Go runtime](https://pkg.go.dev/go.opentelemetry.io/contrib/instrumentation/runtime) | yes | yes | yes |
+| [Host](https://pkg.go.dev/go.opentelemetry.io/contrib/instrumentation/host) | yes | yes | yes |
+| [Controller runtime](https://book.kubebuilder.io/reference/metrics-reference) | yes | yes | yes |
+
+## Setting up OpenTelemetry
+
+This section sets Klio up to send OTLP over gRPC to a collector, encrypted
+with TLS.
+
+### What you need
+
+- **A collector** that Klio can reach. This page assumes one called
+  `otel-collector`, listening over gRPC on port `4317`. Setting up the
+  collector and the backends is outside the scope of this page. The
+  [OpenTelemetry
+  Operator](https://opentelemetry.io/docs/platforms/kubernetes/operator/)
+  can run it for you through the `OpenTelemetryCollector` resource.
+
+- **Certificates.** The examples below assume the following Secrets. How
+  you create them is up to you, for example with
+  [cert-manager](https://cert-manager.io/). Klio only needs the files to be
+  available at the paths set in the `OTEL_*` variables:
+
+| Secret | Contains | Used by |
+|---|---|---|
+| `otel-collector-tls` | `tls.crt`, `tls.key`: the collector's certificate and private key. `ca.crt`: the CA that signed it | The collector, which uses `tls.crt` and `tls.key` to identify itself. Klio server and plugin sidecars, which use only `ca.crt` to trust the collector |
+| `otel-client-cert` | `tls.crt`, `tls.key`: Klio's certificate and private key | Klio server and plugin sidecars, to identify themselves to the collector |
+
+The Klio Secrets must be in the namespace of the pods that mount them: the
+server's namespace, and the CNPG cluster's namespace.
+
+:::note
+The Secret names above are examples. Use your own and update the references in
+the examples below to match. The key names (`ca.crt`, `tls.crt`, `tls.key`) are
+the ones cert-manager writes. If you create the Secrets yourself with other key
+names, change the `key` in each `items` entry.
+:::
+
+### Klio server
+
+When deploying a Klio `Server`, you can configure OpenTelemetry by specifying
+the necessary settings in the `template` section of the `Server` spec:
+
+1. Set the required environment variables for OpenTelemetry configuration in
+   the `server` container.
+1. Mount any required TLS certificates for secure communication with the
+   OpenTelemetry Collector.
+
+For simpler management, use a `ConfigMap` to store the OpenTelemetry
+configuration:
+
+```yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: klio-otel-config
+data:
+  OTEL_SERVICE_NAME: "klio-server"
+  OTEL_RESOURCE_DETECTORS: "telemetry.sdk,host,os.type,process.executable.name"
+
+  OTEL_TRACES_EXPORTER: "otlp"
+  OTEL_EXPORTER_OTLP_TRACES_PROTOCOL: "grpc"
+  OTEL_EXPORTER_OTLP_TRACES_ENDPOINT: "https://otel-collector:4317"
+  OTEL_EXPORTER_OTLP_TRACES_COMPRESSION: "gzip"
+  OTEL_EXPORTER_OTLP_TRACES_TIMEOUT: "10000"
+  OTEL_EXPORTER_OTLP_TRACES_INSECURE: "false"
+  OTEL_EXPORTER_OTLP_TRACES_CERTIFICATE: "/otel/ca.crt"
+  OTEL_EXPORTER_OTLP_TRACES_CLIENT_CERTIFICATE: "/otel/tls.crt"
+  OTEL_EXPORTER_OTLP_TRACES_CLIENT_KEY: "/otel/tls.key"
+
+  OTEL_METRICS_EXPORTER: "otlp"
+  OTEL_METRIC_EXPORT_INTERVAL: "60000"
+  OTEL_EXPORTER_OTLP_METRICS_PROTOCOL: "grpc"
+  OTEL_EXPORTER_OTLP_METRICS_ENDPOINT: "https://otel-collector:4317"
+  OTEL_EXPORTER_OTLP_METRICS_TIMEOUT: "60000"
+  OTEL_EXPORTER_OTLP_METRICS_INSECURE: "false"
+  OTEL_EXPORTER_OTLP_METRICS_CERTIFICATE: "/otel/ca.crt"
+  OTEL_EXPORTER_OTLP_METRICS_CLIENT_CERTIFICATE: "/otel/tls.crt"
+  OTEL_EXPORTER_OTLP_METRICS_CLIENT_KEY: "/otel/tls.key"
+```
+
+Configure the `Server` to load the `ConfigMap` into the `server` container and
+to mount the certificates:
+
+```yaml
+apiVersion: klio.cnpg.io/v1alpha1
+kind: Server
+metadata:
+  name: my-klio-server
+spec:
+  # ... other configuration ...
+  template:
+    spec:
+      containers:
+        - name: server
+          envFrom:
+            - configMapRef:
+                name: klio-otel-config
+          volumeMounts:
+            - mountPath: /otel
+              name: otel
+      volumes:
+        - name: otel
+          projected:
+            sources:
+              - secret:
+                  name: otel-collector-tls
+                  items:
+                    - key: ca.crt
+                      path: ca.crt
+              - secret:
+                  name: otel-client-cert
+                  items:
+                    - key: tls.crt
+                      path: tls.crt
+                    - key: tls.key
+                      path: tls.key
+```
+
+The server exports its logs too, by default, but this example only
+configures the traces and metrics endpoints, so the logs would go to the
+default OTLP endpoint. Add the matching `OTEL_EXPORTER_OTLP_LOGS_*`
+variables, replace the per-signal variables with the generic ones shown in
+the plugin example below, or set `OTEL_LOGS_EXPORTER: "none"`.
+
+### Plugin sidecars
+
+When deploying Klio as a CNPG Cluster plugin, configure OpenTelemetry by
+specifying the necessary environment variables in the `containers` section of
+the `PluginConfiguration` spec. The only container that can be customized
+is `klio-plugin`: the plugin sidecar for backup, WAL and restore
+operations.
+
+Create a `ConfigMap` for the shared OpenTelemetry configuration. The generic
+`OTEL_EXPORTER_OTLP_*` variables apply to every signal, so this single
+configuration sends traces, metrics and logs to the same collector:
+
+```yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: cluster-klio-otel-config
+data:
+  OTEL_RESOURCE_DETECTORS: "telemetry.sdk,host,os.type,process.executable.name"
+
+  OTEL_TRACES_EXPORTER: "otlp"
+  OTEL_METRICS_EXPORTER: "otlp"
+  OTEL_LOGS_EXPORTER: "otlp"
+
+  OTEL_EXPORTER_OTLP_PROTOCOL: "grpc"
+  OTEL_EXPORTER_OTLP_ENDPOINT: "https://otel-collector:4317"
+  OTEL_EXPORTER_OTLP_COMPRESSION: "gzip"
+  OTEL_EXPORTER_OTLP_TIMEOUT: "10000"
+  OTEL_EXPORTER_OTLP_INSECURE: "false"
+  OTEL_EXPORTER_OTLP_CERTIFICATE: "/projected/ca.crt"
+  OTEL_EXPORTER_OTLP_CLIENT_CERTIFICATE: "/projected/tls.crt"
+  OTEL_EXPORTER_OTLP_CLIENT_KEY: "/projected/tls.key"
+```
+
+Configure the `PluginConfiguration` to inject the environment variables into
+each sidecar container:
+
+```yaml
+apiVersion: klio.cnpg.io/v1alpha1
+kind: PluginConfiguration
+metadata:
+  name: client-config-cluster-example
+spec:
+  # ... other configuration ...
+  containers:
+    - name: klio-plugin
+      env:
+        - name: OTEL_SERVICE_NAME
+          value: "klio-plugin"
+      envFrom:
+        - configMapRef:
+            name: cluster-klio-otel-config
+```
+
+Mount the OpenTelemetry certificates using the Cluster's
+`projectedVolumeTemplate`. The projected volume is mounted at `/projected/` and
+is accessible to all sidecar containers:
+
+```yaml
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+  name: cluster-example
+spec:
+  # ... other configuration ...
+  projectedVolumeTemplate:
+    sources:
+      - secret:
+          name: otel-collector-tls
+          items:
+            - key: ca.crt
+              path: ca.crt
+      - secret:
+          name: otel-client-cert
+          items:
+            - key: tls.crt
+              path: tls.crt
+            - key: tls.key
+              path: tls.key
+```
+
+### Klio operator
+
+The operator already publishes its metrics on a `/metrics` endpoint that
+Prometheus can scrape. That keeps working, whether or not you turn on
+OpenTelemetry.
+
+To also send those metrics to your collector, set the `OTEL_*` variables in
+the Helm chart values, under `controllerManager.manager.env`:
+
+```yaml
+controllerManager:
+  manager:
+    env:
+      OTEL_SERVICE_NAME: "klio-operator"
+      OTEL_EXPORTER_OTLP_ENDPOINT: "http://otel-collector.<namespace>.svc:4318"
+      OTEL_EXPORTER_OTLP_PROTOCOL: "http/protobuf"  # or "grpc"
+```
+
+Replace `<namespace>` with the namespace where the collector runs. The operator
+usually runs in a different namespace, where a short name such as
+`otel-collector` would not resolve.
+
+The chart also sets `POD_NAME`, `NAMESPACE_NAME` and `CONTAINER_NAME` for you,
+so the pod and namespace show up on the metrics without extra configuration.
+
+The operator writes its logs on the standard output in JSON, at the level
+set by the `--log-level` argument (`info` by default), and exports them
+with the metrics, unless `OTEL_LOGS_EXPORTER` is `none`.
+
+:::note
+The operator connects without certificates: the Helm chart does not let you
+mount extra volumes, so it cannot load a client certificate or a custom CA.
+It therefore needs a plain OTLP receiver on the collector, in addition to the
+TLS one the other components use. This example uses OTLP over HTTP on port
+`4318`.
+:::
+
+### Verify and next steps
+
+Once the configuration is applied and the pods have restarted, check that data
+is arriving:
+
+- Look for Klio's metrics in your metrics backend. In Prometheus, the dots
+  in names become underscores and the unit is added as a suffix, so
+  `klio.server.uptime` appears as `klio_server_uptime_seconds`.
+- Trigger a backup and look for a trace whose root span is named `backup`.
+
+To visualize the metrics, see [Grafana dashboards](grafana-dashboards.md).
+For more detail, see the [Configuration](#configuration) reference, and the
+[Traces](#traces-reference) and [Metrics](#metrics-reference) references for
+everything Klio emits.
 
 ## Traces Reference
 
@@ -84,15 +345,16 @@ The `backup` span includes the following attributes:
 | Attribute | Type | Description |
 |---|---|---|
 | `backup.name` | string | Name assigned to the backup |
+| `backup.role` | string | Role of the instance the backup is taken from: `primary` or `standby` |
 
 On failure, the span records the error and sets its status to
 `ERROR`.
 
 ### WAL streaming spans
 
-Klio traces WAL streaming at the per-file level; the per-block stage
-timings that used to be spans are now recorded as the
-[WAL duration histograms](#wal-duration-histograms-server) instead.
+Klio traces WAL streaming at the per-file level. Per-block stage timings
+are recorded as the
+[WAL duration histograms](#wal-duration-histograms-server), not as spans.
 
 | Span Name | Tracer | Description |
 |---|---|---|
@@ -100,14 +362,15 @@ timings that used to be spans are now recorded as the
 | `get_wal` | `klio.server.wal` | Per-file span for the gRPC Get of a WAL file (served from tier-1 or tier-2). |
 | `tier2_upload` | `klio.server.consumer` | One span per WAL file archived to tier-2 (remote storage). |
 
+The `get_wal` and `tier2_upload` spans carry the `cluster_name` and
+`wal_name` attributes.
+
 ### Kopia repository spans
 
 Klio runs Kopia as a subprocess to manage the deduplicated backup
 repository. Kopia emits its own OpenTelemetry traces (snapshot uploads,
 content and blob operations, and repository-server gRPC sessions) under
-the `kopia` service name. Klio enables Kopia's trace exporter
-automatically whenever its own traces are configured for the OTLP/gRPC
-protocol, so that Kopia exports to the same collector as Klio.
+the `kopia` service name, to the same collector as Klio.
 
 The individual span names come from the Kopia version bundled with Klio
 and are Kopia internals rather than a Klio-defined contract; they may
@@ -121,35 +384,29 @@ Unlike Klio's own telemetry, Kopia does not read `OTEL_SERVICE_NAME`,
 carries a fixed resource of just `service.name` (`kopia`) and
 `service.version`.
 
-Kopia can only export traces over OTLP/gRPC. When traces are configured
-for `http/protobuf`, Kopia tracing stays disabled and only Klio's own
-spans are exported. When traces are configured for `grpc`, Klio automatically
-enables Kopia tracing and exports both Klio and Kopia spans to the same
-collector. You can override this automatic behavior with the
-`KOPIA_ENABLE_OTLP_TRACE` variable in the same container environment:
-set it to `false` to disable Kopia tracing even when Klio's own traces
-use gRPC, or to `true` to force it on (Kopia still exports only over
-gRPC, so the configured endpoint must be a gRPC one).
+Kopia can only export traces over OTLP/gRPC. Klio enables Kopia tracing
+automatically when all of the following hold:
+
+- `OTEL_TRACES_EXPORTER` is `otlp` or unset;
+- `OTEL_EXPORTER_OTLP_TRACES_ENDPOINT` or `OTEL_EXPORTER_OTLP_ENDPOINT`
+  is set;
+- the traces protocol (`OTEL_EXPORTER_OTLP_TRACES_PROTOCOL`, or
+  `OTEL_EXPORTER_OTLP_PROTOCOL`) is `grpc`.
+
+Otherwise, for example with `http/protobuf`, Kopia tracing stays disabled and
+only Klio's own spans are exported. You can override this automatic behavior
+with the `KOPIA_ENABLE_OTLP_TRACE` variable in the same container environment:
+set it to `false` to disable Kopia tracing even when Klio's own traces use gRPC,
+or to `true` to force it on (Kopia still exports only over gRPC, so the
+configured endpoint must be a gRPC one).
 
 Kopia traces are exported as independent traces, under the
 `kopia` service, and are not correlated into Klio's trace tree.
 
 ## Metrics Reference
 
-Klio metric names follow the
-`klio.<component>.<domain>.<measurement>` taxonomy. The component
-segment identifies which process emits the metric:
-
-- `plugin` — the CNPG plugin sidecar running in each PostgreSQL pod.
-- `server` — the Klio server StatefulSet (hosts the Kopia server, the
-  WAL gRPC ingest, the embedded NATS JetStream queue, and the tier-2
-  WAL consumer).
-- `operator` — the Klio operator deployment. Bridges
-  controller-runtime Prometheus metrics to OTLP and adds Go
-  runtime and host instrumentation.
-- `client` — the WAL streaming client that ships WAL from
-  PostgreSQL to the Klio server. Emits the per-block WAL send
-  duration histogram and the currently streamed timeline gauge.
+Klio metric names follow the `klio.<component>.<domain>.<measurement>`
+taxonomy; see the [Overview](#overview) for the components.
 
 ### Attributes
 
@@ -160,13 +417,14 @@ attribute key.
 
 | Attribute | Values | Applies to |
 |---|---|---|
-| `tier` | `tier1` (local disk on the Klio server), `tier2` (remote object store); `unknown` on `klio.plugin.wal.restore_duration` when the restore failed before any tier was tried, and on every `not_found` restore | All `klio.server.wal.*` and `klio.server.backup.*` instruments, `klio.plugin.wal.restore_duration`. |
-| `cluster_name` | Name of the PostgreSQL cluster the recording belongs to | All `klio.plugin.backup.*` instruments, `klio.plugin.wal.restore_duration`, all `klio.server.wal.*` instruments (counters, gauges, and the WAL duration histograms), `klio.client.wal.*`, the `klio.server.backup.*` PostgreSQL backup gauges (`backups`, `latest_backup_*`, `oldest_backup_*`) and the `klio.server.backup.relay` / `klio.server.backup.maintenance` counters, and the `klio.server.queue.dlq.captured` counter. |
+| `tier` | `tier1` (local disk on the Klio server), `tier2` (remote object store); `unknown` on `klio.plugin.wal.restore_duration` when the restore failed before any tier was tried, and on every `not_found` restore | All `klio.server.wal.*` instruments, all `klio.server.backup.*` instruments except `klio.server.backup.relay`, and `klio.plugin.wal.restore_duration`. |
+| `cluster_name` | Name of the PostgreSQL cluster the recording belongs to | All `klio.plugin.backup.*` instruments, `klio.plugin.wal.restore_duration`, all `klio.server.wal.*` instruments (counters, gauges, and the WAL duration histograms), `klio.client.wal.*`, the `klio.server.backup.*` PostgreSQL backup gauges (`backups`, `incomplete_backups`, `latest_backup_*`, `oldest_backup_*`) and the `klio.server.backup.relay` / `klio.server.backup.maintenance` / `klio.server.backup.verifications` counters, and the `klio.server.queue.dlq.captured` counter. |
 | `outcome` | `success`, `failure`; `not_found` on `klio.plugin.wal.restore_duration` only | `klio.plugin.backup.runs`, `klio.plugin.wal.restore_duration`, `klio.server.backup.relay`, `klio.server.backup.maintenance`, `klio.server.backup.verifications`, and all WAL duration histograms (`klio.server.wal.*_duration`, `klio.client.wal.block_duration`). |
 | `cache_hit` | `true` (served from the prefetch spool), `false` (downloaded) | `klio.plugin.wal.restore_duration`. |
 | `failure_category` | `repository_error`, `source_error`, `verification`, `timeout`, `canceled`, `unknown` | `klio.plugin.backup.runs` failure data points only. |
 | `path` | `put` (WAL ingest), `get` (WAL serve) | `klio.server.wal.block_duration`, `klio.client.wal.block_duration`. |
 | `stage` | put: `wrap`, `write`, `flush`, `send` (client); get: `read`, `unwrap`, `send` | `klio.server.wal.block_duration`, `klio.client.wal.block_duration`. |
+| `status` | `PENDING`, `RECOVERABLE`, `UNRECOVERABLE` | `klio.server.backup.incomplete_backups`. |
 | `snapshot_source` | Kopia source descriptor (`userName@hostName:path`) | All `klio.server.backup.*` base snapshot gauges (`snapshots`, `latest_snapshot_*`, `oldest_snapshot_timestamp`). |
 | `stream` | JetStream stream name (`klio-wal-stream`, `klio-backup-stream`, `klio-dlq-wal-stream`, `klio-dlq-backup-stream`) | `klio.server.queue.messages`, `klio.server.queue.bytes`, and the `klio.server.queue.dlq.captured` counter (dead-letter queue streams only). |
 
@@ -225,7 +483,7 @@ family and are distinguished by the `tier` attribute (`"tier1"` or
 | Metric Name | Type | Unit | Description |
 |---|---|---|---|
 | `klio.server.wal.written_size` | Counter | By | Number of bytes written for WAL files (per tier) |
-| `klio.server.wal.written` | Counter | - | Number of WAL files written (per tier) |
+| `klio.server.wal.written` | Counter | `{wals}` | Number of WAL files written (per tier) |
 | `klio.server.wal.latest_written_time` | Gauge | s | Unix epoch timestamp of the most recently written WAL file (per tier) |
 | `klio.server.wal.latest_written_lsn` | Gauge | By | LSN of the most recently written WAL byte. On tier 1 this is the flush pointer (matches `pg_current_wal_flush_lsn()` semantics); on tier 2 this is the last byte of the most recently archived WAL segment |
 | `klio.server.wal.latest_written_timeline` | Gauge | - | Timeline ID of the most recently completed WAL file (per tier) |
@@ -257,9 +515,7 @@ per tier, regardless of whether any backup completed since the last pass.
 ### WAL duration histograms (server)
 
 The server records WAL processing latencies as OpenTelemetry
-histograms. They replace the per-block spans Klio previously emitted
-for each WAL stage, which were impractical for distributions: the
-histograms can be aggregated across clusters and rendered as
+histograms, which can be aggregated across clusters and rendered as
 percentile dashboards (`p50`, `p95`, `p99`) over time. Per-block
 stages are recorded once per WAL block; the per-file instruments are
 recorded once per WAL file.
@@ -321,7 +577,7 @@ against the tier-2 remote copy after migration. The `tier` attribute
 
 | Metric Name | Type | Unit | Description |
 |---|---|---|---|
-| `klio.server.backup.verifications` | Counter | `{verifications}` | Number of backup verifications, split by the `outcome` attribute (`success` / `failure`; `failure` indicates corruption detected) and the `tier` attribute |
+| `klio.server.backup.verifications` | Counter | `{verifications}` | Number of backup verifications, split by `cluster_name`, the `outcome` attribute (`success` / `failure`; `failure` indicates corruption detected) and the `tier` attribute |
 
 ### Alerting on stalled WAL processing
 
@@ -341,12 +597,6 @@ the tier:
   is no longer receiving WALs, even though PostgreSQL replication
   may still be working, or that uploading the WAL to the object store
   is failing.
-
-### Server metrics
-
-| Metric Name | Type | Unit | Description |
-|---|---|---|---|
-| `klio.server.uptime` | Gauge | s | Klio server uptime in seconds |
 
 The `klio.server.wal.latest_written_lsn` instrument provides a
 complementary view of the same two pipeline stages, expressed as a
@@ -372,6 +622,12 @@ Use these gauges alongside the timestamp gauges to distinguish a
 slow pipeline (timestamps advancing, LSN gap growing) from a
 stalled one (timestamps and LSN both frozen).
 
+### Server metrics
+
+| Metric Name | Type | Unit | Description |
+|---|---|---|---|
+| `klio.server.uptime` | Gauge | s | Klio server uptime in seconds |
+
 ### Base backup metrics (server)
 
 These metrics are emitted by the Klio server base backup component
@@ -379,10 +635,10 @@ and track Kopia snapshot statistics:
 
 | Metric Name | Type | Unit | Description |
 |---|---|---|---|
-| `klio.server.backup.snapshots` | Gauge | - | Total number of base snapshots |
+| `klio.server.backup.snapshots` | Gauge | `{snapshots}` | Total number of base snapshots |
 | `klio.server.backup.latest_snapshot_size` | Gauge | By | Size of latest base snapshot in bytes (ignoring compression and deduplication) |
-| `klio.server.backup.latest_snapshot_files` | Gauge | - | Number of files in latest base snapshot |
-| `klio.server.backup.latest_snapshot_dirs` | Gauge | - | Number of directories in latest base snapshot |
+| `klio.server.backup.latest_snapshot_files` | Gauge | `{files}` | Number of files in latest base snapshot |
+| `klio.server.backup.latest_snapshot_dirs` | Gauge | `{directories}` | Number of directories in latest base snapshot |
 | `klio.server.backup.latest_snapshot_timestamp` | Gauge | s | Unix epoch timestamp of the latest base snapshot |
 | `klio.server.backup.oldest_snapshot_timestamp` | Gauge | s | Unix epoch timestamp of the oldest base snapshot |
 
@@ -401,8 +657,8 @@ span a timeline switch, so its start and end share one timeline):
 
 | Metric Name | Type | Unit | Description |
 |---|---|---|---|
-| `klio.server.backup.backups` | Gauge | - | Number of PostgreSQL backups retained |
-| `klio.server.backup.incomplete_backups` | Gauge | - | Number of backups not fully present on the tier as of the last retention sweep, also split by `status` (`PENDING` / `RECOVERABLE` / `UNRECOVERABLE`, see [Incomplete Backups](backup_and_restore.md#incomplete-backups)) |
+| `klio.server.backup.backups` | Gauge | `{backups}` | Number of PostgreSQL backups retained |
+| `klio.server.backup.incomplete_backups` | Gauge | `{backups}` | Number of backups not fully present on the tier as of the last retention sweep, also split by `status` (`PENDING` / `RECOVERABLE` / `UNRECOVERABLE`, see [Incomplete Backups](backup_and_restore.md#incomplete-backups)) |
 | `klio.server.backup.latest_backup_start_time` | Gauge | s | Unix epoch timestamp when the latest retained backup started |
 | `klio.server.backup.latest_backup_completion_time` | Gauge | s | Unix epoch timestamp when the latest retained backup completed |
 | `klio.server.backup.latest_backup_start_lsn` | Gauge | By | Start LSN of the latest retained backup (base 10) |
@@ -426,7 +682,7 @@ dead-lettered after their last attempt):
 
 | Metric Name | Type | Unit | Description |
 |---|---|---|---|
-| `klio.server.queue.messages` | Gauge | - | Number of messages currently stored in the JetStream stream identified by `stream` |
+| `klio.server.queue.messages` | Gauge | `{messages}` | Number of messages currently stored in the JetStream stream identified by `stream` |
 | `klio.server.queue.bytes` | Gauge | By | Number of bytes currently stored in the JetStream stream identified by `stream` |
 
 The dead-letter queue streams, `klio-dlq-wal-stream` and
@@ -440,51 +696,24 @@ feed them. Each sample carries the dead-letter queue `stream` and the
 |---|---|---|---|
 | `klio.server.queue.dlq.captured` | Counter | `{entries}` | Number of tasks that failed their last delivery attempt and are moved to the dead-letter queue |
 
-### Migration from the previous metric names
-
-Klio is in alpha and previously emitted metrics under a flat
-namespace. The component-based taxonomy above replaces those names in
-a single hard rename — there is no dual emission. Update dashboards
-and alerts according to the following table:
-
-| Previous name | New name | Notes                                                                                                                                                                                                                                                                                                                                                                                                        |
-|---|---|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| `klio.backup.*` | `klio.plugin.backup.*` | Plugin sidecar metrics.                                                                                                                                                                                                                                                                                                                                                                                      |
-| `klio.backup.running` | `klio.plugin.backup.in_progress` | Renamed and switched from a 0/1 gauge to an UpDownCounter; reports the number of concurrent backups in progress.                                                                                                                                                                                                                                                                                             |
-| `klio.backup.latest_duration_seconds` | `klio.plugin.backup.latest_duration` | The `_seconds` suffix was dropped — the unit (`s`) is conveyed via the OpenTelemetry metric metadata, per [semantic conventions guidelines](https://opentelemetry.io/docs/specs/semconv/general/metrics/#units). The Prometheus export name is unchanged (`klio_plugin_backup_latest_duration_seconds`) because the Prometheus exporter appends the unit suffix when the OpenTelemetry name lacks it. |
-| `klio.backup.successes`, `klio.backup.failures` | `klio.plugin.backup.runs` | Collapsed into a single counter with an `outcome` attribute (`success` / `failure`).                                                                                                                                                                                                                                                                                                                         |
-| `klio.backup.verifications` | `klio.plugin.backup.runs` | Verification is part of a backup run; a clean verification is part of the `outcome="success"` count.                                                                                                                                                                                                                                                                                                          |
-| `klio.backup.verification_failures` | `klio.plugin.backup.runs{outcome="failure",failure_category="verification"}` | Verification corruption is recorded as a run failure with `failure_category="verification"`.                                                                                                                                                                                                                                                                                                                 |
-| `klio.wal.written_size` | `klio.server.wal.written_size` | Carries `tier="tier1"`.                                                                                                                                                                                                                                                                                                                                                                                      |
-| `klio.wal.written` | `klio.server.wal.written` | Carries `tier="tier1"`.                                                                                                                                                                                                                                                                                                                                                                                      |
-| `klio.wal.latest_written_time` | `klio.server.wal.latest_written_time` | Carries `tier="tier1"`.                                                                                                                                                                                                                                                                                                                                                                                      |
-| `klio.wal.latest_written_lsn` | `klio.server.wal.latest_written_lsn` | Carries `tier="tier1"`.                                                                                                                                                                                                                                                                                                                                                                                      |
-| `klio.wal.latest_written_timeline` | `klio.server.wal.latest_written_timeline` | Carries `tier="tier1"`.                                                                                                                                                                                                                                                                                                                                                                                      |
-| `klio.consumer.written_size` | `klio.server.wal.written_size` | Folded into the unified WAL series with `tier="tier2"`.                                                                                                                                                                                                                                                                                                                                                      |
-| `klio.consumer.written` | `klio.server.wal.written` | Folded into the unified WAL series with `tier="tier2"`.                                                                                                                                                                                                                                                                                                                                                      |
-| `klio.consumer.latest_written_time` | `klio.server.wal.latest_written_time` | Folded into the unified WAL series with `tier="tier2"`.                                                                                                                                                                                                                                                                                                                                                      |
-| `klio.consumer.latest_written_lsn` | `klio.server.wal.latest_written_lsn` | Folded into the unified WAL series with `tier="tier2"`.                                                                                                                                                                                                                                                                                                                                                      |
-| `klio.consumer.latest_written_timeline` | `klio.server.wal.latest_written_timeline` | Folded into the unified WAL series with `tier="tier2"`.                                                                                                                                                                                                                                                                                                                                                      |
-| `klio.consumer.backup_verification_success` | `klio.server.backup.verifications{outcome="success"}` | Moved under `server.backup` to pair with `plugin.backup`; collapsed into a single counter with an `outcome` attribute.                                                                                                                                                                                                                                                                                       |
-| `klio.consumer.backup_verification_failure` | `klio.server.backup.verifications{outcome="failure"}` | Same as above.                                                                                                                                                                                                                                                                                                                                                                                               |
-| `klio.base.uptime` | `klio.server.uptime` | Server-level metric, not tied to Kopia.                                                                                                                                                                                                                                                                                                                                                                      |
-| `klio.base.*` | `klio.server.backup.*` | Snapshot metrics, folded under `server.backup` alongside the verification counters.                                                                                                                                                                                                                                                                                                                          |
-| `klio.queue.*` | `klio.server.queue.*` | NATS JetStream metrics. Values are now reported per stream via a `stream` attribute instead of a single global aggregate.                                                                                                                                                                                                                                                                                    |
-
 ## Configuration
 
 Klio automatically detects OpenTelemetry configuration through standard
 environment variables. If no OpenTelemetry environment variables are present,
-Klio will use no-op providers that don't collect any telemetry data.
+Klio will use no-op providers that don't collect any telemetry data. As soon
+as one is set, Klio exports traces, metrics and logs via OTLP, unless the
+exporter variable of a signal selects something else.
 
 Traces, metrics and logs exporters can be configured independently through the
-[`autoexport`](https://go.opentelemetry.io/contrib/exporters/autoexport) package.
+[`autoexport`](https://go.opentelemetry.io/contrib/exporters/autoexport)
+package.
 
 ### General Settings
 
 The following environment variables are used to configure OpenTelemetry:
 
-- `OTEL_SERVICE_NAME`: (required) Name of the service, e.g., `klio-server`
+- `OTEL_SERVICE_NAME`: Name of the service, e.g., `klio-server`.
+  Recommended: without it the SDK reports `unknown_service:<executable>`
 - `OTEL_RESOURCE_ATTRIBUTES`: Comma-separated list of resource attributes
   (e.g., `deployment.environment=production,service.namespace=klio-system`)
 - `OTEL_RESOURCE_DETECTORS`: Comma-separated list of resource detectors
@@ -493,21 +722,44 @@ The following environment variables are used to configure OpenTelemetry:
 - `OTEL_SDK_DISABLED`: set to `true` to disable every signal, whatever the
   other variables say
 
-### Traces exporter
+### Kubernetes resource attributes
 
-To enable the traces exporter, set the `OTEL_TRACES_EXPORTER` environment
-variable to one of the supported exporters:
+When running in a Kubernetes environment, Klio will automatically define
+`CONTAINER_NAME`, `POD_NAME` and `NAMESPACE_NAME` environment variables.
+When any of these environment variables are set, Klio will automatically add
+the corresponding resource attributes (`k8s.container.name`, `k8s.pod.name`,
+`k8s.namespace.name`) to all of Klio's own telemetry (the server, the plugin
+sidecars, the operator, and the WAL streaming client). Each attribute is added
+independently - you don't need all three environment variables to be present.
 
-- `otlp`: OpenTelemetry Protocol (OTLP) exporter
-- `console`: Console exporter (useful for debugging)
-- `none`: No-op exporter (disables tracing)
+This applies to telemetry Klio emits itself, not to
+[Kopia repository spans](#kopia-repository-spans).
 
-You can define the OTLP protocol using the `OTEL_EXPORTER_OTLP_TRACES_PROTOCOL`
-variable, or the general `OTEL_EXPORTER_OTLP_PROTOCOL`. Supported protocols
-include:
+:::info
+If you have already defined any of these attributes in
+`OTEL_RESOURCE_ATTRIBUTES`, Klio will **not override** them. Only missing
+attributes will be added from the environment variables. This allows you to
+customize the values while still benefiting from automatic defaults for any
+attributes you don't explicitly set.
+:::
+
+### OTLP protocol
+
+Each signal sends OTLP over the protocol set by its
+`OTEL_EXPORTER_OTLP_<SIGNAL>_PROTOCOL` variable (`TRACES`, `METRICS` or
+`LOGS`), or by the general `OTEL_EXPORTER_OTLP_PROTOCOL`:
 
 - `http/protobuf` (default)
 - `grpc`
+
+### Traces exporter
+
+Select the traces exporter with the `OTEL_TRACES_EXPORTER` environment
+variable:
+
+- `otlp`: OpenTelemetry Protocol (OTLP) exporter, the default
+- `console`: Console exporter (useful for debugging)
+- `none`: No-op exporter (disables tracing)
 
 Additional configuration options for trace exporters can be found in the
 documentation of the respective exporters:
@@ -517,20 +769,13 @@ documentation of the respective exporters:
 
 ### Metrics Exporter
 
-To enable the metrics exporter, set the `OTEL_METRICS_EXPORTER` environment
-variable to one of the supported exporters:
+Select the metrics exporter with the `OTEL_METRICS_EXPORTER` environment
+variable:
 
-- `otlp`: OpenTelemetry Protocol (OTLP) exporter
+- `otlp`: OpenTelemetry Protocol (OTLP) exporter, the default
 - `prometheus`: Prometheus exporter + HTTP server
 - `console`: Console exporter (useful for debugging)
 - `none`: No-op exporter (disables metrics)
-
-You can define the OTLP protocol using the `OTEL_EXPORTER_OTLP_METRICS_PROTOCOL`
-variable, or the general `OTEL_EXPORTER_OTLP_PROTOCOL`. Supported protocols
-include:
-
-- `http/protobuf` (default)
-- `grpc`
 
 Additional configuration options for metrics exporters can be found in the
 documentation of the respective exporters:
@@ -544,6 +789,10 @@ server using the following environment variables:
 - `OTEL_EXPORTER_PROMETHEUS_HOST` (default: `localhost`)
 - `OTEL_EXPORTER_PROMETHEUS_PORT` (default: `9464`)
 
+The Prometheus exporter starts a local HTTP server that Prometheus scrapes
+directly, so Klio's own metrics need no collector. The controller-runtime
+metrics are not served there: they are always pushed over OTLP.
+
 ### Logs exporter
 
 Select the logs exporter with the `OTEL_LOGS_EXPORTER` environment
@@ -553,279 +802,13 @@ variable:
 - `console`: Console exporter (useful for debugging)
 - `none`: No-op exporter (disables the logs export)
 
-As for traces and metrics, the logs are exported via OTLP as soon as any
-OpenTelemetry variable is set: set `OTEL_LOGS_EXPORTER` to `none` to export
-only the other signals. The standard output keeps receiving every record.
-The exported records are those written at the configured log
-level, with the same resource as the traces and metrics of the process, and
-their structured fields become attributes with the keys they have on the
-standard output.
-
-You can define the OTLP protocol using the `OTEL_EXPORTER_OTLP_LOGS_PROTOCOL`
-variable, or the general `OTEL_EXPORTER_OTLP_PROTOCOL`. Supported protocols
-include:
-
-- `http/protobuf` (default)
-- `grpc`
+The standard output keeps receiving every record. The exported records
+are those written at the configured log level, with the same resource as
+the traces and metrics of the process, and their structured fields become
+attributes with the keys they have on the standard output.
 
 Additional configuration options for logs exporters can be found in the
 documentation of the respective exporters:
 
 - [OTLP Log gRPC Exporter](https://pkg.go.dev/go.opentelemetry.io/otel/exporters/otlp/otlplog/otlploggrpc)
 - [OTLP Log HTTP Exporter](https://pkg.go.dev/go.opentelemetry.io/otel/exporters/otlp/otlplog/otlploghttp)
-
-### Exporters and receivers
-
-The OTLP exporter pushes telemetry to any OTLP-compatible receiver. Common
-options include:
-
-- An [OpenTelemetry Collector](https://opentelemetry.io/docs/collector/),
-  which can receive OTLP data and fan it out to multiple backends
-  (Prometheus, Jaeger, Grafana, etc.). In Kubernetes, the
-  [OpenTelemetry Operator](https://opentelemetry.io/docs/platforms/kubernetes/operator/)
-  manages collectors via the `OpenTelemetryCollector` CRD and can expose
-  a stable in-cluster OTLP endpoint for Klio to target.
-- Any backend with native OTLP support.
-
-The Prometheus exporter starts a local HTTP server that Prometheus scrapes
-directly, with no intermediate collector required.
-
-## Configuring Klio with OpenTelemetry in Kubernetes
-
-When running in a Kubernetes environment, Klio will automatically define
-`CONTAINER_NAME`, `POD_NAME` and `NAMESPACE_NAME` environment variables.
-When any of these environment variables are set, Klio will automatically add
-the corresponding resource attributes (`k8s.container.name`, `k8s.pod.name`,
-`k8s.namespace.name`) to all of Klio's own telemetry (the server, the plugin
-sidecars, the operator, and the WAL streaming client). Each attribute is added
-independently - you don't need all three environment variables to be present.
-
-This applies to telemetry Klio emits itself. The Kopia subprocess exports its
-own traces through a separate exporter that ignores these variables; see
-[Kopia repository spans](#kopia-repository-spans) for how resource attributes
-are populated on those spans.
-
-:::info
-If you have already defined any of these attributes in
-`OTEL_RESOURCE_ATTRIBUTES`, Klio will **not override** them. Only missing
-attributes will be added from the environment variables. This allows you to
-customize the values while still benefiting from automatic defaults for any
-attributes you don't explicitly set.
-:::
-
-### Klio server with OpenTelemetry
-
-When deploying a Klio `Server`, you can configure OpenTelemetry by specifying
-the necessary settings in the `template` section of the `Server` spec:
-
-1. Set the required environment variables for OpenTelemetry configuration in
-   the `server` container.
-1. Mount any necessary TLS certificates for secure communication with the
-   OpenTelemetry Collector.
-
-For simpler management, use a `ConfigMap` to store the OpenTelemetry configuration:
-
-```yaml
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: klio-otel-config
-data:
-  OTEL_SERVICE_NAME: "klio-server"
-  OTEL_RESOURCE_DETECTORS: "telemetry.sdk,host,os.type,process.executable.name"
-  OTEL_TRACES_EXPORTER: "otlp"
-  OTEL_EXPORTER_OTLP_TRACES_PROTOCOL: "grpc"
-  OTEL_EXPORTER_OTLP_TRACES_ENDPOINT: "https://otel-collector:4317"
-  OTEL_EXPORTER_OTLP_TRACES_COMPRESSION: "gzip"
-  OTEL_EXPORTER_OTLP_TRACES_TIMEOUT: "10000"
-  OTEL_EXPORTER_OTLP_TRACES_INSECURE: "false"
-  OTEL_EXPORTER_OTLP_TRACES_CERTIFICATE: "/otel/ca.crt"
-  OTEL_EXPORTER_OTLP_TRACES_CLIENT_CERTIFICATE: "/otel/tls.crt"
-  OTEL_EXPORTER_OTLP_TRACES_CLIENT_KEY: "/otel/tls.key"
-  OTEL_METRICS_EXPORTER: "otlp"
-  OTEL_METRIC_EXPORT_INTERVAL: "60000"
-  OTEL_EXPORTER_OTLP_METRICS_PROTOCOL: "grpc"
-  OTEL_EXPORTER_OTLP_METRICS_ENDPOINT: "https://otel-collector:4317"
-  OTEL_EXPORTER_OTLP_METRICS_TIMEOUT: "60000"
-  OTEL_EXPORTER_OTLP_METRICS_INSECURE: "false"
-  OTEL_EXPORTER_OTLP_METRICS_CERTIFICATE: "/otel/ca.crt"
-  OTEL_EXPORTER_OTLP_METRICS_CLIENT_CERTIFICATE: "/otel/tls.crt"
-  OTEL_EXPORTER_OTLP_METRICS_CLIENT_KEY: "/otel/tls.key"
----
-apiVersion: klio.cnpg.io/v1alpha1
-kind: Server
-metadata:
-  name: my-klio-server
-spec:
-  # ... other configuration ...
-  template:
-    spec:
-      containers:
-        - name: server
-          envFrom:
-            - configMapRef:
-                name: klio-otel-config
-          volumeMounts:
-            - mountPath: /otel
-              name: otel
-      volumes:
-        - name: otel
-          projected:
-            sources:
-              - secret:
-                  name: otel-collector-tls
-                  items:
-                    - key: ca.crt
-                      path: ca.crt
-              - secret:
-                  name: otel-client-cert
-                  items:
-                    - key: tls.crt
-                      path: tls.crt
-                    - key: tls.key
-                      path: tls.key
-```
-
-The server exports its logs too, by default, but this example only
-configures the traces and metrics endpoints, so the logs would go to the
-default OTLP endpoint. Add the matching `OTEL_EXPORTER_OTLP_LOGS_*`
-variables, replace the per-signal variables with the generic ones shown in
-the plugin example below, or set `OTEL_LOGS_EXPORTER: "none"`.
-
-### Klio plugins with OpenTelemetry
-
-When deploying Klio as a CNPG Cluster plugin, configure OpenTelemetry by
-specifying the necessary environment variables in the `containers` section of
-the `PluginConfiguration` spec. The only container that can be customized
-is `klio-plugin`: the plugin sidecar for backup, WAL and restore
-operations.
-
-Create a `ConfigMap` for the shared OpenTelemetry configuration. The generic
-`OTEL_EXPORTER_OTLP_*` variables apply to every signal, so this single
-configuration sends traces, metrics and logs to the same collector:
-
-```yaml
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: cluster-klio-otel-config
-data:
-  OTEL_RESOURCE_DETECTORS: "telemetry.sdk,host,os.type,process.executable.name"
-  OTEL_TRACES_EXPORTER: "otlp"
-  OTEL_METRICS_EXPORTER: "otlp"
-  OTEL_LOGS_EXPORTER: "otlp"
-  OTEL_EXPORTER_OTLP_PROTOCOL: "grpc"
-  OTEL_EXPORTER_OTLP_ENDPOINT: "https://otel-collector:4317"
-  OTEL_EXPORTER_OTLP_COMPRESSION: "gzip"
-  OTEL_EXPORTER_OTLP_TIMEOUT: "10000"
-  OTEL_EXPORTER_OTLP_INSECURE: "false"
-  OTEL_EXPORTER_OTLP_CERTIFICATE: "/projected/ca.crt"
-  OTEL_EXPORTER_OTLP_CLIENT_CERTIFICATE: "/projected/tls.crt"
-  OTEL_EXPORTER_OTLP_CLIENT_KEY: "/projected/tls.key"
-```
-
-Configure the `PluginConfiguration` to inject the environment variables into
-each sidecar container:
-
-```yaml
-apiVersion: klio.cnpg.io/v1alpha1
-kind: PluginConfiguration
-metadata:
-  name: client-config-cluster-example
-spec:
-  serverAddress: klio.default
-  tls:
-    clientIdentity:
-      volume:
-        secret:
-          secretName: cluster-example-klio-user
-      certPath: tls.crt
-      keyPath: tls.key
-    serverCa:
-      volume:
-        secret:
-          secretName: klio-server-tls
-          items:
-          - key: ca.crt
-            path: ca.crt
-      path: ca.crt
-  clusterName: cluster-example
-  containers:
-    - name: klio-plugin
-      env:
-        - name: OTEL_SERVICE_NAME
-          value: "klio-plugin"
-      envFrom:
-        - configMapRef:
-            name: cluster-klio-otel-config
-```
-
-Mount the OpenTelemetry certificates using the Cluster's `projectedVolumeTemplate`.
-The projected volume is mounted at `/projected/` and is accessible to all
-sidecar containers:
-
-```yaml
-apiVersion: postgresql.cnpg.io/v1
-kind: Cluster
-metadata:
-  name: cluster-example
-spec:
-  instances: 3
-
-  projectedVolumeTemplate:
-    sources:
-      - secret:
-          name: otel-collector-tls
-          items:
-            - key: ca.crt
-              path: ca.crt
-      - secret:
-          name: otel-client-cert
-          items:
-            - key: tls.crt
-              path: tls.crt
-            - key: tls.key
-              path: tls.key
-
-  plugins:
-    - name: klio.cnpg.io
-      enabled: true
-      parameters:
-        pluginConfigurationRef: client-config-cluster-example
-
-  storage:
-    size: 10Gi
-```
-
-### Klio operator with OpenTelemetry
-
-The operator bridges the controller-runtime Prometheus metrics
-registry to OTLP and adds Go runtime and host instrumentation.
-When no `OTEL_*` environment variables are present, a no-op
-meter provider is installed and the operator runs without
-telemetry overhead.
-
-The existing Prometheus `/metrics` endpoint remains available
-for pull-based scraping regardless of whether OTLP export is
-enabled.
-
-To enable OTLP export, set `OTEL_*` variables through the Helm
-chart's `controllerManager.manager.env` value:
-
-```yaml
-controllerManager:
-  manager:
-    env:
-      OTEL_SERVICE_NAME: "klio-operator"
-      OTEL_EXPORTER_OTLP_ENDPOINT: "http://otel-collector:4318"
-      OTEL_EXPORTER_OTLP_PROTOCOL: "http/protobuf"  # or "grpc"
-```
-
-The operator writes its logs on the standard output in JSON, at the level
-set by the `--log-level` argument (`info` by default), and exports them
-with the metrics, unless `OTEL_LOGS_EXPORTER` is `none`.
-
-The Helm chart automatically injects `POD_NAME`,
-`NAMESPACE_NAME`, and `CONTAINER_NAME` via the Kubernetes
-downward API, so the corresponding `k8s.*` resource attributes
-are populated without additional configuration.

@@ -35,7 +35,7 @@ tasks:
 
 - Receiving a continuous stream of WAL files directly from the PostgreSQL
   primary.
-- Storing base backups created from the primary.
+- Storing base backups taken from the primary or a standby.
 - Serving as the source for asynchronously replicating data to Tier 2.
 - Managing retention policies for all tiers.
 
@@ -68,12 +68,14 @@ PostgreSQL cluster(s).
 
 This can be a **dedicated 1:1 mapping** (one Klio Server per cluster):
 
-![Cluster and Klio server in the same namespace](../images/tier1-namespace-single.png)
+![Cluster and Klio server in the same
+namespace](../images/tier1-namespace-single.png)
 
 Or a **shared N:1 mapping** where one server manages all clusters in the
 namespace.
 
-![Multiple clusters share a Klio server in the same namespace](../images/tier1-namespace-multi.png)
+![Multiple clusters share a Klio server in the same
+namespace](../images/tier1-namespace-multi.png)
 
 #### Clusters and Klio Server in Different Namespaces
 
@@ -83,12 +85,14 @@ deployed in a namespace separate from the PostgreSQL clusters it protects.
 The following diagram shows a PostgreSQL cluster being backed up by a Klio
 Server in another namespace:
 
-![Cluster and Klio server in a different namespace](../images/tier1-shared-single.png)
+![Cluster and Klio server in a different
+namespace](../images/tier1-shared-single.png)
 
 This model also allows a central Klio Server to manage clusters that reside in
 different namespaces, as shown below:
 
-![Multiple clusters share a Klio server in the same namespace](../images/tier1-shared-multi.png)
+![Multiple clusters in different namespaces share a Klio
+server](../images/tier1-shared-multi.png)
 
 ### Reserving Nodes for Klio Workloads
 
@@ -126,6 +130,7 @@ worker nodes for Klio pods using Kubernetes taints and tolerations.
 (DR) strategies. It's physically and logically separate from the primary
 Kubernetes cluster and typically consists of an external object storage system,
 such as Amazon S3, Google Cloud Storage, or Azure Blob Storage.
+Klio supports Amazon S3 and S3-compatible storage providers.
 Storing backups off-site ensures **geographical redundancy**, protecting data
 against a full cluster or site failure.
 
@@ -141,18 +146,21 @@ capabilities.
 
 ### Protecting backups pending migration to Tier 2
 
-When Tier 2 is enabled, Klio's retention sweep never deletes a Tier 1 backup
-until it confirms that backup already exists on Tier 2.
+When a cluster's `PluginConfiguration` sets `tier2.retention`, Klio's
+retention sweep never deletes a Tier 1 backup of that cluster until it
+confirms that backup already exists on Tier 2.
 The sweep checks Tier 2's current
 backup list at evaluation time before deleting anything from Tier 1, so a
-backup that is still being migrated is always left alone regardless of what
+backup that is still being migrated is left alone regardless of what
 the retention policy would otherwise decide.
 A backup counts as present on Tier 2 only once all of its snapshots are
 there.
 
-This ensures data integrity during the asynchronous migration process and
-guarantees that no backup is lost due to retention policies running before
-migration completes.
+:::warning
+Without a `tier2.retention` block, Tier 1 retention does not check Tier 2:
+a backup out of Tier 1 retention is deleted even if its migration has not
+completed. Set `tier2.retention` on every cluster that backs up to Tier 2.
+:::
 
 ### Protecting WAL files pending relay to Tier 2
 
@@ -189,23 +197,5 @@ Read-only servers are particularly useful for CloudNativePG
 secondary regions or datacenters. Multiple read-only servers can restore from
 a single S3 bucket populated by one primary server.
 
-In read-only mode, all read and restore operations from Tier 2 function
-normally, while write operations (backup creation, WAL streaming, retention
-policies) are rejected.
-
-See the [Configuring Read-Only Mode](../klio_server.md#read-only-mode)
-section for configuration examples.
-
----
-
-## Planning Your Backup Strategy
-
-When planning your backup strategy with Klio, **Tier 1 is the most critical
-layer** to define architecturally. You have several options, ranging from
-running Klio servers on any worker node using your cluster's primary storage
-solution, to dedicating a single worker node with local storage for a
-centralized Klio server.
-
-**Tier 2** is often determined by your organization's infrastructure teams, who
-have likely already selected one or more standard object storage solutions for
-long-term archival.
+See [Read-Only Mode](../klio_server.md#read-only-mode) for configuration
+and restrictions.

@@ -1,5 +1,5 @@
 ---
-title: Klio Operator Helm Chart
+title: Helm Chart
 sidebar_position: 90
 ---
 
@@ -40,7 +40,8 @@ The token issuer is `https://token.actions.githubusercontent.com`, and the
 signing identity corresponds to a GitHub workflow executed under the
 [Klio](https://github.com/cloudnative-pg/klio/) repository.
 This workflow uses the
-[cosign-installer action](https://github.com/marketplace/actions/cosign-installer)
+[cosign-installer
+action](https://github.com/marketplace/actions/cosign-installer)
 to streamline the signing process.
 
 To verify the authenticity of the chart, use the following `cosign`
@@ -101,7 +102,8 @@ order:
 
 1. [Upgrade the CRDs](#upgrade-the-crds) — apply updated CRD manifests
 2. [Upgrade the Operator](#upgrade-the-operator) — run `helm upgrade`
-3. [Upgrade the Klio Server and client](#upgrade-the-klio-server-and-client) — upgrade operand images
+3. [Upgrade the Klio Server and client](#upgrade-the-klio-server-and-client) —
+   upgrade operand images
 
 ### Upgrade the CRDs
 
@@ -147,7 +149,7 @@ kubectl apply --server-side --force-conflicts -f \
 
 To upgrade the Klio Operator to a newer version, run the following
 Helm upgrade command, reusing the `values.yaml` file you created when
-[installing the operator](quickstart.mdx#step-1-install-the-klio-operator):
+[installing the operator](quickstart.mdx#install-the-operator):
 
 <!-- x-release-please-start-version -->
 ```sh
@@ -169,11 +171,6 @@ After upgrading the operator and the CRDs, Klio images in `Server`
 resources and the ones used as sidecars in `Cluster` resources should
 be upgraded as well. We recommend using the same version for the
 operator and the operand.
-
-:::info Future improvement
-We plan to reduce the amount of manual work required during upgrades in
-future versions of the operator.
-:::
 
 #### Upgrade Klio servers
 
@@ -223,7 +220,8 @@ When the operator upgrade changes the sidecar image, CloudNativePG rolls out
 the instance Pods automatically.
 
 Refer to the
-[CloudNativePG documentation](https://cloudnative-pg.io/documentation/current/rolling_update/)
+[CloudNativePG
+documentation](https://cloudnative-pg.io/documentation/current/rolling_update/)
 for guidance on performing rolling updates.
 
 Verify that the sidecar containers are running the latest version:

@@ -15,21 +15,23 @@ PostgreSQL databases managed by [CloudNativePG](https://cloudnative-pg.io) on
 Kubernetes. It is designed to handle:
 
 - The **Write-Ahead Log (WAL) archive** for a given PostgreSQL `Cluster`
-  resource, within the same Kubernetes namespace as the Klio deployment
+  resource
 - The **catalog of physical base backups** for that same cluster
 - Optionally, multiple PostgreSQL clusters
 
 These critical backup artifacts are stored across two distinct storage tiers:
 
-- Tier 1 – **Local Volume**: A local Persistent Volume (PV) within the
-  same namespace as the associated `Cluster` resource. It offers immediate,
-  high-throughput access for backup and recovery operations. Also referred to as
-  the **Main Tier** or **Klio Server**.
+- Tier 1 – **Local Volume**: A local Persistent Volume (PV) owned by the
+  Klio server. It offers immediate, high-throughput access for backup and
+  recovery operations. Also referred to as the **Main Tier** or
+  **Klio Server**.
 
 - Tier 2 – **Secondary Storage**: An external object storage system where data
   from Tier 1 is asynchronously replicated. This tier typically resides outside
-  the Kubernetes cluster, enabling geographical redundancy and enhancing disaster
-  recovery (DR) resilience.
+  the Kubernetes cluster, enabling geographical redundancy and enhancing
+  disaster recovery (DR) resilience.
+
+See [Architectures & Tiers](concepts/architectures.md) for the details.
 
 ![Multi-tiered architecture overview](images/overview-multi-tiers.png)
 
@@ -52,8 +54,8 @@ These critical backup artifacts are stored across two distinct storage tiers:
 
 :::note
 Klio's WAL management utilizes the `READ_REPLICATION_SLOT` streaming
-replication command, which was introduced in PostgreSQL 15.
-Therefore, Klio requires PostgreSQL version 15 or greater to function properly.
+replication command, available from PostgreSQL 15.
+Therefore, Klio requires PostgreSQL version 15 or greater.
 :::
 
 ### Base Backup Catalog

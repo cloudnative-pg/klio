@@ -7,9 +7,7 @@ sidebar_position: 80
 
 The WAL Player is a command-line tool designed to benchmark the performance of
 your Klio servers by simulating PostgreSQL Write-Ahead Log (WAL) file streaming
-workloads. It is an essential tool for ensuring your Klio servers can handle
-your production workloads efficiently. Use it regularly to validate performance
-and capacity planning decisions.
+workloads.
 
 ## Overview
 
@@ -17,13 +15,6 @@ WAL Player provides two main commands:
 
 - **`generate`** - Creates synthetic WAL files for testing
 - **`play`** - Sends WAL files to a Klio server and measures performance
-
-This tool is essential for:
-
-- Performance testing and benchmarking Klio servers
-- Validating server capacity under different workloads
-- Measuring throughput and latency characteristics
-- Load testing before production deployment
 
 ## Prerequisites
 
@@ -90,11 +81,7 @@ klio wal-player play [directory] [flags]
 #### Configuration
 
 The play command requires client configuration to connect to your Klio server.
-This can be provided via:
-
-- Configuration file
-- Environment variables
-- Command-line flags
+Provide it through a configuration file (`--config`) or environment variables.
 
 Example configuration:
 
@@ -132,7 +119,7 @@ WAL file:
   "walFullPath": "/path/to/000000010000000000000001",
   "startTime": "2025-01-15T10:30:00Z",
   "endTime": "2025-01-15T10:30:02Z",
-  "elapsedTime": "7651680",
+  "elapsedTime": 2000000000,
   "error": ""
 }
 ```
@@ -261,7 +248,10 @@ spec:
             name: walplayer-config
         - name: server-cert
           secret:
-            secretName: klio-server-tls
+            secretName: klio-server-ca
+            items:
+              - key: ca.crt
+                path: ca.crt
         - name: client-cert
           secret:
             secretName: walplayer-client-cert
@@ -270,7 +260,7 @@ spec:
 
 ### Customizing the Benchmark
 
-You can adjust the following parameters to simulate different workload scenarios:
+Adjust the following parameters to simulate different workloads:
 
 #### WAL Generation Parameters
 
@@ -283,7 +273,7 @@ Modify the `generate-wals` init container to create different test workloads:
   - --length=1000
   ```
 
-- Less large files:
+- Fewer, larger files:
 
   ```yaml
   - --wal-size=256
@@ -322,7 +312,7 @@ kubectl logs job/walplayer-benchmark -c play-wals > results.json
 jq -s '[.[] | select(.error == "")] | length' results.json
 
 # Calculate average upload time (in nanoseconds)
-jq -s '[.[] | select(.error == "") | .elapsedTime | tonumber] | add / length' results.json
+jq -s '[.[] | select(.error == "") | .elapsedTime] | add / length' results.json
 
 # Find any failed uploads
 jq -s '.[] | select(has("error") and .error != "")' results.json

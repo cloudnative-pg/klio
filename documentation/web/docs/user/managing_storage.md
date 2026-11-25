@@ -27,9 +27,9 @@ This design prevents accidental data loss from concurrent operations.
 However, it means that space is not freed until maintenance runs and the
 24-hour safety window has passed.
 
-Maintenance runs automatically in the background. Klio does not currently
-provide a way to trigger it on demand, but it can be started manually
-by opening a shell on the Klio server pod and running:
+Maintenance runs automatically in the background. Klio has no command to
+trigger it on demand; start it manually by
+opening a shell on the Klio server pod and running:
 
 ```bash
 kopia maintenance set --owner=me \
@@ -150,17 +150,6 @@ original size, creating a permanent mismatch between the Server spec
 and actual storage.
 :::
 
-#### StatefulSet and PVC Alignment
-
-After the full resize operation completes:
-
-- The **PVC** has the new expanded size
-- The **StatefulSet VolumeClaimTemplates** match the new size (after
-  recreation)
-- The **Server spec** is consistent with both
-
-This ensures no drift between the desired state and actual resources.
-
 #### Monitoring Resize Progress
 
 The operator emits a `PVCExpanded` Kubernetes event on the Server
@@ -204,9 +193,6 @@ typo.
   Attempting to decrease `spec.storage.pvcTemplate.resources.requests.storage`
   is rejected by the API server at admission time, with the error
   `storage PVC size cannot be decreased`.
-- **StorageClass support**: The StorageClass must have
-  `allowVolumeExpansion: true`. If the StorageClass does not support
-  expansion, the resize will fail and an error will be logged.
 - **Pod restart required**: Due to StatefulSet VolumeClaimTemplates
   being immutable, PVC expansion causes a brief pod restart.
 - **Filesystem resize**: After the volume is expanded, the filesystem
@@ -251,10 +237,9 @@ and running maintenance manually.
    To delete from both tiers, add `--tier2`.
 
    :::note
-   The actual space freed depends on how much data is shared with
-   other backups through deduplication. Deleting a backup only
-   reclaims space for data blocks that are not referenced by any
-   remaining backup.
+   Deleting a backup only reclaims data not shared with a remaining
+   backup: see
+   [Deduplication](concepts/kopia_deduplication.md).
    :::
 
    :::warning
@@ -263,18 +248,8 @@ and running maintenance manually.
    deletion.
    :::
 
-1. **Run maintenance** to reclaim space from deleted backups by opening
-   a shell on the Klio server pod and running:
-
-   ```bash
-   kopia maintenance set --owner=me \
-     --config-file=$(echo /tmp/kopiaconfig_tier1_*[0-9]) \
-     --disable-file-logging
-   kopia maintenance run \
-     --config-file=$(echo /tmp/kopiaconfig_tier1_*[0-9]) \
-     --full \
-     --disable-file-logging
-   ```
+1. **Run maintenance** to reclaim space from deleted backups, with the
+   commands in [How Disk Space Is Freed](#how-disk-space-is-freed).
 
 ## Best Practices
 

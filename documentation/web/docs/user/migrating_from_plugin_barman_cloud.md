@@ -93,8 +93,8 @@ for restoring from Klio.
 
 ## After the migration
 
-Restoring to a point covered only by the Plugin Barman Cloud archive still
-needs the plugin installed, with its `ObjectStore` and credentials in place.
-Keep them until its retention window expires. The plugin no longer applies
-its retention policy, so clean up the old backups in the object store
-yourself.
+Restoring to a point covered only by the Plugin Barman Cloud archive still needs
+the plugin installed, with its `ObjectStore` and credentials in place. Keep them
+until its retention window expires. Once removed from the cluster, the plugin
+does not apply its retention policy, so clean up the old backups in the object
+store yourself.
