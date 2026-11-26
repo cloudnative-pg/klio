@@ -1342,12 +1342,17 @@ tasks:
       # renovate: datasource=git-refs depName=protoc-gen-doc lookupName=https://github.com/cloudnative-pg/daggerverse currentValue=main
       DAGGER_PROTOC_GEN_DOC_SHA: 4c902812565daea20165e8349ad08b935794e680
     cmds:
-      - >
-        GITHUB_REF= dagger -s call -m github.com/cloudnative-pg/daggerverse/protoc-gen-doc@${DAGGER_PROTOC_GEN_DOC_SHA}
-        generate --proto-dir core/proto --doc-opt "/protos/protocol.md.tmpl,_protocol.md" -o documentation/web/docs/developer/
+      # The doc generator only reads one directory and the template has to
+      # live alongside the .proto files, so we stage both in a temporary directory.
+      - |
+        STAGING=$(mktemp -d)
+        trap 'rm -rf "$STAGING"' EXIT
+        cp core/proto/*.proto documentation/protoc-gen-doc/protocol.md.tmpl "$STAGING"
+        GITHUB_REF= dagger -s call -m github.com/cloudnative-pg/daggerverse/protoc-gen-doc@${DAGGER_PROTOC_GEN_DOC_SHA} \
+          generate --proto-dir "$STAGING" --doc-opt "/protos/protocol.md.tmpl,_protocol.md" -o documentation/web/docs/developer/
     sources:
       - core/proto/**/*.proto
-      - core/proto/protocol.md.tmpl
+      - documentation/protoc-gen-doc/protocol.md.tmpl
 
   documentation:apidoc:
     desc: Generate the server API documentation
