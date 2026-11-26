@@ -79,8 +79,14 @@ type SnapshotMigrateOpts struct {
 	// Sources is a list of source paths to migrate snapshots from.
 	Sources []string
 
-	// Tags is a list of tag names to filter which snapshots to migrate.
+	// Tags is a list of tag names whose values are copied onto the migrated
+	// snapshots.
 	Tags []string
+
+	// MatchTags restricts the migration to the snapshots carrying all of
+	// these tags, each as name:value. Empty migrates every snapshot of
+	// Sources.
+	MatchTags []string
 }
 
 // MigrateSnapshots migrates snapshots from a source configuration.
@@ -90,23 +96,7 @@ func (s *Client) MigrateSnapshots(
 ) error {
 	contextLogger := log.FromContext(ctx)
 
-	args := make([]string, 0, 6+len(opts.Sources)+len(opts.Tags))
-	args = append(args,
-		"snapshot", "migrate",
-		"--progress",
-		"--progress-update-interval=60s",
-		"--source-config="+opts.SourceConfig,
-		"--config-file="+s.ConfigFile,
-		"--disable-file-logging",
-	)
-
-	for _, source := range opts.Sources {
-		args = append(args, "--sources="+source)
-	}
-
-	for _, tagName := range opts.Tags {
-		args = append(args, "--tags="+userTagPrefix+tagName)
-	}
+	args := buildMigrateArgs(s.ConfigFile, opts)
 
 	kopiaMigrate := exec.CommandContext(ctx, s.KopiaBinary, args...) //nolint:gosec
 	kopiaMigrate.Env = s.kopiaEnvironmentVariables()
@@ -118,6 +108,34 @@ func (s *Client) MigrateSnapshots(
 	}
 
 	return nil
+}
+
+// buildMigrateArgs builds the "kopia snapshot migrate" arguments.
+func buildMigrateArgs(configFile string, opts SnapshotMigrateOpts) []string {
+	args := make([]string, 0, 7+len(opts.Sources)+len(opts.Tags)+len(opts.MatchTags))
+	args = append(args,
+		"snapshot", "migrate",
+		"--progress",
+		"--progress-update-interval=60s",
+		"--source-config="+opts.SourceConfig,
+		"--config-file="+configFile,
+		"--disable-file-logging",
+	)
+
+	for _, source := range opts.Sources {
+		args = append(args, "--sources="+source)
+	}
+
+	for _, tagName := range opts.Tags {
+		args = append(args, "--tags="+userTagPrefix+tagName)
+	}
+
+	// Unlike --tags, Kopia adds the user tag prefix to --match-tags itself.
+	for _, tag := range opts.MatchTags {
+		args = append(args, "--match-tags="+tag)
+	}
+
+	return args
 }
 
 // SnapshotDirectoryOptions contains options for creating a directory snapshot.

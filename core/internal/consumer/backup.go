@@ -25,6 +25,7 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
+	"slices"
 
 	"github.com/cloudnative-pg/machinery/pkg/log"
 	"github.com/cloudnative-pg/machinery/pkg/stringset"
@@ -34,6 +35,9 @@ import (
 	"github.com/cloudnative-pg/klio/core/internal/kopia"
 	"github.com/cloudnative-pg/klio/core/internal/opentelemetry"
 	"github.com/cloudnative-pg/klio/core/internal/queue"
+	"github.com/cloudnative-pg/klio/core/internal/repository"
+	"github.com/cloudnative-pg/klio/core/internal/retention"
+	"github.com/cloudnative-pg/klio/core/internal/server/walserver"
 )
 
 // errTier2NotConfigured is returned when a backup requests a tier2 relay but
@@ -72,6 +76,11 @@ type BackupOptions struct {
 
 	// A config file to connect to tier 2
 	Tier2KopiaConfig string
+
+	// Tier1WALRepository is where the retention policy is stored (see
+	// walserver.GetClusterRetentionPolicy): the relay only copies the
+	// backups that tier 2 retention keeps. Only needed with tier 2.
+	Tier1WALRepository *repository.Connection
 
 	// Tier2ServerAddress is the address of the tier 2 Kopia server.
 	Tier2ServerAddress string
@@ -160,7 +169,8 @@ func (d *Backup) processBackup(ctx context.Context, task *queue.BackupTask) erro
 
 	// Verify tier1 backups (catches any issues since sidecar verification).
 	// We verify all backups for the cluster rather than a specific one because
-	// MigrateSnapshots works at the source level (cluster), not individual backups.
+	// the relay copies every backup of the cluster that tier2 is missing, not
+	// only the one that triggered the task (see backupsToRelay).
 	// The BackupTask doesn't include the backup name for this reason.
 	if err := d.steps.verifyTier1(ctx, task.ClusterName); err != nil {
 		return err
@@ -221,7 +231,8 @@ func (d *Backup) refreshTier2(ctx context.Context) error {
 	})
 }
 
-// relayTier2 migrates the cluster's backups to tier2 and verifies them there.
+// relayTier2 migrates the cluster's backups that tier2 is missing and
+// verifies them on tier2.
 func (d *Backup) relayTier2(ctx context.Context, task *queue.BackupTask, entries []kopia.Manifest) error {
 	sources := manifestListToDescriptors(entries)
 
@@ -243,20 +254,82 @@ func (d *Backup) relayTier2(ctx context.Context, task *queue.BackupTask, entries
 		}
 	}
 
-	if err := d.tier2Kopia.MigrateSnapshots(ctx, kopia.SnapshotMigrateOpts{
-		SourceConfig: d.opts.Tier1KopiaConfig,
-		Sources:      sources,
-		Tags: []string{
-			klioclient.TablespaceNameTagName,
-			klioclient.BackupContentTagName,
-			klioclient.BackupNameTagName,
-		},
-	}); err != nil {
+	names, err := d.backupsToRelay(ctx, task.ClusterName)
+	if err != nil {
 		return err
+	}
+
+	log.FromContext(ctx).Info("Relaying backups to tier2", "cluster", task.ClusterName, "backups", names)
+
+	// One migration per backup: Kopia migrates whole sources, and a backup
+	// is the snapshots of the cluster's sources carrying its name.
+	for i, name := range names {
+		// A migration can take hours. A backup completed meanwhile can move
+		// tier2 retention past a backup selected above: select again, and
+		// skip the backup rather than copy what the tier2 sweep would
+		// delete on arrival. The tier1 sweep deletes it without waiting.
+		if i > 0 {
+			current, err := d.backupsToRelay(ctx, task.ClusterName)
+			if err != nil {
+				return err
+			}
+
+			if !slices.Contains(current, name) {
+				log.FromContext(ctx).Info("Skipping a backup that tier2 retention no longer keeps",
+					"cluster", task.ClusterName, "backup", name)
+
+				continue
+			}
+		}
+
+		if err := d.tier2Kopia.MigrateSnapshots(ctx, kopia.SnapshotMigrateOpts{
+			SourceConfig: d.opts.Tier1KopiaConfig,
+			Sources:      sources,
+			Tags: []string{
+				klioclient.TablespaceNameTagName,
+				klioclient.BackupContentTagName,
+				klioclient.BackupNameTagName,
+			},
+			MatchTags: []string{klioclient.BackupNameTagName + ":" + name},
+		}); err != nil {
+			return err
+		}
 	}
 
 	// Verify tier2 backups after migration
 	return d.verifyTier2Backups(ctx, task.ClusterName)
+}
+
+// backupsToRelay returns the names of the backups of the cluster to copy to
+// tier2: the ones that are complete on tier1, missing from tier2 and kept
+// by tier2 retention, and the ones that tier2 holds only in part.
+func (d *Backup) backupsToRelay(ctx context.Context, clusterName string) ([]string, error) {
+	retentionPolicy, err := walserver.GetClusterRetentionPolicy(ctx, d.opts.Tier1WALRepository, clusterName)
+	if err != nil {
+		return nil, fmt.Errorf("while reading retention policy: %w", err)
+	}
+
+	tier1, err := d.tier1Client.ListBackups(ctx, clusterName)
+	if err != nil {
+		return nil, fmt.Errorf("while listing tier1 backups: %w", err)
+	}
+
+	tier2, err := d.tier2Client.ListBackups(ctx, clusterName)
+	if err != nil {
+		return nil, fmt.Errorf("while listing tier2 backups: %w", err)
+	}
+
+	incomplete, err := d.tier2Client.ListIncompleteBackups(ctx, clusterName)
+	if err != nil {
+		return nil, fmt.Errorf("while listing tier2 incomplete backups: %w", err)
+	}
+
+	partial := make([]string, 0, len(incomplete))
+	for _, b := range incomplete {
+		partial = append(partial, b.BackupName)
+	}
+
+	return retention.BackupsToRelay(retentionPolicy.GetTier2Policy(), tier1, tier2, partial)
 }
 
 func (d *Backup) listManifests(ctx context.Context, cluster string) ([]kopia.Manifest, error) {
