@@ -25,6 +25,7 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
+	"slices"
 
 	"github.com/cloudnative-pg/machinery/pkg/log"
 	"github.com/cloudnative-pg/machinery/pkg/stringset"
@@ -262,7 +263,25 @@ func (d *Backup) relayTier2(ctx context.Context, task *queue.BackupTask, entries
 
 	// One migration per backup: Kopia migrates whole sources, and a backup
 	// is the snapshots of the cluster's sources carrying its name.
-	for _, name := range names {
+	for i, name := range names {
+		// A migration can take hours. A backup completed meanwhile can move
+		// tier2 retention past a backup selected above: select again, and
+		// skip the backup rather than copy what the tier2 sweep would
+		// delete on arrival. The tier1 sweep deletes it without waiting.
+		if i > 0 {
+			current, err := d.backupsToRelay(ctx, task.ClusterName)
+			if err != nil {
+				return err
+			}
+
+			if !slices.Contains(current, name) {
+				log.FromContext(ctx).Info("Skipping a backup that tier2 retention no longer keeps",
+					"cluster", task.ClusterName, "backup", name)
+
+				continue
+			}
+		}
+
 		if err := d.tier2Kopia.MigrateSnapshots(ctx, kopia.SnapshotMigrateOpts{
 			SourceConfig: d.opts.Tier1KopiaConfig,
 			Sources:      sources,
