@@ -15,7 +15,7 @@ ARG KOPIA_SHA
 WORKDIR /workspace
 
 # Fetch Kopia at the pinned commit and build it with cache mounts and
-# cross-compilation.
+# cross-compilation. Building the package lets Go stamp the commit.
 RUN --mount=type=cache,target=/go/pkg/mod,id=kopia-mod-${TARGETARCH} \
     --mount=type=cache,target=/root/.cache/go-build,id=kopia-build-${TARGETARCH} \
     git init -q kopia && \
@@ -23,7 +23,7 @@ RUN --mount=type=cache,target=/go/pkg/mod,id=kopia-mod-${TARGETARCH} \
     git fetch -q --depth=1 https://github.com/cloudnative-pg/kopia "${KOPIA_SHA}" && \
     git checkout -q FETCH_HEAD && \
     CGO_ENABLED=0 GOOS="${TARGETOS}" GOARCH="${TARGETARCH}" \
-    go build -o kopia main.go
+    go build -o kopia .
 
 FROM ${BASE_IMAGE} AS base
 ARG TARGETARCH
