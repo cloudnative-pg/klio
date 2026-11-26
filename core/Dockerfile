@@ -2,19 +2,26 @@
 
 ARG BASE_IMAGE=debian:13.8-slim@sha256:8aa5a7bf5a1955bddbe7d74fcdd0b91ab30e74362a8b73af672b0481b35b44a0
 
+# renovate: datasource=git-refs depName=kopia lookupName=https://github.com/cloudnative-pg/kopia currentValue=klio
+ARG KOPIA_SHA=4181abf25403d7e92c2dfacbee98e1489b172073
+
 # Build Kopia on the host platform for the target platform
 FROM --platform=${BUILDPLATFORM} golang:1.27.4@sha256:5f1b98fa02fe396ebce2a0227a0e08309e11792915b9dd2e1f71053d7e7e6666 AS builder
 
 ARG TARGETOS
 ARG TARGETARCH
+ARG KOPIA_SHA
 
 WORKDIR /workspace
 
-# Clone and build Kopia with cache mounts and cross-compilation
+# Fetch Kopia at the pinned commit and build it with cache mounts and
+# cross-compilation.
 RUN --mount=type=cache,target=/go/pkg/mod,id=kopia-mod-${TARGETARCH} \
     --mount=type=cache,target=/root/.cache/go-build,id=kopia-build-${TARGETARCH} \
-    git clone --depth=1 --branch=klio https://github.com/cloudnative-pg/kopia && \
+    git init -q kopia && \
     cd kopia && \
+    git fetch -q --depth=1 https://github.com/cloudnative-pg/kopia "${KOPIA_SHA}" && \
+    git checkout -q FETCH_HEAD && \
     CGO_ENABLED=0 GOOS="${TARGETOS}" GOARCH="${TARGETARCH}" \
     go build -o kopia main.go
 

@@ -63,6 +63,15 @@
     {
       "customType": "regex",
       "managerFilePatterns": [
+        "core/Dockerfile"
+      ],
+      "matchStrings": [
+        "# renovate: datasource=(?<datasource>[a-z-.]+?) depName=(?<depName>[^\\s]+?) (?:lookupName|packageName)=(?<packageName>[^\\s]+?) currentValue=(?<currentValue>[^\\s]+?)\\s+ARG KOPIA_SHA=(?<currentDigest>[a-f0-9]{40})\\s"
+      ]
+    },
+    {
+      "customType": "regex",
+      "managerFilePatterns": [
         "operator/config/olm/scorecard/patches/*.yaml"
       ],
       "matchStrings": [
@@ -103,6 +112,13 @@
       ],
       "enabled": false,
       "description": "These packages are replaced with forks - updates are ignored"
+    },
+    {
+      "matchPackageNames": [
+        "https://github.com/cloudnative-pg/kopia"
+      ],
+      "automerge": false,
+      "description": "Kopia updates change the core image and need a review"
     },
     {
       "matchDatasources": [
