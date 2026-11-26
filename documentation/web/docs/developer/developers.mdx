@@ -64,6 +64,14 @@ operator. Then roll out the new binary in both server and cluster pods:
 3. Run the pprof tool, e.g.:
    `go tool pprof -http=:9999 http://localhost:6060/debug/pprof/profile\?seconds=30`
 
+## How to update the Kopia binary
+
+The core image builds `kopia` from the
+[`cloudnative-pg/kopia`](https://github.com/cloudnative-pg/kopia) fork, at
+a commit of its `klio` branch pinned by `KOPIA_SHA` in `core/Dockerfile`.
+Renovate opens a pull request when that branch moves. To test another commit,
+set `KOPIA_SHA` to it and rebuild the images.
+
 ## How to recreate the GRPC stub and skeleton
 
 ```sh
