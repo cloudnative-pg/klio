@@ -287,6 +287,8 @@ cached index, run tests, then revert.
   `Assisted-by: <tool name>` trailer (e.g. `Assisted-by: Claude`).
   `git commit -s` alone does not add this (write both trailers out explicitly).
 - Before committing, run:
+  - `task core:licenses operator:licenses` if dependencies changed (CI fails
+    on a stale `licenses/` directory)
   - `golangci-lint run` in `core/`
   - `golangci-lint run` in `operator/`
   - `dagger call all-ci`

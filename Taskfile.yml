@@ -336,6 +336,7 @@ tasks:
     desc: Check for uncommitted changes
     deps:
         - core:protoc-gen-go-grpc
+        - core:licenses
     cmds:
       - task: internal:uncommitted
     sources:
@@ -771,6 +772,7 @@ tasks:
     desc: Check for uncommitted changes after chart generation
     deps:
       - operator:helm-schema
+      - operator:licenses
     cmds:
       - task: internal:uncommitted
     sources:
