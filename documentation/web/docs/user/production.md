@@ -1,5 +1,5 @@
 ---
-sidebar_position: 9.7
+sidebar_position: 11
 description: >-
   How to deploy the Klio Server in production so that a pod, node, zone,
   volume, or site failure loses as little data as possible.
