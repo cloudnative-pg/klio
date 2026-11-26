@@ -448,8 +448,8 @@ exporters:
   prometheus:
     endpoint: "0.0.0.0:9464"
     send_timestamps: true
-    resource_to_telemetry_conversion:
-      enabled: true
+    resource_constant_labels:
+      included: ["*"]
 service:
   pipelines:
     metrics:
