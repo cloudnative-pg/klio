@@ -140,18 +140,29 @@ func (f *RelayFeature) Run() types.StepFunc {
 		require.NoError(t, err, "backup %s was not relayed to tier2 alone", third.Name)
 
 		t.Logf("Waiting for tier1 to converge to %d backup(s) and tier2 to %d backup(s)", f.tier1Keep, f.tier2Keep)
+		// The sweep deletes a backup one snapshot at a time, so the counts
+		// can converge while some snapshots of a deleted backup are still
+		// there: wait for those to go too.
 		err = wait.For(
-			checkBackupCounts(r, f.namespace, f.klioServer.Name, f.tier1Keep, f.tier2Keep),
+			func(ctx context.Context) (bool, error) {
+				converged, err := checkBackupCounts(r, f.namespace, f.klioServer.Name, f.tier1Keep, f.tier2Keep)(ctx)
+				if err != nil || !converged {
+					return false, err
+				}
+
+				contents, err := tier2BackupContents(ctx, r, f.namespace, podName)
+				if err != nil {
+					return false, nil //nolint:nilerr // keep retrying on transient failures
+				}
+
+				return len(contents) == 1 && isRelayed(contents[third.Status.BackupID]), nil
+			},
 			wait.WithTimeout(f.convergeTimeout),
 			wait.WithInterval(f.checkInterval),
 		)
-		require.NoError(t, err, "backup counts did not converge to tier1=%d tier2=%d", f.tier1Keep, f.tier2Keep)
-
-		contents, err := tier2BackupContents(ctx, r, f.namespace, podName)
-		require.NoError(t, err, "failed to list the tier2 snapshots")
-		require.Len(t, contents, 1, "tier2 holds snapshots of backups that its retention does not keep")
-		require.True(t, isRelayed(contents[third.Status.BackupID]),
-			"backup %q is not complete on tier2", third.Status.BackupID)
+		require.NoError(t, err,
+			"tier1=%d tier2=%d not reached, or tier2 holds snapshots of backups that its retention does not keep",
+			f.tier1Keep, f.tier2Keep)
 
 		t.Log("Relay test completed")
 
