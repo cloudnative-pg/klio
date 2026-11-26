@@ -144,19 +144,7 @@ func (f *RelayFeature) Run() types.StepFunc {
 		// can converge while some snapshots of a deleted backup are still
 		// there: wait for those to go too.
 		err = wait.For(
-			func(ctx context.Context) (bool, error) {
-				converged, err := checkBackupCounts(r, f.namespace, f.klioServer.Name, f.tier1Keep, f.tier2Keep)(ctx)
-				if err != nil || !converged {
-					return false, err
-				}
-
-				contents, err := tier2BackupContents(ctx, r, f.namespace, podName)
-				if err != nil {
-					return false, nil //nolint:nilerr // keep retrying on transient failures
-				}
-
-				return len(contents) == 1 && isRelayed(contents[third.Status.BackupID]), nil
-			},
+			f.convergedTo(r, podName, third.Status.BackupID),
 			wait.WithTimeout(f.convergeTimeout),
 			wait.WithInterval(f.checkInterval),
 		)
@@ -167,6 +155,27 @@ func (f *RelayFeature) Run() types.StepFunc {
 		t.Log("Relay test completed")
 
 		return ctx
+	}
+}
+
+// convergedTo reports whether the tiers hold the backups their retention
+// keeps, and tier2 holds no snapshot other than the ones of backupID, which
+// is complete there.
+func (f *RelayFeature) convergedTo(
+	r *resources.Resources, podName, backupID string,
+) func(context.Context) (bool, error) {
+	return func(ctx context.Context) (bool, error) {
+		converged, err := checkBackupCounts(r, f.namespace, f.klioServer.Name, f.tier1Keep, f.tier2Keep)(ctx)
+		if err != nil || !converged {
+			return false, err
+		}
+
+		contents, err := tier2BackupContents(ctx, r, f.namespace, podName)
+		if err != nil {
+			return false, nil //nolint:nilerr // keep retrying on transient failures
+		}
+
+		return len(contents) == 1 && isRelayed(contents[backupID]), nil
 	}
 }
 
