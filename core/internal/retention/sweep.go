@@ -331,7 +331,8 @@ func deletionCandidates(
 	keep := evaluator.Evaluate(append(klioclient.BackupList{}, complete...))
 	toDelete := diffByName(complete, keep)
 
-	if tc.syncGuardClient == nil || retentionPolicy.GetTier2Policy() == nil {
+	// Nothing to guard: skip the tier2 listings, which are expensive.
+	if len(toDelete) == 0 || tc.syncGuardClient == nil || retentionPolicy.GetTier2Policy() == nil {
 		return toDelete, nil
 	}
 
@@ -355,8 +356,8 @@ func deletionCandidates(
 // protectUnsyncedToTier2 filters candidates down to the backups that tier1
 // can drop without tier2 missing them. These are the backups already fully
 // present on tier2 (via tier2Client), and the backups that tier2Policy would
-// not keep on tier2, because tier2 already holds enough newer backups, as
-// long as tier2 holds no part of them. The relay never copies the latter
+// not keep on tier2, because enough newer backups are on tier2 or waiting to
+// be relayed there, as long as tier2 holds no part of them. The relay never copies the latter
 // (see BackupsToRelay), so waiting for them would keep them on tier1
 // forever. A backup that tier2 holds only in part stays protected whatever
 // tier2Policy says: the next relay completes it from tier1. On a
