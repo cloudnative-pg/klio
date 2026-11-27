@@ -30,70 +30,10 @@ parameters, the upgrade procedure and how to uninstall it.
 
 ## Verifying the Signatures
 
-The chart's OCI images are cryptographically signed using
-[cosign](https://github.com/sigstore/cosign), a signature tool from
-[Sigstore](https://www.sigstore.dev/).
-This process is automated via GitHub Actions and leverages
-[short-lived tokens issued through OpenID Connect](https://docs.github.com/en/actions/security-for-github-actions/security-hardening-your-deployments/about-security-hardening-with-openid-connect).
-
-The token issuer is `https://token.actions.githubusercontent.com`, and the
-signing identity corresponds to a GitHub workflow executed under the
-[Klio](https://github.com/cloudnative-pg/klio/) repository.
-This workflow uses the
-[cosign-installer
-action](https://github.com/marketplace/actions/cosign-installer)
-to streamline the signing process.
-
-To verify the authenticity of the chart, use the following `cosign`
-command with the chart digest:
-
-```shell
-cosign verify ghcr.io/cloudnative-pg/klio-operator-chart@sha256:<DIGEST> \
-  --certificate-identity-regexp="^https://github\.com/cloudnative-pg/klio/\.github/workflows/release-publish\.yml@refs/tags/v" \
-  --certificate-oidc-issuer="https://token.actions.githubusercontent.com"
-```
-
-The container images the chart deploys are signed the same way: the operator
-image (`ghcr.io/cloudnative-pg/klio-operator`, both the distroless and the
-`-ubi9` variants) and the Klio image (`ghcr.io/cloudnative-pg/klio`) used by
-the server and the sidecar. Verify them with the same command, replacing the
-chart reference with the image digest:
-
-```shell
-cosign verify ghcr.io/cloudnative-pg/klio@sha256:<DIGEST> \
-  --certificate-identity-regexp="^https://github\.com/cloudnative-pg/klio/\.github/workflows/release-publish\.yml@refs/tags/v" \
-  --certificate-oidc-issuer="https://token.actions.githubusercontent.com"
-```
-
-### Verifying the SLSA Provenance
-
-The chart, every release image and every release binary also come with a
-[SLSA](https://slsa.dev/) build provenance attestation (Build Level 2),
-generated with
-[GitHub artifact attestations](https://docs.github.com/en/actions/concepts/security/artifact-attestations).
-It records the repository, the workflow and the commit that produced the
-artifact. Verify it with the
-[GitHub CLI](https://cli.github.com/manual/gh_attestation_verify).
-
-For the chart or an image, pass its digest:
-
-```shell
-gh attestation verify \
-  oci://ghcr.io/cloudnative-pg/klio@sha256:<DIGEST> \
-  --repo cloudnative-pg/klio \
-  --signer-workflow cloudnative-pg/klio/.github/workflows/release-publish.yml \
-  --source-ref refs/tags/<TAG>
-```
-
-For a binary archive or package, download it from the
-[GitHub release](https://github.com/cloudnative-pg/klio/releases), then run:
-
-```shell
-gh attestation verify <ARTIFACT> \
-  --repo cloudnative-pg/klio \
-  --signer-workflow cloudnative-pg/klio/.github/workflows/release-publish.yml \
-  --source-ref refs/tags/<TAG>
-```
+The chart and the images it deploys are signed with cosign and come with
+SLSA build provenance. See
+[Release Integrity and Supply Chain](security.md#release-integrity-and-supply-chain)
+for the verification commands.
 
 ## Configuration
 

@@ -6,6 +6,8 @@ BackupManifest
 Benchmarking
 Bignum
 BucketName
+BuildKit
+Buildx
 ByteString
 CAs
 CLI
@@ -119,6 +121,7 @@ Namespaces
 NetworkPolicy
 NodeSelector
 OCI
+OIDC
 OLM
 OLTP
 OTEL
@@ -189,11 +192,13 @@ ResetWALStreamRequest
 ResetWALStreamResult
 RetentionPolicy
 RustFS
+SBOM
 SCC
 SCCs
 SDK
 SLSA
 SNO
+SPDX
 SecretKeySelector
 SecretVolumeSource
 ServerAddress
@@ -314,6 +319,7 @@ imagePullPolicy
 imagePullSecrets
 init
 io
+jq
 js
 keychain
 keyless
@@ -375,6 +381,7 @@ relayed
 renewBefore
 restorable
 rollout
+seccomp
 secretAccessKey
 securityContext
 serverCa
@@ -397,6 +404,7 @@ teardown
 toc
 tolerations
 topologySpreadConstraints
+toto
 uint
 ulong
 unicode
