@@ -378,7 +378,8 @@ jobs:
     permissions:
       contents: read
       packages: write
-      id-token: write # Required for keyless signing
+      id-token: write # Required for keyless signing and attestations
+      attestations: write
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -412,6 +413,24 @@ jobs:
         uses: ./.github/actions/sign-images
         with:
           metadata-files: core/metadata.json operator/metadata.json
+
+      - name: Attest the Klio image
+        uses: ./.github/actions/attest-image
+        with:
+          metadata-file: core/metadata.json
+          target: default
+
+      - name: Attest the distroless operator image
+        uses: ./.github/actions/attest-image
+        with:
+          metadata-file: operator/metadata.json
+          target: distroless
+
+      - name: Attest the UBI operator image
+        uses: ./.github/actions/attest-image
+        with:
+          metadata-file: operator/metadata.json
+          target: ubi
 
   renovate:
     name: Renovate Linter

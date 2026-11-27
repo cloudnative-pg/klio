@@ -192,6 +192,7 @@ RustFS
 SCC
 SCCs
 SDK
+SLSA
 SNO
 SecretKeySelector
 SecretVolumeSource
