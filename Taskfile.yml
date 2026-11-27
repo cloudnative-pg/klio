@@ -1349,14 +1349,14 @@ tasks:
       - >
         dagger -s core container from --address pseudomuto/protoc-gen-doc:{{ .PROTOC_GEN_DOC_IMAGE_VERSION }}
         with-mounted-directory --path /protos --source core/proto
-        with-mounted-file --path /protocol.md.tmpl --source documentation/protocol.md.tmpl
+        with-mounted-file --path /protocol.md.tmpl --source documentation/protoc-gen-doc/protocol.md.tmpl
         with-exec --args mkdir --args /out
         with-exec --use-entrypoint --args '"--doc_opt=/protocol.md.tmpl,_protocol.md"'
         file --path /out/_protocol.md
         export --path documentation/web/docs/developer/_protocol.md
     sources:
       - core/proto/**/*.proto
-      - documentation/protocol.md.tmpl
+      - documentation/protoc-gen-doc/protocol.md.tmpl
 
   documentation:apidoc:
     desc: Generate the server API documentation
