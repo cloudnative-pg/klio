@@ -215,3 +215,11 @@ All clusters that back up to one Klio Server share its volume, its
 encryption key, and its outages. Use separate servers for clusters that
 belong to different tenants. See
 [Tier 1 Architectures](concepts/architectures.md#tier-1-architectures).
+
+## Monitoring
+
+Export the Klio metrics with [OpenTelemetry](opentelemetry.md) and import
+the [Grafana dashboards](grafana-dashboards.md). Alert when
+[WAL processing stalls](opentelemetry.md#alerting-on-stalled-wal-processing)
+on either tier, and when the work queue or the dead-letter queue keeps
+growing (see [Queue metrics](opentelemetry.md#queue-metrics-server)).
