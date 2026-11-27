@@ -506,37 +506,23 @@ tasks:
     desc: Generate licenses
     internal: true
     dir: '{{ .WORKDIR }}'
-    vars:
-      # renovate: datasource=docker depName=golang versioning=docker
-      GOLANG_IMAGE_VERSION: 1.27.4-alpine@sha256:70bd7ddea8b6cbe5d6943cde279d6b67feb10cc924fb9100d1d8757c1575b280
-      # renovate: datasource=github-tags depName=google/go-licenses versioning=semver
-      GO_LICENSES_VERSION: 2.0.1
+    env:
+      # TODO: set currentValue=main once the daggerverse branch is merged.
+      # renovate: datasource=git-refs depName=go-licenses lookupName=https://github.com/cloudnative-pg/daggerverse currentValue=dev/go-licenses-env
+      DAGGER_GO_LICENSES_SHA: 13c6e732e18d334fbbe816df95a8b8381b5aec38
     # go-licenses only sees the packages built for GOOS/GOARCH, so it runs once
-    # for each platform the binaries and images are built for, with the same
-    # CGO_ENABLED, and the results are merged (cp -f, as go-licenses saves the
-    # files read-only). --wipe drops the licenses of the dependencies that are
-    # gone. The Dagger CLI splits --args values on commas, so the script has
-    # none.
+    # for each architecture in .goreleaser.yml, with the same CGO_ENABLED, and
+    # the exports are merged in licenses/go-licenses. The directory is removed
+    # first, to drop the licenses of the dependencies that are gone.
     cmds:
-      - >
-        GITHUB_REF= dagger -s core container from --address golang:{{ .GOLANG_IMAGE_VERSION }}
-        with-mounted-cache --cache go-mod --path "/go/pkg/mod"
-        with-env-variable --name GOMODCACHE --value /go/pkg/mod
-        with-mounted-cache --cache go-build --path "/go/build-cache"
-        with-env-variable --name GOCACHE --value /go/build-cache
-        with-exec --args go --args install --args github.com/google/go-licenses/v2@v{{ .GO_LICENSES_VERSION }}
-        with-directory --path /src --source .
-        with-workdir --path /src
-        with-env-variable --name GOOS --value linux
-        with-env-variable --name CGO_ENABLED --value 0
-        with-exec --args sh --args '-c' --args 'set -eu;
-        rm -rf licenses/go-licenses; mkdir -p licenses/go-licenses;
-        for arch in amd64 arm64; do
-        GOARCH=$arch go-licenses save ./... --save_path=/tmp/go-licenses-$arch --ignore=github.com/cloudnative-pg/klio;
-        cp -Rf /tmp/go-licenses-$arch/. licenses/go-licenses/;
-        done'
-        directory --path licenses
-        export --path licenses --wipe
+      - rm -rf licenses/go-licenses
+      - for: [amd64, arm64]
+        cmd: >
+          GITHUB_REF= dagger -s call -m github.com/cloudnative-pg/daggerverse/go-licenses@${DAGGER_GO_LICENSES_SHA}
+          go-licenses --source . --env GOARCH={{ .ITEM }} --env CGO_ENABLED=0
+          --args "save" --args "./..." --args "--save_path=/licenses"
+          --args "--ignore=github.com/cloudnative-pg/klio"
+          directory --path /licenses export --path licenses/go-licenses
 
   ####################################
   ## OPERATOR
