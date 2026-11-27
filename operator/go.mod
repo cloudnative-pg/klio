@@ -7,7 +7,7 @@ require (
 	github.com/cert-manager/cert-manager v1.21.3
 	github.com/cloudnative-pg/api v1.30.0
 	github.com/cloudnative-pg/cloudnative-pg v1.30.2
-	github.com/cloudnative-pg/cloudnative-pg/tests v0.0.0-20261126062351-62303c5680b8
+	github.com/cloudnative-pg/cloudnative-pg/tests v0.0.0-20261127132535-1b0827e9664f
 	github.com/cloudnative-pg/cnpg-i v0.6.0
 	github.com/cloudnative-pg/cnpg-i-machinery v0.4.2
 	github.com/cloudnative-pg/machinery v0.7.0
