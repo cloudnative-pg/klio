@@ -130,10 +130,17 @@ scrape the CloudNativePG cluster monitoring (its `PodMonitor`) into the same
 Prometheus. The rest of the dashboard works without it.
 
 :::note
-When you route metrics through an OpenTelemetry Collector, set
-`resource_constant_labels` with `included: ["*"]` on the Prometheus exporter
-so that resource attributes such as the pod and namespace become Prometheus
-labels.
+When you route metrics through an OpenTelemetry Collector, configure its
+Prometheus exporter to expose resource attributes, such as the pod and
+namespace, as Prometheus labels:
+
+```yaml
+exporters:
+  prometheus:
+    resource_constant_labels:
+      included: ["*"]
+```
+
 The sample collector under
 `operator/config/samples/opentelemetry/base/otel_collector.yaml` already does
 this.
