@@ -66,11 +66,13 @@ operator. Then roll out the new binary in both server and cluster pods:
 
 ## How to update the Kopia binary
 
-The core image builds `kopia` from the
-[`cloudnative-pg/kopia`](https://github.com/cloudnative-pg/kopia) fork, at
-a commit of its `klio` branch pinned by `KOPIA_SHA` in `core/Dockerfile`.
-Renovate opens a pull request when that branch moves. To test another commit,
-set `KOPIA_SHA` to it and rebuild the images.
+The core image ships a `kopia` binary built from the `klio` branch of the
+[`cloudnative-pg/kopia`](https://github.com/cloudnative-pg/kopia) fork.
+The exact commit is pinned by `KOPIA_SHA` in `core/Dockerfile`, and
+Renovate opens a pull request when the branch moves.
+
+To test another commit, change `KOPIA_SHA` in `core/Dockerfile` and
+rebuild the images.
 
 ## How to recreate the GRPC stub and skeleton
 
