@@ -22,7 +22,7 @@ for the `Server` resource.
 
 ## Storage Tiers
 
-### Tier 1: Local Storage
+### Tier 1: Persistent Volume Storage
 
 Tier 1 uses a `PersistentVolume` in the same Kubernetes cluster for
 immediate data access.
