@@ -299,6 +299,8 @@ cached index, run tests, then revert.
 - Kubernetes controller-runtime (`sigs.k8s.io/controller-runtime`)
 - NATS for the task queue (`github.com/nats-io/nats.go`)
 - Kopia for deduplication (forked at `github.com/cloudnative-pg/kopia`, branch `klio`)
+  - The core image builds it at the commit pinned by `KOPIA_SHA` in
+    `core/Dockerfile`
 - gRPC for client-server communication
 
 ## Documentation
