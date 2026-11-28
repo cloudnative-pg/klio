@@ -1,0 +1,112 @@
+{{- /*
+protoc-gen-doc template for documentation/web/docs/developer/_protocol.md.
+
+It is the built-in Markdown template, changed so that Docusaurus can resolve
+every link: anchors are heading ids instead of raw HTML anchors, types defined
+in these files link to their section, well-known protobuf types to the protobuf
+reference, and scalars to the scalar table.
+*/ -}}
+{{- define "type" -}}
+  {{- if hasPrefix .package .full -}}
+    [{{.long}}](#{{.full | anchor}})
+  {{- else if hasPrefix "google.protobuf." .full -}}
+    [{{.long}}](https://protobuf.dev/reference/protobuf/google.protobuf/#{{trimPrefix "google.protobuf." .full | lower}})
+  {{- else if contains "." .full -}}
+    {{.long}}
+  {{- else -}}
+    [{{.long}}](#scalar-value-types)
+  {{- end -}}
+{{- end -}}
+# Protocol Documentation
+
+## Table of Contents
+{{range .Files}}
+{{$file_name := .Name}}- [{{.Name}}](#{{.Name | anchor}})
+  {{- if .Messages }}
+  {{range .Messages}}  - [{{.LongName}}](#{{.FullName | anchor}})
+  {{end}}
+  {{- end -}}
+  {{- if .Enums }}
+  {{range .Enums}}  - [{{.LongName}}](#{{.FullName | anchor}})
+  {{end}}
+  {{- end -}}
+  {{- if .Extensions }}
+  {{range .Extensions}}  - [File-level Extensions](#{{$file_name | anchor}}-extensions)
+  {{end}}
+  {{- end -}}
+  {{- if .Services }}
+  {{range .Services}}  - [{{.Name}}](#{{.FullName | anchor}})
+  {{end}}
+  {{- end -}}
+{{end}}
+- [Scalar Value Types](#scalar-value-types)
+
+{{range .Files}}
+{{$file_name := .Name}}
+{{$package := print .Package "."}}
+## {{.Name}} {#{{.Name | anchor}}}
+{{.Description}}
+
+{{range .Messages}}
+### {{.LongName}} {#{{.FullName | anchor}}}
+{{.Description}}
+
+{{if .HasFields}}
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+{{range .Fields -}}
+  | {{.Name}} | {{template "type" dict "package" $package "full" .FullType "long" .LongType}} | {{.Label}} | {{if (index .Options "deprecated"|default false)}}**Deprecated.** {{end}}{{nobr .Description}}{{if .DefaultValue}} Default: {{.DefaultValue}}{{end}} |
+{{end}}
+{{end}}
+
+{{if .HasExtensions}}
+| Extension | Type | Base | Number | Description |
+| --------- | ---- | ---- | ------ | ----------- |
+{{range .Extensions -}}
+  | {{.Name}} | {{.LongType}} | {{.ContainingLongType}} | {{.Number}} | {{nobr .Description}}{{if .DefaultValue}} Default: {{.DefaultValue}}{{end}} |
+{{end}}
+{{end}}
+
+{{end}}
+
+{{range .Enums}}
+### {{.LongName}} {#{{.FullName | anchor}}}
+{{.Description}}
+
+| Name | Number | Description |
+| ---- | ------ | ----------- |
+{{range .Values -}}
+  | {{.Name}} | {{.Number}} | {{nobr .Description}} |
+{{end}}
+
+{{end}}
+
+{{if .HasExtensions}}
+### File-level Extensions {#{{$file_name | anchor}}-extensions}
+| Extension | Type | Base | Number | Description |
+| --------- | ---- | ---- | ------ | ----------- |
+{{range .Extensions -}}
+  | {{.Name}} | {{.LongType}} | {{.ContainingLongType}} | {{.Number}} | {{nobr .Description}}{{if .DefaultValue}} Default: `{{.DefaultValue}}`{{end}} |
+{{end}}
+{{end}}
+
+{{range .Services}}
+### {{.Name}} {#{{.FullName | anchor}}}
+{{.Description}}
+
+| Method Name | Request Type | Response Type | Description |
+| ----------- | ------------ | ------------- | ------------|
+{{range .Methods -}}
+  | {{.Name}} | {{template "type" dict "package" $package "full" .RequestFullType "long" .RequestLongType}}{{if .RequestStreaming}} stream{{end}} | {{template "type" dict "package" $package "full" .ResponseFullType "long" .ResponseLongType}}{{if .ResponseStreaming}} stream{{end}} | {{nobr .Description}} |
+{{end}}
+{{end}}
+
+{{end}}
+
+## Scalar Value Types
+
+| .proto Type | Notes | C++ | Java | Python | Go | C# | PHP | Ruby |
+| ----------- | ----- | --- | ---- | ------ | -- | -- | --- | ---- |
+{{range .Scalars -}}
+  | {{.ProtoType}} | {{.Notes}} | {{.CppType}} | {{.JavaType}} | {{.PythonType}} | {{.GoType}} | {{.CSharp}} | {{.PhpType}} | {{.RubyType}} |
+{{end}}

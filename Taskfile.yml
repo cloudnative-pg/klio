@@ -1338,15 +1338,25 @@ tasks:
   documentation:protoc-gen-doc:
     desc: Generate documentation from proto files
     run: once
-    env:
-      # renovate: datasource=git-refs depName=protoc-gen-doc lookupName=https://github.com/cloudnative-pg/daggerverse currentValue=main
-      DAGGER_PROTOC_GEN_DOC_SHA: 4c902812565daea20165e8349ad08b935794e680
+    vars:
+      # renovate: datasource=docker depName=pseudomuto/protoc-gen-doc versioning=docker
+      PROTOC_GEN_DOC_IMAGE_VERSION: "1.5"
     cmds:
+      # The template is mounted outside /protos: core/proto must hold only
+      # proto files, because core:protoc-gen-go-grpc compiles every file in it.
+      # The inner double quotes keep the comma of doc_opt from splitting the
+      # argument in two.
       - >
-        GITHUB_REF= dagger -s call -m github.com/cloudnative-pg/daggerverse/protoc-gen-doc@${DAGGER_PROTOC_GEN_DOC_SHA}
-        generate --proto-dir core/proto --doc-opt "markdown,_protocol.md" -o documentation/web/docs/developer/
+        dagger -s core container from --address pseudomuto/protoc-gen-doc:{{ .PROTOC_GEN_DOC_IMAGE_VERSION }}
+        with-mounted-directory --path /protos --source core/proto
+        with-mounted-file --path /protocol.md.tmpl --source documentation/protoc-gen-doc/protocol.md.tmpl
+        with-exec --args mkdir --args /out
+        with-exec --use-entrypoint --args '"--doc_opt=/protocol.md.tmpl,_protocol.md"'
+        file --path /out/_protocol.md
+        export --path documentation/web/docs/developer/_protocol.md
     sources:
       - core/proto/**/*.proto
+      - documentation/protoc-gen-doc/protocol.md.tmpl
 
   documentation:apidoc:
     desc: Generate the server API documentation
