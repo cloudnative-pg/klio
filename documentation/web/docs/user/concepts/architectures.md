@@ -24,8 +24,10 @@ specific purpose in the data lifecycle.
 or **Klio Server**. It's designed for speed and provides immediate access to
 all necessary backup artifacts for most recovery scenarios.
 
-This tier consists of a **local Persistent Volume (PV)** deployed by the
-Klio Server. It can be located in the same namespace as the PostgreSQL cluster
+This tier consists of a **Persistent Volume (PV)** in the same Kubernetes
+cluster, deployed by the Klio Server (see
+[Running Klio in Production](../production.md) for the storage to use).
+It can be located in the same namespace as the PostgreSQL cluster
 or in a different one within the same Kubernetes cluster
 (see the ["Tier 1 Architectures" section below](#tier-1-architectures)).
 

@@ -22,11 +22,13 @@ for the `Server` resource.
 
 ## Storage Tiers
 
-### Tier 1: Local Storage
+### Tier 1: Persistent Volume Storage
 
-Tier 1 uses local `PersistentVolumes` for immediate data access.
+Tier 1 uses a `PersistentVolume` in the same Kubernetes cluster for
+immediate data access.
 This is the primary landing zone for backups and WAL files,
-providing the fastest recovery times.
+providing the fastest recovery times. See
+[Running Klio in Production](production.md) for the storage to use.
 
 ### Tier 2: Remote Object Storage
 

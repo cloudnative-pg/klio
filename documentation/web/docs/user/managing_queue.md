@@ -1,6 +1,6 @@
 ---
 title: Managing the Work Queue
-sidebar_position: 9.5
+sidebar_position: 10
 ---
 
 # Managing the Work Queue

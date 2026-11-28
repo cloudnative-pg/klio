@@ -21,8 +21,8 @@ Kubernetes. It is designed to handle:
 
 These critical backup artifacts are stored across two distinct storage tiers:
 
-- Tier 1 – **Local Volume**: A local Persistent Volume (PV) owned by the
-  Klio server. It offers immediate, high-throughput access for backup and
+- Tier 1 – **Persistent Volume Storage**: A volume owned by the Klio
+  server. It offers immediate, high-throughput access for backup and
   recovery operations. Also referred to as the **Main Tier** or
   **Klio Server**.
 
@@ -48,7 +48,7 @@ See [Architectures & Tiers](concepts/architectures.md) for the details.
    - WAL file encryption using user-provided keys
    - Controlled replication slot advancement to ensure uninterrupted streaming
    - Synchronous replication
-- WAL archive storage on a local PVC (Tier 1)
+- WAL archive storage on a PVC (Tier 1)
 - Extension of base backup retention policy enforcement to WAL files
 - Asynchronous WAL relay to Tier 2 object storage
 
