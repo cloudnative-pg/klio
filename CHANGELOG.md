@@ -1,5 +1,40 @@
 # Changelog
 
+## [0.1.0](https://github.com/cloudnative-pg/klio/compare/v0.0.21...v0.1.0) (2026-11-28)
+
+
+### Features
+
+* Export the logs via OpenTelemetry ([@armru](https://github.com/armru)) ([fcb09d4](https://github.com/cloudnative-pg/klio/commit/fcb09d4ea51ea15800e1dcc9fb7cc0649ef8bdab)), refs [#549](https://github.com/cloudnative-pg/klio/issues/549)
+* **opentelemetry:** Export logs by default and honour OTEL_SDK_DISABLED ([@fcanovai](https://github.com/fcanovai)) ([6593b87](https://github.com/cloudnative-pg/klio/commit/6593b870c4e04c2172f3da4677a27e1444210abf))
+* **operator:** Add values.schema.json to the Helm chart ([#636](https://github.com/cloudnative-pg/klio/issues/636)) ([@gabriele-wolfox](https://github.com/gabriele-wolfox)) ([59ed4d5](https://github.com/cloudnative-pg/klio/commit/59ed4d5cea9822e448919559a7c88902661d0e96))
+* **queue:** Make the dead-letter queue observable ([#615](https://github.com/cloudnative-pg/klio/issues/615)) ([@gabriele-wolfox](https://github.com/gabriele-wolfox)) ([3cb96d4](https://github.com/cloudnative-pg/klio/commit/3cb96d4ef40af64ae126499a1ba4b488a0ad8570))
+
+
+### Bug Fixes
+
+* **backup:** Only list and restore backups complete on their tier ([#495](https://github.com/cloudnative-pg/klio/issues/495)) ([@gabriele-wolfox](https://github.com/gabriele-wolfox)) ([8c65490](https://github.com/cloudnative-pg/klio/commit/8c65490d53a046c835a44a71fe755aaca83554ec)), refs [#485](https://github.com/cloudnative-pg/klio/issues/485)
+* **consumer:** Relay only the backups that tier2 retention keeps ([#661](https://github.com/cloudnative-pg/klio/issues/661)) ([@armru](https://github.com/armru)) ([6a7dd6b](https://github.com/cloudnative-pg/klio/commit/6a7dd6b493bd63f8f2284684be85fe7baa504c4b))
+* **core:** Pin the kopia commit and report it in kopia --version ([#719](https://github.com/cloudnative-pg/klio/issues/719)) ([@gabriele-wolfox](https://github.com/gabriele-wolfox)) ([2750e6c](https://github.com/cloudnative-pg/klio/commit/2750e6cdc191a685557cafa8b98f968141e1e822)), refs [#666](https://github.com/cloudnative-pg/klio/issues/666)
+* **deps:** Update all non-major go dependencies ([@renovate](https://github.com/renovate)[bot]) ([07f977e](https://github.com/cloudnative-pg/klio/commit/07f977e94e235e1909e2562fc283d69a6d08d73e))
+* **deps:** Update all non-major go dependencies ([@renovate](https://github.com/renovate)[bot]) ([39cb6ba](https://github.com/cloudnative-pg/klio/commit/39cb6ba72cf2879d09a06aaa06f7594dd3f5a662))
+* **deps:** Update all non-major go dependencies ([@renovate](https://github.com/renovate)[bot]) ([5b27d01](https://github.com/cloudnative-pg/klio/commit/5b27d010f7ddc79426d0aeffd2b47f5564ef30c1))
+* **deps:** Update all non-major go dependencies ([@renovate](https://github.com/renovate)[bot]) ([0b6601e](https://github.com/cloudnative-pg/klio/commit/0b6601e8faac9be71bc6db79d81b4058b3414c68))
+* **deps:** Update all non-major go dependencies ([@renovate](https://github.com/renovate)[bot]) ([70b36b6](https://github.com/cloudnative-pg/klio/commit/70b36b621c363ffa76ca4b27a90e6345a44dba16))
+* **deps:** Update all non-major go dependencies ([@renovate](https://github.com/renovate)[bot]) ([3380508](https://github.com/cloudnative-pg/klio/commit/3380508f4acef17878ba1f45cd3203730e7031e9))
+* **deps:** Update all non-major go dependencies ([@renovate](https://github.com/renovate)[bot]) ([ff9e2d2](https://github.com/cloudnative-pg/klio/commit/ff9e2d2b8d17e90510f99630f68c88b391843fda))
+* **deps:** Update github.com/cloudnative-pg/cloudnative-pg/tests digest to 1b0827e ([@renovate](https://github.com/renovate)[bot]) ([d6f2107](https://github.com/cloudnative-pg/klio/commit/d6f2107009f63fac9ccf06516d386cabc4dea9c7))
+* **deps:** Update github.com/cloudnative-pg/cloudnative-pg/tests digest to 477ce13 ([@renovate](https://github.com/renovate)[bot]) ([cb35728](https://github.com/cloudnative-pg/klio/commit/cb3572896fbd4651b5c40f8eb97b9c00ca9e9349))
+* **deps:** Update github.com/cloudnative-pg/cloudnative-pg/tests digest to 719385f ([@renovate](https://github.com/renovate)[bot]) ([af8412a](https://github.com/cloudnative-pg/klio/commit/af8412a61454a70e901c747ea9b8cf85a9035b9b))
+* **deps:** Update github.com/cloudnative-pg/cloudnative-pg/tests digest to e9eec0d ([@renovate](https://github.com/renovate)[bot]) ([7c83fb4](https://github.com/cloudnative-pg/klio/commit/7c83fb49db56cd5e7c5125ce86d162d3ac22095f))
+* **deps:** Update kubernetes monorepo to v0.37.3 ([@renovate](https://github.com/renovate)[bot]) ([be6c1fe](https://github.com/cloudnative-pg/klio/commit/be6c1fe186c18fff58bad0f7eb263847b7698123))
+* **deps:** Update module go.yaml.in/yaml/v3 to v4 ([#571](https://github.com/cloudnative-pg/klio/issues/571)) ([@renovate](https://github.com/renovate)[bot]) ([372af5c](https://github.com/cloudnative-pg/klio/commit/372af5cd4f00ddb3406dfb18c30a3882126049e2))
+* **deps:** Update module sigs.k8s.io/controller-runtime to v0.25.3 ([@renovate](https://github.com/renovate)[bot]) ([0ee3640](https://github.com/cloudnative-pg/klio/commit/0ee3640a6d7c9d566bdd099605dc4df4c9c8a8dd))
+* **opentelemetry:** Ignore Kubernetes service links when detecting the configuration ([@gabriele-wolfox](https://github.com/gabriele-wolfox)) ([bb48da0](https://github.com/cloudnative-pg/klio/commit/bb48da088be33eb8c6f2a7f9f374fdc89aabfa74))
+* **retention:** Keep tier1 WALs until they reach tier2 ([#579](https://github.com/cloudnative-pg/klio/issues/579)) ([@gabriele-wolfox](https://github.com/gabriele-wolfox)) ([5872e64](https://github.com/cloudnative-pg/klio/commit/5872e6472115e02ecf7cc4adbb48e0fdc2de7abd)), refs [#578](https://github.com/cloudnative-pg/klio/issues/578)
+* **samples:** Set AWS_REGION on the RustFS create-bucket sample ([@armru](https://github.com/armru)) ([e1d5987](https://github.com/cloudnative-pg/klio/commit/e1d5987c4f28f0d8074cb7ece31abd7284070b4b))
+* **test:** Set AWS_REGION on the RustFS create-bucket job ([@gabriele-wolfox](https://github.com/gabriele-wolfox)) ([8519590](https://github.com/cloudnative-pg/klio/commit/851959054f1946a58f4e22feda747e51738f2a30))
+
 ## [0.0.21](https://github.com/cloudnative-pg/klio/compare/v0.0.20...v0.0.21) (2026-11-06)
 
 
