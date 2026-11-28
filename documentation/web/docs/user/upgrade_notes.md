@@ -27,6 +27,15 @@ The server also deletes the `klio-latest-uploaded-wal-per-cluster-stream`
 queue stream on startup, as nothing uses it anymore, so
 `klio.server.queue.messages` and `klio.server.queue.bytes` stop reporting it.
 
+### Signed images and Helm chart
+
+Starting with 0.1.0, the Klio images and the Helm chart are signed with
+cosign, and the images, the Helm chart and the binaries come with a SLSA
+build provenance attestation. Releases up to 0.0.21 have neither, so
+`cosign verify` and `gh attestation verify` fail on them, and so does any
+admission policy that requires a valid signature. See
+[Release Integrity and Supply Chain](security.md#release-integrity-and-supply-chain).
+
 ## 0.0.20 to 0.0.21
 
 Version 0.0.21 introduces several breaking changes to the `Server` and
