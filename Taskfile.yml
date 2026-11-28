@@ -325,10 +325,22 @@ tasks:
 
   core:licenses:
     desc: Generate core licenses
+    vars:
+      # The core image ships the kopia binary, built from the klio branch of
+      # our fork (see core/Dockerfile), so it needs the licenses of kopia and
+      # of its dependencies too.
+      # renovate: datasource=git-refs depName=kopia lookupName=https://github.com/cloudnative-pg/kopia currentValue=klio
+      KOPIA_SHA: 4181abf25403d7e92c2dfacbee98e1489b172073
     cmds:
       - task: internal:licenses
         vars:
           WORKDIR: "core"
+      - task: internal:licenses
+        vars:
+          WORKDIR: "core"
+          SOURCE: "https://github.com/cloudnative-pg/kopia#{{ .KOPIA_SHA }}"
+          PACKAGES: "."
+          DEST: "kopia"
     sources:
       - ./**/*
 
@@ -506,15 +518,27 @@ tasks:
     desc: Generate licenses
     internal: true
     dir: '{{ .WORKDIR }}'
+    vars:
+      SOURCE: '{{ .SOURCE | default "." }}'
+      PACKAGES: '{{ .PACKAGES | default "./..." }}'
+      DEST: '{{ .DEST | default "go-licenses" }}'
     env:
-      # renovate: datasource=git-refs depName=go-licenses lookupName=https://github.com/cloudnative-pg/daggerverse currentValue=main
-      DAGGER_GO_LICENSES_SHA: 4c902812565daea20165e8349ad08b935794e680
+      # TODO: set currentValue=main once the daggerverse branch is merged.
+      # renovate: datasource=git-refs depName=go-licenses lookupName=https://github.com/cloudnative-pg/daggerverse currentValue=dev/go-licenses-env
+      DAGGER_GO_LICENSES_SHA: 13c6e732e18d334fbbe816df95a8b8381b5aec38
+    # go-licenses only sees the packages built for GOOS/GOARCH, so it runs once
+    # for each architecture in .goreleaser.yml, with the same CGO_ENABLED, and
+    # the exports are merged in licenses/DEST. The directory is removed first,
+    # to drop the licenses of the dependencies that are gone.
     cmds:
-      - >
-        GITHUB_REF= dagger -s call -m github.com/cloudnative-pg/daggerverse/go-licenses@${DAGGER_GO_LICENSES_SHA}
-        go-licenses --source . --args "save" --args "./..." --args "--force"
-        --args "--save_path=licenses/go-licenses" --args "--ignore=github.com/cloudnative-pg/klio"
-        directory --path licenses/ export --path licenses/
+      - rm -rf licenses/{{ .DEST }}
+      - for: [amd64, arm64]
+        cmd: >
+          GITHUB_REF= dagger -s call -m github.com/cloudnative-pg/daggerverse/go-licenses@${DAGGER_GO_LICENSES_SHA}
+          go-licenses --source {{ .SOURCE }} --env GOARCH={{ .ITEM }} --env CGO_ENABLED=0
+          --args "save" --args "{{ .PACKAGES }}" --args "--save_path=/licenses/{{ .DEST }}"
+          --args "--ignore=github.com/cloudnative-pg/klio"
+          directory --path /licenses export --path licenses
 
   ####################################
   ## OPERATOR
